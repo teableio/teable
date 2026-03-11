@@ -131,6 +131,25 @@ describe('PasteCommand', () => {
     expect(command.sourceFields![1].type).toBe('number');
   });
 
+  it('normalizes v1 search tuple into a RecordSearch object', () => {
+    const commandResult = PasteCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['a']],
+      search: ['target', '', true],
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.search?.value).toBe('target');
+    expect(command.search?.searchesAllFields()).toBe(true);
+    expect(command.search?.affectsVisibleRows()).toBe(true);
+    expect(command.search?.fieldKeys()).toBeUndefined();
+  });
+
   it('rejects invalid tableId', () => {
     const commandResult = PasteCommand.create({
       tableId: 'invalid',

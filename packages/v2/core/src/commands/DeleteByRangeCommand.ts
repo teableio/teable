@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
+import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
   flexibleRangesSchema,
   normalizeRanges,
@@ -20,8 +21,6 @@ const recordSortSchema = z.object({
   order: z.enum(['asc', 'desc']),
 });
 
-const recordSearchSchema = z.tuple([z.string(), z.string(), z.boolean().optional()]);
-
 const recordGroupBySchema = z.object({
   fieldId: z.string().min(1),
   order: z.enum(['asc', 'desc']),
@@ -29,7 +28,6 @@ const recordGroupBySchema = z.object({
 
 // Types are exported from queries/ListTableRecordsQuery.ts
 type RecordSortValue = z.infer<typeof recordSortSchema>;
-type RecordSearchValue = z.infer<typeof recordSearchSchema>;
 export type RecordGroupByValue = z.infer<typeof recordGroupBySchema>;
 
 export const deleteByRangeCommandInputSchema = z.object({
@@ -59,9 +57,9 @@ export const deleteByRangeCommandInputSchema = z.object({
    */
   sort: z.array(recordSortSchema).optional(),
   /**
-   * Search filter: [searchTerm, fieldId, hideNotMatch?]
+   * Search filter: [searchTerm, fieldKey, hideNotMatch?]
    */
-  search: recordSearchSchema.optional(),
+  search: recordSearchInputSchema,
   /**
    * Group by configuration for the view.
    * When provided, records are ordered by group before applying range selection.
@@ -83,7 +81,7 @@ export class DeleteByRangeCommand {
     readonly rangeType: RangeType,
     readonly filter: RecordFilter | undefined,
     readonly sort: ReadonlyArray<RecordSortValue> | undefined,
-    readonly search: RecordSearchValue | undefined,
+    readonly search: RecordSearch | undefined,
     readonly groupBy: ReadonlyArray<RecordGroupByValue> | undefined,
     readonly ignoreViewQuery: boolean
   ) {}
@@ -115,7 +113,7 @@ export class DeleteByRangeCommand {
           parsed.data.type,
           parsed.data.filter ?? undefined,
           parsed.data.sort ?? undefined,
-          parsed.data.search ?? undefined,
+          RecordSearch.fromOptionalTuple(parsed.data.search),
           parsed.data.groupBy ?? undefined,
           parsed.data.ignoreViewQuery ?? false
         );

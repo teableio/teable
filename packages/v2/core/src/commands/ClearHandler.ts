@@ -29,6 +29,7 @@ import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { ClearCommand } from './ClearCommand';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './shared/orderBy';
@@ -87,11 +88,13 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         ? command.sort ?? undefined
         : mergedDefaults.sort();
 
-      // 3. Build filter spec from effective view filter (if provided)
+      // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
+      // by the query repository so field-type-specific search semantics stay centralized.
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
       if (effectiveFilter) {
         filterSpec = yield* buildRecordConditionSpec(table, effectiveFilter);
       }
+      const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
       let totalRows = 0;
@@ -103,7 +106,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
             context,
             table,
             filterSpec,
-            { mode: 'stored', pagination }
+            { mode: 'stored', pagination, search: visibleRowSearch }
           );
           totalRows = countResult.total;
         }
@@ -155,6 +158,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
           mode: 'stored',
           pagination: { offset: startRow, limit: targetRowCount },
           orderBy,
+          search: visibleRowSearch,
         }
       );
 

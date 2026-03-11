@@ -53,6 +53,7 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import {
   dateFormattingSchema,
   numberFormattingSchema,
@@ -177,12 +178,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         ? command.sort ?? undefined
         : mergedDefaults.sort();
 
-      // 3. Build filter spec from effective view filter (if provided) - needed early for row count
+      // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
+      // by the query repository so field-type-specific search semantics stay centralized.
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined =
         undefined;
       if (effectiveFilter) {
         filterSpec = yield* buildRecordConditionSpec(table, effectiveFilter);
       }
+      const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
       // This uses a limit:1 query to get total count efficiently
@@ -195,7 +198,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             context,
             table,
             filterSpec,
-            { mode: 'stored', pagination }
+            { mode: 'stored', pagination, search: visibleRowSearch }
           );
           totalRows = countResult.total;
         }
@@ -266,6 +269,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             limit: expandedContent.length,
           },
           orderBy,
+          search: visibleRowSearch,
         }
       );
 

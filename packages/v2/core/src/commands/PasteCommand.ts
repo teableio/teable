@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
+import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
   flexibleRangesSchema,
   getStartCell,
@@ -192,6 +193,13 @@ export const pasteCommandInputSchema = z.object({
    */
   updateFilter: recordFilterSchema.optional(),
   /**
+   * V1-compatible search tuple.
+   * Internally this is normalized into a RecordSearch object so row-mapping logic
+   * can reason about "all fields vs specific fields" and "hide unmatched rows"
+   * without relying on positional array indices.
+   */
+  search: recordSearchInputSchema,
+  /**
    * Source field metadata (optional).
    * Used for intelligent type conversion when pasting from another table.
    */
@@ -235,6 +243,7 @@ export class PasteCommand {
     readonly content: ReadonlyArray<ReadonlyArray<unknown>>,
     readonly filter: RecordFilter | undefined,
     readonly updateFilter: RecordFilter | undefined,
+    readonly search: RecordSearch | undefined,
     readonly sourceFields: ReadonlyArray<SourceFieldMeta> | undefined,
     readonly typecast: boolean,
     readonly projection: ReadonlyArray<string> | undefined,
@@ -284,6 +293,7 @@ export class PasteCommand {
           content,
           parsed.data.filter ?? undefined,
           parsed.data.updateFilter ?? undefined,
+          RecordSearch.fromOptionalTuple(parsed.data.search),
           parsed.data.sourceFields,
           parsed.data.typecast,
           parsed.data.projection,

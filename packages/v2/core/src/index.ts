@@ -125,6 +125,7 @@ export * from './queries/ListTableRecordsQuery';
 export * from './queries/ListTableRecordsHandler';
 export * from './queries/RecordFilterDto';
 export * from './queries/RecordFilterMapper';
+export * from './queries/RecordSearch';
 export * from './queries/ListTablesQuery';
 export * from './queries/ListTablesHandler';
 export * from './queries/QueryHandler';

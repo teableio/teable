@@ -45,7 +45,6 @@ import type {
   IExecutionContext,
   IQueryBus,
   RecordFilter,
-  RecordFilterCondition,
   RecordFilterDateValue,
   RecordFilterGroup,
   RecordFilterNode,
@@ -1229,7 +1228,10 @@ export class RecordOpenApiV2Service {
           sourceFields,
           type, // Pass type to v2 for internal handling
           projection,
+          // Let v2 core interpret the legacy search tuple via RecordSearch so
+          // search-aware row mapping and field/operator compatibility stay aligned.
           filter: normalizedFilter,
+          search: rangeQuery.search,
           updateFilter: normalizedUpdateFilter,
           sort: sortWithGroupFallback,
           groupBy: rangeQuery.groupBy?.map((item) => ({
@@ -1379,6 +1381,7 @@ export class RecordOpenApiV2Service {
       type: rangesRo.type,
       projection: rangesRo.projection,
       filter: normalizedFilter,
+      search: rangeQuery.search,
       sort: sortWithGroupFallback,
       groupBy: rangeQuery.groupBy?.map((item) => ({
         fieldId: item.fieldId,
@@ -1503,7 +1506,7 @@ export class RecordOpenApiV2Service {
         fieldId: item.fieldId,
         order: item.order,
       })),
-      search: rangesRo.search,
+      search: rangeQuery.search,
       groupBy: rangeQuery.groupBy?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
@@ -1596,6 +1599,7 @@ export class RecordOpenApiV2Service {
   ): Promise<{
     viewId: string;
     filter: IFilter | null | undefined;
+    search: IRangesRo['search'];
     orderBy: IRangesRo['orderBy'];
     groupBy: IRangesRo['groupBy'];
     ignoreViewQuery: boolean;
@@ -1613,6 +1617,7 @@ export class RecordOpenApiV2Service {
     return {
       viewId: resolvedViewId,
       filter: filterWithCollapsed,
+      search: query.search,
       orderBy: query.orderBy,
       groupBy: query.groupBy,
       ignoreViewQuery: query.ignoreViewQuery ?? false,
@@ -1684,93 +1689,6 @@ export class RecordOpenApiV2Service {
       return [searchValue, fieldId];
     }
     return [searchValue, fieldId, hideNotMatch];
-  }
-
-  private mergeFilterWithSearchFilter(
-    filter: RecordFilter | undefined | null,
-    searchFilter: RecordFilter | undefined
-  ): RecordFilter | undefined {
-    if (!searchFilter) {
-      return filter ?? undefined;
-    }
-
-    if (!filter) {
-      return searchFilter;
-    }
-
-    if (
-      typeof filter === 'object' &&
-      filter != null &&
-      'conjunction' in filter &&
-      filter.conjunction === 'and' &&
-      'items' in filter &&
-      Array.isArray(filter.items)
-    ) {
-      return {
-        ...filter,
-        items: [...filter.items, searchFilter],
-      } as RecordFilterGroup;
-    }
-
-    return {
-      conjunction: 'and',
-      items: [filter, searchFilter],
-    } as RecordFilterGroup;
-  }
-
-  private async buildListSearchFilter(
-    tableId: string,
-    query: IGetRecordsRo
-  ): Promise<RecordFilter | undefined> {
-    const search = query.search;
-    if (!search) {
-      return undefined;
-    }
-
-    const [searchValue, fieldKeys, hideNotMatch] = search;
-    if (!hideNotMatch) {
-      // Keep v1 behavior: only highlight search text when hideNotMatchRow is false.
-      return undefined;
-    }
-
-    const fields = await this.fieldService.getFieldInstances(tableId, {
-      viewId: query.ignoreViewQuery ? undefined : query.viewId,
-      filterHidden: true,
-    });
-
-    const searchFieldMap = fields.reduce<Record<string, (typeof fields)[number]>>((acc, field) => {
-      acc[field.id] = field;
-      acc[field.name] = field;
-      if (field.dbFieldName) {
-        acc[field.dbFieldName] = field;
-      }
-      return acc;
-    }, {});
-
-    const searchableFields = await this.recordService.getSearchFields(
-      searchFieldMap as never,
-      [searchValue, fieldKeys, hideNotMatch],
-      query.ignoreViewQuery ? undefined : query.viewId
-    );
-
-    const conditions = searchableFields.map<RecordFilterCondition>((field) => ({
-      fieldId: field.id,
-      operator: 'contains',
-      value: searchValue as RecordFilterValue,
-    }));
-
-    if (!conditions.length) {
-      return undefined;
-    }
-
-    if (conditions.length === 1) {
-      return conditions[0];
-    }
-
-    return {
-      conjunction: 'or',
-      items: conditions,
-    } as RecordFilterGroup;
   }
 
   private async normalizeFilterForV2(

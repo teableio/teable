@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
+import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
   flexibleRangesSchema,
   rangeTypeSchema,
@@ -78,6 +79,11 @@ export const clearCommandInputSchema = z.object({
    */
   filter: recordFilterSchema.optional(),
   /**
+   * V1-compatible search tuple.
+   * When hideNotMatchRow is true, row indexes are resolved against matched visible rows.
+   */
+  search: recordSearchInputSchema,
+  /**
    * Sort configuration for the view.
    * This is critical for ensuring clear targets the correct rows.
    * If not provided, records are sorted by auto_number (creation order).
@@ -109,6 +115,7 @@ export class ClearCommand {
     readonly rawRanges: ReadonlyArray<readonly [number, number]>,
     readonly rangeType: ClearRangeType,
     readonly filter: RecordFilter | undefined,
+    readonly search: RecordSearch | undefined,
     readonly sort: ReadonlyArray<ClearSort> | undefined,
     readonly groupBy: ReadonlyArray<ClearGroup> | undefined,
     readonly projection: ReadonlyArray<string> | undefined,
@@ -148,6 +155,7 @@ export class ClearCommand {
           parsed.data.ranges,
           parsed.data.type,
           parsed.data.filter ?? undefined,
+          RecordSearch.fromOptionalTuple(parsed.data.search),
           parsed.data.sort,
           parsed.data.groupBy,
           parsed.data.projection,

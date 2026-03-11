@@ -790,4 +790,48 @@ describe('v2 http deleteByRange (e2e)', () => {
       expect(deleted).toBeUndefined();
     });
   });
+
+  describe('deleteByRange with search', () => {
+    let searchTableId: string;
+    let searchViewId: string;
+    let searchTextFieldId: string;
+
+    beforeEach(async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Search Table ${Date.now()}`,
+        fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      searchTableId = table.id;
+      searchViewId = table.views[0].id;
+      searchTextFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+
+      for (const name of ['Alpha', 'target-one', 'Bravo', 'target-two', 'Charlie']) {
+        await ctx.createRecord(searchTableId, {
+          [searchTextFieldId]: name,
+        });
+      }
+    });
+
+    it('should delete using visible row indexes when search hides unmatched rows', async () => {
+      const result = await ctx.deleteByRange({
+        tableId: searchTableId,
+        viewId: searchViewId,
+        ranges: [[0, 1]],
+        type: 'rows',
+        search: ['target', '', true],
+      });
+
+      expect(result.deletedCount).toBe(2);
+
+      const records = await ctx.listRecords(searchTableId);
+      expect(records.map((record) => record.fields[searchTextFieldId])).toEqual([
+        'Alpha',
+        'Bravo',
+        'Charlie',
+      ]);
+    });
+  });
 });

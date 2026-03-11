@@ -63,6 +63,7 @@ import type {
   IUpdateFieldCommandInput,
   IUpdateRecordsCommandInput,
   RecordFilter,
+  RecordSearchInput,
 } from '@teable/v2-core';
 import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
 import { registerV2ImportServices } from '@teable/v2-import';
@@ -149,6 +150,7 @@ export interface SharedTestContext {
     type?: 'columns' | 'rows';
     filter?: RecordFilter;
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    search?: RecordSearchInput;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
     ignoreViewQuery?: boolean;
@@ -160,7 +162,7 @@ export interface SharedTestContext {
     type?: 'columns' | 'rows';
     filter?: RecordFilter;
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
-    search?: [string, string, boolean?];
+    search?: RecordSearchInput;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     ignoreViewQuery?: boolean;
   }) => Promise<ReturnType<typeof parseDeleteByRangeResponse>>;
@@ -655,6 +657,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     type?: 'columns' | 'rows';
     filter?: RecordFilter;
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    search?: [string, string, boolean?];
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
     ignoreViewQuery?: boolean;

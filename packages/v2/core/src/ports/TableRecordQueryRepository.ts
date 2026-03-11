@@ -8,6 +8,7 @@ import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { RecordQuerySearch } from '../queries/RecordSearch';
 import type { IExecutionContext } from './ExecutionContext';
 import type { TableRecordReadModel } from './TableRecordReadModel';
 import type {
@@ -69,6 +70,13 @@ export interface ITableRecordQueryOptions {
    * (system columns needed by the read model may still be included).
    */
   readonly projectionFieldIds?: ReadonlyArray<FieldId>;
+
+  /**
+   * Optional v1-compatible search query used for visible-row semantics.
+   * Repository applies the real search matching rules instead of approximating them
+   * through record-filter operators.
+   */
+  readonly search?: RecordQuerySearch;
 }
 
 /**
@@ -131,6 +139,11 @@ export interface ITableRecordQueryStreamOptions {
    * When omitted, repository uses its default strategy.
    */
   readonly paginationStrategy?: ITableRecordStreamPaginationStrategy;
+
+  /**
+   * Optional v1-compatible search query used for visible-row semantics.
+   */
+  readonly search?: RecordQuerySearch;
 }
 
 /** Result type for paginated record queries */

@@ -42,6 +42,7 @@ import type {
 } from '../query-builder';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
+import { buildRecordSearchWhereClause } from './RecordSearchWhereBuilder';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 
 const RECORD_ID_COLUMN = '__id';
@@ -162,6 +163,12 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           if (whereClause.isErr()) {
             return err(whereClause.error);
           }
+          const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
+            tableAlias: TABLE_ALIAS,
+          });
+          if (searchWhereClause.isErr()) {
+            return err(searchWhereClause.error);
+          }
 
           // Query order columns if requested
           let orderColumns: string[] = [];
@@ -180,6 +187,9 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           // Build the query
           let builtQuery = yield* queryBuilder.build();
+          if (searchWhereClause.value !== null) {
+            builtQuery = builtQuery.where(searchWhereClause.value);
+          }
 
           // Add order columns to the query if requested
           if (orderColumns.length > 0) {
@@ -213,6 +223,9 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
                         .select(sql<string>`count(*)`.as('count'))
                         .$if(whereClause.value !== null, (qb) =>
                           qb.where(whereClause.value as Expression<SqlBool>)
+                        )
+                        .$if(searchWhereClause.value !== null, (qb) =>
+                          qb.where(searchWhereClause.value as Expression<SqlBool>)
                         )
                         .compile(),
                       readQuerySource
@@ -440,6 +453,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       orderBy: options?.orderBy,
       includeTotal: false,
       projectionFieldIds: options?.projectionFieldIds,
+      search: options?.search,
     });
 
     if (result.isErr()) {
@@ -484,6 +498,15 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
         }
 
         let builtQuery = yield* queryBuilder.build();
+        const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
+          tableAlias: TABLE_ALIAS,
+        });
+        if (searchWhereClause.isErr()) {
+          return err(searchWhereClause.error);
+        }
+        if (searchWhereClause.value !== null) {
+          builtQuery = builtQuery.where(searchWhereClause.value);
+        }
 
         const parsedCursor = parseCursorToken(cursor);
         if (cursor != null && parsedCursor == null) {

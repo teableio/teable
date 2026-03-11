@@ -149,6 +149,24 @@ describe('ClearCommand', () => {
     expect(filter.fieldId).toBe('fld123');
   });
 
+  it('normalizes v1 search tuple into a RecordSearch object', () => {
+    const commandResult = ClearCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      search: ['target', '', true],
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.search?.value).toBe('target');
+    expect(command.search?.searchesAllFields()).toBe(true);
+    expect(command.search?.affectsVisibleRows()).toBe(true);
+    expect(command.search?.fieldKeys()).toBeUndefined();
+  });
+
   it('includes projection when provided', () => {
     const commandResult = ClearCommand.create({
       tableId,

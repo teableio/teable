@@ -1035,4 +1035,312 @@ describe('v2 http clear (e2e)', () => {
       expect(updated?.fields[tieNameFieldId]).toBeNull();
     });
   });
+
+  describe('clear with search', () => {
+    const notesFieldName = 'Notes';
+    const categoryFieldName = 'Category';
+    const searchRows = [
+      { name: 'Alpha', notes: 'plain-alpha', category: 'keep' },
+      { name: 'target-name-one', notes: 'plain-bravo', category: 'keep' },
+      { name: 'Bravo', notes: 'target-note-one', category: 'keep' },
+      { name: 'target-name-two', notes: 'target-note-two', category: 'keep' },
+      { name: 'Charlie', notes: 'plain-charlie', category: 'drop' },
+      { name: 'Zulu', notes: 'target-note-drop', category: 'drop' },
+    ] as const;
+
+    interface SearchTableSetup {
+      tableId: string;
+      viewId: string;
+      nameFieldId: string;
+      notesFieldId: string;
+      notesDbFieldName: string;
+      categoryFieldId: string;
+    }
+
+    const createSearchTable = async (): Promise<SearchTableSetup> => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Search Table ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: notesFieldName, type: 'longText' },
+          { name: categoryFieldName, type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameField = table.fields.find((field) => field.isPrimary);
+      const notesField = table.fields.find((field) => field.name === notesFieldName);
+      const categoryField = table.fields.find((field) => field.name === categoryFieldName);
+
+      if (
+        !nameField ||
+        !notesField ||
+        !categoryField ||
+        typeof notesField.dbFieldName !== 'string'
+      ) {
+        throw new Error('Missing search test field metadata');
+      }
+
+      await ctx.createRecords(
+        table.id,
+        searchRows.map((row) => ({
+          fields: {
+            [nameField.id]: row.name,
+            [notesField.id]: row.notes,
+            [categoryField.id]: row.category,
+          },
+        }))
+      );
+
+      return {
+        tableId: table.id,
+        viewId: table.views[0].id,
+        nameFieldId: nameField.id,
+        notesFieldId: notesField.id,
+        notesDbFieldName: notesField.dbFieldName,
+        categoryFieldId: categoryField.id,
+      };
+    };
+
+    const listNames = async (setup: SearchTableSetup) => {
+      const records = await ctx.listRecords(setup.tableId);
+      return records.map((record) => record.fields[setup.nameFieldId]);
+    };
+
+    it('should clear using visible row indexes when search hides unmatched rows across all fields', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        search: ['target-note', '', true],
+      });
+
+      expect(result.updatedCount).toBe(2);
+      expect(await listNames(setup)).toEqual([
+        'Alpha',
+        'target-name-one',
+        null,
+        null,
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should clear the visible row that only matches all-fields search through a number field', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Search Number Match Table ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Count', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const countFieldId = table.fields.find((field) => field.name === 'Count')?.id ?? '';
+
+      for (const [name, count] of [
+        ['Alpha', 10],
+        ['target-one', 20],
+        ['Bravo', 11],
+        ['target-two', 40],
+        ['Charlie', 50],
+      ] as const) {
+        await ctx.createRecord(table.id, {
+          [nameFieldId]: name,
+          [countFieldId]: count,
+        });
+      }
+
+      const result = await ctx.clear({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        search: ['1', '', true],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBe('Alpha');
+      expect(records[1].fields[nameFieldId]).toBe('target-one');
+      expect(records[2].fields[nameFieldId]).toBe(null);
+      expect(records[3].fields[nameFieldId]).toBe('target-two');
+      expect(records[4].fields[nameFieldId]).toBe('Charlie');
+    });
+
+    const searchFieldCases: Array<{
+      label: string;
+      getFieldKey: (setup: SearchTableSetup) => string;
+    }> = [
+      {
+        label: 'field id',
+        getFieldKey: (setup) => setup.notesFieldId,
+      },
+      {
+        label: 'field name',
+        getFieldKey: () => notesFieldName,
+      },
+      {
+        label: 'db field name',
+        getFieldKey: (setup) => setup.notesDbFieldName,
+      },
+    ];
+
+    for (const searchFieldCase of searchFieldCases) {
+      it(`should respect search field key by ${searchFieldCase.label} when hideNotMatchRow is true`, async () => {
+        const setup = await createSearchTable();
+
+        const result = await ctx.clear({
+          tableId: setup.tableId,
+          viewId: setup.viewId,
+          ranges: [
+            [0, 0],
+            [0, 1],
+          ],
+          search: ['target-note', searchFieldCase.getFieldKey(setup), true],
+        });
+
+        expect(result.updatedCount).toBe(2);
+        expect(await listNames(setup)).toEqual([
+          'Alpha',
+          'target-name-one',
+          null,
+          null,
+          'Charlie',
+          'Zulu',
+        ]);
+      });
+    }
+
+    it('should not offset clear rows when search tuple omits field keys and hide flag', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        search: ['target'],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(await listNames(setup)).toEqual([
+        null,
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should not offset clear rows when search targets a specific field without hideNotMatchRow', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        search: ['target-note', setup.notesFieldId],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(await listNames(setup)).toEqual([
+        null,
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should not offset clear rows when hideNotMatchRow is false', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        search: ['target-note', setup.notesFieldId, false],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(await listNames(setup)).toEqual([
+        null,
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should support comma-separated search field keys when hideNotMatchRow is true', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 2],
+        ],
+        search: ['target', `${setup.nameFieldId}, ${setup.notesFieldId}`, true],
+      });
+
+      expect(result.updatedCount).toBe(3);
+      expect(await listNames(setup)).toEqual(['Alpha', null, null, null, 'Charlie', 'Zulu']);
+    });
+
+    it('should combine search with filter and sort when computing visible rows', async () => {
+      const setup = await createSearchTable();
+      const filter: RecordFilter = {
+        fieldId: setup.categoryFieldId,
+        operator: 'is',
+        value: 'keep',
+      };
+
+      const result = await ctx.clear({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        filter,
+        sort: [{ fieldId: setup.nameFieldId, order: 'desc' }],
+        search: ['target-note', notesFieldName, true],
+      });
+
+      expect(result.updatedCount).toBe(2);
+      expect(await listNames(setup)).toEqual([
+        'Alpha',
+        'target-name-one',
+        null,
+        null,
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+  });
 });

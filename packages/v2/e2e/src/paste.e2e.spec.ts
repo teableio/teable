@@ -1356,6 +1356,388 @@ describe('v2 http paste (e2e)', () => {
     });
   });
 
+  describe('paste with search', () => {
+    const notesFieldName = 'Notes';
+    const categoryFieldName = 'Category';
+    const searchRows = [
+      { name: 'Alpha', notes: 'plain-alpha', category: 'keep' },
+      { name: 'target-name-one', notes: 'plain-bravo', category: 'keep' },
+      { name: 'Bravo', notes: 'target-note-one', category: 'keep' },
+      { name: 'target-name-two', notes: 'target-note-two', category: 'keep' },
+      { name: 'Charlie', notes: 'plain-charlie', category: 'drop' },
+      { name: 'Zulu', notes: 'target-note-drop', category: 'drop' },
+    ] as const;
+
+    interface SearchTableSetup {
+      tableId: string;
+      viewId: string;
+      nameFieldId: string;
+      notesFieldId: string;
+      notesDbFieldName: string;
+      categoryFieldId: string;
+    }
+
+    const createSearchTable = async (): Promise<SearchTableSetup> => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Search Paste Test Table ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: notesFieldName, type: 'longText' },
+          { name: categoryFieldName, type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameField = table.fields.find((field) => field.isPrimary);
+      const notesField = table.fields.find((field) => field.name === notesFieldName);
+      const categoryField = table.fields.find((field) => field.name === categoryFieldName);
+
+      if (
+        !nameField ||
+        !notesField ||
+        !categoryField ||
+        typeof notesField.dbFieldName !== 'string'
+      ) {
+        throw new Error('Missing search test field metadata');
+      }
+
+      await ctx.createRecords(
+        table.id,
+        searchRows.map((row) => ({
+          fields: {
+            [nameField.id]: row.name,
+            [notesField.id]: row.notes,
+            [categoryField.id]: row.category,
+          },
+        }))
+      );
+
+      return {
+        tableId: table.id,
+        viewId: table.views[0].id,
+        nameFieldId: nameField.id,
+        notesFieldId: notesField.id,
+        notesDbFieldName: notesField.dbFieldName,
+        categoryFieldId: categoryField.id,
+      };
+    };
+
+    const listNames = async (setup: SearchTableSetup) => {
+      const records = await ctx.listRecords(setup.tableId);
+      return records.map((record) => record.fields[setup.nameFieldId]);
+    };
+
+    it('should paste using visible row indexes when search hides unmatched rows across all fields', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        content: [['SearchHit1'], ['SearchHit2']],
+        search: ['target-note', '', true],
+      });
+
+      expect(result.updatedCount).toBe(2);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'Alpha',
+        'target-name-one',
+        'SearchHit1',
+        'SearchHit2',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should paste against visible rows when all-fields search matches through a number field', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Search Paste Number Match Table ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Count', type: 'number' },
+          { name: 'Notes', type: 'longText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const countFieldId = table.fields.find((field) => field.name === 'Count')?.id ?? '';
+
+      for (const [name, count] of [
+        ['Alpha', 10],
+        ['target-one', 20],
+        ['Bravo', 11],
+        ['target-two', 40],
+        ['Charlie', 50],
+      ] as const) {
+        await ctx.createRecord(table.id, {
+          [nameFieldId]: name,
+          [countFieldId]: count,
+        });
+      }
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [['MatchedByNumber']],
+        search: ['1', '', true],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBe('Alpha');
+      expect(records[1].fields[nameFieldId]).toBe('target-one');
+      expect(records[2].fields[nameFieldId]).toBe('MatchedByNumber');
+      expect(records[3].fields[nameFieldId]).toBe('target-two');
+      expect(records[4].fields[nameFieldId]).toBe('Charlie');
+    });
+
+    it('should paste to the second physical row when it is also the second visible search hit', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Search Paste Adjacent Visible Match Table ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Count', type: 'number' },
+          { name: 'Notes', type: 'longText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const countFieldId = table.fields.find((field) => field.name === 'Count')?.id ?? '';
+
+      for (const [name, count] of [
+        ['1', 0],
+        ['', 1],
+        ['skip-me', 0],
+      ] as const) {
+        await ctx.createRecord(table.id, {
+          [nameFieldId]: name,
+          [countFieldId]: count,
+        });
+      }
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [['VisibleSecondRow']],
+        search: ['1', '', true],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBe('1');
+      expect(records[1].fields[nameFieldId]).toBe('VisibleSecondRow');
+      expect(records[2].fields[nameFieldId]).toBe('skip-me');
+    });
+
+    const searchFieldCases: Array<{
+      label: string;
+      getFieldKey: (setup: SearchTableSetup) => string;
+      replacement: [string, string];
+    }> = [
+      {
+        label: 'field id',
+        getFieldKey: (setup) => setup.notesFieldId,
+        replacement: ['FieldIdHit1', 'FieldIdHit2'],
+      },
+      {
+        label: 'field name',
+        getFieldKey: () => notesFieldName,
+        replacement: ['FieldNameHit1', 'FieldNameHit2'],
+      },
+      {
+        label: 'db field name',
+        getFieldKey: (setup) => setup.notesDbFieldName,
+        replacement: ['DbFieldHit1', 'DbFieldHit2'],
+      },
+    ];
+
+    for (const searchFieldCase of searchFieldCases) {
+      it(`should respect search field key by ${searchFieldCase.label} when hideNotMatchRow is true`, async () => {
+        const setup = await createSearchTable();
+
+        const result = await ctx.paste({
+          tableId: setup.tableId,
+          viewId: setup.viewId,
+          ranges: [
+            [0, 0],
+            [0, 1],
+          ],
+          content: searchFieldCase.replacement.map((value) => [value]),
+          search: ['target-note', searchFieldCase.getFieldKey(setup), true],
+        });
+
+        expect(result.updatedCount).toBe(2);
+        expect(result.createdCount).toBe(0);
+        expect(await listNames(setup)).toEqual([
+          'Alpha',
+          'target-name-one',
+          searchFieldCase.replacement[0],
+          searchFieldCase.replacement[1],
+          'Charlie',
+          'Zulu',
+        ]);
+      });
+    }
+
+    it('should not offset paste rows when search tuple omits field keys and hide flag', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['PlainSearch']],
+        search: ['target'],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'PlainSearch',
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should not offset paste rows when search targets a specific field without hideNotMatchRow', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['FieldOnlySearch']],
+        search: ['target-note', setup.notesFieldId],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'FieldOnlySearch',
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should not offset paste rows when hideNotMatchRow is false', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['HideFalseSearch']],
+        search: ['target-note', setup.notesFieldId, false],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'HideFalseSearch',
+        'target-name-one',
+        'Bravo',
+        'target-name-two',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should support comma-separated search field keys when hideNotMatchRow is true', async () => {
+      const setup = await createSearchTable();
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 2],
+        ],
+        content: [['MultiHit1'], ['MultiHit2'], ['MultiHit3']],
+        search: ['target', `${setup.nameFieldId}, ${setup.notesFieldId}`, true],
+      });
+
+      expect(result.updatedCount).toBe(3);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'Alpha',
+        'MultiHit1',
+        'MultiHit2',
+        'MultiHit3',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+
+    it('should combine search with filter and sort when computing visible rows', async () => {
+      const setup = await createSearchTable();
+      const filter: RecordFilter = {
+        fieldId: setup.categoryFieldId,
+        operator: 'is',
+        value: 'keep',
+      };
+
+      const result = await ctx.paste({
+        tableId: setup.tableId,
+        viewId: setup.viewId,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        content: [['FilteredSorted1'], ['FilteredSorted2']],
+        filter,
+        sort: [{ fieldId: setup.nameFieldId, order: 'desc' }],
+        search: ['target-note', notesFieldName, true],
+      });
+
+      expect(result.updatedCount).toBe(2);
+      expect(result.createdCount).toBe(0);
+      expect(await listNames(setup)).toEqual([
+        'Alpha',
+        'target-name-one',
+        'FilteredSorted2',
+        'FilteredSorted1',
+        'Charlie',
+        'Zulu',
+      ]);
+    });
+  });
+
   describe('paste with user field reference updateFilter', () => {
     let userTableId: string;
     let userViewId: string;

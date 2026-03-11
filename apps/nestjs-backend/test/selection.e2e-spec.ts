@@ -634,6 +634,64 @@ describe('OpenAPI SelectionController (e2e)', () => {
             { label: 'v2', useV2: true, v2Header: 'true' },
           ]
     )(
+      'should respect search hidden-row offsets in clear for $label',
+      async ({ useV2, v2Header }) => {
+        const clearTable = await createTable(baseId, {
+          name: `clear-search-${useV2 ? 'v2' : 'v1'}`,
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [
+            { fields: { Name: 'Alpha' } },
+            { fields: { Name: 'target-one' } },
+            { fields: { Name: 'Bravo' } },
+            { fields: { Name: 'target-two' } },
+            { fields: { Name: 'Charlie' } },
+          ],
+        });
+
+        try {
+          const viewId = clearTable.views[0].id;
+          const nameField = clearTable.fields.find((field) => field.name === 'Name')!;
+
+          const clearRes = await clearWithCanary(
+            clearTable.id,
+            {
+              viewId,
+              ranges: [
+                [0, 0],
+                [0, 1],
+              ],
+              search: ['target', '', true],
+            },
+            useV2
+          );
+
+          expect(clearRes.status).toBe(200);
+          expect(clearRes.headers['x-teable-v2']).toBe(v2Header);
+
+          const records = await getRecords(clearTable.id, {
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+          });
+
+          expect(records.data.records[0].fields[nameField.id]).toBe('Alpha');
+          expect(records.data.records[1].fields[nameField.id] ?? null).toBeNull();
+          expect(records.data.records[2].fields[nameField.id]).toBe('Bravo');
+          expect(records.data.records[3].fields[nameField.id] ?? null).toBeNull();
+          expect(records.data.records[4].fields[nameField.id]).toBe('Charlie');
+        } finally {
+          await permanentDeleteTable(baseId, clearTable.id);
+        }
+      }
+    );
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
       'should clear correct row in $label when ignoreViewQuery+collapsed groups are provided',
       async ({ useV2, v2Header }) => {
         const clearTable = await createTable(baseId, {
@@ -931,37 +989,53 @@ describe('OpenAPI SelectionController (e2e)', () => {
       expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
     });
 
-    it('should delete rows matched by hide-not-match search even when matches are beyond base range', async () => {
-      const searchTable = await createTable(baseId, {
-        name: 'search table',
-        fields: [
-          {
-            name: 'name',
-            type: FieldType.SingleLineText,
-          },
-        ],
-        records: [
-          { fields: { name: 'alpha' } },
-          { fields: { name: 'beta' } },
-          { fields: { name: 'gamma' } },
-          { fields: { name: 'target one' } },
-          { fields: { name: 'target two' } },
-        ],
-      });
-      try {
-        const viewId = searchTable.views[0].id;
-        const result = await deleteSelection(searchTable.id, {
-          viewId,
-          type: RangeType.Rows,
-          ranges: [[0, 1]],
-          search: ['target', searchTable.fields[0].id, true],
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
+      'should delete rows matched by hide-not-match search in $label even when matches are beyond base range',
+      async ({ useV2, v2Header }) => {
+        const searchTable = await createTable(baseId, {
+          name: `search-delete-${useV2 ? 'v2' : 'v1'}`,
+          fields: [
+            {
+              name: 'name',
+              type: FieldType.SingleLineText,
+            },
+          ],
+          records: [
+            { fields: { name: 'alpha' } },
+            { fields: { name: 'beta' } },
+            { fields: { name: 'gamma' } },
+            { fields: { name: 'target one' } },
+            { fields: { name: 'target two' } },
+          ],
         });
+        try {
+          const viewId = searchTable.views[0].id;
+          const result = await deleteWithCanary(
+            searchTable.id,
+            {
+              viewId,
+              type: RangeType.Rows,
+              ranges: [[0, 1]],
+              search: ['target', searchTable.fields[0].id, true],
+            },
+            useV2
+          );
 
-        expect(result.data.ids).toEqual([searchTable.records[3].id, searchTable.records[4].id]);
-      } finally {
-        await permanentDeleteTable(baseId, searchTable.id);
+          expect(result.status).toBe(200);
+          expect(result.headers['x-teable-v2']).toBe(v2Header);
+          expect(result.data.ids).toEqual([searchTable.records[3].id, searchTable.records[4].id]);
+        } finally {
+          await permanentDeleteTable(baseId, searchTable.id);
+        }
       }
-    });
+    );
 
     it('should delete selection when filter compares text field to lookup-backed formula', async () => {
       await permanentDeleteTable(baseId, table.id);
@@ -1962,6 +2036,131 @@ describe('OpenAPI SelectionController (e2e)', () => {
           { fields: { Name: 'B-05', Status: 'GroupB' } },
         ],
       });
+    });
+
+    describe('paste with search hideNotMatchRow (v1/v2)', () => {
+      let searchTable: ITableFullVo;
+
+      beforeEach(async () => {
+        searchTable = await createTable(baseId, {
+          name: 'search-hide-not-match-paste-table',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Count', type: FieldType.Number },
+            { name: 'Notes', type: FieldType.LongText },
+          ],
+          records: [
+            { fields: { Name: 'Alpha', Count: 10 } },
+            { fields: { Name: 'target-one', Count: 20 } },
+            { fields: { Name: 'Bravo', Count: 30 } },
+            { fields: { Name: 'target-two', Count: 40 } },
+            { fields: { Name: 'Charlie', Count: 50 } },
+          ],
+        });
+      });
+
+      afterEach(async () => {
+        await permanentDeleteTable(baseId, searchTable.id);
+      });
+
+      it.each(
+        isForceV2
+          ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+          : [
+              { label: 'v1', useV2: false, v2Header: 'false' },
+              { label: 'v2', useV2: true, v2Header: 'true' },
+            ]
+      )('should respect search hidden-row offsets in $label', async ({ useV2, v2Header }) => {
+        const nameField = searchTable.fields.find((field) => field.name === 'Name')!;
+        const viewId = searchTable.views[0].id;
+
+        const res = await pasteWithCanary(
+          searchTable.id,
+          {
+            viewId,
+            content: 'SearchBridge1\nSearchBridge2',
+            ranges: [
+              [0, 0],
+              [0, 1],
+            ],
+            search: ['target', '', true],
+          },
+          useV2
+        );
+
+        expect(res.status).toBe(200);
+        expect(res.headers['x-teable-v2']).toBe(v2Header);
+
+        const records = await getRecords(searchTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+        });
+
+        expect(records.data.records[0].fields[nameField.id]).toBe('Alpha');
+        expect(records.data.records[1].fields[nameField.id]).toBe('SearchBridge1');
+        expect(records.data.records[2].fields[nameField.id]).toBe('Bravo');
+        expect(records.data.records[3].fields[nameField.id]).toBe('SearchBridge2');
+        expect(records.data.records[4].fields[nameField.id]).toBe('Charlie');
+      });
+
+      it.each(
+        isForceV2
+          ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+          : [
+              { label: 'v1', useV2: false, v2Header: 'false' },
+              { label: 'v2', useV2: true, v2Header: 'true' },
+            ]
+      )(
+        'should paste to the second physical row in $label when it is also the second visible search hit',
+        async ({ useV2, v2Header }) => {
+          const adjacentTable = await createTable(baseId, {
+            name: `search-adjacent-visible-hit-paste-${Date.now()}`,
+            fields: [
+              { name: 'Name', type: FieldType.SingleLineText },
+              { name: 'Count', type: FieldType.Number },
+              { name: 'Notes', type: FieldType.LongText },
+            ],
+            records: [
+              { fields: { Name: '1', Count: 0 } },
+              { fields: { Name: '', Count: 1 } },
+              { fields: { Name: 'skip-me', Count: 0 } },
+            ],
+          });
+
+          try {
+            const nameField = adjacentTable.fields.find((field) => field.name === 'Name')!;
+            const viewId = adjacentTable.views[0].id;
+
+            const res = await pasteWithCanary(
+              adjacentTable.id,
+              {
+                viewId,
+                content: 'VisibleSecondRow',
+                ranges: [
+                  [0, 1],
+                  [0, 1],
+                ],
+                search: ['1', '', true],
+              },
+              useV2
+            );
+
+            expect(res.status).toBe(200);
+            expect(res.headers['x-teable-v2']).toBe(v2Header);
+
+            const records = await getRecords(adjacentTable.id, {
+              viewId,
+              fieldKeyType: FieldKeyType.Id,
+            });
+
+            expect(records.data.records[0].fields[nameField.id]).toBe('1');
+            expect(records.data.records[1].fields[nameField.id]).toBe('VisibleSecondRow');
+            expect(records.data.records[2].fields[nameField.id]).toBe('skip-me');
+          } finally {
+            await permanentDeleteTable(baseId, adjacentTable.id);
+          }
+        }
+      );
     });
 
     afterEach(async () => {

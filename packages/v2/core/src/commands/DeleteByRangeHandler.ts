@@ -26,13 +26,8 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import type { RecordSearchValue } from '../queries/ListTableRecordsQuery';
-import {
-  isRecordFilterGroup,
-  type RecordFilter,
-  type RecordFilterCondition,
-} from '../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteByRangeCommand } from './DeleteByRangeCommand';
 import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './shared/orderBy';
@@ -45,29 +40,6 @@ export interface DeleteByRangeResult {
   /** Domain events emitted */
   events: ReadonlyArray<IDomainEvent>;
 }
-
-/**
- * Merge search filter with existing filter.
- * Search is converted to a "contains" filter condition.
- */
-const mergeSearchFilter = (
-  filter: RecordFilter | undefined,
-  search: RecordSearchValue | undefined
-): RecordFilter | undefined => {
-  if (!search) return filter;
-  const [term, fieldKey] = search;
-  const searchCondition: RecordFilterCondition = {
-    fieldId: fieldKey,
-    operator: 'contains',
-    value: term,
-  };
-
-  if (!filter) return searchCondition;
-  if (isRecordFilterGroup(filter) && filter.conjunction === 'and') {
-    return { ...filter, items: [...filter.items, searchCondition] };
-  }
-  return { conjunction: 'and', items: [filter, searchCondition] };
-};
 
 @CommandHandler(DeleteByRangeCommand)
 @injectable()
@@ -97,6 +69,7 @@ export class DeleteByRangeHandler
     table: Table,
     filterSpec: ISpecification<TableRecordEntity, ITableRecordConditionSpecVisitor> | undefined,
     orderBy: ReadonlyArray<TableRecordQueryRepositoryPort.TableRecordOrderBy> | undefined,
+    search: TableRecordQueryRepositoryPort.ITableRecordQueryOptions['search'],
     start: number,
     end: number
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
@@ -119,6 +92,7 @@ export class DeleteByRangeHandler
       mode: 'stored',
       pagination,
       orderBy,
+      search,
       includeOrders: true, // Include order values for undo/redo support
     });
 
@@ -158,14 +132,15 @@ export class DeleteByRangeHandler
         ? command.sort ?? undefined
         : mergedDefaults.sort();
 
-      // 3. Build filter spec from effective filter merged with search (if provided)
-      const mergedFilter = mergeSearchFilter(effectiveFilter, command.search);
+      // 3. Build filter spec from effective filter. Search-aware visible rows are handled by the
+      // query repository so field-type-specific search semantics stay centralized.
       let filterSpec:
         | ISpecification<TableRecordEntity, ITableRecordConditionSpecVisitor>
         | undefined;
-      if (mergedFilter) {
-        filterSpec = yield* buildRecordConditionSpec(table, mergedFilter);
+      if (effectiveFilter) {
+        filterSpec = yield* buildRecordConditionSpec(table, effectiveFilter);
       }
+      const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Resolve orderBy from groupBy and sort
       // GroupBy fields are prepended to the sort order
@@ -189,6 +164,7 @@ export class DeleteByRangeHandler
             table,
             filterSpec,
             orderBy,
+            visibleRowSearch,
             startRow,
             endRow
           );
@@ -204,7 +180,7 @@ export class DeleteByRangeHandler
             context,
             table,
             filterSpec,
-            { mode: 'stored', pagination, orderBy }
+            { mode: 'stored', pagination, orderBy, search: visibleRowSearch }
           );
           const totalRows = countResult.total;
 
@@ -215,6 +191,7 @@ export class DeleteByRangeHandler
               table,
               filterSpec,
               orderBy,
+              visibleRowSearch,
               0,
               totalRows - 1
             );
@@ -231,6 +208,7 @@ export class DeleteByRangeHandler
           table,
           filterSpec,
           orderBy,
+          visibleRowSearch,
           startRow,
           endRow
         );
