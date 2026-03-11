@@ -9,8 +9,6 @@ import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableF
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
-import { UpdateMultipleSelectOptionsSpec } from '../../specs/field-updates/UpdateMultipleSelectOptionsSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { DbFieldName } from '../DbFieldName';
@@ -21,6 +19,7 @@ import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import {
   buildFieldFilterSyncPlan,
+  hasFieldSelectOptionChanges,
   hasFieldReferenceInFilter,
   hasSelectOptionValueChanges,
   isEquivalentFilter,
@@ -436,34 +435,26 @@ export class ConditionalLookupField
     context: FieldUpdateContext
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
+    let currentField: ConditionalLookupField = this;
 
-    const condition = this.conditionalLookupOptionsValue.condition();
     const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
-    const referencesUpdatedField = condition.referencesField(updatedField.id());
-    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
+    const hasLookupTargetSelectOptionChanges = hasFieldSelectOptionChanges(
+      updatedField,
+      updateSpecs
+    );
     const hasTypeConversion = updateSpecs.some(
       (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
     );
-    const hasLookupTargetSelectOptionChanges =
-      isLookupTargetUpdated && this.hasLookupTargetSelectOptionChanges(updateSpecs);
-    let nextInnerFieldOverride: Field | undefined;
 
     if (isLookupTargetUpdated && (hasTypeConversion || hasLookupTargetSelectOptionChanges)) {
-      const convertedSpec = updateSpecs.find(
-        (spec): spec is TableUpdateFieldTypeSpec =>
-          spec instanceof TableUpdateFieldTypeSpec &&
-          (spec.oldField().id().equals(this.lookupFieldId()) ||
-            spec.newField().id().equals(this.lookupFieldId()))
-      );
-      nextInnerFieldOverride = convertedSpec?.newField() ?? updatedField;
-
+      let nextInnerField: Field = updatedField;
       const foreignTable = context.foreignTables.find((candidate) =>
         candidate.id().equals(this.foreignTableId())
       );
       if (foreignTable) {
         const foreignTableResult = ForeignTable.from(foreignTable).fieldById(this.lookupFieldId());
         if (foreignTableResult.isOk()) {
-          nextInnerFieldOverride = foreignTableResult.value;
+          nextInnerField = foreignTableResult.value;
         }
       }
 
@@ -475,7 +466,7 @@ export class ConditionalLookupField
       const nextFieldResult = ConditionalLookupField.create({
         id: this.id(),
         name: this.name(),
-        innerField: nextInnerFieldOverride,
+        innerField: nextInnerField,
         conditionalLookupOptions: this.conditionalLookupOptionsValue,
         isMultipleCellValue: multiplicityResult.value.isMultiple(),
         dependencies: this.dependencies(),
@@ -485,16 +476,20 @@ export class ConditionalLookupField
         return err(nextFieldResult.error);
       }
 
-      specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
-      if (hasTypeConversion && !referencesUpdatedField) {
+      currentField = nextFieldResult.value;
+      specs.push(TableUpdateFieldTypeSpec.create(this, currentField));
+      if (hasTypeConversion) {
         return ok(composeAndSpecsOrUndefined(specs));
       }
     }
 
+    const condition = this.conditionalLookupOptionsValue.condition();
+    const referencesUpdatedField = condition.referencesField(updatedField.id());
     if (!referencesUpdatedField) {
       return ok(composeAndSpecsOrUndefined(specs));
     }
 
+    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
     if (hasTypeConversion && !this.hasError().isError()) {
       specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
       return ok(composeAndSpecsOrUndefined(specs));
@@ -527,10 +522,12 @@ export class ConditionalLookupField
       return ok(composeAndSpecsOrUndefined(specs));
     }
 
+    const currentOptions = currentField.conditionalLookupOptions();
+    const currentOptionsDto = currentOptions.toDto();
     const nextOptionsResult = ConditionalLookupOptions.create({
-      ...optionsDto,
+      ...currentOptionsDto,
       condition: {
-        ...conditionDto,
+        ...currentOptionsDto.condition,
         filter: nextFilter,
       },
     });
@@ -538,48 +535,39 @@ export class ConditionalLookupField
       return err(nextOptionsResult.error);
     }
 
-    const multiplicityResult = this.isMultipleCellValue();
+    const multiplicityResult = currentField.isMultipleCellValue();
     if (multiplicityResult.isErr()) {
       return err(multiplicityResult.error);
     }
 
-    const nextFieldResult = this.innerField()
-      .orElse(() => {
-        if (!nextInnerFieldOverride) {
-          return err(
-            domainError.unexpected({
-              message: 'ConditionalLookupField inner field not yet resolved',
-            })
-          );
-        }
-        return ok(nextInnerFieldOverride);
-      })
+    const nextFieldResult = currentField
+      .innerField()
       .andThen((innerField) =>
         ConditionalLookupField.create({
-          id: this.id(),
-          name: this.name(),
+          id: currentField.id(),
+          name: currentField.name(),
           innerField,
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
-          dependencies: this.dependencies(),
-          innerOptionsPatch: this.innerOptionsPatchValue,
+          dependencies: currentField.dependencies(),
+          innerOptionsPatch: currentField.innerOptionsPatch(),
         })
       )
       .orElse(() =>
         ConditionalLookupField.createPending({
-          id: this.id(),
-          name: this.name(),
+          id: currentField.id(),
+          name: currentField.name(),
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
-          dependencies: this.dependencies(),
-          innerOptionsPatch: this.innerOptionsPatchValue,
+          dependencies: currentField.dependencies(),
+          innerOptionsPatch: currentField.innerOptionsPatch(),
         })
       );
     if (nextFieldResult.isErr()) {
       return err(nextFieldResult.error);
     }
 
-    specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+    specs.push(TableUpdateFieldTypeSpec.create(currentField, nextFieldResult.value));
     return ok(composeAndSpecsOrUndefined(specs));
   }
 
@@ -662,28 +650,5 @@ export class ConditionalLookupField
       );
     }
     return ok(undefined);
-  }
-
-  private hasLookupTargetSelectOptionChanges(
-    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): boolean {
-    return updateSpecs.some((spec) => {
-      if (
-        spec instanceof UpdateSingleSelectOptionsSpec ||
-        spec instanceof UpdateMultipleSelectOptionsSpec
-      ) {
-        if (!spec.fieldId().equals(this.lookupFieldId())) {
-          return false;
-        }
-
-        return (
-          spec.addedOptions().length > 0 ||
-          spec.removedOptions().length > 0 ||
-          spec.modifiedOptions().length > 0
-        );
-      }
-
-      return false;
-    });
   }
 }

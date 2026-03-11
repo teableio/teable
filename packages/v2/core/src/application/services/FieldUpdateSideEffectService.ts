@@ -10,8 +10,10 @@ import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
 import {
   buildFieldFilterSyncPlan,
-  type FieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
+  hasFieldReferenceInRecordFilter,
+  isEquivalentRecordFilter,
+  syncRecordFilterByFieldChanges,
 } from '../../domain/table/fields/filter-sync';
 import {
   implementsOnTeableFieldUpdated,
@@ -35,12 +37,6 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
-import type {
-  RecordFilter,
-  RecordFilterCondition,
-  RecordFilterNode,
-  RecordFilterValue,
-} from '../../queries/RecordFilterDto';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -533,10 +529,10 @@ export class FieldUpdateSideEffectService {
       const currentFilter = currentQueryDefaults.filter();
       if (currentFilter == null) continue;
       const updatedFieldId = updatedField.id().toString();
-      if (!this.hasFieldReferenceInRecordFilter(currentFilter, updatedFieldId)) continue;
+      if (!hasFieldReferenceInRecordFilter(currentFilter, updatedFieldId)) continue;
 
-      const nextFilter = this.syncRecordFilterByFieldChanges(currentFilter, updatedFieldId, plan);
-      if (this.isEquivalentRecordFilter(currentFilter, nextFilter)) continue;
+      const nextFilter = syncRecordFilterByFieldChanges(currentFilter, updatedFieldId, plan);
+      if (isEquivalentRecordFilter(currentFilter, nextFilter)) continue;
 
       const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate({
         ...currentQueryDefaults.toDto(),
@@ -555,134 +551,6 @@ export class FieldUpdateSideEffectService {
     }
 
     return ok(TableUpdateViewQueryDefaultsSpec.create(updates));
-  }
-
-  private hasFieldReferenceInRecordFilter(filter: RecordFilter, fieldId: string): boolean {
-    if (filter == null) {
-      return false;
-    }
-    return this.hasFieldReferenceInRecordFilterNode(filter, fieldId);
-  }
-
-  private hasFieldReferenceInRecordFilterNode(node: RecordFilterNode, fieldId: string): boolean {
-    if ('fieldId' in node) {
-      return node.fieldId === fieldId;
-    }
-    if ('items' in node) {
-      return node.items.some((item) => this.hasFieldReferenceInRecordFilterNode(item, fieldId));
-    }
-    if ('not' in node) {
-      return this.hasFieldReferenceInRecordFilterNode(node.not, fieldId);
-    }
-    return false;
-  }
-
-  private syncRecordFilterByFieldChanges(
-    filter: RecordFilter,
-    fieldId: string,
-    plan: FieldFilterSyncPlan
-  ): RecordFilter {
-    if (filter == null) {
-      return null;
-    }
-
-    const transformNode = (node: RecordFilterNode): RecordFilterNode | null => {
-      if ('fieldId' in node) {
-        if (node.fieldId !== fieldId) {
-          return { ...node };
-        }
-
-        if (plan.removeReferencedFilterItems) {
-          return null;
-        }
-
-        const valueResult = this.transformRecordFilterValue(
-          node.value,
-          plan.renamedSelectOptionValues,
-          plan.removedSelectOptionValues
-        );
-        if (valueResult.removeItem) {
-          return null;
-        }
-
-        if (!valueResult.changed) {
-          return { ...node };
-        }
-
-        return {
-          ...node,
-          value: (valueResult.value ?? null) as RecordFilterValue,
-        } as RecordFilterCondition;
-      }
-
-      if ('items' in node) {
-        const nextItems = node.items
-          .map((item) => transformNode(item))
-          .filter((item): item is RecordFilterNode => item != null);
-        if (!nextItems.length) {
-          return null;
-        }
-        return {
-          conjunction: node.conjunction,
-          items: nextItems,
-        };
-      }
-
-      if ('not' in node) {
-        const nextNode = transformNode(node.not);
-        if (nextNode == null) {
-          return null;
-        }
-        return { not: nextNode };
-      }
-
-      return node;
-    };
-
-    const next = transformNode(filter);
-    return next ?? null;
-  }
-
-  private transformRecordFilterValue(
-    value: RecordFilterValue,
-    renameMap: ReadonlyMap<string, string>,
-    removeSet: ReadonlySet<string>
-  ): { value?: RecordFilterValue; removeItem: boolean; changed: boolean } {
-    if (Array.isArray(value)) {
-      const nextValues = value
-        .filter((entry) => !(typeof entry === 'string' && removeSet.has(entry)))
-        .map((entry) => (typeof entry === 'string' ? renameMap.get(entry) ?? entry : entry));
-
-      if (nextValues.length === 0) {
-        return { removeItem: true, changed: true };
-      }
-
-      if (
-        nextValues.length === value.length &&
-        nextValues.every((entry, i) => entry === value[i])
-      ) {
-        return { value, removeItem: false, changed: false };
-      }
-
-      return { value: nextValues as RecordFilterValue, removeItem: false, changed: true };
-    }
-
-    if (typeof value === 'string') {
-      if (removeSet.has(value)) {
-        return { removeItem: true, changed: true };
-      }
-      const renamed = renameMap.get(value);
-      if (renamed === undefined || renamed === value) {
-        return { value, removeItem: false, changed: false };
-      }
-      return { value: renamed as RecordFilterValue, removeItem: false, changed: true };
-    }
-
-    return { value, removeItem: false, changed: false };
-  }
-
-  private isEquivalentRecordFilter(left: RecordFilter, right: RecordFilter): boolean {
-    return JSON.stringify(left) === JSON.stringify(right);
   }
 
   private buildViewColumnMetaCleanupSpecs(

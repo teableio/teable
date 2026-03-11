@@ -13,6 +13,7 @@ import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
 import {
   buildFieldFilterSyncPlan,
+  hasFieldSelectOptionChanges,
   hasFieldFilterSyncPlanChanges,
 } from '../../domain/table/fields/filter-sync';
 import {
@@ -27,8 +28,6 @@ import { LookupField } from '../../domain/table/fields/types/LookupField';
 import { RollupField } from '../../domain/table/fields/types/RollupField';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
-import { UpdateMultipleSelectOptionsSpec } from '../../domain/table/specs/field-updates/UpdateMultipleSelectOptionsSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { Table } from '../../domain/table/Table';
 import { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -38,6 +37,12 @@ import { TraceSpan } from '../../ports/TraceSpan';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 type FieldCrossTableUpdateSideEffectInput = {
+  table: Table;
+  updatedField: Field;
+  updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
+};
+
+type CrossTableFieldUpdate = {
   table: Table;
   updatedField: Field;
   updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
@@ -59,51 +64,73 @@ export class FieldCrossTableUpdateSideEffectService {
   ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
     const service = this;
     return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-      const filterSyncPlan = buildFieldFilterSyncPlan(input.updatedField, input.updateSpecs);
-      const hasLookupTargetSelectOptionChanges = service.hasLookupTargetSelectOptionChanges(
-        input.updatedField,
-        input.updateSpecs
-      );
-      if (
-        !service.hasTypeConversion(input.updateSpecs) &&
-        !hasFieldFilterSyncPlanChanges(filterSyncPlan) &&
-        !hasLookupTargetSelectOptionChanges
-      ) {
-        return ok([]);
-      }
-
-      const specResult = Table.specs(input.table.baseId()).build();
-      if (specResult.isErr()) return err(specResult.error);
-
-      const tablesResult = yield* await service.tableRepository.find(context, specResult.value);
-      const candidateTables = tablesResult;
-      if (candidateTables.length === 0) {
-        return ok([]);
-      }
-
       const events: IDomainEvent[] = [];
+      const pendingUpdates: CrossTableFieldUpdate[] = [input];
+      const processedUpdates = new Set<string>();
 
-      for (const candidateTable of candidateTables) {
-        const cleanupSpecResult = service.buildCleanupSpecs(
-          candidateTable,
-          input.table,
-          input.updatedField,
-          input.updateSpecs
+      while (pendingUpdates.length > 0) {
+        const pending = pendingUpdates.shift();
+        if (!pending) {
+          continue;
+        }
+
+        const pendingKey = service.buildPendingUpdateKey(pending);
+        if (processedUpdates.has(pendingKey)) {
+          continue;
+        }
+        processedUpdates.add(pendingKey);
+
+        const filterSyncPlan = buildFieldFilterSyncPlan(pending.updatedField, pending.updateSpecs);
+        const hasSelectOptionChanges = hasFieldSelectOptionChanges(
+          pending.updatedField,
+          pending.updateSpecs
         );
-        if (cleanupSpecResult.isErr()) return err(cleanupSpecResult.error);
-        const cleanupSpec = cleanupSpecResult.value;
-        if (!cleanupSpec) continue;
-        const updateResult = yield* await service.tableUpdateFlow.execute(
+        if (
+          !service.hasTypeConversion(pending.updateSpecs) &&
+          !hasFieldFilterSyncPlanChanges(filterSyncPlan) &&
+          !hasSelectOptionChanges
+        ) {
+          continue;
+        }
+
+        const specResult = Table.specs(pending.table.baseId()).build();
+        if (specResult.isErr()) return err(specResult.error);
+
+        const candidateTables = yield* await service.tableRepository.find(
           context,
-          { table: candidateTable },
-          (table) => {
-            const updatedTable = cleanupSpec.mutate(table);
-            if (updatedTable.isErr()) return err(updatedTable.error);
-            return ok(TableUpdateResult.create(updatedTable.value, cleanupSpec));
-          },
-          { publishEvents: false }
+          specResult.value
         );
-        events.push(...updateResult.events);
+        if (candidateTables.length === 0) {
+          continue;
+        }
+
+        for (const candidateTable of candidateTables) {
+          const cleanupSpecResult = service.buildCleanupSpecs(
+            candidateTable,
+            pending.table,
+            pending.updatedField,
+            pending.updateSpecs
+          );
+          if (cleanupSpecResult.isErr()) return err(cleanupSpecResult.error);
+          const cleanupSpec = cleanupSpecResult.value;
+          if (!cleanupSpec) continue;
+
+          const flattenedSpecs = flattenAndSpecs(cleanupSpec);
+          const updateResult = yield* await service.tableUpdateFlow.execute(
+            context,
+            { table: candidateTable },
+            (table) => {
+              const updatedTable = cleanupSpec.mutate(table);
+              if (updatedTable.isErr()) return err(updatedTable.error);
+              return ok(TableUpdateResult.create(updatedTable.value, cleanupSpec));
+            },
+            { publishEvents: false }
+          );
+          events.push(...updateResult.events);
+          pendingUpdates.push(
+            ...service.collectFollowUpUpdates(updateResult.table, flattenedSpecs)
+          );
+        }
       }
 
       return ok(events);
@@ -116,30 +143,6 @@ export class FieldCrossTableUpdateSideEffectService {
     return updateSpecs.some(
       (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
     );
-  }
-
-  private hasLookupTargetSelectOptionChanges(
-    updatedField: Field,
-    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): boolean {
-    return updateSpecs.some((spec) => {
-      if (
-        spec instanceof UpdateSingleSelectOptionsSpec ||
-        spec instanceof UpdateMultipleSelectOptionsSpec
-      ) {
-        if (!spec.fieldId().equals(updatedField.id())) {
-          return false;
-        }
-
-        return (
-          spec.addedOptions().length > 0 ||
-          spec.removedOptions().length > 0 ||
-          spec.modifiedOptions().length > 0
-        );
-      }
-
-      return false;
-    });
   }
 
   private buildCleanupSpecs(
@@ -220,6 +223,54 @@ export class FieldCrossTableUpdateSideEffectService {
     }
 
     return ok(composeAndSpecsOrUndefined(allSpecs));
+  }
+
+  private collectFollowUpUpdates(
+    table: Table,
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
+  ): ReadonlyArray<CrossTableFieldUpdate> {
+    const updates: CrossTableFieldUpdate[] = [];
+
+    for (const spec of specs) {
+      if (!(spec instanceof TableUpdateFieldTypeSpec)) {
+        continue;
+      }
+
+      const updatedFieldResult = table.getField((field) => field.id().equals(spec.newField().id()));
+      if (updatedFieldResult.isErr()) {
+        continue;
+      }
+
+      updates.push({
+        table,
+        updatedField: updatedFieldResult.value,
+        updateSpecs: [spec],
+      });
+    }
+
+    return updates;
+  }
+
+  private buildPendingUpdateKey(update: CrossTableFieldUpdate): string {
+    return [
+      update.table.id().toString(),
+      update.updatedField.id().toString(),
+      ...update.updateSpecs.map((spec) => this.buildSpecKey(spec)),
+    ].join('::');
+  }
+
+  private buildSpecKey(spec: ISpecification<Table, ITableSpecVisitor>): string {
+    if (spec instanceof TableUpdateFieldTypeSpec) {
+      return [
+        'TableUpdateFieldTypeSpec',
+        spec.oldField().id().toString(),
+        spec.oldField().type().toString(),
+        spec.newField().type().toString(),
+        spec.isTypeConversion() ? 'conversion' : 'shape',
+      ].join(':');
+    }
+
+    return spec.constructor.name;
   }
 
   private isFieldDependentOn(field: Field, dependencyFieldId: FieldId): boolean {

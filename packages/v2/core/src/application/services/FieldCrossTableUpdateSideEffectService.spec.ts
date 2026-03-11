@@ -420,6 +420,154 @@ describe('FieldCrossTableUpdateSideEffectService', () => {
     ).toBe('Active Plus');
   });
 
+  it('propagates select option renames across multiple cross-table hops', async () => {
+    const context = createContext();
+    const baseId = BaseId.create(`bse${'1'.repeat(16)}`)._unsafeUnwrap();
+
+    const sourceTableId = TableId.create(`tbl${'2'.repeat(16)}`)._unsafeUnwrap();
+    const middleTableId = TableId.create(`tbl${'3'.repeat(16)}`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'4'.repeat(16)}`)._unsafeUnwrap();
+
+    const sourcePrimaryId = FieldId.create(`fld${'5'.repeat(16)}`)._unsafeUnwrap();
+    const middlePrimaryId = FieldId.create(`fld${'6'.repeat(16)}`)._unsafeUnwrap();
+    const hostPrimaryId = FieldId.create(`fld${'7'.repeat(16)}`)._unsafeUnwrap();
+
+    const statusFieldId = FieldId.create(`fld${'8'.repeat(16)}`)._unsafeUnwrap();
+    const conditionalLookupFieldId = FieldId.create(`fld${'9'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+
+    const sourceBuilder = Table.builder()
+      .withId(sourceTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Source')._unsafeUnwrap());
+    sourceBuilder
+      .field()
+      .singleLineText()
+      .withId(sourcePrimaryId)
+      .withName(FieldName.create('Source Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    sourceBuilder
+      .field()
+      .singleSelect()
+      .withId(statusFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([
+        SelectOption.create({ id: 'cho_active', name: 'Active', color: 'green' })._unsafeUnwrap(),
+        SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+      ])
+      .done();
+    sourceBuilder.view().defaultGrid().done();
+    const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+
+    const middleTable = buildTable({
+      baseId,
+      tableId: middleTableId,
+      tableName: 'Middle',
+      primaryFieldId: middlePrimaryId,
+      primaryFieldName: 'Middle Name',
+    });
+
+    const conditionalLookup = createConditionalLookupFieldPending({
+      id: conditionalLookupFieldId,
+      name: FieldName.create('Conditional Status')._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: sourceTableId.toString(),
+        lookupFieldId: statusFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap() as ConditionalLookupField;
+
+    const middleWithConditionalLookup = middleTable
+      .update((mutator) => mutator.addField(conditionalLookup, { foreignTables: [sourceTable] }))
+      ._unsafeUnwrap().table;
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: middleTableId.toString(),
+      lookupFieldId: middlePrimaryId.toString(),
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: conditionalLookupFieldId.toString(), operator: 'is', value: 'Active' },
+        ],
+      },
+    })._unsafeUnwrap();
+    const linkField = createNewLinkField({
+      id: linkFieldId,
+      name: FieldName.create('Middle Link')._unsafeUnwrap(),
+      config: linkConfig,
+      baseId,
+      hostTableId: hostTable.id(),
+    })._unsafeUnwrap() as LinkField;
+
+    const hostWithLink = hostTable
+      .update((mutator) =>
+        mutator.addField(linkField, { foreignTables: [middleWithConditionalLookup] })
+      )
+      ._unsafeUnwrap().table;
+
+    const oldStatusField = sourceTable
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap() as SingleSelectField;
+    const previousOptions = oldStatusField.selectOptions();
+    const nextOptions = previousOptions.map((option) =>
+      SelectOption.create({
+        id: option.id().toString(),
+        name: option.name().toString() === 'Active' ? 'Active Plus' : option.name().toString(),
+        color: option.color().toString(),
+      })._unsafeUnwrap()
+    );
+    const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+      statusFieldId,
+      DbFieldName.rehydrate('status')._unsafeUnwrap(),
+      previousOptions,
+      nextOptions
+    );
+    const updatedSource = optionsSpec.mutate(sourceTable)._unsafeUnwrap();
+    const updatedField = updatedSource
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap();
+
+    const repo = new MemoryTableRepository();
+    await repo.insert(context, hostWithLink);
+    await repo.insert(context, middleWithConditionalLookup);
+    await repo.insert(context, updatedSource);
+
+    const service = new FieldCrossTableUpdateSideEffectService(repo, buildFlow(repo));
+    const result = await service.execute(context, {
+      table: updatedSource,
+      updatedField,
+      updateSpecs: [optionsSpec],
+    });
+    expect(result.isOk()).toBe(true);
+
+    const persistedHost = await repo.findOne(context, TableByIdSpec.create(hostWithLink.id()));
+    expect(persistedHost.isOk()).toBe(true);
+    const updatedLink = persistedHost
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(linkFieldId))
+      ._unsafeUnwrap() as LinkField;
+
+    expect(
+      (updatedLink.config().filter() as { filterSet: Array<{ value?: unknown }> }).filterSet[0]
+        ?.value
+    ).toBe('Active Plus');
+  });
+
   it('syncs lookup inner select options when foreign target select options are appended', async () => {
     const context = createContext();
     const baseId = BaseId.create(`bse${'t'.repeat(16)}`)._unsafeUnwrap();

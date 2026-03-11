@@ -7,8 +7,6 @@ import type { ISpecification } from '../../../shared/specification/ISpecificatio
 import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
 import { UpdateLookupOptionsSpec } from '../../specs/field-updates/UpdateLookupOptionsSpec';
-import { UpdateMultipleSelectOptionsSpec } from '../../specs/field-updates/UpdateMultipleSelectOptionsSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { UpdateLinkRelationshipSpec } from '../../specs/field-updates/UpdateLinkRelationshipSpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
@@ -24,6 +22,7 @@ import { FieldType } from '../FieldType';
 import {
   buildFieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
+  hasFieldSelectOptionChanges,
   hasFieldReferenceInFilter,
   isEquivalentFilter,
   syncFilterByFieldChanges,
@@ -479,7 +478,10 @@ export class LookupField
       (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
     );
     const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
-    const hasLookupTargetSelectOptionChanges = this.hasLookupTargetSelectOptionChanges(updateSpecs);
+    const hasLookupTargetSelectOptionChanges = hasFieldSelectOptionChanges(
+      updatedField,
+      updateSpecs
+    );
 
     if (isLookupTargetUpdated && (hasTypeConversion || hasLookupTargetSelectOptionChanges)) {
       let nextInnerField: Field = updatedField;
@@ -643,28 +645,6 @@ export class LookupField
     }
 
     return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
-  }
-
-  private hasLookupTargetSelectOptionChanges(
-    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): boolean {
-    return updateSpecs.some((spec) => {
-      if (
-        spec instanceof UpdateSingleSelectOptionsSpec ||
-        spec instanceof UpdateMultipleSelectOptionsSpec
-      ) {
-        if (!spec.fieldId().equals(this.lookupFieldId())) {
-          return false;
-        }
-        return (
-          spec.addedOptions().length > 0 ||
-          spec.removedOptions().length > 0 ||
-          spec.modifiedOptions().length > 0
-        );
-      }
-
-      return false;
-    });
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

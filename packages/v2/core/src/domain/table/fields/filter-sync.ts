@@ -7,6 +7,12 @@ import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSing
 import type { Field } from './Field';
 import type { FieldId } from './FieldId';
 import { FieldCondition } from './types/FieldCondition';
+import type {
+  RecordFilter,
+  RecordFilterCondition,
+  RecordFilterNode,
+  RecordFilterValue,
+} from '../../../queries/RecordFilterDto';
 
 type FilterGroup = {
   conjunction: 'and' | 'or';
@@ -18,6 +24,31 @@ type FilterItem = {
   fieldId: string;
   value?: unknown;
   [key: string]: unknown;
+};
+
+type SelectOptionLike = {
+  id(): { toString(): string };
+  name(): { toString(): string };
+  equals(other: unknown): boolean;
+};
+
+type ResultLike<T> = {
+  isOk(): boolean;
+  value: T;
+};
+
+type SelectOptionsFieldLike = {
+  selectOptions(): ReadonlyArray<SelectOptionLike>;
+};
+
+type InnerFieldCarrierLike = {
+  innerField(): ResultLike<Field>;
+};
+
+type FieldSelectOptionChangeSummary = {
+  readonly renamedOptions: ReadonlyArray<{ previous: SelectOptionLike; next: SelectOptionLike }>;
+  readonly removedOptions: ReadonlyArray<SelectOptionLike>;
+  readonly hasAnyOptionChanges: boolean;
 };
 
 export type FieldFilterSyncPlan = {
@@ -41,6 +72,19 @@ export const buildFieldFilterSyncPlan = (
     ) {
       if (spec.isTypeConversion()) {
         removeReferencedFilterItems = true;
+      } else {
+        const summary = getFieldSelectOptionChangeSummaryFromTypeSpec(spec);
+        if (summary) {
+          for (const renamed of summary.renamedOptions) {
+            renamedSelectOptionValues.set(
+              renamed.previous.name().toString(),
+              renamed.next.name().toString()
+            );
+          }
+          for (const removed of summary.removedOptions) {
+            removedSelectOptionValues.add(removed.name().toString());
+          }
+        }
       }
       continue;
     }
@@ -79,6 +123,38 @@ export const buildFieldFilterSyncPlan = (
     renamedSelectOptionValues,
     removedSelectOptionValues,
   };
+};
+
+export const hasFieldSelectOptionChanges = (
+  updatedField: Field,
+  updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
+): boolean => {
+  return updateSpecs.some((spec) => {
+    if (
+      spec instanceof UpdateSingleSelectOptionsSpec ||
+      spec instanceof UpdateMultipleSelectOptionsSpec
+    ) {
+      if (!spec.fieldId().equals(updatedField.id())) {
+        return false;
+      }
+
+      return (
+        spec.addedOptions().length > 0 ||
+        spec.removedOptions().length > 0 ||
+        spec.modifiedOptions().length > 0
+      );
+    }
+
+    if (
+      spec instanceof TableUpdateFieldTypeSpec &&
+      spec.oldField().id().equals(updatedField.id()) &&
+      !spec.isTypeConversion()
+    ) {
+      return getFieldSelectOptionChangeSummaryFromTypeSpec(spec)?.hasAnyOptionChanges ?? false;
+    }
+
+    return false;
+  });
 };
 
 export const hasFieldFilterSyncPlanChanges = (plan: FieldFilterSyncPlan): boolean => {
@@ -187,6 +263,82 @@ export const isEquivalentFilter = (left: unknown, right: unknown): boolean => {
   return leftCondition.value.equals(rightCondition.value);
 };
 
+export const hasFieldReferenceInRecordFilter = (filter: RecordFilter, fieldId: string): boolean => {
+  if (filter == null) {
+    return false;
+  }
+  return hasFieldReferenceInRecordFilterNode(filter, fieldId);
+};
+
+export const syncRecordFilterByFieldChanges = (
+  filter: RecordFilter,
+  fieldId: string,
+  plan: FieldFilterSyncPlan
+): RecordFilter => {
+  if (filter == null || !hasFieldFilterSyncPlanChanges(plan)) {
+    return filter;
+  }
+
+  const transformNode = (node: RecordFilterNode): RecordFilterNode | null => {
+    if ('fieldId' in node) {
+      if (node.fieldId !== fieldId) {
+        return { ...node };
+      }
+
+      if (plan.removeReferencedFilterItems) {
+        return null;
+      }
+
+      const valueResult = transformSelectFilterValue(
+        node.value,
+        plan.renamedSelectOptionValues,
+        plan.removedSelectOptionValues
+      );
+      if (valueResult.removeItem) {
+        return null;
+      }
+
+      if (!valueResult.changed) {
+        return { ...node };
+      }
+
+      return {
+        ...node,
+        value: (valueResult.value ?? null) as RecordFilterValue,
+      } as RecordFilterCondition;
+    }
+
+    if ('items' in node) {
+      const nextItems = node.items
+        .map((item: RecordFilterNode) => transformNode(item))
+        .filter((item: RecordFilterNode | null): item is RecordFilterNode => item != null);
+      if (!nextItems.length) {
+        return null;
+      }
+      return {
+        conjunction: node.conjunction,
+        items: nextItems,
+      };
+    }
+
+    if ('not' in node) {
+      const nextNode = transformNode(node.not);
+      if (nextNode == null) {
+        return null;
+      }
+      return { not: nextNode };
+    }
+
+    return node;
+  };
+
+  return transformNode(filter) ?? null;
+};
+
+export const isEquivalentRecordFilter = (left: RecordFilter, right: RecordFilter): boolean => {
+  return JSON.stringify(left) === JSON.stringify(right);
+};
+
 const transformSelectFilterValue = (
   value: unknown,
   renameMap: ReadonlyMap<string, string>,
@@ -234,4 +386,94 @@ const isFilterItem = (value: unknown): value is FilterItem => {
   if (!value || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
   return typeof record.fieldId === 'string';
+};
+
+const getFieldSelectOptionChangeSummaryFromTypeSpec = (
+  spec: TableUpdateFieldTypeSpec
+): FieldSelectOptionChangeSummary | undefined => {
+  return getFieldSelectOptionChangeSummary(spec.oldField(), spec.newField());
+};
+
+const getFieldSelectOptionChangeSummary = (
+  previousField: Field,
+  nextField: Field
+): FieldSelectOptionChangeSummary | undefined => {
+  const previousOptions = extractFieldSelectOptions(previousField);
+  const nextOptions = extractFieldSelectOptions(nextField);
+  if (!previousOptions || !nextOptions) {
+    return undefined;
+  }
+
+  const previousById = new Map(previousOptions.map((option) => [option.id().toString(), option]));
+  const nextById = new Map(nextOptions.map((option) => [option.id().toString(), option]));
+
+  const renamedOptions = nextOptions.flatMap((nextOption) => {
+    const previousOption = previousById.get(nextOption.id().toString());
+    if (!previousOption || previousOption.name().toString() === nextOption.name().toString()) {
+      return [];
+    }
+    return [{ previous: previousOption, next: nextOption }];
+  });
+
+  const removedOptions = previousOptions.filter((option) => !nextById.has(option.id().toString()));
+  const hasAddedOptions = nextOptions.some((option) => !previousById.has(option.id().toString()));
+  const hasModifiedOptions = nextOptions.some((nextOption) => {
+    const previousOption = previousById.get(nextOption.id().toString());
+    return previousOption ? !previousOption.equals(nextOption) : false;
+  });
+  const hasOrderChanges =
+    previousOptions.length === nextOptions.length &&
+    previousOptions.some(
+      (previousOption, index) =>
+        nextOptions[index]?.id().toString() !== previousOption.id().toString()
+    );
+
+  return {
+    renamedOptions,
+    removedOptions,
+    hasAnyOptionChanges:
+      hasAddedOptions || removedOptions.length > 0 || hasModifiedOptions || hasOrderChanges,
+  };
+};
+
+const extractFieldSelectOptions = (field: Field): ReadonlyArray<SelectOptionLike> | undefined => {
+  const fieldType = field.type().toString();
+  if ((fieldType === 'singleSelect' || fieldType === 'multipleSelect') && hasSelectOptions(field)) {
+    return field.selectOptions();
+  }
+
+  if ((fieldType === 'lookup' || fieldType === 'conditionalLookup') && hasInnerField(field)) {
+    const innerFieldResult = field.innerField();
+    if (innerFieldResult.isOk()) {
+      return extractFieldSelectOptions(innerFieldResult.value);
+    }
+  }
+
+  return undefined;
+};
+
+const hasFieldReferenceInRecordFilterNode = (node: RecordFilterNode, fieldId: string): boolean => {
+  if ('fieldId' in node) {
+    return node.fieldId === fieldId;
+  }
+  if ('items' in node) {
+    return node.items.some((item: RecordFilterNode) =>
+      hasFieldReferenceInRecordFilterNode(item, fieldId)
+    );
+  }
+  if ('not' in node) {
+    return hasFieldReferenceInRecordFilterNode(node.not, fieldId);
+  }
+  return false;
+};
+
+const hasSelectOptions = (field: Field): field is Field & SelectOptionsFieldLike => {
+  return (
+    'selectOptions' in field &&
+    typeof (field as SelectOptionsFieldLike).selectOptions === 'function'
+  );
+};
+
+const hasInnerField = (field: Field): field is Field & InnerFieldCarrierLike => {
+  return 'innerField' in field && typeof (field as InnerFieldCarrierLike).innerField === 'function';
 };

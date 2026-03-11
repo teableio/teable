@@ -5,18 +5,27 @@ import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import {
   buildFieldFilterSyncPlan,
+  hasFieldReferenceInRecordFilter,
   hasFieldFilterSyncPlanChanges,
+  hasFieldSelectOptionChanges,
   hasFieldReferenceInFilter,
   hasSelectOptionValueChanges,
+  isEquivalentRecordFilter,
+  syncRecordFilterByFieldChanges,
   syncFilterByFieldChanges,
 } from './filter-sync';
+import { ConditionalLookupField } from './types/ConditionalLookupField';
+import { ConditionalLookupOptions } from './types/ConditionalLookupOptions';
 import { SelectOption } from './types/SelectOption';
 import { SingleLineTextField } from './types/SingleLineTextField';
 import { SingleSelectField } from './types/SingleSelectField';
 import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
+import { TableId } from '../TableId';
+import type { RecordFilter } from '../../../queries/RecordFilterDto';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
+const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 
 describe('filter-sync', () => {
   it('builds sync plan from select option update and type conversion specs', () => {
@@ -97,6 +106,67 @@ describe('filter-sync', () => {
     expect(hasFieldReferenceInFilter(next, statusFieldId)).toBe(true);
   });
 
+  it('derives select option changes from a select-backed field type update spec', () => {
+    const lookupTargetId = createFieldId('f');
+    const hostStatusId = createFieldId('g');
+    const conditionalLookupId = createFieldId('h');
+    const foreignTableId = createTableId('i');
+
+    const previousTargetField = SingleSelectField.create({
+      id: lookupTargetId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      options: [
+        SelectOption.create({ id: 'cho_active', name: 'Active', color: 'green' })._unsafeUnwrap(),
+        SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+      ],
+    })._unsafeUnwrap();
+
+    const nextTargetField = SingleSelectField.create({
+      id: lookupTargetId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      options: [
+        SelectOption.create({
+          id: 'cho_active',
+          name: 'Active Plus',
+          color: 'green',
+        })._unsafeUnwrap(),
+      ],
+    })._unsafeUnwrap();
+
+    const lookupOptions = ConditionalLookupOptions.create({
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupTargetId.toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: hostStatusId.toString(), operator: 'isNotEmpty' }],
+        },
+      },
+    })._unsafeUnwrap();
+
+    const previousField = ConditionalLookupField.create({
+      id: conditionalLookupId,
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: previousTargetField,
+      conditionalLookupOptions: lookupOptions,
+    })._unsafeUnwrap();
+
+    const nextField = ConditionalLookupField.create({
+      id: conditionalLookupId,
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: nextTargetField,
+      conditionalLookupOptions: lookupOptions,
+    })._unsafeUnwrap();
+
+    const typeSpec = TableUpdateFieldTypeSpec.create(previousField, nextField);
+    const plan = buildFieldFilterSyncPlan(nextField, [typeSpec]);
+
+    expect(plan.removeReferencedFilterItems).toBe(false);
+    expect(plan.renamedSelectOptionValues.get('Active')).toBe('Active Plus');
+    expect(plan.removedSelectOptionValues.has('Closed')).toBe(true);
+    expect(hasFieldSelectOptionChanges(nextField, [typeSpec])).toBe(true);
+  });
+
   it('removes referenced filter items when dependency is type converted', () => {
     const statusFieldId = createFieldId('d');
     const titleFieldId = createFieldId('e');
@@ -130,5 +200,47 @@ describe('filter-sync', () => {
       }
     );
     expect(allRemoved).toBeNull();
+  });
+
+  it('syncs record filter values for renamed and removed select options', () => {
+    const statusFieldId = createFieldId('i');
+    const otherFieldId = createFieldId('j');
+    const originalFilter: RecordFilter = {
+      conjunction: 'and',
+      items: [
+        { fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' },
+        {
+          not: {
+            fieldId: statusFieldId.toString(),
+            operator: 'isAnyOf',
+            value: ['Pending', 'Active'],
+          },
+        },
+        { fieldId: otherFieldId.toString(), operator: 'isNotEmpty', value: null },
+      ],
+    };
+
+    const nextFilter = syncRecordFilterByFieldChanges(originalFilter, statusFieldId.toString(), {
+      removeReferencedFilterItems: false,
+      renamedSelectOptionValues: new Map([['Active', 'Active Plus']]),
+      removedSelectOptionValues: new Set(['Pending']),
+    });
+
+    expect(isEquivalentRecordFilter(originalFilter, nextFilter)).toBe(false);
+    expect(hasFieldReferenceInRecordFilter(nextFilter, statusFieldId.toString())).toBe(true);
+    expect(nextFilter).toEqual({
+      conjunction: 'and',
+      items: [
+        { fieldId: statusFieldId.toString(), operator: 'is', value: 'Active Plus' },
+        {
+          not: {
+            fieldId: statusFieldId.toString(),
+            operator: 'isAnyOf',
+            value: ['Active Plus'],
+          },
+        },
+        { fieldId: otherFieldId.toString(), operator: 'isNotEmpty', value: null },
+      ],
+    });
   });
 });
