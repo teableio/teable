@@ -8,7 +8,13 @@ import {
   exactDate,
   exactFormatDate,
 } from '@teable/core';
-import type { IDateFilter, IFilterItem, IFieldReferenceValue, IOperator } from '@teable/core';
+import type {
+  IDateFilter,
+  IFilterItem,
+  IFieldReferenceValue,
+  INumberFormatting,
+  IOperator,
+} from '@teable/core';
 import { Switch } from '@teable/icons';
 import {
   Button,
@@ -319,6 +325,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             onChange={onSelect as (value?: number | null) => void}
             className="w-40 placeholder:text-xs"
             placeholder={t('filter.default.placeholder')}
+            formatting={(field?.options as { formatting?: INumberFormatting })?.formatting}
           />
         );
       case CellValueType.String:
@@ -359,6 +366,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           onChange={onSelect as (value?: number | null) => void}
           className="w-40 placeholder:text-sm"
           placeholder={t('filter.default.placeholder')}
+          formatting={(field.options as { formatting?: INumberFormatting })?.formatting}
         />
       );
     case FieldType.SingleSelect:
