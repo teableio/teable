@@ -17,7 +17,7 @@ import {
   IInplaceImportOptionRo,
   inplaceImportOptionRoSchema,
 } from '@teable/openapi';
-import type { ITableFullVo, IAnalyzeVo } from '@teable/openapi';
+import type { ITableFullVo, IAnalyzeVo, IImportStatusVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -47,8 +47,16 @@ export class ImportController {
     return await this.importOpenService.analyze(analyzeRo);
   }
 
+  @Get('/status/:tableId')
+  @Permissions('base|table_import')
+  @TokenAccess()
+  async getImportStatus(@Param('tableId') tableId: string): Promise<IImportStatusVo> {
+    return await this.importOpenService.getImportStatus(tableId);
+  }
+
   @Post(':baseId')
   @Permissions('base|table_import')
+  @TokenAccess()
   async createTableFromImport(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo

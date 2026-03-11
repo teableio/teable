@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import os from 'os';
 import { join } from 'path';
 import { PassThrough, type Readable } from 'stream';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
@@ -13,9 +14,15 @@ import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
-import { getImportResultManifestKey, type IImportResultManifest } from './import-result-manifest';
+import {
+  getImportResultManifestKey,
+  IMPORT_RESULT_MANIFEST_TTL_SECONDS,
+  type IImportResultManifest,
+} from './import-result-manifest';
 
 export const TABLE_IMPORT_RESULT_QUEUE = 'import-table-result-queue';
+const TABLE_IMPORT_RESULT_QUEUE_CONCURRENCY = Math.max(os.cpus().length * 2, 4);
+const IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX = '[IMPORT_TABLE_ERROR_REPORT]';
 
 interface IImportResultJobData {
   jobId: string;
@@ -29,7 +36,7 @@ interface IImportResultJobData {
 
 @Injectable()
 @Processor(TABLE_IMPORT_RESULT_QUEUE, {
-  concurrency: 8,
+  concurrency: TABLE_IMPORT_RESULT_QUEUE_CONCURRENCY,
 })
 export class ImportTableResultQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportTableResultQueueProcessor.name);
@@ -51,7 +58,9 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
       | undefined;
 
     if (!manifest) {
-      this.logger.warn(`Import manifest missing for job ${jobId}, attachmentUrl: ${attachmentUrl}`);
+      this.logger.warn(
+        `${IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX} Import manifest missing for job ${jobId}, attachmentUrl: ${attachmentUrl}`
+      );
       await this.cleanupImportDir(jobId);
       return;
     }
@@ -97,8 +106,25 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
 
       const errorReportUrl = await this.uploadMergedErrorReport(jobId, manifest);
       this.logger.log(
-        `[IMPORT_TABLE_ERROR_REPORT] jobId=${jobId} table=${table.name}(${table.id}) success=${manifest.successCount} failed=${manifest.failedCount} reportUrl=${errorReportUrl ?? 'N/A'}`
+        `${IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX} jobId=${jobId} table=${table.name}(${table.id}) success=${manifest.successCount} failed=${manifest.failedCount} reportUrl=${errorReportUrl ?? 'N/A'} attachmentUrl=${attachmentUrl ?? 'N/A'}`
       );
+
+      if (errorReportUrl) {
+        manifest.errorReportUrl = errorReportUrl;
+        await this.cacheService
+          .setDetail(
+            getImportResultManifestKey(jobId),
+            manifest,
+            IMPORT_RESULT_MANIFEST_TTL_SECONDS
+          )
+          .catch((e) => {
+            this.logger.warn(
+              `${IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX} Failed to update manifest with errorReportUrl for job ${jobId}`,
+              e
+            );
+          });
+      }
+
       const message = this.buildFailureNotification(table.name, manifest, errorReportUrl);
       this.notificationService.sendImportResultNotify({
         baseId,
@@ -107,9 +133,6 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
         message,
       });
     } finally {
-      await this.cacheService.del(getImportResultManifestKey(jobId)).catch((e) => {
-        this.logger.warn(`Failed to delete import manifest for job ${jobId}`, e);
-      });
       await this.cleanupImportDir(jobId);
     }
   }
@@ -179,7 +202,10 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
       return url;
     } catch (error) {
       mergedStream.destroy(error as Error);
-      this.logger.error('Failed to merge import error report', error);
+      this.logger.error(
+        `${IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX} Failed to merge import error report`,
+        error
+      );
       return undefined;
     }
   }
@@ -208,7 +234,10 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
         false
       );
     } catch (error) {
-      this.logger.warn(`Failed to clean up import directory for job ${jobId}`, error);
+      this.logger.warn(
+        `${IMPORT_TABLE_ERROR_REPORT_LOG_PREFIX} Failed to clean up import directory for job ${jobId}`,
+        error
+      );
     }
   }
 }

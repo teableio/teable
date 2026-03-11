@@ -42,7 +42,9 @@ export interface ICacheStore {
     errorFilePaths: string[];
     fieldNames: string[];
     maxWidth: number;
+    errorReportUrl?: string;
   };
+  [key: `import:latest-job:${string}`]: string;
   // trash cleanup: per-item backoff after failed cleanup attempts
   [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
 }

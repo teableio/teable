@@ -230,6 +230,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           removeOnFail: 1000,
         }
       );
+
+      return stats;
     } catch (error) {
       this.importMetrics?.recordImportError({
         fileType,
@@ -348,6 +350,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
               successCount,
               failedCount,
               worker,
+              parentJob: job,
             }));
             break;
           case 'finished':
@@ -393,6 +396,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     successCount: number;
     failedCount: number;
     worker: Worker;
+    parentJob: Job<ITableImportChunkJob>;
   }): Promise<{ recordCount: number; successCount: number; failedCount: number }> {
     const {
       result,
@@ -407,6 +411,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       fieldIdToName,
       errorFilePaths,
       worker,
+      parentJob,
     } = params;
     let { recordCount, successCount, failedCount } = params;
     const { data, chunkId, id, lastChunk } = result;
@@ -438,6 +443,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           failedCount += chunkResult.failedCount;
         }
       }
+      await parentJob.updateProgress({ successCount, failedCount });
       worker.postMessage({ type: 'done', chunkId });
       return { recordCount, successCount, failedCount };
     } catch (e: unknown) {

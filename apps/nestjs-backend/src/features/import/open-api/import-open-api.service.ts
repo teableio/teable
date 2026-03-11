@@ -11,11 +11,13 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
   IImportOptionRo,
+  IImportStatusVo,
   IInplaceImportOptionRo,
   ITableFullVo,
 } from '@teable/openapi';
 import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../../cache/cache.service';
 import { CustomHttpException } from '../../../custom.exception';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
@@ -29,6 +31,11 @@ import {
   ImportTableCsvChunkQueueProcessor,
   TABLE_IMPORT_CSV_CHUNK_QUEUE,
 } from './import-csv-chunk.processor';
+import {
+  getImportLatestJobKey,
+  getImportResultManifestKey,
+  IMPORT_LATEST_JOB_TTL_SECONDS,
+} from './import-result-manifest';
 import { importerFactory } from './import.class';
 
 const maxFieldsLength = 500;
@@ -58,6 +65,7 @@ export class ImportOpenApiService {
     private readonly shareDbService: ShareDbService,
     private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
     private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly cacheService: CacheService,
     @Optional() private readonly importMetrics?: ImportMetricsService
   ) {}
 
@@ -198,6 +206,14 @@ export class ImportOpenApiService {
             removeOnFail: 1000,
           }
         );
+        await this.cacheService
+          .setDetail(getImportLatestJobKey(table.id), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+          .catch((e) => {
+            this.logger.warn(
+              `Failed to set latest import job index for table ${table.id}, job ${jobId}`,
+              e
+            );
+          });
       }
     }
     return tableResult;
@@ -349,9 +365,97 @@ export class ImportOpenApiService {
         removeOnFail: 1000,
       }
     );
+    await this.cacheService
+      .setDetail(getImportLatestJobKey(tableId), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+      .catch((e) => {
+        this.logger.warn(
+          `Failed to set latest import job index for table ${tableId}, job ${jobId}`,
+          e
+        );
+      });
+  }
+
+  async getImportStatus(tableId: string): Promise<IImportStatusVo> {
+    const queue = this.importTableCsvChunkQueueProcessor.queue;
+    const latestJobId = await this.cacheService.get(getImportLatestJobKey(tableId));
+    if (!latestJobId) {
+      return { tableId, status: 'not_found' };
+    }
+    const job = await queue.getJob(latestJobId);
+    if (!job) {
+      return { tableId, status: 'not_found' };
+    }
+
+    const state = await job.getState();
+    const status = this.mapQueueStateToImportStatus(state);
+    const result: IImportStatusVo = { tableId, status };
+
+    if (status === 'completed' || status === 'failed') {
+      const manifest = await this.cacheService.get(getImportResultManifestKey(latestJobId));
+      this.fillCompletedOrFailedCounts(result, manifest, job.returnvalue);
+    }
+
+    if (status === 'running' || status === 'pending') {
+      this.fillRunningCounts(result, job.progress);
+    }
+
+    if (status === 'failed') {
+      result.message = job.failedReason ?? 'Import failed';
+    }
+
+    return result;
   }
 
   async generateChunkJobId(tableId: string) {
     return `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${tableId}:${getRandomString(6)}`;
+  }
+
+  private mapQueueStateToImportStatus(state: string): IImportStatusVo['status'] {
+    if (state === 'waiting' || state === 'delayed') {
+      return 'pending';
+    }
+    if (state === 'active') {
+      return 'running';
+    }
+    if (state === 'completed') {
+      return 'completed';
+    }
+    if (state === 'failed') {
+      return 'failed';
+    }
+    return 'not_found';
+  }
+
+  private fillCompletedOrFailedCounts(
+    result: IImportStatusVo,
+    manifest: unknown,
+    returnValue: unknown
+  ) {
+    if (manifest && typeof manifest === 'object') {
+      const m = manifest as {
+        successCount?: number;
+        failedCount?: number;
+        errorReportUrl?: string;
+      };
+      result.successCount = m.successCount;
+      result.failedCount = m.failedCount;
+      result.errorReportUrl = m.errorReportUrl;
+      return;
+    }
+
+    if (returnValue && typeof returnValue === 'object') {
+      const rv = returnValue as { success?: number; failed?: number };
+      result.successCount = rv.success;
+      result.failedCount = rv.failed;
+    }
+  }
+
+  private fillRunningCounts(result: IImportStatusVo, progress: unknown) {
+    if (!progress || typeof progress !== 'object') {
+      return;
+    }
+    const p = progress as { successCount?: number; failedCount?: number };
+    result.successCount = p.successCount;
+    result.failedCount = p.failedCount;
   }
 }
