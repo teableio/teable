@@ -1126,6 +1126,7 @@
     "clearChatConfirmDesc": "Le contenu actuel du chat ne sera pas sauvegardé. Êtes-vous sûr de vouloir l'effacer ?",
     "dontShowAgain": "Ne plus afficher",
     "noModel": "Aucun modèle disponible",
+    "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
     "timeGroup": {

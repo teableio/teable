@@ -1140,6 +1140,7 @@
     "clearChatConfirmDesc": "El contenido actual del chat no se guardará. ¿Está seguro de que desea borrarlo?",
     "dontShowAgain": "No mostrar de nuevo",
     "noModel": "No hay modelos disponibles",
+    "addAttachment": "Añadir archivo adjunto",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
     "timeGroup": {

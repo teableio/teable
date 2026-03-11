@@ -1147,6 +1147,7 @@
     "clearChatConfirmDesc": "Der aktuelle Chat-Inhalt wird nicht gespeichert. Sind Sie sicher, dass Sie ihn löschen möchten?",
     "dontShowAgain": "Nicht mehr anzeigen",
     "noModel": "Keine verfügbaren Modelle",
+    "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
     "timeGroup": {

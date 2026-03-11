@@ -1313,6 +1313,7 @@
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",
     "noModel": "暂无可用模型",
+    "addAttachment": "添加附件",
     "noHistory": "暂无聊天记录",
     "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
     "timeGroup": {

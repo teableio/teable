@@ -1151,6 +1151,7 @@
     "clearChatConfirmDesc": "Il contenuto attuale della chat non verrà salvato. Sei sicuro di volerlo cancellare?",
     "dontShowAgain": "Non mostrare più",
     "noModel": "Nessun modello disponibile",
+    "addAttachment": "Aggiungi allegato",
     "noHistory": "Nessun chat history",
     "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
     "timeGroup": {

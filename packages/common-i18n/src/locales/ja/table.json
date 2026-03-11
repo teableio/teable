@@ -1125,6 +1125,7 @@
     "clearChatConfirmDesc": "現在のチャット内容は保存されません。本当にクリアしますか？",
     "dontShowAgain": "今後表示しない",
     "noModel": "利用可能なモデルがありません",
+    "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
     "timeGroup": {

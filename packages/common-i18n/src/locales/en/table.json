@@ -1312,6 +1312,7 @@
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
     "noModel": "No available models",
+    "addAttachment": "Add Attachment",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
     "timeGroup": {
