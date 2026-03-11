@@ -178,6 +178,13 @@ describe('v2 http conditional lookup (e2e)', () => {
     `.execute(ctx.testContainer.db);
   };
 
+  const drainOutbox = async (rounds = 10) => {
+    for (let i = 0; i < rounds; i += 1) {
+      const drained = await ctx.testContainer.processOutbox();
+      if (drained === 0) break;
+    }
+  };
+
   beforeAll(async () => {
     ctx = await getSharedTestContext();
   });
@@ -259,6 +266,227 @@ describe('v2 http conditional lookup (e2e)', () => {
 
       // Closed record should see Gamma
       expect(closedRecord!.fields[lookupFieldId]).toEqual(['Gamma']);
+    });
+
+    it('matches text field against lookup field reference values stored as arrays', async () => {
+      const categoryNameFieldId = createFieldId();
+      const categoryTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_LookupRef_Category',
+        fields: [
+          { type: 'singleLineText', id: categoryNameFieldId, name: 'Name', isPrimary: true },
+        ],
+        records: [{ fields: { [categoryNameFieldId]: '你好' } }],
+      });
+
+      const foreignTitleFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_LookupRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignTitleFieldId, name: 'Title', isPrimary: true },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        records: [
+          { fields: { [foreignTitleFieldId]: '命中', [foreignCategoryFieldId]: '你好' } },
+          { fields: { [foreignTitleFieldId]: '未命中', [foreignCategoryFieldId]: '世界' } },
+        ],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_LookupRef_Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        records: [{ fields: { [hostNameFieldId]: 'Host Lookup Ref' } }],
+      });
+
+      const categoryLinkFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'link',
+        id: categoryLinkFieldId,
+        name: 'Category Link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: categoryTable.id,
+          lookupFieldId: categoryNameFieldId,
+        },
+      });
+
+      const categoryLookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'lookup',
+        id: categoryLookupFieldId,
+        name: 'Category Lookup',
+        options: {
+          foreignTableId: categoryTable.id,
+          linkFieldId: categoryLinkFieldId,
+          lookupFieldId: categoryNameFieldId,
+        },
+      });
+
+      const categoryRecords = await listRecords(categoryTable.id);
+      const hostRecordsBeforeLink = await listRecords(host.id);
+      const categoryRecordId = categoryRecords[0]?.id;
+      const hostRecordId = hostRecordsBeforeLink[0]?.id;
+      if (!categoryRecordId || !hostRecordId) {
+        throw new Error('Missing category or host record for lookup field reference test');
+      }
+
+      await updateRecord(host.id, hostRecordId, {
+        [categoryLinkFieldId]: { id: categoryRecordId },
+      });
+
+      const conditionalLookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: conditionalLookupFieldId,
+        name: 'Matched Titles From Lookup Ref',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignCategoryFieldId,
+                  operator: 'is',
+                  value: categoryLookupFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const hostRecords = await listRecords(host.id);
+      const hostRecord = hostRecords[0];
+
+      expect(hostRecord.fields[categoryLookupFieldId]).toEqual(['你好']);
+      expect(hostRecord.fields[conditionalLookupFieldId]).toEqual(['命中']);
+    });
+
+    it('matches text field against conditional lookup field reference values stored as arrays', async () => {
+      const foreignTitleFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_ConditionalRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignTitleFieldId, name: 'Title', isPrimary: true },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        records: [
+          { fields: { [foreignTitleFieldId]: '命中', [foreignCategoryFieldId]: '你好' } },
+          { fields: { [foreignTitleFieldId]: '未命中', [foreignCategoryFieldId]: '世界' } },
+        ],
+      });
+
+      const categorySourceStatusFieldId = createFieldId();
+      const categorySourceNameFieldId = createFieldId();
+      const categorySource = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_ConditionalRef_Source',
+        fields: [
+          {
+            type: 'singleLineText',
+            id: categorySourceNameFieldId,
+            name: 'Category Name',
+            isPrimary: true,
+          },
+          { type: 'singleLineText', id: categorySourceStatusFieldId, name: 'Status' },
+        ],
+        records: [
+          {
+            fields: {
+              [categorySourceNameFieldId]: '你好',
+              [categorySourceStatusFieldId]: 'Active',
+            },
+          },
+          {
+            fields: {
+              [categorySourceNameFieldId]: '世界',
+              [categorySourceStatusFieldId]: 'Closed',
+            },
+          },
+        ],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostStatusFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_ConditionalRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: hostStatusFieldId, name: 'Status Filter' },
+        ],
+        records: [
+          { fields: { [hostNameFieldId]: 'Host Conditional Ref', [hostStatusFieldId]: 'Active' } },
+        ],
+      });
+
+      const derivedCategoryFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: derivedCategoryFieldId,
+        name: 'Derived Category',
+        options: {
+          foreignTableId: categorySource.id,
+          lookupFieldId: categorySourceNameFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: categorySourceStatusFieldId,
+                  operator: 'is',
+                  value: hostStatusFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+            limit: 1,
+          },
+        },
+      });
+
+      const matchedTitlesFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: matchedTitlesFieldId,
+        name: 'Matched Titles From Conditional Ref',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignCategoryFieldId,
+                  operator: 'is',
+                  value: derivedCategoryFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const hostRecords = await listRecords(host.id);
+      const hostRecord = hostRecords[0];
+
+      expect(hostRecord.fields[derivedCategoryFieldId]).toEqual(['你好']);
+      expect(hostRecord.fields[matchedTitlesFieldId]).toEqual(['命中']);
     });
 
     it('should refresh conditional lookup when foreign records enter the filter', async () => {

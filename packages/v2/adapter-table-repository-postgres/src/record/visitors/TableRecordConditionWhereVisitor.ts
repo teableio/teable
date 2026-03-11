@@ -122,6 +122,82 @@ const buildLinkTitleMatchCondition = (
   )`;
 };
 
+const buildArrayLikeFieldReferenceIsCondition = (
+  leftField: core.Field,
+  leftColumnRef: RecordConditionWhere,
+  rightField: core.Field,
+  rightColumnRef: RecordConditionWhere
+): Result<RecordConditionWhere | undefined, DomainError> => {
+  return safeTry<RecordConditionWhere | undefined, DomainError>(function* () {
+    const leftIsArrayLike = isArrayLikeOutputField(leftField, yield* fieldIsMultiple(leftField));
+    const rightIsArrayLike = isArrayLikeOutputField(rightField, yield* fieldIsMultiple(rightField));
+
+    if (!leftIsArrayLike && !rightIsArrayLike) {
+      return ok(undefined);
+    }
+
+    if (leftIsArrayLike && rightIsArrayLike) {
+      return ok(
+        sql`${normalizeToJsonArray(leftColumnRef)} = ${normalizeToJsonArray(rightColumnRef)}`
+      );
+    }
+
+    if (leftIsArrayLike) {
+      if (fieldIsJson(rightField)) return ok(undefined);
+      return ok(sql`EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(${normalizeToJsonArray(leftColumnRef)}) AS elem
+        WHERE elem = (${rightColumnRef})::text
+      )`);
+    }
+
+    if (fieldIsJson(leftField)) return ok(undefined);
+    return ok(sql`EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements_text(${normalizeToJsonArray(rightColumnRef)}) AS elem
+      WHERE elem = (${leftColumnRef})::text
+    )`);
+  });
+};
+
+const buildArrayLikeFieldReferenceIsNotCondition = (
+  leftField: core.Field,
+  leftColumnRef: RecordConditionWhere,
+  rightField: core.Field,
+  rightColumnRef: RecordConditionWhere
+): Result<RecordConditionWhere | undefined, DomainError> => {
+  return safeTry<RecordConditionWhere | undefined, DomainError>(function* () {
+    const leftIsArrayLike = isArrayLikeOutputField(leftField, yield* fieldIsMultiple(leftField));
+    const rightIsArrayLike = isArrayLikeOutputField(rightField, yield* fieldIsMultiple(rightField));
+
+    if (!leftIsArrayLike && !rightIsArrayLike) {
+      return ok(undefined);
+    }
+
+    if (leftIsArrayLike && rightIsArrayLike) {
+      return ok(
+        sql`${normalizeToJsonArray(leftColumnRef)} is distinct from ${normalizeToJsonArray(rightColumnRef)}`
+      );
+    }
+
+    if (leftIsArrayLike) {
+      if (fieldIsJson(rightField)) return ok(undefined);
+      return ok(sql`NOT EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(${normalizeToJsonArray(leftColumnRef)}) AS elem
+        WHERE elem = (${rightColumnRef})::text
+      )`);
+    }
+
+    if (fieldIsJson(leftField)) return ok(undefined);
+    return ok(sql`NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements_text(${normalizeToJsonArray(rightColumnRef)}) AS elem
+      WHERE elem = (${leftColumnRef})::text
+    )`);
+  });
+};
+
 /**
  * Options for TableRecordConditionWhereVisitor.
  */
@@ -595,6 +671,16 @@ const buildIsCondition = (
         );
       }
 
+      const arrayLikeMatch = yield* buildArrayLikeFieldReferenceIsCondition(
+        field,
+        columnRef,
+        referenceField,
+        rightColumnRef
+      );
+      if (arrayLikeMatch) {
+        return ok(arrayLikeMatch);
+      }
+
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
         return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
       }
@@ -724,6 +810,16 @@ const buildIsNotCondition = (
         return ok(
           sql`${buildDateComparableExpr(field, columnRef, compareAsDateOnly)} is distinct from ${buildDateComparableExpr(referenceField, rightColumnRef, compareAsDateOnly)}`
         );
+      }
+
+      const arrayLikeMismatch = yield* buildArrayLikeFieldReferenceIsNotCondition(
+        field,
+        columnRef,
+        referenceField,
+        rightColumnRef
+      );
+      if (arrayLikeMismatch) {
+        return ok(arrayLikeMismatch);
       }
 
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
