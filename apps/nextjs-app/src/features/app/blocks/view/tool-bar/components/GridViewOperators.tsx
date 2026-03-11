@@ -77,7 +77,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             className={cn(
               'max-w-[200px]',
               isActive &&
-                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
+                'bg-violet-100 dark:bg-[#241A31] hover:bg-violet-200 dark:hover:bg-[#322245]',
               hasWarning && 'border-yellow-500'
             )}
             textClassName="@2xl/toolbar:inline"
@@ -99,7 +99,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             className={cn(
               'max-w-[200px]',
               isActive &&
-                'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
+                'bg-orange-100 dark:bg-[#2F2518] hover:bg-orange-200 dark:hover:bg-[#392C1B]'
             )}
             textClassName="@2xl/toolbar:inline"
           >
@@ -117,7 +117,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             className={cn(
               'max-w-[200px]',
               isActive &&
-                'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
+                'bg-emerald-100 dark:bg-[#0C3026] hover:bg-emerald-200 dark:hover:bg-[#0D3A2D]'
             )}
             textClassName="@2xl/toolbar:inline"
           >

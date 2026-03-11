@@ -71,52 +71,59 @@ const getColumnThemeByField = ({
   field: IFieldInstance;
 }) => {
   const { id, isPending, hasError } = field;
-  const { orange, green, violet, rose, yellow } = colors;
+  const { rose, yellow } = colors;
   const isDark = theme === 'dark';
-  const color_50 = isDark ? 700 : 50;
-  const color_100 = isDark ? 500 : 100;
-  const color_200 = isDark ? 400 : 200;
-  const opacity = isDark ? 0.3 : 0.8;
+  const themeKey = isDark ? 'dark' : 'light';
+  const opacity = isDark ? 1 : 0.8;
+
+  // shades: [bg, bgSelected, bgHovered]
   const colorMap = {
-    sort: orange,
-    group: green,
-    filter: violet,
+    sort: {
+      light: [colors.orange[50], colors.orange[100], colors.orange[200]] as const,
+      dark: ['#251E14', '#2F2518', '#392C1B'] as const,
+    },
+    group: {
+      light: [colors.emerald[50], colors.emerald[100], colors.emerald[200]] as const,
+      dark: ['#0A261F', '#0C3026', '#0D3A2D'] as const,
+    },
+    filter: {
+      light: [colors.violet[50], colors.violet[100], colors.violet[200]] as const,
+      dark: ['#1D1527', '#241A31', '#322245'] as const,
+    },
   };
 
   let customTheme: Partial<IGridTheme> | undefined = undefined;
-  let conditionColorObj = undefined;
 
-  if (groupFieldIds?.has(id)) {
-    conditionColorObj = colorMap.group;
-  }
+  const conditionKey = filterFieldIds?.has(id)
+    ? 'filter'
+    : sortFieldIds?.has(id)
+      ? 'sort'
+      : groupFieldIds?.has(id)
+        ? 'group'
+        : null;
 
-  if (sortFieldIds?.has(id)) {
-    conditionColorObj = colorMap.sort;
-  }
-
-  if (filterFieldIds?.has(id)) {
-    conditionColorObj = colorMap.filter;
-  }
-
-  if (conditionColorObj != null) {
+  if (conditionKey) {
+    const [bg, bgSelected, bgHovered] = colorMap[conditionKey][themeKey];
     customTheme = {
-      cellBg: hexToRGBA(conditionColorObj[color_50], opacity),
-      cellBgHovered: hexToRGBA(conditionColorObj[color_50], opacity),
-      cellBgSelected: hexToRGBA(conditionColorObj[color_100], opacity),
-      columnHeaderBg: hexToRGBA(conditionColorObj[color_100], opacity),
-      columnHeaderBgHovered: hexToRGBA(conditionColorObj[color_200], opacity),
-      columnHeaderBgSelected: hexToRGBA(conditionColorObj[color_200], opacity),
+      cellBg: hexToRGBA(bg, opacity),
+      cellBgHovered: hexToRGBA(bgSelected, opacity),
+      cellBgSelected: hexToRGBA(bgSelected, opacity),
+      columnHeaderBg: hexToRGBA(bgSelected, opacity),
+      columnHeaderBgHovered: hexToRGBA(bgHovered, opacity),
+      columnHeaderBgSelected: hexToRGBA(bgHovered, opacity),
     };
   }
 
   if (hasError || isPending) {
-    const colorObj = hasError ? rose : yellow;
-
+    const c = hasError
+      ? { light: [rose[100], rose[200]] as const, dark: [rose[500], rose[400]] as const }
+      : { light: [yellow[100], yellow[200]] as const, dark: [yellow[500], yellow[400]] as const };
+    const [h, hs] = c[themeKey];
     customTheme = {
       ...customTheme,
-      columnHeaderBg: hexToRGBA(colorObj[color_100], opacity),
-      columnHeaderBgHovered: hexToRGBA(colorObj[color_200], opacity),
-      columnHeaderBgSelected: hexToRGBA(colorObj[color_200], opacity),
+      columnHeaderBg: hexToRGBA(h, opacity),
+      columnHeaderBgHovered: hexToRGBA(hs, opacity),
+      columnHeaderBgSelected: hexToRGBA(hs, opacity),
     };
   }
 
