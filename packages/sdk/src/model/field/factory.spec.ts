@@ -14,14 +14,19 @@ const createBaseField = (): IFieldVo => ({
   dbFieldType: DbFieldType.Text,
 });
 
+const foreignTableId = 'tblForeign00000001';
+const lookupFieldId = 'fldLookup000000001';
+const linkFieldId = 'fldLink000000000001';
+const sumExpression = 'sum({values})';
+
 describe('createFieldInstance lookup normalization', () => {
   it('normalizes v2 conditionalLookup payload shape', () => {
     const field = {
       ...createBaseField(),
       type: 'conditionalLookup',
       options: {
-        foreignTableId: 'tblForeign00000001',
-        lookupFieldId: 'fldLookup000000001',
+        foreignTableId,
+        lookupFieldId,
         condition: {
           filter: {
             conjunction: 'and',
@@ -43,8 +48,8 @@ describe('createFieldInstance lookup normalization', () => {
     expect(instance.isLookup).toBe(true);
     expect(instance.isConditionalLookup).toBe(true);
     expect(instance.lookupOptions).toMatchObject({
-      foreignTableId: 'tblForeign00000001',
-      lookupFieldId: 'fldLookup000000001',
+      foreignTableId,
+      lookupFieldId,
       sort: { fieldId: 'fldScore0000000001', order: 'asc' },
       limit: 5,
     });
@@ -58,9 +63,9 @@ describe('createFieldInstance lookup normalization', () => {
       cellValueType: CellValueType.Number,
       dbFieldType: DbFieldType.Real,
       options: {
-        linkFieldId: 'fldLink000000000001',
-        lookupFieldId: 'fldLookup000000001',
-        foreignTableId: 'tblForeign00000001',
+        linkFieldId,
+        lookupFieldId,
+        foreignTableId,
       },
     } as unknown as IFieldVo;
 
@@ -70,9 +75,82 @@ describe('createFieldInstance lookup normalization', () => {
     expect(instance.isLookup).toBe(true);
     expect(instance.isConditionalLookup).toBeUndefined();
     expect(instance.lookupOptions).toMatchObject({
-      linkFieldId: 'fldLink000000000001',
-      lookupFieldId: 'fldLookup000000001',
-      foreignTableId: 'tblForeign00000001',
+      linkFieldId,
+      lookupFieldId,
+      foreignTableId,
     });
+  });
+
+  it('normalizes v2 rollup payload shape', () => {
+    const field = {
+      ...createBaseField(),
+      type: FieldType.Rollup,
+      options: {
+        expression: sumExpression,
+        formatting: {
+          type: 'decimal',
+          precision: 2,
+        },
+      },
+      config: {
+        linkFieldId,
+        foreignTableId,
+        lookupFieldId,
+      },
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Real,
+    } as unknown as IFieldVo;
+
+    const instance = createFieldInstance(field);
+
+    expect(instance.type).toBe(FieldType.Rollup);
+    expect((instance.options as { expression?: string }).expression).toBe(sumExpression);
+    expect(instance.lookupOptions).toMatchObject({
+      linkFieldId,
+      foreignTableId,
+      lookupFieldId,
+    });
+  });
+
+  it('normalizes v2 conditionalRollup payload shape', () => {
+    const field = {
+      ...createBaseField(),
+      type: FieldType.ConditionalRollup,
+      options: {
+        expression: sumExpression,
+        formatting: {
+          type: 'decimal',
+          precision: 2,
+        },
+      },
+      config: {
+        foreignTableId,
+        lookupFieldId,
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+          },
+          sort: { fieldId: 'fldScore0000000001', order: 'desc' },
+          limit: 10,
+        },
+      },
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Real,
+    } as unknown as IFieldVo;
+
+    const instance = createFieldInstance(field);
+
+    expect(instance.type).toBe(FieldType.ConditionalRollup);
+    expect(instance.options).toMatchObject({
+      expression: sumExpression,
+      foreignTableId,
+      lookupFieldId,
+      sort: { fieldId: 'fldScore0000000001', order: 'desc' },
+      limit: 10,
+    });
+    expect(
+      (instance.options as { filter?: { filterSet?: unknown[] } }).filter?.filterSet
+    ).toHaveLength(1);
   });
 });
