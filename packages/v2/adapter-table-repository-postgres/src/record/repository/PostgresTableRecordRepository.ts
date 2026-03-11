@@ -286,6 +286,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     private readonly computedUpdateStrategy: IUpdateStrategy,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
     private readonly computedUpdateOutbox: IComputedUpdateOutbox,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: core.IEventBus,
     @inject(v2CoreTokens.hasher)
     private readonly hasher: IHasher
   ) {}
@@ -1210,6 +1212,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
+      await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+
       return ok(undefined);
     }
 
@@ -1529,6 +1533,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
+        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
         return ok(executeResult.value);
       }
 
@@ -1663,6 +1668,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
+        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
         return ok(executeResult.value);
       }
 
@@ -1783,6 +1789,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
+        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
         return ok(executeResult.value);
       }
 
@@ -1836,6 +1843,29 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     // Async mode doesn't return computed changes
     return ok(undefined);
+  }
+
+  private async publishComputedUpdateEvents(
+    context: core.IExecutionContext,
+    baseId: core.BaseId,
+    result: ComputedUpdateResult | undefined
+  ): Promise<void> {
+    if (!result?.changesByStep.length) {
+      return;
+    }
+
+    const events = buildComputedUpdateEvents(result.changesByStep, baseId);
+    if (!events.length) {
+      return;
+    }
+
+    const publishResult = await this.eventBus.publishMany(context, events);
+    if (publishResult.isErr()) {
+      this.logger.warn('computed:events_publish_failed', {
+        error: publishResult.error.message,
+        eventCount: events.length,
+      });
+    }
   }
 
   private expandComputedSeedFieldIds(
@@ -2013,6 +2043,56 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
  * @param recordId - The ID of the record to extract changes for
  * @returns A map of fieldId -> newValue, or undefined if no changes
  */
+const buildComputedUpdateEvents = (
+  changesByStep: ComputedUpdateResult['changesByStep'],
+  baseId: core.BaseId
+): core.RecordsBatchUpdated[] => {
+  if (changesByStep.length === 0) {
+    return [];
+  }
+
+  const changesByTable = new Map<string, (typeof changesByStep)[number]['recordChanges']>();
+  for (const stepChange of changesByStep) {
+    const existing = changesByTable.get(stepChange.tableId) ?? [];
+    changesByTable.set(stepChange.tableId, [...existing, ...stepChange.recordChanges]);
+  }
+
+  const events: core.RecordsBatchUpdated[] = [];
+
+  for (const [tableIdStr, recordChanges] of changesByTable) {
+    if (recordChanges.length === 0) {
+      continue;
+    }
+
+    const tableIdResult = core.TableId.create(tableIdStr);
+    if (tableIdResult.isErr()) {
+      continue;
+    }
+
+    const updates = recordChanges.map((change) => ({
+      recordId: change.recordId,
+      oldVersion: change.oldVersion,
+      newVersion: change.oldVersion + 1,
+      changes: change.changes.map((fieldChange) => ({
+        fieldId: fieldChange.fieldId,
+        oldValue: null as unknown,
+        newValue: fieldChange.newValue,
+      })),
+    }));
+
+    events.push(
+      core.RecordsBatchUpdated.create({
+        tableId: tableIdResult.value,
+        baseId,
+        updates,
+        source: 'computed',
+      })
+    );
+  }
+
+  return events;
+};
+
 const extractChangesForRecord = (
   result: ComputedUpdateResult | undefined,
   recordId: string

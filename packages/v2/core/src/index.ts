@@ -233,6 +233,7 @@ export * from './domain/table/events/RecordUpdated';
 export * from './domain/table/events/RecordReordered';
 export * from './domain/table/events/RecordsBatchUpdated';
 export * from './domain/table/events/RecordsDeleted';
+export * from './domain/table/events/TableActionTriggerRequested';
 export * from './domain/table/specs/TableByIdSpec';
 export * from './domain/table/specs/TableRenameSpec';
 export * from './domain/table/specs/TableByIdsSpec';

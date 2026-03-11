@@ -69,6 +69,14 @@ type TableSchemaRepositoryDeferredBackfillReplayer = {
   ): Promise<Result<void, DomainError>>;
 };
 
+type TableSchemaRepositoryPostPersistPresenceEventCollector = {
+  collectPostPersistPresenceEventsAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>>;
+};
+
 export type TableUpdateFlowResult = {
   table: Table;
   events: ReadonlyArray<IDomainEvent>;
@@ -106,6 +114,16 @@ const isTableSchemaRepositoryDeferredBackfillReplayer = (
   );
 };
 
+const isTableSchemaRepositoryPostPersistPresenceEventCollector = (
+  repository: TableSchemaRepositoryPort.ITableSchemaRepository
+): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
+  TableSchemaRepositoryPostPersistPresenceEventCollector => {
+  return (
+    typeof (repository as Partial<TableSchemaRepositoryPostPersistPresenceEventCollector>)
+      .collectPostPersistPresenceEventsAfterUpdate === 'function'
+  );
+};
+
 @injectable()
 // Application service: wraps transactional table updates, persistence, schema changes, and events.
 // Mutations are provided by domain code; this class only orchestrates ports.
@@ -131,6 +149,7 @@ export class TableUpdateFlow {
     const handler = this;
     return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
+      const presenceEvents: IDomainEvent[] = [];
       const table = yield* await handler.resolveTable(context, target);
       let tableUpdatePersistResult: TableRepositoryPort.TableUpdatePersistResult | void = undefined;
 
@@ -176,6 +195,18 @@ export class TableUpdateFlow {
               );
           }
 
+          if (
+            isTableSchemaRepositoryPostPersistPresenceEventCollector(handler.tableSchemaRepository)
+          ) {
+            const postPersistPresenceEvents =
+              yield* await handler.tableSchemaRepository.collectPostPersistPresenceEventsAfterUpdate(
+                transactionContext,
+                latestTable,
+                mutateSpec
+              );
+            presenceEvents.push(...postPersistPresenceEvents);
+          }
+
           if (options?.hooks?.afterPersist) {
             const afterPersistHookResult = yield* await options.hooks.afterPersist(
               transactionContext,
@@ -202,7 +233,12 @@ export class TableUpdateFlow {
 
       if (publishEvents) {
         // Publish events directly; projections fetch data themselves
-        yield* await handler.eventBus.publishMany(context, normalizedEvents);
+        if (normalizedEvents.length > 0) {
+          yield* await handler.eventBus.publishMany(context, normalizedEvents);
+        }
+        if (presenceEvents.length > 0) {
+          yield* await handler.eventBus.publishMany(context, presenceEvents);
+        }
       }
       return ok({ table: latestTable, events: normalizedEvents });
     });

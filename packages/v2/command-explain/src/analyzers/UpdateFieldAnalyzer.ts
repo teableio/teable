@@ -12,7 +12,6 @@ import {
   UpdateFieldHandler,
   type DomainError,
   type IExecutionContext,
-  type ITableRecordQueryRepository,
   type ITableRepository,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -35,7 +34,6 @@ import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
-import { NoopEventBus } from '../utils/FieldCommandExplainHarness';
 
 @injectable()
 export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand> {
@@ -44,8 +42,6 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
-    @inject(v2CoreTokens.tableRecordQueryRepository)
-    private readonly tableRecordQueryRepository: ITableRecordQueryRepository,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -103,8 +99,6 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
         tableUpdateFlow,
         fieldUpdateSideEffectService,
         analyzer.foreignTableLoaderService,
-        analyzer.tableRecordQueryRepository,
-        new NoopEventBus() as never,
         createNoopUndoRedoService() as never,
         analyzer.fieldUndoRedoSnapshotService
       );

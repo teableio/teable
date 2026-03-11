@@ -70,6 +70,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('RecordsBatchUpdated');
   }
 
+  static tableActionTriggerRequested(): DomainEventName {
+    return new DomainEventName('TableActionTriggerRequested');
+  }
+
   static recordsDeleted(): DomainEventName {
     return new DomainEventName('RecordsDeleted');
   }

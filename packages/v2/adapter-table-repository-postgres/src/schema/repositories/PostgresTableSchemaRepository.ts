@@ -1,9 +1,21 @@
-import { TraceSpan, DbFieldName, domainError, isDomainError } from '@teable/v2-core';
+import {
+  TraceSpan,
+  DbFieldName,
+  TableByIdSpec,
+  TableId,
+  TableActionTriggerRequested,
+  domainError,
+  isDomainError,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import {
   SelectOption,
+  type BaseId,
   type FieldId,
+  type IDomainEvent,
   type IExecutionContext,
   type ISpecification,
+  type ITableRepository,
   type ITableSchemaRepository,
   type Field,
   type LinkField,
@@ -24,6 +36,7 @@ import type {
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { ComputedUpdatePlanner } from '../../record/computed/ComputedUpdatePlanner';
 import type { FieldDependencyGraph } from '../../record/computed/FieldDependencyGraph';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
 import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
@@ -81,10 +94,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
     @inject(v2PostgresDdlTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: ITableRepository,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
     private readonly computedFieldBackfillService: ComputedFieldBackfillService,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldCascadeService)
     private readonly cascadeService: ComputedFieldCascadeService,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
+    private readonly computedUpdatePlanner: ComputedUpdatePlanner,
     @inject(v2RecordRepositoryPostgresTokens.computedDependencyGraph)
     private readonly fieldDependencyGraph: FieldDependencyGraph
   ) {}
@@ -384,6 +401,98 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   }
 
   @TraceSpan()
+  async collectPostPersistPresenceEventsAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+    const repository = this;
+    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
+      yield* mutateSpec.accept(valueChangeVisitor);
+
+      const changedFieldIds = dedupeFieldIds([
+        ...valueChangeVisitor.selfBackfillFields(),
+        ...valueChangeVisitor.valueChangedFields(),
+        ...valueChangeVisitor.deferredBackfillFields(),
+      ]);
+      if (changedFieldIds.length === 0) {
+        return ok([]);
+      }
+
+      const actionTriggerTargets = new Map<
+        string,
+        { tableId: TableId; baseId?: BaseId; fieldIds: Set<string> }
+      >();
+
+      const addActionTriggerTarget = (
+        tableId: TableId,
+        fieldIds: ReadonlyArray<FieldId>,
+        baseId?: BaseId
+      ) => {
+        const key = tableId.toString();
+        const target = actionTriggerTargets.get(key) ?? {
+          tableId,
+          baseId,
+          fieldIds: new Set<string>(),
+        };
+        if (baseId) {
+          target.baseId = baseId;
+        }
+        for (const fieldId of fieldIds) {
+          target.fieldIds.add(fieldId.toString());
+        }
+        actionTriggerTargets.set(key, target);
+      };
+
+      addActionTriggerTarget(table.id(), changedFieldIds, table.baseId());
+
+      const planResult = yield* await repository.computedUpdatePlanner.plan(
+        {
+          table,
+          changedFieldIds,
+          changedRecordIds: [],
+          changeType: 'update',
+          cyclePolicy: 'skip',
+        },
+        context
+      );
+
+      for (const step of planResult.steps) {
+        addActionTriggerTarget(step.tableId, step.fieldIds);
+      }
+
+      const events: IDomainEvent[] = [];
+      for (const target of actionTriggerTargets.values()) {
+        let targetBaseId = target.baseId;
+        if (!targetBaseId) {
+          const targetTableResult = await repository.tableRepository.findOne(
+            context,
+            TableByIdSpec.create(target.tableId)
+          );
+          if (targetTableResult.isOk()) {
+            targetBaseId = targetTableResult.value.baseId();
+          }
+        }
+
+        events.push(
+          TableActionTriggerRequested.create({
+            tableId: target.tableId,
+            baseId: targetBaseId ?? table.baseId(),
+            actionKey: 'setRecord',
+            payload: {
+              tableId: target.tableId.toString(),
+              fieldIds: [...target.fieldIds],
+            },
+          })
+        );
+      }
+
+      return ok(events);
+    });
+  }
+
+  @TraceSpan()
   async replayDeferredBackfillAfterUpdate(
     context: IExecutionContext,
     table: Table,
@@ -495,6 +604,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     return ok(options);
   }
 }
+
+const dedupeFieldIds = (fieldIds: ReadonlyArray<FieldId>): FieldId[] => {
+  const seen = new Map<string, FieldId>();
+  for (const fieldId of fieldIds) {
+    seen.set(fieldId.toString(), fieldId);
+  }
+  return [...seen.values()];
+};
 
 type PostgresTransactionContext<DB> = {
   kind: 'unitOfWorkTransaction';

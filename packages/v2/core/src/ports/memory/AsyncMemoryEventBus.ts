@@ -35,11 +35,12 @@ const resolveErrorMessage = (error: unknown): string => {
 };
 
 const defaultScheduler: AsyncEventBusScheduler = (task) => {
-  const scheduler = (globalThis as { queueMicrotask?: (task: () => void) => void }).queueMicrotask;
-  if (typeof scheduler === 'function') {
-    scheduler(() => void task());
+  const immediate = (globalThis as { setImmediate?: (task: () => void) => void }).setImmediate;
+  if (typeof immediate === 'function') {
+    immediate(() => void task());
     return;
   }
+
   const timeout = (
     globalThis as {
       setTimeout?: (handler: () => void, timeout: number) => void;
@@ -49,6 +50,13 @@ const defaultScheduler: AsyncEventBusScheduler = (task) => {
     timeout(() => void task(), 0);
     return;
   }
+
+  const scheduler = (globalThis as { queueMicrotask?: (task: () => void) => void }).queueMicrotask;
+  if (typeof scheduler === 'function') {
+    scheduler(() => void task());
+    return;
+  }
+
   void task();
 };
 

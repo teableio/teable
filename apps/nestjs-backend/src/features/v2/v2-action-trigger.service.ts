@@ -11,6 +11,7 @@ import {
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordsDeleted,
+  TableActionTriggerRequested,
   ProjectionHandler,
   ok,
   serializeFieldUpdatedValue,
@@ -23,6 +24,12 @@ export interface IActionTriggerData {
   actionKey: ITableActionKey;
   payload?: Record<string, unknown>;
 }
+
+type PendingActionTriggerBatch = {
+  shareDbService: ShareDbService;
+  tableId: string;
+  data: IActionTriggerData[];
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value instanceof Object && !Array.isArray(value);
@@ -72,18 +79,52 @@ const buildUpdatedFieldPatch = (event: FieldUpdated): Record<string, unknown> =>
 
 /**
  * Helper to emit action triggers via ShareDB presence.
+ * Batches actions per table to avoid later submits overwriting earlier ones
+ * within the same schema update turn.
  */
+const pendingActionTriggerBatches = new Map<string, PendingActionTriggerBatch>();
+let flushScheduled = false;
+
+const deferFlush = (flush: () => void) => {
+  if (typeof setImmediate === 'function') {
+    setImmediate(flush);
+    return;
+  }
+  setTimeout(flush, 0);
+};
+
+const flushPendingActionTriggers = () => {
+  flushScheduled = false;
+  const batches = [...pendingActionTriggerBatches.values()];
+  pendingActionTriggerBatches.clear();
+
+  for (const batch of batches) {
+    const channel = getActionTriggerChannel(batch.tableId);
+    const presence = batch.shareDbService.connect().getPresence(channel);
+    const localPresence = presence.create(batch.tableId);
+    localPresence.submit(batch.data, (error) => {
+      if (error) console.error('Action trigger error:', error);
+    });
+  }
+};
+
 const emitActionTrigger = (
   shareDbService: ShareDbService,
   tableId: string,
   data: IActionTriggerData[]
 ) => {
-  const channel = getActionTriggerChannel(tableId);
-  const presence = shareDbService.connect().getPresence(channel);
-  const localPresence = presence.create(tableId);
-  localPresence.submit(data, (error) => {
-    if (error) console.error('Action trigger error:', error);
-  });
+  const pending = pendingActionTriggerBatches.get(tableId) ?? {
+    shareDbService,
+    tableId,
+    data: [],
+  };
+  pending.data.push(...data);
+  pendingActionTriggerBatches.set(tableId, pending);
+
+  if (!flushScheduled) {
+    flushScheduled = true;
+    deferFlush(flushPendingActionTriggers);
+  }
 };
 
 /**
@@ -265,6 +306,26 @@ class V2FieldUpdatedActionTriggerProjection implements IEventHandler<FieldUpdate
   }
 }
 
+@ProjectionHandler(TableActionTriggerRequested)
+class V2TableActionTriggerRequestedProjection
+  implements IEventHandler<TableActionTriggerRequested>
+{
+  constructor(private readonly shareDbService: ShareDbService) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: TableActionTriggerRequested
+  ): Promise<Result<void, DomainError>> {
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      {
+        actionKey: event.actionKey,
+        ...(event.payload ? { payload: event.payload } : {}),
+      },
+    ]);
+    return ok(undefined);
+  }
+}
+
 /**
  * Service that registers V2 action trigger projections with the V2 container.
  * These projections emit ShareDB presence events for V1 frontend compatibility.
@@ -328,6 +389,11 @@ export class V2ActionTriggerService {
     container.registerInstance(
       V2FieldUpdatedActionTriggerProjection,
       new V2FieldUpdatedActionTriggerProjection(shareDbService)
+    );
+
+    container.registerInstance(
+      V2TableActionTriggerRequestedProjection,
+      new V2TableActionTriggerRequestedProjection(shareDbService)
     );
   }
 }

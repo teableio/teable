@@ -12,6 +12,7 @@ import {
   Table,
   TableId,
   TableName,
+  type TableByIdSpec,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
@@ -172,6 +173,47 @@ class FakeFieldDependencyGraph {
   }
 }
 
+class FakeTableRepository {
+  constructor(private readonly tables: Table[] = []) {}
+
+  async findOne(
+    _context: IExecutionContext,
+    spec: { isSatisfiedBy(table: Table): boolean } | TableByIdSpec
+  ) {
+    const table = this.tables.find((candidate) => spec.isSatisfiedBy(candidate));
+    if (!table) {
+      throw new Error('Table not found');
+    }
+    return ok(table);
+  }
+
+  async find() {
+    return ok(this.tables);
+  }
+
+  async insert() {
+    return ok(undefined);
+  }
+
+  async insertMany() {
+    return ok([]);
+  }
+
+  async updateOne() {
+    return ok(undefined);
+  }
+
+  async delete() {
+    return ok(undefined);
+  }
+}
+
+class FakeComputedUpdatePlanner {
+  async plan() {
+    return ok({ steps: [], edges: [], sameTableBatches: [] });
+  }
+}
+
 describe('PostgresTableSchemaRepository', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -210,10 +252,13 @@ describe('PostgresTableSchemaRepository', () => {
     const table = builder.build()._unsafeUnwrap();
 
     const backfillService = new FakeComputedFieldBackfillService();
+    const tableRepository = new FakeTableRepository([table]);
     const repository = new PostgresTableSchemaRepository(
       db,
+      tableRepository as never,
       backfillService,
       new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
       new FakeFieldDependencyGraph() as never
     );
 
@@ -276,10 +321,13 @@ describe('PostgresTableSchemaRepository', () => {
     }
 
     const backfillService = new FakeComputedFieldBackfillService();
+    const tableRepository = new FakeTableRepository([hostTable, foreignTable]);
     const repository = new PostgresTableSchemaRepository(
       db,
+      tableRepository as never,
       backfillService,
       new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
       new FakeFieldDependencyGraph() as never
     );
 
