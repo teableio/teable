@@ -591,7 +591,10 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_link" = "c"."__set_col_link" from (select "c_src"."__id" as "__id", to_jsonb("c_src"."col_link") as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_link" = "c"."__set_col_link" from (select "c_src"."__id" as "__id", (CASE
+          WHEN "c_src"."col_link" IS NULL THEN NULL::jsonb
+          ELSE to_jsonb("c_src"."col_link")
+        END) as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
         },
       ]
     `);
@@ -729,7 +732,10 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "__version" = "u"."__version" + 1, "col_lookup_b" = "c"."__set_col_lookup_b", "col_rollup_b" = "c"."__set_col_rollup_b" from (select "c_src"."__id" as "__id", to_jsonb("c_src"."col_lookup_b") as "__set_col_lookup_b", CASE
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "__version" = "u"."__version" + 1, "col_lookup_b" = "c"."__set_col_lookup_b", "col_rollup_b" = "c"."__set_col_rollup_b" from (select "c_src"."__id" as "__id", (CASE
+          WHEN "c_src"."col_lookup_b" IS NULL THEN NULL::jsonb
+          ELSE ("c_src"."col_lookup_b")::jsonb
+        END) as "__set_col_lookup_b", CASE
           WHEN ("c_src"."col_rollup_b") IS NULL THEN NULL
           WHEN BTRIM(("c_src"."col_rollup_b")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_rollup_b")::text)::double precision
@@ -746,7 +752,10 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "__version" = "u"."__version" + 1, "col_lookup_c" = "c"."__set_col_lookup_c" from (select "c_src"."__id" as "__id", to_jsonb("c_src"."col_lookup_c") as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "__version" = "u"."__version" + 1, "col_lookup_c" = "c"."__set_col_lookup_c" from (select "c_src"."__id" as "__id", (CASE
+          WHEN "c_src"."col_lookup_c" IS NULL THEN NULL::jsonb
+          ELSE ("c_src"."col_lookup_c")::jsonb
+        END) as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
         },
       ]
     `);
@@ -832,7 +841,9 @@ describe('ComputedFieldUpdater', () => {
     for (const query of updateQueries) {
       expect(query.sql).toMatch(/with "level_0" as/i);
       expect(query.sql).toMatch(/join "level_1" on u\."__id" = "level_1"\."__id"/i);
-      expect(query.sql).toContain('AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"');
+      expect(query.sql).toContain(
+        'AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"'
+      );
       expect(query.sql).not.toContain('from "level_0", "level_1"');
     }
   });

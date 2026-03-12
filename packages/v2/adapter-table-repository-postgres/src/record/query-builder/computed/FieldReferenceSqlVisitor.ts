@@ -28,6 +28,7 @@ import type {
   UserField,
 } from '@teable/v2-core';
 import {
+  buildErrorLiteral,
   makeExpr,
   type SqlExpr,
   type SqlStorageKind,
@@ -88,6 +89,73 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
 
   private missingForeignTableExpr(field: Field): Result<SqlExpr, DomainError> {
     return ok(makeExpr('NULL', 'unknown', false, undefined, undefined, field));
+  }
+
+  private erroredFieldExpr(
+    field: Field,
+    options?: {
+      valueType?: SqlValueType;
+      isArray?: boolean;
+      storageKind?: SqlStorageKind;
+    }
+  ): Result<SqlExpr, DomainError> {
+    const storageKind = options?.storageKind;
+    const valueSql = this.nullSqlForExpr(options?.valueType ?? 'unknown', storageKind);
+    return ok(
+      makeExpr(
+        valueSql,
+        options?.valueType ?? 'unknown',
+        options?.isArray ?? false,
+        'TRUE',
+        buildErrorLiteral('REF', 'errored_field'),
+        field,
+        storageKind
+      )
+    );
+  }
+
+  private nullSqlForExpr(valueType: SqlValueType, storageKind?: SqlStorageKind): string {
+    if (storageKind === 'json' || storageKind === 'array') {
+      return 'NULL::jsonb';
+    }
+
+    switch (valueType) {
+      case 'string':
+        return 'NULL::text';
+      case 'number':
+        return 'NULL::double precision';
+      case 'boolean':
+        return 'NULL::boolean';
+      case 'datetime':
+        return 'NULL::timestamptz';
+      default:
+        return 'NULL';
+    }
+  }
+
+  private getLookupExprOptions(field: LookupField | ConditionalLookupField): Result<
+    {
+      valueType: SqlValueType;
+      isArray: boolean;
+      storageKind?: SqlStorageKind;
+    },
+    DomainError
+  > {
+    const multiplicityResult = field
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.isMultiple());
+    if (multiplicityResult.isErr()) return err(multiplicityResult.error);
+    const isArray = multiplicityResult.value;
+    const innerFieldResult = field.innerField();
+    const valueType = innerFieldResult.isOk()
+      ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
+      : 'unknown';
+    const storageKind = this.resolveLookupStorageKind(
+      innerFieldResult.isOk() ? innerFieldResult.value.type() : undefined,
+      isArray
+    );
+
+    return ok({ valueType, isArray, storageKind });
   }
 
   private getColAlias(field: Field): Result<string, DomainError> {
@@ -314,6 +382,9 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
         return this.missingForeignTableExpr(field);
       }
       const isMultiValue = field.relationship().isMultipleValue();
+      if (field.hasError().isError()) {
+        return this.erroredFieldExpr(field, { isArray: isMultiValue, storageKind: 'json' });
+      }
       const orderByResult = this.getLinkOrderBy(field);
       if (orderByResult.isErr()) return err(orderByResult.error);
       const lateralAlias = this.lateral.addColumn(
@@ -351,17 +422,18 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       if (this.isMissingForeignTableId(field.foreignTableId().toString())) {
         return this.missingForeignTableExpr(field);
       }
+      const exprOptionsResult = this.getLookupExprOptions(field);
+      if (exprOptionsResult.isErr()) return err(exprOptionsResult.error);
+      const exprOptions = exprOptionsResult.value;
+      if (field.hasError().isError()) {
+        return this.erroredFieldExpr(field, exprOptions);
+      }
       const condition = field.lookupOptions().condition();
       const linkFieldResult = field.linkField(this.table);
       if (linkFieldResult.isErr()) return err(linkFieldResult.error);
       const linkField = linkFieldResult.value;
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
-      const multiplicityResult = field
-        .isMultipleCellValue()
-        .map((multiplicity) => multiplicity.isMultiple());
-      if (multiplicityResult.isErr()) return err(multiplicityResult.error);
-      const isMultiValue = multiplicityResult.value;
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -371,27 +443,18 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
           foreignFieldId: field.lookupFieldId(),
           condition,
           orderBy: orderByResult.value,
-          isMultiValue,
+          isMultiValue: exprOptions.isArray,
         }
-      );
-      // lookup returns a JSON array when multi-value, otherwise scalar/JSON value
-      const innerFieldResult = field.innerField();
-      const valueType = innerFieldResult.isOk()
-        ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
-        : 'unknown';
-      const storageKind = this.resolveLookupStorageKind(
-        innerFieldResult.isOk() ? innerFieldResult.value.type() : undefined,
-        isMultiValue
       );
       return ok(
         makeExpr(
           this.qualify(lateralAlias, colAlias),
-          valueType,
-          isMultiValue,
+          exprOptions.valueType,
+          exprOptions.isArray,
           undefined,
           undefined,
           field,
-          storageKind
+          exprOptions.storageKind
         )
       );
     });
@@ -404,6 +467,9 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
     return this.getColAlias(field).andThen((colAlias) => {
       if (this.isMissingForeignTableId(field.foreignTableId().toString())) {
         return this.missingForeignTableExpr(field);
+      }
+      if (field.hasError().isError()) {
+        return this.erroredFieldExpr(field);
       }
       const expression = field.expression().toString();
       const linkFieldResult = field
@@ -434,11 +500,12 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       if (this.isMissingForeignTableId(options.foreignTableId().toString())) {
         return this.missingForeignTableExpr(field);
       }
-      const multiplicityResult = field
-        .isMultipleCellValue()
-        .map((multiplicity) => multiplicity.isMultiple());
-      if (multiplicityResult.isErr()) return err(multiplicityResult.error);
-      const isMultiValue = multiplicityResult.value;
+      const exprOptionsResult = this.getLookupExprOptions(field);
+      if (exprOptionsResult.isErr()) return err(exprOptionsResult.error);
+      const exprOptions = exprOptionsResult.value;
+      if (field.hasError().isError()) {
+        return this.erroredFieldExpr(field, exprOptions);
+      }
       const lateralAlias = this.lateral.addConditionalColumn(
         field.id(),
         options.foreignTableId().toString(),
@@ -447,27 +514,18 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
           type: 'conditionalLookup',
           foreignFieldId: options.lookupFieldId(),
           condition: options.condition(),
-          isMultiValue,
+          isMultiValue: exprOptions.isArray,
         }
-      );
-      // conditionalLookup returns a JSON array when multi-value, otherwise scalar/JSON value
-      const innerFieldResult = field.innerField();
-      const valueType = innerFieldResult.isOk()
-        ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
-        : 'unknown';
-      const storageKind = this.resolveLookupStorageKind(
-        innerFieldResult.isOk() ? innerFieldResult.value.type() : undefined,
-        isMultiValue
       );
       return ok(
         makeExpr(
           this.qualify(lateralAlias, colAlias),
-          valueType,
-          isMultiValue,
+          exprOptions.valueType,
+          exprOptions.isArray,
           undefined,
           undefined,
           field,
-          storageKind
+          exprOptions.storageKind
         )
       );
     });
@@ -481,6 +539,9 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       const config = field.config();
       if (this.isMissingForeignTableId(config.foreignTableId().toString())) {
         return this.missingForeignTableExpr(field);
+      }
+      if (field.hasError().isError()) {
+        return this.erroredFieldExpr(field);
       }
       const expression = field.expression().toString();
       const lateralAlias = this.lateral.addConditionalColumn(

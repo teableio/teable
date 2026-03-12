@@ -23,11 +23,13 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  sql,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
 import type { DynamicDB } from '../../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../../query-builder/computed';
+import { UpdateFromSelectBuilder } from '../UpdateFromSelectBuilder';
 
 const typeValidationStrategy = new Pg16TypeValidationStrategy();
 
@@ -132,6 +134,38 @@ const createTableWithLookup = (params: {
   }
 
   return { table: tableWithLookup, lookupFieldId, linkFieldId };
+};
+
+const createTableWithJsonField = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(HOST_TABLE_ID)._unsafeUnwrap();
+  const jsonFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('JsonHostTable')._unsafeUnwrap());
+
+  builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .multipleSelect()
+    .withId(jsonFieldId)
+    .withName(FieldName.create('Tags')._unsafeUnwrap())
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build()._unsafeUnwrap();
+  table
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('col_title')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const jsonField = table.getField((field) => field.id().equals(jsonFieldId))._unsafeUnwrap();
+  jsonField.setDbFieldName(DbFieldName.rehydrate('col_tags')._unsafeUnwrap())._unsafeUnwrap();
+  jsonField.setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())._unsafeUnwrap();
+
+  return { table, jsonFieldId };
 };
 
 describe('UpdateFromSelectBuilder - Lookup Fields', () => {
@@ -438,6 +472,85 @@ describe('UpdateFromSelectBuilder - Lookup Fields', () => {
 
       const selectResult = selectBuilder.build();
       expect(selectResult.isOk() || selectResult.isErr()).toBe(true);
+    });
+  });
+
+  describe('Unknown/null source safety', () => {
+    it('casts scalar lookup sources to jsonb before extracting the first element', () => {
+      const db = createTestDb();
+      const { table, lookupFieldId } = createTableWithLookup({
+        isMultipleCellValue: false,
+        relationship: 'manyOne',
+      });
+
+      const selectQuery = db.selectNoFrom(() => [
+        sql`'rec_1'`.as('__id'),
+        sql`NULL`.as('col_lookup'),
+      ]) as never;
+
+      const builder = new UpdateFromSelectBuilder(db);
+      const updateResult = builder.build({
+        table,
+        fieldIds: [lookupFieldId],
+        selectQuery,
+      });
+
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      expect(updateResult.value.sql).toContain('NULL::jsonb');
+      expect(updateResult.value.sql).toContain('("c_src"."col_lookup")::jsonb');
+      expect(updateResult.value.sql).not.toContain('"c_src"."col_lookup" ->> 0');
+    });
+
+    it('casts json lookup sources instead of calling to_jsonb on unknown inputs', () => {
+      const db = createTestDb();
+      const { table, lookupFieldId } = createTableWithLookup({
+        isMultipleCellValue: true,
+        relationship: 'oneMany',
+      });
+
+      const selectQuery = db.selectNoFrom(() => [
+        sql`'rec_1'`.as('__id'),
+        sql`NULL`.as('col_lookup'),
+      ]) as never;
+
+      const builder = new UpdateFromSelectBuilder(db);
+      const updateResult = builder.build({
+        table,
+        fieldIds: [lookupFieldId],
+        selectQuery,
+      });
+
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      expect(updateResult.value.sql).toContain('NULL::jsonb');
+      expect(updateResult.value.sql).toContain('("c_src"."col_lookup")::jsonb');
+      expect(updateResult.value.sql).not.toContain('to_jsonb("c_src"."col_lookup")');
+    });
+
+    it('guards generic json projections before calling to_jsonb on nullable sources', () => {
+      const db = createTestDb();
+      const { table, jsonFieldId } = createTableWithJsonField();
+
+      const selectQuery = db.selectNoFrom(() => [
+        sql`'rec_1'`.as('__id'),
+        sql`NULL`.as('col_tags'),
+      ]) as never;
+
+      const builder = new UpdateFromSelectBuilder(db);
+      const updateResult = builder.build({
+        table,
+        fieldIds: [jsonFieldId],
+        selectQuery,
+      });
+
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      expect(updateResult.value.sql).toContain('WHEN "c_src"."col_tags" IS NULL THEN NULL::jsonb');
+      expect(updateResult.value.sql).toContain('ELSE to_jsonb("c_src"."col_tags")');
     });
   });
 });

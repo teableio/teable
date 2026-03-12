@@ -412,6 +412,20 @@ const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: s
   }
 };
 
+const buildNullableLookupSourceJson = (sourceRef: unknown) => {
+  return sql`(CASE
+    WHEN ${sourceRef} IS NULL THEN NULL::jsonb
+    ELSE (${sourceRef})::jsonb
+  END)`;
+};
+
+const buildNullableJsonProjectionSource = (sourceRef: unknown) => {
+  return sql`(CASE
+    WHEN ${sourceRef} IS NULL THEN NULL::jsonb
+    ELSE to_jsonb(${sourceRef})
+  END)`;
+};
+
 const buildLookupAssignmentFromRef = (
   sourceRef: unknown,
   lookupDbFieldType: string,
@@ -419,14 +433,18 @@ const buildLookupAssignmentFromRef = (
   isLookupAutoNumber: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
+  const refJson = buildNullableLookupSourceJson(sourceRef);
+
   if (normalizedType === 'jsonb') {
-    const refJson = sql`to_jsonb(${sourceRef})`;
     if (isLookupMultiValue && !isLookupAutoNumber) {
       return refJson;
     }
     return sql`(CASE WHEN jsonb_typeof(${refJson}) = 'array' THEN ${refJson} -> 0 ELSE ${refJson} END)`;
   }
-  const scalarText = sql`(${sourceRef} ->> 0)`;
+  const scalarText = sql`(CASE
+    WHEN ${refJson} IS NULL THEN NULL
+    ELSE ${refJson} ->> 0
+  END)`;
   return buildLookupScalarCast(scalarText, normalizedType);
 };
 
@@ -535,7 +553,7 @@ const buildFieldMappings = (
 
 type UpdateAssignmentStrategy = 'lookup' | 'json' | 'numeric' | 'scalar';
 
-const normalizeIdentifierPart = (value: string): string => value.replace(/[^a-zA-Z0-9_]/g, '_');
+const normalizeIdentifierPart = (value: string): string => value.replace(/\W/g, '_');
 
 class UpdateAssignmentPlan {
   readonly column: string;
@@ -595,7 +613,7 @@ class UpdateAssignmentPlan {
           this.mapping.isLookupAutoNumber
         );
       case 'json':
-        return sql`to_jsonb(${sourceRef})`;
+        return buildNullableJsonProjectionSource(sourceRef);
       case 'numeric':
         return buildNumericCastExpression(sql`${sourceRef}`, this.normalizedDbType);
       case 'scalar':

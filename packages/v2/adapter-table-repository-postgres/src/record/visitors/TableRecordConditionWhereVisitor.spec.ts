@@ -4,7 +4,9 @@ import {
   CheckboxConditionSpec,
   DateTimeFormatting,
   DbFieldName,
+  FieldId,
   FieldName,
+  LinkFieldConfig,
   RecordConditionFieldReferenceValue,
   LongTextConditionSpec,
   NumberConditionSpec,
@@ -190,6 +192,48 @@ const createUserReferenceFields = () => {
   return { ownerField, assigneesField };
 };
 
+const createLinkTitleReferenceFields = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const lookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'manyOne',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    fkHostTableName: 'link_relations',
+    selfKeyName: '__self_id',
+    foreignKeyName: '__foreign_id',
+  })._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('LinkTitleFilterTable')._unsafeUnwrap());
+
+  builder
+    .field()
+    .link()
+    .withName(FieldName.create('Tags')._unsafeUnwrap())
+    .withConfig(linkConfig)
+    .done();
+  builder.field().singleLineText().withName(FieldName.create('TagName')._unsafeUnwrap()).done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build()._unsafeUnwrap();
+  const linkField = table.getField((field) => field.name().toString() === 'Tags')._unsafeUnwrap();
+  const tagNameField = table
+    .getField((field) => field.name().toString() === 'TagName')
+    ._unsafeUnwrap();
+
+  linkField.setDbFieldName(DbFieldName.rehydrate('col_tags')._unsafeUnwrap())._unsafeUnwrap();
+  tagNameField
+    .setDbFieldName(DbFieldName.rehydrate('col_tag_name')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { linkField, tagNameField };
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -336,6 +380,66 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
   });
 
   describe('date field reference comparisons', () => {
+    test('incompatible cross-table field reference comparison short-circuits to false', () => {
+      const value = RecordConditionFieldReferenceValue.create(nameField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toMatchInlineSnapshot(`"1 = 0"`);
+      expect(parameters).toEqual([]);
+    });
+
+    test('incompatible cross-table field reference isNot comparison short-circuits to true', () => {
+      const value = RecordConditionFieldReferenceValue.create(nameField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isNot', value);
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toMatchInlineSnapshot(`"1 = 1"`);
+      expect(parameters).toEqual([]);
+    });
+
+    test('link title comparison to host text stays on the title-matching path', () => {
+      const { linkField, tagNameField } = createLinkTitleReferenceFields();
+      const value = RecordConditionFieldReferenceValue.create(tagNameField)._unsafeUnwrap();
+      const spec = linkField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toContain(`__link->>'title' = ("t"."col_tag_name")::text`);
+      expect(parameters).toEqual([]);
+    });
+
     test('date isBefore with field reference uses host table alias', () => {
       const value = RecordConditionFieldReferenceValue.create(cutoffDateField)._unsafeUnwrap();
       const spec = dueDateField.spec().create({ operator: 'isBefore', value });

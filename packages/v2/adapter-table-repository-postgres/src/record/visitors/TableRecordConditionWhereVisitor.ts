@@ -300,6 +300,58 @@ const resolvePrimitiveOperand = (
   return err(core.domainError.unexpected({ message: 'Record condition requires primitive value' }));
 };
 
+const expectLiteralOperand = (
+  operand: PrimitiveOperand
+): Result<Extract<PrimitiveOperand, { kind: 'literal' }>, DomainError> => {
+  if (operand.kind === 'literal') {
+    return ok(operand);
+  }
+  return err(
+    core.domainError.unexpected({
+      message: 'Record condition expected literal operand after field reference routing',
+    })
+  );
+};
+
+type FieldReferenceComparisonKind =
+  | 'user'
+  | 'link'
+  | 'attachment'
+  | 'number'
+  | 'boolean'
+  | 'dateTime'
+  | 'string';
+
+type FieldReferenceComparisonRoute =
+  | { kind: 'userOrLinkIds' }
+  | { kind: 'linkTitle' }
+  | { kind: 'date'; compareAsDateOnly: boolean }
+  | { kind: 'json' }
+  | { kind: 'generic' }
+  | { kind: 'incompatible' };
+
+const resolveFieldReferenceComparisonKind = (
+  field: core.Field
+): Result<FieldReferenceComparisonKind, DomainError> => {
+  return safeTry<FieldReferenceComparisonKind, DomainError>(function* () {
+    const effectiveField = resolveLookupInnerField(field) ?? field;
+    const type = effectiveField.type().toString();
+
+    if (type === 'user' || type === 'createdBy' || type === 'lastModifiedBy') {
+      return ok('user');
+    }
+    if (type === 'link') {
+      return ok('link');
+    }
+    if (type === 'attachment') {
+      return ok('attachment');
+    }
+
+    const valueType = yield* effectiveField.accept(new core.FieldValueTypeVisitor());
+    return ok(valueType.cellValueType.toString() as FieldReferenceComparisonKind);
+  });
+};
+
 const resolveListValues = (
   value: core.RecordConditionValue
 ): Result<ReadonlyArray<Primitive>, DomainError> => {
@@ -375,6 +427,47 @@ const buildDateComparableExpr = (
   compareAsDateOnly: boolean
 ): RecordConditionWhere => {
   return compareAsDateOnly ? buildDateOnlyComparableExpr(field, expr) : expr;
+};
+
+const classifyFieldReferenceComparison = (
+  field: core.Field,
+  referenceField: core.Field,
+  hasHostTableAlias: boolean
+): Result<FieldReferenceComparisonRoute, DomainError> => {
+  return safeTry<FieldReferenceComparisonRoute, DomainError>(function* () {
+    const leftIsUserOrLinkLike =
+      fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
+    const rightIsUserOrLinkLike =
+      fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
+
+    if (leftIsUserOrLinkLike) {
+      if (rightIsUserOrLinkLike) {
+        return ok({ kind: 'userOrLinkIds' });
+      }
+      if (fieldIsLink(field)) {
+        return ok({ kind: 'linkTitle' });
+      }
+      return ok(hasHostTableAlias ? { kind: 'incompatible' } : { kind: 'generic' });
+    }
+
+    const compareAsDateOnly =
+      shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
+    if (compareAsDateOnly) {
+      return ok({ kind: 'date', compareAsDateOnly });
+    }
+
+    if (fieldIsJson(field) || fieldIsJson(referenceField)) {
+      return ok({ kind: 'json' });
+    }
+
+    if (!hasHostTableAlias) {
+      return ok({ kind: 'generic' });
+    }
+
+    const leftKind = yield* resolveFieldReferenceComparisonKind(field);
+    const rightKind = yield* resolveFieldReferenceComparisonKind(referenceField);
+    return ok(leftKind === rightKind ? { kind: 'generic' } : { kind: 'incompatible' });
+  });
 };
 
 const resolveDateRange = (
@@ -621,53 +714,44 @@ const buildIsCondition = (
       return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
     }
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
-    if (
-      operand.kind === 'field' &&
-      core.isRecordConditionFieldReferenceValue(value) &&
-      isUserOrLinkLike
-    ) {
+    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
-      const referenceIsUserLike =
-        fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
-      if (referenceIsUserLike) {
-        const leftIsMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+      const rightColumnRef = sql.ref(operand.column);
+      const referenceRoute = yield* classifyFieldReferenceComparison(
+        field,
+        referenceField,
+        Boolean(hostTableAlias)
+      );
+
+      if (referenceRoute.kind === 'userOrLinkIds') {
         const rightIsMultiple = isArrayLikeOutputField(
           referenceField,
           yield* fieldIsMultiple(referenceField)
         );
-        const rightColumnRef = sql.ref(operand.column);
 
-        if (!leftIsMultiple && !rightIsMultiple) {
+        if (!isMultiple && !rightIsMultiple) {
           return ok(
             sql`jsonb_extract_path_text(to_jsonb(${columnRef}), 'id') = jsonb_extract_path_text(to_jsonb(${rightColumnRef}), 'id')`
           );
         }
 
-        const leftIds = buildUserLinkIdArray(columnRef, leftIsMultiple);
+        const leftIds = buildUserLinkIdArray(columnRef, isMultiple);
         const rightIds = buildUserLinkIdArray(rightColumnRef, rightIsMultiple);
 
-        if (leftIsMultiple) {
+        if (isMultiple) {
           return ok(sql`(${leftIds} @> ${rightIds}) and (${rightIds} @> ${leftIds})`);
         }
 
         return ok(sql`jsonb_exists_any(${leftIds}, ${buildJsonbTextArray(rightIds)})`);
       }
 
-      if (fieldIsLink(field)) {
-        const rightColumnRef = sql.ref(operand.column);
+      if (referenceRoute.kind === 'linkTitle') {
         return ok(buildLinkTitleMatchCondition(columnRef, rightColumnRef));
       }
-    }
 
-    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
-      const referenceField = value.field();
-      const rightColumnRef = sql.ref(operand.column);
-      const compareAsDateOnly =
-        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
-
-      if (compareAsDateOnly) {
+      if (referenceRoute.kind === 'date') {
         return ok(
-          sql`${buildDateComparableExpr(field, columnRef, compareAsDateOnly)} = ${buildDateComparableExpr(referenceField, rightColumnRef, compareAsDateOnly)}`
+          sql`${buildDateComparableExpr(field, columnRef, referenceRoute.compareAsDateOnly)} = ${buildDateComparableExpr(referenceField, rightColumnRef, referenceRoute.compareAsDateOnly)}`
         );
       }
 
@@ -681,17 +765,21 @@ const buildIsCondition = (
         return ok(arrayLikeMatch);
       }
 
-      if (fieldIsJson(field) || fieldIsJson(referenceField)) {
+      if (referenceRoute.kind === 'json') {
         return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
       }
+
+      if (referenceRoute.kind === 'incompatible') {
+        return ok(sql`1 = 0`);
+      }
+
+      return ok(sql`${columnRef} = ${rightColumnRef}`);
     }
 
-    if (operand.kind === 'field') {
-      return ok(sql`${columnRef} = ${sql.ref(operand.column)}`);
-    }
+    const literalOperand = yield* expectLiteralOperand(operand);
 
     if (isUserOrLinkLike) {
-      const rightLiteral = String(operand.value);
+      const rightLiteral = String(literalOperand.value);
       if (!isMultiple) {
         return ok(sql`jsonb_extract_path_text(to_jsonb(${columnRef}), 'id') = ${rightLiteral}`);
       }
@@ -703,8 +791,8 @@ const buildIsCondition = (
     if (fieldIsJson(field) || isMultiple) {
       if (isMultiple) {
         const normalizedArray = normalizeToJsonArray(columnRef);
-        if (typeof operand.value === 'string') {
-          const escaped = `^${escapePostgresRegex(String(operand.value))}$`;
+        if (typeof literalOperand.value === 'string') {
+          const escaped = `^${escapePostgresRegex(String(literalOperand.value))}$`;
           return ok(
             sql`EXISTS (
               SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
@@ -715,7 +803,7 @@ const buildIsCondition = (
         return ok(
           sql`EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
-            WHERE elem = ${primitiveLiteralToText(operand.value)}
+            WHERE elem = ${primitiveLiteralToText(literalOperand.value)}
           )`
         );
       }
@@ -723,12 +811,12 @@ const buildIsCondition = (
         sql`jsonb_path_exists(
           to_jsonb(${columnRef}),
           '$[*] ? (@ like_regex $value flag "i")'::jsonpath,
-          jsonb_build_object('value', to_jsonb(${String(operand.value)}))
+          jsonb_build_object('value', to_jsonb(${String(literalOperand.value)}))
         )`
       );
     }
 
-    return ok(sql`${columnRef} = ${operand.value}`);
+    return ok(sql`${columnRef} = ${literalOperand.value}`);
   });
 };
 
@@ -764,32 +852,31 @@ const buildIsNotCondition = (
       );
     }
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
-    if (
-      operand.kind === 'field' &&
-      core.isRecordConditionFieldReferenceValue(value) &&
-      isUserOrLinkLike
-    ) {
+    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
-      const referenceIsUserLike =
-        fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
-      if (referenceIsUserLike) {
-        const leftIsMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+      const rightColumnRef = sql.ref(operand.column);
+      const referenceRoute = yield* classifyFieldReferenceComparison(
+        field,
+        referenceField,
+        Boolean(hostTableAlias)
+      );
+
+      if (referenceRoute.kind === 'userOrLinkIds') {
         const rightIsMultiple = isArrayLikeOutputField(
           referenceField,
           yield* fieldIsMultiple(referenceField)
         );
-        const rightColumnRef = sql.ref(operand.column);
 
-        if (!leftIsMultiple && !rightIsMultiple) {
+        if (!isMultiple && !rightIsMultiple) {
           return ok(
             sql`jsonb_extract_path_text(to_jsonb(${columnRef}), 'id') IS DISTINCT FROM jsonb_extract_path_text(to_jsonb(${rightColumnRef}), 'id')`
           );
         }
 
-        const leftIds = buildUserLinkIdArray(columnRef, leftIsMultiple);
+        const leftIds = buildUserLinkIdArray(columnRef, isMultiple);
         const rightIds = buildUserLinkIdArray(rightColumnRef, rightIsMultiple);
 
-        if (leftIsMultiple) {
+        if (isMultiple) {
           return ok(sql`not ((${leftIds} @> ${rightIds}) and (${rightIds} @> ${leftIds}))`);
         }
 
@@ -798,17 +885,10 @@ const buildIsNotCondition = (
           WHERE ref_id = jsonb_extract_path_text(to_jsonb(${columnRef}), 'id')
         )`);
       }
-    }
 
-    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
-      const referenceField = value.field();
-      const rightColumnRef = sql.ref(operand.column);
-      const compareAsDateOnly =
-        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
-
-      if (compareAsDateOnly) {
+      if (referenceRoute.kind === 'date') {
         return ok(
-          sql`${buildDateComparableExpr(field, columnRef, compareAsDateOnly)} is distinct from ${buildDateComparableExpr(referenceField, rightColumnRef, compareAsDateOnly)}`
+          sql`${buildDateComparableExpr(field, columnRef, referenceRoute.compareAsDateOnly)} is distinct from ${buildDateComparableExpr(referenceField, rightColumnRef, referenceRoute.compareAsDateOnly)}`
         );
       }
 
@@ -822,17 +902,22 @@ const buildIsNotCondition = (
         return ok(arrayLikeMismatch);
       }
 
-      if (fieldIsJson(field) || fieldIsJson(referenceField)) {
+      if (referenceRoute.kind === 'json') {
         return ok(sql`to_jsonb(${columnRef}) is distinct from to_jsonb(${rightColumnRef})`);
       }
+
+      if (referenceRoute.kind === 'incompatible') {
+        // Incompatible types can never be equal, so "is not" is always true
+        return ok(sql`1 = 1`);
+      }
+
+      return ok(sql`${columnRef} is distinct from ${rightColumnRef}`);
     }
 
-    if (operand.kind === 'field') {
-      return ok(sql`${columnRef} is distinct from ${sql.ref(operand.column)}`);
-    }
+    const literalOperand = yield* expectLiteralOperand(operand);
 
     if (isUserOrLinkLike) {
-      const rightLiteral = String(operand.value);
+      const rightLiteral = String(literalOperand.value);
       if (!isMultiple) {
         return ok(
           sql`jsonb_extract_path_text(COALESCE(to_jsonb(${columnRef}), '{}'::jsonb), 'id') IS DISTINCT FROM ${rightLiteral}`
@@ -846,8 +931,8 @@ const buildIsNotCondition = (
     if (fieldIsJson(field) || isMultiple) {
       if (isMultiple) {
         const normalizedArray = normalizeToJsonArray(columnRef);
-        if (typeof operand.value === 'string') {
-          const escaped = `^${escapePostgresRegex(String(operand.value))}$`;
+        if (typeof literalOperand.value === 'string') {
+          const escaped = `^${escapePostgresRegex(String(literalOperand.value))}$`;
           return ok(
             sql`NOT EXISTS (
               SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
@@ -858,7 +943,7 @@ const buildIsNotCondition = (
         return ok(
           sql`NOT EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
-            WHERE elem = ${primitiveLiteralToText(operand.value)}
+            WHERE elem = ${primitiveLiteralToText(literalOperand.value)}
           )`
         );
       }
@@ -866,12 +951,12 @@ const buildIsNotCondition = (
         sql`NOT jsonb_path_exists(
           COALESCE(to_jsonb(${columnRef}), '[]'::jsonb),
           '$[*] ? (@ like_regex $value flag "i")'::jsonpath,
-          jsonb_build_object('value', to_jsonb(${String(operand.value)}))
+          jsonb_build_object('value', to_jsonb(${String(literalOperand.value)}))
         )`
       );
     }
 
-    return ok(sql`${columnRef} is distinct from ${operand.value}`);
+    return ok(sql`${columnRef} is distinct from ${literalOperand.value}`);
   });
 };
 

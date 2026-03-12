@@ -1,9 +1,12 @@
 import {
   BaseId,
+  ConditionalLookupOptions,
   DbFieldName,
   FieldId,
+  FieldHasError,
   FieldName,
   LinkFieldConfig,
+  LookupOptions,
   Table,
   TableId,
   TableName,
@@ -23,6 +26,18 @@ const LINK_FIELD_ID = `fld${'k'.repeat(16)}`;
 const LINK_MULTI_FIELD_ID = `fld${'l'.repeat(16)}`;
 const SYMMETRIC_FIELD_ID = `fld${'s'.repeat(16)}`;
 const SYMMETRIC_MULTI_FIELD_ID = `fld${'y'.repeat(16)}`;
+const LOOKUP_TEST_TABLE_ID = `tbl${'u'.repeat(16)}`;
+const LOOKUP_TEST_FOREIGN_TABLE_ID = `tbl${'v'.repeat(16)}`;
+const LOOKUP_TEST_TARGET_FIELD_ID = `fld${'w'.repeat(16)}`;
+const LOOKUP_TEST_LINK_FIELD_ID = `fld${'x'.repeat(16)}`;
+const LOOKUP_TEST_FIELD_ID = `fld${'z'.repeat(16)}`;
+const LOOKUP_TEST_SYMMETRIC_FIELD_ID = `fld${'n'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_TABLE_ID = `tbl${'p'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_FOREIGN_TABLE_ID = `tbl${'q'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_FIELD_ID = `fld${'r'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_TARGET_FIELD_ID = `fld${'o'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_FOREIGN_FILTER_FIELD_ID = `fld${'h'.repeat(16)}`;
+const CONDITIONAL_LOOKUP_TEST_HOST_FILTER_FIELD_ID = `fld${'i'.repeat(16)}`;
 
 // Mock lateral context that tracks calls
 class MockLateralContext implements ILateralContext {
@@ -217,6 +232,193 @@ const createTestTable = () => {
   return { table, foreignTable };
 };
 
+const createLookupErrorTable = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(LOOKUP_TEST_TABLE_ID)._unsafeUnwrap();
+  const foreignTableId = TableId.create(LOOKUP_TEST_FOREIGN_TABLE_ID)._unsafeUnwrap();
+  const lookupTargetFieldId = FieldId.create(LOOKUP_TEST_TARGET_FIELD_ID)._unsafeUnwrap();
+  const linkFieldId = FieldId.create(LOOKUP_TEST_LINK_FIELD_ID)._unsafeUnwrap();
+  const lookupFieldId = FieldId.create(LOOKUP_TEST_FIELD_ID)._unsafeUnwrap();
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('LookupForeignTable')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(lookupTargetFieldId)
+    .withName(FieldName.create('LookupTarget')._unsafeUnwrap())
+    .primary()
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+  const lookupTargetField = foreignTable
+    .getField((field) => field.id().equals(lookupTargetFieldId))
+    ._unsafeUnwrap();
+  lookupTargetField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_target')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'manyOne',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupTargetFieldId.toString(),
+    symmetricFieldId: LOOKUP_TEST_SYMMETRIC_FIELD_ID,
+  })._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('LookupHostTable')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withName(FieldName.create('Name')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(FieldName.create('LookupLink')._unsafeUnwrap())
+    .withConfig(linkConfig)
+    .done();
+  builder
+    .field()
+    .lookup()
+    .withId(lookupFieldId)
+    .withName(FieldName.create('ErroredLookup')._unsafeUnwrap())
+    .withInnerField(lookupTargetField)
+    .withLookupOptions(
+      LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetFieldId.toString(),
+      })._unsafeUnwrap()
+    )
+    .withIsMultipleCellValue(false)
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+  const fields = table.getFields();
+  fields[0].setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())._unsafeUnwrap();
+  fields[1]
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_link')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  fields[2]
+    .setDbFieldName(DbFieldName.rehydrate('col_errored_lookup')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const lookupField = table.getField((field) => field.id().equals(lookupFieldId))._unsafeUnwrap();
+  lookupField.setHasError(FieldHasError.error());
+
+  return { table, lookupField };
+};
+
+const createConditionalLookupErrorTable = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(CONDITIONAL_LOOKUP_TEST_TABLE_ID)._unsafeUnwrap();
+  const foreignTableId = TableId.create(CONDITIONAL_LOOKUP_TEST_FOREIGN_TABLE_ID)._unsafeUnwrap();
+  const conditionalLookupFieldId = FieldId.create(CONDITIONAL_LOOKUP_TEST_FIELD_ID)._unsafeUnwrap();
+  const targetFieldId = FieldId.create(CONDITIONAL_LOOKUP_TEST_TARGET_FIELD_ID)._unsafeUnwrap();
+  const foreignFilterFieldId = FieldId.create(
+    CONDITIONAL_LOOKUP_TEST_FOREIGN_FILTER_FIELD_ID
+  )._unsafeUnwrap();
+  const hostFilterFieldId = FieldId.create(
+    CONDITIONAL_LOOKUP_TEST_HOST_FILTER_FIELD_ID
+  )._unsafeUnwrap();
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalLookupForeignTable')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(targetFieldId)
+    .withName(FieldName.create('Task')._unsafeUnwrap())
+    .primary()
+    .done();
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(foreignFilterFieldId)
+    .withName(FieldName.create('Category')._unsafeUnwrap())
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+  const targetField = foreignTable
+    .getField((field) => field.id().equals(targetFieldId))
+    ._unsafeUnwrap();
+  foreignTable
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('col_task')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  foreignTable
+    .getFields()[1]
+    .setDbFieldName(DbFieldName.rehydrate('col_category')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const conditionalLookupOptions = ConditionalLookupOptions.create({
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: targetFieldId.toString(),
+    condition: {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: foreignFilterFieldId.toString(),
+            operator: 'is',
+            value: hostFilterFieldId.toString(),
+            isSymbol: true,
+          },
+        ],
+      },
+    },
+  })._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalLookupHostTable')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withId(hostFilterFieldId)
+    .withName(FieldName.create('CategoryRef')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .conditionalLookup()
+    .withId(conditionalLookupFieldId)
+    .withName(FieldName.create('ErroredConditionalLookup')._unsafeUnwrap())
+    .withConditionalLookupOptions(conditionalLookupOptions)
+    .withInnerField(targetField)
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+  const fields = table.getFields();
+  fields[0]
+    .setDbFieldName(DbFieldName.rehydrate('col_category_ref')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  fields[1]
+    .setDbFieldName(DbFieldName.rehydrate('col_errored_conditional_lookup')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const conditionalLookupField = table
+    .getField((field) => field.id().equals(conditionalLookupFieldId))
+    ._unsafeUnwrap();
+  conditionalLookupField.setHasError(FieldHasError.error());
+
+  return { table, conditionalLookupField };
+};
+
 describe('FieldReferenceSqlVisitor', () => {
   const { table, foreignTable } = createTestTable();
   const mockLateral = new MockLateralContext();
@@ -393,6 +595,50 @@ describe('FieldReferenceSqlVisitor', () => {
         storageKind: expr.storageKind,
         lateralCalls: mockLateral.calls,
       }).toMatchSnapshot();
+    });
+  });
+
+  describe('errored lookup-based fields', () => {
+    it('should short-circuit errored lookup fields without registering laterals', () => {
+      const { table, lookupField } = createLookupErrorTable();
+      mockLateral.clear();
+      const visitor = new FieldReferenceSqlVisitor({
+        table,
+        tableAlias: 't',
+        lateral: mockLateral,
+      });
+
+      const result = lookupField.accept(visitor);
+
+      expect(result.isOk()).toBe(true);
+      const expr = result._unsafeUnwrap();
+
+      expect(expr.valueSql).toBe('NULL::text');
+      expect(expr.valueType).toBe('string');
+      expect(expr.errorConditionSql).toBe('TRUE');
+      expect(expr.errorMessageSql).toContain('#ERROR:REF:errored_field');
+      expect(mockLateral.calls).toEqual([]);
+    });
+
+    it('should short-circuit errored conditional lookup fields without registering laterals', () => {
+      const { table, conditionalLookupField } = createConditionalLookupErrorTable();
+      mockLateral.clear();
+      const visitor = new FieldReferenceSqlVisitor({
+        table,
+        tableAlias: 't',
+        lateral: mockLateral,
+      });
+
+      const result = conditionalLookupField.accept(visitor);
+
+      expect(result.isOk()).toBe(true);
+      const expr = result._unsafeUnwrap();
+
+      expect(expr.valueSql).toBe('NULL::jsonb');
+      expect(expr.valueType).toBe('string');
+      expect(expr.errorConditionSql).toBe('TRUE');
+      expect(expr.errorMessageSql).toContain('#ERROR:REF:errored_field');
+      expect(mockLateral.calls).toEqual([]);
     });
   });
 });

@@ -109,6 +109,45 @@ export interface ILateralContext {
   ): string;
 }
 
+const normalizeComputedNullCastType = (value: string): string => {
+  const normalized = value.trim().toUpperCase();
+  switch (normalized) {
+    case 'JSON':
+      return 'jsonb';
+    case 'REAL':
+      return 'double precision';
+    case 'DATETIME':
+      return 'timestamptz';
+    case 'BOOLEAN':
+      return 'boolean';
+    case 'TEXT':
+      return 'text';
+    default:
+      return normalized.toLowerCase();
+  }
+};
+
+const extractFirstKnownJsonScalarText = (valueSql: string): string => {
+  const normalizedJson = `(SELECT CASE
+    WHEN _arr.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_arr.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_arr.v) = 'array' THEN _arr.v
+    ELSE jsonb_build_array(_arr.v)
+  END
+  FROM (
+    SELECT CASE
+      WHEN (${valueSql}) IS NULL THEN NULL::jsonb
+      ELSE (${valueSql})::jsonb
+    END AS v
+  ) AS _arr)`;
+
+  return `(SELECT CASE
+    WHEN _elem.v IS NULL OR jsonb_typeof(_elem.v) = 'null' THEN NULL
+    ELSE ${extractJsonScalarText('_elem.v')}
+  END
+  FROM (SELECT (${normalizedJson} -> 0) AS v) AS _elem)`;
+};
+
 export interface ComputedFieldSelectExpressionVisitorOptions {
   /**
    * Use stored formula values for non-deterministic formulas like
@@ -160,6 +199,24 @@ export class ComputedFieldSelectExpressionVisitor
     return field
       .accept(FieldSqlLiteralVisitor.create(null))
       .map((literal) => sql.raw(literal).as(colAlias));
+  }
+
+  private typedNullColumn(
+    field: Field,
+    colAlias: string
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    const dbFieldTypeResult = field.dbFieldType().andThen((dbFieldType) => dbFieldType.value());
+
+    if (dbFieldTypeResult.isOk()) {
+      const castType = normalizeComputedNullCastType(dbFieldTypeResult.value);
+      return ok(sql.raw(`NULL::${castType}`).as(colAlias));
+    }
+
+    return field
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.isMultiple())
+      .map((isMultiple) => sql.raw(isMultiple ? 'NULL::jsonb' : 'NULL').as(colAlias))
+      .orElse(() => this.nullColumn(field, colAlias));
   }
 
   private createFormulaTranslator(timeZone?: string): FormulaSqlPgTranslator {
@@ -356,7 +413,7 @@ export class ComputedFieldSelectExpressionVisitor
     return this.getColAlias(field).andThen((colAlias) => {
       // Skip computation if field has error - return NULL
       if (field.hasError().isError()) {
-        return ok(sql.raw('NULL').as(colAlias));
+        return this.typedNullColumn(field, colAlias);
       }
       if (this.shouldUseStoredFormula(field)) {
         return ok(sql`${sql.ref(`${this.tableAlias}.${colAlias}`)}`.as(colAlias));
@@ -364,7 +421,7 @@ export class ComputedFieldSelectExpressionVisitor
       const translator = this.createFormulaTranslator(field.timeZone()?.toString());
       const translated = translator.translateExpression(field.expression().toString());
       if (translated.isErr()) {
-        return ok(sql.raw('NULL').as(colAlias));
+        return this.typedNullColumn(field, colAlias);
       }
       const expr = translated.value;
 
@@ -372,7 +429,7 @@ export class ComputedFieldSelectExpressionVisitor
         .isMultipleCellValue()
         .map((multiplicity) => multiplicity.isMultiple());
       if (isMultipleResult.isErr()) {
-        return ok(sql.raw('NULL').as(colAlias));
+        return this.typedNullColumn(field, colAlias);
       }
       const formulaIsMultiple = isMultipleResult.value;
 
@@ -409,8 +466,9 @@ export class ComputedFieldSelectExpressionVisitor
    * Extracts the first element and casts to the appropriate type.
    */
   private unwrapFormulaArrayToScalar(valueSql: string, valueType: SqlValueType): string {
-    // Extract first element from jsonb array
-    const firstElemText = `(((${valueSql}) ->> 0))`;
+    // Formula array results are already emitted as JSON/jsonb expressions by the translator.
+    // Keep the unwrap path lightweight and only add a typed NULL/jsonb guard here.
+    const firstElemText = extractFirstKnownJsonScalarText(valueSql);
 
     switch (valueType) {
       case 'number':

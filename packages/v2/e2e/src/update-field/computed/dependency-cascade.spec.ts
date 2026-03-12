@@ -251,6 +251,72 @@ describe('update-field: computed dependency cascades', () => {
     };
   };
 
+  const createConditionalLookupFormulaTable = async () => {
+    const foreignMatchFieldId = createFieldId();
+    const foreignValueFieldId = createFieldId();
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-cond-lookup-formula-foreign'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', id: foreignMatchFieldId, name: 'InboundNo' },
+        { type: 'number', id: foreignValueFieldId, name: 'Amount' },
+      ],
+      records: [{ fields: { Name: 'F1', [foreignMatchFieldId]: 1, [foreignValueFieldId]: 10 } }],
+    });
+
+    const hostMatchFieldId = createFieldId();
+    const conditionalLookupFieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+    const host = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-cond-lookup-formula-host'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', id: hostMatchFieldId, name: 'InboundNo' },
+        {
+          type: 'conditionalLookup',
+          id: conditionalLookupFieldId,
+          name: 'MatchedAmounts',
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignValueFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignMatchFieldId,
+                    operator: 'is',
+                    value: hostMatchFieldId,
+                    isSymbol: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'FormulaOverConditionalLookup',
+          options: { expression: `{${conditionalLookupFieldId}}` },
+        },
+      ],
+      records: [{ fields: { Name: 'H1', [hostMatchFieldId]: 1 } }],
+    });
+
+    await ctx.drainOutbox();
+
+    return {
+      hostTableId: host.id,
+      foreignTableId: foreign.id,
+      hostMatchFieldId,
+      conditionalLookupFieldId,
+      formulaFieldId,
+    };
+  };
+
   const expectUnsupportedLinkMutation = async (fieldPatch: Record<string, unknown>) => {
     let hostTableId: string | undefined;
     let foreignTableId: string | undefined;
@@ -606,6 +672,49 @@ describe('update-field: computed dependency cascades', () => {
 
   test('[NOT IMPLEMENTED] should seed conditional lookup when foreign field converts', async () => {
     expect(true).toBe(true);
+  });
+
+  test('[V1 PARITY] should keep downstream formula backfill safe when conditional lookup becomes errored after host field conversion', async () => {
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const setup = await createConditionalLookupFormulaTable();
+      hostTableId = setup.hostTableId;
+      foreignTableId = setup.foreignTableId;
+
+      const recordsBefore = await ctx.listRecords(setup.hostTableId);
+      expect(recordsBefore[0]?.fields[setup.conditionalLookupFieldId]).toEqual([10]);
+      expect(recordsBefore[0]?.fields[setup.formulaFieldId]).toEqual([10]);
+
+      const tableBefore = await ctx.getTableById(setup.hostTableId);
+      const conditionalLookupBefore = tableBefore.fields.find(
+        (field) => field.id === setup.conditionalLookupFieldId
+      );
+      const formulaBefore = tableBefore.fields.find((field) => field.id === setup.formulaFieldId);
+      expect(conditionalLookupBefore?.hasError ?? false).toBe(false);
+      expect(formulaBefore?.hasError ?? false).toBe(false);
+
+      await ctx.updateField({
+        tableId: setup.hostTableId,
+        fieldId: setup.hostMatchFieldId,
+        field: { type: 'singleLineText' },
+      });
+      await ctx.drainOutbox();
+
+      const tableAfter = await ctx.getTableById(setup.hostTableId);
+      const conditionalLookupAfter = tableAfter.fields.find(
+        (field) => field.id === setup.conditionalLookupFieldId
+      );
+      const formulaAfter = tableAfter.fields.find((field) => field.id === setup.formulaFieldId);
+      expect(conditionalLookupAfter?.hasError).toBe(true);
+      expect(formulaAfter?.hasError ?? false).toBe(false);
+
+      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      expect(recordsAfter[0]?.fields[setup.formulaFieldId] ?? null).toBeNull();
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   test('[V1 PARITY] should seed conditional rollup when foreign field converts', async () => {
