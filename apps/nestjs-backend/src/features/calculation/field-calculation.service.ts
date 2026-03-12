@@ -46,7 +46,7 @@ export class FieldCalculationService {
     const directedGraph = customGraph || (await this.referenceService.getFieldGraphItems(fieldIds));
 
     // get all related field by undirected graph
-    const allFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
+    const rawAllFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
 
     // prepare all related data
     const {
@@ -55,16 +55,25 @@ export class FieldCalculationService {
       dbTableName2fields,
       fieldId2DbTableName,
       tableId2DbTableName,
-    } = await this.referenceService.createAuxiliaryData(allFieldIds);
+    } = await this.referenceService.createAuxiliaryData(rawAllFieldIds);
+
+    // Ignore reference edges that point to soft-deleted fields/tables. Auxiliary data only loads
+    // active metadata, so keeping stale nodes here would later desync the graph and field map.
+    const validFieldIds = new Set(Object.keys(fieldMap));
+    const filteredGraph = directedGraph.filter(
+      ({ fromFieldId, toFieldId }) => validFieldIds.has(fromFieldId) && validFieldIds.has(toFieldId)
+    );
+    const startFieldIds = fieldIds.filter((fieldId) => validFieldIds.has(fieldId));
+    const allFieldIds = uniq(this.referenceService.flatGraph(filteredGraph).concat(startFieldIds));
 
     // topological sorting
-    const topoOrders = prependStartFieldIds(getTopoOrders(directedGraph), fieldIds);
+    const topoOrders = prependStartFieldIds(getTopoOrders(filteredGraph), startFieldIds);
 
     return {
-      startFieldIds: fieldIds,
+      startFieldIds,
       allFieldIds,
       fieldMap,
-      directedGraph,
+      directedGraph: filteredGraph,
       topoOrders,
       tableId2DbTableName,
       fieldId2DbTableName,
