@@ -3657,6 +3657,32 @@ describe('v2 http paste (e2e)', () => {
       // B should be updated (last in DESC among filtered)
       expect(recordB?.fields[vsSortNameFieldId]).toBe('ViewSortFilterRow3');
     });
+
+    it('should paste to the correct row when client only sends projection', async () => {
+      // Simulate the personal-view request shape after frontend normalization:
+      // projection can differ, but row-targeting should still follow saved view defaults.
+      const result = await ctx.paste({
+        tableId: vsSortTableId,
+        viewId: vsSortViewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [['ProjectionOnlyRow1']],
+        projection: [vsSortNameFieldId],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(vsSortTableId);
+      const recordD = records.find((r) => r.fields[vsSortValueFieldId] === 400);
+      const recordE = records.find((r) => r.fields[vsSortValueFieldId] === 500);
+
+      // Filtered DESC: E(500), D(400), C(300), B(200)
+      // Row 1 should update D, even when projection is present.
+      expect(recordD?.fields[vsSortNameFieldId]).toBe('ProjectionOnlyRow1');
+      expect(recordE?.fields[vsSortNameFieldId]).toBe('RecordE');
+    });
   });
 
   describe('paste with NULL values in sort field (v1 null ordering alignment)', () => {
