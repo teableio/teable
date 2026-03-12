@@ -884,6 +884,84 @@ describe('OpenAPI SelectionController (e2e)', () => {
     });
   });
 
+  describe('paste computed numeric coercion regression (v2)', () => {
+    let table1: ITableFullVo;
+    let scoreFieldId: string;
+    let weightFieldId: string;
+    let weightedScoreFieldId: string;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {
+        name: 'paste-numeric-coercion',
+        fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Score',
+            type: FieldType.Number,
+            options: {
+              formatting: defaultNumberFormatting,
+            },
+          },
+          {
+            name: 'WeightText',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [{ fields: { Name: 'row-1', Score: 10, WeightText: '0.5' } }],
+      });
+
+      scoreFieldId = table1.fields.find((field) => field.name === 'Score')!.id;
+      weightFieldId = table1.fields.find((field) => field.name === 'WeightText')!.id;
+
+      const weightedScoreField = await createField(table1.id, {
+        name: 'WeightedScore',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${scoreFieldId}}*{${weightFieldId}}`,
+          formatting: defaultNumberFormatting,
+        },
+      });
+
+      weightedScoreFieldId = weightedScoreField.id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+    });
+
+    it('should recompute numeric formula without 500 when pasted text contains multiple numeric fragments in v2', async () => {
+      const viewId = table1.views[0].id;
+
+      const res = await pasteWithCanary(
+        table1.id,
+        {
+          viewId,
+          projection: [weightFieldId],
+          content: '0.4/0.6',
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+        },
+        true
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers['x-teable-v2']).toBe('true');
+
+      const records = await getRecords(table1.id, {
+        viewId,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      expect(records.data.records[0].fields[weightFieldId]).toBe('0.4/0.6');
+      expect(records.data.records[0].fields[weightedScoreFieldId]).toBeCloseTo(4, 10);
+    });
+  });
+
   describe('api/table/:tableId/selection/delete (DELETE)', () => {
     let table: ITableFullVo;
 
