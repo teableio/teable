@@ -1,9 +1,9 @@
 import type { Action } from '@teable/core';
 import { ActionPrefix } from '@teable/core';
-import { Database, Hash, PackageCheck, Sheet, Square, Table2, User } from '@teable/icons';
+import { Database, Hash, Sheet, Table2, User } from '@teable/icons';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Badge, cn } from '@teable/ui-lib/shadcn';
-import { AppWindowMac } from 'lucide-react';
+import { AppWindowMac, Bot, List } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
@@ -13,9 +13,9 @@ const IconMap: Partial<Record<ActionPrefix, React.JSXElementConstructor<any>>> =
   [ActionPrefix.Base]: Database,
   [ActionPrefix.Table]: Table2,
   [ActionPrefix.Field]: Hash,
-  [ActionPrefix.Record]: Square,
+  [ActionPrefix.Record]: List,
   [ActionPrefix.View]: Sheet,
-  [ActionPrefix.Automation]: PackageCheck,
+  [ActionPrefix.Automation]: Bot,
   [ActionPrefix.User]: User,
 };
 
@@ -59,7 +59,7 @@ export const OAuthScope = (props: {
         return (
           <div key={prefix} className="space-y-2">
             <strong className="flex items-center gap-2 text-sm">
-              {ScopeIcon && <ScopeIcon />}
+              {ScopeIcon && <ScopeIcon className="size-4 shrink-0" />}
               {actionPrefixStaticMap[prefix as ActionPrefix].title}
             </strong>
             <div className="flex flex-wrap gap-2">
