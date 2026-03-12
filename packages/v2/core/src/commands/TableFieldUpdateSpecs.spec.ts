@@ -311,7 +311,10 @@ describe('TableFieldUpdateSpecs', () => {
       return;
     }
 
-    const newFieldResult = specResult.value.createField();
+    const newFieldResult = specResult.value.createField({
+      baseId: hostTable.baseId(),
+      tableId: hostTable.id(),
+    });
     expect(newFieldResult.isOk()).toBe(true);
     if (newFieldResult.isErr()) {
       return;
@@ -391,7 +394,10 @@ describe('TableFieldUpdateSpecs', () => {
       return;
     }
 
-    const newFieldResult = specResult.value.createField();
+    const newFieldResult = specResult.value.createField({
+      baseId: hostTable.baseId(),
+      tableId: hostTable.id(),
+    });
     expect(newFieldResult.isOk()).toBe(true);
     if (newFieldResult.isErr()) {
       return;
@@ -469,7 +475,10 @@ describe('TableFieldUpdateSpecs', () => {
       return;
     }
 
-    const newFieldResult = specResult.value.createField();
+    const newFieldResult = specResult.value.createField({
+      baseId: hostTable.baseId(),
+      tableId: hostTable.id(),
+    });
     expect(newFieldResult.isOk()).toBe(true);
     if (newFieldResult.isErr()) {
       return;
@@ -1159,5 +1168,391 @@ describe('TableFieldUpdateSpecs', () => {
       conjunction: 'and',
       filterSet: [{ fieldId: foreignStatusId.toString(), operator: 'is', value: 'Active' }],
     });
+  });
+
+  it('fills link lookupFieldId from the foreign primary during type conversion', () => {
+    const baseId = createBaseId('u');
+    const hostTableId = createTableId('u');
+    const foreignTableId = createTableId('v');
+    const targetFieldId = createFieldId('w');
+    const foreignPrimaryFieldId = createFieldId('x');
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Link Conversion Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('y'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Convert Me')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Link Conversion Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryFieldId)
+      .withName(FieldName.create('Foreign Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specResult = parseUpdateFieldSpec(
+      currentField,
+      {
+        type: 'link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: foreignTableId.toString(),
+        },
+      },
+      {
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specResult.isOk()).toBe(true);
+    if (specResult.isErr()) {
+      return;
+    }
+
+    const newFieldResult = specResult.value.createField({
+      baseId: hostTable.baseId(),
+      tableId: hostTable.id(),
+    });
+    expect(newFieldResult.isOk()).toBe(true);
+    if (newFieldResult.isErr()) {
+      return;
+    }
+
+    expect(newFieldResult.value.type().toString()).toBe('link');
+    expect((newFieldResult.value as any).lookupFieldId().equals(foreignPrimaryFieldId)).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'missing options',
+      input: {
+        type: 'rollup',
+        config: {
+          linkFieldId: `fld${'l'.repeat(16)}`,
+          foreignTableId: `tbl${'m'.repeat(16)}`,
+          lookupFieldId: `fld${'n'.repeat(16)}`,
+        },
+      },
+      expectedMessage: 'options are required',
+    },
+    {
+      name: 'missing config',
+      input: {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+      },
+      expectedMessage: 'config is required',
+    },
+    {
+      name: 'missing expression',
+      input: {
+        type: 'rollup',
+        options: {},
+        config: {
+          linkFieldId: `fld${'l'.repeat(16)}`,
+          foreignTableId: `tbl${'m'.repeat(16)}`,
+          lookupFieldId: `fld${'n'.repeat(16)}`,
+        },
+      },
+      expectedMessage: 'options.expression is required',
+    },
+    {
+      name: 'missing foreign tables',
+      input: {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        config: {
+          linkFieldId: `fld${'l'.repeat(16)}`,
+          foreignTableId: `tbl${'m'.repeat(16)}`,
+          lookupFieldId: `fld${'n'.repeat(16)}`,
+        },
+      },
+      expectedMessage: 'foreign tables not loaded',
+    },
+  ])(
+    'returns a derivation error for rollup conversion when $name',
+    ({ input, expectedMessage }) => {
+      const hostBuilder = Table.builder()
+        .withBaseId(createBaseId('b'))
+        .withId(createTableId('b'))
+        .withName(TableName.create('Rollup Error Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(createFieldId('c'))
+        .withName(FieldName.create('Primary')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .date()
+        .withId(createFieldId('d'))
+        .withName(FieldName.create('Target')._unsafeUnwrap())
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+      const currentField = hostTable
+        .getField((field) => field.id().equals(createFieldId('d')))
+        ._unsafeUnwrap();
+
+      const specResult = parseUpdateFieldSpec(currentField, input);
+
+      expect(specResult.isErr()).toBe(true);
+      expect(specResult._unsafeUnwrapErr().message).toContain(expectedMessage);
+    }
+  );
+
+  it('returns a derivation error when the rollup foreign table is missing', () => {
+    const hostBuilder = Table.builder()
+      .withBaseId(createBaseId('e'))
+      .withId(createTableId('e'))
+      .withName(TableName.create('Rollup Foreign Error Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('f'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .date()
+      .withId(createFieldId('g'))
+      .withName(FieldName.create('Target')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+    const currentField = hostTable
+      .getField((field) => field.id().equals(createFieldId('g')))
+      ._unsafeUnwrap();
+
+    const unrelatedForeignBuilder = Table.builder()
+      .withBaseId(createBaseId('h'))
+      .withId(createTableId('h'))
+      .withName(TableName.create('Unrelated Foreign')._unsafeUnwrap());
+    unrelatedForeignBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('i'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    unrelatedForeignBuilder.view().defaultGrid().done();
+    const unrelatedForeignTable = unrelatedForeignBuilder.build()._unsafeUnwrap();
+
+    const specResult = parseUpdateFieldSpec(
+      currentField,
+      {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        config: {
+          linkFieldId: createFieldId('j').toString(),
+          foreignTableId: createTableId('k').toString(),
+          lookupFieldId: createFieldId('l').toString(),
+        },
+      },
+      {
+        foreignTables: [unrelatedForeignTable],
+      }
+    );
+
+    expect(specResult.isErr()).toBe(true);
+    expect(specResult._unsafeUnwrapErr().message).toContain('foreign table not found');
+  });
+
+  it('returns a derivation error when the rollup lookup field is missing', () => {
+    const baseId = createBaseId('l');
+    const hostTableId = createTableId('l');
+    const foreignTableId = createTableId('m');
+    const targetFieldId = createFieldId('n');
+    const foreignPrimaryFieldId = createFieldId('o');
+    const missingLookupFieldId = createFieldId('p');
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Rollup Missing Lookup Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('q'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .date()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Target')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Rollup Missing Lookup Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryFieldId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specResult = parseUpdateFieldSpec(
+      currentField,
+      {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        config: {
+          linkFieldId: createFieldId('r').toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: missingLookupFieldId.toString(),
+        },
+      },
+      {
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specResult.isErr()).toBe(true);
+    expect(specResult._unsafeUnwrapErr().message).toContain('lookup field not found');
+  });
+
+  it('derives conditional rollup resultType for type conversion when cellValueType is omitted', () => {
+    const baseId = createBaseId('s');
+    const hostTableId = createTableId('s');
+    const foreignTableId = createTableId('t');
+    const targetFieldId = createFieldId('u');
+    const foreignPrimaryFieldId = createFieldId('v');
+    const foreignNumberFieldId = createFieldId('w');
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Conditional Rollup Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('x'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .date()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Target')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Conditional Rollup Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryFieldId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .number()
+      .withId(foreignNumberFieldId)
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specResult = parseUpdateFieldSpec(
+      currentField,
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        config: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignNumberFieldId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [],
+            },
+          },
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specResult.isOk()).toBe(true);
+    if (specResult.isErr()) {
+      return;
+    }
+
+    const newFieldResult = specResult.value.createField();
+    expect(newFieldResult.isOk()).toBe(true);
+    if (newFieldResult.isErr()) {
+      return;
+    }
+
+    const valueTypeResult = newFieldResult.value.accept(new FieldValueTypeVisitor());
+    expect(valueTypeResult.isOk()).toBe(true);
+    if (valueTypeResult.isErr()) {
+      return;
+    }
+
+    expect(valueTypeResult.value.cellValueType.toString()).toBe('number');
+    expect(valueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(false);
   });
 });
