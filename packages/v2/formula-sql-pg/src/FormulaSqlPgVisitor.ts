@@ -16,7 +16,14 @@ import type {
   FormulaVisitor,
 } from '@teable/formula';
 import { AbstractParseTreeVisitor, extractFieldReferenceId } from '@teable/formula';
-import { FieldType, FunctionName, normalizeFunctionNameAlias } from '@teable/v2-core';
+import {
+  ConditionalLookupField,
+  FieldType,
+  FunctionName,
+  LookupField,
+  normalizeFunctionNameAlias,
+  type Field,
+} from '@teable/v2-core';
 
 import { FormulaSqlPgFunctions } from './FormulaSqlPgFunctions';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
@@ -24,6 +31,60 @@ import { buildErrorLiteral, sqlStringLiteral } from './PgSqlHelpers';
 import { makeExpr, type SqlExpr } from './SqlExpression';
 
 const DEFAULT_ERROR = buildErrorLiteral('INTERNAL', 'unexpected');
+const buildJsonObjectText = (ref: string): string =>
+  `COALESCE(${ref}->>'title', ${ref}->>'name', ${ref} #>> '{}')`;
+
+const resolveLookupInnerField = (field: Field): Field | null => {
+  if (field.type().equals(FieldType.lookup())) {
+    const lookupField = field as LookupField;
+    const innerFieldResult = lookupField.innerField();
+    return innerFieldResult.isOk() ? innerFieldResult.value : null;
+  }
+  if (field.type().equals(FieldType.conditionalLookup())) {
+    const conditionalLookupField = field as ConditionalLookupField;
+    const innerFieldResult = conditionalLookupField.innerField();
+    return innerFieldResult.isOk() ? innerFieldResult.value : null;
+  }
+  return null;
+};
+
+const normalizeJsonArraySql = (expr: SqlExpr): string => {
+  const baseJson =
+    expr.storageKind === 'array' ? `to_jsonb(${expr.valueSql})` : `(${expr.valueSql})::jsonb`;
+  return `(CASE
+    WHEN ${expr.valueSql} IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(${baseJson}) = 'array' THEN ${baseJson}
+    WHEN jsonb_typeof(${baseJson}) = 'null' THEN '[]'::jsonb
+    ELSE jsonb_build_array(${baseJson})
+  END)`;
+};
+
+const normalizeLookupLinkTitles = (expr: SqlExpr): SqlExpr => {
+  if (expr.isArray) {
+    const normalizedArray = normalizeJsonArraySql(expr);
+    return makeExpr(
+      `COALESCE((SELECT jsonb_agg(${buildJsonObjectText('elem')}) FROM jsonb_array_elements(${normalizedArray}) AS arr(elem)), '[]'::jsonb)`,
+      'string',
+      true,
+      expr.errorConditionSql,
+      expr.errorMessageSql,
+      expr.field,
+      'json'
+    );
+  }
+
+  const jsonbValue =
+    expr.storageKind === 'json' ? `(${expr.valueSql})::jsonb` : `to_jsonb(${expr.valueSql})`;
+  return makeExpr(
+    buildJsonObjectText(jsonbValue),
+    'string',
+    false,
+    expr.errorConditionSql,
+    expr.errorMessageSql,
+    expr.field,
+    'scalar'
+  );
+};
 
 export class FormulaSqlPgVisitor
   extends AbstractParseTreeVisitor<SqlExpr>
@@ -154,6 +215,11 @@ export class FormulaSqlPgVisitor
     }
 
     const expr = resolved.value;
+    const innerField = expr.field ? resolveLookupInnerField(expr.field) : null;
+
+    if (innerField?.type().equals(FieldType.link())) {
+      return normalizeLookupLinkTitles(expr);
+    }
 
     // For JSON object fields (button, link), extract the display value (title/name)
     // when directly referenced in a formula. This ensures that {Button} and {LinkField}

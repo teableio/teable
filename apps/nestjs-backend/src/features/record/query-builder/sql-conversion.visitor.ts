@@ -2379,16 +2379,15 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     const preferRaw = !!selectContext.preferRawFieldReferences;
     const targetDbType = selectContext.targetDbFieldType;
-    if (preferRaw && targetDbType === DbFieldType.Json) {
-      return expr;
-    }
-
     const trimmed = expr.trim();
     if (!trimmed || trimmed.toUpperCase() === 'NULL') {
       return expr;
     }
 
     const titlesExpr = dialect.linkExtractTitles(expr, !!fieldInfo.isMultipleCellValue);
+    if (preferRaw && targetDbType === DbFieldType.Json) {
+      return fieldInfo.isMultipleCellValue ? titlesExpr : expr;
+    }
     if (fieldInfo.isMultipleCellValue) {
       return dialect.formatStringArray(titlesExpr, { fieldInfo });
     }

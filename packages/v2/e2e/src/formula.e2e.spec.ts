@@ -17318,5 +17318,241 @@ describe('v2 http formula (e2e)', () => {
       expect(stored).toBeDefined();
       expect(stored?.fields[formulaFieldId]).toEqual(['table2_1', 'table2_2']);
     });
+
+    it('should return title arrays when formula directly references a lookup-of-link field', async () => {
+      const createAssetsResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('Lookup Link Assets'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const assetsRaw = await createAssetsResponse.json();
+      const assetsParsed = createTableOkResponseSchema.safeParse(assetsRaw);
+      expect(assetsParsed.success).toBe(true);
+      if (!assetsParsed.success || !assetsParsed.data.ok) return;
+
+      const assetsTable = assetsParsed.data.data.table;
+      const assetTitleFieldId = assetsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!assetTitleFieldId) throw new Error('Missing assets primary field');
+
+      const createAsset1Response = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: assetsTable.id,
+          fields: { [assetTitleFieldId]: 'Alpha' },
+        }),
+      });
+      const asset1Raw = await createAsset1Response.json();
+      const asset1Parsed = createRecordOkResponseSchema.safeParse(asset1Raw);
+      expect(asset1Parsed.success).toBe(true);
+      if (!asset1Parsed.success || !asset1Parsed.data.ok) return;
+      const asset1Id = asset1Parsed.data.data.record.id;
+
+      const createAsset2Response = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: assetsTable.id,
+          fields: { [assetTitleFieldId]: 'Beta' },
+        }),
+      });
+      const asset2Raw = await createAsset2Response.json();
+      const asset2Parsed = createRecordOkResponseSchema.safeParse(asset2Raw);
+      expect(asset2Parsed.success).toBe(true);
+      if (!asset2Parsed.success || !asset2Parsed.data.ok) return;
+      const asset2Id = asset2Parsed.data.data.record.id;
+
+      const createOwnersResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('Lookup Link Owners'),
+          fields: [{ type: 'singleLineText', name: 'Owner', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const ownersRaw = await createOwnersResponse.json();
+      const ownersParsed = createTableOkResponseSchema.safeParse(ownersRaw);
+      expect(ownersParsed.success).toBe(true);
+      if (!ownersParsed.success || !ownersParsed.data.ok) return;
+
+      const ownersTable = ownersParsed.data.data.table;
+      const ownerPrimaryFieldId = ownersTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!ownerPrimaryFieldId) throw new Error('Missing owners primary field');
+
+      const createOwnerResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: ownersTable.id,
+          fields: { [ownerPrimaryFieldId]: 'Owner A' },
+        }),
+      });
+      const ownerRaw = await createOwnerResponse.json();
+      const ownerParsed = createRecordOkResponseSchema.safeParse(ownerRaw);
+      expect(ownerParsed.success).toBe(true);
+      if (!ownerParsed.success || !ownerParsed.data.ok) return;
+      const ownerId = ownerParsed.data.data.record.id;
+
+      const createOwnerAssetsLinkResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: ownersTable.id,
+          field: {
+            type: 'link',
+            name: 'Assets',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: assetsTable.id,
+              lookupFieldId: assetTitleFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      const ownerAssetsLinkRaw = await createOwnerAssetsLinkResponse.json();
+      const ownerAssetsLinkParsed = createFieldOkResponseSchema.safeParse(ownerAssetsLinkRaw);
+      expect(ownerAssetsLinkParsed.success).toBe(true);
+      if (!ownerAssetsLinkParsed.success || !ownerAssetsLinkParsed.data.ok) return;
+      const ownerAssetsLinkId =
+        ownerAssetsLinkParsed.data.data.table.fields.find((f) => f.name === 'Assets')?.id ?? '';
+      if (!ownerAssetsLinkId) throw new Error('Missing owner assets link field id');
+
+      const updateOwnerResponse = await fetch(`${ctx.baseUrl}/tables/updateRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: ownersTable.id,
+          recordId: ownerId,
+          fields: {
+            [ownerAssetsLinkId]: [{ id: asset1Id }, { id: asset2Id }],
+          },
+        }),
+      });
+      expect(updateOwnerResponse.status).toBe(200);
+
+      const createRequestsResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('Lookup Link Requests'),
+          fields: [{ type: 'singleLineText', name: 'Request', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const requestsRaw = await createRequestsResponse.json();
+      const requestsParsed = createTableOkResponseSchema.safeParse(requestsRaw);
+      expect(requestsParsed.success).toBe(true);
+      if (!requestsParsed.success || !requestsParsed.data.ok) return;
+
+      const requestsTable = requestsParsed.data.data.table;
+      const requestPrimaryFieldId = requestsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!requestPrimaryFieldId) throw new Error('Missing requests primary field');
+
+      const createRequestOwnerLinkResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: requestsTable.id,
+          field: {
+            type: 'link',
+            name: 'Owner',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: ownersTable.id,
+              lookupFieldId: ownerPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      const requestOwnerLinkRaw = await createRequestOwnerLinkResponse.json();
+      const requestOwnerLinkParsed = createFieldOkResponseSchema.safeParse(requestOwnerLinkRaw);
+      expect(requestOwnerLinkParsed.success).toBe(true);
+      if (!requestOwnerLinkParsed.success || !requestOwnerLinkParsed.data.ok) return;
+      const requestOwnerLinkId =
+        requestOwnerLinkParsed.data.data.table.fields.find((f) => f.name === 'Owner')?.id ?? '';
+      if (!requestOwnerLinkId) throw new Error('Missing request owner link field id');
+
+      const createLookupResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: requestsTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Owner Assets Lookup',
+            options: {
+              linkFieldId: requestOwnerLinkId,
+              foreignTableId: ownersTable.id,
+              lookupFieldId: ownerAssetsLinkId,
+            },
+          },
+        }),
+      });
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Owner Assets Lookup')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: requestsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Assets Titles',
+            options: { expression: `{${lookupFieldId}}` },
+          },
+        }),
+      });
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Assets Titles')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createRequestResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: requestsTable.id,
+          fields: {
+            [requestPrimaryFieldId]: 'Req-1',
+            [requestOwnerLinkId]: { id: ownerId },
+          },
+        }),
+      });
+      const requestRaw = await createRequestResponse.json();
+      const requestParsed = createRecordOkResponseSchema.safeParse(requestRaw);
+      expect(requestParsed.success).toBe(true);
+      if (!requestParsed.success || !requestParsed.data.ok) return;
+      const requestId = requestParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(requestsTable.id);
+      const stored = records.find((r) => r.id === requestId);
+      expect(stored).toBeDefined();
+      expect(stored?.fields[formulaFieldId]).toEqual(['Alpha', 'Beta']);
+    });
   });
 });

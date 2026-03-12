@@ -2193,6 +2193,88 @@ describe('OpenAPI formula (e2e)', () => {
       }
     });
 
+    it('should return title arrays when formula directly references a lookup link field', async () => {
+      const assets = await createTable(baseId, {
+        name: 'formula-direct-lookup-link-assets',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Title: 'Alpha' } }, { fields: { Title: 'Beta' } }],
+      });
+      let owners: ITableFullVo | undefined;
+      let requests: ITableFullVo | undefined;
+      try {
+        owners = await createTable(baseId, {
+          name: 'formula-direct-lookup-link-owners',
+          fields: [{ name: 'Owner', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Owner: 'Owner A' } }],
+        });
+
+        const ownerAssetsLink = await createField(owners.id, {
+          name: 'Assets',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: assets.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        await updateRecordByApi(
+          owners.id,
+          owners.records[0].id,
+          ownerAssetsLink.id,
+          assets.records.map((record) => ({ id: record.id }))
+        );
+
+        requests = await createTable(baseId, {
+          name: 'formula-direct-lookup-link-requests',
+          fields: [{ name: 'Request', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Request: 'Req-1' } }],
+        });
+
+        const requestOwnerLink = await createField(requests.id, {
+          name: 'Owner Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: owners.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        await updateRecordByApi(requests.id, requests.records[0].id, requestOwnerLink.id, {
+          id: owners.records[0].id,
+        });
+
+        const ownerAssetsLookup = await createField(requests.id, {
+          name: 'Owner Assets Lookup',
+          type: FieldType.Link,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: owners.id,
+            linkFieldId: requestOwnerLink.id,
+            lookupFieldId: ownerAssetsLink.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const formulaField = await createField(requests.id, {
+          name: 'Assets Titles',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${ownerAssetsLookup.id}}`,
+          },
+        } as IFieldRo);
+
+        const record = await getRecord(requests.id, requests.records[0].id);
+        expect(record.data.fields[formulaField.name]).toEqual(['Alpha', 'Beta']);
+      } finally {
+        if (requests) {
+          await permanentDeleteTable(baseId, requests.id);
+        }
+        if (owners) {
+          await permanentDeleteTable(baseId, owners.id);
+        }
+        await permanentDeleteTable(baseId, assets.id);
+      }
+    });
+
     it('should apply LEFT/RIGHT to lookup fields', async () => {
       const foreign = await createTable(baseId, {
         name: 'formula-lookup-left-foreign',
