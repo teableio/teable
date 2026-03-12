@@ -260,13 +260,18 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
           }
 
           const selectChoiceOrder = this.extractSelectChoiceOrder(field);
+          const multiplicityResult = isUserLike ? field.isMultipleCellValue() : undefined;
+          if (multiplicityResult?.isErr()) {
+            return err(multiplicityResult.error);
+          }
+          const multiplicity = multiplicityResult?.isOk() ? multiplicityResult.value : undefined;
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
               direction,
               ...(isUserLike
                 ? {
-                    userLikeMode: (field.isMultipleCellValue() ? 'multiple' : 'single') as Exclude<
+                    userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<
                       ResolvedOrderBy['userLikeMode'],
                       undefined
                     >,
@@ -351,10 +356,11 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
       // Lookup values are usually arrays; prefer multiple mode unless we know it is single-valued.
       let mode: 'single' | 'multiple' = 'multiple';
       const multiplicityResult = candidate.isMultipleCellValue?.();
+      const multiplicity = multiplicityResult?.isOk() ? multiplicityResult.value : undefined;
       if (
         innerType.equals(FieldType.singleSelect()) &&
-        multiplicityResult?.isOk?.() &&
-        !multiplicityResult.value.isMultiple()
+        multiplicity &&
+        !multiplicity.isMultiple()
       ) {
         mode = 'single';
       }
@@ -381,9 +387,20 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     // Keep v1 parity for user/link fields: cast stored value to jsonb and sort by title.
     // System fields (createdBy/lastModifiedBy) may be scalar strings, so keep to_jsonb().
     const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
+    const arrayLikeColumnJson =
+      source === 'field'
+        ? sql`CASE
+            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
+            WHEN jsonb_typeof(${columnJson}) = 'object' THEN jsonb_build_array(${columnJson})
+            ELSE '[]'::jsonb
+          END`
+        : sql`CASE
+            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
+            ELSE '[]'::jsonb
+          END`;
     const titleExpr =
       mode === 'multiple'
-        ? sql`jsonb_path_query_array(CASE WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson} ELSE '[]'::jsonb END, '$[*].title')::text`
+        ? sql`jsonb_path_query_array(${arrayLikeColumnJson}, '$[*].title')::text`
         : source === 'field'
           ? sql`${columnJson} ->> 'title'`
           : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;

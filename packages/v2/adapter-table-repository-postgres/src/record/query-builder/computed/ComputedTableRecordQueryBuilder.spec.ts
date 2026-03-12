@@ -274,9 +274,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toContain('"t"."col_number" is null desc');
       expect(sql).toContain('"t"."col_number" asc');
-      expect(sql).toContain('jsonb_path_query_array(CASE WHEN jsonb_typeof("t"."col_user"::jsonb)');
-      expect(sql).toContain("'$[*].title')::text is null desc");
-      expect(sql).toContain("'$[*].title')::text asc");
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' is null desc');
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc');
       expect(sql).toContain(
         'coalesce(to_jsonb("t"."__created_by") ->> \'title\', to_jsonb("t"."__created_by") ->> \'name\', to_jsonb("t"."__created_by") #>> \'{}\') is null desc'
       );

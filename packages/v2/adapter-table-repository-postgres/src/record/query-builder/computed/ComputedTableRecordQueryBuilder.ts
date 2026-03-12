@@ -1502,12 +1502,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             });
           }
           if (fieldType.equals(FieldType.autoNumber())) return ok({ column: '__auto_number' });
+          const multiplicityResult = isUserLike ? field.isMultipleCellValue() : undefined;
+          if (multiplicityResult?.isErr()) {
+            return err(multiplicityResult.error);
+          }
+          const multiplicity = multiplicityResult?.isOk() ? multiplicityResult.value : undefined;
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
               ...(isUserLike
                 ? {
-                    userLikeMode: (field.isMultipleCellValue() ? 'multiple' : 'single') as Exclude<
+                    userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<
                       ResolvedOrderBy['userLikeMode'],
                       undefined
                     >,
@@ -1532,9 +1537,20 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   ): QB {
     const columnRef = sql.ref(`${T}.${column}`);
     const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
+    const arrayLikeColumnJson =
+      source === 'field'
+        ? sql`CASE
+            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
+            WHEN jsonb_typeof(${columnJson}) = 'object' THEN jsonb_build_array(${columnJson})
+            ELSE '[]'::jsonb
+          END`
+        : sql`CASE
+            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
+            ELSE '[]'::jsonb
+          END`;
     const titleExpr =
       mode === 'multiple'
-        ? sql`jsonb_path_query_array(CASE WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson} ELSE '[]'::jsonb END, '$[*].title')::text`
+        ? sql`jsonb_path_query_array(${arrayLikeColumnJson}, '$[*].title')::text`
         : source === 'field'
           ? sql`${columnJson} ->> 'title'`
           : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;

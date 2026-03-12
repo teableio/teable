@@ -3,6 +3,10 @@ import type { RecordFilter } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  setupGroupedLinkRangeFixture,
+  type GroupedLinkRangeFixture,
+} from './shared/groupedLinkRangeFixture';
 
 /**
  * E2E tests for v2 clear command.
@@ -370,6 +374,39 @@ describe('v2 http clear (e2e)', () => {
       expect(records[2].fields[textFieldId]).toBeNull(); // Count: 30
       expect(records[3].fields[textFieldId]).toBeNull(); // Count: 40
       expect(records[4].fields[textFieldId]).toBeNull(); // Count: 50
+    });
+  });
+
+  describe('clear with manyOne link groupBy', () => {
+    let fixture: GroupedLinkRangeFixture;
+
+    beforeEach(async () => {
+      fixture = await setupGroupedLinkRangeFixture(ctx, 'clear');
+    });
+
+    it('should clear the same visible row as a grouped link view', async () => {
+      expect(fixture.expectedGroupedAscOrderIds[1]).toBe(fixture.recordIds.github2);
+
+      const result = await ctx.clear({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        groupBy: fixture.groupByAsc,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(fixture.tableId);
+      const github1 = records.find((record) => record.id === fixture.recordIds.github1);
+      const github2 = records.find((record) => record.id === fixture.recordIds.github2);
+      const linkedIn1 = records.find((record) => record.id === fixture.recordIds.linkedIn1);
+
+      expect(github2?.fields[fixture.nameFieldId]).toBeNull();
+      expect(github1?.fields[fixture.nameFieldId]).toBe('Github 1');
+      expect(linkedIn1?.fields[fixture.nameFieldId]).toBe('LinkedIn 1');
     });
   });
 

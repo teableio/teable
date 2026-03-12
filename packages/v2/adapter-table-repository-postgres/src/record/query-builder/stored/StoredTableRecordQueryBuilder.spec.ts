@@ -213,7 +213,7 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(sql).toContain('order by "t"."__created_time"');
     });
 
-    test('orders user field by title projection with ASC null-first semantics', () => {
+    test('orders single user field by title with ASC null-first semantics', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
       const userField = table.getFields().find((field) => field.type().equals(FieldType.user()));
@@ -224,10 +224,8 @@ describe('StoredTableRecordQueryBuilder', () => {
       const qb = new StoredTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).orderBy(userField.id(), 'asc'));
 
-      expect(sql).toContain('jsonb_path_query_array(CASE WHEN jsonb_typeof("t"."col_user"::jsonb)');
-      expect(sql).toContain("'$[*].title')::text is null desc");
-      expect(sql).toContain("'$[*].title')::text asc");
-      expect(sql).toContain('"t"."col_user"::jsonb');
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' is null desc');
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc');
     });
 
     test('orders createdBy field by title with ASC null-first semantics', () => {
@@ -402,8 +400,10 @@ describe('StoredTableRecordQueryBuilder', () => {
       const qb = new StoredTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).orderBy(assigneesField.id(), 'asc'));
 
+      expect(sql).toContain('jsonb_path_query_array(CASE');
+      expect(sql).toContain(`WHEN jsonb_typeof("t"."col_assignees"::jsonb) = 'array'`);
       expect(sql).toContain(
-        'jsonb_path_query_array(CASE WHEN jsonb_typeof("t"."col_assignees"::jsonb)'
+        `WHEN jsonb_typeof("t"."col_assignees"::jsonb) = 'object' THEN jsonb_build_array("t"."col_assignees"::jsonb)`
       );
       expect(sql).toContain("'$[*].title')::text");
       expect(sql).toContain('"t"."col_assignees"::jsonb');

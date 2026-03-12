@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { RecordFilter } from '@teable/v2-core';
 import { sql } from 'kysely';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  setupGroupedLinkRangeFixture,
+  type GroupedLinkRangeFixture,
+} from './shared/groupedLinkRangeFixture';
 
 /**
  * E2E tests for v2 paste command.
@@ -2706,6 +2710,40 @@ describe('v2 http paste (e2e)', () => {
       expect(alphaOwner?.fields[hostNameFieldId]).toBe('ComputedRowIndex1');
       expect(nullOwner?.fields[hostNameFieldId]).toBe('A-NullOwner');
       expect(betaOwner?.fields[hostNameFieldId]).toBe('A-BetaOwner');
+    });
+  });
+
+  describe('paste with manyOne link groupBy', () => {
+    let fixture: GroupedLinkRangeFixture;
+
+    beforeAll(async () => {
+      fixture = await setupGroupedLinkRangeFixture(ctx, 'paste');
+    }, 30000);
+
+    it('should paste to the same visible row as a grouped link view', async () => {
+      expect(fixture.expectedGroupedAscOrderIds[1]).toBe(fixture.recordIds.github2);
+
+      const result = await ctx.paste({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [['Paste Github 2']],
+        groupBy: fixture.groupByAsc,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(fixture.tableId);
+      const github1 = records.find((record) => record.id === fixture.recordIds.github1);
+      const github2 = records.find((record) => record.id === fixture.recordIds.github2);
+      const linkedIn1 = records.find((record) => record.id === fixture.recordIds.linkedIn1);
+
+      expect(github2?.fields[fixture.nameFieldId]).toBe('Paste Github 2');
+      expect(github1?.fields[fixture.nameFieldId]).toBe('Github 1');
+      expect(linkedIn1?.fields[fixture.nameFieldId]).toBe('LinkedIn 1');
     });
   });
 

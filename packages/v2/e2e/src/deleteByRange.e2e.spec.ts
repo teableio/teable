@@ -3,6 +3,10 @@ import type { RecordFilter } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  setupGroupedLinkRangeFixture,
+  type GroupedLinkRangeFixture,
+} from './shared/groupedLinkRangeFixture';
 
 /**
  * E2E tests for v2 deleteByRange command.
@@ -551,6 +555,36 @@ describe('v2 http deleteByRange (e2e)', () => {
       expect(names).toContain('A2');
       expect(names).toContain('A3');
       expect(names).toContain('B2');
+    });
+  });
+
+  describe('deleteByRange with manyOne link groupBy', () => {
+    let fixture: GroupedLinkRangeFixture;
+
+    beforeEach(async () => {
+      fixture = await setupGroupedLinkRangeFixture(ctx, 'delete-by-range');
+    });
+
+    it('should delete the same visible row as a grouped link view', async () => {
+      expect(fixture.expectedGroupedAscOrderIds[1]).toBe(fixture.recordIds.github2);
+
+      const result = await ctx.deleteByRange({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [[1, 1]],
+        type: 'rows',
+        groupBy: fixture.groupByAsc,
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([fixture.recordIds.github2]);
+
+      const records = await ctx.listRecords(fixture.tableId);
+      expect(records.find((record) => record.id === fixture.recordIds.github2)).toBeUndefined();
+      expect(records.find((record) => record.id === fixture.recordIds.github1)).toBeDefined();
+      expect(records.find((record) => record.id === fixture.recordIds.linkedIn1)).toBeDefined();
+      expect(records.find((record) => record.id === fixture.recordIds.linkedIn2)).toBeDefined();
+      expect(records.find((record) => record.id === fixture.recordIds.x1)).toBeDefined();
     });
   });
 
