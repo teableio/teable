@@ -229,6 +229,66 @@ describe('V2 action trigger field conversion (e2e)', () => {
     });
   });
 
+  it('emits setField and setRecord presence when converting text to formula', async () => {
+    const table = await createTable(baseId, {
+      name: 'v2-action-trigger-field-conversion-formula',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: amountTextFieldName, type: FieldType.SingleLineText },
+      ],
+    });
+    tableIds.add(table.id);
+
+    const amountFieldId = table.fields.find((field) => field.name === amountTextFieldName)?.id;
+    if (!amountFieldId) {
+      throw new Error('Amount Text field not found');
+    }
+
+    await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [{ fields: { [amountFieldId]: '100' } }, { fields: { [amountFieldId]: '' } }],
+    });
+
+    const actions = await collectActionTriggers({
+      shareDbService,
+      cookie,
+      port,
+      tableId: table.id,
+      until: (actions) =>
+        actions.some((action) => action.actionKey === 'setField') &&
+        actions.some((action) => action.actionKey === 'setRecord'),
+      act: async () => {
+        const response = await axios.put(
+          `/table/${table.id}/field/${amountFieldId}/convert`,
+          {
+            name: amountTextFieldName,
+            type: FieldType.Formula,
+            options: {
+              expression: '1 + 1',
+            },
+          },
+          {
+            headers: {
+              [X_CANARY_HEADER]: 'true',
+            },
+          }
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.headers['x-teable-v2']).toBe('true');
+      },
+    });
+
+    expect(actions.some((action) => action.actionKey === 'setField')).toBe(true);
+    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(true);
+
+    const setRecordAction = actions.find((action) => action.actionKey === 'setRecord');
+    expect(setRecordAction?.payload).toMatchObject({
+      tableId: table.id,
+      fieldIds: [amountFieldId],
+    });
+  });
+
   it('emits setRecord for host tables when foreign schema updates recompute lookup values', async () => {
     const optionOpen = { id: 'choOpen', name: 'Open', color: 'blueBright' as const };
     const optionDone = { id: 'choDone', name: 'Done', color: 'greenBright' as const };

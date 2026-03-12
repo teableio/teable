@@ -107,4 +107,74 @@ describe('update-field: type conversion record event guard', () => {
       await deleteTableSafe(ctx, tableId);
     }
   });
+
+  test('emits schema refresh action triggers when type conversion changes a field to formula', async () => {
+    let tableId: string | undefined;
+    try {
+      const textFieldId = createFieldId();
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Type Conversion Formula Event Guard',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: textFieldId, name: 'Amount Text' },
+        ],
+      });
+      tableId = table.id;
+
+      const recordA = await ctx.createRecord(tableId, { [textFieldId]: '100' });
+      const recordB = await ctx.createRecord(tableId, { [textFieldId]: '' });
+      await ctx.drainOutbox();
+
+      const beforeEventCount = ctx.testContainer.eventBus.events().length;
+
+      const response = await fetch(`${ctx.baseUrl}/tables/updateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          fieldId: textFieldId,
+          field: {
+            type: 'formula',
+            options: {
+              expression: '1 + 1',
+            },
+          },
+        }),
+      });
+
+      expect(response.ok).toBe(true);
+      const rawBody = await response.json();
+      const parsed = updateFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) {
+        throw new Error('Failed to parse updateField response');
+      }
+
+      const responseEventNames = parsed.data.data.events.map((event) => event.name);
+      expect(responseEventNames).toContain('FieldUpdated');
+      expect(responseEventNames).not.toContain('RecordUpdated');
+      expect(responseEventNames).not.toContain('RecordsBatchUpdated');
+      expect(responseEventNames).not.toContain('TableActionTriggerRequested');
+
+      const records = await ctx.listRecords(tableId);
+      const convertedA = records.find((record) => record.id === recordA.id);
+      const convertedB = records.find((record) => record.id === recordB.id);
+
+      expect(convertedA?.fields[textFieldId]).toBe(2);
+      expect(convertedB?.fields[textFieldId]).toBe(2);
+
+      const newEvents = ctx.testContainer.eventBus.events().slice(beforeEventCount);
+      const newEventNames = newEvents
+        .map((event) => getDomainEventName(event))
+        .filter((eventName): eventName is string => Boolean(eventName));
+
+      expect(newEventNames).not.toContain('RecordUpdated');
+      expect(newEventNames).not.toContain('RecordsBatchUpdated');
+      expect(newEventNames).toContain('TableActionTriggerRequested');
+    } finally {
+      await deleteTableSafe(ctx, tableId);
+    }
+  });
 });

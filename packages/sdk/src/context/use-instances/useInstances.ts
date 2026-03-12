@@ -1,6 +1,7 @@
-//
+import { IdPrefix, getActionTriggerChannel } from '@teable/core';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
+import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from '../../hooks/use-connection';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction, IInstanceState } from './reducer';
@@ -38,6 +39,16 @@ const queryDestroy = (query: Query | undefined, cb?: () => void) => {
 type CachedQuery = { query: Query; refCount: number };
 const subscribeQueryCache = new Map<string, CachedQuery>();
 
+type ActionTriggerPayload = {
+  tableId?: string;
+  fieldIds?: unknown;
+};
+
+type ActionTrigger = {
+  actionKey?: string;
+  payload?: ActionTriggerPayload;
+};
+
 // Normalize query params into a stable, comparable string key
 // - Sort object keys recursively
 // - Convert Set to sorted array
@@ -61,15 +72,16 @@ const normalizeForKey = (value: any): any => {
   return value;
 };
 
-const makeQueryKey = (collection: string, queryParams: unknown) =>
-  `${collection}|${JSON.stringify(normalizeForKey(queryParams))}`;
+const makeQueryKey = (collection: string, queryParams: unknown, refreshToken = 0) =>
+  `${collection}|${JSON.stringify(normalizeForKey(queryParams))}|refresh:${refreshToken}`;
 
 const acquireQuery = <T>(
   collection: string,
   connection: ReturnType<typeof useConnection>['connection'],
-  queryParams: unknown
+  queryParams: unknown,
+  refreshToken = 0
 ) => {
-  const key = makeQueryKey(collection, queryParams);
+  const key = makeQueryKey(collection, queryParams, refreshToken);
   const cached = subscribeQueryCache.get(key);
   if (cached) {
     cached.refCount += 1;
@@ -93,6 +105,37 @@ const releaseQuery = (key?: string, cb?: () => void) => {
   cb?.();
 };
 
+const getRecordCollectionTableId = (collection: string): string | undefined => {
+  const [prefix, tableId] = collection.split('_');
+  if (prefix !== IdPrefix.Record || !tableId) {
+    return undefined;
+  }
+  return tableId;
+};
+
+const isSchemaRefreshSetRecordAction = (tableId: string, batch: unknown): boolean => {
+  if (!Array.isArray(batch)) {
+    return false;
+  }
+
+  return batch.some((item) => {
+    if (!(item instanceof Object)) {
+      return false;
+    }
+
+    const action = item as ActionTrigger;
+    if (action.actionKey !== 'setRecord') {
+      return false;
+    }
+
+    if (action.payload?.tableId !== tableId) {
+      return false;
+    }
+
+    return Array.isArray(action.payload?.fieldIds) && action.payload.fieldIds.length > 0;
+  });
+};
+
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
  * keep every instance the latest data
@@ -105,7 +148,9 @@ export function useInstances<T, R extends { id: string }>({
   initData,
 }: IUseInstancesProps<T, R>): IInstanceState<R> {
   const { connection, connected } = useConnection();
+  const recordCollectionTableId = getRecordCollectionTableId(collection);
   const [query, setQuery] = useState<Query<T>>();
+  const [schemaRefreshToken, setSchemaRefreshToken] = useState(0);
   const currentKeyRef = useRef<string>();
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
@@ -118,6 +163,40 @@ export function useInstances<T, R extends { id: string }>({
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
+
+  useEffect(() => {
+    if (!connection || !recordCollectionTableId) {
+      return;
+    }
+
+    const presence: Presence = connection.getPresence(
+      getActionTriggerChannel(recordCollectionTableId)
+    );
+    if (!presence.subscribed) {
+      presence.subscribe((error) => {
+        if (error) {
+          console.error('[useInstances] Failed to subscribe schema refresh presence:', error);
+        }
+      });
+    }
+
+    const receiveListener = (_id: string, batch: unknown) => {
+      if (!isSchemaRefreshSetRecordAction(recordCollectionTableId, batch)) {
+        return;
+      }
+      setSchemaRefreshToken((current) => current + 1);
+    };
+
+    presence.addListener('receive', receiveListener);
+
+    return () => {
+      presence.removeListener('receive', receiveListener);
+      if (presence.listenerCount('receive') === 0) {
+        presence.unsubscribe();
+        presence.destroy();
+      }
+    };
+  }, [connection, recordCollectionTableId]);
 
   const handleReady = useCallback((query: Query<T>) => {
     console.log(
@@ -188,7 +267,7 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     // Compute normalized key and short-circuit if unchanged and connection didn't change
-    const nextKey = makeQueryKey(collection, queryParams);
+    const nextKey = makeQueryKey(collection, queryParams, schemaRefreshToken);
     const connectionChanged = lastConnectionRef.current !== connection;
     if (!connectionChanged && currentKeyRef.current === nextKey && preQueryRef.current) {
       // Ensure state holds the existing query instance without re-acquiring
@@ -196,12 +275,17 @@ export function useInstances<T, R extends { id: string }>({
       return;
     }
 
-    const { key, query } = acquireQuery<T>(collection, connection, queryParams);
+    const previousKey = currentKeyRef.current;
+    if (previousKey && (connectionChanged || previousKey !== nextKey)) {
+      releaseQuery(previousKey, () => opListeners.current.clear());
+    }
+
+    const { key, query } = acquireQuery<T>(collection, connection, queryParams, schemaRefreshToken);
     currentKeyRef.current = key;
     preQueryRef.current = query as Query<T>;
     lastConnectionRef.current = connection;
     setQuery(query as Query<T>);
-  }, [connection, collection, queryParams]);
+  }, [connection, collection, queryParams, schemaRefreshToken]);
 
   useEffect(() => {
     const listeners = opListeners.current;

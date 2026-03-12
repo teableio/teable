@@ -776,6 +776,87 @@ describe('Realtime projections', () => {
     ]);
   });
 
+  it('hydrates field shape metadata for type conversions that change computed value types', async () => {
+    const table = buildTable('9', 'a', 'b');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Score',
+          type: 'formula',
+          isComputed: true,
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+          options: {
+            expression: '{fldSource0000000001} * 4',
+            formatting: {
+              type: 'decimal',
+              precision: 2,
+            },
+          },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['type', 'options'],
+      changes: {
+        type: { oldValue: 'singleLineText', newValue: 'formula' },
+        options: {
+          oldValue: {},
+          newValue: {
+            expression: '{fldSource0000000001} * 4',
+            formatting: {
+              type: 'decimal',
+              precision: 2,
+            },
+          },
+        },
+      },
+      propertySemantics: {
+        type: fieldUpdateSemantics.type,
+        options: fieldUpdateSemantics.options,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      { type: 'set', path: ['type'], value: 'formula', oldValue: 'singleLineText' },
+      {
+        type: 'set',
+        path: ['options'],
+        value: {
+          expression: '{fldSource0000000001} * 4',
+          formatting: {
+            type: 'decimal',
+            precision: 2,
+          },
+        },
+        oldValue: {},
+      },
+      { type: 'set', path: ['isComputed'], value: true },
+      { type: 'set', path: ['isLookup'], value: null },
+      { type: 'set', path: ['isConditionalLookup'], value: null },
+      { type: 'set', path: ['lookupOptions'], value: null },
+      { type: 'set', path: ['cellValueType'], value: 'number' },
+      { type: 'set', path: ['isMultipleCellValue'], value: false },
+      { type: 'set', path: ['config'], value: null },
+      { type: 'set', path: ['innerType'], value: null },
+      { type: 'set', path: ['innerOptions'], value: null },
+    ]);
+  });
+
   it('projects formatting-only field updates through the field options snapshot', async () => {
     const table = buildTable('1', '2', '3');
     const fieldId = table.primaryFieldId();

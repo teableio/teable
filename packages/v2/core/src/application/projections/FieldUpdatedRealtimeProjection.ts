@@ -13,6 +13,7 @@ import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
+import { buildFieldShapeRefreshChanges } from './FieldRealtimeShapeRefresh';
 import { ProjectionHandler } from './Projection';
 
 const fieldCollectionPrefix = 'fld';
@@ -64,6 +65,8 @@ const buildFieldRealtimeChanges = (
       ...(oldValue === undefined ? {} : { oldValue }),
     });
   }
+
+  fieldChanges.push(...buildFieldShapeRefreshChanges(fieldDto, event, seenPaths));
 
   return fieldChanges;
 };
