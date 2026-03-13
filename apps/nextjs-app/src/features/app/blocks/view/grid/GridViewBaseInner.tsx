@@ -133,7 +133,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   props: IGridViewBaseInnerProps
 ) => {
   const { groupPointsServerData, onRowExpand } = props;
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { t, i18n } = useTranslation(tableConfig.i18nNamespaces);
   const { updateRecord, duplicateRecord } = useRecordOperations();
   const router = useRouter();
   const baseId = useBaseId();
@@ -1104,7 +1104,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const hoverCollaborators = groupedCollaborators?.[cellInfo.id]?.sort(
         (a, b) => a.timeStamp - b.timeStamp
       );
-      const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');
+      const collaboratorText = hoverCollaborators
+        ? new Intl.ListFormat(i18n.language, { style: 'narrow', type: 'conjunction' }).format(
+            hoverCollaborators.map((cur) => cur.user.name)
+          )
+        : undefined;
 
       const hoverHeight = 24;
 

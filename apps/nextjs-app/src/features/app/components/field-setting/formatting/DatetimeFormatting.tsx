@@ -1,6 +1,6 @@
 import type { IDatetimeFormatting } from '@teable/core';
 import { DateFormattingPreset, TimeFormatting } from '@teable/core';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@teable/ui-lib';
+import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@teable/ui-lib';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -124,8 +124,9 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
 interface IProps {
   formatting?: IDatetimeFormatting;
   onChange?: (formatting: IDatetimeFormatting) => void;
+  className?: string;
 }
-export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) => {
+export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange, className }) => {
   const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
 
   formatting = {
@@ -144,7 +145,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
   };
 
   return (
-    <div className="border-bordr w-full space-y-4 border-t pt-4">
+    <div className={cn('w-full space-y-4 border-t pt-4', className)}>
       <div className="space-y-2">
         <Label className="text-sm font-medium">{date.label}</Label>
         <Selector
