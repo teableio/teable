@@ -148,5 +148,11 @@
     "devDocs": "开发者文档",
     "mainLink": "https://help.teable.cn",
     "apiLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api"
+  },
+  "changelog": {
+    "newUpdate": "新更新",
+    "title": "附件批量下载已上线",
+    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
+    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
   }
 }

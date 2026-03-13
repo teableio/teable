@@ -149,5 +149,11 @@
     "devDocs": "Developer Docs",
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/developer/api"
+  },
+  "changelog": {
+    "newUpdate": "NEW UPDATE",
+    "title": "Bulk Download Attachments Are Live",
+    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
+    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
   }
 }
