@@ -20,8 +20,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { duplicateField, convertField } from '@teable/openapi';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
-import type { ComputedUpdateWorker } from '@teable/v2-adapter-table-repository-postgres';
+import { ActorId, type IComputedUpdateDrainService, v2CoreTokens } from '@teable/v2-core';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -93,16 +92,17 @@ describe('Computed Orchestrator (e2e)', () => {
     if (!isForceV2) return;
 
     const container = await v2ContainerService.getContainer();
-    const worker = container.resolve<ComputedUpdateWorker>(
-      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    const drainService = container.resolve<IComputedUpdateDrainService>(
+      v2CoreTokens.computedUpdateDrainService
     );
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
 
     for (let i = 0; i < times; i++) {
       const maxIterations = 100;
       let iterations = 0;
 
       while (iterations < maxIterations) {
-        const result = await worker.runOnce({
+        const result = await drainService.drainOnce(context, {
           workerId: 'test-worker',
           limit: 100,
         });

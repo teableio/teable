@@ -15,10 +15,12 @@ import {
   AsyncWithRetryStrategy,
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
+  ComputedUpdateDrainService,
   defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
   ComputedUpdatePlanner,
   ComputedUpdatePollingService,
+  ExternalComputedRefreshService,
   FieldDependencyGraph,
   HybridWithOutboxStrategy,
   SyncInTransactionStrategy,
@@ -27,6 +29,7 @@ import {
   defaultHybridWithOutboxStrategyConfig,
   defaultPollingConfig,
   ComputedUpdateWorker,
+  UserRenamePropagationService,
 } from '../computed';
 import { ComputedFieldCascadeAfterSchemaUpdate } from '../computed/ComputedFieldCascadeAfterSchemaUpdate';
 import { TableRecordQueryBuilderManager } from '../query-builder';
@@ -74,6 +77,15 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     }
   );
   c.register(v2RecordRepositoryPostgresTokens.computedDependencyGraph, FieldDependencyGraph, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ExternalComputedRefreshService, ExternalComputedRefreshService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.userRenamePropagationService, UserRenamePropagationService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.computedUpdateDrainService, ComputedUpdateDrainService, {
     lifecycle: Lifecycle.Singleton,
   });
 

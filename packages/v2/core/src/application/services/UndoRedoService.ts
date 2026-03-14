@@ -242,7 +242,9 @@ export class UndoRedoService {
     });
   }
 
-  private createCommand(commandData: UndoRedoCommandData): Result<unknown, DomainError> {
+  private createCommand(
+    commandData: UndoRedoCommandData
+  ): Result<CommandBusPort.IPublicCommand, DomainError> {
     const versionResult = this.ensureSupportedCommandVersion(commandData);
     if (versionResult.isErr()) {
       return err(versionResult.error);

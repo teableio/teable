@@ -229,6 +229,7 @@ export const createV2NodeTestContainer = async (
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 

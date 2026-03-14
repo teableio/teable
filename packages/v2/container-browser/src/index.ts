@@ -90,10 +90,9 @@ export const registerV2BrowserPgliteDependencies = async (
   const logger = options.logger ?? new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
 
-  c.registerInstance(
-    v2CoreTokens.commandBus,
-    new MemoryCommandBus(c, options.commandBusMiddlewares)
-  );
+  const commandBus = new MemoryCommandBus(c, options.commandBusMiddlewares);
+  c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
   c.registerInstance(
     v2CoreTokens.eventBus,
@@ -160,7 +159,9 @@ export const registerV2BrowserNoopDependencies = (
   });
   const logger = new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
-  c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
+  const commandBus = new MemoryCommandBus(c);
+  c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c));
   c.registerInstance(
     v2CoreTokens.eventBus,

@@ -8,11 +8,16 @@ import {
   type ICommandHandler,
 } from '../../commands/CommandHandler';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
-import type { CommandBusNext, ICommandBus, ICommandBusMiddleware } from '../CommandBus';
+import type {
+  CommandBusNext,
+  ICommandBus,
+  ICommandBusMiddleware,
+  IInternalCommandBus,
+} from '../CommandBus';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
 
-export class MemoryCommandBus implements ICommandBus {
+export class MemoryCommandBus implements ICommandBus, IInternalCommandBus {
   constructor(
     private readonly handlerResolver: IHandlerResolver,
     private readonly middlewares: ReadonlyArray<ICommandBusMiddleware> = []

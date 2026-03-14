@@ -248,7 +248,7 @@ export class FieldUndoRedoReplayService {
     });
   }
 
-  private async executeNested<TCommand>(
+  private async executeNested<TCommand extends CommandBusPort.IPublicCommand>(
     context: ExecutionContextPort.IExecutionContext,
     nestedCommand: TCommand
   ): Promise<Result<void, DomainError>> {

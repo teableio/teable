@@ -36,6 +36,14 @@ export interface V1BaseTable {
   last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
 }
 
+export interface V1CollaboratorTable {
+  id: string;
+  resource_type: string;
+  resource_id: string;
+  principal_id: string;
+  principal_type: string;
+}
+
 export interface V1TableMetaTable {
   id: string;
   base_id: string;
@@ -187,6 +195,7 @@ export interface V1TeableDatabase {
   users: V1UserTable;
   space: V1SpaceTable;
   base: V1BaseTable;
+  collaborator: V1CollaboratorTable;
   table_meta: V1TableMetaTable;
   field: V1FieldTable;
   view: V1ViewTable;

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { CommandHandler, type ICommandHandler } from '../../commands/CommandHandler';
+import { PublicCommand } from '../../commands/PublicCommand';
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
@@ -49,7 +50,7 @@ const createContext = (): IExecutionContext => {
 
 describe('MemoryCommandBus', () => {
   it('executes command handlers', async () => {
-    class PingCommand {}
+    class PingCommand extends PublicCommand {}
 
     @CommandHandler(PingCommand)
     class PingHandler implements ICommandHandler<PingCommand, string> {
@@ -70,7 +71,7 @@ describe('MemoryCommandBus', () => {
   });
 
   it('returns error when handler is missing', async () => {
-    class MissingCommand {}
+    class MissingCommand extends PublicCommand {}
     const bus = new MemoryCommandBus(new MapResolver());
     const result = await bus.execute(createContext(), new MissingCommand());
     result._unsafeUnwrapErr();
@@ -78,7 +79,7 @@ describe('MemoryCommandBus', () => {
   });
 
   it('handles handler exceptions and middleware errors', async () => {
-    class CrashCommand {}
+    class CrashCommand extends PublicCommand {}
 
     @CommandHandler(CrashCommand)
     class CrashHandler implements ICommandHandler<CrashCommand, string> {

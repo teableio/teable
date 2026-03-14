@@ -39,6 +39,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.tableSchemaRepository, new NoopTableSchemaRepository());
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
   // Register core services (uses defaults unless already registered)

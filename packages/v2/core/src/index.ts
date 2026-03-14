@@ -1,3 +1,5 @@
+import './commands/PublicCommandBranding';
+
 export * from './commands/CreateBaseCommand';
 export * from './commands/CreateBaseHandler';
 export * from './queries/ListBasesQuery';
@@ -83,6 +85,8 @@ export * from './commands/UpdateRecordCommand';
 export * from './commands/UpdateRecordHandler';
 export * from './commands/UpdateRecordsCommand';
 export * from './commands/UpdateRecordsHandler';
+export * from './commands/PropagateUserRenameCommand';
+export * from './commands/PropagateUserRenameHandler';
 export * from './commands/UndoCommand';
 export * from './commands/UndoHandler';
 export * from './commands/RedoCommand';
@@ -106,8 +110,12 @@ export * from './commands/ImportRecordsCommand';
 export * from './commands/ImportRecordsHandler';
 export * from './application/services/TableUpdateFlow';
 export * from './commands/CommandHandler';
+export * from './commands/InternalCommand';
+export * from './commands/PublicCommand';
 export * from './ports/DotTeaParser';
 export * from './ports/AttachmentLookupService';
+export * from './ports/ComputedUpdateDrainService';
+export * from './ports/UserRenamePropagationService';
 export * from './ports/UserLookupService';
 export * from './ports/RecordOrderCalculator';
 export * from './ports/TraceSpan';

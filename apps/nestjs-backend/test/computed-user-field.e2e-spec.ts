@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo } from '@teable/core';
-import { FieldKeyType, FieldType, Role } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
+import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
+import { ActorId, type IComputedUpdateDrainService, v2CoreTokens } from '@teable/v2-core';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -20,25 +21,31 @@ import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createAwaitWithEvent } from './utils/event-promise';
 import {
   createBase,
   createField,
+  createRecords,
   createTable,
   deleteBase,
   deleteField,
   initApp,
+  permanentDeleteTable,
 } from './utils/init-app';
 
 describe('Computed user field (e2e)', () => {
   let app: INestApplication;
+  let v2ContainerService: V2ContainerService;
   const spaceId = globalThis.testConfig.spaceId;
   const userName = globalThis.testConfig.userName;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
   let baseId: string;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    v2ContainerService = app.get(V2ContainerService);
     const base = await createBase({ name: 'base1', spaceId });
     baseId = base.id;
   });
@@ -47,6 +54,36 @@ describe('Computed user field (e2e)', () => {
     await deleteBase(baseId);
     await app.close();
   });
+
+  async function processV2Outbox(): Promise<void> {
+    if (!isForceV2) return;
+
+    const container = await v2ContainerService.getContainer();
+    const drainService = container.resolve<IComputedUpdateDrainService>(
+      v2CoreTokens.computedUpdateDrainService
+    );
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    let iterations = 0;
+
+    while (iterations < 100) {
+      const result = await drainService.drainOnce(context, {
+        workerId: 'computed-user-field-test',
+        limit: 100,
+      });
+
+      if (result.isErr()) {
+        throw new Error(`Outbox processing failed: ${result.error.message}`);
+      }
+
+      if (result.value === 0) {
+        return;
+      }
+
+      iterations++;
+    }
+
+    throw new Error('Timed out draining computed update outbox');
+  }
 
   describe('CRUD', () => {
     let table1: ITableFullVo;
@@ -367,6 +404,7 @@ describe('Computed user field (e2e)', () => {
   });
 
   describe('rename', () => {
+    const renameUserEmail = `rename-user-${Date.now()}@example.com`;
     let user2Request: AxiosInstance;
     let user2: IUserMeVo;
     let table1: ITableFullVo;
@@ -375,7 +413,7 @@ describe('Computed user field (e2e)', () => {
 
     beforeAll(async () => {
       user2Request = await createNewUserAxios({
-        email: 'renameUser@example.com',
+        email: renameUserEmail,
         password: '12345678',
       });
       eventEmitterService = app.get(EventEmitterService);
@@ -388,7 +426,7 @@ describe('Computed user field (e2e)', () => {
 
       await emailSpaceInvitation({
         spaceId: globalThis.testConfig.spaceId,
-        emailSpaceInvitationRo: { role: Role.Creator, emails: ['renameUser@example.com'] },
+        emailSpaceInvitationRo: { role: Role.Creator, emails: [renameUserEmail] },
       });
       table1 = (
         await user2Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
@@ -431,13 +469,14 @@ describe('Computed user field (e2e)', () => {
     });
 
     it('should update createBy fields when user rename - base collaborator', async () => {
+      const user3Email = `rename-user3-${Date.now()}@example.com`;
       const user3Request = await createNewUserAxios({
-        email: 'renameUser3@example.com',
+        email: user3Email,
         password: '12345678',
       });
       await emailBaseInvitation({
         baseId,
-        emailBaseInvitationRo: { role: Role.Creator, emails: ['renameUser3@example.com'] },
+        emailBaseInvitationRo: { role: Role.Creator, emails: [user3Email] },
       });
       const table = (
         await user3Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
@@ -495,6 +534,297 @@ describe('Computed user field (e2e)', () => {
           title: 'new name 2',
         },
       ]);
+    });
+
+    it('should cascade user rename through lookup and downstream computed fields', async () => {
+      const initialName = 'rename-chain-initial';
+      const nextName = 'rename-chain-next';
+      let sourceTableId: string | undefined;
+      let hostTableId: string | undefined;
+      let summaryTableId: string | undefined;
+
+      try {
+        await awaitWithEvent(() =>
+          user2Request.patch<void>(UPDATE_USER_NAME, { name: initialName })
+        );
+
+        const sourceTable = await createTable(baseId, {
+          name: 'rename-user-source',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        });
+        sourceTableId = sourceTable.id;
+
+        const sourcePrimaryFieldId = sourceTable.fields.find((field) => field.isPrimary)?.id;
+        if (!sourcePrimaryFieldId) {
+          throw new Error('Missing source primary field');
+        }
+
+        const ownerField = await createField(sourceTable.id, {
+          name: 'Owner',
+          type: FieldType.User,
+          options: {
+            isMultiple: false,
+            shouldNotify: false,
+          },
+        });
+
+        const ownerFormulaField = await createField(sourceTable.id, {
+          name: 'Owner Formula',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${ownerField.id}}`,
+          },
+        });
+
+        const sourceRecords = await createRecords(sourceTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: [
+            {
+              fields: {
+                [sourcePrimaryFieldId]: 'source-1',
+                [ownerField.id]: {
+                  id: user2.id,
+                  title: initialName,
+                },
+              },
+            },
+          ],
+        });
+        const sourceRecordId = sourceRecords.records[0].id;
+
+        const hostTable = await createTable(baseId, {
+          name: 'rename-user-host',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        });
+        hostTableId = hostTable.id;
+
+        const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+        if (!hostPrimaryFieldId) {
+          throw new Error('Missing host primary field');
+        }
+
+        const sourceLinkField = await createField(hostTable.id, {
+          name: 'Source',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: sourceTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const lookupOwnerField = await createField(hostTable.id, {
+          name: 'Lookup Owner',
+          type: FieldType.User,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: sourceTable.id,
+            linkFieldId: sourceLinkField.id,
+            lookupFieldId: ownerField.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const lookupOwnerFormulaField = await createField(hostTable.id, {
+          name: 'Lookup Owner Formula',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${lookupOwnerField.id}}`,
+          },
+        });
+
+        const hostRecords = await createRecords(hostTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: [
+            {
+              fields: {
+                [hostPrimaryFieldId]: 'host-1',
+                [sourceLinkField.id]: { id: sourceRecordId },
+              },
+            },
+          ],
+        });
+        const hostRecordId = hostRecords.records[0].id;
+
+        const summaryTable = await createTable(baseId, {
+          name: 'rename-user-summary',
+          fields: [{ name: 'Summary', type: FieldType.SingleLineText }],
+        });
+        summaryTableId = summaryTable.id;
+
+        const summaryPrimaryFieldId = summaryTable.fields.find((field) => field.isPrimary)?.id;
+        if (!summaryPrimaryFieldId) {
+          throw new Error('Missing summary primary field');
+        }
+
+        const hostLinkField = await createField(summaryTable.id, {
+          name: 'Hosts',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: hostTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const hostOwnerRollupField = await createField(summaryTable.id, {
+          name: 'Host Owner Names',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'array_join({values})',
+          },
+          lookupOptions: {
+            foreignTableId: hostTable.id,
+            linkFieldId: hostLinkField.id,
+            lookupFieldId: lookupOwnerFormulaField.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const summaryRecords = await createRecords(summaryTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: [
+            {
+              fields: {
+                [summaryPrimaryFieldId]: 'summary-1',
+                [hostLinkField.id]: [{ id: hostRecordId }],
+              },
+            },
+          ],
+        });
+        const summaryRecordId = summaryRecords.records[0].id;
+
+        const waitForSourceOwnerSnapshot = async (expectedName: string) => {
+          const timeoutMs = process.env.CI ? 15000 : 5000;
+          const startedAt = Date.now();
+          let latestSourceRecord: Awaited<ReturnType<typeof getRecord>>['data'] | undefined;
+
+          while (Date.now() - startedAt < timeoutMs) {
+            await processV2Outbox();
+            latestSourceRecord = (
+              await getRecord(sourceTable.id, sourceRecordId, { fieldKeyType: FieldKeyType.Id })
+            ).data;
+
+            if (latestSourceRecord.fields[ownerField.id]?.title === expectedName) {
+              return latestSourceRecord;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+
+          latestSourceRecord =
+            latestSourceRecord ??
+            (await getRecord(sourceTable.id, sourceRecordId, { fieldKeyType: FieldKeyType.Id }))
+              .data;
+
+          expect(latestSourceRecord.fields[ownerField.id]).toMatchObject({ title: expectedName });
+          return latestSourceRecord;
+        };
+
+        const waitForRenameChain = async (expectedName: string) => {
+          const timeoutMs = process.env.CI ? 15000 : 5000;
+          const startedAt = Date.now();
+          let latestSourceRecord: Awaited<ReturnType<typeof getRecord>>['data'] | undefined;
+          let latestHostRecord: Awaited<ReturnType<typeof getRecord>>['data'] | undefined;
+          let latestSummaryRecord: Awaited<ReturnType<typeof getRecord>>['data'] | undefined;
+
+          // Lookup -> formula -> rollup propagation can still be settling when the
+          // record read happens immediately after setup or rename in CI shards.
+          // When FORCE_V2_ALL is enabled, drain the computed outbox explicitly so the
+          // test waits on real propagation work instead of only wall-clock time.
+          while (Date.now() - startedAt < timeoutMs) {
+            await processV2Outbox();
+            latestSourceRecord = (
+              await getRecord(sourceTable.id, sourceRecordId, { fieldKeyType: FieldKeyType.Id })
+            ).data;
+            latestHostRecord = (
+              await getRecord(hostTable.id, hostRecordId, { fieldKeyType: FieldKeyType.Id })
+            ).data;
+            latestSummaryRecord = (
+              await getRecord(summaryTable.id, summaryRecordId, { fieldKeyType: FieldKeyType.Id })
+            ).data;
+
+            if (
+              latestSourceRecord.fields[ownerField.id]?.title === expectedName &&
+              latestSourceRecord.fields[ownerFormulaField.id] === expectedName &&
+              latestHostRecord.fields[lookupOwnerField.id]?.title === expectedName &&
+              String(latestHostRecord.fields[lookupOwnerFormulaField.id] ?? '').includes(
+                expectedName
+              ) &&
+              String(latestSummaryRecord.fields[hostOwnerRollupField.id] ?? '').includes(
+                expectedName
+              )
+            ) {
+              return {
+                sourceRecord: latestSourceRecord,
+                hostRecord: latestHostRecord,
+                summaryRecord: latestSummaryRecord,
+              };
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+
+          latestSourceRecord =
+            latestSourceRecord ??
+            (await getRecord(sourceTable.id, sourceRecordId, { fieldKeyType: FieldKeyType.Id }))
+              .data;
+          latestHostRecord =
+            latestHostRecord ??
+            (await getRecord(hostTable.id, hostRecordId, { fieldKeyType: FieldKeyType.Id })).data;
+          latestSummaryRecord =
+            latestSummaryRecord ??
+            (await getRecord(summaryTable.id, summaryRecordId, { fieldKeyType: FieldKeyType.Id }))
+              .data;
+
+          expect(latestSourceRecord.fields[ownerField.id]).toMatchObject({ title: expectedName });
+          expect(latestSourceRecord.fields[ownerFormulaField.id]).toEqual(expectedName);
+          expect(latestHostRecord.fields[lookupOwnerField.id]).toMatchObject({
+            title: expectedName,
+          });
+          expect(String(latestHostRecord.fields[lookupOwnerFormulaField.id] ?? '')).toContain(
+            expectedName
+          );
+          expect(String(latestSummaryRecord.fields[hostOwnerRollupField.id] ?? '')).toContain(
+            expectedName
+          );
+
+          return {
+            sourceRecord: latestSourceRecord,
+            hostRecord: latestHostRecord,
+            summaryRecord: latestSummaryRecord,
+          };
+        };
+
+        // The behavior under test is the rename cascade. Initial create-time formula/rollup
+        // backfill is covered elsewhere and can settle later than the raw user snapshot in CI.
+        const sourceBeforeRename = await waitForSourceOwnerSnapshot(initialName);
+        expect(sourceBeforeRename.fields[ownerField.id]).toMatchObject({ title: initialName });
+
+        await awaitWithEvent(() => user2Request.patch<void>(UPDATE_USER_NAME, { name: nextName }));
+        await processV2Outbox();
+
+        const {
+          sourceRecord: sourceAfterRename,
+          hostRecord: hostAfterRename,
+          summaryRecord: summaryAfterRename,
+        } = await waitForRenameChain(nextName);
+
+        expect(sourceAfterRename.fields[ownerField.id]).toMatchObject({ title: nextName });
+        expect(sourceAfterRename.fields[ownerFormulaField.id]).toEqual(nextName);
+        expect(hostAfterRename.fields[lookupOwnerField.id]).toMatchObject({ title: nextName });
+        expect(String(hostAfterRename.fields[lookupOwnerFormulaField.id])).toContain(nextName);
+        expect(String(summaryAfterRename.fields[hostOwnerRollupField.id])).toContain(nextName);
+      } finally {
+        if (summaryTableId) {
+          await permanentDeleteTable(baseId, summaryTableId);
+        }
+        if (hostTableId) {
+          await permanentDeleteTable(baseId, hostTableId);
+        }
+        if (sourceTableId) {
+          await permanentDeleteTable(baseId, sourceTableId);
+        }
+      }
     });
   });
 });

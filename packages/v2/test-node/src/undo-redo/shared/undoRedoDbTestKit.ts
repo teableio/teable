@@ -20,6 +20,7 @@ import {
   type ITableRepository,
   type Table,
   type DomainError,
+  type IPublicCommand,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely } from 'kysely';
@@ -75,6 +76,10 @@ export const createUndoRedoDbHarness = async () => {
     v2CoreTokens.commandBus,
     new MemoryCommandBus(testContainer.container, [probe])
   );
+  testContainer.container.registerInstance(
+    v2CoreTokens.internalCommandBus,
+    testContainer.container.resolve(v2CoreTokens.commandBus)
+  );
   testContainer.container.registerInstance(v2CoreTokens.undoRedoStore, new MemoryUndoRedoStore());
 
   const commandBus = testContainer.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -86,7 +91,7 @@ export const createUndoRedoDbHarness = async () => {
     windowId: 'window-1',
   };
 
-  const execute = async <TCommand, TResult>(
+  const execute = async <TCommand extends IPublicCommand, TResult>(
     command: TCommand,
     commandContext: IExecutionContext = context
   ) => unwrap(await commandBus.execute<TCommand, TResult>(commandContext, command), 'execute');
