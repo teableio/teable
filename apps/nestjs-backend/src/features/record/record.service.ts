@@ -25,6 +25,7 @@ import {
   CellFormat,
   CellValueType,
   DbFieldType,
+  DriverClient,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -91,6 +92,11 @@ import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
 
 type IUserFields = { id: string; dbFieldName: string }[];
+type IGeneratedColumnMeta = { meta?: { persistedAsGeneratedColumn?: boolean } };
+type IGeneratedColumnStateRow = {
+  column_name: string;
+  is_generated: string | null;
+};
 
 function removeUndefined<T extends Record<string, unknown>>(obj: T) {
   return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as T;
@@ -133,6 +139,61 @@ export class RecordService {
    */
   private getQueryColumnName(field: IFieldInstance): string {
     return field.dbFieldName;
+  }
+
+  private async getWritableCreatedTimeFieldNames(
+    dbTableName: string,
+    fields: readonly FieldCore[]
+  ): Promise<Set<string>> {
+    const createdTimeFields = fields.filter(
+      (field) => field.type === FieldType.CreatedTime && !field.isLookup
+    );
+    if (!createdTimeFields.length) {
+      return new Set<string>();
+    }
+
+    const fallbackWritableFieldNames = new Set(
+      createdTimeFields
+        .filter(
+          (field) => (field as IGeneratedColumnMeta).meta?.persistedAsGeneratedColumn !== true
+        )
+        .map((field) => field.dbFieldName)
+    );
+
+    if (this.dbProvider.driver !== DriverClient.Pg) {
+      return fallbackWritableFieldNames;
+    }
+
+    const [schemaName, tableName] = this.dbProvider.splitTableName(dbTableName);
+    const sqlNative = this.knex('information_schema.columns')
+      .select<IGeneratedColumnStateRow[]>('column_name', 'is_generated')
+      .where({
+        table_schema: schemaName,
+        table_name: tableName,
+      })
+      .whereIn(
+        'column_name',
+        createdTimeFields.map((field) => field.dbFieldName)
+      )
+      .toSQL()
+      .toNative();
+
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<IGeneratedColumnStateRow[]>(sqlNative.sql, ...sqlNative.bindings);
+    const columnStateMap = new Map(rows.map((row) => [row.column_name, row.is_generated]));
+
+    return new Set(
+      createdTimeFields
+        .filter((field) => {
+          const isGenerated = columnStateMap.get(field.dbFieldName);
+          if (isGenerated == null) {
+            return fallbackWritableFieldNames.has(field.dbFieldName);
+          }
+          return isGenerated === 'NEVER';
+        })
+        .map((field) => field.dbFieldName)
+    );
   }
 
   private dbRecord2RecordFields(
@@ -1217,6 +1278,10 @@ export class RecordService {
     await this.creditCheck(table.id);
     const dbTableName = table.dbTableName;
     const fields = await this.getFieldsByProjection(table.id);
+    const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
+      dbTableName,
+      fields
+    );
     const auditUserValue =
       user &&
       UserFieldDto.fullAvatarUrl({
@@ -1236,6 +1301,8 @@ export class RecordService {
     );
 
     const newRecords = records.map((record) => {
+      const createdTime =
+        writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined;
       const fieldsValues: Record<string, unknown> = {};
       Object.entries(record.fields).forEach(([fieldId, value]) => {
         const fieldInstance = fieldInstanceMap[fieldId];
@@ -1248,12 +1315,18 @@ export class RecordService {
           });
         });
       }
-      return {
+      writableCreatedTimeFieldNames.forEach((dbFieldName) => {
+        if (createdTime != null) {
+          fieldsValues[dbFieldName] = createdTime;
+        }
+      });
+      return removeUndefined({
         __id: generateRecordId(),
         __created_by: userId,
+        __created_time: createdTime,
         __version: 1,
         ...fieldsValues,
-      };
+      });
     });
     const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
     await this.prismaService.txClient().$executeRawUnsafe(sql);
@@ -1343,6 +1416,10 @@ export class RecordService {
 
     const { dbTableName, name: tableName } = table;
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
+    const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
+      dbTableName,
+      fields
+    );
 
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId: table.id, deletedTime: null },
@@ -1396,6 +1473,9 @@ export class RecordService {
       .map((order, i) => {
         const snapshot = records[i];
         const fields = snapshot.fields;
+        const createdTime =
+          snapshot.createdTime ??
+          (writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined);
 
         const dbFieldValueMap = validationFields.reduce(
           (map, field) => {
@@ -1416,17 +1496,28 @@ export class RecordService {
           });
         }
 
+        const createdTimeFieldValues = Array.from(writableCreatedTimeFieldNames).reduce(
+          (map, dbFieldName) => {
+            if (createdTime != null) {
+              map[dbFieldName] = createdTime;
+            }
+            return map;
+          },
+          {} as Record<string, unknown>
+        );
+
         return removeUndefined({
           __id: snapshot.id,
           __created_by: snapshot.createdBy || userId,
           __last_modified_by: snapshot.lastModifiedBy || undefined,
-          __created_time: snapshot.createdTime || undefined,
+          __created_time: createdTime,
           __last_modified_time: snapshot.lastModifiedTime || undefined,
           __auto_number: snapshot.autoNumber == null ? undefined : snapshot.autoNumber,
           __version: 1,
           ...order,
           ...dbFieldValueMap,
           ...auditFieldValues,
+          ...createdTimeFieldValues,
         });
       });
 
