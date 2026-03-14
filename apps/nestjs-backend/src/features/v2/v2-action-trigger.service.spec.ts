@@ -197,6 +197,10 @@ describe('V2ActionTriggerService', () => {
       },
       {
         actionKey: 'setRecord',
+        payload: {
+          tableId: tableId.toString(),
+          fieldIds: [fieldId.toString()],
+        },
       },
     ]);
   });

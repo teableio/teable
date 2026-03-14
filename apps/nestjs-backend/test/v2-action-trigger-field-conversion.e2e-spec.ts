@@ -412,4 +412,67 @@ describe('V2 action trigger field conversion (e2e)', () => {
       fieldIds: [lookupFieldId],
     });
   });
+
+  it('emits addField and schema-driven setRecord when creating a formula field', async () => {
+    const sourceFieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+    const table = await createTable(baseId, {
+      name: 'v2-action-trigger-create-formula-field',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { id: sourceFieldId, name: amountTextFieldName, type: FieldType.Number },
+      ],
+    });
+    tableIds.add(table.id);
+
+    await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [{ fields: { [sourceFieldId]: 100 } }, { fields: { [sourceFieldId]: 50 } }],
+    });
+
+    const actions = await collectActionTriggers({
+      shareDbService,
+      cookie,
+      port,
+      tableId: table.id,
+      until: (actions) =>
+        actions.some((action) => action.actionKey === 'addField') &&
+        actions.some((action) => action.actionKey === 'setRecord'),
+      act: async () => {
+        const response = await axios.post(
+          `/table/${table.id}/field`,
+          {
+            id: formulaFieldId,
+            name: 'Amount x 2',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${sourceFieldId}} * 2`,
+            },
+          },
+          {
+            headers: {
+              [X_CANARY_HEADER]: 'true',
+            },
+          }
+        );
+
+        expect(response.status).toBe(201);
+        expect(response.headers['x-teable-v2']).toBe('true');
+      },
+    });
+
+    const addFieldAction = actions.find((action) => action.actionKey === 'addField');
+    expect(addFieldAction?.payload).toMatchObject({
+      tableId: table.id,
+      field: {
+        id: formulaFieldId,
+      },
+    });
+
+    const setRecordAction = actions.find((action) => action.actionKey === 'setRecord');
+    expect(setRecordAction?.payload).toMatchObject({
+      tableId: table.id,
+      fieldIds: [formulaFieldId],
+    });
+  });
 });

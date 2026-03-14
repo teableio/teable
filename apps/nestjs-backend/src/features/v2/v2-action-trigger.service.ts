@@ -247,8 +247,14 @@ class V2FieldCreatedActionTriggerProjection implements IEventHandler<FieldCreate
           },
         },
       },
-      // Trigger clients to refresh record cells for newly backfilled field values.
-      { actionKey: 'setRecord' },
+      // Trigger schema-driven record query refresh for the newly added field.
+      {
+        actionKey: 'setRecord',
+        payload: {
+          tableId: event.tableId.toString(),
+          fieldIds: [event.fieldId.toString()],
+        },
+      },
     ]);
     return ok(undefined);
   }
