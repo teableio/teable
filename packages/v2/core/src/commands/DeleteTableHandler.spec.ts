@@ -2,12 +2,15 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { TableDeletionSideEffectServiceResult } from '../application/services/TableDeletionSideEffectService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { TableActionTriggerRequested } from '../domain/table/events/TableActionTriggerRequested';
 import { TableDeleted } from '../domain/table/events/TableDeleted';
+import { TableTrashed } from '../domain/table/events/TableTrashed';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
@@ -18,7 +21,11 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { ILogger, LogContext } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableDeleteOptions,
+  TableFindOptions,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteTableCommand } from './DeleteTableCommand';
@@ -43,6 +50,8 @@ const buildTable = (baseIdSeed: string): Table => {
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   deleted: Table[] = [];
+  deleteModes: Array<'soft' | 'permanent'> = [];
+  deletedTableIds = new Set<string>();
   failDelete: DomainError | undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -60,9 +69,16 @@ class FakeTableRepository implements ITableRepository {
 
   async findOne(
     _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOptions, 'state'>
   ): Promise<Result<Table, DomainError>> {
-    const found = this.tables.find((table) => spec.isSatisfiedBy(table));
+    const state = options?.state ?? 'active';
+    const found = this.tables.find((table) => {
+      const isDeleted = this.deletedTableIds.has(table.id().toString());
+      if (state === 'active' && isDeleted) return false;
+      if (state === 'deleted' && !isDeleted) return false;
+      return spec.isSatisfiedBy(table);
+    });
     if (!found) return err(domainError.notFound({ message: 'Not found' }));
     return ok(found);
   }
@@ -83,15 +99,22 @@ class FakeTableRepository implements ITableRepository {
     return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  async delete(
+    _: IExecutionContext,
+    table: Table,
+    options?: TableDeleteOptions
+  ): Promise<Result<void, DomainError>> {
     if (this.failDelete) return err(this.failDelete);
     this.deleted.push(table);
+    this.deleteModes.push(options?.mode ?? 'soft');
+    this.deletedTableIds.add(table.id().toString());
     return ok(undefined);
   }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   deleted: Table[] = [];
+  deleteModes: Array<'soft' | 'permanent'> = [];
   failDelete: DomainError | undefined;
 
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
@@ -113,9 +136,16 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     return ok(table);
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  async delete(
+    _: IExecutionContext,
+    table: Table,
+    options?: TableDeleteOptions
+  ): Promise<Result<void, DomainError>> {
     if (this.failDelete) return err(this.failDelete);
-    this.deleted.push(table);
+    this.deleteModes.push(options?.mode ?? 'soft');
+    if ((options?.mode ?? 'soft') === 'permanent') {
+      this.deleted.push(table);
+    }
     return ok(undefined);
   }
 }
@@ -134,6 +164,23 @@ class FakeEventBus implements IEventBus {
     this.published.push(...events);
     if (this.failPublish) return err(this.failPublish);
     return ok(undefined);
+  }
+}
+
+class FakeTableDeletionSideEffectService {
+  events: IDomainEvent[] = [];
+  postPersistEvents: IDomainEvent[] = [];
+  calls = 0;
+  failExecute: DomainError | undefined;
+
+  async execute(): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
+    this.calls += 1;
+    if (this.failExecute) return err(this.failExecute);
+    return ok({
+      events: [...this.events],
+      postPersistEvents: [...this.postPersistEvents],
+      updatedTables: [],
+    });
   }
 }
 
@@ -180,12 +227,13 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 describe('DeleteTableHandler', () => {
-  it('deletes tables and publishes events', async () => {
+  it('soft deletes tables without dropping schema and publishes TableTrashed', async () => {
     const table = buildTable('a');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
+    const sideEffectService = new FakeTableDeletionSideEffectService();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
 
@@ -195,14 +243,126 @@ describe('DeleteTableHandler', () => {
     });
     commandResult._unsafeUnwrap();
 
-    const handler = new DeleteTableHandler(repo, schemaRepo, eventBus, logger, unitOfWork);
+    const handler = new DeleteTableHandler(
+      repo,
+      schemaRepo,
+      sideEffectService as never,
+      eventBus,
+      logger,
+      unitOfWork
+    );
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
-    expect(schemaRepo.deleted).toHaveLength(1);
+    expect(schemaRepo.deleted).toHaveLength(0);
+    expect(schemaRepo.deleteModes).toEqual(['soft']);
     expect(repo.deleted).toHaveLength(1);
-    expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
+    expect(repo.deleteModes).toEqual(['soft']);
+    expect(eventBus.published.some((event) => event instanceof TableTrashed)).toBe(true);
+    expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(false);
     expect(unitOfWork.transactions.length).toBe(1);
+  });
+
+  it('publishes side-effect post-persist events without returning them in the response payload', async () => {
+    const table = buildTable('s');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    const schemaRepo = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const sideEffectService = new FakeTableDeletionSideEffectService();
+    sideEffectService.postPersistEvents = [
+      TableActionTriggerRequested.create({
+        tableId: table.id(),
+        baseId: table.baseId(),
+        actionKey: 'setRecord',
+        payload: { tableId: table.id().toString(), fieldIds: [] },
+      }),
+    ];
+
+    const handler = new DeleteTableHandler(
+      repo,
+      schemaRepo,
+      sideEffectService as never,
+      eventBus,
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
+    const responseEventNames = payload.events.map((event) => event.name.toString());
+    const publishedEventNames = eventBus.published.map((event) => event.name.toString());
+
+    expect(responseEventNames).not.toContain('TableActionTriggerRequested');
+    expect(publishedEventNames).toContain('TableActionTriggerRequested');
+    expect(publishedEventNames).toContain('TableTrashed');
+  });
+
+  it('permanently deletes tables and publishes TableDeleted', async () => {
+    const table = buildTable('p');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    const schemaRepo = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const handler = new DeleteTableHandler(
+      repo,
+      schemaRepo,
+      new FakeTableDeletionSideEffectService() as never,
+      eventBus,
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      mode: 'permanent',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(schemaRepo.deleted).toHaveLength(1);
+    expect(schemaRepo.deleteModes).toEqual(['permanent']);
+    expect(repo.deleteModes).toEqual(['permanent']);
+    expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
+  });
+
+  it('permanently deletes an already trashed table without rerunning side effects', async () => {
+    const table = buildTable('q');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    repo.deletedTableIds.add(table.id().toString());
+    const schemaRepo = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const sideEffectService = new FakeTableDeletionSideEffectService();
+    const handler = new DeleteTableHandler(
+      repo,
+      schemaRepo,
+      sideEffectService as never,
+      eventBus,
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      mode: 'permanent',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(sideEffectService.calls).toBe(0);
+    expect(schemaRepo.deleteModes).toEqual(['permanent']);
+    expect(repo.deleteModes).toEqual(['permanent']);
+    expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
   });
 
   it('returns not found when table is missing', async () => {
@@ -211,6 +371,7 @@ describe('DeleteTableHandler', () => {
     const handler = new DeleteTableHandler(
       repo,
       new FakeTableSchemaRepository(),
+      new FakeTableDeletionSideEffectService() as never,
       new FakeEventBus(),
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -232,11 +393,13 @@ describe('DeleteTableHandler', () => {
     const repo = new FakeTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
+    const sideEffectService = new FakeTableDeletionSideEffectService();
     const eventBus = new FakeEventBus();
 
     const handler = new DeleteTableHandler(
       repo,
       schemaRepo,
+      sideEffectService as never,
       eventBus,
       new FakeLogger(),
       new FakeUnitOfWork()
@@ -248,6 +411,11 @@ describe('DeleteTableHandler', () => {
     });
     commandResult._unsafeUnwrap();
 
+    sideEffectService.failExecute = domainError.unexpected({ message: 'side effect failed' });
+    const sideEffectResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(sideEffectResult._unsafeUnwrapErr().message).toBe('side effect failed');
+
+    sideEffectService.failExecute = undefined;
     schemaRepo.failDelete = domainError.unexpected({ message: 'schema delete failed' });
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema delete failed');

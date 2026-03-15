@@ -17,6 +17,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   effects after field deletion (e.g. remove symmetric link fields).
 - `ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and
   validate missing references.
+- `TableDeletionSideEffectService.ts` - Role: application service; Purpose: dispatch explicit
+  `OnTeableTableDeleted` reactions in other tables before deleting a table, including link-to-text
+  conversion and dependent metadata cleanup.
 - `TableQueryService.ts` - Role: application service; Purpose: common table lookup operations
   (getById, getByIdInBase, exists) used across CommandHandlers and QueryHandlers.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate + persist + publish).

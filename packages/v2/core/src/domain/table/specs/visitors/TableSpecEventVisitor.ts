@@ -57,14 +57,15 @@ import type { TableAddSelectOptionsSpec } from '../TableAddSelectOptionsSpec';
 import type { TableByBaseIdSpec } from '../TableByBaseIdSpec';
 import type { TableByIdSpec } from '../TableByIdSpec';
 import type { TableByIdsSpec } from '../TableByIdsSpec';
+import type { TableByIncomingReferenceToTableSpec } from '../TableByIncomingReferenceToTableSpec';
 import type { TableByNameLikeSpec } from '../TableByNameLikeSpec';
 import type { TableByNameSpec } from '../TableByNameSpec';
 import type { TableDuplicateFieldSpec } from '../TableDuplicateFieldSpec';
 import type { TableRemoveFieldSpec } from '../TableRemoveFieldSpec';
 import type { TableRenameSpec } from '../TableRenameSpec';
+import type { TableUpdateFieldAiConfigSpec } from '../TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldConstraintsSpec } from '../TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldDbFieldNameSpec } from '../TableUpdateFieldDbFieldNameSpec';
-import type { TableUpdateFieldAiConfigSpec } from '../TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldDescriptionSpec } from '../TableUpdateFieldDescriptionSpec';
 import type { TableUpdateFieldHasErrorSpec } from '../TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from '../TableUpdateFieldNameSpec';
@@ -242,6 +243,13 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
   }
 
   visitTableById(_spec: TableByIdSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
+    // Query-only spec, no events generated
+    return ok(undefined);
+  }
+
+  visitTableByIncomingReferenceToTable(
+    _spec: TableByIncomingReferenceToTableSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
     // Query-only spec, no events generated
     return ok(undefined);
   }

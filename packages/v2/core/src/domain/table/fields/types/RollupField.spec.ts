@@ -1,10 +1,11 @@
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { FieldId } from '../FieldId';
-import { FieldName } from '../FieldName';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import { TableId } from '../../TableId';
+import { FieldId } from '../FieldId';
+import { FieldName } from '../FieldName';
 import { LongTextField } from './LongTextField';
 import { NumberField } from './NumberField';
 import { RollupExpression } from './RollupExpression';
@@ -89,5 +90,43 @@ describe('RollupField.onDependencyUpdated', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+  });
+
+  it('sets hasError when the foreign table is deleted', () => {
+    const linkFieldId = createFieldId('i');
+    const lookupFieldId = createFieldId('j');
+    const foreignTableId = createTableId('k');
+    const valuesField = NumberField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const rollupField = RollupField.create({
+      id: createFieldId('l'),
+      name: FieldName.create('Amount Sum')._unsafeUnwrap(),
+      config: RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+      })._unsafeUnwrap(),
+      expression: RollupExpression.create('sum({values})')._unsafeUnwrap(),
+      valuesField,
+    })._unsafeUnwrap();
+
+    const result = rollupField.onTableDeleted({ id: () => foreignTableId } as never, {
+      table: {} as never,
+      hooks: {
+        createFieldUpdateAfterPersistHook: () => async () =>
+          ok({
+            events: [],
+            table: {} as never,
+          }),
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const reaction = result._unsafeUnwrap();
+    expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(reaction?.afterPersist).toBeUndefined();
   });
 });

@@ -276,7 +276,31 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
     });
   }
 
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+  async delete(
+    _context: IExecutionContext,
+    table: Table,
+    options?: { mode?: 'soft' | 'permanent' }
+  ): Promise<Result<void, DomainError>> {
+    if ((options?.mode ?? 'soft') !== 'permanent') {
+      return ok(undefined);
+    }
+
+    const dbTableNameResult = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }));
+    if (dbTableNameResult.isErr()) {
+      return err(dbTableNameResult.error);
+    }
+
+    const { schema, tableName } = dbTableNameResult.value;
+    const schemaBuilder = schema
+      ? this.options.db.schema.withSchema(schema)
+      : this.options.db.schema;
+    this.captureCompiledStatement(
+      `Schema delete: table ${table.name().toString()}`,
+      schemaBuilder.dropTable(tableName).ifExists().compile()
+    );
+
     return ok(undefined);
   }
 

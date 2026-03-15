@@ -1,16 +1,21 @@
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../../../base/BaseId';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
+import { Table } from '../../Table';
+import { TableId } from '../../TableId';
+import { TableName } from '../../TableName';
 import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
-import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
-import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
-import { TableId } from '../../TableId';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { ConditionalRollupConfig } from './ConditionalRollupConfig';
 import { ConditionalRollupField } from './ConditionalRollupField';
+import { FieldHasError } from './FieldHasError';
 import { LongTextField } from './LongTextField';
 import { NumberField } from './NumberField';
 import { RollupExpression } from './RollupExpression';
@@ -20,6 +25,7 @@ import { SingleSelectField } from './SingleSelectField';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
+const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 
 const createConditionalRollupField = (statusFieldId: FieldId) => {
   const config = ConditionalRollupConfig.create({
@@ -322,9 +328,11 @@ describe('ConditionalRollupField.onFieldDeleted', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    const reaction = result._unsafeUnwrap();
+    expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    expect(reaction?.relatedFieldIds.map((id) => id.toString())).toEqual([field.id().toString()]);
 
-    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const spec = reaction?.spec as TableUpdateFieldTypeSpec;
     const nextField = spec.newField() as ConditionalRollupField;
     const nextCondition = nextField.config().condition().toDto();
     expect(nextCondition.filter).toEqual({
@@ -333,5 +341,145 @@ describe('ConditionalRollupField.onFieldDeleted', () => {
     });
     expect(nextCondition.sort).toBeUndefined();
     expect(nextCondition.limit).toBe(1);
+  });
+
+  it('preserves existing error when the foreign sort field is deleted', () => {
+    const foreignTableId = createTableId('d');
+    const lookupFieldId = createFieldId('e');
+    const sortFieldId = createFieldId('f');
+    const hostPrimaryFieldId = createFieldId('g');
+    const conditionalRollupFieldId = createFieldId('h');
+    const conditionalRollup = ConditionalRollupField.createPending({
+      id: conditionalRollupFieldId,
+      name: FieldName.create('Conditional Rollup Sorted')._unsafeUnwrap(),
+      config: ConditionalRollupConfig.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+          sort: { fieldId: sortFieldId.toString(), order: 'asc' },
+          limit: 1,
+        },
+      })._unsafeUnwrap(),
+      expression: RollupExpression.default(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+
+    const hostTableBuilder = Table.builder()
+      .withId(createTableId('i'))
+      .withBaseId(createBaseId('j'))
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTableBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryFieldId)
+      .withName(FieldName.create('Host Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTableBuilder.view().defaultGrid().done();
+    const hostTable = hostTableBuilder.build()._unsafeUnwrap();
+
+    const foreignTableBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(createBaseId('j'))
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignTableBuilder
+      .field()
+      .singleLineText()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignTableBuilder
+      .field()
+      .number()
+      .withId(sortFieldId)
+      .withName(FieldName.create('Score')._unsafeUnwrap())
+      .done();
+    foreignTableBuilder.view().defaultGrid().done();
+    const foreignTable = foreignTableBuilder.build()._unsafeUnwrap();
+
+    const hostWithConditionalRollup = hostTable
+      .addField(conditionalRollup, { foreignTables: [foreignTable] })
+      ._unsafeUnwrap();
+    const fieldInHost = hostWithConditionalRollup
+      .getField((field) => field.id().equals(conditionalRollupFieldId))
+      ._unsafeUnwrap() as ConditionalRollupField;
+    fieldInHost.setHasError(FieldHasError.error());
+
+    const deletedField = foreignTable.getFields().find((field) => field.id().equals(sortFieldId));
+    expect(deletedField).toBeDefined();
+    if (!deletedField) return;
+
+    const result = fieldInHost.onFieldDeleted(deletedField, {
+      table: hostWithConditionalRollup,
+      sourceTable: foreignTable,
+      previousSourceTable: foreignTable,
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()?.relatedFieldIds.map((id) => id.toString())).toEqual([
+      conditionalRollupFieldId.toString(),
+    ]);
+
+    const updatedTable = result._unsafeUnwrap()?.spec.mutate(hostWithConditionalRollup);
+    expect(updatedTable?.isOk()).toBe(true);
+    const updatedField = updatedTable
+      ?._unsafeUnwrap()
+      .getField((field) => field.id().equals(conditionalRollupFieldId));
+    expect(updatedField?.isOk()).toBe(true);
+
+    const nextField = updatedField?._unsafeUnwrap() as ConditionalRollupField;
+    expect(nextField.hasError().isError()).toBe(true);
+    expect(nextField.config().condition().toDto().sort).toBeUndefined();
+  });
+
+  it('sets hasError when the foreign table is deleted', () => {
+    const foreignTableId = createTableId('k');
+    const lookupFieldId = createFieldId('l');
+    const sortFieldId = createFieldId('m');
+
+    const conditionalRollup = ConditionalRollupField.create({
+      id: createFieldId('n'),
+      name: FieldName.create('Conditional Rollup')._unsafeUnwrap(),
+      config: ConditionalRollupConfig.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+          sort: { fieldId: sortFieldId.toString(), order: 'asc' },
+          limit: 1,
+        },
+      })._unsafeUnwrap(),
+      expression: RollupExpression.create('sum({values})')._unsafeUnwrap(),
+      valuesField: NumberField.create({
+        id: lookupFieldId,
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = conditionalRollup.onTableDeleted({ id: () => foreignTableId } as never, {
+      table: {} as never,
+      hooks: {
+        createFieldUpdateAfterPersistHook: () => async () =>
+          ok({
+            events: [],
+            table: {} as never,
+          }),
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const reaction = result._unsafeUnwrap();
+    expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(reaction?.afterPersist).toBeUndefined();
   });
 });

@@ -1,9 +1,10 @@
-import { z } from 'zod';
 import {
   createFieldInputSchema,
   deleteFieldInputSchema,
+  deleteTableInputSchema,
   updateFieldInputSchema,
 } from '@teable/v2-core';
+import { z } from 'zod';
 
 import {
   apiOkResponseDtoSchema,
@@ -30,6 +31,13 @@ export const explainUpdateFieldInputSchema = updateFieldInputSchema.extend({
 });
 
 export const explainDeleteFieldInputSchema = deleteFieldInputSchema.extend({
+  analyze: z.boolean().optional().default(false),
+  includeSql: z.boolean().optional().default(true),
+  includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
+});
+
+export const explainDeleteTableInputSchema = deleteTableInputSchema.extend({
   analyze: z.boolean().optional().default(false),
   includeSql: z.boolean().optional().default(true),
   includeGraph: z.boolean().optional().default(false),
@@ -67,6 +75,7 @@ export const explainDeleteRecordsInputSchema = z.object({
 export type IExplainCreateFieldInput = z.infer<typeof explainCreateFieldInputSchema>;
 export type IExplainUpdateFieldInput = z.infer<typeof explainUpdateFieldInputSchema>;
 export type IExplainDeleteFieldInput = z.infer<typeof explainDeleteFieldInputSchema>;
+export type IExplainDeleteTableInput = z.infer<typeof explainDeleteTableInputSchema>;
 export type IExplainCreateRecordInput = z.infer<typeof explainCreateRecordInputSchema>;
 export type IExplainUpdateRecordInput = z.infer<typeof explainUpdateRecordInputSchema>;
 export type IExplainDeleteRecordsInput = z.infer<typeof explainDeleteRecordsInputSchema>;
@@ -344,6 +353,7 @@ const commandExplainInfoSchema = z.object({
     'CreateField',
     'UpdateField',
     'DeleteField',
+    'DeleteTable',
     'CreateRecord',
     'UpdateRecord',
     'DeleteRecords',

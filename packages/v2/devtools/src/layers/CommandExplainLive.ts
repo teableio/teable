@@ -11,6 +11,7 @@ import {
   UpdateFieldCommand,
   DeleteRecordsCommand,
   DeleteFieldCommand,
+  DeleteTableCommand,
   PasteCommand,
   ActorId,
   TableByIdSpec,
@@ -26,6 +27,7 @@ import {
   type ExplainCreateFieldInput,
   type ExplainCreateInput,
   type ExplainDeleteFieldInput,
+  type ExplainDeleteTableInput,
   type ExplainDeleteInput,
   type ExplainPasteInput,
   type ExplainUpdateFieldInput,
@@ -144,6 +146,37 @@ export const CommandExplainLive = Layer.effect(
             baseId,
             tableId: input.tableId,
             fieldId: input.fieldId,
+          });
+          if (commandResult.isErr()) {
+            return yield* Effect.fail(CliError.fromUnknown(commandResult.error));
+          }
+
+          return yield* Effect.tryPromise({
+            try: async () => {
+              const result = await explainService.explain(context, commandResult.value, {
+                analyze: input.analyze,
+                includeSql: true,
+                includeGraph: false,
+                includeLocks: true,
+              });
+              if (result.isErr()) throw result.error;
+              return result.value;
+            },
+            catch: (e) => CliError.fromUnknown(e),
+          });
+        }),
+
+      explainDeleteTable: (
+        input: ExplainDeleteTableInput
+      ): Effect.Effect<ExplainResult, CliError> =>
+        Effect.gen(function* () {
+          const context = yield* createContext();
+          const baseId = input.baseId ?? (yield* resolveBaseId(input.tableId));
+
+          const commandResult = DeleteTableCommand.create({
+            baseId,
+            tableId: input.tableId,
+            mode: input.mode,
           });
           if (commandResult.isErr()) {
             return yield* Effect.fail(CliError.fromUnknown(commandResult.error));

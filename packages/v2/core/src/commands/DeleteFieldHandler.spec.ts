@@ -16,6 +16,8 @@ import { OccurredAt } from '../domain/shared/OccurredAt';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LinkField } from '../domain/table/fields/types/LinkField';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -41,8 +43,20 @@ const noopUndoRedoService = {
   },
 } as unknown as UndoRedoService;
 
-const noopFieldUndoRedoSnapshotService = {
-  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
+class FakeFieldUndoRedoSnapshotService {
+  captured: Array<{ tableId: TableId; fieldId: FieldId; includeRecords?: boolean }> = [];
+
+  async capture(
+    _context: IExecutionContext,
+    table: Table,
+    fieldId: FieldId,
+    options?: { includeRecords?: boolean }
+  ) {
+    this.captured.push({
+      tableId: table.id(),
+      fieldId,
+      includeRecords: options?.includeRecords,
+    });
     return ok({
       field: {
         id: fieldId.toString(),
@@ -51,8 +65,8 @@ const noopFieldUndoRedoSnapshotService = {
       },
       views: [],
     });
-  },
-} as unknown as FieldUndoRedoSnapshotService;
+  }
+}
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap();
@@ -245,6 +259,7 @@ describe('DeleteFieldHandler', () => {
     sideEffectService.events = [buildEvent()];
 
     const foreignTableLoader = new FakeForeignTableLoaderService();
+    const fieldUndoRedoSnapshotService = new FakeFieldUndoRedoSnapshotService();
 
     const handler = new DeleteFieldHandler(
       tableRepository,
@@ -252,7 +267,7 @@ describe('DeleteFieldHandler', () => {
       sideEffectService as unknown as FieldDeletionSideEffectService,
       foreignTableLoader as unknown as ForeignTableLoaderService,
       noopUndoRedoService,
-      noopFieldUndoRedoSnapshotService
+      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService
     );
 
     const commandResult = DeleteFieldCommand.create({
@@ -270,6 +285,7 @@ describe('DeleteFieldHandler', () => {
     expect(eventBus.published.length).toBeGreaterThan(0);
     expect(unitOfWork.transactions.length).toBe(1);
     expect(foreignTableLoader.lastBaseId?.equals(baseId)).toBe(true);
+    expect(fieldUndoRedoSnapshotService.captured).toHaveLength(1);
   });
 
   it('returns not found when field is missing', async () => {
@@ -288,7 +304,7 @@ describe('DeleteFieldHandler', () => {
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
       new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
       noopUndoRedoService,
-      noopFieldUndoRedoSnapshotService
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService
     );
 
     const commandResult = DeleteFieldCommand.create({
@@ -299,5 +315,113 @@ describe('DeleteFieldHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Field not found');
+  });
+
+  it('captures related undo snapshots from explicit field deletion reactions', async () => {
+    const baseId = BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap();
+    const sourceTableId = TableId.create(`tbl${'g'.repeat(16)}`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'h'.repeat(16)}`)._unsafeUnwrap();
+    const sourcePrimaryFieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
+    const sourceDisplayFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+    const hostPrimaryFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+    const hostLinkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+
+    const sourceBuilder = Table.builder()
+      .withId(sourceTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Source')._unsafeUnwrap());
+    sourceBuilder
+      .field()
+      .singleLineText()
+      .withId(sourcePrimaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    sourceBuilder
+      .field()
+      .singleLineText()
+      .withId(sourceDisplayFieldId)
+      .withName(FieldName.create('Display')._unsafeUnwrap())
+      .done();
+    sourceBuilder.view().defaultGrid().done();
+    const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryFieldId)
+      .withName(FieldName.create('Host Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostBaseTable = hostBuilder.build()._unsafeUnwrap();
+
+    const hostLinkField = LinkField.create({
+      id: hostLinkFieldId,
+      name: FieldName.create('Source Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'oneOne',
+        foreignTableId: sourceTableId.toString(),
+        lookupFieldId: sourceDisplayFieldId.toString(),
+        isOneWay: true,
+        fkHostTableName: 'host_source_link',
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_source_link',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const hostTable = hostBaseTable
+      .addField(hostLinkField, { foreignTables: [sourceTable] })
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(sourceTable, hostTable);
+
+    const snapshotService = new FakeFieldUndoRedoSnapshotService();
+    const handlerWithSnapshots = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      noopUndoRedoService,
+      snapshotService as unknown as FieldUndoRedoSnapshotService
+    );
+
+    const command = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: sourceTableId.toString(),
+      fieldId: sourceDisplayFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const result = await handlerWithSnapshots.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    expect(
+      snapshotService.captured.map(({ tableId, fieldId, includeRecords }) => ({
+        tableId: tableId.toString(),
+        fieldId: fieldId.toString(),
+        includeRecords,
+      }))
+    ).toEqual([
+      {
+        tableId: sourceTableId.toString(),
+        fieldId: sourceDisplayFieldId.toString(),
+        includeRecords: undefined,
+      },
+      {
+        tableId: hostTableId.toString(),
+        fieldId: hostLinkFieldId.toString(),
+        includeRecords: false,
+      },
+    ]);
   });
 });

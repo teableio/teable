@@ -7,6 +7,7 @@ import type {
   TableAddSelectOptionsSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
@@ -113,6 +114,12 @@ export class TableAddFieldCollectorVisitor implements ITableSpecVisitor<void> {
   }
 
   visitTableById(_spec: TableByIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableByIncomingReferenceToTable(
+    _spec: TableByIncomingReferenceToTableSpec
+  ): Result<void, DomainError> {
     return ok(undefined);
   }
 

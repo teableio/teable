@@ -877,6 +877,19 @@ describe('FieldTypeConversionVisitor', () => {
         expect(mappingSql).toContain('WHERE f."__id" = src.foreign_id');
       });
 
+      it('should push link -> text conversion into a single SQL mapping statement', () => {
+        const sqls = getConversionSqls(mkManyOneLinkField(), mkTextField());
+        const mappingSql = sqls.find((sql) => sql.includes('DO $v2_link_to_text$'));
+        expect(mappingSql).toBeDefined();
+        expect(mappingSql).toContain('WITH parsed AS');
+        expect(mappingSql).toContain('mapped AS');
+        expect(mappingSql).toContain('reduced AS');
+        expect(mappingSql).toContain('JOIN %I.%I AS f ON f.__id = p.link_id');
+        expect(mappingSql).toContain('string_agg(title');
+        expect(mappingSql).not.toContain('tmp_computed_dirty');
+        expect(mappingSql).not.toContain('record_id');
+      });
+
       it('should preserve title-based mapping for link -> link when foreign table changes', () => {
         const oldLink = mkManyOneLinkFieldWithForeign('srcLink', `tbl${'b'.repeat(16)}`);
         const newLink = mkManyOneLinkFieldWithForeign('tgtLink', `tbl${'c'.repeat(16)}`);

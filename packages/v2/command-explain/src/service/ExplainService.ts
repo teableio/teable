@@ -6,6 +6,7 @@ import {
   type IExecutionContext,
   domainError,
   DeleteFieldCommand,
+  DeleteTableCommand,
   UpdateRecordCommand,
   CreateRecordCommand,
   CreateFieldCommand,
@@ -22,6 +23,7 @@ import type { UpdateRecordAnalyzer } from '../analyzers/UpdateRecordAnalyzer';
 import type { CreateRecordAnalyzer } from '../analyzers/CreateRecordAnalyzer';
 import type { UpdateFieldAnalyzer } from '../analyzers/UpdateFieldAnalyzer';
 import type { DeleteFieldAnalyzer } from '../analyzers/DeleteFieldAnalyzer';
+import type { DeleteTableAnalyzer } from '../analyzers/DeleteTableAnalyzer';
 import type { DeleteRecordsAnalyzer } from '../analyzers/DeleteRecordsAnalyzer';
 import type { PasteCommandAnalyzer } from '../analyzers/PasteCommandAnalyzer';
 
@@ -49,6 +51,8 @@ export class ExplainService implements IExplainService {
     private readonly updateFieldAnalyzer: UpdateFieldAnalyzer,
     @inject(v2CommandExplainTokens.deleteFieldAnalyzer)
     private readonly deleteFieldAnalyzer: DeleteFieldAnalyzer,
+    @inject(v2CommandExplainTokens.deleteTableAnalyzer)
+    private readonly deleteTableAnalyzer: DeleteTableAnalyzer,
     @inject(v2CommandExplainTokens.updateRecordAnalyzer)
     private readonly updateRecordAnalyzer: UpdateRecordAnalyzer,
     @inject(v2CommandExplainTokens.createRecordAnalyzer)
@@ -86,6 +90,10 @@ export class ExplainService implements IExplainService {
 
     if (command instanceof DeleteFieldCommand) {
       return this.deleteFieldAnalyzer.analyze(context, command, mergedOptions, startTime);
+    }
+
+    if (command instanceof DeleteTableCommand) {
+      return this.deleteTableAnalyzer.analyze(context, command, mergedOptions, startTime);
     }
 
     if (command instanceof UpdateRecordCommand) {

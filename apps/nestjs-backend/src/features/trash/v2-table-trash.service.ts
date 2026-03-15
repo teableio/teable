@@ -2,9 +2,12 @@ import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { ResourceType } from '@teable/openapi';
 import {
   ProjectionHandler,
   RecordsDeleted,
+  TableTrashed,
   TableQueryService,
   ok,
   v2CoreTokens,
@@ -22,7 +25,7 @@ import { TableTrashListener } from './listener/table-trash.listener';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 @ProjectionHandler(RecordsDeleted)
-class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
+export class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
   constructor(
     private readonly tableTrashListener: TableTrashListener,
     private readonly tableQueryService: TableQueryService
@@ -77,7 +80,7 @@ class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDelet
 }
 
 @ProjectionHandler(RecordsDeleted)
-class V2RecordsDeletedAttachmentProjection implements IEventHandler<RecordsDeleted> {
+export class V2RecordsDeletedAttachmentProjection implements IEventHandler<RecordsDeleted> {
   constructor(private readonly attachmentsTableService: AttachmentsTableService) {}
 
   async handle(
@@ -97,6 +100,44 @@ class V2RecordsDeletedAttachmentProjection implements IEventHandler<RecordsDelet
   }
 }
 
+@ProjectionHandler(TableTrashed)
+export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async handle(
+    context: IExecutionContext,
+    event: TableTrashed
+  ): Promise<Result<void, DomainError>> {
+    const table = await this.prisma.tableMeta.findUnique({
+      where: { id: event.tableId.toString() },
+      select: { baseId: true, deletedTime: true },
+    });
+
+    if (!table?.deletedTime) {
+      return ok(undefined);
+    }
+
+    await this.prisma.trash.deleteMany({
+      where: {
+        resourceId: event.tableId.toString(),
+        resourceType: ResourceType.Table,
+      },
+    });
+
+    await this.prisma.trash.create({
+      data: {
+        resourceId: event.tableId.toString(),
+        resourceType: ResourceType.Table,
+        parentId: table.baseId,
+        deletedTime: table.deletedTime,
+        deletedBy: context.actorId.toString(),
+      },
+    });
+
+    return ok(undefined);
+  }
+}
+
 @Injectable()
 export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit {
   private readonly logger = new Logger(V2TableTrashService.name);
@@ -104,7 +145,8 @@ export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly tableTrashListener: TableTrashListener,
-    private readonly attachmentsTableService: AttachmentsTableService
+    private readonly attachmentsTableService: AttachmentsTableService,
+    private readonly prisma: PrismaService
   ) {}
 
   onModuleInit(): void {
@@ -112,7 +154,7 @@ export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit
   }
 
   registerProjections(container: DependencyContainer): void {
-    this.logger.log('Registering V2 record delete projections');
+    this.logger.log('Registering V2 trash projections');
 
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
 
@@ -125,5 +167,6 @@ export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit
       V2RecordsDeletedAttachmentProjection,
       new V2RecordsDeletedAttachmentProjection(this.attachmentsTableService)
     );
+    container.registerInstance(V2TableTrashedProjection, new V2TableTrashedProjection(this.prisma));
   }
 }

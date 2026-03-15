@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
@@ -6,6 +6,7 @@ import type { DomainError } from '../../../shared/DomainError';
 import { ForeignTable } from '../../ForeignTable';
 import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
 import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
@@ -13,6 +14,7 @@ import { ViewId } from '../../views/ViewId';
 import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { FieldHasError } from './FieldHasError';
 import { LinkField } from './LinkField';
 import { LinkFieldConfig } from './LinkFieldConfig';
 import { LinkFieldMeta } from './LinkFieldMeta';
@@ -989,9 +991,13 @@ describe('LinkField', () => {
         previousSourceTable: foreignTable,
       });
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(UpdateLinkConfigSpec);
+      const reaction = result._unsafeUnwrap();
+      expect(reaction?.spec).toBeInstanceOf(UpdateLinkConfigSpec);
+      expect(reaction?.relatedFieldIds.map((id) => id.toString())).toEqual([
+        linkFieldId.toString(),
+      ]);
 
-      const spec = result._unsafeUnwrap() as UpdateLinkConfigSpec;
+      const spec = reaction?.spec as UpdateLinkConfigSpec;
       expect(spec.nextConfig().lookupFieldId().equals(foreignPrimaryFieldId)).toBe(true);
     });
 
@@ -1072,11 +1078,103 @@ describe('LinkField', () => {
         previousSourceTable: foreignTable,
       });
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeInstanceOf(UpdateLinkConfigSpec);
+      const reaction = result._unsafeUnwrap();
+      expect(reaction?.spec).toBeInstanceOf(UpdateLinkConfigSpec);
+      expect(reaction?.relatedFieldIds.map((id) => id.toString())).toEqual([
+        linkFieldId.toString(),
+      ]);
 
-      const spec = result._unsafeUnwrap() as UpdateLinkConfigSpec;
+      const spec = reaction?.spec as UpdateLinkConfigSpec;
       expect(spec.nextConfig().filter()).toBeNull();
       expect(spec.nextConfig().visibleFieldIds()).toBeNull();
+    });
+  });
+
+  describe('onTableDeleted', () => {
+    it('converts a link field to singleLineText when its foreign table is deleted', () => {
+      const baseId = createBaseId('m')._unsafeUnwrap();
+      const hostTableId = createTableId('n')._unsafeUnwrap();
+      const foreignTableId = createTableId('o')._unsafeUnwrap();
+      const hostPrimaryFieldId = createFieldId('p')._unsafeUnwrap();
+      const foreignPrimaryFieldId = createFieldId('q')._unsafeUnwrap();
+      const linkFieldId = createFieldId('r')._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign Delete')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host Delete')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const linkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Foreign Link')._unsafeUnwrap(),
+        config: LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryFieldId.toString(),
+          isOneWay: true,
+          fkHostTableName: 'delete_link_table',
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_delete_link',
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      linkField.setHasError(FieldHasError.error());
+      linkField.setDescription('preserve me')._unsafeUnwrap();
+
+      const hostWithLink = hostTable
+        .addField(linkField, { foreignTables: [foreignTable] })
+        ._unsafeUnwrap();
+      const fieldInHost = hostWithLink
+        .getField((field) => field.id().equals(linkFieldId))
+        ._unsafeUnwrap() as LinkField;
+
+      const result = fieldInHost.onTableDeleted(foreignTable, {
+        table: hostWithLink,
+        hooks: {
+          createFieldUpdateAfterPersistHook: () => async () =>
+            ok({
+              events: [],
+              table: hostWithLink,
+            }),
+        },
+      });
+      expect(result.isOk()).toBe(true);
+      const reaction = result._unsafeUnwrap();
+      expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldTypeSpec);
+      expect(typeof reaction?.afterPersist).toBe('function');
+
+      const updatedTable = reaction?.spec.mutate(hostWithLink);
+      expect(updatedTable?.isOk()).toBe(true);
+      const updatedField = updatedTable
+        ?._unsafeUnwrap()
+        .getField((field) => field.id().equals(linkFieldId));
+      expect(updatedField?.isOk()).toBe(true);
+
+      expect(updatedField?._unsafeUnwrap().type().toString()).toBe('singleLineText');
+      expect(updatedField?._unsafeUnwrap().hasError().isError()).toBe(true);
+      expect(updatedField?._unsafeUnwrap().description()).toBe('preserve me');
     });
   });
 });

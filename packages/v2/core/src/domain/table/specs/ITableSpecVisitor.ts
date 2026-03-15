@@ -47,14 +47,15 @@ import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
 import type { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import type { TableByIdSpec } from './TableByIdSpec';
 import type { TableByIdsSpec } from './TableByIdsSpec';
+import type { TableByIncomingReferenceToTableSpec } from './TableByIncomingReferenceToTableSpec';
 import type { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import type { TableByNameSpec } from './TableByNameSpec';
 import type { TableDuplicateFieldSpec } from './TableDuplicateFieldSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
 import type { TableRenameSpec } from './TableRenameSpec';
+import type { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldConstraintsSpec } from './TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSpec';
-import type { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescriptionSpec';
 import type { TableUpdateFieldHasErrorSpec } from './TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from './TableUpdateFieldNameSpec';
@@ -75,6 +76,9 @@ export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitTableRename(spec: TableRenameSpec): Result<TResult, DomainError>;
   visitTableByBaseId(spec: TableByBaseIdSpec): Result<TResult, DomainError>;
   visitTableById(spec: TableByIdSpec): Result<TResult, DomainError>;
+  visitTableByIncomingReferenceToTable(
+    spec: TableByIncomingReferenceToTableSpec
+  ): Result<TResult, DomainError>;
   visitTableByIds(spec: TableByIdsSpec): Result<TResult, DomainError>;
   visitTableByName(spec: TableByNameSpec): Result<TResult, DomainError>;
   visitTableByNameLike(spec: TableByNameLikeSpec): Result<TResult, DomainError>;

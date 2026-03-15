@@ -5,6 +5,7 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
+import type { TableDeleteOptions } from './TableRepository';
 
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
@@ -17,5 +18,9 @@ export interface ITableSchemaRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>>;
-  delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  delete(
+    context: IExecutionContext,
+    table: Table,
+    options?: TableDeleteOptions
+  ): Promise<Result<void, DomainError>>;
 }

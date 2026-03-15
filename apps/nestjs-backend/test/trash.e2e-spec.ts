@@ -25,6 +25,21 @@ import {
   createField,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForBaseTrashItems = async (baseId: string, expectedCount = 1, maxRetries = 100) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+    if (result.data.trashItems.length >= expectedCount) {
+      return result;
+    }
+    await sleep(100);
+  }
+
+  return await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+};
+
 describe('Trash (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
@@ -32,6 +47,8 @@ describe('Trash (e2e)', () => {
   let awaitWithSpaceEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithBaseEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithTableEvent: <T>(fn: () => Promise<T>) => Promise<T>;
+  const awaitWithTableDeleteSync = async <T>(fn: () => Promise<T>) =>
+    isForceV2 ? await fn() : awaitWithTableEvent(fn);
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -83,9 +100,9 @@ describe('Trash (e2e)', () => {
 
     it('should retrieve trash items for base when a table is deleted', async () => {
       const tableId = (await createTable(baseId, {})).id;
-      await awaitWithTableEvent(() => deleteTable(baseId, tableId));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
 
-      const res = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+      const res = await waitForBaseTrashItems(baseId, 1);
 
       expect(res.data.trashItems.length).toBe(1);
       expect((res.data.trashItems[0] as ITrashItemVo).resourceId).toBe(tableId);
@@ -103,9 +120,9 @@ describe('Trash (e2e)', () => {
         },
       });
 
-      await awaitWithTableEvent(() => deleteTable(baseId, foreignTableId));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, foreignTableId));
 
-      const res = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+      const res = await waitForBaseTrashItems(baseId, 1);
 
       expect(res.data.trashItems.length).toBe(1);
       expect((res.data.trashItems[0] as ITrashItemVo).resourceId).toBe(foreignTableId);
@@ -150,10 +167,9 @@ describe('Trash (e2e)', () => {
     });
 
     it('should restore table successfully', async () => {
-      await awaitWithTableEvent(() => deleteTable(baseId, tableId));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
 
-      const trash = (await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base }))
-        .data;
+      const trash = (await waitForBaseTrashItems(baseId, 1)).data;
       const restored = await restoreTrash(trash.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -182,12 +198,11 @@ describe('Trash (e2e)', () => {
       const tableId2 = (await createTable(baseId, {})).id;
       const tableId3 = (await createTable(baseId, {})).id;
 
-      await awaitWithTableEvent(() => deleteTable(baseId, tableId1));
-      await awaitWithTableEvent(() => deleteTable(baseId, tableId2));
-      await awaitWithTableEvent(() => deleteTable(baseId, tableId3));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId1));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId2));
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId3));
 
-      const trash = (await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base }))
-        .data;
+      const trash = (await waitForBaseTrashItems(baseId, 3)).data;
 
       expect(trash.trashItems.length).toEqual(3);
 

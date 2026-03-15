@@ -10,6 +10,7 @@ export type CommandExplainInfo = {
     | 'CreateField'
     | 'UpdateField'
     | 'DeleteField'
+    | 'DeleteTable'
     | 'CreateRecord'
     | 'UpdateRecord'
     | 'DeleteRecords'

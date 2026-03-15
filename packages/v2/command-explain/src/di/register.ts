@@ -10,6 +10,7 @@ import { UpdateRecordAnalyzer } from '../analyzers/UpdateRecordAnalyzer';
 import { CreateRecordAnalyzer } from '../analyzers/CreateRecordAnalyzer';
 import { UpdateFieldAnalyzer } from '../analyzers/UpdateFieldAnalyzer';
 import { DeleteFieldAnalyzer } from '../analyzers/DeleteFieldAnalyzer';
+import { DeleteTableAnalyzer } from '../analyzers/DeleteTableAnalyzer';
 import { DeleteRecordsAnalyzer } from '../analyzers/DeleteRecordsAnalyzer';
 import { PasteCommandAnalyzer } from '../analyzers/PasteCommandAnalyzer';
 
@@ -33,6 +34,9 @@ export const registerCommandExplainModule = (container: DependencyContainer): vo
     lifecycle: Lifecycle.Singleton,
   });
   container.register(v2CommandExplainTokens.deleteFieldAnalyzer, DeleteFieldAnalyzer, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  container.register(v2CommandExplainTokens.deleteTableAnalyzer, DeleteTableAnalyzer, {
     lifecycle: Lifecycle.Singleton,
   });
   container.register(v2CommandExplainTokens.updateRecordAnalyzer, UpdateRecordAnalyzer, {

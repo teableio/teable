@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldType, Role, ViewType } from '@teable/core';
 import type { IBaseNodeTableResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import {
+  axios,
   createBaseNode,
   getBaseNodeTree,
   getBaseNode,
@@ -37,6 +38,8 @@ const originalName = 'Original Name';
 const testFolder = 'Test Folder';
 const updatedName = 'Updated Name';
 const testTableName = 'Test Table';
+const windowIdHeader = 'x-window-id';
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
   let app: INestApplication;
@@ -397,6 +400,32 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       // Verify it's deleted
       const error = await getError(() => deleteBaseNode(baseId, folder.id));
+      expect(error?.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('should expose delete-table canary headers when deleting a table node', async () => {
+      const table = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Delete Via Node Route',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+
+      const response = await axios.delete(
+        urlBuilder(DELETE_BASE_NODE, { baseId, nodeId: table.data.id }),
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-delete-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2-feature']).toBe('deleteTable');
+      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+
+      const error = await getError(() => getBaseNode(baseId, table.data.id));
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
   });

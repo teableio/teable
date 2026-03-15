@@ -1,17 +1,17 @@
-import type { Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
 import type { DomainError } from '../../../shared/DomainError';
-import { DbFieldName } from '../DbFieldName';
+import { UpdateLinkRelationshipSpec } from '../../specs/field-updates/UpdateLinkRelationshipSpec';
+import { UpdateLookupOptionsSpec } from '../../specs/field-updates/UpdateLookupOptionsSpec';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
-import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
-import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
-import { UpdateLookupOptionsSpec } from '../../specs/field-updates/UpdateLookupOptionsSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
-import { UpdateLinkRelationshipSpec } from '../../specs/field-updates/UpdateLinkRelationshipSpec';
+import { DbFieldName } from '../DbFieldName';
 import type { Field } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -1550,6 +1550,44 @@ describe('LookupField', () => {
       // isMultipleCellValue should be preserved as false
       const isMultiple = updatedField.isMultipleCellValue()._unsafeUnwrap();
       expect(isMultiple.isMultiple()).toBe(false);
+    });
+  });
+
+  describe('onTableDeleted', () => {
+    it('sets hasError when the foreign table is deleted', () => {
+      const linkFieldId = createFieldId('j')._unsafeUnwrap();
+      const foreignTableId = createTableId('k')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('l')._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('m')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('n')._unsafeUnwrap(),
+          name: FieldName.create('Lookup Inner')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const result = lookupField.onTableDeleted({ id: () => foreignTableId } as never, {
+        table: {} as never,
+        hooks: {
+          createFieldUpdateAfterPersistHook: () => async () =>
+            ok({
+              events: [],
+              table: {} as never,
+            }),
+        },
+      });
+
+      expect(result.isOk()).toBe(true);
+      const reaction = result._unsafeUnwrap();
+      expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+      expect(reaction?.afterPersist).toBeUndefined();
     });
   });
 });

@@ -4,8 +4,17 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
-import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
+import type {
+  OnTeableTableDeleted,
+  TableDeletionContext,
+  TableDeletionReaction,
+} from '../../OnTeableTableDeleted';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
@@ -56,7 +65,11 @@ type RollupValuesType = {
 
 export class RollupField
   extends Field
-  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
+  implements
+    ForeignTableRelatedField,
+    OnTeableFieldUpdated,
+    OnTeableFieldDeleted,
+    OnTeableTableDeleted
 {
   private constructor(
     id: FieldId,
@@ -547,7 +560,7 @@ export class RollupField
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
 
@@ -559,7 +572,23 @@ export class RollupField
       return ok(undefined);
     }
 
-    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+      relatedFieldIds: [this.id()],
+    });
+  }
+
+  onTableDeleted(
+    deletedTable: Table,
+    _context: TableDeletionContext
+  ): Result<TableDeletionReaction | undefined, DomainError> {
+    if (!deletedTable.id().equals(this.foreignTableId()) || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+    });
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

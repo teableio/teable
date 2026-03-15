@@ -4,5 +4,6 @@ export * from './UpdateRecordAnalyzer';
 export * from './CreateRecordAnalyzer';
 export * from './UpdateFieldAnalyzer';
 export * from './DeleteFieldAnalyzer';
+export * from './DeleteTableAnalyzer';
 export * from './DeleteRecordsAnalyzer';
 export * from './PasteCommandAnalyzer';

@@ -556,6 +556,124 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('finds host tables by incoming references across bases', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const foreignBaseId = BaseId.generate()._unsafeUnwrap();
+      const hostBaseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Reference Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values([
+          {
+            id: foreignBaseId.toString(),
+            space_id: spaceId,
+            name: 'Foreign Base',
+            order: 1,
+            created_by: actorId.toString(),
+          },
+          {
+            id: hostBaseId.toString(),
+            space_id: spaceId,
+            name: 'Host Base',
+            order: 2,
+            created_by: actorId.toString(),
+          },
+        ])
+        .execute();
+
+      const foreignBuilder = Table.builder()
+        .withBaseId(foreignBaseId)
+        .withName(TableName.create('Foreign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      (await repo.insert(context, foreignTable))._unsafeUnwrap();
+
+      const linkFieldId = FieldId.generate()._unsafeUnwrap();
+      const hostBuilder = Table.builder()
+        .withBaseId(hostBaseId)
+        .withName(TableName.create('Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Foreign Link')._unsafeUnwrap())
+        .withConfig(
+          LinkFieldConfig.create({
+            baseId: foreignBaseId.toString(),
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: foreignTable.primaryFieldId().toString(),
+            isOneWay: true,
+          })._unsafeUnwrap()
+        )
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+      (await repo.insert(context, hostTable))._unsafeUnwrap();
+
+      const unrelatedBuilder = Table.builder()
+        .withBaseId(hostBaseId)
+        .withName(TableName.create('Unrelated')._unsafeUnwrap());
+      unrelatedBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title 2')._unsafeUnwrap())
+        .primary()
+        .done();
+      unrelatedBuilder.view().defaultGrid().done();
+      const unrelatedTable = unrelatedBuilder.build()._unsafeUnwrap();
+      (await repo.insert(context, unrelatedTable))._unsafeUnwrap();
+
+      await db
+        .insertInto('reference')
+        .values({
+          id: `ref_${getRandomString(21)}`,
+          from_field_id: foreignTable.primaryFieldId().toString(),
+          to_field_id: linkFieldId.toString(),
+        })
+        .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing())
+        .execute();
+
+      const specResult = Table.specs().byIncomingReferenceToTable(foreignTable.id()).build();
+      specResult._unsafeUnwrap();
+
+      const tables = (await repo.find(context, specResult._unsafeUnwrap()))._unsafeUnwrap();
+
+      expect(tables.map((table) => table.id().toString())).toEqual([hostTable.id().toString()]);
+      expect(tables.some((table) => table.id().equals(unrelatedTable.id()))).toBe(false);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('normalizes legacy dateRange filter values in view filters', async () => {
     const c = container.createChildContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());

@@ -19,10 +19,23 @@ describe('DeleteTableCommand', () => {
       baseId: baseIdResult._unsafeUnwrap().toString(),
       tableId: tableIdResult._unsafeUnwrap().toString(),
     });
-    commandResult._unsafeUnwrap();
+    expect(commandResult._unsafeUnwrap().mode).toBe('soft');
   });
 
   it('rejects invalid input', () => {
     DeleteTableCommand.create({ baseId: 'bad', tableId: 'bad' })._unsafeUnwrapErr();
+  });
+
+  it('accepts an explicit permanent mode', () => {
+    const baseId = createBaseId('b')._unsafeUnwrap();
+    const tableId = createTableId('b')._unsafeUnwrap();
+
+    const command = DeleteTableCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      mode: 'permanent',
+    })._unsafeUnwrap();
+
+    expect(command.mode).toBe('permanent');
   });
 });

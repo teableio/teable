@@ -1,5 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import type {
   IDuplicateTableVo,
   IGetAbnormalVo,
@@ -26,15 +38,23 @@ import {
   duplicateTableRoSchema,
   IDuplicateTableRo,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { TableIndexService } from '../table-index.service';
 import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
+import { TableOpenApiV2Service } from './table-open-api-v2.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
+@UseGuards(V2FeatureGuard)
+@UseInterceptors(V2IndicatorInterceptor)
 @Controller('api/base/:baseId/table')
 @AllowAnonymous()
 export class TableController {
@@ -42,7 +62,9 @@ export class TableController {
     private readonly tableService: TableService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly tableIndexService: TableIndexService,
-    private readonly tablePermissionService: TablePermissionService
+    private readonly tablePermissionService: TablePermissionService,
+    private readonly tableOpenApiV2Service: TableOpenApiV2Service,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Permissions('table|read')
@@ -145,15 +167,25 @@ export class TableController {
     return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
   }
 
+  @UseV2Feature('deleteTable')
   @Delete(':tableId')
   @Permissions('table|delete')
   async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    if (this.cls.get('useV2')) {
+      await this.tableOpenApiV2Service.deleteTable(baseId, tableId);
+      return;
+    }
     return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
+  @UseV2Feature('deleteTable')
   @Delete(':tableId/permanent')
   @Permissions('table|delete')
-  permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+  async permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    if (this.cls.get('useV2')) {
+      await this.tableOpenApiV2Service.deleteTable(baseId, tableId, 'permanent');
+      return;
+    }
     return this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
   }
 

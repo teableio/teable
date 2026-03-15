@@ -561,7 +561,15 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   }
 
   @TraceSpan()
-  async delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  async delete(
+    context: IExecutionContext,
+    table: Table,
+    options?: { mode?: 'soft' | 'permanent' }
+  ): Promise<Result<void, DomainError>> {
+    if ((options?.mode ?? 'soft') !== 'permanent') {
+      return ok(undefined);
+    }
+
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table

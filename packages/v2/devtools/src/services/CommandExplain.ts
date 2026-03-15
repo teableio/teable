@@ -2,6 +2,7 @@ import type { ExplainResult } from '@teable/v2-command-explain';
 import type {
   ICreateFieldCommandInput,
   IDeleteFieldCommandInput,
+  IDeleteTableCommandInput,
   IFieldUpdateInput,
   IPasteCommandInput,
 } from '@teable/v2-core';
@@ -24,6 +25,13 @@ export interface ExplainDeleteFieldInput {
   readonly baseId?: IDeleteFieldCommandInput['baseId'];
   readonly tableId: IDeleteFieldCommandInput['tableId'];
   readonly fieldId: IDeleteFieldCommandInput['fieldId'];
+  readonly analyze: boolean;
+}
+
+export interface ExplainDeleteTableInput {
+  readonly baseId?: IDeleteTableCommandInput['baseId'];
+  readonly tableId: IDeleteTableCommandInput['tableId'];
+  readonly mode?: IDeleteTableCommandInput['mode'];
   readonly analyze: boolean;
 }
 
@@ -61,6 +69,9 @@ export class CommandExplain extends Context.Tag('CommandExplain')<
     ) => Effect.Effect<ExplainResult, CliError>;
     readonly explainDeleteField: (
       input: ExplainDeleteFieldInput
+    ) => Effect.Effect<ExplainResult, CliError>;
+    readonly explainDeleteTable: (
+      input: ExplainDeleteTableInput
     ) => Effect.Effect<ExplainResult, CliError>;
     readonly explainCreate: (input: ExplainCreateInput) => Effect.Effect<ExplainResult, CliError>;
     readonly explainUpdate: (input: ExplainUpdateInput) => Effect.Effect<ExplainResult, CliError>;

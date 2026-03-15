@@ -7,6 +7,7 @@ import { FieldDeleted } from './events/FieldDeleted';
 import { FieldUpdated } from './events/FieldUpdated';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
+import { TableTrashed } from './events/TableTrashed';
 import { TableRenamed } from './events/TableRenamed';
 import { DbFieldName } from './fields/DbFieldName';
 import { Field } from './fields/Field';
@@ -109,6 +110,31 @@ describe('Table', () => {
     const events = table.pullDomainEvents();
     expect(events.length).toBe(1);
     expect(events[0]).toBeInstanceOf(TableDeleted);
+  });
+
+  it('emits TableTrashed when marking trashed', () => {
+    const baseIdResult = createBaseId('y');
+    const tableNameResult = TableName.create('Trash');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table.pullDomainEvents();
+
+    table.markTrashed()._unsafeUnwrap();
+
+    const events = table.pullDomainEvents();
+    expect(events.length).toBe(1);
+    expect(events[0]).toBeInstanceOf(TableTrashed);
   });
 
   it('rehydrates without emitting events', () => {

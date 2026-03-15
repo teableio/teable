@@ -48,6 +48,7 @@ import {
   explainCreateFieldInputSchema,
   explainCreateRecordInputSchema,
   explainDeleteFieldInputSchema,
+  explainDeleteTableInputSchema,
   explainDeleteRecordsInputSchema,
   explainOkResponseSchema,
   explainUpdateFieldInputSchema,
@@ -83,6 +84,7 @@ const TABLES_EXPLAIN_CREATE_RECORD_PATH = '/tables/explainCreateRecord';
 const TABLES_EXPLAIN_UPDATE_FIELD_PATH = '/tables/explainUpdateField';
 const TABLES_EXPLAIN_UPDATE_RECORD_PATH = '/tables/explainUpdateRecord';
 const TABLES_EXPLAIN_DELETE_FIELD_PATH = '/tables/explainDeleteField';
+const TABLES_EXPLAIN_DELETE_TABLE_PATH = '/tables/explainDeleteTable';
 const TABLES_EXPLAIN_DELETE_RECORDS_PATH = '/tables/explainDeleteRecords';
 const TABLES_GET_PATH = '/tables/get';
 const TABLES_GET_RECORD_PATH = '/tables/getRecord';
@@ -254,6 +256,16 @@ export const v2Contract: AnyContractRouter = {
         tags: ['tables'],
       })
       .input(explainDeleteFieldInputSchema)
+      .output(explainOkResponseSchema),
+    explainDeleteTable: oc
+      .route({
+        method: 'POST',
+        path: TABLES_EXPLAIN_DELETE_TABLE_PATH,
+        successStatus: 200,
+        summary: 'Explain delete table',
+        tags: ['tables'],
+      })
+      .input(explainDeleteTableInputSchema)
       .output(explainOkResponseSchema),
     delete: oc
       .route({

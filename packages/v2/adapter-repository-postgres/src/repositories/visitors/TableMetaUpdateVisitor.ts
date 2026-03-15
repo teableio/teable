@@ -6,6 +6,7 @@ import {
   TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
@@ -273,6 +274,16 @@ export class TableMetaUpdateVisitor
   visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     return err(
       domainError.validation({ message: 'TableByIdSpec is not supported for table updates' })
+    );
+  }
+
+  visitTableByIncomingReferenceToTable(
+    _: TableByIncomingReferenceToTableSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableByIncomingReferenceToTableSpec is not supported for table updates',
+      })
     );
   }
 

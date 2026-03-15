@@ -32,7 +32,7 @@ describe('update-field: link conversion cross-base bulk', () => {
     const response = await fetch(`${ctx.baseUrl}/tables/delete`, {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ baseId, tableId }),
+      body: JSON.stringify({ baseId, tableId, mode: 'permanent' }),
     });
     if (!response.ok) {
       const errorText = await response.text();

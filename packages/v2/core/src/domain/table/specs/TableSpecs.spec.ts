@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../base/BaseId';
 import type { ISpecification } from '../../shared/specification/ISpecification';
 import { FieldName } from '../fields/FieldName';
+import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
 import type {
@@ -52,13 +53,15 @@ import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
 import { TableByIdsSpec } from './TableByIdsSpec';
+import { TableByIncomingReferenceToTableSpec } from './TableByIncomingReferenceToTableSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 import type { TableDuplicateFieldSpec } from './TableDuplicateFieldSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
 import type { TableRenameSpec } from './TableRenameSpec';
-import type { TableUpdateFieldConstraintsSpec } from './TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
+import type { TableUpdateFieldConstraintsSpec } from './TableUpdateFieldConstraintsSpec';
+import type { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSpec';
 import type { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescriptionSpec';
 import type { TableUpdateFieldHasErrorSpec } from './TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from './TableUpdateFieldNameSpec';
@@ -123,6 +126,13 @@ class SpyVisitor implements ITableSpecVisitor {
     return ok(undefined);
   }
 
+  visitTableByIncomingReferenceToTable(
+    _: TableByIncomingReferenceToTableSpec
+  ): ReturnType<ITableSpecVisitor['visitTableByIncomingReferenceToTable']> {
+    this.calls.push('TableByIncomingReferenceToTableSpec');
+    return ok(undefined);
+  }
+
   visitTableByIds(_: TableByIdsSpec): ReturnType<ITableSpecVisitor['visitTableByIds']> {
     this.calls.push('TableByIdsSpec');
     return ok(undefined);
@@ -153,7 +163,7 @@ class SpyVisitor implements ITableSpecVisitor {
   }
 
   visitTableUpdateFieldDbFieldName(
-    _: any
+    _: TableUpdateFieldDbFieldNameSpec
   ): ReturnType<ITableSpecVisitor['visitTableUpdateFieldDbFieldName']> {
     this.calls.push('TableUpdateFieldDbFieldNameSpec');
     return ok(undefined);
@@ -490,6 +500,24 @@ const buildTable = (baseId: BaseId, name: TableName) => {
   return tableResult._unsafeUnwrap();
 };
 
+const buildHostTableReferencing = (hostBaseId: BaseId, foreignTable: Table, name: TableName) => {
+  const hostNameField = FieldName.create('Host Title')._unsafeUnwrap();
+  const linkFieldName = FieldName.create('Foreign Link')._unsafeUnwrap();
+  const linkConfig = LinkFieldConfig.create({
+    baseId: foreignTable.baseId().toString(),
+    relationship: 'manyMany',
+    foreignTableId: foreignTable.id().toString(),
+    lookupFieldId: foreignTable.primaryFieldId().toString(),
+    isOneWay: true,
+  })._unsafeUnwrap();
+
+  const builder = Table.builder().withBaseId(hostBaseId).withName(name);
+  builder.field().singleLineText().withName(hostNameField).primary().done();
+  builder.field().link().withName(linkFieldName).withConfig(linkConfig).done();
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
 describe('Table specs', () => {
   it('evaluates base id spec', () => {
     const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
@@ -577,5 +605,26 @@ describe('Table specs', () => {
     const visitor = new SpyVisitor();
     spec.accept(visitor)._unsafeUnwrap();
     expect(visitor.calls).toContain('TableByNameLikeSpec');
+  });
+
+  it('evaluates incoming-reference specs', () => {
+    const foreignBaseId = BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap();
+    const hostBaseId = BaseId.create(`bse${'g'.repeat(16)}`)._unsafeUnwrap();
+    const foreignName = TableName.create('Foreign')._unsafeUnwrap();
+    const hostName = TableName.create('Host')._unsafeUnwrap();
+    const unrelatedName = TableName.create('Other')._unsafeUnwrap();
+
+    const foreignTable = buildTable(foreignBaseId, foreignName);
+    const hostTable = buildHostTableReferencing(hostBaseId, foreignTable, hostName);
+    const unrelatedTable = buildTable(hostBaseId, unrelatedName);
+
+    const spec = TableByIncomingReferenceToTableSpec.create(foreignTable.id());
+    expect(spec.isSatisfiedBy(foreignTable)).toBe(false);
+    expect(spec.isSatisfiedBy(hostTable)).toBe(true);
+    expect(spec.isSatisfiedBy(unrelatedTable)).toBe(false);
+
+    const visitor = new SpyVisitor();
+    spec.accept(visitor)._unsafeUnwrap();
+    expect(visitor.calls).toContain('TableByIncomingReferenceToTableSpec');
   });
 });

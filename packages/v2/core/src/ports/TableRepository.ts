@@ -8,6 +8,12 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IExecutionContext } from './ExecutionContext';
 import type { IFindOptions } from './RepositoryQuery';
 
+export type TableQueryState = 'active' | 'deleted' | 'all';
+
+export type TableFindOptions = IFindOptions<TableSortKey> & {
+  state?: TableQueryState;
+};
+
 export type FieldVersionChange = {
   fieldId: string;
   oldVersion: number;
@@ -18,6 +24,12 @@ export type TableUpdatePersistResult = {
   fieldVersionChanges?: ReadonlyArray<FieldVersionChange>;
 };
 
+export type TableDeleteMode = 'soft' | 'permanent';
+
+export type TableDeleteOptions = {
+  mode?: TableDeleteMode;
+};
+
 export interface ITableRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>>;
   insertMany(
@@ -26,12 +38,13 @@ export interface ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, DomainError>>;
   findOne(
     context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOptions, 'state'>
   ): Promise<Result<Table, DomainError>>;
   find(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
-    options?: IFindOptions<TableSortKey>
+    options?: TableFindOptions
   ): Promise<Result<ReadonlyArray<Table>, DomainError>>;
   // table identifies the row, mutateSpec drives update values via visitors.
   updateOne(
@@ -39,5 +52,9 @@ export interface ITableRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<TableUpdatePersistResult | void, DomainError>>;
-  delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  delete(
+    context: IExecutionContext,
+    table: Table,
+    options?: TableDeleteOptions
+  ): Promise<Result<void, DomainError>>;
 }

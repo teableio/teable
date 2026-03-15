@@ -13,20 +13,23 @@ import {
 
 import { executeCreateBaseEndpoint } from './handlers/bases/createBase';
 import { executeListBasesEndpoint } from './handlers/bases/listBases';
+import { executeClearEndpoint } from './handlers/tables/clear';
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
-import { executeUpdateFieldEndpoint } from './handlers/tables/updateField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
-import { executeSubmitRecordEndpoint } from './handlers/tables/submitRecord';
 import { executeCreateRecordsEndpoint } from './handlers/tables/createRecords';
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
 import { executeCreateTablesEndpoint } from './handlers/tables/createTables';
+import { executeDeleteByRangeEndpoint } from './handlers/tables/deleteByRange';
 import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
+import { executeDuplicateFieldEndpoint } from './handlers/tables/duplicateField';
+import { executeDuplicateRecordEndpoint } from './handlers/tables/duplicateRecord';
 import {
   executeExplainCreateFieldEndpoint,
   executeExplainCreateRecordEndpoint,
   executeExplainDeleteFieldEndpoint,
+  executeExplainDeleteTableEndpoint,
   executeExplainDeleteRecordsEndpoint,
   executeExplainUpdateFieldEndpoint,
   executeExplainUpdateRecordEndpoint,
@@ -38,14 +41,12 @@ import { executeImportRecordsEndpoint } from './handlers/tables/importRecords';
 import { executeListTableRecordsEndpoint } from './handlers/tables/listTableRecords';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
 import { executePasteEndpoint } from './handlers/tables/paste';
-import { executeClearEndpoint } from './handlers/tables/clear';
-import { executeDeleteByRangeEndpoint } from './handlers/tables/deleteByRange';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
+import { executeReorderRecordsEndpoint } from './handlers/tables/reorderRecords';
+import { executeSubmitRecordEndpoint } from './handlers/tables/submitRecord';
+import { executeUpdateFieldEndpoint } from './handlers/tables/updateField';
 import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
 import { executeUpdateRecordsEndpoint } from './handlers/tables/updateRecords';
-import { executeReorderRecordsEndpoint } from './handlers/tables/reorderRecords';
-import { executeDuplicateFieldEndpoint } from './handlers/tables/duplicateField';
-import { executeDuplicateRecordEndpoint } from './handlers/tables/duplicateRecord';
 
 export interface IV2OrpcRouterOptions {
   createContainer?: () => IHandlerResolver | Promise<IHandlerResolver>;
@@ -986,6 +987,36 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
+  const tablesExplainDeleteTable = os.tables.explainDeleteTable.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainDeleteTableEndpoint(executionContext, input, explainService);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
   const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
@@ -1080,6 +1111,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       deleteRecords: tablesDeleteRecords,
       deleteField: tablesDeleteField,
       explainDeleteField: tablesExplainDeleteField,
+      explainDeleteTable: tablesExplainDeleteTable,
       delete: tablesDelete,
       getById: tablesGetById,
       getRecord: tablesGetRecord,

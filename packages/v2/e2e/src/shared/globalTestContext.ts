@@ -96,7 +96,7 @@ export interface SharedTestContext {
     payload: IUpdateFieldCommandInput
   ) => Promise<ReturnType<typeof parseUpdateFieldResponse>>;
   deleteField: (payload: { tableId: string; fieldId: string }) => Promise<void>;
-  deleteTable: (tableId: string) => Promise<void>;
+  deleteTable: (tableId: string, options?: { mode?: 'soft' | 'permanent' }) => Promise<void>;
   renameTable: (
     tableId: string,
     name: string
@@ -441,11 +441,11 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     }
   };
 
-  const deleteTable = async (tableId: string) => {
+  const deleteTable = async (tableId: string, options?: { mode?: 'soft' | 'permanent' }) => {
     const response = await fetch(`${baseUrl}/tables/delete`, {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ baseId, tableId }),
+      body: JSON.stringify({ baseId, tableId, mode: options?.mode ?? 'permanent' }),
     });
     if (!response.ok) {
       const errorText = await response.text();

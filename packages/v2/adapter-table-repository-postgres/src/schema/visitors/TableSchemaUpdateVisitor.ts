@@ -12,6 +12,7 @@ import type {
   TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
@@ -521,6 +522,16 @@ export class TableSchemaUpdateVisitor
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return err(
       domainError.validation({ message: 'TableByIdSpec is not supported for table schema updates' })
+    );
+  }
+
+  visitTableByIncomingReferenceToTable(
+    _: TableByIncomingReferenceToTableSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableByIncomingReferenceToTableSpec is not supported for table schema updates',
+      })
     );
   }
 

@@ -3,8 +3,14 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../shared/DomainError';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import type { Field } from './fields/Field';
+import type { FieldId } from './fields/FieldId';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import type { Table } from './Table';
+
+export type FieldDeletionReaction = {
+  readonly spec: ISpecification<Table, ITableSpecVisitor>;
+  readonly relatedFieldIds: ReadonlyArray<FieldId>;
+};
 
 /**
  * Context provided to entities when processing field-deletion side effects.
@@ -32,7 +38,7 @@ export interface OnTeableFieldDeleted {
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError>;
+  ): Result<FieldDeletionReaction | undefined, DomainError>;
 }
 
 /**

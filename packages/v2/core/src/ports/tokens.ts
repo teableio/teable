@@ -15,6 +15,7 @@ export const v2CoreTokens = {
   fieldCrossTableUpdateSideEffectService: Symbol('v2.core.fieldCrossTableUpdateSideEffectService'),
   linkFieldUpdateSideEffectService: Symbol('v2.core.linkFieldUpdateSideEffectService'),
   foreignTableLoaderService: Symbol('v2.core.foreignTableLoaderService'),
+  tableDeletionSideEffectService: Symbol('v2.core.tableDeletionSideEffectService'),
   linkTitleResolverService: Symbol('v2.core.linkTitleResolverService'),
   recordMutationSpecResolverService: Symbol('v2.core.recordMutationSpecResolverService'),
   recordWriteSideEffectService: Symbol('v2.core.recordWriteSideEffectService'),

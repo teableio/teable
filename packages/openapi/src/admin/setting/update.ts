@@ -656,6 +656,7 @@ export const v2FeatureSchema = z.enum([
   'importRecords',
   'createField',
   'deleteField',
+  'deleteTable',
   'duplicateField',
   'updateField',
   'convertField',

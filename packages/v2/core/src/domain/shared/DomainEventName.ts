@@ -26,6 +26,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('TableDeleted');
   }
 
+  static tableTrashed(): DomainEventName {
+    return new DomainEventName('TableTrashed');
+  }
+
   static tableRenamed(): DomainEventName {
     return new DomainEventName('TableRenamed');
   }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../../../base/BaseId';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { Table } from '../../Table';
+import { TableId } from '../../TableId';
+import { TableName } from '../../TableName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
@@ -236,5 +241,61 @@ describe('FormulaField', () => {
 
     const notPersisted = fieldWithoutMetaValue.isPersistedAsGeneratedColumn();
     expect(notPersisted._unsafeUnwrap()).toBe(false);
+  });
+
+  it('returns field deletion reaction metadata when a dependency is deleted', () => {
+    const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = createFieldId('s')._unsafeUnwrap();
+    const deletedFieldId = createFieldId('t')._unsafeUnwrap();
+    const formulaFieldId = createFieldId('u')._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Formula Host')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(deletedFieldId)
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const baseTable = builder.build()._unsafeUnwrap();
+
+    const formulaField = FormulaField.create({
+      id: formulaFieldId,
+      name: FieldName.create('Derived')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1')._unsafeUnwrap(),
+      timeZone: TimeZone.default(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+      dependencies: [deletedFieldId],
+    })._unsafeUnwrap();
+
+    const deletedField = baseTable
+      .getField((field) => field.id().equals(deletedFieldId))
+      ._unsafeUnwrap();
+
+    const result = formulaField.onFieldDeleted(deletedField, {
+      table: baseTable,
+      sourceTable: baseTable,
+      previousSourceTable: baseTable,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(result._unsafeUnwrap()?.relatedFieldIds.map((id) => id.toString())).toEqual([
+      formulaFieldId.toString(),
+    ]);
   });
 });

@@ -7,6 +7,7 @@ import {
   explainCreateField,
   explainUpdateField,
   explainDeleteField,
+  explainDeleteTable,
   explainPaste,
 } from './explain';
 import { mockGenerate } from './mock';
@@ -33,6 +34,7 @@ export const explain = Command.make('explain').pipe(
     explainCreateField,
     explainUpdateField,
     explainDeleteField,
+    explainDeleteTable,
     explainPaste,
   ])
 );

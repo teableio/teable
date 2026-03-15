@@ -8,6 +8,7 @@ export const v2CommandExplainTokens = {
   createFieldAnalyzer: Symbol('v2.commandExplain.createFieldAnalyzer'),
   updateFieldAnalyzer: Symbol('v2.commandExplain.updateFieldAnalyzer'),
   deleteFieldAnalyzer: Symbol('v2.commandExplain.deleteFieldAnalyzer'),
+  deleteTableAnalyzer: Symbol('v2.commandExplain.deleteTableAnalyzer'),
   updateRecordAnalyzer: Symbol('v2.commandExplain.updateRecordAnalyzer'),
   createRecordAnalyzer: Symbol('v2.commandExplain.createRecordAnalyzer'),
   deleteRecordsAnalyzer: Symbol('v2.commandExplain.deleteRecordsAnalyzer'),

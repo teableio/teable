@@ -17,6 +17,7 @@ import { TableAddSelectOptionsSpec } from '../../TableAddSelectOptionsSpec';
 import { TableByBaseIdSpec } from '../../TableByBaseIdSpec';
 import { TableByIdSpec } from '../../TableByIdSpec';
 import { TableByIdsSpec } from '../../TableByIdsSpec';
+import { TableByIncomingReferenceToTableSpec } from '../../TableByIncomingReferenceToTableSpec';
 import { TableByNameLikeSpec } from '../../TableByNameLikeSpec';
 import { TableByNameSpec } from '../../TableByNameSpec';
 import { TableDuplicateFieldSpec } from '../../TableDuplicateFieldSpec';
@@ -46,6 +47,18 @@ const protoInstance = <T extends object>(
   ctor: PrototypeCtor<T>,
   overrides: Record<string, unknown> = {}
 ): T => Object.assign(Object.create(ctor.prototype) as T, overrides as Partial<T>);
+
+type UnsafeUnwrapResult = {
+  _unsafeUnwrap(): void;
+};
+
+type AcceptableSpec = {
+  accept(visitor: TableSpecEventVisitor): UnsafeUnwrapResult;
+};
+
+const acceptSpec = (visitor: TableSpecEventVisitor, spec: AcceptableSpec) => {
+  spec.accept(visitor)._unsafeUnwrap();
+};
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
@@ -405,7 +418,7 @@ describe('TableSpecEventVisitor', () => {
     const fieldId = table.getFields()[0].id();
     const spec = build(fieldId);
 
-    ((spec as any).accept(visitor) as { _unsafeUnwrap: () => void })._unsafeUnwrap();
+    acceptSpec(visitor, spec);
 
     const events = visitor.collectedEvents();
     expect(events).toHaveLength(1);
@@ -430,7 +443,7 @@ describe('TableSpecEventVisitor', () => {
       nextUnique: () => comparable(true),
     });
 
-    ((spec as any).accept(visitor) as { _unsafeUnwrap: () => void })._unsafeUnwrap();
+    acceptSpec(visitor, spec);
 
     expect(visitor.collectedEvents()).toHaveLength(0);
   });
@@ -443,7 +456,7 @@ describe('TableSpecEventVisitor', () => {
       fieldId: () => fieldId,
     });
 
-    ((spec as any).accept(visitor) as { _unsafeUnwrap: () => void })._unsafeUnwrap();
+    acceptSpec(visitor, spec);
 
     const events = visitor.collectedEvents();
     expect(events).toHaveLength(1);
@@ -476,7 +489,7 @@ describe('TableSpecEventVisitor', () => {
         },
       ],
     });
-    ((viewMetaSpec as any).accept(visitor) as { _unsafeUnwrap: () => void })._unsafeUnwrap();
+    acceptSpec(visitor, viewMetaSpec);
 
     const events = visitor.collectedEvents();
     expect(events.some((event) => event instanceof FieldCreated)).toBe(true);
@@ -495,11 +508,12 @@ describe('TableSpecEventVisitor', () => {
       protoInstance(TableUpdateViewQueryDefaultsSpec),
       protoInstance(TableByBaseIdSpec),
       protoInstance(TableByIdSpec),
+      protoInstance(TableByIncomingReferenceToTableSpec),
       protoInstance(TableByIdsSpec),
       protoInstance(TableByNameSpec),
       protoInstance(TableByNameLikeSpec),
     ].forEach((spec) => {
-      ((spec as any).accept(visitor) as { _unsafeUnwrap: () => void })._unsafeUnwrap();
+      acceptSpec(visitor, spec);
     });
 
     expect(visitor.collectedEvents()).toHaveLength(0);

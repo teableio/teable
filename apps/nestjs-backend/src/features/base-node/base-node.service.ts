@@ -38,7 +38,10 @@ import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
+import type { IV2Decision } from '../canary/canary.service';
+import { CanaryService } from '../canary/canary.service';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
@@ -67,7 +70,9 @@ export class BaseNodeService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>,
     private readonly baseNodeFolderService: BaseNodeFolderService,
+    private readonly canaryService: CanaryService,
     private readonly tableOpenApiService: TableOpenApiService,
+    private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly tableDuplicateService: TableDuplicateService,
     private readonly dashboardService: DashboardService
   ) {}
@@ -117,6 +122,28 @@ export class BaseNodeService {
         select: { id: true },
       },
     };
+  }
+
+  async getDeleteTableV2Decision(baseId: string, nodeId: string): Promise<IV2Decision | undefined> {
+    const node = await this.prismaService.baseNode.findFirst({
+      where: { baseId, id: nodeId },
+      select: { resourceType: true },
+    });
+
+    if (node?.resourceType !== BaseNodeResourceType.Table) {
+      return undefined;
+    }
+
+    const base = await this.prismaService.txClient().base.findUnique({
+      where: { id: baseId, deletedTime: null },
+      select: { spaceId: true },
+    });
+
+    if (!base?.spaceId) {
+      return { useV2: false, reason: 'disabled' };
+    }
+
+    return this.canaryService.shouldUseV2WithReason(base.spaceId, 'deleteTable');
   }
 
   private generateDefaultUrl(
@@ -750,6 +777,14 @@ export class BaseNodeService {
         await this.baseNodeFolderService.deleteFolder(baseId, id);
         break;
       case BaseNodeResourceType.Table:
+        if (this.cls.get('useV2')) {
+          await this.tableOpenApiV2Service.deleteTable(
+            baseId,
+            id,
+            permanent ? 'permanent' : undefined
+          );
+          break;
+        }
         if (permanent) {
           await this.tableOpenApiService.permanentDeleteTables(baseId, [id]);
         } else {

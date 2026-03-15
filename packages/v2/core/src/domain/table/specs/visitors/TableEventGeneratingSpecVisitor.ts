@@ -62,6 +62,7 @@ import type { TableAddSelectOptionsSpec } from '../TableAddSelectOptionsSpec';
 import type { TableByBaseIdSpec } from '../TableByBaseIdSpec';
 import type { TableByIdSpec } from '../TableByIdSpec';
 import type { TableByIdsSpec } from '../TableByIdsSpec';
+import type { TableByIncomingReferenceToTableSpec } from '../TableByIncomingReferenceToTableSpec';
 import type { TableByNameLikeSpec } from '../TableByNameLikeSpec';
 import type { TableByNameSpec } from '../TableByNameSpec';
 import type { TableDuplicateFieldSpec } from '../TableDuplicateFieldSpec';
@@ -210,6 +211,12 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   }
 
   visitTableById(_spec: TableByIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableByIncomingReferenceToTable(
+    _spec: TableByIncomingReferenceToTableSpec
+  ): Result<void, DomainError> {
     return ok(undefined);
   }
 

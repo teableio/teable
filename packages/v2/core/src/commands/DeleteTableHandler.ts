@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
@@ -36,6 +37,8 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
+    @inject(v2CoreTokens.tableDeletionSideEffectService)
+    private readonly tableDeletionSideEffectService: TableDeletionSideEffectService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.logger)
@@ -52,6 +55,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     const logger = this.logger.scope('command', { name: DeleteTableHandler.name }).child({
       baseId: command.baseId.toString(),
       tableId: command.tableId.toString(),
+      mode: command.mode,
     });
     logger.debug('DeleteTableHandler.start', {
       actorId: context.actorId.toString(),
@@ -59,11 +63,24 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
 
     const tableRepository = this.tableRepository;
     const tableSchemaRepository = this.tableSchemaRepository;
+    const tableDeletionSideEffectService = this.tableDeletionSideEffectService;
     const unitOfWork = this.unitOfWork;
     const eventBus = this.eventBus;
     const result = await safeTry<DeleteTableResult, DomainError>(async function* () {
       const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
-      const tableResult = await tableRepository.findOne(context, specResult);
+      const activeTableResult = await tableRepository.findOne(context, specResult);
+      let tableResult = activeTableResult;
+      let shouldRunSideEffects = activeTableResult.isOk();
+
+      if (
+        command.mode === 'permanent' &&
+        activeTableResult.isErr() &&
+        isNotFoundError(activeTableResult.error)
+      ) {
+        tableResult = await tableRepository.findOne(context, specResult, { state: 'all' });
+        shouldRunSideEffects = false;
+      }
+
       if (tableResult.isErr()) {
         if (isNotFoundError(tableResult.error)) {
           return err(domainError.notFound({ code: 'table.not_found', message: 'Table not found' }));
@@ -71,18 +88,39 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         return err(tableResult.error);
       }
       const table = tableResult.value;
+      const sideEffectEvents: IDomainEvent[] = [];
+      const sideEffectPostPersistEvents: IDomainEvent[] = [];
       yield* await unitOfWork.withTransaction(context, async (transactionContext) => {
         const resultAsync = safeTry<void, DomainError>(async function* () {
-          yield* await tableSchemaRepository.delete(transactionContext, table);
-          yield* await tableRepository.delete(transactionContext, table);
+          if (shouldRunSideEffects) {
+            const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
+              transactionContext,
+              { table }
+            );
+            sideEffectEvents.push(...sideEffectResult.events);
+            sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
+          }
+          yield* await tableSchemaRepository.delete(transactionContext, table, {
+            mode: command.mode,
+          });
+          yield* await tableRepository.delete(transactionContext, table, {
+            mode: command.mode,
+          });
           return ok(undefined);
         });
         return await resultAsync;
       });
-      yield* table.markDeleted();
-      const events = table.pullDomainEvents();
-      yield* await eventBus.publishMany(context, events);
-      return ok(DeleteTableResult.create(table, events));
+      if (command.mode === 'permanent') {
+        yield* table.markDeleted();
+      } else {
+        yield* table.markTrashed();
+      }
+      const responseEvents = [...sideEffectEvents, ...table.pullDomainEvents()];
+      yield* await eventBus.publishMany(context, [
+        ...responseEvents,
+        ...sideEffectPostPersistEvents,
+      ]);
+      return ok(DeleteTableResult.create(table, responseEvents));
     });
     if (result.isOk()) {
       logger.debug('DeleteTableHandler.success', {

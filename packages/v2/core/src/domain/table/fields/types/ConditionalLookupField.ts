@@ -5,7 +5,16 @@ import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
-import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
+import type {
+  OnTeableTableDeleted,
+  TableDeletionContext,
+  TableDeletionReaction,
+} from '../../OnTeableTableDeleted';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
@@ -64,7 +73,11 @@ import { SingleSelectField } from './SingleSelectField';
  */
 export class ConditionalLookupField
   extends Field
-  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
+  implements
+    ForeignTableRelatedField,
+    OnTeableFieldUpdated,
+    OnTeableFieldDeleted,
+    OnTeableTableDeleted
 {
   private innerFieldValue: Field | undefined;
   private innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
@@ -574,7 +587,7 @@ export class ConditionalLookupField
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
     const optionsDto = this.conditionalLookupOptionsValue.toDto();
@@ -626,7 +639,22 @@ export class ConditionalLookupField
         return err(nextFieldResult.error);
       }
 
-      return ok(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+      const specs: Array<ISpecification<Table, ITableSpecVisitor>> = [
+        TableUpdateFieldTypeSpec.create(this, nextFieldResult.value),
+      ];
+      if (this.hasError().isError()) {
+        specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+
+      const spec = composeAndSpecsOrUndefined(specs);
+      if (!spec) {
+        return ok(undefined);
+      }
+
+      return ok({
+        spec,
+        relatedFieldIds: [this.id()],
+      });
     }
 
     const shouldSetError =
@@ -638,7 +666,23 @@ export class ConditionalLookupField
       return ok(undefined);
     }
 
-    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+      relatedFieldIds: [this.id()],
+    });
+  }
+
+  onTableDeleted(
+    deletedTable: Table,
+    _context: TableDeletionContext
+  ): Result<TableDeletionReaction | undefined, DomainError> {
+    if (!deletedTable.id().equals(this.foreignTableId()) || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+    });
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

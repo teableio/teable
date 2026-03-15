@@ -1,28 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../../base/BaseId';
-import { FieldId } from '../../../fields/FieldId';
-import { FieldName } from '../../../fields/FieldName';
-import { NumberFormatting, NumberFormattingType } from '../../../fields/types/NumberFormatting';
-import { Table } from '../../../Table';
-import { TableName } from '../../../TableName';
 import { FieldCreated } from '../../../events/FieldCreated';
 import { FieldDeleted } from '../../../events/FieldDeleted';
 import { FieldUpdated } from '../../../events/FieldUpdated';
 import { TableRenamed } from '../../../events/TableRenamed';
+import { FieldId } from '../../../fields/FieldId';
+import { FieldName } from '../../../fields/FieldName';
+import { NumberFormatting, NumberFormattingType } from '../../../fields/types/NumberFormatting';
+import { SelectOption } from '../../../fields/types/SelectOption';
+import { SingleLineTextField } from '../../../fields/types/SingleLineTextField';
+import { SingleSelectField } from '../../../fields/types/SingleSelectField';
+import { Table } from '../../../Table';
+import { TableName } from '../../../TableName';
+import { UpdateNumberFormattingSpec } from '../../field-updates/UpdateNumberFormattingSpec';
 import { TableAddFieldSpec } from '../../TableAddFieldSpec';
+import { TableByBaseIdSpec } from '../../TableByBaseIdSpec';
+import { TableByIdSpec } from '../../TableByIdSpec';
+import { TableByIncomingReferenceToTableSpec } from '../../TableByIncomingReferenceToTableSpec';
 import { TableRemoveFieldSpec } from '../../TableRemoveFieldSpec';
 import { TableRenameSpec } from '../../TableRenameSpec';
-import { TableByIdSpec } from '../../TableByIdSpec';
-import { TableByBaseIdSpec } from '../../TableByBaseIdSpec';
 import { TableUpdateFieldDescriptionSpec } from '../../TableUpdateFieldDescriptionSpec';
 import { TableUpdateFieldNameSpec } from '../../TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../../TableUpdateFieldTypeSpec';
-import { UpdateNumberFormattingSpec } from '../../field-updates/UpdateNumberFormattingSpec';
 import { TableEventGeneratingSpecVisitor } from '../TableEventGeneratingSpecVisitor';
-import { SingleLineTextField } from '../../../fields/types/SingleLineTextField';
-import { SingleSelectField } from '../../../fields/types/SingleSelectField';
-import { SelectOption } from '../../../fields/types/SelectOption';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
@@ -195,6 +196,9 @@ describe('TableEventGeneratingSpecVisitor', () => {
 
     const byBaseIdSpec = TableByBaseIdSpec.create(table.baseId());
     byBaseIdSpec.accept(visitor)._unsafeUnwrap();
+
+    const byIncomingReferenceSpec = TableByIncomingReferenceToTableSpec.create(table.id());
+    byIncomingReferenceSpec.accept(visitor)._unsafeUnwrap();
 
     const events = visitor.getEvents();
     expect(events.length).toBe(0);

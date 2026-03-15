@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../base/BaseId';
 import { FieldName } from '../fields/FieldName';
+import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
 
@@ -17,6 +18,24 @@ const buildTable = (baseId: BaseId, name: TableName) => {
   tableResult._unsafeUnwrap();
   undefined;
   return tableResult._unsafeUnwrap();
+};
+
+const buildHostTableReferencing = (hostBaseId: BaseId, foreignTable: Table, name: TableName) => {
+  const hostNameField = FieldName.create('Host Name')._unsafeUnwrap();
+  const linkFieldName = FieldName.create('Foreign Link')._unsafeUnwrap();
+  const linkConfig = LinkFieldConfig.create({
+    baseId: foreignTable.baseId().toString(),
+    relationship: 'manyMany',
+    foreignTableId: foreignTable.id().toString(),
+    lookupFieldId: foreignTable.primaryFieldId().toString(),
+    isOneWay: true,
+  })._unsafeUnwrap();
+
+  const builder = Table.builder().withBaseId(hostBaseId).withName(name);
+  builder.field().singleLineText().withName(hostNameField).primary().done();
+  builder.field().link().withName(linkFieldName).withConfig(linkConfig).done();
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('TableSpecBuilder', () => {
@@ -152,5 +171,24 @@ describe('TableSpecBuilder', () => {
 
     expect(specResult._unsafeUnwrap().isSatisfiedBy(table)).toBe(true);
     expect(specResult._unsafeUnwrap().isSatisfiedBy(otherTable)).toBe(false);
+  });
+
+  it('supports incoming-reference specs across bases', () => {
+    const foreignBaseId = BaseId.create(`bse${'i'.repeat(16)}`)._unsafeUnwrap();
+    const hostBaseId = BaseId.create(`bse${'j'.repeat(16)}`)._unsafeUnwrap();
+    const foreignName = TableName.create('Foreign')._unsafeUnwrap();
+    const hostName = TableName.create('Host')._unsafeUnwrap();
+    const unrelatedName = TableName.create('Unrelated')._unsafeUnwrap();
+
+    const foreignTable = buildTable(foreignBaseId, foreignName);
+    const hostTable = buildHostTableReferencing(hostBaseId, foreignTable, hostName);
+    const unrelatedTable = buildTable(hostBaseId, unrelatedName);
+
+    const specResult = Table.specs().byIncomingReferenceToTable(foreignTable.id()).build();
+    specResult._unsafeUnwrap();
+
+    expect(specResult._unsafeUnwrap().isSatisfiedBy(foreignTable)).toBe(false);
+    expect(specResult._unsafeUnwrap().isSatisfiedBy(hostTable)).toBe(true);
+    expect(specResult._unsafeUnwrap().isSatisfiedBy(unrelatedTable)).toBe(false);
   });
 });

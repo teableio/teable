@@ -21,6 +21,9 @@ import {
 const formatSpecDetails = (specInfo: TableWhereSpecInfo): string => {
   const parts: string[] = [];
   if (specInfo.tableId) parts.push(`tableId=${specInfo.tableId}`);
+  if (specInfo.incomingReferenceToTableId) {
+    parts.push(`incomingReferenceToTableId=${specInfo.incomingReferenceToTableId}`);
+  }
   if (specInfo.baseId) parts.push(`baseId=${specInfo.baseId}`);
   if (specInfo.tableIds?.length) parts.push(`tableIds=${specInfo.tableIds.join(',')}`);
   if (specInfo.tableName) parts.push(`tableName=${specInfo.tableName}`);
@@ -497,9 +500,10 @@ export class PostgresTableRepository implements core.ITableRepository {
   @core.TraceSpan()
   async findOne(
     context: core.IExecutionContext,
-    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>
+    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
+    options?: Pick<core.TableFindOptions, 'state'>
   ): Promise<Result<core.Table, DomainError>> {
-    const visitor = new TableWhereVisitor();
+    const visitor = new TableWhereVisitor(options?.state);
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
 
@@ -515,6 +519,9 @@ export class PostgresTableRepository implements core.ITableRepository {
       };
       if (specInfo.tableId) {
         attributes[core.TeableSpanAttributes.TABLE_ID] = specInfo.tableId;
+      }
+      if (specInfo.incomingReferenceToTableId) {
+        attributes['teable.incoming_reference_to_table_id'] = specInfo.incomingReferenceToTableId;
       }
       if (specInfo.baseId) {
         attributes['teable.base_id'] = specInfo.baseId;
@@ -533,48 +540,63 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     try {
       const db = resolvePostgresDb(this.db, context);
+      const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
           jsonArrayFrom(
-            eb
-              .selectFrom('field')
-              .select([
-                'id',
-                'name',
-                'description',
-                'type',
-                'options',
-                'meta',
-                'ai_config',
-                'cell_value_type',
-                'is_multiple_cell_value',
-                'not_null',
-                'unique',
-                'is_primary',
-                'is_computed',
-                'is_lookup',
-                'is_conditional_lookup',
-                'has_error',
-                'lookup_linked_field_id',
-                'lookup_options',
-                'db_field_name',
-                'db_field_type',
-              ])
-              .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
-              .where('deleted_time', 'is', null)
-              .orderBy('order')
+            (() => {
+              let query = eb
+                .selectFrom('field')
+                .select([
+                  'id',
+                  'name',
+                  'description',
+                  'type',
+                  'options',
+                  'meta',
+                  'ai_config',
+                  'cell_value_type',
+                  'is_multiple_cell_value',
+                  'not_null',
+                  'unique',
+                  'is_primary',
+                  'is_computed',
+                  'is_lookup',
+                  'is_conditional_lookup',
+                  'has_error',
+                  'lookup_linked_field_id',
+                  'lookup_options',
+                  'db_field_name',
+                  'db_field_type',
+                ])
+                .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
+                .orderBy('order');
+              if (effectiveState === 'active') {
+                query = query.where('deleted_time', 'is', null);
+              } else if (effectiveState === 'deleted') {
+                query = query.where('deleted_time', 'is not', null);
+              }
+              return query;
+            })()
           ).as('fields'),
         ])
         .as('fields');
       const viewsLateral = db
         .selectNoFrom((eb) => [
           jsonArrayFrom(
-            eb
-              .selectFrom('view')
-              .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
-              .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
-              .where('deleted_time', 'is', null)
-              .orderBy('order')
+            (() => {
+              let query = eb
+                .selectFrom('view')
+                .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
+                .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
+                .orderBy('order');
+              if (effectiveState === 'active') {
+                query = query.where('deleted_time', 'is', null);
+              } else if (effectiveState === 'deleted') {
+                query = query.where('deleted_time', 'is not', null);
+              }
+              return query;
+            })()
           ).as('views'),
         ])
         .as('views');
@@ -617,9 +639,9 @@ export class PostgresTableRepository implements core.ITableRepository {
   async find(
     context: core.IExecutionContext,
     spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
-    options?: core.IFindOptions<core.TableSortKey>
+    options?: core.TableFindOptions
   ): Promise<Result<ReadonlyArray<core.Table>, DomainError>> {
-    const visitor = new TableWhereVisitor();
+    const visitor = new TableWhereVisitor(options?.state);
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
 
@@ -629,48 +651,63 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     try {
       const db = resolvePostgresDb(this.db, context);
+      const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
           jsonArrayFrom(
-            eb
-              .selectFrom('field')
-              .select([
-                'id',
-                'name',
-                'description',
-                'type',
-                'options',
-                'meta',
-                'ai_config',
-                'cell_value_type',
-                'is_multiple_cell_value',
-                'not_null',
-                'unique',
-                'is_primary',
-                'is_computed',
-                'is_lookup',
-                'is_conditional_lookup',
-                'has_error',
-                'lookup_linked_field_id',
-                'lookup_options',
-                'db_field_name',
-                'db_field_type',
-              ])
-              .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
-              .where('deleted_time', 'is', null)
-              .orderBy('order')
+            (() => {
+              let query = eb
+                .selectFrom('field')
+                .select([
+                  'id',
+                  'name',
+                  'description',
+                  'type',
+                  'options',
+                  'meta',
+                  'ai_config',
+                  'cell_value_type',
+                  'is_multiple_cell_value',
+                  'not_null',
+                  'unique',
+                  'is_primary',
+                  'is_computed',
+                  'is_lookup',
+                  'is_conditional_lookup',
+                  'has_error',
+                  'lookup_linked_field_id',
+                  'lookup_options',
+                  'db_field_name',
+                  'db_field_type',
+                ])
+                .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
+                .orderBy('order');
+              if (effectiveState === 'active') {
+                query = query.where('deleted_time', 'is', null);
+              } else if (effectiveState === 'deleted') {
+                query = query.where('deleted_time', 'is not', null);
+              }
+              return query;
+            })()
           ).as('fields'),
         ])
         .as('fields');
       const viewsLateral = db
         .selectNoFrom((eb) => [
           jsonArrayFrom(
-            eb
-              .selectFrom('view')
-              .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
-              .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
-              .where('deleted_time', 'is', null)
-              .orderBy('order')
+            (() => {
+              let query = eb
+                .selectFrom('view')
+                .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
+                .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
+                .orderBy('order');
+              if (effectiveState === 'active') {
+                query = query.where('deleted_time', 'is', null);
+              } else if (effectiveState === 'deleted') {
+                query = query.where('deleted_time', 'is not', null);
+              }
+              return query;
+            })()
           ).as('views'),
         ])
         .as('views');
@@ -842,14 +879,52 @@ export class PostgresTableRepository implements core.ITableRepository {
   @core.TraceSpan()
   async delete(
     context: core.IExecutionContext,
-    table: core.Table
+    table: core.Table,
+    options?: core.TableDeleteOptions
   ): Promise<Result<void, DomainError>> {
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
+    const mode = options?.mode ?? 'soft';
 
     try {
       const db = resolvePostgresDb(this.db, context);
+      if (mode === 'permanent') {
+        const statements: CompiledQuery[] = [
+          sql`
+            DELETE FROM "reference"
+            WHERE "from_field_id" IN (SELECT "id" FROM "field" WHERE "table_id" = ${tableId})
+               OR "to_field_id" IN (SELECT "id" FROM "field" WHERE "table_id" = ${tableId})
+          `.compile(db),
+        ];
+
+        if (await relationExists(db, 'public.record_trash')) {
+          statements.push(
+            sql`DELETE FROM "record_trash" WHERE "table_id" = ${tableId}`.compile(db)
+          );
+        }
+        if (await relationExists(db, 'public.table_trash')) {
+          statements.push(sql`DELETE FROM "table_trash" WHERE "table_id" = ${tableId}`.compile(db));
+        }
+        if (await relationExists(db, 'public.trash')) {
+          statements.push(
+            sql`
+              DELETE FROM "trash"
+              WHERE "resource_id" = ${tableId} AND "resource_type" = 'table'
+            `.compile(db)
+          );
+        }
+
+        statements.push(
+          sql`DELETE FROM "view" WHERE "table_id" = ${tableId}`.compile(db),
+          sql`DELETE FROM "field" WHERE "table_id" = ${tableId}`.compile(db),
+          sql`DELETE FROM "table_meta" WHERE "id" = ${tableId}`.compile(db)
+        );
+
+        await executeCompiledQueries(db, statements);
+        return ok(undefined);
+      }
+
       const tableUpdate = await db
         .updateTable('table_meta')
         .set({
@@ -1789,4 +1864,14 @@ const executeCompiledQueries = async <DB>(
   for (const statement of compiled) {
     await db.executeQuery(statement);
   }
+};
+
+const relationExists = async <DB>(
+  db: Kysely<DB> | Transaction<DB>,
+  relationName: string
+): Promise<boolean> => {
+  const result = await db.executeQuery<{ exists: boolean }>(
+    sql`SELECT to_regclass(${relationName}) IS NOT NULL as "exists"`.compile(db)
+  );
+  return result.rows[0]?.exists === true;
 };

@@ -1,3 +1,4 @@
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
@@ -14,6 +15,7 @@ import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { ConditionalLookupField } from './ConditionalLookupField';
 import { ConditionalLookupOptions } from './ConditionalLookupOptions';
+import { FieldHasError } from './FieldHasError';
 import { FormulaExpression } from './FormulaExpression';
 import { FormulaField } from './FormulaField';
 import { LongTextField } from './LongTextField';
@@ -649,9 +651,13 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
       previousSourceTable: foreignTable,
     });
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    const reaction = result._unsafeUnwrap();
+    expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    expect(reaction?.relatedFieldIds.map((id) => id.toString())).toEqual([
+      conditionalLookup.id().toString(),
+    ]);
 
-    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const spec = reaction?.spec as TableUpdateFieldTypeSpec;
     const nextField = spec.newField() as ConditionalLookupField;
     const nextCondition = nextField.conditionalLookupOptions().condition().toDto();
 
@@ -661,5 +667,143 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
       conjunction: 'and',
       filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'isNotEmpty' }],
     });
+  });
+
+  it('preserves existing error when the foreign sort field is deleted', () => {
+    const foreignTableId = createTableId('q');
+    const lookupFieldId = createFieldId('r');
+    const sortFieldId = createFieldId('s');
+    const hostPrimaryFieldId = createFieldId('t');
+    const conditionalLookupFieldId = createFieldId('u');
+    const conditionalLookup = ConditionalLookupField.create({
+      id: conditionalLookupFieldId,
+      name: FieldName.create('Conditional Lookup Sorted')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('v'),
+        name: FieldName.create('Title')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'isNotEmpty' }],
+          },
+          sort: { fieldId: sortFieldId.toString(), order: 'desc' },
+          limit: 2,
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const hostTableBuilder = Table.builder()
+      .withId(createTableId('w'))
+      .withBaseId(createBaseId('x'))
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTableBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryFieldId)
+      .withName(FieldName.create('Host Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTableBuilder.view().defaultGrid().done();
+    const hostTable = hostTableBuilder.build()._unsafeUnwrap();
+
+    const foreignTableBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(createBaseId('x'))
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignTableBuilder
+      .field()
+      .singleLineText()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignTableBuilder
+      .field()
+      .number()
+      .withId(sortFieldId)
+      .withName(FieldName.create('Score')._unsafeUnwrap())
+      .done();
+    foreignTableBuilder.view().defaultGrid().done();
+    const foreignTable = foreignTableBuilder.build()._unsafeUnwrap();
+
+    const hostWithConditionalLookup = hostTable
+      .addField(conditionalLookup, { foreignTables: [foreignTable] })
+      ._unsafeUnwrap();
+    const fieldInHost = hostWithConditionalLookup
+      .getField((field) => field.id().equals(conditionalLookupFieldId))
+      ._unsafeUnwrap() as ConditionalLookupField;
+    fieldInHost.setHasError(FieldHasError.error());
+
+    const deletedField = foreignTable.getFields().find((field) => field.id().equals(sortFieldId));
+    expect(deletedField).toBeDefined();
+    if (!deletedField) return;
+
+    const result = fieldInHost.onFieldDeleted(deletedField, {
+      table: hostWithConditionalLookup,
+      sourceTable: foreignTable,
+      previousSourceTable: foreignTable,
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()?.relatedFieldIds.map((id) => id.toString())).toEqual([
+      conditionalLookupFieldId.toString(),
+    ]);
+
+    const updatedTable = result._unsafeUnwrap()?.spec.mutate(hostWithConditionalLookup);
+    expect(updatedTable?.isOk()).toBe(true);
+    const updatedField = updatedTable
+      ?._unsafeUnwrap()
+      .getField((field) => field.id().equals(conditionalLookupFieldId));
+    expect(updatedField?.isOk()).toBe(true);
+
+    const nextField = updatedField?._unsafeUnwrap() as ConditionalLookupField;
+    expect(nextField.hasError().isError()).toBe(true);
+    expect(nextField.conditionalLookupOptions().condition().toDto().sort).toBeUndefined();
+  });
+
+  it('sets hasError when the foreign table is deleted', () => {
+    const foreignTableId = createTableId('y');
+    const lookupFieldId = createFieldId('z');
+    const sortFieldId = createFieldId('a');
+
+    const conditionalLookup = ConditionalLookupField.create({
+      id: createFieldId('b'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('c'),
+        name: FieldName.create('Lookup Inner')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'isNotEmpty' }],
+          },
+          sort: { fieldId: sortFieldId.toString(), order: 'desc' },
+          limit: 2,
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = conditionalLookup.onTableDeleted({ id: () => foreignTableId } as never, {
+      table: {} as never,
+      hooks: {
+        createFieldUpdateAfterPersistHook: () => async () =>
+          ok({
+            events: [],
+            table: {} as never,
+          }),
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const reaction = result._unsafeUnwrap();
+    expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(reaction?.afterPersist).toBeUndefined();
   });
 });

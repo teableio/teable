@@ -1,7 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
-import type { IBaseNodeTreeVo, IBaseNodeVo, IDeleteBaseNodeVo } from '@teable/openapi';
 import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Put,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  BaseNodeResourceType,
   moveBaseNodeRoSchema,
   createBaseNodeRoSchema,
   duplicateBaseNodeRoSchema,
@@ -10,7 +21,11 @@ import {
   IMoveBaseNodeRo,
   updateBaseNodeRoSchema,
   IUpdateBaseNodeRo,
+  type IBaseNodeTreeVo,
+  type IBaseNodeVo,
+  type IDeleteBaseNodeVo,
 } from '@teable/openapi';
+import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -20,6 +35,11 @@ import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-ano
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
+import {
+  X_TEABLE_V2_FEATURE_HEADER,
+  X_TEABLE_V2_HEADER,
+  X_TEABLE_V2_REASON_HEADER,
+} from '../canary/interceptors/v2-indicator.interceptor';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeAction } from './types';
@@ -28,6 +48,8 @@ import { BaseNodeAction } from './types';
 @UseGuards(BaseNodePermissionGuard)
 @AllowAnonymous(AllowAnonymousType.RESOURCE)
 export class BaseNodeController {
+  protected static readonly deleteTableV2Feature = 'deleteTable';
+
   constructor(
     private readonly baseNodeService: BaseNodeService,
     private readonly cls: ClsService<IClsStore>
@@ -167,8 +189,11 @@ export class BaseNodeController {
   @EmitControllerEvent(Events.BASE_NODE_DELETE)
   async delete(
     @Param('baseId') baseId: string,
-    @Param('nodeId') nodeId: string
+    @Param('nodeId') nodeId: string,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res({ passthrough: true }) response: Response
   ): Promise<IDeleteBaseNodeVo> {
+    await this.prepareDeleteTableCanary(baseId, nodeId, response, windowId);
     return this.baseNodeService.delete(baseId, nodeId);
   }
 
@@ -178,10 +203,42 @@ export class BaseNodeController {
   @EmitControllerEvent(Events.BASE_NODE_DELETE)
   async permanentDelete(
     @Param('baseId') baseId: string,
-    @Param('nodeId') nodeId: string
+    @Param('nodeId') nodeId: string,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res({ passthrough: true }) response: Response
   ): Promise<IDeleteBaseNodeVo> {
+    await this.prepareDeleteTableCanary(baseId, nodeId, response, windowId);
     const result = await this.baseNodeService.delete(baseId, nodeId, true);
     return { ...result, permanent: true };
+  }
+
+  protected async prepareDeleteTableCanary(
+    baseId: string,
+    nodeId: string,
+    response: Response,
+    windowId?: string
+  ): Promise<void> {
+    if (windowId) {
+      this.cls.set('windowId', windowId);
+    }
+
+    const node = await this.baseNodeService.getNode(baseId, nodeId);
+    if (node.resourceType !== BaseNodeResourceType.Table) {
+      return;
+    }
+
+    const decision = await this.baseNodeService.getDeleteTableV2Decision(baseId, nodeId);
+    if (!decision) {
+      return;
+    }
+
+    this.cls.set('useV2', decision.useV2);
+    this.cls.set('v2Feature', BaseNodeController.deleteTableV2Feature);
+    this.cls.set('v2Reason', decision.reason);
+
+    response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
+    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, BaseNodeController.deleteTableV2Feature);
+    response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
   }
 
   protected async getPermissionContext(_baseId: string) {

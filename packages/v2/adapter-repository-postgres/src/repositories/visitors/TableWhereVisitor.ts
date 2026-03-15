@@ -10,6 +10,7 @@ import {
   TableRenameSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
@@ -62,9 +63,10 @@ import {
   type UpdateRollupShowAsSpec,
   type UpdateRollupTimeZoneSpec,
   type RemoveSymmetricLinkFieldSpec,
+  type TableQueryState,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Expression, ExpressionBuilder, SqlBool } from 'kysely';
+import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -75,6 +77,7 @@ export type ITableMetaWhere = (
 export type TableWhereSpecInfo = {
   readonly specName?: string;
   readonly tableId?: string;
+  readonly incomingReferenceToTableId?: string;
   readonly baseId?: string;
   readonly tableIds?: ReadonlyArray<string>;
   readonly tableName?: string;
@@ -87,9 +90,13 @@ export class TableWhereVisitor
 {
   private specInfo: TableWhereSpecInfo = {};
 
-  constructor() {
+  constructor(private readonly state: TableQueryState = 'active') {
     super();
-    this.addCond((eb) => eb.eb('deleted_time', 'is', null));
+    if (state === 'active') {
+      this.addCond((eb) => eb.eb('deleted_time', 'is', null));
+    } else if (state === 'deleted') {
+      this.addCond((eb) => eb.eb('deleted_time', 'is not', null));
+    }
   }
 
   describe(): TableWhereSpecInfo {
@@ -166,6 +173,32 @@ export class TableWhereVisitor
   visitTableById(spec: TableByIdSpec): Result<ITableMetaWhere, DomainError> {
     const cond: ITableMetaWhere = (eb) => eb.eb('id', '=', spec.tableId().toString());
     this.mergeSpecInfo({ specName: 'TableByIdSpec', tableId: spec.tableId().toString() });
+    return this.addCond(cond).map(() => cond);
+  }
+
+  visitTableByIncomingReferenceToTable(
+    spec: TableByIncomingReferenceToTableSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    const incomingReferenceToTableId = spec.tableId().toString();
+    const targetFieldDeletedPredicate =
+      this.state === 'deleted'
+        ? sql`"target_field"."deleted_time" is not null`
+        : sql`"target_field"."deleted_time" is null`;
+    const cond: ITableMetaWhere = () => sql<boolean>`
+      exists (
+        select 1
+        from "reference"
+        inner join "field" as "source_field" on "source_field"."id" = "reference"."from_field_id"
+        inner join "field" as "target_field" on "target_field"."id" = "reference"."to_field_id"
+        where "source_field"."table_id" = ${incomingReferenceToTableId}
+          and ${targetFieldDeletedPredicate}
+          and "target_field"."table_id" = ${sql.ref('table_meta.id')}
+      )
+    `;
+    this.mergeSpecInfo({
+      specName: 'TableByIncomingReferenceToTableSpec',
+      incomingReferenceToTableId,
+    });
     return this.addCond(cond).map(() => cond);
   }
 
@@ -633,7 +666,7 @@ export class TableWhereVisitor
   }
 
   clone(): this {
-    return new TableWhereVisitor() as this;
+    return new TableWhereVisitor(this.state) as this;
   }
 
   and(left: ITableMetaWhere, right: ITableMetaWhere): ITableMetaWhere {

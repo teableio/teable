@@ -4,7 +4,11 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
-import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
 import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
@@ -343,7 +347,7 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     if (!deletedFromHostTable || this.hasError().isError()) {
       return ok(undefined);
@@ -354,7 +358,10 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
       return ok(undefined);
     }
 
-    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+      relatedFieldIds: [this.id()],
+    });
   }
 
   private dependsOnDeletedField(

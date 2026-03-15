@@ -17,6 +17,7 @@ import { RecordMutationSpecResolverService } from '../application/services/Recor
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableCreationService } from '../application/services/TableCreationService';
+import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
@@ -49,6 +50,7 @@ import { v2CoreTokens } from '../ports/tokens';
  * | fieldCreationSideEffectService   | FieldCreationSideEffectService | Cross-table field creation side effects      |
  * | fieldDeletionSideEffectService   | FieldDeletionSideEffectService | Cross-table field deletion side effects      |
  * | fieldUpdateSideEffectService     | FieldUpdateSideEffectService   | Cascading field updates for dependent fields |
+ * | tableDeletionSideEffectService   | TableDeletionSideEffectService | Cross-table cleanup before table deletion    |
  * | foreignTableLoaderService        | ForeignTableLoaderService      | Load and validate foreign table references   |
  * | linkTitleResolverService         | LinkTitleResolverService       | Resolve link titles to record IDs            |
  * | attachmentValueResolverService   | AttachmentValueResolverService | Resolve attachment values on writes          |
@@ -139,6 +141,16 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.fieldUpdateSideEffectService, FieldUpdateSideEffectService, {
       lifecycle,
     });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableDeletionSideEffectService)) {
+    container.register(
+      v2CoreTokens.tableDeletionSideEffectService,
+      TableDeletionSideEffectService,
+      {
+        lifecycle,
+      }
+    );
   }
 
   if (!container.isRegistered(v2CoreTokens.fieldUndoRedoSnapshotService)) {

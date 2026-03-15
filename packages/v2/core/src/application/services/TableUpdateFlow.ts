@@ -65,6 +65,7 @@ type TableUpdateFlowHooks = {
 export type TableUpdateFlowResult = {
   table: Table;
   events: ReadonlyArray<IDomainEvent>;
+  postPersistEvents: ReadonlyArray<IDomainEvent>;
 };
 
 const normalizeHookResult = (
@@ -184,7 +185,7 @@ export class TableUpdateFlow {
           yield* await handler.eventBus.publishMany(context, postPersistEvents);
         }
       }
-      return ok({ table: latestTable, events: normalizedEvents });
+      return ok({ table: latestTable, events: normalizedEvents, postPersistEvents });
     });
   }
 

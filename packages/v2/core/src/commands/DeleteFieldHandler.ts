@@ -2,28 +2,24 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import {
-  composeAndSpecsOrUndefined,
-  flattenAndSpecs,
-} from '../domain/shared/specification/composeAndSpecs';
+import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { UpdateLinkConfigSpec } from '../domain/table/specs/field-updates/UpdateLinkConfigSpec';
+import { Field } from '../domain/table/fields/Field';
+import type { FieldId } from '../domain/table/fields/FieldId';
+import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import {
   implementsOnTeableFieldDeleted,
   type FieldDeletionContext,
+  type FieldDeletionReaction,
 } from '../domain/table/OnTeableFieldDeleted';
-import { Field } from '../domain/table/fields/Field';
-import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
-import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
-import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table as TableAggregate } from '../domain/table/Table';
@@ -60,6 +56,11 @@ export class DeleteFieldResult {
     return new DeleteFieldResult(table, [...events], undoCommand, redoCommand);
   }
 }
+
+type FieldDeletionCleanup = {
+  readonly spec?: ISpecification<Table, ITableSpecVisitor>;
+  readonly relatedFieldIds: ReadonlyArray<FieldId>;
+};
 
 @CommandHandler(DeleteFieldCommand)
 @injectable()
@@ -242,13 +243,13 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
           ? latestSourceTable
           : table;
 
-        const cleanupSpecResult = handler.buildDeletionCleanupSpecs(candidateTable, deletedField, {
+        const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletedField, {
           table: candidateTable,
           sourceTable: latestSourceTable,
           previousSourceTable,
         });
-        if (cleanupSpecResult.isErr()) return err(cleanupSpecResult.error);
-        const cleanupSpec = cleanupSpecResult.value;
+        if (cleanupResult.isErr()) return err(cleanupResult.error);
+        const cleanupSpec = cleanupResult.value.spec;
         if (!cleanupSpec) {
           continue;
         }
@@ -304,36 +305,16 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       }> = [];
 
       for (const candidateTable of orderedTables) {
-        const cleanupSpecResult = handler.buildDeletionCleanupSpecs(candidateTable, deletedField, {
+        const cleanupResult = handler.buildDeletionCleanup(candidateTable, deletedField, {
           table: candidateTable,
           sourceTable,
           previousSourceTable: sourceTable,
         });
-        if (cleanupSpecResult.isErr()) {
-          return err(cleanupSpecResult.error);
+        if (cleanupResult.isErr()) {
+          return err(cleanupResult.error);
         }
 
-        const relatedFieldIds = new Map(
-          flattenAndSpecs(cleanupSpecResult.value)
-            .filter(
-              (
-                spec
-              ): spec is
-                | TableUpdateFieldHasErrorSpec
-                | UpdateLinkConfigSpec
-                | TableUpdateFieldTypeSpec =>
-                spec instanceof TableUpdateFieldHasErrorSpec ||
-                spec instanceof UpdateLinkConfigSpec ||
-                spec instanceof TableUpdateFieldTypeSpec
-            )
-            .map((spec) => {
-              const fieldId =
-                spec instanceof TableUpdateFieldTypeSpec ? spec.oldField().id() : spec.fieldId();
-              return [fieldId.toString(), fieldId] as const;
-            })
-        );
-
-        for (const relatedFieldId of relatedFieldIds.values()) {
+        for (const relatedFieldId of cleanupResult.value.relatedFieldIds) {
           const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
             context,
             candidateTable,
@@ -352,12 +333,13 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     });
   }
 
-  private buildDeletionCleanupSpecs(
+  private buildDeletionCleanup(
     candidateTable: Table,
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+  ): Result<FieldDeletionCleanup, DomainError> {
     const specs: Array<ISpecification<Table, ITableSpecVisitor>> = [];
+    const relatedFieldIds = new Map<string, FieldId>();
 
     for (const view of candidateTable.views()) {
       if (!implementsOnTeableViewFieldDeleted(view)) {
@@ -395,10 +377,23 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const result = field.onFieldDeleted(deletedField, context);
       if (result.isErr()) return err(result.error);
       if (result.value) {
-        specs.push(result.value);
+        specs.push(result.value.spec);
+        this.collectRelatedFieldIds(relatedFieldIds, result.value);
       }
     }
 
-    return ok(composeAndSpecsOrUndefined(specs));
+    return ok({
+      spec: composeAndSpecsOrUndefined(specs),
+      relatedFieldIds: [...relatedFieldIds.values()],
+    });
+  }
+
+  private collectRelatedFieldIds(
+    accumulator: Map<string, FieldId>,
+    reaction: FieldDeletionReaction
+  ): void {
+    for (const fieldId of reaction.relatedFieldIds) {
+      accumulator.set(fieldId.toString(), fieldId);
+    }
   }
 }

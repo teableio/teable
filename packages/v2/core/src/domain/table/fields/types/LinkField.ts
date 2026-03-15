@@ -5,12 +5,22 @@ import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
-import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { DbTableName } from '../../DbTableName';
 import { ForeignTable } from '../../ForeignTable';
+import type {
+  FieldDeletionContext,
+  FieldDeletionReaction,
+  OnTeableFieldDeleted,
+} from '../../OnTeableFieldDeleted';
+import type {
+  OnTeableTableDeleted,
+  TableDeletionContext,
+  TableDeletionReaction,
+} from '../../OnTeableTableDeleted';
 import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { ViewId } from '../../views/ViewId';
@@ -41,10 +51,15 @@ import {
 } from './LinkFieldConfig';
 import { LinkFieldMeta, type LinkFieldMetaValue } from './LinkFieldMeta';
 import type { LinkRelationship } from './LinkRelationship';
+import { SingleLineTextField } from './SingleLineTextField';
 
 export class LinkField
   extends Field
-  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
+  implements
+    ForeignTableRelatedField,
+    OnTeableFieldUpdated,
+    OnTeableFieldDeleted,
+    OnTeableTableDeleted
 {
   private constructor(
     id: FieldId,
@@ -365,7 +380,7 @@ export class LinkField
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext
-  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+  ): Result<FieldDeletionReaction | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
     const filter = this.configValue.filter();
@@ -400,7 +415,10 @@ export class LinkField
         if (this.hasError().isError()) {
           return ok(undefined);
         }
-        return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+        return ok({
+          spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+          relatedFieldIds: [this.id()],
+        });
       }
 
       return this.configDto().andThen((currentDto) =>
@@ -409,14 +427,23 @@ export class LinkField
           lookupFieldId: fallbackLookupFieldId.toString(),
           ...(shouldCleanForeignFilter ? { filter: nextFilter } : {}),
           ...(shouldCleanVisibleFieldIds ? { visibleFieldIds: normalizedVisibleFieldIds } : {}),
-        }).map((nextConfig) =>
-          composeAndSpecsOrUndefined([
-            UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
-            ...(this.hasError().isError()
-              ? [TableUpdateFieldHasErrorSpec.clearError(this.id(), this.hasError())]
-              : []),
-          ])
-        )
+        })
+          .map((nextConfig) =>
+            composeAndSpecsOrUndefined([
+              UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
+              ...(this.hasError().isError()
+                ? [TableUpdateFieldHasErrorSpec.clearError(this.id(), this.hasError())]
+                : []),
+            ])
+          )
+          .map((spec) =>
+            spec
+              ? {
+                  spec,
+                  relatedFieldIds: [this.id()],
+                }
+              : undefined
+          )
       );
     }
 
@@ -433,11 +460,20 @@ export class LinkField
           ...currentDto,
           ...(shouldCleanForeignFilter ? { filter: nextFilter } : {}),
           ...(shouldCleanVisibleFieldIds ? { visibleFieldIds: normalizedVisibleFieldIds } : {}),
-        }).map((nextConfig) =>
-          composeAndSpecsOrUndefined([
-            UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
-          ])
-        )
+        })
+          .map((nextConfig) =>
+            composeAndSpecsOrUndefined([
+              UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
+            ])
+          )
+          .map((spec) =>
+            spec
+              ? {
+                  spec,
+                  relatedFieldIds: [this.id()],
+                }
+              : undefined
+          )
       );
     }
 
@@ -450,7 +486,52 @@ export class LinkField
       return ok(undefined);
     }
 
-    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+    return ok({
+      spec: TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()),
+      relatedFieldIds: [this.id()],
+    });
+  }
+
+  onTableDeleted(
+    deletedTable: Table,
+    context: TableDeletionContext
+  ): Result<TableDeletionReaction | undefined, DomainError> {
+    if (!deletedTable.id().equals(this.foreignTableId())) {
+      return ok(undefined);
+    }
+
+    const nextFieldResult = SingleLineTextField.create({
+      id: this.id(),
+      name: this.name(),
+    });
+    if (nextFieldResult.isErr()) {
+      return err(nextFieldResult.error);
+    }
+
+    const nextField = nextFieldResult.value;
+    const setDescriptionResult = nextField.setDescription(this.description());
+    if (setDescriptionResult.isErr()) {
+      return err(setDescriptionResult.error);
+    }
+    const setAiConfigResult = nextField.setAiConfig(this.aiConfig());
+    if (setAiConfigResult.isErr()) {
+      return err(setAiConfigResult.error);
+    }
+    const setNotNullResult = nextField.setNotNull(this.notNull());
+    if (setNotNullResult.isErr()) {
+      return err(setNotNullResult.error);
+    }
+    const setUniqueResult = nextField.setUnique(this.unique());
+    if (setUniqueResult.isErr()) {
+      return err(setUniqueResult.error);
+    }
+    nextField.setHasError(this.hasError());
+
+    const updateSpec = TableUpdateFieldTypeSpec.create(this, nextField);
+    return ok({
+      spec: updateSpec,
+      afterPersist: context.hooks.createFieldUpdateAfterPersistHook(this.id(), updateSpec),
+    });
   }
 
   setDbConfig(params: LinkFieldDbConfig): Result<void, DomainError> {
