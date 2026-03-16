@@ -278,7 +278,9 @@
       "viewRecord": "Datensatz anzeigen"
     },
     "showHiddenFields": "Zeige {{count}} versteckte Felder",
-    "hideHiddenFields": "Verstecke {{count}} versteckte Felder"
+    "hideHiddenFields": "Verstecke {{count}} versteckte Felder",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "label": "Sortieren",

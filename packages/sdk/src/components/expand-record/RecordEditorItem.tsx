@@ -47,7 +47,7 @@ export const RecordEditorItem = (props: {
   };
 
   return (
-    <div className={cn(vertical ? 'flex space-x-2' : 'space-y-2', 'relative group')}>
+    <div className={cn(vertical ? 'flex space-x-4' : 'space-y-2', 'relative group')}>
       <div className={cn('w-36 flex items-top space-x-1 ', vertical ? 'pt-1' : 'w-full')}>
         <div className="flex size-5 items-center">
           <Icon className="size-4" />

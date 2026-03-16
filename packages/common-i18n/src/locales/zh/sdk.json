@@ -311,7 +311,9 @@
       "viewRecord": "查看记录"
     },
     "showHiddenFields": "显示 {{count}} 个隐藏字段",
-    "hideHiddenFields": "隐藏 {{count}} 个隐藏字段"
+    "hideHiddenFields": "隐藏 {{count}} 个隐藏字段",
+    "showMore": "显示更多",
+    "showLess": "收起"
   },
   "sort": {
     "label": "排序",

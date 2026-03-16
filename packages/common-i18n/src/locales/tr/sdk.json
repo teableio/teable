@@ -278,7 +278,9 @@
       "viewRecord": "Kaydı görüntüle"
     },
     "showHiddenFields": "{{count}} gizli alanı göster",
-    "hideHiddenFields": "{{count}} gizli alanı gizle"
+    "hideHiddenFields": "{{count}} gizli alanı gizle",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "label": "Sırala",

@@ -278,7 +278,9 @@
       "viewRecord": "Просмотреть запись"
     },
     "showHiddenFields": "Показать {{count}} скрытых поля",
-    "hideHiddenFields": "Скрыть {{count}} скрытых поля"
+    "hideHiddenFields": "Скрыть {{count}} скрытых поля",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "label": "Сортировка",

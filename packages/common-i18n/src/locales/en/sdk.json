@@ -295,7 +295,9 @@
       "viewRecord": "View record"
     },
     "showHiddenFields": "Show {{count}} hidden fields",
-    "hideHiddenFields": "Hide {{count}} hidden fields"
+    "hideHiddenFields": "Hide {{count}} hidden fields",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "label": "Sort",

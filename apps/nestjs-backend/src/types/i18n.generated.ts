@@ -2149,6 +2149,8 @@ export type I18nTranslations = {
             };
             "showHiddenFields": string;
             "hideHiddenFields": string;
+            "showMore": string;
+            "showLess": string;
         };
         "sort": {
             "label": string;

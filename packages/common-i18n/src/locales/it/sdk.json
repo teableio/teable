@@ -278,7 +278,9 @@
       "viewRecord": "Visualizza record"
     },
     "showHiddenFields": "Mostra {{count}} campi nascosti",
-    "hideHiddenFields": "Nascondi {{count}} campi nascosti"
+    "hideHiddenFields": "Nascondi {{count}} campi nascosti",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "label": "Ordina",
