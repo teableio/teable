@@ -6,7 +6,7 @@ import { isDomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventHandler } from '../EventHandler';
-import { getEventHandlerTokens } from '../EventHandler';
+import { getEventHandlerRole, getEventHandlerTokens } from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
 
@@ -196,13 +196,36 @@ export class AsyncMemoryEventBus implements IEventBus {
   private async dispatch(context: IExecutionContext, event: IDomainEvent): Promise<void> {
     const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
     const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
-    for (const handlerToken of handlers) {
-      await this.dispatchToHandler(
-        context,
-        event,
-        handlerToken as IClassToken<IEventHandler<IDomainEvent>>
+    let projectionGroup: Array<IClassToken<IEventHandler<IDomainEvent>>> = [];
+
+    // Consecutive @ProjectionHandler handlers are dispatched concurrently.
+    // A non-projection handler creates an ordering boundary: the preceding
+    // projection group must finish before that handler runs, and any following
+    // projection handlers begin a fresh concurrent group afterward.
+    // Handler registration order therefore affects concurrency grouping.
+    const flushProjectionGroup = async () => {
+      if (!projectionGroup.length) {
+        return;
+      }
+
+      const currentGroup = projectionGroup;
+      projectionGroup = [];
+      await Promise.all(
+        currentGroup.map((handlerToken) => this.dispatchToHandler(context, event, handlerToken))
       );
+    };
+
+    for (const handlerToken of handlers as Array<IClassToken<IEventHandler<IDomainEvent>>>) {
+      if (getEventHandlerRole(handlerToken) === 'projection') {
+        projectionGroup.push(handlerToken);
+        continue;
+      }
+
+      await flushProjectionGroup();
+      await this.dispatchToHandler(context, event, handlerToken);
     }
+
+    await flushProjectionGroup();
   }
 
   private async dispatchToHandler(

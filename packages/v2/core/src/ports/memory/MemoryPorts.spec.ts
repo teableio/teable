@@ -18,6 +18,7 @@ import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 import { TableSortKey } from '../../domain/table/TableSortKey';
+import { ProjectionHandler } from '../../application/projections/Projection';
 import { QueryHandler, type IQueryHandler } from '../../queries/QueryHandler';
 import type { ICommandBusMiddleware } from '../CommandBus';
 import { EventHandler, type IEventHandler } from '../EventHandler';
@@ -30,6 +31,16 @@ import { MemoryCommandBus } from './MemoryCommandBus';
 import { MemoryEventBus } from './MemoryEventBus';
 import { MemoryQueryBus } from './MemoryQueryBus';
 import { MemoryTableRepository } from './MemoryTableRepository';
+
+const waitForPredicate = async (predicate: () => boolean, timeoutMs = 100): Promise<void> => {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('Timed out waiting for predicate');
+    }
+    await Promise.resolve();
+  }
+};
 
 class MapResolver implements IHandlerResolver {
   private readonly instances = new Map<IClassToken<unknown>, unknown>();
@@ -326,6 +337,138 @@ describe('AsyncMemoryEventBus', () => {
 
     expect(errors.length).toBe(1);
     expect(errors[0]?.error).toBe('fail');
+  });
+
+  it('dispatches consecutive projection handlers concurrently', async () => {
+    class ProjectionEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let releaseFirstProjection!: () => void;
+    const firstProjectionGate = new Promise<void>((resolve) => {
+      releaseFirstProjection = resolve;
+    });
+    let firstStarted = false;
+    let secondStarted = false;
+
+    @ProjectionHandler(ProjectionEvent)
+    class FirstConcurrentHandler implements IEventHandler<ProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: ProjectionEvent
+      ): ReturnType<IEventHandler<ProjectionEvent>['handle']> {
+        firstStarted = true;
+        await firstProjectionGate;
+        return ok(undefined);
+      }
+    }
+    expect(FirstConcurrentHandler).toBeDefined();
+
+    @ProjectionHandler(ProjectionEvent)
+    class SecondConcurrentHandler implements IEventHandler<ProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: ProjectionEvent
+      ): ReturnType<IEventHandler<ProjectionEvent>['handle']> {
+        secondStarted = true;
+        return ok(undefined);
+      }
+    }
+    expect(SecondConcurrentHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+    await bus.publish(createContext(), new ProjectionEvent());
+
+    const drainTask = tasks.shift();
+    expect(drainTask).toBeDefined();
+
+    const drainPromise = drainTask?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(firstStarted).toBe(true);
+    expect(secondStarted).toBe(true);
+
+    releaseFirstProjection();
+    await drainPromise;
+  });
+
+  it('preserves handler ordering boundaries around non-projection handlers', async () => {
+    class MixedEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let blockingHandlerStarted = false;
+    let trailingProjectionStarted = false;
+    let releaseBlockingHandler!: () => void;
+    const blockingHandlerGate = new Promise<void>((resolve) => {
+      releaseBlockingHandler = resolve;
+    });
+
+    @ProjectionHandler(MixedEvent)
+    class LeadingConcurrentHandler implements IEventHandler<MixedEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: MixedEvent
+      ): ReturnType<IEventHandler<MixedEvent>['handle']> {
+        return ok(undefined);
+      }
+    }
+    expect(LeadingConcurrentHandler).toBeDefined();
+
+    @EventHandler(MixedEvent)
+    class BlockingEventHandler implements IEventHandler<MixedEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: MixedEvent
+      ): ReturnType<IEventHandler<MixedEvent>['handle']> {
+        blockingHandlerStarted = true;
+        await blockingHandlerGate;
+        return ok(undefined);
+      }
+    }
+    expect(BlockingEventHandler).toBeDefined();
+
+    @ProjectionHandler(MixedEvent)
+    class TrailingConcurrentHandler implements IEventHandler<MixedEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: MixedEvent
+      ): ReturnType<IEventHandler<MixedEvent>['handle']> {
+        trailingProjectionStarted = true;
+        return ok(undefined);
+      }
+    }
+    expect(TrailingConcurrentHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+    await bus.publish(createContext(), new MixedEvent());
+
+    const drainTask = tasks.shift();
+    expect(drainTask).toBeDefined();
+
+    const drainPromise = drainTask?.();
+    await waitForPredicate(() => blockingHandlerStarted);
+
+    expect(blockingHandlerStarted).toBe(true);
+    expect(trailingProjectionStarted).toBe(false);
+
+    releaseBlockingHandler();
+    await drainPromise;
+
+    expect(trailingProjectionStarted).toBe(true);
   });
 });
 

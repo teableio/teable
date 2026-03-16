@@ -17,13 +17,21 @@ export type EventHandlerClass<TEvent extends IDomainEvent> = {
   readonly prototype: IEventHandler<TEvent>;
 };
 
+export type EventHandlerRole = 'projection';
+
+type EventHandlerOptions = Readonly<{
+  role?: EventHandlerRole;
+}>;
+
+const eventHandlerRoleSymbol = Symbol('v2.eventHandlerRole');
+
 const eventHandlerRegistry = new Map<
   EventType<IDomainEvent>,
   Array<EventHandlerClass<IDomainEvent>>
 >();
 
 export const EventHandler =
-  <TEvent extends IDomainEvent>(event: EventType<TEvent>) =>
+  <TEvent extends IDomainEvent>(event: EventType<TEvent>, options: EventHandlerOptions = {}) =>
   (target: EventHandlerClass<TEvent>): void => {
     const descriptor = Object.getOwnPropertyDescriptor(target.prototype, 'handle');
     if (
@@ -33,6 +41,14 @@ export const EventHandler =
     ) {
       TraceSpan()(target.prototype, 'handle', descriptor);
       Object.defineProperty(target.prototype, 'handle', descriptor);
+    }
+    if (options.role) {
+      Object.defineProperty(target, eventHandlerRoleSymbol, {
+        configurable: false,
+        enumerable: false,
+        value: options.role,
+        writable: false,
+      });
     }
     const existing = eventHandlerRegistry.get(event) ?? [];
     if (!existing.includes(target as EventHandlerClass<IDomainEvent>)) {
@@ -47,3 +63,12 @@ export const getEventHandlerTokens = (
   const handlers = eventHandlerRegistry.get(event) ?? [];
   return [...handlers];
 };
+
+export const getEventHandlerRole = (
+  target: EventHandlerClass<IDomainEvent>
+): EventHandlerRole | undefined =>
+  (
+    target as EventHandlerClass<IDomainEvent> & {
+      [eventHandlerRoleSymbol]?: EventHandlerRole;
+    }
+  )[eventHandlerRoleSymbol];
