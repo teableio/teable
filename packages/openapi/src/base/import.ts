@@ -155,11 +155,12 @@ const readSSEStream = async (
   }
 
   // Flush decoder and process the final buffered line.
-  // Some proxies/servers may end stream without a trailing newline.
-  // buffer += decoder.decode();
-  // if (buffer.trim()) {
-  //   result = processSSELine(buffer, onProgress) ?? result;
-  // }
+  // Some proxies/servers may end the stream without a trailing newline,
+  // leaving the last event stuck in `buffer` after the while-loop exits.
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    result = processSSELine(buffer, onProgress) ?? result;
+  }
 
   return result;
 };
