@@ -505,13 +505,18 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           }
         }
 
+        const [firstFieldId] = target.fieldIds;
         table.requestActionTrigger({
           tableId: target.tableId,
           baseId: targetBaseId ?? table.baseId(),
-          actionKey: 'setRecord',
+          // Schema-driven computed refresh should not masquerade as a record write.
+          // Emit a setField-compatible hint instead so UI record queries can refresh
+          // without downstream consumers treating this as a user/data mutation.
+          actionKey: 'setField',
           payload: {
             tableId: target.tableId.toString(),
             fieldIds: [...target.fieldIds],
+            ...(firstFieldId ? { field: { id: firstFieldId } } : {}),
           },
         });
       }

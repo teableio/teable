@@ -384,9 +384,12 @@ describe('V2ActionTriggerService', () => {
     const event = TableActionTriggerRequested.create({
       baseId,
       tableId,
-      actionKey: 'setRecord',
+      actionKey: 'setField',
       payload: {
         tableId: tableId.toString(),
+        field: {
+          id: 'fldSource0000000001',
+        },
         fieldIds: ['fldSource0000000001', 'fldComputed00000002'],
       },
     });
@@ -398,16 +401,19 @@ describe('V2ActionTriggerService', () => {
     expect(channelSubmitted).toBe(getActionTriggerChannel(tableId.toString()));
     expect(submitted).toEqual([
       {
-        actionKey: 'setRecord',
+        actionKey: 'setField',
         payload: {
           tableId: tableId.toString(),
+          field: {
+            id: 'fldSource0000000001',
+          },
           fieldIds: ['fldSource0000000001', 'fldComputed00000002'],
         },
       },
     ]);
   });
 
-  it('batches setField and setRecord into one presence submit for schema-driven updates', async () => {
+  it('batches field patch and schema-refresh setField actions into one presence submit for schema-driven updates', async () => {
     const submissions: PresencePayload[] = [];
 
     const shareDbService = {
@@ -466,12 +472,15 @@ describe('V2ActionTriggerService', () => {
         options: fieldUpdateSemantics.options,
       },
     });
-    const setRecordEvent = TableActionTriggerRequested.create({
+    const schemaRefreshEvent = TableActionTriggerRequested.create({
       baseId,
       tableId,
-      actionKey: 'setRecord',
+      actionKey: 'setField',
       payload: {
         tableId: tableId.toString(),
+        field: {
+          id: fieldId.toString(),
+        },
         fieldIds: [fieldId.toString()],
       },
     });
@@ -482,7 +491,7 @@ describe('V2ActionTriggerService', () => {
     );
     const actionResult = await actionTriggerProjection?.handle(
       {} as IExecutionContext,
-      setRecordEvent
+      schemaRefreshEvent
     );
     expect(fieldResult?.isOk()).toBe(true);
     expect(actionResult?.isOk()).toBe(true);
@@ -506,9 +515,12 @@ describe('V2ActionTriggerService', () => {
           },
         },
         {
-          actionKey: 'setRecord',
+          actionKey: 'setField',
           payload: {
             tableId: tableId.toString(),
+            field: {
+              id: fieldId.toString(),
+            },
             fieldIds: [fieldId.toString()],
           },
         },

@@ -40,6 +40,15 @@ const getEventTableId = (event: unknown): string | undefined => {
   return tableId.toString();
 };
 
+const getActionKey = (event: unknown): string | undefined => {
+  if (!isObjectRecord(event)) {
+    return undefined;
+  }
+
+  const actionKey = event['actionKey'];
+  return typeof actionKey === 'string' ? actionKey : undefined;
+};
+
 const deleteTablesSafe = async (ctx: SharedTestContext, tableIds: ReadonlyArray<string>) => {
   for (const tableId of [...tableIds].reverse()) {
     try {
@@ -515,12 +524,18 @@ describe('update-field: schema refresh without record events for computed values
           .filter((event) => getDomainEventName(event) === 'TableActionTriggerRequested')
           .map((event) => getEventTableId(event))
           .filter((tableId): tableId is string => Boolean(tableId));
+        const actionTriggerKeys = newEvents
+          .filter((event) => getDomainEventName(event) === 'TableActionTriggerRequested')
+          .map((event) => getActionKey(event))
+          .filter((actionKey): actionKey is string => Boolean(actionKey));
 
         expect(newEventNames).not.toContain('RecordUpdated');
         expect(newEventNames).not.toContain('RecordsBatchUpdated');
         expect(actionTriggerTableIds).toEqual(
           expect.arrayContaining([...context.expectedRefreshTableIds])
         );
+        expect(actionTriggerKeys).toEqual(expect.arrayContaining(['setField']));
+        expect(actionTriggerKeys).not.toContain('setRecord');
       } finally {
         await deleteTablesSafe(ctx, tableIds);
       }

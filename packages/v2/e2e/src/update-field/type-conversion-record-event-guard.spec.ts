@@ -34,6 +34,15 @@ const getDomainEventName = (event: unknown): string | undefined => {
   return name.toString();
 };
 
+const getActionKey = (event: unknown): string | undefined => {
+  if (!isObjectRecord(event)) {
+    return undefined;
+  }
+
+  const actionKey = event['actionKey'];
+  return typeof actionKey === 'string' ? actionKey : undefined;
+};
+
 describe('update-field: type conversion record event guard', () => {
   let ctx: SharedTestContext;
 
@@ -99,10 +108,16 @@ describe('update-field: type conversion record event guard', () => {
       const newEventNames = newEvents
         .map((event) => getDomainEventName(event))
         .filter((eventName): eventName is string => Boolean(eventName));
+      const actionKeys = newEvents
+        .filter((event) => getDomainEventName(event) === 'TableActionTriggerRequested')
+        .map((event) => getActionKey(event))
+        .filter((actionKey): actionKey is string => Boolean(actionKey));
 
       expect(newEventNames).not.toContain('RecordUpdated');
       expect(newEventNames).not.toContain('RecordsBatchUpdated');
       expect(newEventNames).toContain('TableActionTriggerRequested');
+      expect(actionKeys).toEqual(expect.arrayContaining(['setField']));
+      expect(actionKeys).not.toContain('setRecord');
     } finally {
       await deleteTableSafe(ctx, tableId);
     }
@@ -169,10 +184,16 @@ describe('update-field: type conversion record event guard', () => {
       const newEventNames = newEvents
         .map((event) => getDomainEventName(event))
         .filter((eventName): eventName is string => Boolean(eventName));
+      const actionKeys = newEvents
+        .filter((event) => getDomainEventName(event) === 'TableActionTriggerRequested')
+        .map((event) => getActionKey(event))
+        .filter((actionKey): actionKey is string => Boolean(actionKey));
 
       expect(newEventNames).not.toContain('RecordUpdated');
       expect(newEventNames).not.toContain('RecordsBatchUpdated');
       expect(newEventNames).toContain('TableActionTriggerRequested');
+      expect(actionKeys).toEqual(expect.arrayContaining(['setField']));
+      expect(actionKeys).not.toContain('setRecord');
     } finally {
       await deleteTableSafe(ctx, tableId);
     }

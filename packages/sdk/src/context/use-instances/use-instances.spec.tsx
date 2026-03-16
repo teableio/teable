@@ -311,7 +311,7 @@ describe('useInstances hook', () => {
     );
   });
 
-  it('recreates record queries on schema-driven setRecord presence with fieldIds', () => {
+  it('recreates record queries on schema-driven setField presence with fieldIds', () => {
     const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
       createMockConnection({
         collection: 'rec_tblSchemaRefresh01',
@@ -334,9 +334,12 @@ describe('useInstances hook', () => {
     act(() => {
       presenceController.emitReceive([
         {
-          actionKey: 'setRecord',
+          actionKey: 'setField',
           payload: {
             tableId: 'tblSchemaRefresh01',
+            field: {
+              id: 'fldSchemaRefresh01',
+            },
             fieldIds: ['fldSchemaRefresh01'],
           },
         },
@@ -401,9 +404,12 @@ describe('useInstances hook', () => {
     await act(async () => {
       presenceController.emitReceive([
         {
-          actionKey: 'setRecord',
+          actionKey: 'setField',
           payload: {
             tableId: 'tblSchemaRefresh03',
+            field: {
+              id: 'fldSchemaRefresh03',
+            },
             fieldIds: ['fldSchemaRefresh03'],
           },
         },

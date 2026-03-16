@@ -160,7 +160,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
     await app.close();
   });
 
-  it('emits setField and setRecord presence for type conversion without record events', async () => {
+  it('emits field update and schema-refresh setField presence for type conversion without record events', async () => {
     const table = await createTable(baseId, {
       name: 'v2-action-trigger-field-conversion',
       fields: [
@@ -186,8 +186,17 @@ describe('V2 action trigger field conversion (e2e)', () => {
       port,
       tableId: table.id,
       until: (actions) =>
-        actions.some((action) => action.actionKey === 'setField') &&
-        actions.some((action) => action.actionKey === 'setRecord'),
+        actions.some(
+          (action) =>
+            action.actionKey === 'setField' &&
+            Array.isArray(
+              (action.payload?.field as { updatedProperties?: string[] } | undefined)
+                ?.updatedProperties
+            )
+        ) &&
+        actions.some(
+          (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+        ),
       act: async () => {
         const response = await axios.put(
           `/table/${table.id}/field/${amountFieldId}/convert`,
@@ -208,9 +217,15 @@ describe('V2 action trigger field conversion (e2e)', () => {
     });
 
     expect(actions.some((action) => action.actionKey === 'setField')).toBe(true);
-    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(true);
+    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(false);
 
-    const setFieldAction = actions.find((action) => action.actionKey === 'setField');
+    const setFieldAction = actions.find(
+      (action) =>
+        action.actionKey === 'setField' &&
+        Array.isArray(
+          (action.payload?.field as { updatedProperties?: string[] } | undefined)?.updatedProperties
+        )
+    );
     expect(setFieldAction?.payload).toMatchObject({
       tableId: table.id,
       field: {
@@ -222,14 +237,19 @@ describe('V2 action trigger field conversion (e2e)', () => {
       ?.updatedProperties;
     expect(updatedProperties).toEqual(expect.arrayContaining(['type']));
 
-    const setRecordAction = actions.find((action) => action.actionKey === 'setRecord');
-    expect(setRecordAction?.payload).toMatchObject({
+    const schemaRefreshAction = actions.find(
+      (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+    );
+    expect(schemaRefreshAction?.payload).toMatchObject({
       tableId: table.id,
+      field: {
+        id: amountFieldId,
+      },
       fieldIds: [amountFieldId],
     });
   });
 
-  it('emits setField and setRecord presence when converting text to formula', async () => {
+  it('emits field update and schema-refresh setField presence when converting text to formula', async () => {
     const table = await createTable(baseId, {
       name: 'v2-action-trigger-field-conversion-formula',
       fields: [
@@ -255,8 +275,17 @@ describe('V2 action trigger field conversion (e2e)', () => {
       port,
       tableId: table.id,
       until: (actions) =>
-        actions.some((action) => action.actionKey === 'setField') &&
-        actions.some((action) => action.actionKey === 'setRecord'),
+        actions.some(
+          (action) =>
+            action.actionKey === 'setField' &&
+            Array.isArray(
+              (action.payload?.field as { updatedProperties?: string[] } | undefined)
+                ?.updatedProperties
+            )
+        ) &&
+        actions.some(
+          (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+        ),
       act: async () => {
         const response = await axios.put(
           `/table/${table.id}/field/${amountFieldId}/convert`,
@@ -280,16 +309,21 @@ describe('V2 action trigger field conversion (e2e)', () => {
     });
 
     expect(actions.some((action) => action.actionKey === 'setField')).toBe(true);
-    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(true);
+    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(false);
 
-    const setRecordAction = actions.find((action) => action.actionKey === 'setRecord');
-    expect(setRecordAction?.payload).toMatchObject({
+    const schemaRefreshAction = actions.find(
+      (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+    );
+    expect(schemaRefreshAction?.payload).toMatchObject({
       tableId: table.id,
+      field: {
+        id: amountFieldId,
+      },
       fieldIds: [amountFieldId],
     });
   });
 
-  it('emits setRecord for host tables when foreign schema updates recompute lookup values', async () => {
+  it('emits schema-refresh setField for host tables when foreign schema updates recompute lookup values', async () => {
     const optionOpen = { id: 'choOpen', name: 'Open', color: 'blueBright' as const };
     const optionDone = { id: 'choDone', name: 'Done', color: 'greenBright' as const };
 
@@ -380,7 +414,10 @@ describe('V2 action trigger field conversion (e2e)', () => {
       cookie,
       port,
       tableId: hostTable.id,
-      until: (actions) => actions.some((action) => action.actionKey === 'setRecord'),
+      until: (actions) =>
+        actions.some(
+          (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+        ),
       act: async () => {
         const response = await axios.put(
           `/table/${foreignTable.id}/field/${foreignStatusFieldId}/convert`,
@@ -403,12 +440,17 @@ describe('V2 action trigger field conversion (e2e)', () => {
       },
     });
 
-    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(true);
-    expect(actions.some((action) => action.actionKey === 'setField')).toBe(false);
+    expect(actions.some((action) => action.actionKey === 'setRecord')).toBe(false);
+    expect(actions.some((action) => action.actionKey === 'setField')).toBe(true);
 
-    const setRecordAction = actions.find((action) => action.actionKey === 'setRecord');
-    expect(setRecordAction?.payload).toMatchObject({
+    const schemaRefreshAction = actions.find(
+      (action) => action.actionKey === 'setField' && Array.isArray(action.payload?.fieldIds)
+    );
+    expect(schemaRefreshAction?.payload).toMatchObject({
       tableId: hostTable.id,
+      field: {
+        id: lookupFieldId,
+      },
       fieldIds: [lookupFieldId],
     });
   });

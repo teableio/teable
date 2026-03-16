@@ -42,6 +42,7 @@ const subscribeQueryCache = new Map<string, CachedQuery>();
 type ActionTriggerPayload = {
   tableId?: string;
   fieldIds?: unknown;
+  field?: unknown;
 };
 
 type ActionTrigger = {
@@ -113,7 +114,7 @@ const getRecordCollectionTableId = (collection: string): string | undefined => {
   return tableId;
 };
 
-const isSchemaRefreshSetRecordAction = (tableId: string, batch: unknown): boolean => {
+const isSchemaRefreshAction = (tableId: string, batch: unknown): boolean => {
   if (!Array.isArray(batch)) {
     return false;
   }
@@ -124,7 +125,7 @@ const isSchemaRefreshSetRecordAction = (tableId: string, batch: unknown): boolea
     }
 
     const action = item as ActionTrigger;
-    if (action.actionKey !== 'setRecord') {
+    if (action.actionKey !== 'setRecord' && action.actionKey !== 'setField') {
       return false;
     }
 
@@ -181,7 +182,7 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const receiveListener = (_id: string, batch: unknown) => {
-      if (!isSchemaRefreshSetRecordAction(recordCollectionTableId, batch)) {
+      if (!isSchemaRefreshAction(recordCollectionTableId, batch)) {
         return;
       }
       setSchemaRefreshToken((current) => current + 1);
