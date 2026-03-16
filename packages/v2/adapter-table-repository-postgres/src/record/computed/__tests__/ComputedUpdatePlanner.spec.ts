@@ -746,6 +746,113 @@ describe('ComputedUpdatePlanner', () => {
       expect(conditionalEdge?.propagationMode).toBe('allTargetRecords');
     });
 
+    it('keeps seed-table steps for same-table conditionalRollup on DELETE', async () => {
+      const sameTableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
+      const samePriceFieldId = FieldId.create(`fld${'6'.repeat(16)}`)._unsafeUnwrap();
+      const sameCategoryFieldId = FieldId.create(`fld${'7'.repeat(16)}`)._unsafeUnwrap();
+      const sameConditionalRollupFieldId = FieldId.create(`fld${'8'.repeat(16)}`)._unsafeUnwrap();
+      const sameRecordId = RecordId.create(`rec${'t'.repeat(16)}`)._unsafeUnwrap();
+
+      const sameFilterDto = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: sameCategoryFieldId.toString(),
+            operator: 'is',
+            value: 'electronics-choice-id',
+          },
+        ],
+      };
+
+      const sameTableFields: FieldMeta[] = [
+        {
+          id: sameCategoryFieldId,
+          tableId: sameTableId,
+          type: 'singleSelect',
+          isComputed: false,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: samePriceFieldId,
+          tableId: sameTableId,
+          type: 'number',
+          isComputed: false,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: sameConditionalRollupFieldId,
+          tableId: sameTableId,
+          type: 'conditionalRollup',
+          isComputed: true,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: {
+            foreignTableId: sameTableId.toString(),
+            lookupFieldId: samePriceFieldId.toString(),
+            conditionFieldIds: [sameCategoryFieldId.toString()],
+            filterDto: sameFilterDto,
+          },
+        },
+      ];
+
+      const sameTableEdges: FieldDependencyEdge[] = [
+        {
+          fromFieldId: samePriceFieldId,
+          toFieldId: sameConditionalRollupFieldId,
+          fromTableId: sameTableId,
+          toTableId: sameTableId,
+          kind: 'cross_record',
+          semantic: 'conditional_rollup_source',
+        },
+        {
+          fromFieldId: sameCategoryFieldId,
+          toFieldId: sameConditionalRollupFieldId,
+          fromTableId: sameTableId,
+          toTableId: sameTableId,
+          kind: 'cross_record',
+          semantic: 'conditional_rollup_source',
+        },
+      ];
+
+      const sameFieldsById = new Map<string, FieldMeta>(
+        sameTableFields.map((field) => [field.id.toString(), field])
+      );
+      const graphData: FieldDependencyGraphData = {
+        fieldsById: sameFieldsById,
+        edges: sameTableEdges,
+      };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sameTableId,
+        seedRecordIds: [sameRecordId],
+        extraSeedRecords: [],
+        changedFieldIds: [samePriceFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const sameTableStep = plan.steps.find((step) => step.tableId.equals(sameTableId));
+      expect(sameTableStep).toBeDefined();
+      expect(
+        sameTableStep?.fieldIds.some((fieldId) => fieldId.equals(sameConditionalRollupFieldId))
+      ).toBe(true);
+
+      const sameTableEdge = plan.edges.find((edge) =>
+        edge.toFieldId.equals(sameConditionalRollupFieldId)
+      );
+      expect(sameTableEdge?.toTableId.equals(sameTableId)).toBe(true);
+      expect(sameTableEdge?.propagationMode).toBe('allTargetRecords');
+    });
+
     it('uses allTargetRecords mode when filter field and value field are both changed', async () => {
       const planner = createPlanner();
 

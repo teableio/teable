@@ -743,9 +743,11 @@ export class ComputedUpdateWorker {
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
         changedFieldIds: seedFieldIds,
-        // After the initial insert is processed, subsequent stages should behave like updates.
-        // This avoids re-planning seed-table computed fields on every async stage.
-        changeType: plan.changeType === 'insert' ? 'update' : plan.changeType,
+        // After the initial insert/delete is processed, subsequent stages should behave like
+        // updates. Follow-up stages are recomputing surviving records based on computed-field
+        // changes, not replaying the original row deletion/insertion semantics.
+        changeType:
+          plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
         cyclePolicy: plan.cyclePolicy,
         impact: {
           valueFieldIds: seedFieldIds,

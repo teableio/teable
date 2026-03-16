@@ -642,15 +642,6 @@ export class ComputedUpdatePlanner {
           }
         }
 
-        const steps = yield* buildSteps(ordered, levels, fieldsById);
-
-        // For delete operations, filter out steps that update the seed table itself.
-        // The seed records are being deleted, so there's no point updating their computed fields.
-        const filteredSteps =
-          context.changeType === 'delete'
-            ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
-            : steps;
-
         const propagationEdges = yield* buildPropagationEdges(
           relevantEdges,
           fieldsById,
@@ -661,6 +652,25 @@ export class ComputedUpdatePlanner {
           context.changeType,
           countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0
         );
+
+        const steps = yield* buildSteps(ordered, levels, fieldsById);
+
+        // For delete operations, seed-table updates are usually unnecessary because
+        // the deleted rows are gone. Keep those steps only when propagation must
+        // refresh surviving records in the same table without traversing from the
+        // deleted rows, such as same-table conditionalLookup / conditionalRollup.
+        const keepSeedTableStepsOnDelete =
+          context.changeType === 'delete' &&
+          propagationEdges.some(
+            (edge) =>
+              edge.toTableId.equals(context.seedTableId) &&
+              edge.propagationMode === 'allTargetRecords'
+          );
+
+        const filteredSteps =
+          context.changeType === 'delete' && !keepSeedTableStepsOnDelete
+            ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
+            : steps;
 
         // Build same-table batches for CTE optimization
         const sameTableBatches = buildSameTableBatches(filteredSteps, relevantEdges);

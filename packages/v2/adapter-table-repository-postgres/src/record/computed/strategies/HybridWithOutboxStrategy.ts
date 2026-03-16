@@ -467,7 +467,8 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
         changedFieldIds: seedFieldIds,
-        changeType: plan.changeType,
+        changeType:
+          plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
         cyclePolicy: plan.cyclePolicy,
         impact: {
           valueFieldIds: seedFieldIds,
