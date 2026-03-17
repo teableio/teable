@@ -81,7 +81,7 @@
         "currencySymbol": "Символ валюты",
         "defaultSymbol": "₽",
         "precision": "Точность",
-        "decimalExample": "Десятичное (1,0)",
+        "decimalExample": "Число (123)",
         "currencyExample": "Валюта (100₽)",
         "percentExample": "Процент (20%)"
       },

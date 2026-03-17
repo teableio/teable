@@ -119,7 +119,7 @@
         "currencySymbol": "货币符号",
         "defaultSymbol": "￥",
         "precision": "精度",
-        "decimalExample": "小数 (1.23)",
+        "decimalExample": "数字 (123)",
         "currencyExample": "货币 (￥100)",
         "percentExample": "百分比 (20%)"
       },

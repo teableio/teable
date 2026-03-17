@@ -83,7 +83,7 @@
         "currencySymbol": "Währungssymbol",
         "defaultSymbol": "€",
         "precision": "Genaugikeit",
-        "decimalExample": "Dezimal (1.0)",
+        "decimalExample": "Zahl (123)",
         "currencyExample": "Währung (€100)",
         "percentExample": "Prozent (20%)"
       },

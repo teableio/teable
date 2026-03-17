@@ -83,7 +83,7 @@
         "CurrencySymbol": "Символ валюти",
         "defaultSymbol": "₽",
         "precision": "Точність",
-        "decimalExample": "Десятичне (1,0)",
+        "decimalExample": "Число (123)",
         "currencyExample": "Валюта (100₴)",
         "%Example": "Відсоток (20%)"
       },

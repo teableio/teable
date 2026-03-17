@@ -83,7 +83,7 @@
         "currencySymbol": "Para Birimi Sembolü",
         "defaultSymbol": "₺",
         "precision": "Hassasiyet",
-        "decimalExample": "Ondalık (1.0)",
+        "decimalExample": "Sayı (123)",
         "currencyExample": "Para Birimi (₺100)",
         "percentExample": "Yüzde (%20)"
       },

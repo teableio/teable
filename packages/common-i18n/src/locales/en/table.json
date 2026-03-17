@@ -119,7 +119,7 @@
         "currencySymbol": "Currency symbol",
         "defaultSymbol": "$",
         "precision": "Precision",
-        "decimalExample": "Decimal (1.0)",
+        "decimalExample": "Number (123)",
         "currencyExample": "Currency ($100)",
         "percentExample": "Percent (20%)"
       },

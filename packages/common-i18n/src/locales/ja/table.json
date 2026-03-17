@@ -81,7 +81,7 @@
         "currencySymbol": "通貨記号",
         "defaultSymbol": "￥",
         "precision": "精度",
-        "decimalExample": "小数点 (1.0)",
+        "decimalExample": "数値 (123)",
         "currencyExample": "通貨 (￥100)",
         "percentExample": "パーセント (20%)"
       },
