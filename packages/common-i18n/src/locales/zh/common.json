@@ -337,6 +337,10 @@
           "user": "Slack 用户",
           "workspace": "Slack 工作区"
         },
+        "email": {
+          "user": "用户",
+          "email": "邮箱"
+        },
         "deleteTitle": "移除已连接账户",
         "deleteDesc": "您确定要移除 {{name}} 吗？",
         "create": "连接新账户",

@@ -988,7 +988,19 @@
       "insertNodeError": "ノード挿入エラー",
       "controlNodeNotBeTested": "制御ノードはテストすべきではありません",
       "invalidNodeType": "無効なノードタイプ",
-      "unsupportedCategory": "サポートされていないカテゴリ"
+      "unsupportedCategory": "サポートされていないカテゴリ",
+      "unknownConnectionType": "不明なメール接続タイプ",
+      "imapPasswordNotConfigured": "IMAPパスワードが設定されていません",
+      "integrationNotFound": "インテグレーションが見つからないか、資格情報がありません",
+      "webhookTriggerNotFound": "Webhookトリガーが見つかりません",
+      "emailReceivedTriggerNotFound": "メール受信トリガーが見つかりません",
+      "emailConnectorNotAvailable": "メールコネクタサービスが利用できません",
+      "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
+      "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",
+      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}"
     },
     "space": {
       "notFound": "スペースが見つかりません",

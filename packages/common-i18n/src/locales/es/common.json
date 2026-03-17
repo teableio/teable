@@ -256,6 +256,10 @@
           "user": "Usuario de Slack",
           "workspace": "Espacio de trabajo de Slack"
         },
+        "email": {
+          "user": "Usuario",
+          "email": "Correo electrónico"
+        },
         "deleteTitle": "Eliminar cuenta conectada",
         "deleteDesc": "¿Está seguro de que desea eliminar {{name}}?",
         "create": "Conectar nueva cuenta",

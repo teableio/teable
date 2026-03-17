@@ -452,6 +452,10 @@ export type I18nTranslations = {
                         "user": string;
                         "workspace": string;
                     };
+                    "email": {
+                        "user": string;
+                        "email": string;
+                    };
                     "deleteTitle": string;
                     "deleteDesc": string;
                     "create": string;
@@ -2859,6 +2863,18 @@ export type I18nTranslations = {
                 "controlNodeNotBeTested": string;
                 "invalidNodeType": string;
                 "unsupportedCategory": string;
+                "unknownConnectionType": string;
+                "imapPasswordNotConfigured": string;
+                "integrationNotFound": string;
+                "webhookTriggerNotFound": string;
+                "emailReceivedTriggerNotFound": string;
+                "emailConnectorNotAvailable": string;
+                "listMailboxesFailed": string;
+            };
+            "integration": {
+                "oauthCodeExchangeFailed": string;
+                "oauthTokenRefreshFailed": string;
+                "userInfoFetchFailed": string;
             };
             "space": {
                 "notFound": string;

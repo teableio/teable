@@ -1005,7 +1005,19 @@
       "unSupportDuplicateWorkflowNodeType": "UnSupport duplicate automation node type",
       "controlNodeNotBeTested": "Control node should not be tested",
       "invalidNodeType": "Invalid node type",
-      "unsupportedCategory": "Unsupported category"
+      "unsupportedCategory": "Unsupported category",
+      "unknownConnectionType": "Unknown email connection type",
+      "imapPasswordNotConfigured": "IMAP password not configured",
+      "integrationNotFound": "Integration not found or has no credentials",
+      "webhookTriggerNotFound": "Webhook trigger not found",
+      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
+      "emailConnectorNotAvailable": "Email connector service not available",
+      "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Space not found",

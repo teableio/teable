@@ -201,6 +201,7 @@ export { default as TriggerSchedule } from './components/TriggerSchedule';
 export { default as TriggerForm } from './components/TriggerForm';
 export { default as TriggerCreateRecord } from './components/TriggerCreateRecord';
 export { default as TriggerCreateOrUpdate } from './components/TriggerCreateOrUpdate';
+export { default as TriggerEmailReceived } from './components/TriggerEmailReceived';
 export { default as TriggerRecordMatchesConditions } from './components/TriggerRecordMatchesConditions';
 export { default as Undo2 } from './components/Undo2';
 export { default as User } from './components/User';

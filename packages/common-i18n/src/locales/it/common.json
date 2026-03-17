@@ -327,6 +327,10 @@
           "user": "Utente Slack",
           "workspace": "Area di lavoro Slack"
         },
+        "email": {
+          "user": "Utente",
+          "email": "Email"
+        },
         "deleteTitle": "Rimuovi account connesso",
         "deleteDesc": "Sei sicuro di voler rimuovere {{name}}?",
         "create": "Connetti nuovo account",

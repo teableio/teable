@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateUserIntegrationName } from '@teable/openapi';
-import type { UserIntegrationProvider, IUserIntegrationListVo } from '@teable/openapi';
+import { updateUserIntegrationName, UserIntegrationProvider } from '@teable/openapi';
+import type { IUserIntegrationListVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { useState } from 'react';
 import { UserIntegrationProviderLogo } from '@/features/app/components/user-integration/ProviderLogo';
 import { openConnectIntegration } from '../../../user-integration/utils';
 import { ActionMenu } from './ActionMenu';
+import { EmailItem } from './provider/EmailItem';
 import { SlackItem } from './provider/SlackItem';
 import { Rename } from './Rename';
 
@@ -36,16 +37,30 @@ export const List = (props: { list?: IUserIntegrationListVo['integrations'] }) =
         <div key={integration.id} className="flex items-center justify-between gap-4 border-t py-3">
           <div className="flex items-center gap-3">
             <UserIntegrationProviderLogo provider={integration.provider} className="size-10" />
-            <SlackItem item={integration}>
-              <Rename
-                name={integration.name}
-                setIsEditing={(editing) => setEditingId(editing ? integration.id : undefined)}
-                isEditing={integration.id === editingId}
-                onNameChange={(name) =>
-                  updateUserIntegrationNameMutate({ id: integration.id, name })
-                }
-              />
-            </SlackItem>
+            {integration.provider === UserIntegrationProvider.Slack ? (
+              <SlackItem item={integration}>
+                <Rename
+                  name={integration.name}
+                  setIsEditing={(editing) => setEditingId(editing ? integration.id : undefined)}
+                  isEditing={integration.id === editingId}
+                  onNameChange={(name) =>
+                    updateUserIntegrationNameMutate({ id: integration.id, name })
+                  }
+                />
+              </SlackItem>
+            ) : integration.provider === UserIntegrationProvider.Gmail ||
+              integration.provider === UserIntegrationProvider.Outlook ? (
+              <EmailItem item={integration}>
+                <Rename
+                  name={integration.name}
+                  setIsEditing={(editing) => setEditingId(editing ? integration.id : undefined)}
+                  isEditing={integration.id === editingId}
+                  onNameChange={(name) =>
+                    updateUserIntegrationNameMutate({ id: integration.id, name })
+                  }
+                />
+              </EmailItem>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="text-xs text-muted-foreground">

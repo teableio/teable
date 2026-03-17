@@ -988,7 +988,19 @@
       "insertNodeError": "Fehler beim Einfügen des Knotens",
       "controlNodeNotBeTested": "Kontrollknoten sollte nicht getestet werden",
       "invalidNodeType": "Ungültiger Knotentyp",
-      "unsupportedCategory": "Nicht unterstützte Kategorie"
+      "unsupportedCategory": "Nicht unterstützte Kategorie",
+      "unknownConnectionType": "Unknown email connection type",
+      "imapPasswordNotConfigured": "IMAP password not configured",
+      "integrationNotFound": "Integration not found or has no credentials",
+      "webhookTriggerNotFound": "Webhook trigger not found",
+      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
+      "emailConnectorNotAvailable": "Email connector service not available",
+      "listMailboxesFailed": "Postfächerliste konnte nicht abgerufen werden: {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Space nicht gefunden",

@@ -988,7 +988,19 @@
       "insertNodeError": "Erreur d'insertion de nœud",
       "controlNodeNotBeTested": "Le nœud de contrôle ne doit pas être testé",
       "invalidNodeType": "Type de nœud invalide",
-      "unsupportedCategory": "Catégorie non supportée"
+      "unsupportedCategory": "Catégorie non supportée",
+      "unknownConnectionType": "Unknown email connection type",
+      "imapPasswordNotConfigured": "IMAP password not configured",
+      "integrationNotFound": "Integration not found or has no credentials",
+      "webhookTriggerNotFound": "Webhook trigger not found",
+      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
+      "emailConnectorNotAvailable": "Email connector service not available",
+      "listMailboxesFailed": "Échec de la récupération des boîtes mail : {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Espace non trouvé",
