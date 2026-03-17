@@ -109,15 +109,25 @@ export class BaseController {
     importBaseRo: ImportBaseRo,
     @Res() res: ExpressResponse
   ) {
+    const sseHeartbeatMs = 15_000;
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    const isStreamClosed = () => res.writableEnded || res.destroyed;
     const sendEvent = (data: unknown) => {
+      if (isStreamClosed()) return;
       res.write(`data: ${JSON.stringify(data)}\n\n`);
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
     };
+    const heartbeat = setInterval(() => {
+      if (isStreamClosed()) return;
+      res.write(': ping\n\n');
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
+    }, sseHeartbeatMs);
+    res.on('close', () => clearInterval(heartbeat));
 
     try {
       const result = await this.baseImportService.importBase(
@@ -134,6 +144,7 @@ export class BaseController {
         message: error instanceof Error ? error.message : 'Unknown import error',
       });
     } finally {
+      clearInterval(heartbeat);
       res.end();
     }
   }
