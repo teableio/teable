@@ -77,6 +77,7 @@ export interface IClsStore extends ClsStore {
   v2Reason?: V2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking
+  skipFieldComputation?: boolean; // Skip computed field evaluation during bulk structure creation (import/duplicate)
   // cache for base share node tree (to avoid repeated queries within same request)
   baseShareNodeCache?: Map<
     string,

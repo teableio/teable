@@ -322,12 +322,25 @@ export class BaseImportService {
       ? tables.map(({ dbTableName: _, ...rest }) => rest)
       : tables;
 
-    // create table
-    const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
-      newBase.id,
-      effectiveTables as IBaseJson['tables'],
-      onProgress
-    );
+    // Skip computed field evaluation during structure creation — tables have no records yet,
+    // and calculations will run when data is actually imported/copied.
+    this.cls.set('skipFieldComputation', true);
+
+    let tableIdMap: Record<string, string>;
+    let fieldIdMap: Record<string, string>;
+    let viewIdMap: Record<string, string>;
+    let fkMap: Record<string, string>;
+
+    try {
+      // create table
+      ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
+        newBase.id,
+        effectiveTables as IBaseJson['tables'],
+        onProgress
+      ));
+    } finally {
+      this.cls.set('skipFieldComputation', false);
+    }
 
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 

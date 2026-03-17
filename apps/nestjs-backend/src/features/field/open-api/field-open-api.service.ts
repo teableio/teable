@@ -1213,20 +1213,24 @@ export class FieldOpenApiService {
               await this.restoreReference(Array.from(referencesToRestore));
             }
 
-            // Ensure dependent formula generated columns are recreated BEFORE
-            // evaluating and returning values in the computed pipeline.
-            // This avoids UPDATE ... RETURNING selecting non-existent generated columns
-            // right after restoring base fields.
-            const createdFieldIds = created
-              .filter((nf) => nf.tableId === tableId)
-              .map((nf) => nf.field.id);
-            if (createdFieldIds.length) {
-              try {
-                await this.fieldService.recreateDependentFormulaColumns(tableId, createdFieldIds);
-              } catch (e) {
-                this.logger.warn(
-                  `createFields: failed to recreate dependent formulas for ${tableId}: ${String(e)}`
-                );
+            const skipComputation = this.cls.get('skipFieldComputation');
+
+            if (!skipComputation) {
+              // Ensure dependent formula generated columns are recreated BEFORE
+              // evaluating and returning values in the computed pipeline.
+              // This avoids UPDATE ... RETURNING selecting non-existent generated columns
+              // right after restoring base fields.
+              const createdFieldIds = created
+                .filter((nf) => nf.tableId === tableId)
+                .map((nf) => nf.field.id);
+              if (createdFieldIds.length) {
+                try {
+                  await this.fieldService.recreateDependentFormulaColumns(tableId, createdFieldIds);
+                } catch (e) {
+                  this.logger.warn(
+                    `createFields: failed to recreate dependent formulas for ${tableId}: ${String(e)}`
+                  );
+                }
               }
             }
 
