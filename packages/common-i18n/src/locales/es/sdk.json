@@ -988,7 +988,19 @@
       "insertNodeError": "Error al insertar nodo",
       "controlNodeNotBeTested": "El nodo de control no debe ser probado",
       "invalidNodeType": "Tipo de nodo inválido",
-      "unsupportedCategory": "Categoría no soportada"
+      "unsupportedCategory": "Categoría no soportada",
+      "unknownConnectionType": "Unknown email connection type",
+      "imapPasswordNotConfigured": "IMAP password not configured",
+      "integrationNotFound": "Integration not found or has no credentials",
+      "webhookTriggerNotFound": "Webhook trigger not found",
+      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
+      "emailConnectorNotAvailable": "Email connector service not available",
+      "listMailboxesFailed": "Error al listar buzones: {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Espacio no encontrado",

@@ -329,6 +329,10 @@
           "user": "Slackユーザー",
           "workspace": "Slackワークスペース"
         },
+        "email": {
+          "user": "ユーザー",
+          "email": "メール"
+        },
         "deleteTitle": "接続されたアカウントを削除",
         "deleteDesc": "{{name}}を削除してもよろしいですか？",
         "create": "新しいアカウントを接続",

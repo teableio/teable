@@ -3,9 +3,9 @@
 import fs from 'fs';
 import type { IncomingHttpHeaders } from 'http';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { Readable } from 'stream';
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -279,6 +279,55 @@ export class AttachmentsService {
     await this.uploadStreamToStorage(url, fileStream, contentType, contentLength);
 
     return await this.notifyToAttachmentItem(token, filename);
+  }
+
+  async uploadFromLocalFile(filePath: string, filename: string): Promise<IAttachmentItem> {
+    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
+    const stat = await fs.promises.stat(filePath);
+    const contentLength = stat.size;
+
+    if (contentLength > MAX_FILE_SIZE) {
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
+      throw new CustomHttpException(
+        `File size exceeds the maximum limit of ${maxSize} MB`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
+          },
+        }
+      );
+    }
+
+    const contentType = mimeTypes.lookup(filename) || 'application/octet-stream';
+    const { token, url } = await this.signature({
+      type: UploadType.Table,
+      contentLength,
+      contentType,
+      internal: true,
+    });
+
+    try {
+      await this.uploadStreamToStorage(
+        url,
+        fs.createReadStream(filePath),
+        contentType,
+        contentLength
+      );
+      return await this.notifyToAttachmentItem(token, filename);
+    } finally {
+      await fs.promises.unlink(filePath);
+      // Clean up temp subdirectory (created by email attachment saver)
+      const dir = dirname(filePath);
+      try {
+        await fs.promises.rmdir(dir);
+      } catch {
+        /* directory not empty or already removed */
+      }
+    }
   }
 
   async uploadFromUrl(

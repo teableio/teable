@@ -47,6 +47,10 @@ export const thresholdConfig = registerAs('threshold', () => ({
     automationRunGracePeriod: process.env.BILLING_AUTOMATION_RUN_GRACE_PERIOD ?? '3d',
     automationRunNotifyInterval: process.env.BILLING_AUTOMATION_RUN_NOTIFY_INTERVAL ?? '6h',
   },
+  automation: {
+    maxEmailsPerPoll: Number(process.env.AUTOMATION_MAX_EMAILS_PER_POLL ?? 100),
+    maxEmailDedupWindowSize: Number(process.env.AUTOMATION_MAX_EMAIL_DEDUP_WINDOW_SIZE ?? 500),
+  },
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

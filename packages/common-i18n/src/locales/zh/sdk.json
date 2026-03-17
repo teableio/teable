@@ -1005,7 +1005,19 @@
       "unSupportDuplicateWorkflowNodeType": "不支持复制此自动化节点类型",
       "controlNodeNotBeTested": "控制节点不应被测试",
       "invalidNodeType": "无效的节点类型",
-      "unsupportedCategory": "不支持的类别"
+      "unsupportedCategory": "不支持的类别",
+      "unknownConnectionType": "未知的邮件连接类型",
+      "imapPasswordNotConfigured": "IMAP 密码未配置",
+      "integrationNotFound": "集成未找到或没有凭据",
+      "webhookTriggerNotFound": "Webhook 触发器未找到",
+      "emailReceivedTriggerNotFound": "邮件接收触发器未找到",
+      "emailConnectorNotAvailable": "邮件连接器服务不可用",
+      "listMailboxesFailed": "获取邮箱文件夹列表失败: {{detail}}"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
+      "oauthTokenRefreshFailed": "OAuth 令牌刷新失败：{{detail}}",
+      "userInfoFetchFailed": "获取用户信息失败：{{detail}}"
     },
     "space": {
       "notFound": "空间不存在",

@@ -333,6 +333,10 @@
           "user": "Slack user",
           "workspace": "Slack workspace"
         },
+        "email": {
+          "user": "User",
+          "email": "Email"
+        },
         "deleteTitle": "Remove connected account",
         "deleteDesc": "Are you sure you want to remove {{name}}?",
         "create": "Connect new account",
