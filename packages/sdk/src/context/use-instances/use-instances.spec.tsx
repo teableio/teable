@@ -349,6 +349,89 @@ describe('useInstances hook', () => {
     expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('recreates record queries on schema-driven setField presence with updatedProperties', () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh04',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh04',
+            field: {
+              id: 'fldSchemaRefresh04',
+              updatedProperties: ['options'],
+              options: {
+                relationship: 'manyMany',
+                isOneWay: true,
+              },
+            },
+          },
+        },
+      ]);
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('recreates record queries on legacy v1 setField presence with options changes', () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh05',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh05',
+            field: {
+              id: 'fldSchemaRefresh05',
+              options: {
+                oldValue: { relationship: 'manyOne', isOneWay: false },
+                newValue: { relationship: 'manyMany', isOneWay: true },
+              },
+            },
+          },
+        },
+      ]);
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+  });
+
   it('releases stale record docs before recreating a schema refresh query', async () => {
     const presenceController = createMockPresence();
     const staleDoc = createTrackedDoc({
@@ -446,6 +529,45 @@ describe('useInstances hook', () => {
       presenceController.emitReceive([
         {
           actionKey: 'setRecord',
+        },
+      ]);
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores setField presence without schema refresh properties', () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh06',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh06',
+            field: {
+              id: 'fldSchemaRefresh06',
+              updatedProperties: ['name'],
+              name: 'Renamed',
+            },
+          },
         },
       ]);
     });

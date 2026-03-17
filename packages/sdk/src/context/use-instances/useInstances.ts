@@ -50,6 +50,24 @@ type ActionTrigger = {
   payload?: ActionTriggerPayload;
 };
 
+type ActionTriggerFieldPayload = {
+  id?: unknown;
+  updatedProperties?: unknown;
+  options?: unknown;
+  dbFieldType?: unknown;
+  type?: unknown;
+};
+
+const schemaRefreshFieldProperties = new Set([
+  'type',
+  'options',
+  'expression',
+  'lookupOptions',
+  'rollupConfig',
+  'linkConfig',
+  'linkRelationship',
+]);
+
 // Normalize query params into a stable, comparable string key
 // - Sort object keys recursively
 // - Convert Set to sorted array
@@ -114,6 +132,29 @@ const getRecordCollectionTableId = (collection: string): string | undefined => {
   return tableId;
 };
 
+const hasSchemaRefreshFieldIds = (fieldIds: unknown): boolean =>
+  Array.isArray(fieldIds) && fieldIds.length > 0;
+
+const isSchemaRefreshFieldPayload = (field: unknown): boolean => {
+  if (!(field instanceof Object)) {
+    return false;
+  }
+
+  const actionField = field as ActionTriggerFieldPayload;
+  if (typeof actionField.id !== 'string' || actionField.id.length === 0) {
+    return false;
+  }
+
+  if (Array.isArray(actionField.updatedProperties)) {
+    return actionField.updatedProperties.some(
+      (property) => typeof property === 'string' && schemaRefreshFieldProperties.has(property)
+    );
+  }
+
+  // Legacy V1 payloads do not expose updatedProperties; fall back to changed shape keys.
+  return actionField.options !== undefined || actionField.dbFieldType !== undefined;
+};
+
 const isSchemaRefreshAction = (tableId: string, batch: unknown): boolean => {
   if (!Array.isArray(batch)) {
     return false;
@@ -129,11 +170,22 @@ const isSchemaRefreshAction = (tableId: string, batch: unknown): boolean => {
       return false;
     }
 
-    if (action.payload?.tableId !== tableId) {
+    const payload = action.payload;
+    if (payload?.tableId !== tableId) {
       return false;
     }
 
-    return Array.isArray(action.payload?.fieldIds) && action.payload.fieldIds.length > 0;
+    if (action.actionKey === 'setRecord') {
+      return hasSchemaRefreshFieldIds(payload?.fieldIds);
+    }
+
+    if (action.actionKey === 'setField') {
+      return (
+        hasSchemaRefreshFieldIds(payload?.fieldIds) || isSchemaRefreshFieldPayload(payload?.field)
+      );
+    }
+
+    return false;
   });
 };
 

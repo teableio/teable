@@ -586,11 +586,22 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const optionsResult = field.configDto();
     if (optionsResult.isErr()) return err(optionsResult.error);
     const meta = field.metaDto();
-    return ok({
+    const base = {
       ...this.baseField(field),
       type: 'link',
       options: optionsResult.value,
       ...(meta ? { meta } : {}),
+    } as const;
+
+    const resultType = field.accept(new FieldValueTypeVisitor());
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
     });
   }
 

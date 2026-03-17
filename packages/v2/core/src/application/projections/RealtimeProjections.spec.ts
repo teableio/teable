@@ -19,6 +19,7 @@ import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaU
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
+import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
@@ -29,6 +30,7 @@ import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
+import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
 import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
@@ -855,6 +857,102 @@ describe('Realtime projections', () => {
       { type: 'set', path: ['innerType'], value: null },
       { type: 'set', path: ['innerOptions'], value: null },
     ]);
+  });
+
+  it('hydrates link multiplicity metadata when relationship updates change cell shape', async () => {
+    const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'n'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+    const tableName = TableName.create('Link Table')._unsafeUnwrap();
+    const primaryFieldName = FieldName.create('Title')._unsafeUnwrap();
+    const linkFieldName = FieldName.create('Teaching Point')._unsafeUnwrap();
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      isOneWay: false,
+    })._unsafeUnwrap();
+
+    const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(primaryFieldName)
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(linkFieldName)
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new DefaultTableMapper();
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId: linkFieldId,
+      updatedProperties: ['linkRelationship'],
+      changes: {
+        linkRelationship: {
+          oldValue: {
+            relationship: 'oneMany',
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: lookupFieldId.toString(),
+            isOneWay: true,
+          },
+          newValue: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: lookupFieldId.toString(),
+            isOneWay: false,
+          },
+        },
+      },
+      propertySemantics: {
+        linkRelationship: fieldUpdateSemantics.options,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    const changes = engine.changes[0]?.change;
+    expect(Array.isArray(changes)).toBe(true);
+    expect(changes).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'set',
+          path: ['options'],
+          value: expect.objectContaining({
+            relationship: 'manyOne',
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: lookupFieldId.toString(),
+            isOneWay: false,
+          }),
+        },
+        { type: 'set', path: ['isComputed'], value: null },
+        { type: 'set', path: ['isLookup'], value: null },
+        { type: 'set', path: ['isConditionalLookup'], value: null },
+        { type: 'set', path: ['lookupOptions'], value: null },
+        { type: 'set', path: ['cellValueType'], value: 'string' },
+        { type: 'set', path: ['isMultipleCellValue'], value: false },
+        { type: 'set', path: ['config'], value: null },
+        { type: 'set', path: ['innerType'], value: null },
+        { type: 'set', path: ['innerOptions'], value: null },
+      ])
+    );
   });
 
   it('projects formatting-only field updates through the field options snapshot', async () => {

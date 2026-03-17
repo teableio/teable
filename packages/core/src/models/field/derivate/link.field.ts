@@ -18,6 +18,19 @@ export const linkCellValueSchema = z.object({
 
 export type ILinkCellValue = z.infer<typeof linkCellValueSchema>;
 
+const singleLinkCellValueSchema = z
+  .union([linkCellValueSchema.nullable(), z.array(linkCellValueSchema).nonempty()])
+  .transform((value) => (Array.isArray(value) ? value[0] : value));
+
+const multipleLinkCellValueSchema = z
+  .union([z.array(linkCellValueSchema).nonempty().nullable(), linkCellValueSchema])
+  .transform((value) => {
+    if (value == null) {
+      return null;
+    }
+    return Array.isArray(value) ? value : [value];
+  });
+
 export class LinkFieldCore extends FieldCore {
   static defaultOptions(): Partial<ILinkFieldOptions> {
     return {};
@@ -92,8 +105,9 @@ export class LinkFieldCore extends FieldCore {
       return null;
     }
 
-    if (this.validateCellValue(value).success) {
-      return value;
+    const validatedValue = this.validateCellValue(value);
+    if (validatedValue.success) {
+      return validatedValue.data;
     }
     return null;
   }
@@ -104,10 +118,14 @@ export class LinkFieldCore extends FieldCore {
 
   validateCellValue(value: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(linkCellValueSchema).nonempty().nullable().safeParse(value);
+      // Realtime convert can briefly deliver the previous single-value shape
+      // before records finish re-querying into the new multi-value shape.
+      return multipleLinkCellValueSchema.safeParse(value);
     }
 
-    return linkCellValueSchema.nullable().safeParse(value);
+    // Realtime convert can briefly deliver the previous multi-value shape
+    // before records finish re-querying into the new single-value shape.
+    return singleLinkCellValueSchema.safeParse(value);
   }
 
   item2String(value: unknown) {

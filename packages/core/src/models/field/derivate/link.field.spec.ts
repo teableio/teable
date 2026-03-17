@@ -86,19 +86,25 @@ describe('LinkFieldCore', () => {
       id: 'recxxxxxxxx',
       title: 'record 1',
     };
+    const singleFieldFromArray = field.validateCellValue([cellValue]);
+    const lookupFieldFromArray = lookupField.validateCellValue([cellValue]);
+    const multipleFieldFromSingle = fieldMultiple.validateCellValue(cellValue);
 
     expect(field.validateCellValue(null as any).success).toBe(true);
     expect(field.validateCellValue(cellValue).success).toBe(true);
     expect(field.validateCellValue({ id: 'recXXXXXXXX ' }).success).toBe(true);
     expect(field.validateCellValue({ id: 'xxxxxxxxxxx ' }).success).toBe(false);
-    expect(field.validateCellValue([cellValue]).success).toBe(false);
+    expect(singleFieldFromArray.success).toBe(true);
+    expect(singleFieldFromArray.success && singleFieldFromArray.data).toEqual(cellValue);
 
     expect(lookupField.validateCellValue(null as any).success).toBe(true);
     expect(lookupField.validateCellValue(cellValue).success).toBe(true);
-    expect(lookupField.validateCellValue([cellValue]).success).toBe(false);
+    expect(lookupFieldFromArray.success).toBe(true);
+    expect(lookupFieldFromArray.success && lookupFieldFromArray.data).toEqual(cellValue);
 
     expect(fieldMultiple.validateCellValue(null as any).success).toBe(true);
-    expect(fieldMultiple.validateCellValue(cellValue).success).toBe(false);
+    expect(multipleFieldFromSingle.success).toBe(true);
+    expect(multipleFieldFromSingle.success && multipleFieldFromSingle.data).toEqual([cellValue]);
     expect(fieldMultiple.validateCellValue([cellValue, cellValue]).success).toBe(true);
     expect(fieldMultiple.validateCellValue([]).success).toBe(false);
   });
@@ -120,12 +126,13 @@ describe('LinkFieldCore', () => {
       title: 'record 1',
     };
     expect(field.repair(cellValue)).toEqual(cellValue);
+    expect(field.repair([cellValue])).toEqual(cellValue);
     expect(field.repair([{ id: 'actxxx' }])).toEqual(null);
 
     expect(lookupField.repair(cellValue)).toEqual(null);
     expect(lookupField.repair([{ id: 'actxxx' }])).toEqual(null);
 
-    expect(fieldMultiple.repair(cellValue)).toEqual(null);
+    expect(fieldMultiple.repair(cellValue)).toEqual([cellValue]);
     expect(fieldMultiple.repair([cellValue])).toEqual([cellValue]);
   });
 

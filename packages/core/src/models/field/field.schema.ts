@@ -36,6 +36,9 @@ import { validateFieldOptions } from './zod-error';
 
 // All union schemas and types are now imported from field-unions.schema.ts
 
+const optionalFieldVoProperty = <TSchema extends z.ZodTypeAny>(schema: TSchema) =>
+  z.preprocess((value) => (value === null ? undefined : value), schema.optional());
+
 export const fieldVoSchema = z.object({
   id: z.string().startsWith(IdPrefix.Field).meta({
     description: 'The id of the field.',
@@ -51,7 +54,7 @@ export const fieldVoSchema = z.object({
     example: FieldType.SingleSelect,
   }),
 
-  description: z.string().optional().meta({
+  description: optionalFieldVoProperty(z.string()).meta({
     description: 'The description of the field.',
     example: 'this is a summary',
   }),
@@ -61,7 +64,7 @@ export const fieldVoSchema = z.object({
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
   }),
 
-  meta: unionFieldMetaVoSchema.optional().meta({
+  meta: optionalFieldVoProperty(unionFieldMetaVoSchema).meta({
     description:
       "The metadata of the field. The structure of the field's meta depend on the field's type. Currently formula and link fields have meta.",
   }),
@@ -70,42 +73,42 @@ export const fieldVoSchema = z.object({
     description: 'The AI configuration of the field.',
   }),
 
-  isLookup: z.boolean().optional().meta({
+  isLookup: optionalFieldVoProperty(z.boolean()).meta({
     description:
       'Whether this field is lookup field. witch means cellValue and [fieldType] is looked up from the linked table.',
   }),
 
-  isConditionalLookup: z.boolean().optional().meta({
+  isConditionalLookup: optionalFieldVoProperty(z.boolean()).meta({
     description:
       'Whether this lookup field applies a conditional filter when resolving linked records.',
   }),
 
-  lookupOptions: lookupOptionsVoSchema.optional().meta({
+  lookupOptions: optionalFieldVoProperty(lookupOptionsVoSchema).meta({
     description: 'field lookup options.',
   }),
 
-  notNull: z.boolean().optional().meta({
+  notNull: optionalFieldVoProperty(z.boolean()).meta({
     description: 'Whether this field is not null.',
   }),
 
-  unique: z.boolean().optional().meta({
+  unique: optionalFieldVoProperty(z.boolean()).meta({
     description: 'Whether this field is not unique.',
   }),
 
-  isPrimary: z.boolean().optional().meta({
+  isPrimary: optionalFieldVoProperty(z.boolean()).meta({
     description: 'Whether this field is primary field.',
   }),
 
-  isComputed: z.boolean().optional().meta({
+  isComputed: optionalFieldVoProperty(z.boolean()).meta({
     description:
       'Whether this field is computed field, you can not modify cellValue in computed field.',
   }),
 
-  isPending: z.boolean().optional().meta({
+  isPending: optionalFieldVoProperty(z.boolean()).meta({
     description: "Whether this field's calculation is pending.",
   }),
 
-  hasError: z.boolean().optional().meta({
+  hasError: optionalFieldVoProperty(z.boolean()).meta({
     description:
       "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
   }),
@@ -114,7 +117,7 @@ export const fieldVoSchema = z.object({
     description: 'The cell value type of the field.',
   }),
 
-  isMultipleCellValue: z.boolean().optional().meta({
+  isMultipleCellValue: optionalFieldVoProperty(z.boolean()).meta({
     description: 'Whether this field has multiple cell value.',
   }),
 
@@ -132,12 +135,12 @@ export const fieldVoSchema = z.object({
       description:
         'Field(column) name in backend database. Limitation: 1-63 characters, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
     }),
-  recordRead: z.boolean().optional().meta({
+  recordRead: optionalFieldVoProperty(z.boolean()).meta({
     description:
       'Field record read permission. When set to false, reading records is denied. When true or not set, reading records is allowed.',
   }),
 
-  recordCreate: z.boolean().optional().meta({
+  recordCreate: optionalFieldVoProperty(z.boolean()).meta({
     description:
       'Field record create permission. When set to false, creating records is denied. When true or not set, creating records is allowed.',
   }),

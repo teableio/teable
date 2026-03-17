@@ -9,6 +9,8 @@ const shapeRefreshTriggerProperties = new Set([
   'rollupConfig',
   'linkConfig',
   'linkRelationship',
+  'relationship',
+  'isOneWay',
 ]);
 const dynamicShapeFieldTypes = new Set([
   'formula',
@@ -78,6 +80,10 @@ class FieldRealtimeShapeSnapshotVisitor {
       return this.visitConditionalLookupField(fieldDto);
     }
 
+    if (fieldDto.type === 'link') {
+      return this.visitLinkField(fieldDto);
+    }
+
     if (fieldDto.isLookup === true) {
       return this.visitLookupField(fieldDto);
     }
@@ -111,6 +117,12 @@ class FieldRealtimeShapeSnapshotVisitor {
       ...withComputedShape(fieldDto),
       config: readShapeValue(fieldDto, 'config'),
     };
+  }
+
+  private visitLinkField(
+    fieldDto: Extract<ITableFieldPersistenceDTO, { type: 'link' }>
+  ): DynamicShapeSnapshot {
+    return withComputedShape(fieldDto);
   }
 
   private visitLookupField(fieldDto: ITableFieldPersistenceDTO): DynamicShapeSnapshot {

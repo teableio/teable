@@ -1,10 +1,10 @@
 import type { IFilter } from '../view/filter';
 import { Colors } from './colors';
-import { CellValueType, FieldType } from './constant';
+import { CellValueType, DbFieldType, FieldType, Relationship } from './constant';
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { unionFieldOptionsRoSchema } from './field-unions.schema';
 import type { IFieldRo } from './field.schema';
-import { createFieldRoSchema } from './field.schema';
+import { createFieldRoSchema, fieldVoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 import type { ILookupConditionalOptions } from './lookup-options-base.schema';
 import type { IUnionShowAs } from './show-as';
@@ -201,5 +201,46 @@ describe('field Schema Test', () => {
 
     const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(false);
+  });
+
+  it('should normalize realtime-cleared optional field shape props from null to undefined', () => {
+    const fieldVo = {
+      id: 'fldRealtimeLink',
+      name: 'Link Field',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyOne,
+        foreignTableId: 'tblForeign',
+        lookupFieldId: 'fldLookup',
+      },
+      description: null,
+      meta: null,
+      isLookup: null,
+      isConditionalLookup: null,
+      lookupOptions: null,
+      isComputed: null,
+      isMultipleCellValue: null,
+      recordRead: null,
+      recordCreate: null,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+      dbFieldName: 'Link_Field',
+    };
+
+    const result = fieldVoSchema.safeParse(fieldVo);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect(result.data.description).toBeUndefined();
+    expect(result.data.meta).toBeUndefined();
+    expect(result.data.isLookup).toBeUndefined();
+    expect(result.data.isConditionalLookup).toBeUndefined();
+    expect(result.data.lookupOptions).toBeUndefined();
+    expect(result.data.isComputed).toBeUndefined();
+    expect(result.data.isMultipleCellValue).toBeUndefined();
+    expect(result.data.recordRead).toBeUndefined();
+    expect(result.data.recordCreate).toBeUndefined();
   });
 });
