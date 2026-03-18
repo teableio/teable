@@ -33,6 +33,7 @@ import type {
   UpdateSingleLineTextShowAsSpec,
   UpdateSingleLineTextDefaultValueSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateNumberFormattingSpec,
   UpdateNumberShowAsSpec,
   UpdateNumberDefaultValueSpec,
@@ -827,6 +828,13 @@ export class TableSchemaUpdateVisitor
   }
 
   // ============ LongText Update specs ============
+
+  visitUpdateLongTextShowAs(
+    _spec: UpdateLongTextShowAsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
 
   visitUpdateLongTextDefaultValue(
     _spec: UpdateLongTextDefaultValueSpec

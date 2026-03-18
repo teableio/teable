@@ -60,6 +60,7 @@ import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNew
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
+import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
@@ -86,6 +87,7 @@ import {
   UpdateLinkConfigSpec,
   UpdateLinkRelationshipSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateLookupOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectDefaultValueSpec,
@@ -417,7 +419,10 @@ class UpdateSingleLineTextFieldSpec implements IUpdateTableFieldSpec {
 class UpdateLongTextFieldSpec implements IUpdateTableFieldSpec {
   private constructor(
     private readonly nameValue: FieldName | undefined,
+    private readonly showAsValue: LongTextShowAs | undefined,
+    private readonly shouldClearShowAs: boolean,
     private readonly defaultValueValue: TextDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -425,17 +430,33 @@ class UpdateLongTextFieldSpec implements IUpdateTableFieldSpec {
   static create(input: {
     name?: string;
     options?: {
+      showAs?: unknown;
       defaultValue?: unknown;
     };
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateLongTextFieldSpec, DomainError> {
+    const hasShowAs = input.options !== undefined && 'showAs' in input.options;
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.options?.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
-        optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-          optional(input.unique, FieldUnique.create).map(
-            (unique) => new UpdateLongTextFieldSpec(name, defaultValue, notNull, unique)
-          )
+      clearable(input.options?.showAs, hasShowAs, LongTextShowAs.create).andThen((showAsResult) =>
+        clearable(input.options?.defaultValue, hasDefaultValue, TextDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+              optional(input.unique, FieldUnique.create).map(
+                (unique) =>
+                  new UpdateLongTextFieldSpec(
+                    name,
+                    showAsResult.value,
+                    showAsResult.shouldClear,
+                    defaultValueResult.value,
+                    defaultValueResult.shouldClear,
+                    notNull,
+                    unique
+                  )
+              )
+            )
         )
       )
     );
@@ -456,6 +477,22 @@ class UpdateLongTextFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
+    // Handle showAs update or clear
+    if (this.showAsValue !== undefined) {
+      const currentShowAs = currentField.showAs();
+      if (!currentShowAs || !this.showAsValue.equals(currentShowAs)) {
+        specs.push(
+          UpdateLongTextShowAsSpec.create(currentField.id(), currentShowAs, this.showAsValue)
+        );
+      }
+    } else if (this.shouldClearShowAs) {
+      const currentShowAs = currentField.showAs();
+      if (currentShowAs !== undefined) {
+        specs.push(UpdateLongTextShowAsSpec.create(currentField.id(), currentShowAs, undefined));
+      }
+    }
+
+    // Handle defaultValue update or clear
     if (this.defaultValueValue !== undefined) {
       const currentDefault = currentField.defaultValue();
       if (!currentDefault || !this.defaultValueValue.equals(currentDefault)) {
@@ -465,6 +502,13 @@ class UpdateLongTextFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateLongTextDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }

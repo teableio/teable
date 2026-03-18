@@ -230,6 +230,7 @@
       "ring": "Кольцо",
       "bar": "Полоса",
       "text": "Текст",
+      "markdown": "Markdown",
       "url": "URL",
       "email": "Email",
       "phone": "Телефон",

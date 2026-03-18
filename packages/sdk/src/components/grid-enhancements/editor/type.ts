@@ -1,6 +1,7 @@
 import type {
   AttachmentField,
   DateField,
+  LongTextField,
   MultipleSelectField,
   Record,
   LinkField,
@@ -18,6 +19,7 @@ export interface IWrapperEditorProps {
     | AttachmentField
     | DateField
     | LinkField
+    | LongTextField
     | UserField
     | CreatedByField
     | LastModifiedByField

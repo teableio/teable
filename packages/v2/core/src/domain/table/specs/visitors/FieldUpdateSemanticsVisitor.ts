@@ -15,6 +15,7 @@ import {
   UpdateLinkConfigSpec,
   UpdateLinkRelationshipSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateLookupOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectDefaultValueSpec,
@@ -108,6 +109,7 @@ export class FieldUpdateSemanticsVisitor {
       return this.visitUpdateSingleLineTextShowAs(spec);
     if (spec instanceof UpdateSingleLineTextDefaultValueSpec)
       return this.visitUpdateSingleLineTextDefaultValue(spec);
+    if (spec instanceof UpdateLongTextShowAsSpec) return this.visitUpdateLongTextShowAs(spec);
     if (spec instanceof UpdateLongTextDefaultValueSpec)
       return this.visitUpdateLongTextDefaultValue(spec);
     if (spec instanceof UpdateNumberFormattingSpec) return this.visitUpdateNumberFormatting(spec);
@@ -209,6 +211,10 @@ export class FieldUpdateSemanticsVisitor {
     _spec: UpdateSingleLineTextDefaultValueSpec
   ): FieldUpdateSpecSemantics {
     return buildSemantics([['defaultValue', optionBackedProperty('defaultValue')]])!;
+  }
+
+  visitUpdateLongTextShowAs(_spec: UpdateLongTextShowAsSpec): FieldUpdateSpecSemantics {
+    return buildSemantics([['showAs', optionBackedProperty('showAs')]])!;
   }
 
   visitUpdateLongTextDefaultValue(_spec: UpdateLongTextDefaultValueSpec): FieldUpdateSpecSemantics {

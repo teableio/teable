@@ -32,6 +32,7 @@ import type {
   UpdateLinkConfigSpec,
   UpdateLinkRelationshipSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateLookupOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectDefaultValueSpec,
@@ -290,6 +291,11 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   }
 
   // LongText
+  visitUpdateLongTextShowAs(spec: UpdateLongTextShowAsSpec): Result<void, DomainError> {
+    this.pushFieldUpdated(spec, spec.fieldId());
+    return ok(undefined);
+  }
+
   visitUpdateLongTextDefaultValue(spec: UpdateLongTextDefaultValueSpec): Result<void, DomainError> {
     this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);

@@ -24,6 +24,7 @@ import {
   type UpdateSingleLineTextShowAsSpec,
   type UpdateSingleLineTextDefaultValueSpec,
   type UpdateLongTextDefaultValueSpec,
+  type UpdateLongTextShowAsSpec,
   type UpdateNumberFormattingSpec,
   type UpdateNumberShowAsSpec,
   type UpdateNumberDefaultValueSpec,
@@ -566,6 +567,12 @@ export class TableMetaUpdateVisitor
   }
 
   // LongText
+  visitUpdateLongTextShowAs(
+    spec: UpdateLongTextShowAsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return this.buildFieldOptionsUpdate(spec.fieldId());
+  }
+
   visitUpdateLongTextDefaultValue(
     spec: UpdateLongTextDefaultValueSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {

@@ -3816,6 +3816,7 @@ export type I18nTranslations = {
                 "ring": string;
                 "bar": string;
                 "text": string;
+                "markdown": string;
                 "url": string;
                 "email": string;
                 "phone": string;

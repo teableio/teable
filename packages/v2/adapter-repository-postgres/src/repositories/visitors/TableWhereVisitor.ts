@@ -28,6 +28,7 @@ import {
   type UpdateSingleLineTextShowAsSpec,
   type UpdateSingleLineTextDefaultValueSpec,
   type UpdateLongTextDefaultValueSpec,
+  type UpdateLongTextShowAsSpec,
   type UpdateNumberFormattingSpec,
   type UpdateNumberShowAsSpec,
   type UpdateNumberDefaultValueSpec,
@@ -316,6 +317,14 @@ export class TableWhereVisitor
   }
 
   // ============ LongText Update specs ============
+
+  visitUpdateLongTextShowAs(_spec: UpdateLongTextShowAsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateLongTextShowAsSpec is not supported for table filters',
+      })
+    );
+  }
 
   visitUpdateLongTextDefaultValue(
     _spec: UpdateLongTextDefaultValueSpec

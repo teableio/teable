@@ -11,5 +11,6 @@ export interface ICellValueEditor<T = unknown> extends Omit<ICellEditor<T>, 'val
   recordId?: string;
   buttonClickStatusHook?: IButtonClickStatusHook;
   record?: Record;
+  hideExpand?: boolean;
   onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }

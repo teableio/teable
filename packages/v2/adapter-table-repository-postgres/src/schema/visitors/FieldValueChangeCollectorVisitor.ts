@@ -28,6 +28,7 @@ import type {
   UpdateSingleLineTextShowAsSpec,
   UpdateSingleLineTextDefaultValueSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateNumberFormattingSpec,
   UpdateNumberShowAsSpec,
   UpdateNumberDefaultValueSpec,
@@ -281,6 +282,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   // ============ LongText Update specs ============
+
+  visitUpdateLongTextShowAs(_spec: UpdateLongTextShowAsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
 
   visitUpdateLongTextDefaultValue(
     _spec: UpdateLongTextDefaultValueSpec

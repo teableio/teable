@@ -1,8 +1,17 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
-import { useState, useRef, forwardRef, useImperativeHandle, useMemo, useLayoutEffect } from 'react';
-import { useClickAway, useMouse } from 'react-use';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useLayoutEffect,
+} from 'react';
+import { useMouse } from 'react-use';
 import type { CellScrollerRef } from './CellScroller';
 import { CellScroller } from './CellScroller';
 import type { IEditorContainerRef } from './components';
@@ -772,10 +781,27 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
   useEventListener('mouseup', onMouseUp, isInteracting ? window : stageRef.current, true);
 
-  useClickAway(containerRef, () => {
+  const onClickAway = useCallback(() => {
     setEditing(false);
     editorContainerRef.current?.saveValue?.();
-  });
+  }, [setEditing]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const target = event.target as HTMLElement | null;
+      if (el.contains(target)) return;
+      if (target?.closest('.click-outside-ignore')) return;
+      onClickAway();
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [containerRef, onClickAway]);
 
   useLayoutEffect(() => {
     if (activeColumnIndex == null || activeRowIndex == null) return;

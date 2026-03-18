@@ -271,6 +271,7 @@
       "ring": "Ring",
       "bar": "Bar",
       "text": "Text",
+      "markdown": "Markdown",
       "url": "Url",
       "email": "Email",
       "phone": "Phone",

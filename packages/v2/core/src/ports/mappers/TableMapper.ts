@@ -11,6 +11,7 @@ export type ISingleLineTextFieldOptionsDTO = {
 };
 
 export type ILongTextFieldOptionsDTO = {
+  showAs?: { type: string };
   defaultValue?: string;
 };
 

@@ -28,6 +28,7 @@ import type {
   UpdateSingleLineTextShowAsSpec,
   UpdateSingleLineTextDefaultValueSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateNumberFormattingSpec,
   UpdateNumberShowAsSpec,
   UpdateNumberDefaultValueSpec,
@@ -216,6 +217,10 @@ export class DependencyChangeDetectorVisitor implements ITableSpecVisitor<void> 
   visitUpdateSingleLineTextDefaultValue(
     _spec: UpdateSingleLineTextDefaultValueSpec
   ): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitUpdateLongTextShowAs(_spec: UpdateLongTextShowAsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

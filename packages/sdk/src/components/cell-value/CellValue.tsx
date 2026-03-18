@@ -13,13 +13,14 @@ import type {
   IButtonFieldOptions,
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
-import { cn } from '@teable/ui-lib';
 import type { IFieldInstance } from '../../model';
+import { isMarkdownShowAs, normalizeMarkdownValue } from '../editor/long-text/utils';
 import { CellAttachment } from './cell-attachment';
 import { CellButton } from './cell-button';
 import { CellCheckbox } from './cell-checkbox';
 import { CellDate } from './cell-date';
 import { CellLink } from './cell-link';
+import { CellMarkdown } from './cell-markdown';
 import { CellNumber } from './cell-number';
 import { CellRating } from './cell-rating';
 import { CellSelect, transformSelectOptions } from './cell-select';
@@ -32,6 +33,7 @@ interface ICellValueContainer extends ICellValue<unknown> {
   formatImageUrl?: (url: string) => string;
   itemClassName?: string;
   readonly?: boolean;
+  plainLongText?: boolean;
 }
 
 interface RenderContext {
@@ -43,17 +45,27 @@ interface RenderContext {
   itemClassName?: string;
   formatImageUrl?: (url: string) => string;
   readonly?: boolean;
+  plainLongText?: boolean;
 }
 
 type RenderFn = (ctx: RenderContext) => JSX.Element;
 
-const renderLongText: RenderFn = ({ value, className, ellipsis }) => (
-  <CellText
-    value={value as string}
-    className={cn(className, 'line-clamp-none')}
-    ellipsis={ellipsis}
-  />
-);
+const normalizeLongTextPlainPreview = (value: string) =>
+  value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+const renderLongText: RenderFn = ({ value, className, plainLongText, options }) => {
+  const isMarkdown = isMarkdownShowAs(options);
+  if (isMarkdown && !plainLongText) {
+    const normalized = normalizeMarkdownValue(value);
+    return <CellMarkdown value={normalized} className={className} />;
+  }
+  const strValue = typeof value === 'string' ? value : '';
+  if (plainLongText) {
+    const plainTextValue = strValue ? normalizeLongTextPlainPreview(strValue) : strValue;
+    return <CellText value={plainTextValue} className={className} ellipsis />;
+  }
+  return <CellText value={strValue} className={className} />;
+};
 
 const renderSingleLineText: RenderFn = ({ value, className, ellipsis, options }) => (
   <CellText
@@ -228,7 +240,16 @@ const typeRenderers: Partial<Record<FieldType, RenderFn>> = {
 };
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, ellipsis, className, itemClassName, formatImageUrl, readonly } = props;
+  const {
+    field,
+    value,
+    ellipsis,
+    className,
+    itemClassName,
+    formatImageUrl,
+    readonly,
+    plainLongText,
+  } = props;
   const options = (field.options ?? {}) as Record<string, unknown>;
   const renderer = typeRenderers[field.type];
 
@@ -245,5 +266,6 @@ export const CellValue = (props: ICellValueContainer) => {
     itemClassName,
     formatImageUrl,
     readonly,
+    plainLongText,
   });
 };

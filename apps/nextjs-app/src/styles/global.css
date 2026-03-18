@@ -2,6 +2,7 @@
 @import url('nprogress/nprogress.css');
 @import url('@/styles/github-markdown.css');
 @import url('@/features/app/blocks/chart/globals.css');
+@import url('@teable/sdk/components/editor/long-text/milkdown.css');
 
 :root {
   --btn-text-case: none;

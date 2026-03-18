@@ -36,6 +36,7 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
               field={stackField}
               value={stackData}
               ellipsis
+              plainLongText
               className="flex-nowrap overflow-hidden"
               itemClassName="overflow-hidden shrink-0"
             />

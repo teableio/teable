@@ -23,6 +23,7 @@ import type {
   UpdateLinkConfigSpec,
   UpdateLinkRelationshipSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateLookupOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectDefaultValueSpec,
@@ -222,6 +223,13 @@ class SpyVisitor implements ITableSpecVisitor {
   }
 
   // LongText
+  visitUpdateLongTextShowAs(
+    _: UpdateLongTextShowAsSpec
+  ): ReturnType<ITableSpecVisitor['visitUpdateLongTextShowAs']> {
+    this.calls.push('UpdateLongTextShowAsSpec');
+    return ok(undefined);
+  }
+
   visitUpdateLongTextDefaultValue(
     _: UpdateLongTextDefaultValueSpec
   ): ReturnType<ITableSpecVisitor['visitUpdateLongTextDefaultValue']> {

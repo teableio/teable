@@ -8,12 +8,14 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import type { LongTextShowAs } from './LongTextShowAs';
 import type { TextDefaultValue } from './TextDefaultValue';
 
 export class LongTextField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
+    private readonly showAsValue: LongTextShowAs | undefined,
     private readonly defaultValueValue: TextDefaultValue | undefined
   ) {
     super(id, name, FieldType.longText());
@@ -22,9 +24,14 @@ export class LongTextField extends Field {
   static create(params: {
     id: FieldId;
     name: FieldName;
+    showAs?: LongTextShowAs;
     defaultValue?: TextDefaultValue;
   }): Result<LongTextField, DomainError> {
-    return ok(new LongTextField(params.id, params.name, params.defaultValue));
+    return ok(new LongTextField(params.id, params.name, params.showAs, params.defaultValue));
+  }
+
+  showAs(): LongTextShowAs | undefined {
+    return this.showAsValue;
   }
 
   defaultValue(): TextDefaultValue | undefined {
@@ -35,6 +42,7 @@ export class LongTextField extends Field {
     return LongTextField.create({
       id: params.newId,
       name: params.newName,
+      showAs: this.showAs(),
       defaultValue: this.defaultValue(),
     });
   }

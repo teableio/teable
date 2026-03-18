@@ -30,11 +30,13 @@ import {
   SelectEditor,
   TextEditor,
   RatingEditor,
+  MarkdownLongTextEditor,
   LongTextEditor,
   LinkEditor,
   UserEditor,
   ButtonEditor,
 } from '../editor';
+import { isMarkdownShowAs } from '../editor/long-text/utils';
 import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
@@ -49,6 +51,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
     context,
     buttonClickStatusHook,
     record,
+    hideExpand,
   } = props;
   const tableId = useTableId();
   const { id: fieldId, type, options } = field;
@@ -88,6 +91,18 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       );
     }
     case FieldType.LongText: {
+      const isMarkdown = isMarkdownShowAs(options);
+      if (isMarkdown) {
+        return (
+          <MarkdownLongTextEditor
+            className={className}
+            value={cellValue as ILongTextCellValue}
+            onChange={onChange}
+            readonly={readonly}
+            hideExpand={hideExpand}
+          />
+        );
+      }
       return (
         <LongTextEditor
           ref={editorRef}

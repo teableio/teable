@@ -9,6 +9,7 @@ import {
 } from '../../domain/table/fields/types/NumberShowAs';
 import { ratingColorValues } from '../../domain/table/fields/types/RatingColor';
 import { ratingIconValues } from '../../domain/table/fields/types/RatingIcon';
+import { longTextShowAsValues } from '../../domain/table/fields/types/LongTextShowAs';
 import { singleLineTextShowAsValues } from '../../domain/table/fields/types/SingleLineTextShowAs';
 import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
 
@@ -19,6 +20,10 @@ export const ratingColorSchema = z.enum(ratingColorValues);
 // ShowAs schemas
 export const singleLineTextShowAsSchema = z.object({
   type: z.enum(singleLineTextShowAsValues),
+});
+
+export const longTextShowAsSchema = z.object({
+  type: z.enum(longTextShowAsValues),
 });
 
 // Number formatting

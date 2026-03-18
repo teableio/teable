@@ -44,6 +44,7 @@ export interface IBaseCell {
 export interface IEditableCell extends IBaseCell {
   editorWidth?: number;
   customEditor?: ICustomEditor;
+  readonlyCustomEditor?: boolean;
 }
 
 export interface ILoadingCell extends IBaseCell {

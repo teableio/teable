@@ -13,6 +13,7 @@ export {
   numberShowAsSchema,
   ratingColorSchema,
   ratingIconSchema,
+  longTextShowAsSchema,
   singleLineTextShowAsSchema,
   singleNumberShowAsSchema,
   trackedFieldIdsSchema,

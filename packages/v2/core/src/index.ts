@@ -337,6 +337,7 @@ export * from './domain/table/fields/types/RatingColor';
 export * from './domain/table/fields/types/RatingIcon';
 export type { SingleSelectField } from './domain/table/fields/types/SingleSelectField';
 export type { SingleLineTextField } from './domain/table/fields/types/SingleLineTextField';
+export * from './domain/table/fields/types/LongTextShowAs';
 export * from './domain/table/fields/types/SingleLineTextShowAs';
 export * from './domain/table/fields/types/TextDefaultValue';
 export * from './domain/table/fields/types/SelectOption';

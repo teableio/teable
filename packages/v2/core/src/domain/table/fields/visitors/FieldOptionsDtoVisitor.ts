@@ -45,6 +45,8 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
 
   visitLongTextField(field: LongTextField): Result<unknown, DomainError> {
     const options: Record<string, unknown> = {};
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
     return ok(options);

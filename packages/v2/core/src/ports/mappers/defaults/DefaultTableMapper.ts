@@ -44,6 +44,7 @@ import { LinkField } from '../../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../../domain/table/fields/types/LinkFieldConfig';
 import { LinkFieldMeta } from '../../../domain/table/fields/types/LinkFieldMeta';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
+import { LongTextShowAs } from '../../../domain/table/fields/types/LongTextShowAs';
 import { LookupField } from '../../../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../../../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
@@ -296,6 +297,8 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
 
   visitLongTextField(field: LongTextField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ILongTextFieldOptionsDTO = {};
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
@@ -993,8 +996,10 @@ export class DefaultTableMapper implements ITableMapper {
             })
             .with({ type: 'longText' }, (dto) => {
               const options = dto.options ?? {};
-              return optional(options.defaultValue, TextDefaultValue.create).andThen(
-                (defaultValue) => LongTextField.create({ id, name, defaultValue })
+              return optional(options.showAs, LongTextShowAs.create).andThen((showAs) =>
+                optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+                  LongTextField.create({ id, name, showAs, defaultValue })
+                )
               );
             })
             .with({ type: 'number' }, (dto) => {

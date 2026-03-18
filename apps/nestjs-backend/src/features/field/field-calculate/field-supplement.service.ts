@@ -685,12 +685,13 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
+      const showAs = (fieldRo.options as Record<string, unknown> | undefined)?.showAs;
       return {
         ...oldFieldVo,
         ...fieldRo,
         options: {
           ...oldFieldVo.options,
-          showAs: undefined,
+          showAs,
         },
         lookupOptions: {
           ...oldLookupOptions,
@@ -1670,8 +1671,8 @@ export class FieldSupplementService {
   }
 
   private validateFormattingShowAs(field: IFieldVo) {
-    const { cellValueType, isMultipleCellValue } = field;
-    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
+    const { cellValueType, isMultipleCellValue, type } = field;
+    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue, type);
 
     const showAs = 'showAs' in field.options ? field.options.showAs : undefined;
     const formatting = 'formatting' in field.options ? field.options.formatting : undefined;

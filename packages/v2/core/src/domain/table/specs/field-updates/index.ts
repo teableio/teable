@@ -22,6 +22,7 @@ export { UpdateSingleLineTextShowAsSpec } from './UpdateSingleLineTextShowAsSpec
 export { UpdateSingleLineTextDefaultValueSpec } from './UpdateSingleLineTextDefaultValueSpec';
 
 // ============ LongText ============
+export { UpdateLongTextShowAsSpec } from './UpdateLongTextShowAsSpec';
 export { UpdateLongTextDefaultValueSpec } from './UpdateLongTextDefaultValueSpec';
 
 // ============ Number ============

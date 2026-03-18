@@ -28,6 +28,7 @@ export const Modal: FC<
           }
           e.stopPropagation();
         }}
+        onPaste={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerDownOutside={(e) => e.preventDefault()}

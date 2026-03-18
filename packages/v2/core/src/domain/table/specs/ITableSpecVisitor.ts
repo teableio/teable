@@ -18,6 +18,7 @@ import type {
   UpdateLinkConfigSpec,
   UpdateLinkRelationshipSpec,
   UpdateLongTextDefaultValueSpec,
+  UpdateLongTextShowAsSpec,
   UpdateLookupOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectDefaultValueSpec,
@@ -107,6 +108,7 @@ export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   ): Result<TResult, DomainError>;
 
   // ============ LongText Update specs ============
+  visitUpdateLongTextShowAs(spec: UpdateLongTextShowAsSpec): Result<TResult, DomainError>;
   visitUpdateLongTextDefaultValue(
     spec: UpdateLongTextDefaultValueSpec
   ): Result<TResult, DomainError>;

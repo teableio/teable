@@ -5,6 +5,7 @@ export const CARD_STYLE = {
   titleHeight: 32,
   cardPaddingBottom: 16,
   contentPadding: 8,
+  flexGap: 4,
   itemGap: 8,
   itemInnerGap: 4,
   itemTitleHeight: 16,
@@ -27,8 +28,15 @@ export const FIELD_HEIGHT_MAP: { [key in FieldType]?: number } = {
   [FieldType.Rating]: 16,
 };
 
-const { titleHeight, contentPadding, cardPaddingBottom, itemGap, itemInnerGap, itemTitleHeight } =
-  CARD_STYLE;
+const {
+  titleHeight,
+  contentPadding,
+  cardPaddingBottom,
+  flexGap,
+  itemGap,
+  itemInnerGap,
+  itemTitleHeight,
+} = CARD_STYLE;
 
 export const getCardHeight = (
   fields: IFieldInstance[],
@@ -37,10 +45,12 @@ export const getCardHeight = (
 ) => {
   const fieldCount = fields.length;
   const staticFieldNameSpace = isFieldNameHidden ? 0 : itemInnerGap + itemTitleHeight;
+  // flex gap-1 (4px) between title and each field item = fieldCount gaps
   let staticHeight =
     titleHeight +
     contentPadding * 2 +
     (itemGap + staticFieldNameSpace) * fieldCount +
+    flexGap * fieldCount +
     cardPaddingBottom;
   staticHeight = hasCover ? staticHeight + CARD_COVER_HEIGHT : staticHeight;
   const dynamicHeight = fields.reduce((prev, { type }) => {

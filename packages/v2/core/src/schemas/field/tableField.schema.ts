@@ -9,6 +9,7 @@ import {
   formulaFormattingSchema,
   formulaShowAsSchema,
   linkRelationshipSchema,
+  longTextShowAsSchema,
   numberFormattingSchema,
   numberShowAsSchema,
   ratingColorSchema,
@@ -24,6 +25,7 @@ export const singleLineTextOptionsSchema = z.object({
 });
 
 export const longTextOptionsSchema = z.object({
+  showAs: longTextShowAsSchema.optional(),
   defaultValue: z.string().optional(),
 });
 

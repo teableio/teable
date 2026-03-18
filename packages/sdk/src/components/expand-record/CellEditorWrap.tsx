@@ -23,5 +23,5 @@ export const CellEditorWrap = (props: ICellValueEditor) => {
       </div>
     );
   }
-  return <CellEditor {...props} />;
+  return <CellEditor {...props} hideExpand />;
 };
