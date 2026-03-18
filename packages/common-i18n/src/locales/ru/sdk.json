@@ -997,6 +997,13 @@
       "emailConnectorNotAvailable": "Email connector service not available",
       "listMailboxesFailed": "Не удалось получить список почтовых ящиков: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "Неизвестный набор данных: {{datasetId}}",
+      "apiKeyNotConfigured": "Сервис скрейпинга не настроен",
+      "triggerFailed": "Ошибка запуска скрейпинга: {{detail}}",
+      "snapshotError": "Ошибка снимка скрейпинга: {{detail}}",
+      "timeout": "Таймаут скрейпинга после {{seconds}}с"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",

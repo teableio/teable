@@ -1014,6 +1014,13 @@
       "emailConnectorNotAvailable": "Email connector service not available",
       "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "Unknown dataset: {{datasetId}}",
+      "apiKeyNotConfigured": "Scrape service is not configured",
+      "triggerFailed": "Scrape trigger failed: {{detail}}",
+      "snapshotError": "Scrape snapshot error: {{detail}}",
+      "timeout": "Scrape timed out after {{seconds}}s"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",

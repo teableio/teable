@@ -1014,6 +1014,13 @@
       "emailConnectorNotAvailable": "邮件连接器服务不可用",
       "listMailboxesFailed": "获取邮箱文件夹列表失败: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "未知的数据集：{{datasetId}}",
+      "apiKeyNotConfigured": "抓取服务未配置",
+      "triggerFailed": "抓取触发失败：{{detail}}",
+      "snapshotError": "抓取快照错误：{{detail}}",
+      "timeout": "抓取超时，已等待 {{seconds}} 秒"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
       "oauthTokenRefreshFailed": "OAuth 令牌刷新失败：{{detail}}",

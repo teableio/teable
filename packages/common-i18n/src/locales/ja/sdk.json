@@ -997,6 +997,13 @@
       "emailConnectorNotAvailable": "メールコネクタサービスが利用できません",
       "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "不明なデータセット：{{datasetId}}",
+      "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
+      "triggerFailed": "スクレイプトリガーに失敗しました：{{detail}}",
+      "snapshotError": "スクレイプスナップショットエラー：{{detail}}",
+      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
       "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",

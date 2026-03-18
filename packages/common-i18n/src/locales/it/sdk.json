@@ -997,6 +997,13 @@
       "emailConnectorNotAvailable": "Email connector service not available",
       "listMailboxesFailed": "Impossibile elencare le caselle di posta: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "Dataset sconosciuto: {{datasetId}}",
+      "apiKeyNotConfigured": "Il servizio di scraping non è configurato",
+      "triggerFailed": "Attivazione scraping fallita: {{detail}}",
+      "snapshotError": "Errore snapshot scraping: {{detail}}",
+      "timeout": "Timeout scraping dopo {{seconds}}s"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",

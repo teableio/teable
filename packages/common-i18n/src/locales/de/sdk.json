@@ -997,6 +997,13 @@
       "emailConnectorNotAvailable": "Email connector service not available",
       "listMailboxesFailed": "Postfächerliste konnte nicht abgerufen werden: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "Unbekannter Datensatz: {{datasetId}}",
+      "apiKeyNotConfigured": "Scrape-Dienst ist nicht konfiguriert",
+      "triggerFailed": "Scrape-Auslösung fehlgeschlagen: {{detail}}",
+      "snapshotError": "Scrape-Snapshot-Fehler: {{detail}}",
+      "timeout": "Scrape-Zeitüberschreitung nach {{seconds}}s"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",

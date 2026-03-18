@@ -43,6 +43,8 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
       return HttpErrorCode.TOO_MANY_REQUESTS;
     case HttpStatus.PAYLOAD_TOO_LARGE:
       return HttpErrorCode.PAYLOAD_TOO_LARGE;
+    case HttpStatus.GATEWAY_TIMEOUT:
+      return HttpErrorCode.GATEWAY_TIMEOUT;
     default:
       return HttpErrorCode.UNKNOWN_ERROR_CODE;
   }

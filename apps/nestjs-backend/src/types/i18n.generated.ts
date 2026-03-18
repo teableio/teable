@@ -2871,6 +2871,13 @@ export type I18nTranslations = {
                 "emailConnectorNotAvailable": string;
                 "listMailboxesFailed": string;
             };
+            "scrape": {
+                "unknownDataset": string;
+                "apiKeyNotConfigured": string;
+                "triggerFailed": string;
+                "snapshotError": string;
+                "timeout": string;
+            };
             "integration": {
                 "oauthCodeExchangeFailed": string;
                 "oauthTokenRefreshFailed": string;

@@ -997,6 +997,13 @@
       "emailConnectorNotAvailable": "Email connector service not available",
       "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}"
     },
+    "scrape": {
+      "unknownDataset": "Невідомий набір даних: {{datasetId}}",
+      "apiKeyNotConfigured": "Сервіс скрейпінгу не налаштовано",
+      "triggerFailed": "Помилка запуску скрейпінгу: {{detail}}",
+      "snapshotError": "Помилка знімка скрейпінгу: {{detail}}",
+      "timeout": "Час очікування скрейпінгу вичерпано після {{seconds}}с"
+    },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
