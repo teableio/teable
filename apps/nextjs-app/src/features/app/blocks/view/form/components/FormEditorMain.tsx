@@ -172,7 +172,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               accept="image/*"
               onChange={(e) => onFileSelected(e, 'cover')}
             />
-            <Pencil />
+            <Pencil className="size-4 shrink-0" />
           </Button>
           {coverUrl && (
             <Button
@@ -181,7 +181,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               className="absolute right-2 top-2 m-1 bg-accent font-normal"
               onClick={onCoverReset}
             >
-              <Undo2 />
+              <Undo2 className="size-4 shrink-0" />
             </Button>
           )}
         </div>
@@ -305,7 +305,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant={'ghost'} size={'icon'} className="font-normal">
-                <Pencil />
+                <Pencil className="size-4 shrink-0" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start" side="right">

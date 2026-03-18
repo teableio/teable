@@ -65,7 +65,7 @@ function AttachmentItem(props: IUploadAttachment) {
                   downloadFile(attachment);
                 }}
               >
-                <Download />
+                <Download className="size-4 shrink-0" />
               </Button>
             </li>
             <li>
@@ -78,7 +78,7 @@ function AttachmentItem(props: IUploadAttachment) {
                     onDelete(attachment.id);
                   }}
                 >
-                  <X />
+                  <X className="size-4 shrink-0" />
                 </Button>
               )}
             </li>

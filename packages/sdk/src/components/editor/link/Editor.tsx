@@ -150,7 +150,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
             <Dialog open={isEditing} onOpenChange={onOpenChange}>
               <DialogTrigger asChild>
                 <Button variant="outline" size={'sm'} className={className}>
-                  <Plus />
+                  <Plus className="size-4 shrink-0" />
                   {t('editor.link.selectRecord')}
                 </Button>
               </DialogTrigger>

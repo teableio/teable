@@ -108,7 +108,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
       <div className="flex gap-1">
         <CreatePluginDialog tableId={tableId}>
           <Button variant="outline" size="xs">
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             <span className="hidden @xs/plugin-panel-header:inline">{t('table:addPlugin')}</span>
           </Button>
         </CreatePluginDialog>

@@ -93,7 +93,7 @@ export const QueryAggregation = (props: IQueryEditorProps<IQueryAggregation>) =>
                 onChange(newValue);
               }}
             >
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
           <Error error={error[aggregation.column] ? t('baseQuery.error.invalidCol') : undefined} />

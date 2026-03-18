@@ -30,7 +30,7 @@ export const ContextColumnSelector = (props: {
               value ??
               t('common.selectPlaceHolder')}
           </span>
-          <ChevronDown />
+          <ChevronDown className="size-4 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-full max-w-[200px] p-0">

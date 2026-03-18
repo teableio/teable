@@ -72,7 +72,7 @@ export const OAuthAppSection = () => {
           actions={
             !formType ? (
               <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
-                <Plus />
+                <Plus className="size-4 shrink-0" />
                 {t('oauth:add')}
               </Button>
             ) : undefined

@@ -63,7 +63,7 @@ export const QueryGroup = (props: IQueryEditorProps<IBaseQueryGroupBy>) => {
                 onChange(newValue);
               }}
             >
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
           <Error error={error[groupBy.column] ? t('baseQuery.error.invalidCol') : undefined} />

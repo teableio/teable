@@ -127,14 +127,14 @@ export const AccessSelect = (props: IFormAccess) => {
               onFullAccessChange(true);
             }}
           >
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('accessSelect.fullAccess.button')}
           </Button>
         )}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button size={'sm'} variant="outline" role="combobox" aria-expanded={open}>
-              <Plus />
+              <Plus className="size-4 shrink-0" />
               {t('accessSelect.button')}
             </Button>
           </PopoverTrigger>

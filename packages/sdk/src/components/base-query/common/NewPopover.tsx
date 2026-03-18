@@ -32,7 +32,7 @@ export const NewPopover = (props: {
         <div className="flex items-center justify-between gap-2">{children}</div>
         <div className="mt-2 flex justify-end">
           <Button variant={'outline'} size={'xs'} disabled={addButton.disabled} onClick={onAdd}>
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('baseQuery.add')}
           </Button>
         </div>

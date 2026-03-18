@@ -226,7 +226,7 @@ export const SearchCountPagination = forwardRef<
           className="size-5 p-0"
           disabled={currentIndex === 1}
         >
-          <ChevronLeft />
+          <ChevronLeft className="size-4 shrink-0" />
         </Button>
 
         <Button
@@ -241,7 +241,7 @@ export const SearchCountPagination = forwardRef<
             Object.values(allSearchResults).length === 0
           }
         >
-          <ChevronRight />
+          <ChevronRight className="size-4 shrink-0" />
         </Button>
       </div>
     ))

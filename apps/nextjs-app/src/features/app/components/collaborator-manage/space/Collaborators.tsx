@@ -234,7 +234,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
             variant="ghost"
             onClick={() => goBase(item.base!.id)}
           >
-            <Settings />
+            <Settings className="size-4 shrink-0" />
           </Button>
         </div>
       );

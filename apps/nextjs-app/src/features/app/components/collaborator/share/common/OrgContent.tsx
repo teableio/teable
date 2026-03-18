@@ -92,7 +92,7 @@ export const OrgContent = ({
               memberSelectorRef.current?.open();
             }}
           >
-            <Plus />
+            <Plus className="size-4 shrink-0" />
           </Button>
         </div>
         <div className="flex items-center justify-between">

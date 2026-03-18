@@ -108,7 +108,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
             <Button variant={'outline'} size={'xs'}>
-              <Plus />
+              <Plus className="size-4 shrink-0" />
               {t('dashboard:addPlugin')}
             </Button>
           </AddPluginDialog>

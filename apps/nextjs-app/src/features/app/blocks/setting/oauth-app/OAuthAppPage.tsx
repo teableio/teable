@@ -102,7 +102,7 @@ export const OAuthAppPage = () => {
               })
             }
           >
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('oauth:add')}
           </Button>
         ) : undefined

@@ -88,7 +88,7 @@ export const QueryOrder = (props: IQueryEditorProps<IBaseQueryOrderBy>) => {
                 onChange(newValue);
               }}
             >
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
           <Error error={error[orderBy.column] ? t('baseQuery.error.invalidCol') : undefined} />

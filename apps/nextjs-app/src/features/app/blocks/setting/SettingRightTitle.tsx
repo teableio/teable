@@ -27,7 +27,7 @@ export const SettingRightTitle = (props: ISettingRightTitle) => {
     <div className={cn('flex flex-1 items-start gap-2', className)}>
       {onBack && (
         <Button className="px-0 text-base" variant={'link'} onClick={onBack}>
-          <ArrowLeft />
+          <ArrowLeft className="size-4 shrink-0" />
         </Button>
       )}
       <div className="flex flex-1 flex-col gap-1">

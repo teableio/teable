@@ -61,7 +61,7 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
         variant={'ghost'}
         onClick={() => addCallbackURL()}
       >
-        <Plus /> {t('oauth:form.callbackUrl.add')}
+        <Plus className="size-4 shrink-0" /> {t('oauth:form.callbackUrl.add')}
       </Button>
     </>
   );

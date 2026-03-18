@@ -151,12 +151,12 @@ export const CommentItem = (props: ICommentItemProps) => {
             <PopoverTrigger asChild>
               <Button
                 variant={'ghost'}
-                size={'xs'}
+                size={'icon-xs'}
                 onClick={() => {
                   setEmojiPickOpen(true);
                 }}
               >
-                <Heart />
+                <Heart className="size-4 shrink-0" />
               </Button>
             </PopoverTrigger>
             <PopoverContent side="top" className="size-auto p-0.5" container={modalRef.current}>
@@ -184,35 +184,35 @@ export const CommentItem = (props: ICommentItemProps) => {
 
           <Button
             variant={'ghost'}
-            size={'xs'}
+            size={'icon-xs'}
             onClick={() => {
               setQuoteId(id);
               editorRef.focus();
             }}
           >
-            <MessageSquare />
+            <MessageSquare className="size-4 shrink-0" />
           </Button>
           {isMe && (
             <Button
               variant={'ghost'}
-              size={'xs'}
+              size={'icon-xs'}
               onClick={() => {
                 setEditingCommentId(id);
                 editorRef.focus();
               }}
             >
-              <Edit />
+              <Edit className="size-4 shrink-0" />
             </Button>
           )}
           {isMe && (
             <Button
               variant={'ghost'}
-              size={'xs'}
+              size={'icon-xs'}
               onClick={() => {
                 deleteCommentFn({ tableId, recordId, id });
               }}
             >
-              <Trash2 />
+              <Trash2 className="size-4 shrink-0" />
             </Button>
           )}
         </div>

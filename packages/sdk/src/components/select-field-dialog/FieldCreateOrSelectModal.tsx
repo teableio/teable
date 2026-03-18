@@ -149,7 +149,7 @@ export const FieldCreateOrSelectModal = forwardRef<
         <DialogFooter className={cn(newField && 'justify-between sm:justify-between')}>
           {newField && (
             <Button variant={'ghost'} onClick={() => setNewField(undefined)}>
-              <ArrowLeft />
+              <ArrowLeft className="size-4 shrink-0" />
               {t('common.back')}
             </Button>
           )}

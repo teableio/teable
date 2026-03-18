@@ -81,7 +81,7 @@ export const PluginPage = () => {
               })
             }
           >
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('plugin:add')}
           </Button>
         ) : undefined

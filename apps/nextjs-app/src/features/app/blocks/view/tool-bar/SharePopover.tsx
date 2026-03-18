@@ -234,7 +234,7 @@ export const SharePopover: React.FC<{
                     size={'xs'}
                     onClick={() => setShowPasswordDialog(true)}
                   >
-                    <Edit />
+                    <Edit className="size-4 shrink-0" />
                   </Button>
                 )}
               </div>

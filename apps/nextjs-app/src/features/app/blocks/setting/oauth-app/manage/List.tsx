@@ -80,7 +80,7 @@ export const OAuthAppList = (props: IOAuthAppListProps) => {
                     setShowDeleteModal(true);
                   }}
                 >
-                  <Trash2 />
+                  <Trash2 className="size-4 shrink-0" />
                 </Button>
                 <Button
                   className="h-5 p-0.5"
@@ -89,7 +89,7 @@ export const OAuthAppList = (props: IOAuthAppListProps) => {
                     onEdit(app.clientId);
                   }}
                 >
-                  <Settings />
+                  <Settings className="size-4 shrink-0" />
                 </Button>
               </div>
             </CardContent>

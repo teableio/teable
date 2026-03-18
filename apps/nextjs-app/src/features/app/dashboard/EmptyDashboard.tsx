@@ -36,7 +36,7 @@ export const EmptyDashboard = () => {
         {canManage && (
           <CreateDashboardDialog>
             <Button size="lg" className="px-8">
-              <Plus /> {t('dashboard:empty.create')}
+              <Plus className="size-4 shrink-0" /> {t('dashboard:empty.create')}
             </Button>
           </CreateDashboardDialog>
         )}

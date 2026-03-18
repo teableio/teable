@@ -42,7 +42,7 @@ export const LinkCard = (props: ILinkCardProps) => {
             onDelete?.();
           }}
         >
-          <X />
+          <X className="size-4 shrink-0" />
         </Button>
       )}
     </div>
