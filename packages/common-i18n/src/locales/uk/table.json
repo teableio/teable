@@ -640,7 +640,8 @@
     "expandGroup": "Розгорнути цю групу та її підгрупи",
     "collapseGroup": "Згорнути цю групу та її підгрупи",
     "expandAllGroups": "Розгорнути всі групи",
-    "collapseAllGroups": "Згорнути всі групи"
+    "collapseAllGroups": "Згорнути всі групи",
+    "addToChat": "Додати до чату"
   },
   "connection": {
     "title": "Підключення до бази даних",
@@ -982,6 +983,8 @@
     "queryTool": {
       "getRecords": "Запит записів",
       "getRecordsWithTable": "Запит записів · {{tableName}}",
+      "getGridRows": "Query grid rows",
+      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
       "getFields": "Запит полів",
       "getFieldsWithTable": "Запит полів · {{tableName}}",
       "getTables": "Запит таблиць",
@@ -1160,7 +1163,8 @@
       "button": "Додати контекст",
       "search": "Додати таблиці",
       "searchEmpty": "Не знайдено відповідного контексту",
-      "emptyContext": "Немає контексту для додавання"
+      "emptyContext": "Немає контексту для додавання",
+      "selectionRows": "Рядки {{start}}-{{end}}"
     },
     "inputPlaceholder": "Відправити повідомлення...",
     "thought": "Міркування",

@@ -4326,6 +4326,7 @@ export type I18nTranslations = {
             "collapseGroup": string;
             "expandAllGroups": string;
             "collapseAllGroups": string;
+            "addToChat": string;
             "duplicateField": string;
             "downloadAllAttachments": string;
         };
@@ -4672,6 +4673,8 @@ export type I18nTranslations = {
             "queryTool": {
                 "getRecords": string;
                 "getRecordsWithTable": string;
+                "getGridRows": string;
+                "getGridRowsWithTable": string;
                 "getFields": string;
                 "getFieldsWithTable": string;
                 "getTables": string;
@@ -4851,6 +4854,7 @@ export type I18nTranslations = {
                 "search": string;
                 "searchEmpty": string;
                 "emptyContext": string;
+                "selectionRows": string;
             };
             "inputPlaceholder": string;
             "thought": string;

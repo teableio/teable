@@ -1,5 +1,5 @@
 import { getActionTriggerChannel } from '@teable/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from './use-connection';
 
@@ -11,13 +11,19 @@ export interface IActionData {
 export const usePresence = (channel: string | undefined) => {
   const { connection } = useConnection();
   const [presence, setPresence] = useState<Presence>();
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (connection == null || channel == null) return;
 
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+      cleanupTimeoutRef.current = undefined;
+    }
+
     const remotePresence = connection.getPresence(channel);
 
-    if (!remotePresence.subscribed) {
+    if (!remotePresence.subscribed && !remotePresence.wantSubscribe) {
       remotePresence.subscribe((err) => {
         if (err) {
           console.error('[usePresence] Subscribe error:', err);
@@ -28,10 +34,12 @@ export const usePresence = (channel: string | undefined) => {
     setPresence(remotePresence);
 
     return () => {
-      if (remotePresence.listenerCount('receive') === 0) {
-        remotePresence.unsubscribe();
-        remotePresence.destroy();
-      }
+      cleanupTimeoutRef.current = setTimeout(() => {
+        if (remotePresence.listenerCount('receive') === 0) {
+          remotePresence.unsubscribe();
+          remotePresence.destroy();
+        }
+      }, 200);
     };
   }, [channel, connection]);
 

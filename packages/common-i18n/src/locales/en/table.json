@@ -776,7 +776,8 @@
     "expandGroup": "Expand this group and its sub-groups",
     "collapseGroup": "Collapse this group and its sub-groups",
     "expandAllGroups": "Expand all groups",
-    "collapseAllGroups": "Collapse all groups"
+    "collapseAllGroups": "Collapse all groups",
+    "addToChat": "Add to Chat"
   },
   "connection": {
     "title": "Database connection",
@@ -1149,6 +1150,8 @@
     "queryTool": {
       "getRecords": "Query records",
       "getRecordsWithTable": "Query records · {{tableName}}",
+      "getGridRows": "Query grid rows",
+      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
       "getFields": "Query fields",
       "getFieldsWithTable": "Query fields · {{tableName}}",
       "getTables": "Query tables",
@@ -1327,7 +1330,8 @@
       "button": "Add context",
       "search": "Add tables",
       "searchEmpty": "No matching context found",
-      "emptyContext": "No context to add"
+      "emptyContext": "No context to add",
+      "selectionRows": "Rows {{start}}-{{end}}"
     },
     "inputPlaceholder": "Describe what you want to do",
     "thought": "Thinking",

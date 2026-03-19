@@ -778,7 +778,8 @@
     "expandGroup": "展开该组及子分组",
     "collapseGroup": "收起该组及子分组",
     "expandAllGroups": "展开所有分组",
-    "collapseAllGroups": "收起所有分组"
+    "collapseAllGroups": "收起所有分组",
+    "addToChat": "添加到对话"
   },
   "connection": {
     "title": "数据库连接",
@@ -1150,6 +1151,8 @@
     "queryTool": {
       "getRecords": "查询记录",
       "getRecordsWithTable": "查询记录 · {{tableName}}",
+      "getGridRows": "查询视图行",
+      "getGridRowsWithTable": "查询视图行 · {{tableName}}",
       "getFields": "查询字段",
       "getFieldsWithTable": "查询字段 · {{tableName}}",
       "getTables": "查询表",
@@ -1328,7 +1331,8 @@
       "button": "添加上下文",
       "search": "添加表格",
       "searchEmpty": "暂无匹配的上下文",
-      "emptyContext": "暂无可添加的上下文"
+      "emptyContext": "暂无可添加的上下文",
+      "selectionRows": "行 {{start}}-{{end}}"
     },
     "inputPlaceholder": "描述你想要做什么",
     "thought": "深度思考",

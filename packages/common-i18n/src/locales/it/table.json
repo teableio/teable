@@ -640,7 +640,8 @@
     "expandGroup": "Espandi questo gruppo e i suoi sottogruppi",
     "collapseGroup": "Comprimi questo gruppo e i suoi sottogruppi",
     "expandAllGroups": "Espandi tutti i gruppi",
-    "collapseAllGroups": "Comprimi tutti i gruppi"
+    "collapseAllGroups": "Comprimi tutti i gruppi",
+    "addToChat": "Aggiungi alla chat"
   },
   "connection": {
     "title": "Connessione al Database",
@@ -988,6 +989,8 @@
     "queryTool": {
       "getRecords": "Query record",
       "getRecordsWithTable": "Query record · {{tableName}}",
+      "getGridRows": "Query grid rows",
+      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
       "getFields": "Query campi",
       "getFieldsWithTable": "Query campi · {{tableName}}",
       "getTables": "Query tabelle",
@@ -1166,7 +1169,8 @@
       "button": "Aggiungi contesto",
       "search": "Aggiungi tabelle",
       "searchEmpty": "Nessun contesto trovato",
-      "emptyContext": "Nessun contesto da aggiungere"
+      "emptyContext": "Nessun contesto da aggiungere",
+      "selectionRows": "Righe {{start}}-{{end}}"
     },
     "inputPlaceholder": "Invia messaggio...",
     "thought": "Pensando",

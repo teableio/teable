@@ -627,7 +627,8 @@
     "expandGroup": "このグループとそのサブグループを展開",
     "collapseGroup": "このグループとそのサブグループを折りたたむ",
     "expandAllGroups": "すべてのグループを展開",
-    "collapseAllGroups": "すべてのグループを折りたたむ"
+    "collapseAllGroups": "すべてのグループを折りたたむ",
+    "addToChat": "チャットに追加"
   },
   "connection": {
     "title": "データベース接続",
@@ -962,6 +963,8 @@
     "queryTool": {
       "getRecords": "レコードを取得",
       "getRecordsWithTable": "レコードを取得 · {{tableName}}",
+      "getGridRows": "グリッド行を取得",
+      "getGridRowsWithTable": "グリッド行を取得 · {{tableName}}",
       "getFields": "フィールドを取得",
       "getFieldsWithTable": "フィールドを取得 · {{tableName}}",
       "getTables": "テーブルを取得",
@@ -1140,7 +1143,8 @@
       "button": "コンテキストを追加",
       "search": "テーブルを追加",
       "searchEmpty": "一致するコンテキストが見つかりません",
-      "emptyContext": "追加するコンテキストがありません"
+      "emptyContext": "追加するコンテキストがありません",
+      "selectionRows": "行 {{start}}-{{end}}"
     },
     "inputPlaceholder": "メッセージを送信...",
     "thought": "思考中",

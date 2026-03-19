@@ -7,6 +7,7 @@ export function useAI() {
   const { data } = useQuery({
     queryKey: ['ai-config', baseId],
     queryFn: () => getAIConfig(baseId).then(({ data }) => data),
+    enabled: Boolean(baseId),
   });
 
   return {

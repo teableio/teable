@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IAttachmentItem, IFieldVo, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
@@ -63,6 +63,7 @@ import {
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   useBaseId,
   useFields,
@@ -97,6 +98,7 @@ import { usePrevious, useClickAway } from 'react-use';
 import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
+import { useChatPanelStore } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
@@ -122,6 +124,30 @@ import { useGridSearchStore } from './useGridSearchStore';
 import { getEffectRows, generateSeriesForColumn, isEmptyValue } from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 
+/**
+ * Extract row ranges (0-based) from a CombinedSelection.
+ * Returns null for column-only selections.
+ */
+function getRowRangesFromSelection(selection: CombinedSelection): [number, number][] | null {
+  const { isCellSelection, isRowSelection } = selection;
+
+  if (isCellSelection) {
+    const [[, startRow], [, endRow]] = selection.serialize();
+    return [[startRow, endRow]];
+  }
+
+  if (isRowSelection) {
+    return selection
+      .serialize()
+      .map(
+        ([startRow, endRow]) =>
+          [Math.min(startRow, endRow), Math.max(startRow, endRow)] as [number, number]
+      );
+  }
+
+  return null;
+}
+
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo | null;
   onRowExpand?: (recordId: string) => void;
@@ -134,6 +160,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 ) => {
   const { groupPointsServerData, onRowExpand } = props;
   const { t, i18n } = useTranslation(tableConfig.i18nNamespaces);
+  const queryClient = useQueryClient();
   const { updateRecord, duplicateRecord } = useRecordOperations();
   const router = useRouter();
   const baseId = useBaseId();
@@ -223,6 +250,24 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId),
     personalViewCommonQuery
   );
+
+  useEffect(() => {
+    if (!baseId || !activeViewId) return;
+    const queryKey = ReactQueryKeys.activeViewContext(baseId);
+
+    queryClient.setQueryData(queryKey, {
+      tableId,
+      viewId: activeViewId,
+      query: viewQuery,
+    });
+
+    return () => {
+      const current = queryClient.getQueryData<{ viewId?: string }>(queryKey);
+      if (current?.viewId === activeViewId) {
+        queryClient.removeQueries({ queryKey, exact: true });
+      }
+    };
+  }, [queryClient, baseId, tableId, activeViewId, viewQuery]);
 
   const {
     onVisibleRegionChanged,
@@ -524,6 +569,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         openRecordMenu({
           position,
           isMultipleSelected,
+          addToChat: () => {
+            const rowRanges = getRowRangesFromSelection(selection);
+            if (rowRanges && baseId) {
+              queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
+                rows: rowRanges,
+                timestamp: Date.now(),
+                addToChat: true,
+              });
+              useChatPanelStore.getState().open();
+            }
+          },
           deleteRecords: async () => {
             const deleteRows = getEffectRows(selection, realRowCount);
 
@@ -554,6 +610,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           record,
           neighborRecords,
+          addToChat: () => {
+            const rowRanges = getRowRangesFromSelection(selection);
+            if (rowRanges && baseId) {
+              queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
+                rows: rowRanges,
+                timestamp: Date.now(),
+                addToChat: true,
+              });
+              useChatPanelStore.getState().open();
+            }
+          },
           insertRecord: (anchorId, position, num: number) => {
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
@@ -806,6 +873,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
       return;
     }
+
+    // Write selection to RQ cache for chat paste detection
+    const rowRanges = getRowRangesFromSelection(selection);
+    if (rowRanges && baseId) {
+      queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
+        rows: rowRanges,
+        timestamp: Date.now(),
+      });
+    }
+
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
       // sync copy
       syncCopy(e, { selection, recordMap });

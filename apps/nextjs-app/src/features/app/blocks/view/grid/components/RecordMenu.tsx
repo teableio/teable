@@ -1,6 +1,15 @@
-import { History, Trash2, ArrowUp, ArrowDown, Copy, Link, MessageSquare } from '@teable/icons';
+import {
+  History,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Copy,
+  Link,
+  MessageSquare,
+  MessageSquareDot,
+} from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
-import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
+import { useBaseId, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
   cn,
   Command,
@@ -22,6 +31,8 @@ import { noop } from 'lodash';
 import { useTranslation, Trans } from 'next-i18next';
 import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
+import { useAI } from '@/features/app/hooks/useAI';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export interface IMenuItemProps<T> {
@@ -50,6 +61,7 @@ enum MenuItemType {
   Duplicate = 'Duplicate',
   ViewHistory = 'ViewHistory',
   AddComment = 'AddComment',
+  AddToChat = 'AddToChat',
 }
 
 const iconClassName = 'mr-2 h-4 w-4 shrink-0';
@@ -112,10 +124,14 @@ export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu } = useGridViewStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
+  const baseId = useBaseId();
   const view = useView();
   const viewId = view?.id;
   const permission = useTablePermission();
   const recordMenuRef = useRef<HTMLDivElement>(null);
+  const { enable: aiEnable } = useAI();
+  const usage = useBaseUsage({ disabled: !baseId });
+  const chatEnabled = Boolean(aiEnable && usage?.limit?.chatAIEnable);
 
   useClickAway(recordMenuRef, () => {
     closeRecordMenu();
@@ -231,6 +247,15 @@ export const RecordMenu = () => {
           if (tableId && recordMenu?.addRecordComment) {
             await recordMenu.addRecordComment();
           }
+        },
+      },
+      {
+        type: MenuItemType.AddToChat,
+        name: t('table:menu.addToChat'),
+        icon: <MessageSquareDot className={iconClassName} />,
+        hidden: !chatEnabled || !recordMenu?.addToChat,
+        onClick: () => {
+          recordMenu?.addToChat?.();
         },
       },
     ],

@@ -22,6 +22,7 @@ export interface IRecordMenu {
   copyRecordUrl?: () => Promise<void>;
   viewRecordHistory?: () => Promise<void>;
   addRecordComment?: () => Promise<void>;
+  addToChat?: () => void;
 }
 
 export interface IStatisticMenu {

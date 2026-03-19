@@ -621,7 +621,8 @@
     "expandGroup": "Bu grup ve alt gruplarını genişlet",
     "collapseGroup": "Bu grup ve alt gruplarını daralt",
     "expandAllGroups": "Tüm grupları genişlet",
-    "collapseAllGroups": "Tüm grupları daralt"
+    "collapseAllGroups": "Tüm grupları daralt",
+    "addToChat": "Sohbete ekle"
   },
   "connection": {
     "title": "Veritabanı Bağlantısı",

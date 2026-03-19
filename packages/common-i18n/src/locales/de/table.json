@@ -640,7 +640,8 @@
     "expandGroup": "Gruppe und Untergruppen erweitern",
     "collapseGroup": "Gruppe und Untergruppen einklappen",
     "expandAllGroups": "Alle Gruppen erweitern",
-    "collapseAllGroups": "Alle Gruppen einklappen"
+    "collapseAllGroups": "Alle Gruppen einklappen",
+    "addToChat": "Zum Chat hinzufügen"
   },
   "connection": {
     "title": "Datenbankverbindung",
@@ -984,6 +985,8 @@
     "queryTool": {
       "getRecords": "Datensätze abfragen",
       "getRecordsWithTable": "Datensätze abfragen · {{tableName}}",
+      "getGridRows": "Query grid rows",
+      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
       "getFields": "Felder abfragen",
       "getFieldsWithTable": "Felder abfragen · {{tableName}}",
       "getTables": "Tabellen abfragen",
@@ -1162,7 +1165,8 @@
       "button": "Kontext hinzufügen",
       "search": "Tabellen hinzufügen",
       "searchEmpty": "Kein passender Kontext gefunden",
-      "emptyContext": "Kein Kontext zum Hinzufügen"
+      "emptyContext": "Kein Kontext zum Hinzufügen",
+      "selectionRows": "Zeilen {{start}}-{{end}}"
     },
     "inputPlaceholder": "Nachricht senden...",
     "thought": "Denken",

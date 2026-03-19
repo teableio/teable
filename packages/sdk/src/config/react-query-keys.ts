@@ -240,6 +240,10 @@ export const ReactQueryKeys = {
 
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
 
+  activeViewContext: (baseId: string) => ['active-view-context', baseId] as const,
+
+  gridSelection: (baseId: string) => ['grid-selection', baseId] as const,
+
   recentlyBase: () => ['recently-base'] as const,
 
   oauthAppList: () => ['oauth-app-list'] as const,

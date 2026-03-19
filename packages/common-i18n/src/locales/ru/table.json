@@ -628,7 +628,8 @@
     "expandGroup": "Развернуть эту группу и ее подгруппы",
     "collapseGroup": "Свернуть эту группу и ее подгруппы",
     "expandAllGroups": "Развернуть все группы",
-    "collapseAllGroups": "Свернуть все группы"
+    "collapseAllGroups": "Свернуть все группы",
+    "addToChat": "Добавить в чат"
   },
   "connection": {
     "title": "Подключение к базе данных",
@@ -963,6 +964,8 @@
     "queryTool": {
       "getRecords": "Запрос записей",
       "getRecordsWithTable": "Запрос записей · {{tableName}}",
+      "getGridRows": "Query grid rows",
+      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
       "getFields": "Запрос полей",
       "getFieldsWithTable": "Запрос полей · {{tableName}}",
       "getTables": "Запрос таблиц",
@@ -1141,7 +1144,8 @@
       "button": "Добавить контекст",
       "search": "Добавить таблицы",
       "searchEmpty": "Не найден соответствующий контекст",
-      "emptyContext": "Нет контекста для добавления"
+      "emptyContext": "Нет контекста для добавления",
+      "selectionRows": "Строки {{start}}-{{end}}"
     },
     "inputPlaceholder": "Отправить сообщение...",
     "thought": "Мысли",
