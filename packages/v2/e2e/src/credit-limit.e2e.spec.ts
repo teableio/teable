@@ -55,10 +55,11 @@ describe('v2 credit limit (e2e)', () => {
       body: JSON.stringify({ tableId, records }),
     });
 
-    expect(response.status).toBe(expectedStatus);
+    const rawBody = await response.json().catch(async () => response.text());
+
+    expect(response.status, JSON.stringify(rawBody)).toBe(expectedStatus);
     if (expectedStatus !== 201) return;
 
-    const rawBody = await response.json();
     const parsed = createRecordsOkResponseSchema.safeParse(rawBody);
     expect(parsed.success).toBe(true);
     if (!parsed.success || !parsed.data.ok) {

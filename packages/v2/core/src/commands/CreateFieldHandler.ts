@@ -2,8 +2,13 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationAddSideEffects,
+  prepareFieldAddSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
@@ -11,9 +16,11 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
-import type { Table } from '../domain/table/Table';
+import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import { ViewId } from '../domain/table/views/ViewId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -37,12 +44,16 @@ export class CreateFieldResult {
 @injectable()
 export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, CreateFieldResult> {
   constructor(
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -61,64 +72,113 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         // Foreign references may point to tables in other bases (e.g. cross-base lookup).
         references: foreignTableReferences,
       });
+      const tableSpec = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
+      const table = yield* await handler.tableRepository.findOne(context, tableSpec);
       const domainContext = ExecutionContextPort.getDomainContext(context);
-      let createdField: Field | undefined;
+      const existingNames = table.getFields().map((field) => field.name().toString());
+      const resolvedField = yield* resolveTableFieldInputName(command.field, existingNames, {
+        t: context.$t,
+        hostTable: table,
+        foreignTables,
+      });
+      const normalizedField = handler.populateLinkLookupFieldId(resolvedField, foreignTables);
+      const field = yield* parseTableFieldSpec(normalizedField, {
+        isPrimary: false,
+        executionContext: context,
+      })
+        .andThen((spec) => spec.createField({ baseId: command.baseId, tableId: command.tableId }))
+        .andThen((field) => {
+          if (!normalizedField.dbFieldName) {
+            return ok(field);
+          }
+
+          return DbFieldName.rehydrate(normalizedField.dbFieldName)
+            .andThen((dbFieldName) => field.setDbFieldName(dbFieldName))
+            .map(() => field);
+        });
+      const plannedSideEffects = yield* collectFieldCreationAddSideEffects(
+        table,
+        [field],
+        foreignTables,
+        domainContext
+      );
+      const basePluginContext = {
+        kind: FieldOperationKind.create,
+        executionContext: context,
+        table,
+        target: {
+          kind: FieldOperationTargetKind.direct,
+          sourceOperation: FieldOperationKind.create,
+          sourceTable: table,
+        },
+        payload: {
+          field: normalizedField,
+          candidateField: field,
+          order: command.order,
+          foreignTables,
+          domainContext,
+        },
+        isTransactionBound: false,
+      } as const;
+      const pluginExecution =
+        yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
+      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.create,
+        sourceTable: table,
+        foreignTables,
+        domainContext,
+        sideEffects: plannedSideEffects,
+      });
+      yield* await pluginExecution.guard();
+      yield* await sideEffectPluginExecution.guard();
+      const createdField: Field = field;
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
-        { baseId: command.baseId, tableId: command.tableId },
+        { table },
         (table) => {
-          const existingNames = table.getFields().map((field) => field.name().toString());
-          return resolveTableFieldInputName(command.field, existingNames, {
-            t: context.$t,
-            hostTable: table,
+          const addFieldOptions = {
             foreignTables,
-          }).andThen((resolved) => {
-            const normalized = handler.populateLinkLookupFieldId(resolved, foreignTables);
-            return parseTableFieldSpec(normalized, {
-              isPrimary: false,
-              executionContext: context,
-            })
-              .andThen((spec) =>
-                spec.createField({ baseId: command.baseId, tableId: command.tableId })
-              )
-              .andThen((field) => {
-                if (normalized.dbFieldName) {
-                  const dbFieldNameResult = DbFieldName.rehydrate(normalized.dbFieldName).andThen(
-                    (dbFieldName) => field.setDbFieldName(dbFieldName)
-                  );
-                  if (dbFieldNameResult.isErr()) {
-                    return err(dbFieldNameResult.error);
-                  }
-                }
-                createdField = field;
-                const addFieldOptions = {
-                  foreignTables,
-                  domainContext,
-                };
-                if (!command.order) {
-                  return table.update((mutator) => mutator.addField(field, addFieldOptions));
-                }
+            domainContext,
+          };
+          if (!command.order) {
+            return table.update((mutator) => mutator.addField(field, addFieldOptions));
+          }
 
-                const order = command.order;
-                return ViewId.create(order.viewId).andThen((viewId) =>
-                  table.update((mutator) =>
-                    mutator.addField(field, {
-                      ...addFieldOptions,
-                      viewOrder: {
-                        viewId,
-                        order: order.orderIndex,
-                      },
-                    })
-                  )
-                );
-              });
-          });
+          const order = command.order;
+          return ViewId.create(order.viewId).andThen((viewId) =>
+            table.update((mutator) =>
+              mutator.addField(field, {
+                ...addFieldOptions,
+                viewOrder: {
+                  viewId,
+                  order: order.orderIndex,
+                },
+              })
+            )
+          );
         },
         {
           hooks: {
             prepare: async (transactionContext, updatedTable) => {
-              if (!createdField) {
-                return ok([]);
+              const beforePersistResult = await pluginExecution.beforePersist(transactionContext, {
+                ...basePluginContext,
+                executionContext: transactionContext,
+                table: updatedTable,
+                result: {
+                  createdField,
+                },
+                isTransactionBound: true,
+              });
+              if (beforePersistResult.isErr()) {
+                return err(beforePersistResult.error);
+              }
+
+              const sideEffectBeforePersistResult =
+                await sideEffectPluginExecution.beforePersist(transactionContext);
+              if (sideEffectBeforePersistResult.isErr()) {
+                return err(sideEffectBeforePersistResult.error);
               }
 
               const previewResult = await handler.fieldCreationSideEffectService.preview({
@@ -169,6 +229,14 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
           snapshot,
         }),
       });
+      await pluginExecution.afterCommit({
+        ...basePluginContext,
+        table: updateResult.table,
+        result: {
+          createdField,
+        },
+      });
+      await sideEffectPluginExecution.afterCommit();
 
       return ok(CreateFieldResult.create(updateResult.table, updateResult.events));
     });

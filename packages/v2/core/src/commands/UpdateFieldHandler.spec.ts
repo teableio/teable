@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
-import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
@@ -13,24 +14,46 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldUpdated } from '../domain/table/events/FieldUpdated';
+import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
+import { TABLE_FIELD_LIMIT_ERROR_CODE } from '../domain/table/TableFieldLimit';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository, TableUpdatePersistResult } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import {
+  createFieldOperationPluginRunner,
+  createTrackedFieldOperationPlugin,
+  expectFieldOperationPluginToBeSkipped,
+} from './fieldOperationPluginRunnerTestUtils';
 import { UpdateFieldCommand } from './UpdateFieldCommand';
 import { UpdateFieldHandler } from './UpdateFieldHandler';
 
-const createContext = (): IExecutionContext => ({
+const createContext = (options?: {
+  maxFieldsPerTable?: number;
+  t?: NonNullable<IExecutionContext['$t']>;
+}): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
+  config:
+    options?.maxFieldsPerTable == null
+      ? undefined
+      : {
+          tableFields: {
+            maxFieldsPerTable: options.maxFieldsPerTable,
+          },
+        },
+  $t: options?.t,
 });
 
 const noopUndoRedoService = {
@@ -71,9 +94,36 @@ const buildTable = () => {
 
   return {
     table: builder.build()._unsafeUnwrap(),
+    baseId,
     tableId,
     fieldId,
   };
+};
+
+let generatedFieldCounter = 0;
+
+const createGeneratedField = (name: string) =>
+  (() => {
+    const field = SingleLineTextField.create({
+      id: FieldId.create(
+        `fld${(generatedFieldCounter++).toString(36).padStart(16, '0')}`
+      )._unsafeUnwrap(),
+      name: FieldName.create(name)._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    field
+      .setDbFieldName(DbFieldName.rehydrate(field.id().toString())._unsafeUnwrap())
+      ._unsafeUnwrap();
+    return field;
+  })();
+
+const addTextFields = (table: Table, count: number, prefix: string): Table => {
+  let currentTable = table;
+  for (let index = 0; index < count; index += 1) {
+    currentTable = currentTable
+      .update((mutator) => mutator.addField(createGeneratedField(`${prefix} ${index + 1}`)))
+      ._unsafeUnwrap().table;
+  }
+  return currentTable;
 };
 
 class FakeTableRepository implements ITableRepository {
@@ -179,6 +229,8 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
+const tableMapper = new DefaultTableMapper();
+
 describe('UpdateFieldHandler', () => {
   it('does not publish record update events after type conversion', async () => {
     const { table, tableId, fieldId } = buildTable();
@@ -190,6 +242,7 @@ describe('UpdateFieldHandler', () => {
 
     const handler = new UpdateFieldHandler(
       tableRepository,
+      tableMapper,
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -209,6 +262,7 @@ describe('UpdateFieldHandler', () => {
           return ok([]);
         },
       } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -237,6 +291,7 @@ describe('UpdateFieldHandler', () => {
 
     const handler = new UpdateFieldHandler(
       tableRepository,
+      tableMapper,
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -256,6 +311,7 @@ describe('UpdateFieldHandler', () => {
           return ok([]);
         },
       } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -286,6 +342,7 @@ describe('UpdateFieldHandler', () => {
 
     const handler = new UpdateFieldHandler(
       tableRepository,
+      tableMapper,
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -305,6 +362,7 @@ describe('UpdateFieldHandler', () => {
           return ok([]);
         },
       } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -351,6 +409,7 @@ describe('UpdateFieldHandler', () => {
 
     const handler = new UpdateFieldHandler(
       tableRepository,
+      tableMapper,
       new TableUpdateFlow(
         tableRepository,
         new FakeTableSchemaRepository(),
@@ -370,6 +429,7 @@ describe('UpdateFieldHandler', () => {
           return ok([]);
         },
       } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -394,5 +454,344 @@ describe('UpdateFieldHandler', () => {
     expect(fieldEvents[0]?.newVersion).toBe(4);
     expect(fieldEvents[1]?.oldVersion).toBe(4);
     expect(fieldEvents[1]?.newVersion).toBe(5);
+  });
+
+  it('captures the old field snapshot before preview planning mutates constraints', async () => {
+    const { table, tableId } = buildTable();
+    const targetField = createGeneratedField('Secondary');
+    const tableWithTargetField = table
+      .update((mutator) => mutator.addField(targetField))
+      ._unsafeUnwrap().table;
+    const fieldId = targetField.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(tableWithTargetField);
+
+    const capturedUniqueStates: boolean[] = [];
+    const snapshotService = {
+      async capture(_context: IExecutionContext, sourceTable: Table, sourceFieldId: FieldId) {
+        const field = sourceTable.getField((candidate) => candidate.id().equals(sourceFieldId));
+        if (field.isErr()) {
+          return err(field.error);
+        }
+
+        const unique = field.value.unique().toBoolean();
+        capturedUniqueStates.push(unique);
+
+        return ok({
+          field: {
+            id: sourceFieldId.toString(),
+            name: field.value.name().toString(),
+            type: 'singleLineText',
+            unique,
+          },
+          views: [],
+          records: [],
+        });
+      },
+    } as unknown as FieldUndoRedoSnapshotService;
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      tableMapper,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      snapshotService
+    );
+
+    const command = UpdateFieldCommand.create({
+      tableId: tableId.toString(),
+      fieldId: fieldId.toString(),
+      field: {
+        unique: true,
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    expect(capturedUniqueStates).toEqual([false, true]);
+  });
+
+  it('returns a validation error when link conversion would exceed the foreign table field limit', async () => {
+    const baseId = `bse${'a'.repeat(16)}`;
+    const hostTableId = `tbl${'b'.repeat(16)}`;
+    const foreignTableId = `tbl${'c'.repeat(16)}`;
+    const hostPrimaryId = `fld${'d'.repeat(16)}`;
+    const sourceFieldId = `fld${'e'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'f'.repeat(16)}`;
+
+    const hostTable = Table.builder()
+      .withId(TableId.create(hostTableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('Host')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(hostPrimaryId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(sourceFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('Link Source')._unsafeUnwrap())
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+
+    const foreignTable = addTextFields(
+      Table.builder()
+        .withId(TableId.create(foreignTableId)._unsafeUnwrap())
+        .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+        .withName(TableName.create('Foreign')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withId(FieldId.create(foreignPrimaryId)._unsafeUnwrap())
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap(),
+      2,
+      'Foreign Extra'
+    );
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(hostTable, foreignTable);
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      tableMapper,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = UpdateFieldCommand.create({
+      tableId: hostTableId,
+      fieldId: sourceFieldId,
+      field: {
+        type: 'link',
+        name: 'Projects',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({
+        maxFieldsPerTable: 3,
+        t: (_key, options) =>
+          `limit:${String(options?.maxFieldCount)} table:${String(options?.tableName)}`,
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
+    expect(result.error.message).toContain('limit:3');
+    expect(result.error.message).toContain('table:Foreign');
+    expect(result.error.details).toMatchObject({
+      tableName: 'Foreign',
+      currentFieldCount: 3,
+      attemptedFieldCount: 4,
+      maxFieldCount: 3,
+    });
+  });
+
+  it('runs create plugins for reciprocal side-effect targets during link conversion', async () => {
+    const baseId = `bse${'g'.repeat(16)}`;
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const foreignTableId = `tbl${'i'.repeat(16)}`;
+    const hostPrimaryId = `fld${'j'.repeat(16)}`;
+    const sourceFieldId = `fld${'k'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'l'.repeat(16)}`;
+
+    const hostTable = Table.builder()
+      .withId(TableId.create(hostTableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('Host')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(hostPrimaryId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(sourceFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('Link Source')._unsafeUnwrap())
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+
+    const foreignTable = Table.builder()
+      .withId(TableId.create(foreignTableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('Foreign')._unsafeUnwrap())
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(foreignPrimaryId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(hostTable, foreignTable);
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      tableMapper,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([plugin]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = UpdateFieldCommand.create({
+      tableId: hostTableId,
+      fieldId: sourceFieldId,
+      field: {
+        type: 'link',
+        name: 'Projects',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(calls.supports).toEqual([FieldOperationKind.update, FieldOperationKind.create]);
+    expect(calls.prepare).toHaveLength(1);
+    expect(calls.guard).toHaveLength(1);
+    expect(calls.beforePersist).toHaveLength(1);
+    expect(calls.afterCommit).toHaveLength(1);
+    expect(calls.prepare[0]?.kind).toBe(FieldOperationKind.create);
+    expect(calls.prepare[0]?.table.id().toString()).toBe(foreignTableId);
+    expect(calls.prepare[0]?.target.kind).toBe('sideEffect');
+    expect(calls.prepare[0]?.target.sourceOperation).toBe(FieldOperationKind.update);
+    expect(calls.prepare[0]?.target.sourceTable.id().toString()).toBe(hostTableId);
+  });
+
+  it('skips plugins that do not support update', async () => {
+    const { table, tableId, fieldId } = buildTable();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const eventBus = new FakeEventBus();
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      tableMapper,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        eventBus,
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner([plugin]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = UpdateFieldCommand.create({
+      tableId: tableId.toString(),
+      fieldId: fieldId.toString(),
+      field: {
+        name: 'Renamed',
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expectFieldOperationPluginToBeSkipped(calls, FieldOperationKind.update);
   });
 });

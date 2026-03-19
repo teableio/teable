@@ -2,21 +2,23 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { ITableRepository } from '../ports/TableRepository';
+import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
+import { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -55,6 +57,8 @@ export class DuplicateFieldHandler
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -81,6 +85,28 @@ export class DuplicateFieldHandler
           : yield* await handler.foreignTableLoaderService.load(context, {
               references: foreignTableReferences,
             });
+      const basePluginContext = {
+        kind: FieldOperationKind.duplicate,
+        executionContext: context,
+        table: sourceTable,
+        target: {
+          kind: FieldOperationTargetKind.direct,
+          sourceOperation: FieldOperationKind.duplicate,
+          sourceTable: sourceTable,
+        },
+        payload: {
+          fieldId: command.fieldId,
+          sourceField: loadedSourceField,
+          foreignTables,
+          includeRecordValues: command.includeRecordValues,
+          newFieldName: command.newFieldName,
+          viewId: command.viewId?.toString(),
+        },
+        isTransactionBound: false,
+      } as const;
+      const pluginExecution =
+        yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
+      yield* await pluginExecution.guard();
 
       let newField: Field | undefined;
       let sourceFieldForResult: Field | undefined;
@@ -129,6 +155,27 @@ export class DuplicateFieldHandler
           }),
         {
           hooks: {
+            prepare: async (transactionContext, updatedTable) => {
+              if (!newField || !sourceFieldForResult) {
+                return err(domainError.unexpected({ message: 'Field not created' }));
+              }
+
+              const beforePersistResult = await pluginExecution.beforePersist(transactionContext, {
+                ...basePluginContext,
+                executionContext: transactionContext,
+                table: updatedTable,
+                result: {
+                  sourceField: sourceFieldForResult,
+                  duplicatedField: newField,
+                },
+                isTransactionBound: true,
+              });
+              if (beforePersistResult.isErr()) {
+                return err(beforePersistResult.error);
+              }
+
+              return ok([]);
+            },
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
                 if (!newField || !loadedSourceField) {
@@ -170,6 +217,14 @@ export class DuplicateFieldHandler
           tableId: command.tableId.toString(),
           snapshot,
         }),
+      });
+      await pluginExecution.afterCommit({
+        ...basePluginContext,
+        table: updateResult.table,
+        result: {
+          sourceField: sourceFieldForResult,
+          duplicatedField: newField,
+        },
       });
 
       return ok(

@@ -26,6 +26,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryOptions,
@@ -42,6 +43,11 @@ import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { DeleteRecordsHandler } from './DeleteRecordsHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -272,6 +278,7 @@ describe('DeleteRecordsHandler', () => {
 
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       queryRepository,
       eventBus,
@@ -299,6 +306,39 @@ describe('DeleteRecordsHandler', () => {
     expect(deletedEvent?.recordSnapshots[0].fields).toEqual({ title: 'Record A' });
   });
 
+  it('skips plugins that do not support deleteMany', async () => {
+    const { table, tableId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+    ];
+    const eventBus = new FakeEventBus();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new DeleteRecordsHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner([plugin]),
+      new FakeTableRecordRepository(),
+      queryRepository,
+      eventBus,
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteRecordsCommand.create({
+      tableId: tableId.toString(),
+      recordIds: [`rec${'c'.repeat(16)}`],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.deleteMany);
+  });
+
   it('uses RecordByIdsSpec for large recordIds deletion to avoid deep OR spec trees', async () => {
     const { table, tableId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -320,6 +360,7 @@ describe('DeleteRecordsHandler', () => {
     const recordRepository = new FakeTableRecordRepository();
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       queryRepository,
       new FakeEventBus(),
@@ -350,6 +391,7 @@ describe('DeleteRecordsHandler', () => {
 
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       new FakeTableRecordQueryRepository(),
       eventBus,
@@ -378,6 +420,7 @@ describe('DeleteRecordsHandler', () => {
 
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       new FakeTableRecordQueryRepository(),
       new FakeEventBus(),

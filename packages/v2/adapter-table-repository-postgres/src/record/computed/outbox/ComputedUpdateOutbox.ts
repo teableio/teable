@@ -1,4 +1,8 @@
 import {
+  getPostgresTransaction,
+  resolvePostgresDbOrTx,
+} from '@teable/v2-adapter-db-postgres-shared';
+import {
   domainError,
   type DomainError,
   generatePrefixedId,
@@ -106,7 +110,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       Result<{ taskId: string; merged: boolean }, DomainError>
     > => {
       const now = new Date();
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
       return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
         await acquireOutboxAdvisoryLock(
@@ -217,7 +221,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       Result<{ taskId: string; merged: boolean }, DomainError>
     > => {
       const now = new Date();
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
       return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
         await acquireOutboxAdvisoryLock(
@@ -295,7 +299,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       Result<{ taskId: string; merged: boolean }, DomainError>
     > => {
       const now = new Date();
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
       return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
         await acquireOutboxAdvisoryLock(
@@ -389,7 +393,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeClaim = async (): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>> => {
       const now = params.now ?? new Date();
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
       return runInTransaction(db, context, async (trx) => {
         const rows = await trx
@@ -440,7 +444,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     });
 
     const executeMarkDone = async (): Promise<Result<void, DomainError>> => {
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       return runInTransaction(db, context, async (trx) => {
         await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).execute();
         await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
@@ -471,7 +475,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeMarkFailed = async (): Promise<Result<void, DomainError>> => {
       const now = new Date();
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       const nextAttempts = task.attempts + 1;
 
       return runInTransaction(db, context, async (trx) => {
@@ -1008,26 +1012,6 @@ const mergeOriginRunIds = (existing: string[], incoming: string[]): string[] => 
   return [...merged];
 };
 
-interface PostgresTransactionContext<DB> {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-}
-
-const getPostgresTransaction = <DB>(context?: IExecutionContext): Transaction<DB> | null => {
-  const transaction = context?.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context?: IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
-};
-
 class OutboxAbort extends Error {
   constructor(readonly error: DomainError) {
     super(error.message);
@@ -1044,8 +1028,9 @@ const runInTransaction = async <T>(
 ): Promise<Result<T, DomainError>> => {
   const hasTransaction = Boolean(getPostgresTransaction(context));
   let attempt = 0;
+  let lastUnexpectedError: unknown;
 
-  while (true) {
+  while (!hasTransaction || attempt === 0) {
     try {
       if (hasTransaction) {
         const result = await fn(db as Transaction<DynamicDB>);
@@ -1070,13 +1055,16 @@ const runInTransaction = async <T>(
         await sleep(delayMs);
         continue;
       }
-      return err(
-        domainError.infrastructure({
-          message: `Outbox transaction failed: ${describeError(error)}`,
-        })
-      );
+      lastUnexpectedError = error;
+      break;
     }
   }
+
+  return err(
+    domainError.infrastructure({
+      message: `Outbox transaction failed: ${describeError(lastUnexpectedError)}`,
+    })
+  );
 };
 
 const sleep = async (ms: number): Promise<void> => {
@@ -1180,20 +1168,6 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
  */
 const isFieldBackfillItem = (task: AnyOutboxItem): task is FieldBackfillOutboxItem => {
   return (task as FieldBackfillOutboxItem).taskType === 'field-backfill';
-};
-
-/**
- * Build seed groups from any outbox item (only applicable for computed update tasks).
- */
-const buildSeedGroupsFromAnyTask = (task: AnyOutboxItem): SeedGroup[] => {
-  if (isFieldBackfillItem(task)) {
-    // Field backfill tasks don't have seed records
-    return [];
-  }
-  if (isSeedItem(task)) {
-    return buildSeedGroupsFromSeedPayload(task);
-  }
-  return buildSeedGroupsFromTask(task);
 };
 
 /**

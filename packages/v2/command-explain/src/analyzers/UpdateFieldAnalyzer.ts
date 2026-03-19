@@ -12,6 +12,7 @@ import {
   UpdateFieldHandler,
   type DomainError,
   type IExecutionContext,
+  type ITableMapper,
   type ITableRepository,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -27,6 +28,7 @@ import type { ICommandAnalyzer } from './ICommandAnalyzer';
 import {
   buildFieldSqlExplains,
   createFieldExplainDryRunEnvironment,
+  createNoopFieldOperationPluginRunner,
   createNoopUndoRedoService,
 } from './FieldCommandAnalyzeHelpers';
 import type { CommandExplainInfo, ExplainOptions, ExplainResult } from '../types';
@@ -42,6 +44,8 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
+    @inject(v2CoreTokens.tableMapper)
+    private readonly tableMapper: ITableMapper,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -96,9 +100,11 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
 
       const handler = new UpdateFieldHandler(
         dryRun.overlayTableRepository,
+        analyzer.tableMapper,
         tableUpdateFlow,
         fieldUpdateSideEffectService,
         analyzer.foreignTableLoaderService,
+        createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
         analyzer.fieldUndoRedoSnapshotService
       );

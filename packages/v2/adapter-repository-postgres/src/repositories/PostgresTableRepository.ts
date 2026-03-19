@@ -1,3 +1,7 @@
+import {
+  getPostgresTransaction,
+  resolvePostgresDbOrTx,
+} from '@teable/v2-adapter-db-postgres-shared';
 import * as core from '@teable/v2-core';
 import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -539,7 +543,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
 
     try {
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
       const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
@@ -650,7 +654,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const whereFactory = whereResult.value;
 
     try {
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
       const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
@@ -770,7 +774,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         eb.eb('deleted_time', 'is', null),
       ]);
 
-    const db = resolvePostgresDb(this.db, context);
+    const db = resolvePostgresDbOrTx(this.db, context);
     try {
       const updateVisitor = new TableMetaUpdateVisitor({
         db,
@@ -888,7 +892,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const mode = options?.mode ?? 'soft';
 
     try {
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
       if (mode === 'permanent') {
         const statements: CompiledQuery[] = [
           sql`
@@ -1822,26 +1826,6 @@ export class PostgresTableRepository implements core.ITableRepository {
     return { tableId: dto.id, dbTableName, fields };
   }
 }
-
-type PostgresTransactionContext<DB> = {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-};
-
-const getPostgresTransaction = <DB>(context: core.IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: core.IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
-};
 
 const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;

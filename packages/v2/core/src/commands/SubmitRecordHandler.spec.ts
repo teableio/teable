@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest';
 import type {
   IRecordCreationInput,
   IRecordCreationResult,
+  RecordCreationService,
 } from '../application/services/RecordCreationService';
-import { RecordCreationService } from '../application/services/RecordCreationService';
-import { TableQueryService } from '../application/services/TableQueryService';
+import type { TableQueryService } from '../application/services/TableQueryService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
-import type { DomainError } from '../domain/shared/DomainError';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { RecordCreated } from '../domain/table/events/RecordCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -20,6 +20,12 @@ import { TableName } from '../domain/table/TableName';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { CloneViewVisitor } from '../domain/table/views/visitors/CloneViewVisitor';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { RecordWriteOperationKind, type IRecordWritePlugin } from '../ports/RecordWritePlugin';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 import { SubmitRecordCommand } from './SubmitRecordCommand';
 import { SubmitRecordHandler } from './SubmitRecordHandler';
 
@@ -103,6 +109,67 @@ const withFormRequiredFields = (
   })._unsafeUnwrap();
 };
 
+const createRunnerBackedRecordCreationService = (
+  table: Table,
+  plugins: ReadonlyArray<IRecordWritePlugin>
+) => {
+  const runner = createRecordWritePluginRunner([...plugins]);
+  const service = {
+    create: async (context: IExecutionContext, input: IRecordCreationInput) => {
+      const executionResult = await runner.prepare({
+        kind: input.operationKind,
+        executionContext: context,
+        table: input.table,
+        payload: {
+          fieldValues: input.fieldValues,
+          fieldKeyType: input.fieldKeyType,
+          typecast: input.typecast,
+          source: input.source,
+          order: input.order,
+          recordCount: 1 as const,
+        },
+        isTransactionBound: false,
+      });
+      if (executionResult.isErr()) return err(executionResult.error);
+
+      const execution = executionResult.value;
+      const guardResult = await execution.guard();
+      if (guardResult.isErr()) return err(guardResult.error);
+
+      const beforePersistResult = await execution.beforePersist(context);
+      if (beforePersistResult.isErr()) return err(beforePersistResult.error);
+
+      const createResult = table.createRecord(input.fieldValues, {
+        typecast: input.typecast,
+        source: input.source,
+      });
+      if (createResult.isErr()) {
+        return err(createResult.error);
+      }
+
+      await execution.afterCommit();
+
+      return ok({
+        record: createResult.value.record,
+        events: [],
+        fieldKeyMapping: new Map(),
+      } satisfies IRecordCreationResult);
+    },
+  } as unknown as RecordCreationService;
+
+  return { service };
+};
+
+const createPluginAwareRecordCreationService = (
+  table: Table,
+  supportedOperations: ReadonlyArray<RecordWriteOperationKind>
+) => {
+  const { plugin, calls } = createTrackedRecordWritePlugin(supportedOperations);
+  const { service } = createRunnerBackedRecordCreationService(table, [plugin]);
+
+  return { service, calls };
+};
+
 describe('SubmitRecordHandler', () => {
   it('creates record from form with visible fields and propagates form source', async () => {
     const { table, textFieldId, formViewId } = createTestTable();
@@ -163,6 +230,66 @@ describe('SubmitRecordHandler', () => {
     );
     expect(createdEvent).toBeDefined();
     expect(createdEvent?.source).toEqual({ type: 'form', formId: formViewId });
+  });
+
+  it('skips plugins that do not support submit', async () => {
+    const { table, textFieldId, formViewId } = createTestTable();
+
+    const tableQueryService = {
+      getById: async () => ok(table),
+    } as unknown as TableQueryService;
+    const { service, calls } = createPluginAwareRecordCreationService(table, [
+      RecordWriteOperationKind.createOne,
+    ]);
+
+    const handler = new SubmitRecordHandler(tableQueryService, service);
+    const command = SubmitRecordCommand.create({
+      tableId: table.id().toString(),
+      formId: formViewId,
+      fields: {
+        [textFieldId]: 'submitted from form',
+      },
+      typecast: false,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.submit);
+  });
+
+  it('rejects when a plugin blocks submit', async () => {
+    const { table, textFieldId, formViewId } = createTestTable();
+
+    const tableQueryService = {
+      getById: async () => ok(table),
+    } as unknown as TableQueryService;
+    const blockingError = domainError.forbidden({
+      code: 'plugin.submit_blocked',
+      message: 'blocked submit',
+    });
+    const { service } = createRunnerBackedRecordCreationService(table, [
+      {
+        name: 'submit-blocker',
+        supports: (operation) => operation === RecordWriteOperationKind.submit,
+        guard: async () => err(blockingError),
+      },
+    ]);
+
+    const handler = new SubmitRecordHandler(tableQueryService, service);
+    const command = SubmitRecordCommand.create({
+      tableId: table.id().toString(),
+      formId: formViewId,
+      fields: {
+        [textFieldId]: 'submitted from form',
+      },
+      typecast: false,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('plugin.submit_blocked');
   });
 
   it('rejects when view is not a form', async () => {

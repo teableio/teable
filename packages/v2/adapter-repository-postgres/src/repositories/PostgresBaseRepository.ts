@@ -1,8 +1,12 @@
+import {
+  getPostgresTransaction,
+  resolvePostgresDbOrTx,
+} from '@teable/v2-adapter-db-postgres-shared';
 import * as core from '@teable/v2-core';
 import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql, type Transaction } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -75,7 +79,7 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     baseId: core.BaseId
   ): Promise<Result<core.Base | null, DomainError>> {
     try {
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
       const row = await db
         .selectFrom('base')
         .select(['id', 'name'])
@@ -102,7 +106,7 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     pagination: core.OffsetPagination
   ): Promise<Result<core.IFindBasesResult, DomainError>> {
     try {
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
 
       // Get total count
       const countResult = await db
@@ -159,26 +163,6 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     );
   }
 }
-
-type PostgresTransactionContext<DB> = {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-};
-
-const getPostgresTransaction = <DB>(context: core.IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: core.IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
-};
 
 const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;

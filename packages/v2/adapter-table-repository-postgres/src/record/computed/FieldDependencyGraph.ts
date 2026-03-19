@@ -1,3 +1,4 @@
+import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import { domainError, FieldId, TableId, v2CoreTokens } from '@teable/v2-core';
 import type { BaseId, IExecutionContext, DomainError, ILogger } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -102,7 +103,7 @@ export class FieldDependencyGraph {
     executionContext?: IExecutionContext,
     options: FieldDependencyGraphLoadOptions = {}
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
-    const db = resolvePostgresDb(this.db, executionContext);
+    const db = resolvePostgresDbOrTx(this.db, executionContext);
     const seedFieldIds = options.requiredFieldIds ?? [];
 
     // Use incremental mode when seed field IDs are provided
@@ -1243,28 +1244,6 @@ export class FieldDependencyGraph {
     }
   }
 }
-
-interface PostgresTransactionContext<DB> {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-}
-
-const getPostgresTransaction = <DB>(context: IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context?: IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  if (!context) return db;
-  const tx = getPostgresTransaction<DB>(context);
-  return tx ?? db;
-};
 
 const mergeEdges = (
   referenceEdges: ReadonlyArray<FieldDependencyEdge>,

@@ -1,3 +1,4 @@
+import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
   FieldType,
@@ -19,7 +20,7 @@ import type {
 import { inject, injectable } from '@teable/v2-di';
 import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
+import type { Expression, Kysely, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -409,7 +410,7 @@ export class ComputedFieldUpdater {
     });
 
     const runWork = async (): Promise<Result<ComputedUpdateLockSummary, DomainError>> => {
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       try {
         for (const statement of lockPlan.statements) {
           await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
@@ -452,7 +453,7 @@ export class ComputedFieldUpdater {
     const noSeedInput = plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0;
     const shouldSeedAllForSchemaUpdate = noSeedInput && plan.changeType === 'update';
     if (plan.steps.length === 0 || (noSeedInput && !shouldSeedAllForSchemaUpdate)) {
-      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       return ok({
         db,
         tableById: new Map(),
@@ -461,7 +462,7 @@ export class ComputedFieldUpdater {
       });
     }
 
-    const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
     return safeTry<PreparedDirtyState, DomainError>(
       async function* (this: ComputedFieldUpdater) {
@@ -877,7 +878,7 @@ export class ComputedFieldUpdater {
             selectQueries = [yield* builder.build()];
           }
 
-          let recordChanges: RecordChangeData[] = [];
+          const recordChanges: RecordChangeData[] = [];
           const executedSqls: Array<{ sql: string; parameterCount: number }> = [];
 
           if (collectChanges) {
@@ -1297,7 +1298,7 @@ export class ComputedFieldUpdater {
     const uniqueTableIds = [...new Set(tableIds.map((id) => id.toString()))];
     if (uniqueTableIds.length === 0) return ok([]);
 
-    const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
     try {
       const rows = await db
         .selectFrom(DIRTY_TABLE)
@@ -2030,26 +2031,6 @@ const buildPropagationSelect = (
 
     return ok(selectQuery);
   });
-};
-
-interface PostgresTransactionContext<DB> {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-}
-
-const getPostgresTransaction = <DB>(context: IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
 };
 
 const describeError = (error: unknown): string => {

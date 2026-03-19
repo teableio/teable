@@ -1,5 +1,6 @@
-import * as core from '@teable/v2-core';
 import { tableI18nKeys } from '@teable/i18n-keys';
+import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
+import * as core from '@teable/v2-core';
 import {
   domainError,
   type ILogger,
@@ -13,7 +14,7 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Expression, type Kysely, type SqlBool, type Transaction } from 'kysely';
+import { sql, type Expression, type Kysely, type SqlBool } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -38,14 +39,14 @@ import {
 import { BatchRecordUpdateBuilder } from '../query-builder/update/BatchRecordUpdateBuilder';
 import { buildBatchUpdateSql } from '../query-builder/update/BatchUpdateSqlBuilder';
 import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
-import { buildRecordWhereClause } from './buildRecordWhereClause';
-import { CellValueMutateVisitor } from '../visitors/CellValueMutateVisitor';
 import {
   TableRecordConditionWhereVisitor,
   FieldDeleteValueVisitor,
   type OutgoingLinkDeleteOp,
 } from '../visitors';
+import { CellValueMutateVisitor } from '../visitors/CellValueMutateVisitor';
 import type { LinkExclusivityConstraint } from '../visitors/LinkExclusivityConstraintCollector';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
@@ -321,7 +322,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorName?: string;
           actorEmail?: string;
         };
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
         // Resolve actor identity outside transaction-scoped connection to avoid
         // marking the current transaction as aborted when optional lookup fails.
         const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
@@ -494,7 +495,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorName?: string;
           actorEmail?: string;
         };
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
         // Resolve actor identity outside transaction-scoped connection to avoid
         // marking the current transaction as aborted when optional lookup fails.
         const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
@@ -823,7 +824,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const now = new Date().toISOString();
 
         // Use transaction-aware database connection
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
@@ -898,7 +899,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorEmail?: string;
         };
         const now = new Date().toISOString();
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
           recordId: '__bulk_update__',
@@ -1036,7 +1037,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorName?: string;
           actorEmail?: string;
         };
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         let totalUpdated = 0;
         let batchIndex = 0;
@@ -1271,7 +1272,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const whereClause = whereResult.value;
 
         // Use transaction-aware database connection
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
         const actorId = context.actorId.toString();
         const extraSeedMap = new Map<
           string,
@@ -2324,32 +2325,6 @@ const finalizeExtraSeedRecords = (
   }));
 };
 
-// Transaction context type for Postgres unit of work
-interface PostgresTransactionContext<DB> {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-}
-
-const getPostgresTransaction = <DB>(context: core.IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-/**
- * Resolves the correct database connection for the given context.
- * If the context has a transaction, returns the transaction connection.
- * Otherwise, returns the regular database connection.
- */
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: core.IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
-};
-
 /**
  * Build an advisory lock key for a linked record to prevent deadlocks.
  * The key format ensures consistent ordering across concurrent transactions.
@@ -2650,7 +2625,6 @@ const validateInsertExclusivityConstraints = async (
       for (const foreignRecordId of constraint.linkedForeignRecordIds) {
         const existingSourceId = seenForeignRecordIds.get(foreignRecordId);
         if (existingSourceId && existingSourceId !== constraint.sourceRecordId) {
-          const firstConstraint = fieldConstraints[0];
           const message = i18nOrFallback(
             context.$t,
             tableI18nKeys.validation.link.batch_duplicate,

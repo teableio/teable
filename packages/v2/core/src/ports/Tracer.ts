@@ -50,6 +50,18 @@ export const TeableSpanAttributes = {
   RECORD_ID: 'teable.record_id',
   /** The field ID being operated on */
   FIELD_ID: 'teable.field_id',
+  /** The plugin name being executed */
+  PLUGIN: 'teable.plugin',
+  /** The plugin category, such as record_write or field_operation */
+  PLUGIN_TYPE: 'teable.plugin_type',
+  /** The plugin lifecycle phase, such as prepare or beforePersist */
+  PLUGIN_PHASE: 'teable.plugin_phase',
+  /** The operation kind handled by the plugin */
+  OPERATION_KIND: 'teable.operation_kind',
+  /** The target kind for field-operation plugins */
+  TARGET_KIND: 'teable.target_kind',
+  /** Whether the current plugin context is transaction-bound */
+  IS_TRANSACTION_BOUND: 'teable.is_transaction_bound',
 } as const;
 
 /**
@@ -62,7 +74,8 @@ export type TeableComponent =
   | 'repository'
   | 'service'
   | 'domain'
-  | 'projection';
+  | 'projection'
+  | 'plugin';
 
 /**
  * Create default teable span attributes.
@@ -107,3 +120,79 @@ export interface ITracer {
    */
   getActiveSpan(): ISpan | undefined;
 }
+
+export interface PluginTraceContext {
+  readonly tracer?: ITracer;
+  readonly activeSpan?: ISpan;
+  readonly attributes: SpanAttributes;
+  startSpan(name: string, attributes?: SpanAttributes): ISpan | undefined;
+  withSpan<T>(name: string, callback: () => Promise<T>, attributes?: SpanAttributes): Promise<T>;
+}
+
+const resolvePluginSpanName = (prefix: string, name: string): string => {
+  if (isTeableSpanName(name)) {
+    return name;
+  }
+
+  return `${prefix}.${name}`;
+};
+
+export const createPluginTraceContext = (options: {
+  tracer?: ITracer;
+  activeSpan?: ISpan;
+  attributes: SpanAttributes;
+  spanNamePrefix: string;
+  operationPrefix: string;
+}): PluginTraceContext => {
+  const baseAttributes = { ...options.attributes };
+
+  const buildAttributes = (name: string, attributes?: SpanAttributes): SpanAttributes => ({
+    ...baseAttributes,
+    [TeableSpanAttributes.OPERATION]:
+      attributes?.[TeableSpanAttributes.OPERATION] ??
+      `${options.operationPrefix}.${name.replace(/^teable\./, '')}`,
+    ...attributes,
+  });
+
+  const startSpan = (name: string, attributes?: SpanAttributes): ISpan | undefined => {
+    if (!options.tracer) {
+      return undefined;
+    }
+
+    try {
+      return options.tracer.startSpan(
+        resolvePluginSpanName(options.spanNamePrefix, name),
+        buildAttributes(name, attributes)
+      );
+    } catch {
+      return undefined;
+    }
+  };
+
+  const withSpan = async <T>(
+    name: string,
+    callback: () => Promise<T>,
+    attributes?: SpanAttributes
+  ): Promise<T> => {
+    const span = startSpan(name, attributes);
+    if (!span || !options.tracer) {
+      return callback();
+    }
+
+    return options.tracer.withSpan(span, async () => {
+      try {
+        return await callback();
+      } finally {
+        span.end();
+      }
+    });
+  };
+
+  return {
+    tracer: options.tracer,
+    activeSpan: options.activeSpan ?? options.tracer?.getActiveSpan(),
+    attributes: baseAttributes,
+    startSpan,
+    withSpan,
+  };
+};

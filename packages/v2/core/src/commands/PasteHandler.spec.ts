@@ -30,6 +30,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -43,6 +44,11 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { PasteCommand } from './PasteCommand';
 import { PasteHandler } from './PasteHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -483,6 +489,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -556,6 +563,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -631,6 +639,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -705,6 +714,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -753,6 +763,7 @@ describe('PasteHandler', () => {
         resolver as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -823,6 +834,7 @@ describe('PasteHandler', () => {
         resolver as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -868,6 +880,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         new FakeEventBus(),
         noopUndoRedoService,
         new FakeUnitOfWork()
@@ -922,6 +935,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -973,6 +987,7 @@ describe('PasteHandler', () => {
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -994,5 +1009,111 @@ describe('PasteHandler', () => {
       expect(tableRepository.updated).toHaveLength(1);
       expect(tableRepository.updated[0]?.getFields()).toHaveLength(3);
     });
+  });
+
+  it('skips plugins that do not support paste', async () => {
+    const { table, tableId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [];
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new PasteHandler(
+      tableQueryService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      new FakeFieldCreationSideEffectService() as never,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRecordRepository(),
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createRecordWritePluginRunner([plugin]),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = PasteCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['A']],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.paste);
+  });
+
+  it('rejects when a plugin blocks paste', async () => {
+    const { table, tableId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const blockingError = domainError.forbidden({
+      code: 'plugin.paste_blocked',
+      message: 'blocked paste',
+    });
+
+    const handler = new PasteHandler(
+      tableQueryService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      new FakeFieldCreationSideEffectService() as never,
+      new FakeForeignTableLoaderService() as never,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createRecordWritePluginRunner([
+        {
+          name: 'paste-blocker',
+          supports: (operation) => operation === RecordWriteOperationKind.paste,
+          guard: async () => err(blockingError),
+        },
+      ]),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = PasteCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['A']],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('plugin.paste_blocked');
+    expect(recordRepository.inserted).toHaveLength(0);
+    expect(recordRepository.updated).toHaveLength(0);
+    expect(recordRepository.updateCalls).toBe(0);
+    expect(tableRepository.updated).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
   });
 });

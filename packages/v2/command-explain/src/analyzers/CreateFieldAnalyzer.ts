@@ -25,6 +25,7 @@ import type { ICommandAnalyzer } from './ICommandAnalyzer';
 import {
   buildFieldSqlExplains,
   createFieldExplainDryRunEnvironment,
+  createNoopFieldOperationPluginRunner,
   createNoopUndoRedoService,
 } from './FieldCommandAnalyzeHelpers';
 import type { CommandExplainInfo, ExplainOptions, ExplainResult } from '../types';
@@ -79,9 +80,11 @@ export class CreateFieldAnalyzer implements ICommandAnalyzer<CreateFieldCommand>
       });
 
       const handler = new CreateFieldHandler(
+        dryRun.overlayTableRepository,
         dryRun.tableUpdateFlow,
         new FieldCreationSideEffectService(dryRun.tableUpdateFlow),
         analyzer.foreignTableLoaderService,
+        createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
         analyzer.fieldUndoRedoSnapshotService
       );

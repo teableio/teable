@@ -15,11 +15,11 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { sql, type Kysely, type Transaction } from 'kysely';
 
-import { resolvePostgresDb } from '../../shared/db';
+import { resolvePostgresDbOrTx } from '../../shared/db';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { ExternalComputedRefreshService } from './ExternalComputedRefreshService';
 
@@ -46,7 +46,7 @@ export class UserRenamePropagationService implements IUserRenamePropagationServi
     context: IExecutionContext,
     input: UserRenamePropagationInput
   ): Promise<Result<void, DomainError>> {
-    const db = resolvePostgresDb(this.db, context);
+    const db = resolvePostgresDbOrTx(this.db, context);
     const affectedFields = await this.getAffectedUserFields(db, input.userId.toString());
     if (affectedFields.length === 0) return ok(undefined);
 

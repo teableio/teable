@@ -7,6 +7,7 @@ import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -57,6 +58,7 @@ export class CreateRecordHandler
         fieldKeyType: command.fieldKeyType,
         typecast: command.typecast,
         source: command.source,
+        operationKind: RecordWriteOperationKind.createOne,
         order: command.order,
       });
 

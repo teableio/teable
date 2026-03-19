@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -20,7 +21,7 @@ import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { BatchRecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -69,8 +70,8 @@ export class CreateRecordsHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
-    @inject(v2CoreTokens.recordCreateConstraintService)
-    private readonly recordCreateConstraintService: IRecordCreateConstraintService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
@@ -95,13 +96,6 @@ export class CreateRecordsHandler
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // Run create constraints before inserting new records
-      yield* await handler.recordCreateConstraintService.checkCreate(
-        context,
-        command.tableId,
-        command.recordsFieldValues.length
-      );
-
       // Resolve field keys to field IDs if using name or dbFieldName
       const resolvedRecordsFieldValues: RecordFieldValues[] = [];
       for (const recordFieldValues of command.recordsFieldValues) {
@@ -112,6 +106,20 @@ export class CreateRecordsHandler
         );
         resolvedRecordsFieldValues.push(new Map(Object.entries(resolvedFields)));
       }
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.createMany,
+        executionContext: context,
+        table,
+        payload: {
+          recordsFieldValues: resolvedRecordsFieldValues,
+          fieldKeyType: command.fieldKeyType,
+          typecast: command.typecast,
+          order: command.order,
+          recordCount: resolvedRecordsFieldValues.length,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
         context,
@@ -191,6 +199,7 @@ export class CreateRecordsHandler
               );
               tableEvents = tableFlowResult.events;
             }
+            yield* await pluginExecution.beforePersist(transactionContext);
             const mutation = yield* await handler.tableRecordRepository.insertMany(
               transactionContext,
               tableForCreate,
@@ -291,6 +300,7 @@ export class CreateRecordsHandler
           }),
         ]),
       });
+      await pluginExecution.afterCommit();
 
       return ok(
         CreateRecordsResult.create(

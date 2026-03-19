@@ -26,6 +26,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryStreamOptions,
@@ -41,6 +42,11 @@ import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ClearCommand } from './ClearCommand';
 import { ClearHandler } from './ClearHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -335,6 +341,7 @@ describe('ClearHandler', () => {
 
     const handler = new ClearHandler(
       tableQueryService,
+      createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
       eventBus,
@@ -369,6 +376,54 @@ describe('ClearHandler', () => {
     expect(event!.updates[0]?.newVersion).toBe(existingVersion + 1);
   });
 
+  it('skips plugins that do not support updateMany', async () => {
+    const { table, tableId, primaryFieldId } = buildTable();
+    const viewId = table.views()[0]!.id();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'k'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [primaryFieldId.toString()]: 10,
+        },
+      },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new ClearHandler(
+      tableQueryService,
+      createRecordWritePluginRunner([plugin]),
+      recordRepository,
+      recordQueryRepository,
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = ClearCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.updateMany);
+  });
+
   it('returns 0 when only computed columns are selected', async () => {
     const { table, tableId } = buildTable();
     const viewId = table.views()[0]!.id();
@@ -378,6 +433,7 @@ describe('ClearHandler', () => {
 
     const handler = new ClearHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       new FakeTableRecordQueryRepository(),
       new FakeEventBus(),
@@ -422,6 +478,7 @@ describe('ClearHandler', () => {
     const recordRepository = new FakeTableRecordRepository();
     const handler = new ClearHandler(
       tableQueryService,
+      createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
       new FakeEventBus(),
@@ -469,6 +526,7 @@ describe('ClearHandler', () => {
 
     const handler = new ClearHandler(
       tableQueryService,
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       recordQueryRepository,
       new FakeEventBus(),

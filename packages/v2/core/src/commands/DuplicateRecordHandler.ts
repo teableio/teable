@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -15,7 +16,7 @@ import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -58,8 +59,8 @@ export class DuplicateRecordHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
-    @inject(v2CoreTokens.recordCreateConstraintService)
-    private readonly recordCreateConstraintService: IRecordCreateConstraintService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.tableUpdateFlow)
@@ -93,10 +94,7 @@ export class DuplicateRecordHandler
           : error
       );
 
-      // 3. Run create constraints before inserting new record
-      yield* await handler.recordCreateConstraintService.checkCreate(context, command.tableId, 1);
-
-      // 4. Extract non-computed field values from source record
+      // 3. Extract non-computed field values from source record
       const fieldValues = new Map<string, unknown>();
       const fields = table.getFields();
 
@@ -114,8 +112,21 @@ export class DuplicateRecordHandler
           fieldValues.set(fieldId, value);
         }
       }
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.duplicate,
+        executionContext: context,
+        table,
+        payload: {
+          sourceRecordId: command.recordId,
+          fieldValues,
+          order: command.order,
+          recordCount: 1,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
 
-      // 5. Execute side effects on field values
+      // 4. Execute side effects on field values
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
         context,
         table,
@@ -125,12 +136,12 @@ export class DuplicateRecordHandler
       const tableForCreate = sideEffectResult.table;
       const tableUpdateResult = sideEffectResult.updateResult;
 
-      // 6. Create the record (validates and applies field values internally)
+      // 5. Create the record (validates and applies field values internally)
       const createResult = yield* tableForCreate.createRecord(fieldValues, {
         typecast: false,
       });
 
-      // 7. Resolve values that require external lookups (user/link)
+      // 6. Resolve values that require external lookups (user/link)
       let record = createResult.record;
       if (createResult.mutateSpec) {
         const needsResolution = yield* handler.recordMutationSpecResolver.needsResolution(
@@ -145,7 +156,7 @@ export class DuplicateRecordHandler
         }
       }
 
-      // 8. Persist the record within a transaction
+      // 7. Persist the record within a transaction
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
@@ -166,6 +177,7 @@ export class DuplicateRecordHandler
               );
               tableEvents = tableFlowResult.events;
             }
+            yield* await pluginExecution.beforePersist(transactionContext);
             const mutation = yield* await handler.tableRecordRepository.insert(
               transactionContext,
               tableForCreate,
@@ -179,7 +191,7 @@ export class DuplicateRecordHandler
       const persistedResult = yield* transactionResult;
       const mutationResult = persistedResult.mutation;
 
-      // 9. Pull and publish events
+      // 8. Pull and publish events
       const events = [...persistedResult.tableEvents, ...tableForCreate.pullDomainEvents()];
       yield* await handler.eventBus.publishMany(context, events);
 
@@ -203,8 +215,9 @@ export class DuplicateRecordHandler
           ],
         }),
       });
+      await pluginExecution.afterCommit();
 
-      // 10. Build field key mapping for response transformation (using field ID)
+      // 9. Build field key mapping for response transformation (using field ID)
       const fieldKeyMapping = new Map<string, string>();
       for (const field of tableForCreate.getFields()) {
         const fieldId = field.id().toString();

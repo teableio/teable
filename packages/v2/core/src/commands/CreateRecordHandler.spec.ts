@@ -32,8 +32,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRecordRepository } from '../ports/TableRecordRepository';
@@ -42,6 +42,11 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateRecordCommand } from './CreateRecordCommand';
 import { CreateRecordHandler } from './CreateRecordHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -294,22 +299,6 @@ const createFakeRecordMutationSpecResolverService = () =>
     resolveAndReplace: async (_context: IExecutionContext, spec: ICellValueSpec) => ok(spec),
   }) as unknown as RecordMutationSpecResolverService;
 
-class FakeRecordCreateConstraintService implements IRecordCreateConstraintService {
-  constructor(private readonly result: Result<void, DomainError> = ok(undefined)) {}
-
-  register(): void {
-    // No-op for tests.
-  }
-
-  async checkCreate(
-    _context: IExecutionContext,
-    _tableId: TableId,
-    _recordCount: number
-  ): Promise<Result<void, DomainError>> {
-    return this.result;
-  }
-}
-
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
   rollbacks: IExecutionContext[] = [];
@@ -421,7 +410,8 @@ const createHandler = (
   tableRepository: FakeTableRepository,
   recordRepository: FakeTableRecordRepository,
   eventBus: FakeEventBus,
-  unitOfWork: FakeUnitOfWork | RollbackFakeUnitOfWork
+  unitOfWork: FakeUnitOfWork | RollbackFakeUnitOfWork,
+  recordWritePluginRunner = createRecordWritePluginRunner()
 ) =>
   new CreateRecordHandler(
     tableQueryService,
@@ -429,7 +419,7 @@ const createHandler = (
       recordRepository,
       new FakeTableRecordQueryRepository(recordRepository),
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      recordWritePluginRunner,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
@@ -481,6 +471,40 @@ describe('CreateRecordHandler', () => {
       (event): event is RecordCreated => event instanceof RecordCreated
     );
     expect(createdEvent?.source).toEqual({ type: 'user' });
+  });
+
+  it('skips plugins that do not support createOne', async () => {
+    const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.submit]);
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      createRecordWritePluginRunner([plugin])
+    );
+
+    const command = CreateRecordCommand.create({
+      tableId,
+      fields: {
+        [textFieldId]: 'Skipped Plugin',
+        [numberFieldId]: 1,
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.createOne);
   });
 
   it('creates a record with empty fields', async () => {

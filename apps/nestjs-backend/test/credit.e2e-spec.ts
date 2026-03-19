@@ -62,7 +62,7 @@ describe('Credit limit (e2e)', () => {
     });
 
     it('should create a record with credit', async () => {
-      prisma.space.update({
+      await prisma.space.update({
         where: {
           id: spaceId,
         },

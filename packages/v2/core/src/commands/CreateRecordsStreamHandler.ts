@@ -1,13 +1,15 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -37,6 +39,8 @@ export class CreateRecordsStreamHandler
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.eventBus)
@@ -54,9 +58,22 @@ export class CreateRecordsStreamHandler
     return safeTry<CreateRecordsStreamResult, DomainError>(async function* () {
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
+      const recordsFieldValues = [...command.recordsFieldValues];
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.createStream,
+        executionContext: context,
+        table,
+        payload: {
+          recordsFieldValues,
+          batchSize: command.batchSize,
+          recordCount: recordsFieldValues.length,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
 
       // 2. Use streaming generator to create records in batches
-      const batchGenerator = table.createRecordsStream(command.recordsFieldValues, {
+      const batchGenerator = table.createRecordsStream(recordsFieldValues, {
         batchSize: command.batchSize,
       });
 
@@ -64,6 +81,10 @@ export class CreateRecordsStreamHandler
       const insertResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
+          const beforePersistResult = await pluginExecution.beforePersist(transactionContext);
+          if (beforePersistResult.isErr()) {
+            return err(beforePersistResult.error);
+          }
           return handler.tableRecordRepository.insertManyStream(
             transactionContext,
             table,
@@ -75,6 +96,7 @@ export class CreateRecordsStreamHandler
       // 4. Publish events (if any) - only after transaction succeeds
       const events: IDomainEvent[] = [];
       yield* await handler.eventBus.publishMany(context, events);
+      await pluginExecution.afterCommit();
 
       return ok(CreateRecordsStreamResult.create(insertResult.totalInserted, events));
     });

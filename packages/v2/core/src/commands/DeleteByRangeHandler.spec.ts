@@ -26,6 +26,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryOptions,
@@ -42,6 +43,11 @@ import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteByRangeCommand } from './DeleteByRangeCommand';
 import { DeleteByRangeHandler } from './DeleteByRangeHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -282,6 +288,7 @@ describe('DeleteByRangeHandler', () => {
 
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       queryRepository,
       eventBus,
@@ -315,6 +322,45 @@ describe('DeleteByRangeHandler', () => {
     expect(deletedEvent?.recordSnapshots[0].fields).toEqual({ title: 'Record A' });
   });
 
+  it('skips plugins that do not support deleteMany', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+    ];
+    queryRepository.total = 2;
+    const eventBus = new FakeEventBus();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new DeleteByRangeHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner([plugin]),
+      new FakeTableRecordRepository(),
+      queryRepository,
+      eventBus,
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [
+        [0, 0],
+        [1, 1],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.deleteMany);
+  });
+
   it('returns empty result when no records in range', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -326,6 +372,7 @@ describe('DeleteByRangeHandler', () => {
 
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       queryRepository,
       new FakeEventBus(),
@@ -367,6 +414,7 @@ describe('DeleteByRangeHandler', () => {
 
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       new FakeTableRecordRepository(),
       queryRepository,
       eventBus,
@@ -406,6 +454,7 @@ describe('DeleteByRangeHandler', () => {
     const recordRepository = new FakeTableRecordRepository();
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       queryRepository,
       new FakeEventBus(),
@@ -443,6 +492,7 @@ describe('DeleteByRangeHandler', () => {
 
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       queryRepository,
       eventBus,
@@ -480,6 +530,7 @@ describe('DeleteByRangeHandler', () => {
 
     const handler = new DeleteByRangeHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       queryRepository,
       new FakeEventBus(),

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
@@ -26,12 +27,18 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { CreateFieldHandler } from './CreateFieldHandler';
+import {
+  createFieldOperationPluginRunner,
+  createTrackedFieldOperationPlugin,
+  expectFieldOperationPluginToBeSkipped,
+} from './fieldOperationPluginRunnerTestUtils';
 
 const createContext = (options?: {
   maxFieldsPerTable?: number;
@@ -225,9 +232,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -320,9 +329,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -389,9 +400,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -459,6 +472,84 @@ describe('CreateFieldHandler', () => {
     ).toHaveLength(3);
   });
 
+  it('runs create plugins for reciprocal side-effect target tables', async () => {
+    const baseId = `bse${'s'.repeat(16)}`;
+    const hostTableId = `tbl${'t'.repeat(16)}`;
+    const foreignTableId = `tbl${'u'.repeat(16)}`;
+    const hostPrimaryId = `fld${'v'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'w'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      createFieldOperationPluginRunner([plugin]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: hostPrimaryId,
+      }),
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        name: 'Host Link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(calls.prepare).toHaveLength(2);
+    expect(calls.guard).toHaveLength(2);
+    expect(calls.beforePersist).toHaveLength(2);
+    expect(calls.afterCommit).toHaveLength(2);
+
+    const directContext = calls.prepare.find((context) => context.target.kind === 'direct');
+    const sideEffectContext = calls.prepare.find((context) => context.target.kind === 'sideEffect');
+
+    expect(directContext?.kind).toBe(FieldOperationKind.create);
+    expect(directContext?.table.id().toString()).toBe(hostTableId);
+    expect(sideEffectContext?.kind).toBe(FieldOperationKind.create);
+    expect(sideEffectContext?.table.id().toString()).toBe(foreignTableId);
+    expect(sideEffectContext?.target.sourceOperation).toBe(FieldOperationKind.create);
+    expect(sideEffectContext?.target.sourceTable.id().toString()).toBe(hostTableId);
+  });
+
   it('creates formula field with resolved cellValueType', async () => {
     const baseId = `bse${'a'.repeat(16)}`;
     const tableId = `tbl${'b'.repeat(16)}`;
@@ -477,9 +568,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -553,9 +646,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -652,9 +747,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -753,9 +850,11 @@ describe('CreateFieldHandler', () => {
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
+      tableRepository,
       tableUpdateFlow,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       noopFieldUndoRedoSnapshotService
     );
@@ -808,5 +907,57 @@ describe('CreateFieldHandler', () => {
       .getFields()
       .find((field) => field.name().toString() === 'Cross Base Amounts');
     expect(conditionalLookup?.type().toString()).toBe('conditionalLookup');
+  });
+
+  it('skips plugins that do not support create', async () => {
+    const baseId = `bse${'g'.repeat(16)}`;
+    const tableId = `tbl${'h'.repeat(16)}`;
+    const primaryFieldId = `fld${'i'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.update]);
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      createFieldOperationPluginRunner([plugin]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Plugin Host',
+        primaryFieldId,
+      })
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'number',
+        name: 'Amount',
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expectFieldOperationPluginToBeSkipped(calls, FieldOperationKind.create);
   });
 });

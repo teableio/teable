@@ -2,5 +2,5 @@ export {
   PostgresUnitOfWork,
   PostgresUnitOfWorkTransaction,
   getPostgresTransaction,
-  resolvePostgresDb,
+  resolvePostgresDbOrTx,
 } from '@teable/v2-adapter-db-postgres-shared';

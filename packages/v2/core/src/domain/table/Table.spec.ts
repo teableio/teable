@@ -1,14 +1,15 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
 import { FieldDeleted } from './events/FieldDeleted';
 import { FieldUpdated } from './events/FieldUpdated';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
-import { TableTrashed } from './events/TableTrashed';
 import { TableRenamed } from './events/TableRenamed';
+import { TableTrashed } from './events/TableTrashed';
 import { DbFieldName } from './fields/DbFieldName';
 import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
@@ -25,7 +26,6 @@ import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
 import { TableUpdateFieldNameSpec } from './specs/TableUpdateFieldNameSpec';
 import { Table } from './Table';
-import { TABLE_FIELD_LIMIT_ERROR_CODE } from './TableFieldLimit';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
 import { GridView } from './views/types/GridView';
@@ -37,6 +37,7 @@ const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 const createRecordId = (seed: string) => RecordId.create(`rec${seed.repeat(16)}`);
 const createViewId = (seed: string) => ViewId.create(`viw${seed.repeat(16)}`);
+const tableMapper = new DefaultTableMapper();
 
 describe('Table', () => {
   it('emits TableCreated event on build', () => {
@@ -245,6 +246,42 @@ describe('Table', () => {
     table.setDbTableName(otherDbNameResult._unsafeUnwrap())._unsafeUnwrapErr();
   });
 
+  it('clones into a detached table graph', () => {
+    const baseIdResult = createBaseId('e');
+    const tableNameResult = TableName.create('Clone');
+    const fieldNameResult = FieldName.create('Title');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const originalField = table.getFields()[0]!;
+    const clonedTable = table.clone(tableMapper)._unsafeUnwrap();
+    const clonedField = clonedTable.getFields()[0]!;
+    const originalDbName = table
+      .dbTableName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+    const clonedDbName = clonedTable
+      .dbTableName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+
+    clonedField.setUnique(FieldUnique.enabled())._unsafeUnwrap();
+    clonedField.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+
+    expect(clonedTable).not.toBe(table);
+    expect(clonedField).not.toBe(originalField);
+    expect(clonedDbName).toBe(originalDbName);
+    expect(originalField.unique().toBoolean()).toBe(false);
+    expect(originalField.notNull().toBoolean()).toBe(false);
+    expect(clonedField.unique().toBoolean()).toBe(true);
+    expect(clonedField.notNull().toBoolean()).toBe(true);
+  });
+
   it('updates table name immutably and emits TableRenamed', () => {
     const baseIdResult = createBaseId('f');
     const tableNameResult = TableName.create('Original');
@@ -322,50 +359,6 @@ describe('Table', () => {
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
-  });
-
-  it('rejects adding a field when the configured table field limit is exceeded', () => {
-    const baseIdResult = createBaseId('g');
-    const tableNameResult = TableName.create('Limited Schema');
-    const fieldNameResult = FieldName.create('Title');
-    const viewNameResult = ViewName.create('Grid');
-    const newFieldIdResult = createFieldId('i');
-    const newFieldNameResult = FieldName.create('Status');
-
-    const builder = Table.builder()
-      .withBaseId(baseIdResult._unsafeUnwrap())
-      .withName(tableNameResult._unsafeUnwrap());
-    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
-    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
-    const table = builder.build()._unsafeUnwrap();
-
-    const newField = SingleLineTextField.create({
-      id: newFieldIdResult._unsafeUnwrap(),
-      name: newFieldNameResult._unsafeUnwrap(),
-    })._unsafeUnwrap();
-
-    const result = table.addField(newField, {
-      domainContext: {
-        config: {
-          tableFields: {
-            maxFieldsPerTable: 1,
-          },
-        },
-      },
-    });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) {
-      return;
-    }
-
-    expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-    expect(result.error.details).toMatchObject({
-      tableName: 'Limited Schema',
-      currentFieldCount: 1,
-      attemptedFieldCount: 2,
-      maxFieldCount: 1,
-    });
   });
 
   it('rejects adding a field with duplicate dbFieldName', () => {

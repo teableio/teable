@@ -1,4 +1,3 @@
-import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { domainError } from '@teable/v2-core';
 import type {
   DomainError,
@@ -9,13 +8,14 @@ import type {
   ViewId,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolvePostgresDbOrTx } from '../../shared/db';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
-import { resolvePostgresDb } from '../../shared/db';
 
 @injectable()
 export class PostgresRecordOrderCalculator implements IRecordOrderCalculator {
@@ -38,7 +38,7 @@ export class PostgresRecordOrderCalculator implements IRecordOrderCalculator {
       async function* (this: PostgresRecordOrderCalculator) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
-        const dynamicDb = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        const dynamicDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         try {
           const viewIdStr = viewId.toString();

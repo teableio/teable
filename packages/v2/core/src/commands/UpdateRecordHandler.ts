@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -22,6 +23,7 @@ import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRo
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -66,6 +68,8 @@ export class UpdateRecordHandler
     private readonly recordOrderCalculator: IRecordOrderCalculator,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
@@ -106,6 +110,19 @@ export class UpdateRecordHandler
         command.fieldKeyType
       );
       const resolvedFieldValues = new Map(Object.entries(resolvedFields));
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.updateOne,
+        executionContext: context,
+        table,
+        payload: {
+          recordId: command.recordId,
+          fieldValues: resolvedFieldValues,
+          fieldKeyType: command.fieldKeyType,
+          typecast: command.typecast,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
         context,
@@ -171,6 +188,7 @@ export class UpdateRecordHandler
               );
               tableEvents = tableFlowResult.events;
             }
+            yield* await pluginExecution.beforePersist(transactionContext);
             const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
@@ -361,6 +379,7 @@ export class UpdateRecordHandler
           ]),
         });
       }
+      await pluginExecution.afterCommit();
 
       return ok(
         UpdateRecordResult.create(

@@ -835,6 +835,13 @@ export class DefaultTableMapper implements ITableMapper {
     const fieldVisitor = new FieldToPersistenceVisitor((linkFieldId) =>
       relationshipByLinkFieldId.get(linkFieldId)
     );
+    const dbTableName = table
+      .dbTableName()
+      .andThen((name) => name.value())
+      .match(
+        (value) => value,
+        () => undefined
+      );
 
     return sequenceResults(
       table.getFields().map((field) => mapFieldToDto(field, fieldVisitor))
@@ -843,6 +850,7 @@ export class DefaultTableMapper implements ITableMapper {
         id: table.id().toString(),
         baseId: table.baseId().toString(),
         name: table.name().toString(),
+        ...(dbTableName ? { dbTableName } : {}),
         primaryFieldId: table.primaryFieldId().toString(),
         fields: [...fields],
         views: [...views],

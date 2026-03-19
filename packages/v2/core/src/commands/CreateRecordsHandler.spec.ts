@@ -30,7 +30,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -44,6 +44,11 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
 import { CreateRecordsHandler } from './CreateRecordsHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -68,7 +73,7 @@ const createHandler = (
   tableQueryService: TableQueryService,
   recordRepository: ITableRecordRepository,
   recordMutationSpecResolver: RecordMutationSpecResolverService,
-  recordCreateConstraintService: IRecordCreateConstraintService,
+  recordWritePluginRunner = createRecordWritePluginRunner(),
   tableUpdateFlow: TableUpdateFlow,
   eventBus: IEventBus,
   undoRedoService: UndoRedoService,
@@ -79,7 +84,7 @@ const createHandler = (
     recordRepository,
     new FakeTableRecordQueryRepository(recordRepository as FakeTableRecordRepository),
     recordMutationSpecResolver,
-    recordCreateConstraintService,
+    recordWritePluginRunner,
     new RecordWriteSideEffectService(),
     noopRecordWriteUndoRedoPlanService,
     tableUpdateFlow,
@@ -395,22 +400,6 @@ class FakeRecordMutationSpecResolverService {
   }
 }
 
-class FakeRecordCreateConstraintService implements IRecordCreateConstraintService {
-  constructor(private readonly result: Result<void, DomainError> = ok(undefined)) {}
-
-  register(): void {
-    // No-op for tests.
-  }
-
-  async checkCreate(
-    _context: IExecutionContext,
-    _tableId: TableId,
-    _recordCount: number
-  ): Promise<Result<void, DomainError>> {
-    return this.result;
-  }
-}
-
 const createTestTable = (baseId: string, tableId: string) => {
   const baseIdResult = BaseId.create(baseId);
   const tableIdResult = TableId.create(tableId);
@@ -482,7 +471,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -526,6 +515,52 @@ describe('CreateRecordsHandler', () => {
     }
   });
 
+  it('skips plugins that do not support createMany', async () => {
+    const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([plugin]),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [
+        {
+          fields: {
+            [textFieldId]: 'First',
+            [numberFieldId]: 1,
+          },
+        },
+        {
+          fields: {
+            [textFieldId]: 'Second',
+            [numberFieldId]: 2,
+          },
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.createMany);
+  });
+
   it('creates a single record via records array', async () => {
     const { table, textFieldId } = createTestTable(baseId, tableId);
 
@@ -540,7 +575,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -578,7 +613,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -607,7 +642,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -636,7 +671,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -671,7 +706,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -702,7 +737,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -738,7 +773,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -777,7 +812,7 @@ describe('CreateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,
@@ -811,7 +846,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -867,7 +902,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -906,7 +941,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -947,7 +982,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -989,7 +1024,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1031,7 +1066,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1074,7 +1109,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         resolver as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1116,7 +1151,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1176,7 +1211,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         resolver as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1218,7 +1253,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         resolver as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
@@ -1260,7 +1295,7 @@ describe('CreateRecordsHandler', () => {
         tableQueryService,
         recordRepository,
         resolver as unknown as RecordMutationSpecResolverService,
-        new FakeRecordCreateConstraintService(),
+        createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,

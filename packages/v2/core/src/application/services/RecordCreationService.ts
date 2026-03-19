@@ -7,11 +7,12 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { RecordCreateSource } from '../../domain/table/events/RecordFieldValuesDTO';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
+import type { RecordId } from '../../domain/table/records/RecordId';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
-import { IRecordCreateConstraintService } from '../../ports/RecordCreateConstraintService';
+import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
 import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
@@ -20,10 +21,16 @@ import { composeUndoRedoCommands, createUndoRedoCommand } from '../../ports/Undo
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
 import { TableUpdateFlow } from './TableUpdateFlow';
 import { UndoRedoService } from './UndoRedoService';
+
+type RecordCreationOperationKind =
+  | typeof RecordWriteOperationKind.createOne
+  | typeof RecordWriteOperationKind.submit
+  | typeof RecordWriteOperationKind.duplicate;
 
 export interface IRecordCreationInput {
   table: Table;
@@ -31,6 +38,8 @@ export interface IRecordCreationInput {
   fieldKeyType: FieldKeyType;
   typecast: boolean;
   source: RecordCreateSource;
+  operationKind: RecordCreationOperationKind;
+  sourceRecordId?: RecordId;
   order?: RecordInsertOrder;
 }
 
@@ -50,8 +59,8 @@ export class RecordCreationService {
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
-    @inject(v2CoreTokens.recordCreateConstraintService)
-    private readonly recordCreateConstraintService: IRecordCreateConstraintService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
@@ -73,14 +82,16 @@ export class RecordCreationService {
     const service = this;
 
     return safeTry<IRecordCreationResult, DomainError>(async function* () {
-      yield* await service.recordCreateConstraintService.checkCreate(context, input.table.id(), 1);
-
       const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeys(
         input.table,
         Object.fromEntries(input.fieldValues),
         input.fieldKeyType
       );
       const resolvedFieldValues = new Map(Object.entries(resolvedFields));
+      const pluginExecution = yield* await service.recordWritePluginRunner.prepare(
+        service.buildPluginContext(context, input, resolvedFieldValues)
+      );
+      yield* await pluginExecution.guard();
 
       const sideEffectResult = yield* service.recordWriteSideEffectService.execute(
         context,
@@ -141,6 +152,7 @@ export class RecordCreationService {
                 );
                 transactionTableEvents = tableFlowResult.events;
               }
+              yield* await pluginExecution.beforePersist(transactionContext);
               const mutation = yield* await service.tableRecordRepository.insert(
                 transactionContext,
                 tableForCreate,
@@ -208,6 +220,7 @@ export class RecordCreationService {
           }),
         ]),
       });
+      await pluginExecution.afterCommit();
 
       const fieldKeyMapping = new Map<string, string>();
       if (input.fieldKeyType !== FieldKeyType.Id) {
@@ -225,5 +238,41 @@ export class RecordCreationService {
         computedChanges: mutationResult?.computedChanges,
       });
     });
+  }
+
+  private buildPluginContext(
+    context: ExecutionContextPort.IExecutionContext,
+    input: IRecordCreationInput,
+    fieldValues: ReadonlyMap<string, unknown>
+  ) {
+    if (input.operationKind === RecordWriteOperationKind.duplicate) {
+      return {
+        kind: RecordWriteOperationKind.duplicate,
+        executionContext: context,
+        table: input.table,
+        payload: {
+          sourceRecordId: input.sourceRecordId!,
+          fieldValues,
+          order: input.order,
+          recordCount: 1 as const,
+        },
+        isTransactionBound: false,
+      } as const;
+    }
+
+    return {
+      kind: input.operationKind,
+      executionContext: context,
+      table: input.table,
+      payload: {
+        fieldValues,
+        fieldKeyType: input.fieldKeyType,
+        typecast: input.typecast,
+        source: input.source,
+        order: input.order,
+        recordCount: 1 as const,
+      },
+      isTransactionBound: false,
+    } as const;
   }
 }

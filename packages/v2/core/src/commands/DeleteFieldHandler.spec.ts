@@ -25,12 +25,18 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldHandler } from './DeleteFieldHandler';
+import {
+  createFieldOperationPluginRunner,
+  createTrackedFieldOperationPlugin,
+  expectFieldOperationPluginToBeSkipped,
+} from './fieldOperationPluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -266,6 +272,7 @@ describe('DeleteFieldHandler', () => {
       tableUpdateFlow,
       sideEffectService as unknown as FieldDeletionSideEffectService,
       foreignTableLoader as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService
     );
@@ -303,6 +310,7 @@ describe('DeleteFieldHandler', () => {
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
       new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService
     );
@@ -392,6 +400,7 @@ describe('DeleteFieldHandler', () => {
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
       new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
       noopUndoRedoService,
       snapshotService as unknown as FieldUndoRedoSnapshotService
     );
@@ -423,5 +432,43 @@ describe('DeleteFieldHandler', () => {
         includeRecords: false,
       },
     ]);
+  });
+
+  it('skips plugins that do not support delete', async () => {
+    const { table, baseId, tableId, secondaryFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const sideEffectService = new FakeFieldDeletionSideEffectService();
+    const foreignTableLoader = new FakeForeignTableLoaderService();
+    const fieldUndoRedoSnapshotService = new FakeFieldUndoRedoSnapshotService();
+    const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
+
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      sideEffectService as unknown as FieldDeletionSideEffectService,
+      foreignTableLoader as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner([plugin]),
+      noopUndoRedoService,
+      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService
+    );
+
+    const command = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldId: secondaryFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expectFieldOperationPluginToBeSkipped(calls, FieldOperationKind.delete);
   });
 });

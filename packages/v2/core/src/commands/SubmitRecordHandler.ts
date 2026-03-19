@@ -7,6 +7,7 @@ import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -43,6 +44,7 @@ export class SubmitRecordHandler
         fieldValues: command.fieldValues,
         fieldKeyType: FieldKeyType.Id,
         typecast: command.typecast,
+        operationKind: RecordWriteOperationKind.submit,
         source: {
           type: 'form',
           formId: command.formId.toString(),

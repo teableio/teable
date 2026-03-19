@@ -338,6 +338,35 @@ describe('DefaultTableMapper', () => {
     fieldDbNameResult?._unsafeUnwrap();
   });
 
+  it('preserves dbTableName when mapping builder-backed tables to dto', () => {
+    const baseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'z'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Persist Db Name')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const expectedDbTableName = table
+      .dbTableName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+
+    const dto = new DefaultTableMapper().toDTO(table)._unsafeUnwrap();
+
+    expect(dto.dbTableName).toBe(expectedDbTableName);
+  });
+
   it('marks formula fields as computed in persistence dto', () => {
     const table = buildFormulaTable();
 

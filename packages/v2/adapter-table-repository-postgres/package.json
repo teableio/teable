@@ -31,6 +31,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
+    "@teable/v2-adapter-db-postgres-shared": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/i18n-keys": "workspace:*",

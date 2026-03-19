@@ -25,6 +25,7 @@ import type { ICommandAnalyzer } from './ICommandAnalyzer';
 import {
   buildFieldSqlExplains,
   createFieldExplainDryRunEnvironment,
+  createNoopFieldOperationPluginRunner,
   createNoopUndoRedoService,
 } from './FieldCommandAnalyzeHelpers';
 import type { CommandExplainInfo, ExplainOptions, ExplainResult } from '../types';
@@ -90,6 +91,7 @@ export class DeleteFieldAnalyzer implements ICommandAnalyzer<DeleteFieldCommand>
         dryRun.tableUpdateFlow,
         new FieldDeletionSideEffectService(dryRun.tableUpdateFlow),
         analyzer.foreignTableLoaderService,
+        createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
         analyzer.fieldUndoRedoSnapshotService
       );

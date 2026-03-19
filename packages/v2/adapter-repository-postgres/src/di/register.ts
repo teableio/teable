@@ -1,10 +1,4 @@
-import {
-  DefaultTableMapper,
-  type IRecordCreateConstraint,
-  type IRecordCreateConstraintService,
-  RecordCreateConstraintService,
-  v2CoreTokens,
-} from '@teable/v2-core';
+import { DefaultTableMapper, registerRecordWritePlugin, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -15,7 +9,7 @@ import { v2PostgresStateAdapterConfigSchema } from '../config';
 import { ensureV1MetaSchema } from '../db/schema';
 import { PostgresBaseRepository } from '../repositories/PostgresBaseRepository';
 import { PostgresTableRepository } from '../repositories/PostgresTableRepository';
-import { PostgresTableRowLimitService } from '../repositories/PostgresTableRowLimitService';
+import { PostgresTableRowLimitPlugin } from '../repositories/PostgresTableRowLimitPlugin';
 import { v2PostgresStateTokens } from './tokens';
 
 export const registerV2PostgresStateAdapter = async (
@@ -52,22 +46,9 @@ export const registerV2PostgresStateAdapter = async (
   });
   if (typeof config.maxFreeRowLimit === 'number' && config.maxFreeRowLimit > 0) {
     c.registerInstance(v2PostgresStateTokens.maxFreeRowLimit, config.maxFreeRowLimit);
-    if (!c.isRegistered(v2CoreTokens.recordCreateConstraints)) {
-      c.registerInstance(v2CoreTokens.recordCreateConstraints, [] as IRecordCreateConstraint[]);
-    }
-    if (!c.isRegistered(v2CoreTokens.recordCreateConstraintService)) {
-      const constraints = c.resolve<IRecordCreateConstraint[]>(
-        v2CoreTokens.recordCreateConstraints
-      );
-      c.registerInstance(
-        v2CoreTokens.recordCreateConstraintService,
-        new RecordCreateConstraintService(constraints)
-      );
-    }
-    const constraintService = c.resolve<IRecordCreateConstraintService>(
-      v2CoreTokens.recordCreateConstraintService
-    );
-    constraintService.register(new PostgresTableRowLimitService(db, config.maxFreeRowLimit));
+    registerRecordWritePlugin(c, new PostgresTableRowLimitPlugin(db, config.maxFreeRowLimit), {
+      source: 'registerV2PostgresStateAdapter',
+    });
   }
 
   return c;

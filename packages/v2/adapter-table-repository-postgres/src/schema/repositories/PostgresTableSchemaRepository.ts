@@ -1,3 +1,4 @@
+import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import type {
   TableId,
   BaseId,
@@ -119,7 +120,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   ): Promise<Result<void, DomainError>> {
     const repository = this;
     return safeTry<void, DomainError>(async function* () {
-      const db = resolvePostgresDb(repository.db, context) as Kysely<V1TeableDatabase>;
+      const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
       const introspector = new PostgresSchemaIntrospector(db);
 
       for (const table of tables) {
@@ -176,7 +177,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
-      const db = resolvePostgresDb(repository.db, context);
+      const db = resolvePostgresDbOrTx(repository.db, context);
 
       type ICreateTableBuilder = CreateTableBuilder<string, string>;
       const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
@@ -257,7 +258,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
 
-      const db = resolvePostgresDb(repository.db, context);
+      const db = resolvePostgresDbOrTx(repository.db, context);
       const visitor = new TableSchemaUpdateVisitor({
         db,
         schema,
@@ -393,7 +394,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         return ok(table);
       }
 
-      const db = resolvePostgresDb(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context);
       const rows = await db
         .selectFrom('field')
         .select(['id', 'options'])
@@ -580,7 +581,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
-      const db = resolvePostgresDb(repository.db, context);
+      const db = resolvePostgresDbOrTx(repository.db, context);
 
       try {
         const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
@@ -660,26 +661,6 @@ const dedupeFieldIds = (fieldIds: ReadonlyArray<FieldId>): FieldId[] => {
     seen.set(fieldId.toString(), fieldId);
   }
   return [...seen.values()];
-};
-
-type PostgresTransactionContext<DB> = {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-};
-
-const getPostgresTransaction = <DB>(context: IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
 };
 
 const describeError = (error: unknown): string => {

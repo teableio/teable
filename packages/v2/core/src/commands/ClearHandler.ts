@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { DomainError } from '../domain/shared/DomainError';
@@ -14,6 +15,7 @@ import type {
   RecordUpdateDTO,
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
@@ -22,6 +24,7 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -45,6 +48,8 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
@@ -202,9 +207,31 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       if (updateItems.length === 0) {
         return ok({ updatedCount: 0 });
       }
+      const clearedFieldValues = new Map<string, unknown>();
+      for (const fieldId of editableFieldIds) {
+        clearedFieldValues.set(fieldId.toString(), null);
+      }
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.updateMany,
+        executionContext: context,
+        table,
+        payload: {
+          fieldValues: clearedFieldValues,
+          fieldKeyType: FieldKeyType.Id,
+          typecast: false,
+          recordIds: updateItems.map((item) => item.recordId),
+          recordCount: updateItems.length,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
 
       // 11. Execute updates within transaction
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
+        const beforePersistResult = await pluginExecution.beforePersist(txContext);
+        if (beforePersistResult.isErr()) {
+          return beforePersistResult;
+        }
         return handler.executeUpdates(txContext, table, updateItems);
       });
 
@@ -250,6 +277,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
           redoCommand: createUndoRedoCommand('Batch', redoCommands),
         });
       }
+      await pluginExecution.afterCommit();
 
       return ok({ updatedCount: eventData.length });
     });

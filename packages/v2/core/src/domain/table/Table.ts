@@ -2,6 +2,7 @@ import type { ITableActionKey } from '@teable/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
+import { type ITableMapper } from '../../ports/mappers/TableMapper';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
 import type { IDomainContext } from '../shared/DomainContext';
@@ -62,7 +63,6 @@ import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
-import { ensureTableFieldCountWithinLimit } from './TableFieldLimit';
 import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
@@ -161,6 +161,10 @@ export class Table extends AggregateRoot<TableId> {
     const valueResult = this.dbTableNameValue.value();
     if (valueResult.isErr()) return err(valueResult.error);
     return ok(this.dbTableNameValue);
+  }
+
+  clone(mapper: ITableMapper): Result<Table, DomainError> {
+    return mapper.toDTO(this).andThen((dto) => mapper.toDomain(dto));
   }
 
   setDbTableName(dbTableName: DbTableName): Result<void, DomainError> {
@@ -698,11 +702,6 @@ export class Table extends AggregateRoot<TableId> {
       domainContext?: IDomainContext;
     }
   ): Result<Table, DomainError> {
-    const fieldLimitResult = ensureTableFieldCountWithinLimit(this, {
-      domainContext: options?.domainContext,
-    });
-    if (fieldLimitResult.isErr()) return err(fieldLimitResult.error);
-
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
       return err(domainError.conflict({ message: 'Field already exists' }));
     }

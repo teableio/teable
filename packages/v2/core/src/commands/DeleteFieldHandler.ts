@@ -3,6 +3,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -27,6 +28,7 @@ import type { Table } from '../domain/table/Table';
 import { TableUpdateResult } from '../domain/table/TableMutator';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -74,6 +76,8 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     private readonly fieldDeletionSideEffectService: FieldDeletionSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -117,6 +121,26 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         baseId: command.baseId,
         references: foreignRefs,
       });
+      const basePluginContext = {
+        kind: FieldOperationKind.delete,
+        executionContext: context,
+        table,
+        target: {
+          kind: FieldOperationTargetKind.direct,
+          sourceOperation: FieldOperationKind.delete,
+          sourceTable: table,
+        },
+        payload: {
+          fieldId: command.fieldId,
+          targetField,
+          foreignTables,
+          skipUndoRedo: command.skipUndoRedo(),
+        },
+        isTransactionBound: false,
+      } as const;
+      const pluginExecution =
+        yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
+      yield* await pluginExecution.guard();
 
       let deletedField: Field | undefined;
       const updateResult = yield* await handler.tableUpdateFlow.execute(
@@ -130,6 +154,26 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         },
         {
           hooks: {
+            prepare: async (transactionContext, updatedTable) => {
+              if (!deletedField) {
+                return err(domainError.unexpected({ message: 'Field not deleted' }));
+              }
+
+              const beforePersistResult = await pluginExecution.beforePersist(transactionContext, {
+                ...basePluginContext,
+                executionContext: transactionContext,
+                table: updatedTable,
+                result: {
+                  deletedField,
+                },
+                isTransactionBound: true,
+              });
+              if (beforePersistResult.isErr()) {
+                return err(beforePersistResult.error);
+              }
+
+              return ok([]);
+            },
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<{ events: ReadonlyArray<IDomainEvent>; table: Table }, DomainError>(
                 async function* () {
@@ -199,6 +243,17 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
           redoCommand,
         });
       }
+      if (!deletedField) {
+        return err(domainError.unexpected({ message: 'Field not deleted' }));
+      }
+
+      await pluginExecution.afterCommit({
+        ...basePluginContext,
+        table: updateResult.table,
+        result: {
+          deletedField,
+        },
+      });
 
       return ok(
         DeleteFieldResult.create(updateResult.table, updateResult.events, undoCommand, redoCommand)

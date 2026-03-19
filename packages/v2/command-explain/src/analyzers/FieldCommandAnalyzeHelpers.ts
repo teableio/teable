@@ -1,5 +1,8 @@
 import {
+  DefaultTableMapper,
   type DomainError,
+  FieldOperationPluginRunner,
+  NoopLogger,
   TableUpdateFlow,
   type IExecutionContext,
   type ITableRepository,
@@ -65,6 +68,9 @@ export const createNoopUndoRedoService = () =>
       entry: unknown
     ) => Promise<Result<void, DomainError>>;
   };
+
+export const createNoopFieldOperationPluginRunner = () =>
+  new FieldOperationPluginRunner([], new NoopLogger(), new DefaultTableMapper());
 
 export const buildFieldSqlExplains = async (
   runner: SqlExplainRunner,

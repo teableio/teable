@@ -26,17 +26,17 @@ export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction
   constructor(readonly db: Transaction<DB>) {}
 }
 
-export const getPostgresTransaction = <DB>(context: IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction;
+export const getPostgresTransaction = <DB>(context?: IExecutionContext): Transaction<DB> | null => {
+  const transaction = context?.transaction;
   if (transaction instanceof PostgresUnitOfWorkTransaction) {
     return transaction.db as Transaction<DB>;
   }
   return null;
 };
 
-export const resolvePostgresDb = <DB>(
+export const resolvePostgresDbOrTx = <DB>(
   db: Kysely<DB>,
-  context: IExecutionContext
+  context?: IExecutionContext
 ): Kysely<DB> | Transaction<DB> => {
   return getPostgresTransaction<DB>(context) ?? db;
 };

@@ -20,4 +20,5 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `services/FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field deletion.
 - `services/ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and validate missing references.
 - `services/RecordCreationService.ts` - Role: application service; Purpose: shared single-record creation workflow reused by multiple handlers.
+- `services/RecordWritePluginRunner.ts` - Role: application service; Purpose: run typed record-write plugins across prepare/guard/beforePersist/afterCommit phases.
 - `services/TableUpdateFlow.ts` - Role: application service; Purpose: transactionally apply table mutations and publish events.

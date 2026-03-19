@@ -5,27 +5,31 @@ import { AttachmentValueResolverService } from '../application/services/Attachme
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldCrossTableUpdateSideEffectService } from '../application/services/FieldCrossTableUpdateSideEffectService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import { FieldUndoRedoReplayService } from '../application/services/FieldUndoRedoReplayService';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
-import { RecordCreateConstraintService } from '../application/services/RecordCreateConstraintService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
+import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
-import type { IRecordCreateConstraint } from '../ports/RecordCreateConstraintService';
+import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
+import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import { v2CoreTokens } from '../ports/tokens';
+import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
 
 /**
  * Register all v2 core internal application services.
@@ -56,6 +60,7 @@ import { v2CoreTokens } from '../ports/tokens';
  * | attachmentValueResolverService   | AttachmentValueResolverService | Resolve attachment values on writes          |
  * | userValueResolverService         | UserValueResolverService       | Resolve user values on writes                |
  * | recordMutationSpecResolverService| RecordMutationSpecResolverService | Resolve external values in specs         |
+ * | recordWritePluginRunner          | RecordWritePluginRunner        | Run typed record-write plugins               |
  * | recordWriteSideEffectService     | RecordWriteSideEffectService   | Collect table side effects on record writes  |
  * | recordCreationService            | RecordCreationService          | Shared single-record creation workflow        |
  *
@@ -224,21 +229,28 @@ export const registerV2CoreServices = (
     });
   }
 
-  // RecordCreateConstraintService - default no-op constraint aggregator
-  if (!container.isRegistered(v2CoreTokens.recordCreateConstraints)) {
-    container.registerInstance(
-      v2CoreTokens.recordCreateConstraints,
-      [] as IRecordCreateConstraint[]
-    );
+  if (!container.isRegistered(v2CoreTokens.recordWritePlugins)) {
+    container.registerInstance(v2CoreTokens.recordWritePlugins, [] as IRecordWritePlugin[]);
   }
-  if (!container.isRegistered(v2CoreTokens.recordCreateConstraintService)) {
-    const constraints = container.resolve<IRecordCreateConstraint[]>(
-      v2CoreTokens.recordCreateConstraints
-    );
-    container.registerInstance(
-      v2CoreTokens.recordCreateConstraintService,
-      new RecordCreateConstraintService(constraints)
-    );
+
+  if (!container.isRegistered(v2CoreTokens.recordWritePluginRunner)) {
+    container.register(v2CoreTokens.recordWritePluginRunner, RecordWritePluginRunner, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.fieldOperationPlugins)) {
+    container.registerInstance(v2CoreTokens.fieldOperationPlugins, [] as IFieldOperationPlugin[]);
+  }
+
+  registerFieldOperationPlugin(container, new TableFieldLimitFieldOperationPlugin(), {
+    source: 'registerV2CoreServices',
+  });
+
+  if (!container.isRegistered(v2CoreTokens.fieldOperationPluginRunner)) {
+    container.register(v2CoreTokens.fieldOperationPluginRunner, FieldOperationPluginRunner, {
+      lifecycle,
+    });
   }
 
   // RecordMutationSpecResolverService - resolve external values in specs

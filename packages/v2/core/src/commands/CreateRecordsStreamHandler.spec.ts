@@ -23,6 +23,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
@@ -32,6 +33,11 @@ import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateRecordsStreamCommand } from './CreateRecordsStreamCommand';
 import { CreateRecordsStreamHandler } from './CreateRecordsStreamHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -225,6 +231,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       eventBus,
       unitOfWork
@@ -250,6 +257,39 @@ describe('CreateRecordsStreamHandler', () => {
     expect(eventBus.published.length).toBe(0);
   });
 
+  it('skips plugins that do not support createStream', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new CreateRecordsStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner([plugin]),
+      recordRepository,
+      eventBus,
+      unitOfWork
+    );
+
+    const command = CreateRecordsStreamCommand.create({
+      tableId: tableId.toString(),
+      batchSize: 2,
+      records: [
+        { fields: { [textFieldId.toString()]: 'First', [numberFieldId.toString()]: 1 } },
+        { fields: { [textFieldId.toString()]: 'Second', [numberFieldId.toString()]: 2 } },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.createStream);
+  });
+
   it('returns error when validation fails in a batch', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -260,6 +300,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
       recordRepository,
       eventBus,
       new FakeUnitOfWork()

@@ -26,7 +26,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
@@ -41,6 +41,11 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
 import { DuplicateRecordHandler } from './DuplicateRecordHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -298,22 +303,6 @@ const createFakeRecordMutationSpecResolverService = () =>
     resolveAndReplace: async (_context: IExecutionContext, spec: ICellValueSpec) => ok(spec),
   }) as unknown as RecordMutationSpecResolverService;
 
-class FakeRecordCreateConstraintService implements IRecordCreateConstraintService {
-  constructor(private readonly result: Result<void, DomainError> = ok(undefined)) {}
-
-  register(): void {
-    // No-op for tests.
-  }
-
-  async checkCreate(
-    _context: IExecutionContext,
-    _tableId: TableId,
-    _recordCount: number
-  ): Promise<Result<void, DomainError>> {
-    return this.result;
-  }
-}
-
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
   rollbacks: IExecutionContext[] = [];
@@ -405,7 +394,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -427,6 +416,51 @@ describe('DuplicateRecordHandler', () => {
     // The duplicated record should have a different ID
     expect(savedRecord.id().toString()).not.toBe(sourceRecordId);
     expect(unitOfWork.transactions.length).toBe(1);
+  });
+
+  it('skips plugins that do not support duplicate', async () => {
+    const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    recordQueryRepository.records.set(sourceRecordId, {
+      id: sourceRecordId,
+      fields: {
+        [textFieldId]: 'Original Value',
+        [numberFieldId]: 100,
+      },
+      version: 1,
+    });
+
+    const handler = new DuplicateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      createFakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner([plugin]),
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = DuplicateRecordCommand.create({
+      tableId,
+      recordId: sourceRecordId,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.duplicate);
   });
 
   it('copies field values from source record', async () => {
@@ -455,7 +489,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -508,7 +542,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -541,7 +575,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -577,7 +611,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -623,7 +657,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -665,7 +699,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -711,7 +745,7 @@ describe('DuplicateRecordHandler', () => {
       recordRepository,
       recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
-      new FakeRecordCreateConstraintService(),
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,

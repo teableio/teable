@@ -30,6 +30,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   ITableRecordRepository,
   RecordMutationResult,
@@ -41,6 +42,11 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { UpdateRecordsCommand } from './UpdateRecordsCommand';
 import { UpdateRecordsHandler } from './UpdateRecordsHandler';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+  expectRecordWritePluginToBeSkipped,
+} from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -328,6 +334,7 @@ describe('UpdateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
@@ -370,6 +377,62 @@ describe('UpdateRecordsHandler', () => {
     ]);
   });
 
+  it('skips plugins that do not support updateMany', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const recordId = `rec${'z'.repeat(16)}`;
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateManyResult = {
+      totalUpdated: 1,
+      updatedRecordIds: [RecordId.create(recordId)._unsafeUnwrap()],
+      updatedRecords: [
+        {
+          recordId: RecordId.create(recordId)._unsafeUnwrap(),
+          oldVersion: 1,
+          newVersion: 2,
+          oldFieldValues: { [numberFieldId.toString()]: 1 },
+        },
+      ],
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
+
+    const handler = new UpdateRecordsHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([plugin]),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      undoRedoService as unknown as UndoRedoService,
+      unitOfWork
+    );
+
+    const command = UpdateRecordsCommand.create({
+      tableId: tableId.toString(),
+      fields: { [numberFieldId.toString()]: 99 },
+      filter: {
+        fieldId: textFieldId.toString(),
+        operator: 'contains',
+        value: 'task',
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.updateMany);
+  });
+
   it('uses RecordByIdsSpec when recordIds are provided', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordIdA = `rec${'c'.repeat(16)}`;
@@ -400,6 +463,7 @@ describe('UpdateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
@@ -443,6 +507,7 @@ describe('UpdateRecordsHandler', () => {
       tableQueryService,
       recordRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),

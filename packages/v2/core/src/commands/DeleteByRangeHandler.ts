@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { isNotFoundError, type DomainError } from '../domain/shared/DomainError';
@@ -19,6 +20,7 @@ import type { TableRecord as TableRecordEntity } from '../domain/table/records/T
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -49,6 +51,8 @@ export class DeleteByRangeHandler
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
@@ -237,10 +241,25 @@ export class DeleteByRangeHandler
         const recordId = yield* RecordId.create(record.id);
         recordIds.push(recordId);
       }
+      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.deleteMany,
+        executionContext: context,
+        table,
+        payload: {
+          recordIds,
+          recordCount: recordIds.length,
+        },
+        isTransactionBound: false,
+      });
+      yield* await pluginExecution.guard();
       const deleteSpec = RecordByIdsSpec.create(recordIds);
 
       // 8. Execute deletion within transaction
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
+        const beforePersistResult = await pluginExecution.beforePersist(transactionContext);
+        if (beforePersistResult.isErr()) {
+          return beforePersistResult;
+        }
         const deleteResult = await handler.tableRecordRepository.deleteMany(
           transactionContext,
           table,
@@ -289,6 +308,7 @@ export class DeleteByRangeHandler
           }),
         });
       }
+      await pluginExecution.afterCommit();
 
       return ok({
         deletedCount: recordsToDelete.length,

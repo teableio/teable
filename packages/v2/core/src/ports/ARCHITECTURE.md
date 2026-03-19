@@ -29,6 +29,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `RealtimeChange.ts` - Role: realtime model; Purpose: describe change operations.
 - `RealtimeDocId.ts` - Role: realtime value object; Purpose: validate doc identifiers.
 - `RealtimeEngine.ts` - Role: realtime port; Purpose: abstract realtime storage and fanout.
+- `RecordWritePlugin.ts` - Role: plugin port; Purpose: define typed record-write plugin hooks and operation contexts.
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
 - `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.
 - `TableRecordReadModel.ts` - Role: read model DTO; Purpose: lightweight record shape for queries.

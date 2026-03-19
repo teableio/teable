@@ -2,6 +2,11 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldUpdateAddSideEffects,
+  prepareFieldAddSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
@@ -21,6 +26,8 @@ import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
+import { type ITableMapper } from '../ports/mappers/TableMapper';
 import { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -46,12 +53,16 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
+    @inject(v2CoreTokens.tableMapper)
+    private readonly tableMapper: ITableMapper,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldUpdateSideEffectService)
     private readonly fieldUpdateSideEffectService: FieldUpdateSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -200,8 +211,9 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         references: allReferences,
       });
 
-      // 5. Track field and specs for side effects
-      const previousField: Field | undefined = existingField;
+      // 5. Build update specs once. Preview planning runs on a detached clone so the live table
+      // stays clean for undo snapshots, plugin checks, and the real update execution.
+      const previousField: Field = existingField;
       const updateSpecsResult = buildUpdateFieldSpecs(existingField, command.fieldUpdate, {
         hostTable: table,
         foreignTables,
@@ -225,6 +237,54 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         command.fieldId,
         { includeRecords: hasTypeConversion }
       );
+      const previewTable = yield* table.clone(handler.tableMapper);
+      const previewPreviousField = yield* previewTable.getField((f) =>
+        f.id().equals(command.fieldId)
+      );
+      const previewUpdateResult = yield* previewTable.update((mutator) =>
+        mutator.updateField(command.fieldId, updateSpecs, { foreignTables })
+      );
+      const previewUpdatedField = yield* previewUpdateResult.table.getField((f) =>
+        f.id().equals(command.fieldId)
+      );
+      const plannedSideEffects = yield* collectFieldUpdateAddSideEffects(
+        previewTable,
+        previewUpdatedField,
+        previewPreviousField,
+        foreignTables
+      );
+
+      const basePluginContext = {
+        kind: FieldOperationKind.update,
+        executionContext: context,
+        table,
+        target: {
+          kind: FieldOperationTargetKind.direct,
+          sourceOperation: FieldOperationKind.update,
+          sourceTable: table,
+        },
+        payload: {
+          fieldId: command.fieldId,
+          fieldUpdate: command.fieldUpdate,
+          previousField,
+          updateSpecs,
+          foreignTables,
+          allowNoop: command.allowNoop,
+        },
+        isTransactionBound: false,
+      } as const;
+      const pluginExecution =
+        yield* await handler.fieldOperationPluginRunner.prepare(basePluginContext);
+      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.update,
+        sourceTable: table,
+        foreignTables,
+        sideEffects: plannedSideEffects,
+      });
+      yield* await pluginExecution.guard();
+      yield* await sideEffectPluginExecution.guard();
 
       // 6. Execute update flow with the already-loaded table
       const updateResult = yield* await handler.tableUpdateFlow.execute(
@@ -241,6 +301,28 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
                 const effectiveUpdatedField = yield* updatedTable.getField((f) =>
                   f.id().equals(command.fieldId)
                 );
+
+                const beforePersistResult = await pluginExecution.beforePersist(
+                  transactionContext,
+                  {
+                    ...basePluginContext,
+                    executionContext: transactionContext,
+                    table: updatedTable,
+                    result: {
+                      updatedField: effectiveUpdatedField,
+                    },
+                    isTransactionBound: true,
+                  }
+                );
+                if (beforePersistResult.isErr()) {
+                  return err(beforePersistResult.error);
+                }
+
+                const sideEffectBeforePersistResult =
+                  await sideEffectPluginExecution.beforePersist(transactionContext);
+                if (sideEffectBeforePersistResult.isErr()) {
+                  return err(sideEffectBeforePersistResult.error);
+                }
 
                 const prepareEvents = yield* await handler.fieldUpdateSideEffectService.prepare(
                   transactionContext,
@@ -304,6 +386,18 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
           }
         ),
       });
+
+      const updatedFieldForPlugin = yield* updateResult.table.getField((f) =>
+        f.id().equals(command.fieldId)
+      );
+      await pluginExecution.afterCommit({
+        ...basePluginContext,
+        table: updateResult.table,
+        result: {
+          updatedField: updatedFieldForPlugin,
+        },
+      });
+      await sideEffectPluginExecution.afterCommit();
 
       return ok(UpdateFieldResult.create(updateResult.table, updateResult.events));
     });
