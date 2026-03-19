@@ -676,7 +676,11 @@
     "noUnread": "{{status}}の通知はありません",
     "changeSetting": "ページ通知設定を変更する",
     "new": "{{count}}件の新たな通知",
-    "showMore": "もっと見る"
+    "showMore": "もっと見る",
+    "exportBase": {
+      "successText": "エクスポートデータの準備ができました",
+      "failedText": "エクスポートに失敗しました。再試行してください"
+    }
   },
   "role": {
     "title": {

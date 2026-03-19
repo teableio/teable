@@ -672,7 +672,11 @@
     "noUnread": "No hay notificaciones con estado: {{status}}",
     "changeSetting": "Cambiar la configuración de notificación de página",
     "new": "{{count}} nueva(s)",
-    "showMore": "Mostrar más"
+    "showMore": "Mostrar más",
+    "exportBase": {
+      "successText": "Los datos de exportación están listos",
+      "failedText": "La exportación falló, por favor reinténtelo"
+    }
   },
   "role": {
     "title": {

@@ -669,7 +669,11 @@
     "noUnread": "Keine Benachrichtigungen mit Status: {{status}}",
     "changeSetting": "Einstellungen für Seitenbenachrichtigungen ändern",
     "new": "{{count}} neue",
-    "showMore": "Zeige mehr"
+    "showMore": "Zeige mehr",
+    "exportBase": {
+      "successText": "Exportdaten sind bereit",
+      "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
+    }
   },
   "role": {
     "title": {

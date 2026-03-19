@@ -17,6 +17,7 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "back": "Back",
+    "download": "Download",
     "remove": "Remove",
     "removeConfig": "Remove config",
     "retry": "Retry",
@@ -970,7 +971,8 @@
     "new": "new {{count}}",
     "showMore": "Show more",
     "exportBase": {
-      "successText": "Export successfully"
+      "successText": "Export data is ready",
+      "failedText": "Export failed, please retry"
     }
   },
   "role": {

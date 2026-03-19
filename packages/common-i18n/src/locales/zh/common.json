@@ -17,6 +17,7 @@
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "back": "返回",
+    "download": "下载",
     "remove": "移除",
     "removeConfig": "清空配置",
     "retry": "重试",
@@ -970,7 +971,8 @@
     "new": "新消息{{count}}条",
     "showMore": "显示更多",
     "exportBase": {
-      "successText": "导出成功, 请点击下载"
+      "successText": "导出数据已就绪",
+      "failedText": "导出失败，请重试"
     }
   },
   "role": {

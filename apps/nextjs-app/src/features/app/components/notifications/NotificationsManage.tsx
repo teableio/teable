@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NotificationStatesEnum } from '@teable/core';
-import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable/icons';
+import type { INotificationIcon } from '@teable/core';
+import { NotificationStatesEnum, NotificationTypeEnum } from '@teable/core';
+import { Bell, CheckCircle2 as Read, Download, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
   getNotificationUnreadCount,
@@ -12,6 +13,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib'
 import { cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
+import type { TFunction } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
 import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
@@ -19,6 +21,60 @@ import { NotificationList } from './NotificationList';
 
 const SHOWN_NOTIFICATIONS_LIMIT = 100;
 const shownNotificationIds = new Set<string>();
+
+const showExportBaseToast = (
+  notification: {
+    url?: string | null;
+    messageI18n?: string | null;
+    notifyIcon: INotificationIcon;
+    notifyType: NotificationTypeEnum;
+  },
+  toastId: string,
+  t: TFunction
+) => {
+  const { url, messageI18n } = notification;
+  let fileName = '';
+  let downloadUrl = url || '';
+  let isSuccess = true;
+  try {
+    const parsed = JSON.parse(messageI18n || '{}');
+    fileName = parsed?.context?.name || parsed?.context?.baseName || '';
+    isSuccess = !parsed?.i18nKey?.includes('failed');
+    if (!downloadUrl) {
+      downloadUrl = parsed?.context?.previewUrl || '';
+    }
+  } catch {
+    // ignore
+  }
+
+  const toastFn = isSuccess ? toast : toast.error;
+  const titleKey = isSuccess
+    ? 'notification.exportBase.successText'
+    : 'notification.exportBase.failedText';
+  toastFn(
+    <div className="flex w-full items-center gap-2">
+      <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="truncate text-sm font-medium">{t(titleKey)}</div>
+        {fileName && <div className="truncate text-xs text-muted-foreground">{fileName}</div>}
+      </div>
+      {isSuccess && downloadUrl && (
+        <a href={downloadUrl} download className="ml-auto">
+          <Button variant="default" size="xs" className="shrink-0 gap-1">
+            <Download className="size-4" />
+            {t('actions.download')}
+          </Button>
+        </a>
+      )}
+    </div>,
+    {
+      id: toastId,
+      position: 'top-center',
+      duration: 1000 * 3,
+      closeButton: !isSuccess,
+    }
+  );
+};
 
 export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -63,25 +119,29 @@ export const NotificationsManage: React.FC = () => {
       notification.notification.messageI18n?.includes('insufficientCredit');
     const toastId = isCreditNotification ? 'credit-exhausted-notification' : notificationId;
 
-    toast.info(
-      <div className="flex  items-center">
-        <NotificationIcon
-          notifyIcon={notification.notification.notifyIcon}
-          notifyType={notification.notification.notifyType}
-        />
-        <LinkNotification
-          data={notification.notification}
-          notifyStatus={NotificationStatesEnum.Unread}
-        />
-      </div>,
-      {
-        id: toastId,
-        position: 'top-center',
-        duration: 1000 * 3,
-        closeButton: true,
-      }
-    );
-  }, [notification?.notification]);
+    if (notification.notification.notifyType === NotificationTypeEnum.ExportBase) {
+      showExportBaseToast(notification.notification, toastId, t);
+    } else {
+      toast.info(
+        <div className="flex items-center">
+          <NotificationIcon
+            notifyIcon={notification.notification.notifyIcon}
+            notifyType={notification.notification.notifyType}
+          />
+          <LinkNotification
+            data={notification.notification}
+            notifyStatus={NotificationStatesEnum.Unread}
+          />
+        </div>,
+        {
+          id: toastId,
+          position: 'top-center',
+          duration: 1000 * 3,
+          closeButton: true,
+        }
+      );
+    }
+  }, [notification?.notification, t]);
 
   const {
     data: notifyPage,

@@ -253,6 +253,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "download": string;
             "retry": string;
             "copyToMySpace": string;
             "copyLink": string;
@@ -1181,6 +1182,7 @@ export type I18nTranslations = {
             "showMore": string;
             "exportBase": {
                 "successText": string;
+                "failedText": string;
             };
         };
         "role": {

@@ -633,7 +633,11 @@
     "noUnread": "{{status}} bildirim yok",
     "changeSetting": "Sayfa bildirim ayarlarını değiştir",
     "new": "yeni {{count}}",
-    "showMore": "Daha fazla göster"
+    "showMore": "Daha fazla göster",
+    "exportBase": {
+      "successText": "Dışa aktarma verileri hazır",
+      "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
+    }
   },
   "role": {
     "title": {

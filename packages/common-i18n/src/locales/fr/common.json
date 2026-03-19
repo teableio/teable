@@ -674,7 +674,11 @@
     "noUnread": "Pas de notifications {{status}}",
     "changeSetting": "Modifier les paramètres des notifications de la page",
     "new": "nouveau {{count}}",
-    "showMore": "Voir plus"
+    "showMore": "Voir plus",
+    "exportBase": {
+      "successText": "Les données d'exportation sont prêtes",
+      "failedText": "L'exportation a échoué, veuillez réessayer"
+    }
   },
   "role": {
     "title": {
