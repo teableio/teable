@@ -46,6 +46,7 @@ export * from './application/services/TableQueryService';
 export * from './application/services/UndoRedoService';
 export * from './application/projections/Projection';
 export * from './application/projections/RealtimeProjection';
+export * from './application/projections/BatchRecordRefreshPolicy';
 export * from './application/projections/TableCreatedRealtimeProjection';
 export * from './application/projections/FieldCreatedRealtimeProjection';
 export * from './application/projections/FieldDeletedRealtimeProjection';

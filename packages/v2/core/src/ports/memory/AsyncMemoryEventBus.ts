@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { isDomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { DomainEventName } from '../../domain/shared/DomainEventName';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventHandler } from '../EventHandler';
 import { getEventHandlerRole, getEventHandlerTokens } from '../EventHandler';
@@ -21,7 +22,21 @@ export type AsyncEventBusError = Readonly<{
 export type AsyncMemoryEventBusOptions = Readonly<{
   schedule?: AsyncEventBusScheduler;
   onError?: (error: AsyncEventBusError) => void;
+  largeBatchProjectionSerialThreshold?: number;
 }>;
+
+const DEFAULT_LARGE_BATCH_PROJECTION_SERIAL_THRESHOLD = 1000;
+const RECORDS_BATCH_UPDATED_EVENT_NAME = DomainEventName.recordsBatchUpdated();
+const RECORDS_BATCH_CREATED_EVENT_NAME = DomainEventName.recordsBatchCreated();
+
+const hasReadonlyArrayProperty = <T extends string>(
+  value: unknown,
+  key: T
+): value is Record<T, ReadonlyArray<unknown>> =>
+  typeof value === 'object' &&
+  value != null &&
+  key in value &&
+  Array.isArray((value as Record<string, unknown>)[key]);
 
 const resolveErrorMessage = (error: unknown): string => {
   if (isDomainError(error)) return error.message;
@@ -88,6 +103,28 @@ export class AsyncMemoryEventBus implements IEventBus {
     private readonly handlerResolver: IHandlerResolver,
     private readonly options: AsyncMemoryEventBusOptions = {}
   ) {}
+
+  private shouldDispatchProjectionGroupConcurrently(event: IDomainEvent): boolean {
+    const threshold =
+      this.options.largeBatchProjectionSerialThreshold ??
+      DEFAULT_LARGE_BATCH_PROJECTION_SERIAL_THRESHOLD;
+
+    if (
+      event.name.equals(RECORDS_BATCH_UPDATED_EVENT_NAME) &&
+      hasReadonlyArrayProperty(event, 'updates')
+    ) {
+      return event.updates.length <= threshold;
+    }
+
+    if (
+      event.name.equals(RECORDS_BATCH_CREATED_EVENT_NAME) &&
+      hasReadonlyArrayProperty(event, 'records')
+    ) {
+      return event.records.length <= threshold;
+    }
+
+    return true;
+  }
 
   events(): ReadonlyArray<IDomainEvent> {
     return [...this.publishedEvents];
@@ -197,12 +234,18 @@ export class AsyncMemoryEventBus implements IEventBus {
     const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
     const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
     let projectionGroup: Array<IClassToken<IEventHandler<IDomainEvent>>> = [];
+    const shouldDispatchProjectionGroupConcurrently =
+      this.shouldDispatchProjectionGroupConcurrently(event);
 
     // Consecutive @ProjectionHandler handlers are dispatched concurrently.
     // A non-projection handler creates an ordering boundary: the preceding
     // projection group must finish before that handler runs, and any following
     // projection handlers begin a fresh concurrent group afterward.
     // Handler registration order therefore affects concurrency grouping.
+    // Large batch record events are the exception: they fall back to serial
+    // projection dispatch to avoid multiplying memory retained by heavy
+    // handlers like record history, automation matching, realtime payload
+    // generation, and task fan-out on the same giant event payload.
     const flushProjectionGroup = async () => {
       if (!projectionGroup.length) {
         return;
@@ -210,9 +253,16 @@ export class AsyncMemoryEventBus implements IEventBus {
 
       const currentGroup = projectionGroup;
       projectionGroup = [];
-      await Promise.all(
-        currentGroup.map((handlerToken) => this.dispatchToHandler(context, event, handlerToken))
-      );
+      if (shouldDispatchProjectionGroupConcurrently || currentGroup.length === 1) {
+        await Promise.all(
+          currentGroup.map((handlerToken) => this.dispatchToHandler(context, event, handlerToken))
+        );
+        return;
+      }
+
+      for (const handlerToken of currentGroup) {
+        await this.dispatchToHandler(context, event, handlerToken);
+      }
     };
 
     for (const handlerToken of handlers as Array<IClassToken<IEventHandler<IDomainEvent>>>) {

@@ -1,5 +1,4 @@
 import { tableI18nKeys } from '@teable/i18n-keys';
-import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import * as core from '@teable/v2-core';
 import {
   domainError,
@@ -18,6 +17,7 @@ import { sql, type Expression, type Kysely, type SqlBool } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolvePostgresDbOrTx } from '../../shared/db';
 import { describeError, wrapDatabaseError } from '../../shared/errors';
 import type {
   ComputedFieldUpdater,
@@ -729,8 +729,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     batches:
-      | Iterable<ReadonlyArray<core.TableRecord>>
-      | AsyncIterable<ReadonlyArray<core.TableRecord>>,
+      | Iterable<core.InsertManyStreamBatchInput>
+      | AsyncIterable<core.InsertManyStreamBatchInput>,
     options?: core.InsertManyStreamOptions
   ): Promise<Result<core.InsertManyStreamResult, DomainError>> {
     let totalInserted = 0;
@@ -740,9 +740,17 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     // When deferring computed updates, collect all records for final batch update
     const allInsertedRecords: core.TableRecord[] = [];
 
+    const normalizeBatch = (
+      batch: core.InsertManyStreamBatchInput
+    ): { batchTable: core.Table; records: ReadonlyArray<core.TableRecord> } =>
+      core.isInsertManyStreamBatch(batch)
+        ? { batchTable: batch.table ?? table, records: batch.records }
+        : { batchTable: table, records: batch };
+
     // Handle both sync and async iterables
-    const processBatch = async (batch: ReadonlyArray<core.TableRecord>) => {
-      const result = await this.insertMany(context, table, batch, {
+    const processBatch = async (batch: core.InsertManyStreamBatchInput) => {
+      const { batchTable, records } = normalizeBatch(batch);
+      const result = await this.insertMany(context, batchTable, records, {
         skipComputedUpdates: deferComputed,
       });
       if (result.isErr()) {
@@ -751,13 +759,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
       // Track records if deferring computed updates
       if (deferComputed) {
-        allInsertedRecords.push(...batch);
+        allInsertedRecords.push(...records);
       }
 
-      totalInserted += batch.length;
+      totalInserted += records.length;
       options?.onBatchInserted?.({
         batchIndex,
-        insertedCount: batch.length,
+        insertedCount: records.length,
         totalInserted,
         recordOrders: result.value.recordOrders,
       });
@@ -765,20 +773,31 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     };
 
-    if (Symbol.asyncIterator in batches) {
-      for await (const batch of batches as AsyncIterable<ReadonlyArray<core.TableRecord>>) {
-        const result = await processBatch(batch);
-        if (result.isErr()) {
-          return err(result.error);
+    try {
+      if (Symbol.asyncIterator in batches) {
+        for await (const batch of batches as AsyncIterable<core.InsertManyStreamBatchInput>) {
+          const result = await processBatch(batch);
+          if (result.isErr()) {
+            return err(result.error);
+          }
+        }
+      } else {
+        for (const batch of batches as Iterable<core.InsertManyStreamBatchInput>) {
+          const result = await processBatch(batch);
+          if (result.isErr()) {
+            return err(result.error);
+          }
         }
       }
-    } else {
-      for (const batch of batches as Iterable<ReadonlyArray<core.TableRecord>>) {
-        const result = await processBatch(batch);
-        if (result.isErr()) {
-          return err(result.error);
-        }
-      }
+    } catch (error) {
+      return err(
+        core.isDomainError(error)
+          ? error
+          : core.domainError.unexpected({
+              code: 'record.insert_many_stream.iteration_failed',
+              message: `Unexpected insert stream error: ${describeError(error)}`,
+            })
+      );
     }
 
     // Trigger deferred computed updates after all inserts complete
@@ -1024,7 +1043,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   async updateManyStream(
     context: core.IExecutionContext,
     table: core.Table,
-    batches: Generator<Result<ReadonlyArray<core.RecordUpdateResult>, core.DomainError>>,
+    batches:
+      | Iterable<Result<core.UpdateManyStreamBatchInput, core.DomainError>>
+      | AsyncIterable<Result<core.UpdateManyStreamBatchInput, core.DomainError>>,
     options?: core.UpdateManyStreamOptions
   ): Promise<Result<core.UpdateManyStreamResult, DomainError>> {
     return safeTry<core.UpdateManyStreamResult, DomainError>(
@@ -1043,16 +1064,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         let batchIndex = 0;
         const allRecordIds: core.RecordId[] = [];
         const allChangedFieldIds = new Map<string, core.FieldId>();
+        const normalizeBatch = (
+          batch: core.UpdateManyStreamBatchInput
+        ): { batchTable: core.Table; updates: ReadonlyArray<core.RecordUpdateResult> } =>
+          core.isUpdateManyStreamBatch(batch)
+            ? { batchTable: batch.table ?? table, updates: batch.updates }
+            : { batchTable: table, updates: batch };
 
-        // Process each batch from the generator
-        for (const batchResult of batches) {
+        const processBatch = async (
+          batchResult: Result<core.UpdateManyStreamBatchInput, core.DomainError>
+        ): Promise<Result<void, DomainError>> => {
           if (batchResult.isErr()) {
             return err(batchResult.error);
           }
 
-          const batch = batchResult.value;
+          const { batchTable, updates: batch } = normalizeBatch(batchResult.value);
           if (batch.length === 0) {
-            continue;
+            return ok(undefined);
           }
 
           // Convert batch to BatchRecordUpdateInput format
@@ -1064,8 +1092,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
           // Use BatchRecordUpdateBuilder to build batch update data
           const batchUpdateBuilder = new BatchRecordUpdateBuilder(db);
-          const batchDataResult = yield* await batchUpdateBuilder.buildBatchUpdateData({
-            table,
+          const batchDataResult = await batchUpdateBuilder.buildBatchUpdateData({
+            table: batchTable,
             tableName,
             updates,
             context: {
@@ -1075,6 +1103,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               actorEmail: actorContext.actorEmail,
             },
           });
+          if (batchDataResult.isErr()) {
+            return err(batchDataResult.error);
+          }
 
           const {
             columnUpdateData,
@@ -1082,7 +1113,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             linkedRecordLocks,
             impact,
             systemColumns,
-          } = batchDataResult;
+          } = batchDataResult.value;
 
           try {
             // Generate and execute batch UPDATE SQL
@@ -1090,7 +1121,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               tableName,
               columnUpdateData,
               systemColumns,
-              table,
+              table: batchTable,
               db,
             });
             if (updateSqlResult.isErr()) {
@@ -1100,7 +1131,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await db.executeQuery(updateSqlResult.value);
 
             // Acquire advisory locks for linked records (deduplicated, single query)
-            const baseId = table.baseId().toString();
+            const baseId = batchTable.baseId().toString();
             await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
 
             // Execute additional statements (junction tables, FK updates)
@@ -1127,8 +1158,29 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               totalUpdated,
             });
             batchIndex++;
+            return ok(undefined);
           } catch (error) {
             return err(wrapDatabaseError(error, 'update', { tableName }, context.$t));
+          }
+        };
+
+        if (Symbol.asyncIterator in batches) {
+          for await (const batchResult of batches as AsyncIterable<
+            Result<core.UpdateManyStreamBatchInput, core.DomainError>
+          >) {
+            const result = await processBatch(batchResult);
+            if (result.isErr()) {
+              return err(result.error);
+            }
+          }
+        } else {
+          for (const batchResult of batches as Iterable<
+            Result<core.UpdateManyStreamBatchInput, core.DomainError>
+          >) {
+            const result = await processBatch(batchResult);
+            if (result.isErr()) {
+              return err(result.error);
+            }
           }
         }
 

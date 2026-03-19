@@ -63,7 +63,11 @@ export interface InsertManyStreamProgress {
  * Options for streaming insert operations.
  */
 export interface InsertManyStreamOptions {
-  /** Callback invoked after each batch is inserted */
+  /**
+   * Callback invoked after the corresponding yielded batch is persisted.
+   * `batchIndex` follows the source iterable emission order so callers can
+   * safely align per-batch metadata with callback invocations.
+   */
   onBatchInserted?: (progress: InsertManyStreamProgress) => void;
   /**
    * When true, computed field updates are deferred to a background worker
@@ -84,6 +88,20 @@ export interface InsertManyStreamResult {
   /** Total number of records inserted */
   totalInserted: number;
 }
+
+export interface InsertManyStreamBatch {
+  /** Optional table snapshot for this batch when field metadata changed mid-stream. */
+  table?: Table;
+  /** Records to insert for this batch. */
+  records: ReadonlyArray<TableRecord>;
+}
+
+export type InsertManyStreamBatchInput = ReadonlyArray<TableRecord> | InsertManyStreamBatch;
+
+export const isInsertManyStreamBatch = (
+  batch: InsertManyStreamBatchInput
+): batch is InsertManyStreamBatch =>
+  typeof batch === 'object' && batch != null && 'records' in batch;
 
 /**
  * Result of bulk update operations driven by a filter specification.
@@ -129,6 +147,20 @@ export interface UpdateManyStreamResult {
   /** Total number of records updated */
   totalUpdated: number;
 }
+
+export interface UpdateManyStreamBatch {
+  /** Optional table snapshot for this batch when field metadata changed mid-stream. */
+  table?: Table;
+  /** Resolved record updates to persist for this batch. */
+  updates: ReadonlyArray<RecordUpdateResult>;
+}
+
+export type UpdateManyStreamBatchInput = ReadonlyArray<RecordUpdateResult> | UpdateManyStreamBatch;
+
+export const isUpdateManyStreamBatch = (
+  batch: UpdateManyStreamBatchInput
+): batch is UpdateManyStreamBatch =>
+  typeof batch === 'object' && batch != null && 'updates' in batch;
 
 export interface RecordRestoreSystemValues {
   /** Preserve legacy record identity fields during undo/redo restore. */
@@ -191,7 +223,7 @@ export interface ITableRecordRepository {
   insertManyStream(
     context: IExecutionContext,
     table: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
+    batches: Iterable<InsertManyStreamBatchInput> | AsyncIterable<InsertManyStreamBatchInput>,
     options?: InsertManyStreamOptions
   ): Promise<Result<InsertManyStreamResult, DomainError>>;
 
@@ -253,7 +285,9 @@ export interface ITableRecordRepository {
   updateManyStream(
     context: IExecutionContext,
     table: Table,
-    batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>,
+    batches:
+      | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
     options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>>;
 

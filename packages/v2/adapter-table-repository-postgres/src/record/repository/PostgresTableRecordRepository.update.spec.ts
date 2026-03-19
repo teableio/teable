@@ -13,6 +13,7 @@ import {
   ViewId,
   DefaultTableMapper,
   buildRecordConditionSpec,
+  domainError,
   ok,
 } from '@teable/v2-core';
 import type {
@@ -818,6 +819,44 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     expect(lockQuery?.sql).toContain('ORDER BY k');
 
     vi.useRealTimers();
+  });
+
+  it('returns Err when the insert stream throws a domain error', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('InsertStreamErrorTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const { db } = createRecordingDb();
+    const repo = createRepository(db, table);
+
+    const batches: AsyncIterable<ReadonlyArray<TableRecord>> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async () => {
+            throw domainError.validation({ message: 'insert stream exploded' });
+          },
+        };
+      },
+    };
+
+    const result = await repo.insertManyStream({ actorId }, table, batches);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('insert stream exploded');
   });
 
   it('casts oneMany order column update to integer', async () => {

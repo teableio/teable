@@ -38,7 +38,11 @@ import type {
   ITableRecordRepository,
   RecordMutationResult,
   BatchRecordMutationResult,
+  InsertManyStreamBatchInput,
+  InsertManyStreamOptions,
+  UpdateManyStreamBatchInput,
 } from '../ports/TableRecordRepository';
+import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -247,6 +251,7 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 class FakeTableRecordRepository implements ITableRecordRepository {
   inserted: TableRecord[] = [];
   updated: RecordUpdateResult[] = [];
+  insertCalls = 0;
   updateCalls = 0;
 
   async insert(
@@ -268,18 +273,29 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async insertManyStream(
     _: IExecutionContext,
     __: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>
+    batches: Iterable<InsertManyStreamBatchInput> | AsyncIterable<InsertManyStreamBatchInput>,
+    options?: InsertManyStreamOptions
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
+    this.insertCalls += 1;
     let totalInserted = 0;
+    let batchIndex = 0;
+    const normalizeBatch = (batch: InsertManyStreamBatchInput): ReadonlyArray<TableRecord> =>
+      isInsertManyStreamBatch(batch) ? batch.records : batch;
     if (Symbol.asyncIterator in batches) {
-      for await (const batch of batches as AsyncIterable<ReadonlyArray<TableRecord>>) {
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
+      for await (const batch of batches as AsyncIterable<InsertManyStreamBatchInput>) {
+        const records = normalizeBatch(batch);
+        this.inserted.push(...records);
+        totalInserted += records.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: records.length, totalInserted });
+        batchIndex += 1;
       }
     } else {
-      for (const batch of batches as Iterable<ReadonlyArray<TableRecord>>) {
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
+      for (const batch of batches as Iterable<InsertManyStreamBatchInput>) {
+        const records = normalizeBatch(batch);
+        this.inserted.push(...records);
+        totalInserted += records.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: records.length, totalInserted });
+        batchIndex += 1;
       }
     }
 
@@ -307,17 +323,40 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async updateManyStream(
     _: IExecutionContext,
     __: Table,
-    batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
+    batches:
+      | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>
   ): Promise<Result<{ totalUpdated: number }, DomainError>> {
     this.updateCalls += 1;
     let totalUpdated = 0;
-    for (const batchResult of batches) {
-      if (batchResult.isErr()) {
-        return err(batchResult.error);
+    const normalizeBatch = (
+      batch: UpdateManyStreamBatchInput
+    ): ReadonlyArray<RecordUpdateResult> =>
+      isUpdateManyStreamBatch(batch) ? batch.updates : batch;
+
+    if (Symbol.asyncIterator in batches) {
+      for await (const batchResult of batches as AsyncIterable<
+        Result<UpdateManyStreamBatchInput, DomainError>
+      >) {
+        if (batchResult.isErr()) {
+          return err(batchResult.error);
+        }
+        for (const update of normalizeBatch(batchResult.value)) {
+          this.updated.push(update);
+          totalUpdated += 1;
+        }
       }
-      for (const update of batchResult.value) {
-        this.updated.push(update);
-        totalUpdated += 1;
+    } else {
+      for (const batchResult of batches as Iterable<
+        Result<UpdateManyStreamBatchInput, DomainError>
+      >) {
+        if (batchResult.isErr()) {
+          return err(batchResult.error);
+        }
+        for (const update of normalizeBatch(batchResult.value)) {
+          this.updated.push(update);
+          totalUpdated += 1;
+        }
       }
     }
     return ok({ totalUpdated });
@@ -860,6 +899,122 @@ describe('PasteHandler', () => {
       expect(resolver.resolveAndReplaceManyCalls).toBe(1);
       expect(resolver.resolveAndReplaceCalls).toBe(0);
       expect(resolver.resolvedBatchSizes).toEqual([2]);
+    });
+
+    it('streams large typecast create paste without accumulating a single create batch', async () => {
+      const { table, tableId } = buildTableWithUser();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const resolver = new CountingRecordMutationSpecResolverService();
+      const recordRepository = new FakeTableRecordRepository();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        new FakeTableRecordQueryRepository(),
+        resolver as unknown as RecordMutationSpecResolverService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const content = Array.from({ length: 501 }, (_, index) => [
+        `Title ${index}`,
+        { id: 'usr-1' },
+      ]);
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [1, 500],
+        ],
+        content,
+        typecast: true,
+      });
+
+      const result = await handler.handle(createContext(), command._unsafeUnwrap());
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().createdCount).toBe(501);
+      expect(resolver.resolveAndReplaceManyCalls).toBe(2);
+      expect(resolver.resolvedBatchSizes).toEqual([500, 1]);
+      expect(recordRepository.insertCalls).toBe(1);
+      expect(recordRepository.inserted).toHaveLength(501);
+    });
+
+    it('streams large typecast update paste through a single repository update stream', async () => {
+      const { table, tableId, textFieldId, userFieldId } = buildTableWithUser();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = Array.from({ length: 501 }, (_, index) => ({
+        id: `rec${String(index).padStart(16, '0')}`,
+        fields: {
+          [textFieldId.toString()]: `old-${index}`,
+          [userFieldId.toString()]: { id: 'usr-old' },
+        },
+        version: index + 1,
+      }));
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const resolver = new CountingRecordMutationSpecResolverService();
+      const recordRepository = new FakeTableRecordRepository();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        resolver as unknown as RecordMutationSpecResolverService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const content = Array.from({ length: 501 }, (_, index) => [
+        `Title ${index}`,
+        { id: 'usr-1' },
+      ]);
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [1, 500],
+        ],
+        content,
+        typecast: true,
+      });
+
+      const result = await handler.handle(createContext(), command._unsafeUnwrap());
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().updatedCount).toBe(501);
+      expect(resolver.resolveAndReplaceManyCalls).toBe(2);
+      expect(resolver.resolvedBatchSizes).toEqual([500, 1]);
+      expect(recordRepository.updateCalls).toBe(1);
+      expect(recordRepository.updated).toHaveLength(501);
     });
 
     it('returns zero counts when content is empty', async () => {

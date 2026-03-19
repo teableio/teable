@@ -13,14 +13,17 @@ import type { IExecutionContext } from '../ExecutionContext';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
+  InsertManyStreamBatchInput,
   InsertManyStreamOptions,
   InsertManyStreamResult,
   InsertOptions,
   RecordMutationResult,
   UpdateManyResult,
+  UpdateManyStreamBatchInput,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../TableRecordRepository';
+import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../TableRecordRepository';
 
 export class NoopTableRecordRepository implements ITableRecordRepository {
   async insert(
@@ -44,23 +47,27 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
   async insertManyStream(
     _context: IExecutionContext,
     _table: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
+    batches: Iterable<InsertManyStreamBatchInput> | AsyncIterable<InsertManyStreamBatchInput>,
     options?: InsertManyStreamOptions
   ): Promise<Result<InsertManyStreamResult, DomainError>> {
     let totalInserted = 0;
     let batchIndex = 0;
+    const normalizeBatch = (batch: InsertManyStreamBatchInput): ReadonlyArray<TableRecord> =>
+      isInsertManyStreamBatch(batch) ? batch.records : batch;
 
     // Handle both sync and async iterables
     if (Symbol.asyncIterator in batches) {
-      for await (const batch of batches as AsyncIterable<ReadonlyArray<TableRecord>>) {
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+      for await (const batch of batches as AsyncIterable<InsertManyStreamBatchInput>) {
+        const records = normalizeBatch(batch);
+        totalInserted += records.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: records.length, totalInserted });
         batchIndex++;
       }
     } else {
-      for (const batch of batches as Iterable<ReadonlyArray<TableRecord>>) {
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+      for (const batch of batches as Iterable<InsertManyStreamBatchInput>) {
+        const records = normalizeBatch(batch);
+        totalInserted += records.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: records.length, totalInserted });
         batchIndex++;
       }
     }
@@ -89,21 +96,42 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
   async updateManyStream(
     _context: IExecutionContext,
     _table: Table,
-    batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>,
+    batches:
+      | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
     options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     let totalUpdated = 0;
     let batchIndex = 0;
+    const normalizeBatch = (
+      batch: UpdateManyStreamBatchInput
+    ): ReadonlyArray<RecordUpdateResult> =>
+      isUpdateManyStreamBatch(batch) ? batch.updates : batch;
 
-    for (const batchResult of batches) {
-      if (batchResult.isErr()) {
-        // In noop, we still count but ignore errors
-        continue;
+    if (Symbol.asyncIterator in batches) {
+      for await (const batchResult of batches as AsyncIterable<
+        Result<UpdateManyStreamBatchInput, DomainError>
+      >) {
+        if (batchResult.isErr()) {
+          continue;
+        }
+        const batch = normalizeBatch(batchResult.value);
+        totalUpdated += batch.length;
+        options?.onBatchUpdated?.({ batchIndex, updatedCount: batch.length, totalUpdated });
+        batchIndex++;
       }
-      const batch = batchResult.value;
-      totalUpdated += batch.length;
-      options?.onBatchUpdated?.({ batchIndex, updatedCount: batch.length, totalUpdated });
-      batchIndex++;
+    } else {
+      for (const batchResult of batches as Iterable<
+        Result<UpdateManyStreamBatchInput, DomainError>
+      >) {
+        if (batchResult.isErr()) {
+          continue;
+        }
+        const batch = normalizeBatch(batchResult.value);
+        totalUpdated += batch.length;
+        options?.onBatchUpdated?.({ batchIndex, updatedCount: batch.length, totalUpdated });
+        batchIndex++;
+      }
     }
 
     return ok({ totalUpdated });

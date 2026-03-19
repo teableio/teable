@@ -7,7 +7,7 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import {
-  RecordWritePluginExecution,
+  type RecordWritePluginExecution,
   RecordWritePluginRunner,
 } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -34,12 +34,14 @@ import { FieldType } from '../domain/table/fields/FieldType';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
+import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import { RecordId } from '../domain/table/records/RecordId';
 import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
 import type { Table } from '../domain/table/Table';
@@ -49,13 +51,13 @@ import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   type UndoRedoCommandLeafData,
 } from '../ports/UndoRedoStore';
-import { v2CoreTokens } from '../ports/tokens';
-import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
@@ -120,6 +122,24 @@ type EditableColumn = {
 };
 
 type LinkTitleMap = Map<string, Map<string, string>>;
+
+type PendingUpdateEvent = {
+  recordId: string;
+  oldVersion: number;
+  oldValues: Map<string, unknown>;
+};
+
+type PendingCreatedRecord = {
+  recordId: string;
+  fields: Array<{ fieldId: string; value: unknown }>;
+};
+
+type PasteOperationStreamState = {
+  iterator: AsyncIterator<Result<PasteOperation, DomainError>>;
+  pendingCreateOperation?: CreateOperation;
+  tableForMutations: Table;
+  accumulatedSideEffects: RecordWriteSideEffect[];
+};
 
 type LooseFieldInput = {
   type: string;
@@ -818,7 +838,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
   /**
    * Execute paste operations using streaming.
-   * Separates update and create operations, processes each stream independently.
+   * Consumes update/create operations lazily and only keeps the current batch in memory.
    */
   private async executePasteStream(
     context: ExecutionContextPort.IExecutionContext,
@@ -835,96 +855,43 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     const executeSpan = tracer?.startSpan('teable.PasteHandler.executePasteStream');
 
     try {
-      const sideEffectsSpan = tracer?.startSpan('teable.PasteHandler.sideEffects');
-      let tableForMutations: Table;
-      try {
-        const selectOptionFieldValues: ReadonlyMap<string, unknown>[] = [
-          ...updateOperations,
-          ...createOperations,
-        ].map((op) => {
-          const fieldValues = new Map<string, unknown>();
-          for (const column of editableColumns) {
-            const fieldIdStr = column.fieldId.toString();
-            const rawValue = op.rowData[column.columnIndex] ?? null;
-            fieldValues.set(fieldIdStr, rawValue);
-          }
-          return fieldValues;
-        });
-
-        const sideEffectResult = handler.recordWriteSideEffectService.execute(
-          context,
-          table,
-          selectOptionFieldValues,
-          typecast
-        );
-        if (sideEffectResult.isErr()) {
-          return err(sideEffectResult.error);
+      const batchSize = calculateBatchSize(table.getFields().length);
+      const operationsStream = (async function* (): AsyncGenerator<
+        Result<PasteOperation, DomainError>
+      > {
+        for (const operation of updateOperations) {
+          yield ok(operation);
         }
-        tableForMutations = sideEffectResult.value.table;
-        const tableUpdateResult = sideEffectResult.value.updateResult;
-        const sideEffectUndoRedoPlan =
-          await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
-            context,
-            table,
-            tableForMutations,
-            sideEffectResult.value.effects
-          );
-        if (sideEffectUndoRedoPlan.isErr()) {
-          return err(sideEffectUndoRedoPlan.error);
+
+        for (const operation of createOperations) {
+          yield ok(operation);
         }
-        eventData.schemaUndoCommands.push(...sideEffectUndoRedoPlan.value.undoCommands);
-        eventData.schemaRedoCommands.push(...sideEffectUndoRedoPlan.value.redoCommands);
+      })();
+      const streamState: PasteOperationStreamState = {
+        iterator: operationsStream[Symbol.asyncIterator](),
+        tableForMutations: table,
+        accumulatedSideEffects: [],
+      };
 
-        if (tableUpdateResult) {
-          const updateResult = await handler.tableUpdateFlow.execute(
-            context,
-            { table },
-            () => ok(tableUpdateResult),
-            { publishEvents: false }
-          );
-          if (updateResult.isErr()) {
-            return err(updateResult.error);
-          }
-          eventData.tableEvents.push(...updateResult.value.events);
-        }
-      } finally {
-        sideEffectsSpan?.end();
-      }
-
-      const linkTitleSpan = tracer?.startSpan('teable.PasteHandler.buildLinkTitleMap');
-      let linkTitleMapResult: Result<LinkTitleMap, DomainError>;
-      try {
-        linkTitleMapResult = typecast
-          ? await handler.buildLinkTitleMap(context, tableForMutations, editableColumns, [
-              ...updateOperations,
-              ...createOperations,
-            ])
-          : ok(new Map());
-      } finally {
-        linkTitleSpan?.end();
-      }
-      if (linkTitleMapResult.isErr()) {
-        return err(linkTitleMapResult.error);
-      }
-
-      const linkTitleMap = linkTitleMapResult.value;
       const beforePersistResult = await pluginExecution.beforePersist(context);
       if (beforePersistResult.isErr()) {
         return err(beforePersistResult.error);
       }
 
-      // Process updates using streaming
       if (updateOperations.length > 0) {
         const updateSpan = tracer?.startSpan('teable.PasteHandler.processUpdates');
         try {
-          const updateResult = await handler.processUpdatesStream(
+          const updateResult = await handler.tableRecordRepository.updateManyStream(
             context,
-            tableForMutations,
-            updateOperations,
-            typecast,
-            editableColumns,
-            linkTitleMap,
-            eventData
+            table,
+            handler.createResolvedUpdateBatchStream(
+              context,
+              streamState,
+              typecast,
+              editableColumns,
+              batchSize,
+              eventData
+            )
           );
           if (updateResult.isErr()) {
             return err(updateResult.error);
@@ -934,18 +901,37 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
       }
 
-      // Process creates using streaming
       if (createOperations.length > 0) {
+        // `insertManyStream` invokes `onBatchInserted` after persisting the yielded batch and
+        // keeps `batchIndex` aligned with iterable emission order, so we can safely join
+        // per-batch created-record metadata back onto record-order snapshots here.
+        const createdRecordBatches: PendingCreatedRecord[][] = [];
         const createSpan = tracer?.startSpan('teable.PasteHandler.processCreates');
         try {
-          const createResult = await handler.processCreatesStream(
+          const createResult = await handler.tableRecordRepository.insertManyStream(
             context,
-            tableForMutations,
-            createOperations,
-            typecast,
-            editableColumns,
-            linkTitleMap,
-            eventData
+            table,
+            handler.createRecordBatchStream(
+              context,
+              streamState,
+              typecast,
+              editableColumns,
+              batchSize,
+              createdRecordBatches,
+              eventData
+            ),
+            {
+              onBatchInserted: (progress) => {
+                const records = createdRecordBatches[progress.batchIndex] ?? [];
+                for (const record of records) {
+                  eventData.createdRecords.push({
+                    recordId: record.recordId,
+                    fields: record.fields,
+                    orders: progress.recordOrders?.get(record.recordId),
+                  });
+                }
+              },
+            }
           );
           if (createResult.isErr()) {
             return err(createResult.error);
@@ -955,54 +941,94 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
       }
 
+      if (streamState.accumulatedSideEffects.length > 0) {
+        // Capture one before/after field snapshot for the entire paste command so undo/redo
+        // reverts select-option schema changes atomically even when multiple batches touched
+        // the same field.
+        const sideEffectUndoRedoPlan =
+          await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
+            context,
+            table,
+            streamState.tableForMutations,
+            streamState.accumulatedSideEffects
+          );
+        if (sideEffectUndoRedoPlan.isErr()) {
+          return err(sideEffectUndoRedoPlan.error);
+        }
+        eventData.schemaUndoCommands.push(...sideEffectUndoRedoPlan.value.undoCommands);
+        eventData.schemaRedoCommands.push(...sideEffectUndoRedoPlan.value.redoCommands);
+      }
+
       return ok(undefined);
     } finally {
       executeSpan?.end();
     }
   }
 
-  /**
-   * Process update operations using streaming.
-   * Generates update batches and passes them directly to updateManyStream.
-   */
-  private async processUpdatesStream(
+  private async *createResolvedUpdateBatchStream(
     context: ExecutionContextPort.IExecutionContext,
-    table: Table,
-    updateOperations: ReadonlyArray<UpdateOperation>,
+    streamState: PasteOperationStreamState,
     typecast: boolean,
     editableColumns: ReadonlyArray<EditableColumn>,
-    linkTitleMap: LinkTitleMap,
+    batchSize: number,
     eventData: CollectedEventData
-  ): Promise<Result<void, DomainError>> {
-    const handler = this;
+  ): AsyncGenerator<Result<TableRecordRepositoryPort.UpdateManyStreamBatchInput, DomainError>> {
+    while (true) {
+      const operationsResult = await this.readNextUpdateChunk(streamState, batchSize);
+      if (operationsResult.isErr()) {
+        yield err(operationsResult.error);
+        return;
+      }
 
-    return safeTry<void, DomainError>(async function* () {
-      // Generate UpdateRecordItems from operations
+      const updateOperations = operationsResult.value;
+      if (!updateOperations) {
+        return;
+      }
+
+      const sideEffectResult = await this.prepareMutationChunk(
+        context,
+        streamState,
+        updateOperations,
+        typecast,
+        editableColumns,
+        eventData
+      );
+      if (sideEffectResult.isErr()) {
+        yield err(sideEffectResult.error);
+        return;
+      }
+
+      const batchTable = streamState.tableForMutations;
+      const linkTitleMapResult = typecast
+        ? await this.buildLinkTitleMap(context, batchTable, editableColumns, updateOperations)
+        : ok(new Map());
+      if (linkTitleMapResult.isErr()) {
+        yield err(linkTitleMapResult.error);
+        return;
+      }
+
+      const linkTitleMap = linkTitleMapResult.value;
       const updateItems: UpdateRecordItem[] = [];
-      const pendingUpdateEvents: Array<{
-        recordId: string;
-        oldVersion: number;
-        oldValues: Map<string, unknown>;
-      }> = [];
+      const pendingUpdateEvents: PendingUpdateEvent[] = [];
 
       for (const op of updateOperations) {
-        const recordId = yield* RecordId.create(op.existingRecord.id);
-        const fieldValues = new Map<string, unknown>();
-        const oldValues = new Map<string, unknown>();
-
-        for (const column of editableColumns) {
-          const fieldId = column.fieldId;
-          const fieldIdStr = fieldId.toString();
-          const rawValue = op.rowData[column.columnIndex] ?? null;
-          const newValue = handler.hydrateLinkValue(rawValue, linkTitleMap.get(fieldIdStr));
-          const oldValue = op.existingRecord.fields[fieldIdStr];
-
-          fieldValues.set(fieldIdStr, newValue);
-          oldValues.set(fieldIdStr, oldValue);
+        const recordId = RecordId.create(op.existingRecord.id);
+        if (recordId.isErr()) {
+          yield err(recordId.error);
+          return;
         }
 
-        updateItems.push({ recordId, fieldValues });
+        const oldValues = new Map<string, unknown>();
+        const fieldValues = this.buildEditableFieldValues(
+          op.rowData,
+          editableColumns,
+          (fieldId, rawValue) => {
+            oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
+            return this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId));
+          }
+        );
 
+        updateItems.push({ recordId: recordId.value, fieldValues });
         pendingUpdateEvents.push({
           recordId: op.existingRecord.id,
           oldVersion: op.existingRecord.version,
@@ -1010,232 +1036,342 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         });
       }
 
-      // Create update batches generator from Table
-      const updateBatches = table.updateRecordsStream(updateItems, { typecast });
-
-      // Transform batches: resolve link titles and yield
-      async function* resolveAndYieldBatches(): AsyncGenerator<
-        Result<ReadonlyArray<RecordUpdateResult>, DomainError>
-      > {
-        for (const batchResult of updateBatches) {
-          if (batchResult.isErr()) {
-            yield batchResult;
-            continue;
-          }
-
-          const batch = batchResult.value;
-          const resolvedBatch: RecordUpdateResult[] = [];
-          const originalMutateSpecs = batch.map((updateResult) => updateResult.mutateSpec);
-          let resolvedMutateSpecs: ReadonlyArray<(typeof originalMutateSpecs)[number] | null> =
-            originalMutateSpecs;
-
-          if (typecast) {
-            const resolveManyResult =
-              await handler.recordMutationSpecResolver.resolveAndReplaceMany(
-                context,
-                resolvedMutateSpecs
-              );
-            if (resolveManyResult.isErr()) {
-              yield err(resolveManyResult.error);
-              return;
-            }
-            resolvedMutateSpecs = [...resolveManyResult.value];
-          }
-
-          for (let index = 0; index < batch.length; index++) {
-            const updateResult = batch[index]!;
-            const mutateSpec = resolvedMutateSpecs[index] ?? updateResult.mutateSpec;
-            resolvedBatch.push(
-              RecordUpdateResult.create(
-                updateResult.record,
-                mutateSpec,
-                updateResult.fieldKeyMapping,
-                updateResult.events
-              )
-            );
-          }
-
-          yield ok(resolvedBatch);
-        }
-      }
-
-      // Execute updates via stream - pass async generator directly
-      // Note: updateManyStream currently expects sync Generator, may need interface update
-      // For now, collect the async generator results
-      const resolvedBatches: Array<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> = [];
       let resolvedUpdateIndex = 0;
-      for await (const batch of resolveAndYieldBatches()) {
-        if (batch.isOk()) {
-          for (const updateResult of batch.value) {
-            const pending = pendingUpdateEvents[resolvedUpdateIndex];
-            if (!pending) {
-              return err(
-                domainError.unexpected({
-                  code: 'paste.update.event_mismatch',
-                  message: 'Failed to map paste update event to resolved record update result',
-                })
-              );
-            }
-
-            const changes: RecordFieldChangeDTO[] = editableColumns.map((column) => {
-              const fieldId = column.fieldId;
-              const fieldIdStr = fieldId.toString();
-              const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
-              const oldValue = pending.oldValues.get(fieldIdStr);
-              return { fieldId: fieldIdStr, oldValue, newValue };
-            });
-
-            eventData.updates.push({
-              recordId: pending.recordId,
-              oldVersion: pending.oldVersion,
-              newVersion: pending.oldVersion + 1,
-              changes,
-            });
-
-            resolvedUpdateIndex += 1;
-          }
+      for (const batchResult of batchTable.updateRecordsStream(updateItems, { typecast })) {
+        if (batchResult.isErr()) {
+          yield err(batchResult.error);
+          return;
         }
 
-        resolvedBatches.push(batch);
-      }
-
-      function* syncBatchesGenerator(): Generator<
-        Result<ReadonlyArray<RecordUpdateResult>, DomainError>
-      > {
-        for (const batch of resolvedBatches) {
-          yield batch;
-        }
-      }
-
-      yield* await handler.tableRecordRepository.updateManyStream(
-        context,
-        table,
-        syncBatchesGenerator()
-      );
-
-      return ok(undefined);
-    });
-  }
-
-  /**
-   * Process create operations using streaming.
-   * Generates record batches and passes them directly to insertManyStream.
-   */
-  private async processCreatesStream(
-    context: ExecutionContextPort.IExecutionContext,
-    table: Table,
-    createOperations: ReadonlyArray<CreateOperation>,
-    typecast: boolean,
-    editableColumns: ReadonlyArray<EditableColumn>,
-    linkTitleMap: LinkTitleMap,
-    eventData: CollectedEventData
-  ): Promise<Result<void, DomainError>> {
-    const handler = this;
-
-    return safeTry<void, DomainError>(async function* () {
-      const createFieldValues: ReadonlyMap<string, unknown>[] = createOperations.map((op) => {
-        const fieldValues = new Map<string, unknown>();
-        for (const column of editableColumns) {
-          const fieldId = column.fieldId.toString();
-          const rawValue = op.rowData[column.columnIndex] ?? null;
-          fieldValues.set(fieldId, handler.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId)));
-        }
-        return fieldValues;
-      });
-
-      const createResult = table.createRecords(createFieldValues, { typecast });
-      if (createResult.isErr()) {
-        return err(createResult.error);
-      }
-
-      let records = createResult.value.records;
-
-      if (typecast) {
-        const resolveManyResult = await handler.recordMutationSpecResolver.resolveAndReplaceMany(
+        const resolvedBatchResult = await this.resolveUpdateBatch(
           context,
-          createResult.value.mutateSpecs.map((spec) => spec ?? null)
+          batchResult.value,
+          typecast
         );
-        if (resolveManyResult.isErr()) {
-          return err(resolveManyResult.error);
+        if (resolvedBatchResult.isErr()) {
+          yield err(resolvedBatchResult.error);
+          return;
         }
 
-        const resolvedMutateSpecs = resolveManyResult.value;
-        const resolvedRecords: TableRecord[] = [];
-        for (let index = 0; index < records.length; index++) {
-          let record = records[index]!;
-          const mutateSpec = resolvedMutateSpecs[index] ?? null;
-          if (mutateSpec) {
-            const mutateResult = mutateSpec.mutate(record);
-            if (mutateResult.isErr()) {
-              return err(mutateResult.error);
-            }
-            record = mutateResult.value;
-          }
-          resolvedRecords.push(record);
-        }
-        records = resolvedRecords;
-      }
-
-      // Collect created records while streaming to insertManyStream
-      const createdRecords: Array<{
-        recordId: string;
-        fields: Array<{ fieldId: string; value: unknown }>;
-      }> = [];
-
-      // Collect orders from insertManyStream callback
-      const allRecordOrders = new Map<string, Record<string, number>>();
-
-      const batchSize = calculateBatchSize(table.getFields().length);
-
-      async function* recordBatchesIterable(): AsyncIterable<ReadonlyArray<TableRecord>> {
-        for (let startIndex = 0; startIndex < records.length; startIndex += batchSize) {
-          const batch = records.slice(startIndex, startIndex + batchSize);
-
-          // Collect record info from each batch
-          for (const record of batch) {
-            const fields: Array<{ fieldId: string; value: unknown }> = [];
-            for (const entry of record.fields().entries()) {
-              fields.push({ fieldId: entry.fieldId.toString(), value: entry.value.toValue() });
-            }
-            createdRecords.push({
-              recordId: record.id().toString(),
-              fields,
-            });
+        const resolvedBatch = resolvedBatchResult.value;
+        for (const updateResult of resolvedBatch) {
+          const pending = pendingUpdateEvents[resolvedUpdateIndex];
+          if (!pending) {
+            yield err(
+              domainError.unexpected({
+                code: 'paste.update.event_mismatch',
+                message: 'Failed to map paste update event to resolved record update result',
+              })
+            );
+            return;
           }
 
-          yield batch;
-        }
-      }
+          const changes: RecordFieldChangeDTO[] = editableColumns.map((column) => {
+            const fieldId = column.fieldId;
+            const fieldIdStr = fieldId.toString();
+            const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
+            const oldValue = pending.oldValues.get(fieldIdStr);
+            return { fieldId: fieldIdStr, oldValue, newValue };
+          });
 
-      // Execute inserts via stream with callback to collect orders
-      yield* await handler.tableRecordRepository.insertManyStream(
-        context,
-        table,
-        recordBatchesIterable(),
-        {
-          onBatchInserted: (progress) => {
-            // Collect record orders from each batch
-            if (progress.recordOrders) {
-              for (const [recordId, orders] of progress.recordOrders) {
-                allRecordOrders.set(recordId, orders);
-              }
-            }
-          },
+          eventData.updates.push({
+            recordId: pending.recordId,
+            oldVersion: pending.oldVersion,
+            newVersion: pending.oldVersion + 1,
+            changes,
+          });
+          resolvedUpdateIndex += 1;
         }
-      );
 
-      // Add collected records to event data with orders
-      for (const record of createdRecords) {
-        const orders = allRecordOrders.get(record.recordId);
-        eventData.createdRecords.push({
-          recordId: record.recordId,
-          fields: record.fields,
-          orders,
+        yield ok({
+          table: batchTable,
+          updates: resolvedBatch,
         });
       }
+    }
+  }
 
+  private async *createRecordBatchStream(
+    context: ExecutionContextPort.IExecutionContext,
+    streamState: PasteOperationStreamState,
+    typecast: boolean,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    batchSize: number,
+    createdRecordBatches: PendingCreatedRecord[][],
+    eventData: CollectedEventData
+  ): AsyncGenerator<TableRecordRepositoryPort.InsertManyStreamBatchInput> {
+    while (true) {
+      const operationsResult = await this.readNextCreateChunk(streamState, batchSize);
+      if (operationsResult.isErr()) {
+        throw operationsResult.error;
+      }
+
+      const createOperations = operationsResult.value;
+      if (!createOperations) {
+        return;
+      }
+
+      const sideEffectResult = await this.prepareMutationChunk(
+        context,
+        streamState,
+        createOperations,
+        typecast,
+        editableColumns,
+        eventData
+      );
+      if (sideEffectResult.isErr()) {
+        throw sideEffectResult.error;
+      }
+
+      const batchTable = streamState.tableForMutations;
+      const linkTitleMapResult = typecast
+        ? await this.buildLinkTitleMap(context, batchTable, editableColumns, createOperations)
+        : ok(new Map());
+      if (linkTitleMapResult.isErr()) {
+        throw linkTitleMapResult.error;
+      }
+
+      const linkTitleMap = linkTitleMapResult.value;
+      const createFieldValues = createOperations.map((op) =>
+        this.buildEditableFieldValues(op.rowData, editableColumns, (fieldId, rawValue) =>
+          this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId))
+        )
+      );
+
+      const createResult = batchTable.createRecords(createFieldValues, { typecast });
+      if (createResult.isErr()) {
+        throw createResult.error;
+      }
+      // `createRecords` emits per-record RecordCreated events on the aggregate root. Paste
+      // replaces those with a single RecordsBatchCreated event after persistence, so discard
+      // the per-record aggregate events here to avoid duplicate publication and linear growth.
+      batchTable.pullDomainEvents();
+
+      const resolvedRecordsResult = await this.resolveCreatedRecords(
+        context,
+        createResult.value.records,
+        createResult.value.mutateSpecs,
+        typecast
+      );
+      if (resolvedRecordsResult.isErr()) {
+        throw resolvedRecordsResult.error;
+      }
+
+      const records = resolvedRecordsResult.value;
+      createdRecordBatches.push(
+        records.map((record) => ({
+          recordId: record.id().toString(),
+          fields: record
+            .fields()
+            .entries()
+            .map((entry) => ({ fieldId: entry.fieldId.toString(), value: entry.value.toValue() })),
+        }))
+      );
+
+      yield {
+        table: batchTable,
+        records,
+      };
+    }
+  }
+
+  private async resolveUpdateBatch(
+    context: ExecutionContextPort.IExecutionContext,
+    batch: ReadonlyArray<RecordUpdateResult>,
+    typecast: boolean
+  ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
+    if (!typecast) {
+      return ok(batch);
+    }
+
+    const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
+      context,
+      batch.map((updateResult) => updateResult.mutateSpec)
+    );
+    if (resolveManyResult.isErr()) {
+      return err(resolveManyResult.error);
+    }
+
+    return ok(
+      batch.map((updateResult, index) =>
+        RecordUpdateResult.create(
+          updateResult.record,
+          resolveManyResult.value[index] ?? updateResult.mutateSpec,
+          updateResult.fieldKeyMapping,
+          updateResult.events
+        )
+      )
+    );
+  }
+
+  private async resolveCreatedRecords(
+    context: ExecutionContextPort.IExecutionContext,
+    records: ReadonlyArray<TableRecord>,
+    mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
+    typecast: boolean
+  ): Promise<Result<ReadonlyArray<TableRecord>, DomainError>> {
+    if (!typecast) {
+      return ok(records);
+    }
+
+    const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
+      context,
+      mutateSpecs
+    );
+    if (resolveManyResult.isErr()) {
+      return err(resolveManyResult.error);
+    }
+
+    const resolvedRecords: TableRecord[] = [];
+    for (let index = 0; index < records.length; index++) {
+      let record = records[index]!;
+      const mutateSpec = resolveManyResult.value[index] ?? null;
+      if (mutateSpec) {
+        const mutateResult = mutateSpec.mutate(record);
+        if (mutateResult.isErr()) {
+          return err(mutateResult.error);
+        }
+        record = mutateResult.value;
+      }
+      resolvedRecords.push(record);
+    }
+
+    return ok(resolvedRecords);
+  }
+
+  private async readNextUpdateChunk(
+    streamState: PasteOperationStreamState,
+    batchSize: number
+  ): Promise<Result<ReadonlyArray<UpdateOperation> | null, DomainError>> {
+    if (streamState.pendingCreateOperation) {
+      return ok(null);
+    }
+
+    const batch: UpdateOperation[] = [];
+
+    while (batch.length < batchSize) {
+      const next = await streamState.iterator.next();
+      if (next.done) {
+        break;
+      }
+
+      if (next.value.isErr()) {
+        return err(next.value.error);
+      }
+
+      const operation = next.value.value;
+      if (operation.type === 'create') {
+        streamState.pendingCreateOperation = operation;
+        break;
+      }
+
+      batch.push(operation);
+    }
+
+    return ok(batch.length > 0 ? batch : null);
+  }
+
+  private async readNextCreateChunk(
+    streamState: PasteOperationStreamState,
+    batchSize: number
+  ): Promise<Result<ReadonlyArray<CreateOperation> | null, DomainError>> {
+    const batch: CreateOperation[] = [];
+
+    if (streamState.pendingCreateOperation) {
+      batch.push(streamState.pendingCreateOperation);
+      streamState.pendingCreateOperation = undefined;
+    }
+
+    while (batch.length < batchSize) {
+      const next = await streamState.iterator.next();
+      if (next.done) {
+        break;
+      }
+
+      if (next.value.isErr()) {
+        return err(next.value.error);
+      }
+
+      const operation = next.value.value;
+      if (operation.type === 'update') {
+        return err(
+          domainError.unexpected({
+            code: 'paste.create_stream.unexpected_update',
+            message: 'Update operations must not appear after create operations in paste stream',
+          })
+        );
+      }
+
+      batch.push(operation);
+    }
+
+    return ok(batch.length > 0 ? batch : null);
+  }
+
+  private async prepareMutationChunk(
+    context: ExecutionContextPort.IExecutionContext,
+    streamState: PasteOperationStreamState,
+    operations: ReadonlyArray<PasteOperation>,
+    typecast: boolean,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    eventData: CollectedEventData
+  ): Promise<Result<void, DomainError>> {
+    if (operations.length === 0) {
       return ok(undefined);
-    });
+    }
+
+    const currentTable = streamState.tableForMutations;
+    const selectOptionFieldValues = operations.map((operation) =>
+      this.buildEditableFieldValues(operation.rowData, editableColumns)
+    );
+
+    const sideEffectResult = this.recordWriteSideEffectService.execute(
+      context,
+      currentTable,
+      selectOptionFieldValues,
+      typecast
+    );
+    if (sideEffectResult.isErr()) {
+      return err(sideEffectResult.error);
+    }
+
+    streamState.tableForMutations = sideEffectResult.value.table;
+    if (sideEffectResult.value.effects.length > 0) {
+      streamState.accumulatedSideEffects.push(...sideEffectResult.value.effects);
+    }
+
+    const tableUpdateSpec = sideEffectResult.value.updateResult;
+    if (!tableUpdateSpec) {
+      return ok(undefined);
+    }
+
+    const tableUpdateResult = await this.tableUpdateFlow.execute(
+      context,
+      { table: currentTable },
+      () => ok(tableUpdateSpec),
+      { publishEvents: false }
+    );
+    if (tableUpdateResult.isErr()) {
+      return err(tableUpdateResult.error);
+    }
+
+    streamState.tableForMutations = tableUpdateResult.value.table;
+    eventData.tableEvents.push(...tableUpdateResult.value.events);
+    return ok(undefined);
+  }
+
+  private buildEditableFieldValues(
+    rowData: ReadonlyArray<unknown>,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    transform?: (fieldId: string, rawValue: unknown) => unknown
+  ): Map<string, unknown> {
+    const fieldValues = new Map<string, unknown>();
+    for (const column of editableColumns) {
+      const fieldId = column.fieldId.toString();
+      const rawValue = rowData[column.columnIndex] ?? null;
+      fieldValues.set(fieldId, transform ? transform(fieldId, rawValue) : rawValue);
+    }
+    return fieldValues;
   }
 
   private hydrateLinkValue(value: unknown, linkTitleMap: Map<string, string> | undefined): unknown {

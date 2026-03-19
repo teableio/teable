@@ -288,6 +288,36 @@ describe('Realtime projections', () => {
     ]);
   });
 
+  it('skips per-record realtime ops for large batch updates', async () => {
+    const table = buildTable('m', 'n', 'o');
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
+
+    const event = RecordsBatchUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      source: 'user',
+      updates: Array.from({ length: 1001 }, (_, index) => ({
+        recordId: `rec${index.toString().padStart(16, '0')}`,
+        oldVersion: 1,
+        newVersion: 2,
+        changes: [
+          {
+            fieldId: table.primaryFieldId().toString(),
+            oldValue: `Old-${index}`,
+            newValue: `New-${index}`,
+          },
+        ],
+      })),
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(0);
+  });
+
   it('projects record reorder updates to row-order columns', async () => {
     const table = buildTable('2', '4', '6');
     const viewId = table.views()[0]!.id();

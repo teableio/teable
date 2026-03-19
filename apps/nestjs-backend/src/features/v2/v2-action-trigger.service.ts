@@ -15,6 +15,7 @@ import {
   ProjectionHandler,
   ok,
   serializeFieldUpdatedValue,
+  isLargeRecordBatchMutation,
 } from '@teable/v2-core';
 import type { IExecutionContext, IEventHandler, DomainError, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -25,7 +26,7 @@ export interface IActionTriggerData {
   payload?: Record<string, unknown>;
 }
 
-type PendingActionTriggerBatch = {
+type IPendingActionTriggerBatch = {
   shareDbService: ShareDbService;
   tableId: string;
   data: IActionTriggerData[];
@@ -77,12 +78,24 @@ const buildUpdatedFieldPatch = (event: FieldUpdated): Record<string, unknown> =>
   return patch;
 };
 
+const collectChangedFieldIds = (updates: RecordsBatchUpdated['updates']): string[] => {
+  const fieldIds = new Set<string>();
+
+  for (const update of updates) {
+    for (const change of update.changes) {
+      fieldIds.add(change.fieldId);
+    }
+  }
+
+  return [...fieldIds];
+};
+
 /**
  * Helper to emit action triggers via ShareDB presence.
  * Batches actions per table to avoid later submits overwriting earlier ones
  * within the same schema update turn.
  */
-const pendingActionTriggerBatches = new Map<string, PendingActionTriggerBatch>();
+const pendingActionTriggerBatches = new Map<string, IPendingActionTriggerBatch>();
 let flushScheduled = false;
 
 const deferFlush = (flush: () => void) => {
@@ -187,6 +200,20 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
     _context: IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
+    if (isLargeRecordBatchMutation(event.updates.length)) {
+      const fieldIds = collectChangedFieldIds(event.updates);
+      emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+        {
+          actionKey: 'setRecord',
+          payload: {
+            tableId: event.tableId.toString(),
+            fieldIds,
+          },
+        },
+      ]);
+      return ok(undefined);
+    }
+
     emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'setRecord' }]);
     return ok(undefined);
   }

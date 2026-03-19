@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { ProjectionHandler } from '../../application/projections/Projection';
 import { CommandHandler, type ICommandHandler } from '../../commands/CommandHandler';
 import { PublicCommand } from '../../commands/PublicCommand';
 import { BaseId } from '../../domain/base/BaseId';
@@ -18,7 +19,6 @@ import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 import { TableSortKey } from '../../domain/table/TableSortKey';
-import { ProjectionHandler } from '../../application/projections/Projection';
 import { QueryHandler, type IQueryHandler } from '../../queries/QueryHandler';
 import type { ICommandBusMiddleware } from '../CommandBus';
 import { EventHandler, type IEventHandler } from '../EventHandler';
@@ -384,6 +384,129 @@ describe('AsyncMemoryEventBus', () => {
 
     const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
     await bus.publish(createContext(), new ProjectionEvent());
+
+    const drainTask = tasks.shift();
+    expect(drainTask).toBeDefined();
+
+    const drainPromise = drainTask?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(firstStarted).toBe(true);
+    expect(secondStarted).toBe(true);
+
+    releaseFirstProjection();
+    await drainPromise;
+  });
+
+  it('dispatches large batch projections serially to limit peak memory', async () => {
+    class LargeBatchProjectionEvent implements IDomainEvent {
+      readonly name = DomainEventName.recordsBatchUpdated();
+      readonly occurredAt = OccurredAt.now();
+      readonly updates = Array.from({ length: 1001 }, (_, index) => ({ recordId: `${index}` }));
+    }
+
+    let releaseFirstProjection!: () => void;
+    const firstProjectionGate = new Promise<void>((resolve) => {
+      releaseFirstProjection = resolve;
+    });
+    let firstStarted = false;
+    let secondStarted = false;
+
+    @ProjectionHandler(LargeBatchProjectionEvent)
+    class FirstLargeBatchHandler implements IEventHandler<LargeBatchProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: LargeBatchProjectionEvent
+      ): ReturnType<IEventHandler<LargeBatchProjectionEvent>['handle']> {
+        firstStarted = true;
+        await firstProjectionGate;
+        return ok(undefined);
+      }
+    }
+    expect(FirstLargeBatchHandler).toBeDefined();
+
+    @ProjectionHandler(LargeBatchProjectionEvent)
+    class SecondLargeBatchHandler implements IEventHandler<LargeBatchProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: LargeBatchProjectionEvent
+      ): ReturnType<IEventHandler<LargeBatchProjectionEvent>['handle']> {
+        secondStarted = true;
+        return ok(undefined);
+      }
+    }
+    expect(SecondLargeBatchHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+    await bus.publish(createContext(), new LargeBatchProjectionEvent());
+
+    const drainTask = tasks.shift();
+    expect(drainTask).toBeDefined();
+
+    const drainPromise = drainTask?.();
+    await waitForPredicate(() => firstStarted);
+
+    expect(firstStarted).toBe(true);
+    expect(secondStarted).toBe(false);
+
+    releaseFirstProjection();
+    await drainPromise;
+
+    expect(secondStarted).toBe(true);
+  });
+
+  it('keeps threshold-sized batch projections concurrent', async () => {
+    class ThresholdBatchProjectionEvent implements IDomainEvent {
+      readonly name = DomainEventName.recordsBatchUpdated();
+      readonly occurredAt = OccurredAt.now();
+      readonly updates = Array.from({ length: 1000 }, (_, index) => ({ recordId: `${index}` }));
+    }
+
+    let releaseFirstProjection!: () => void;
+    const firstProjectionGate = new Promise<void>((resolve) => {
+      releaseFirstProjection = resolve;
+    });
+    let firstStarted = false;
+    let secondStarted = false;
+
+    @ProjectionHandler(ThresholdBatchProjectionEvent)
+    class FirstThresholdBatchHandler implements IEventHandler<ThresholdBatchProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: ThresholdBatchProjectionEvent
+      ): ReturnType<IEventHandler<ThresholdBatchProjectionEvent>['handle']> {
+        firstStarted = true;
+        await firstProjectionGate;
+        return ok(undefined);
+      }
+    }
+    expect(FirstThresholdBatchHandler).toBeDefined();
+
+    @ProjectionHandler(ThresholdBatchProjectionEvent)
+    class SecondThresholdBatchHandler implements IEventHandler<ThresholdBatchProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: ThresholdBatchProjectionEvent
+      ): ReturnType<IEventHandler<ThresholdBatchProjectionEvent>['handle']> {
+        secondStarted = true;
+        return ok(undefined);
+      }
+    }
+    expect(SecondThresholdBatchHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+    await bus.publish(createContext(), new ThresholdBatchProjectionEvent());
 
     const drainTask = tasks.shift();
     expect(drainTask).toBeDefined();

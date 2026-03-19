@@ -3,13 +3,12 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import type { Table } from '../../domain/table/Table';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
-import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
+import { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
+import { Table } from '../../domain/table/Table';
+import { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
+import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 import { FieldUndoRedoSnapshotService } from './FieldUndoRedoSnapshotService';
 
 export type RecordWriteUndoRedoPlan = {
@@ -33,6 +32,9 @@ export class RecordWriteUndoRedoPlanService {
   ): Promise<Result<RecordWriteUndoRedoPlan, DomainError>> {
     const service = this;
     return safeTry<RecordWriteUndoRedoPlan, DomainError>(async function* () {
+      // Side effects may contain multiple mutations for the same field across different batches.
+      // Undo/redo is intentionally command-scoped: restore each affected field from the table
+      // snapshot before the command to the final table snapshot after the command.
       const uniqueFieldIds = [
         ...new Map(effects.map((effect) => [effect.fieldId.toString(), effect.fieldId])).values(),
       ];

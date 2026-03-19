@@ -9,6 +9,7 @@ import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
+import { isLargeRecordBatchMutation } from './BatchRecordRefreshPolicy';
 import { ProjectionHandler } from './Projection';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 
@@ -25,6 +26,13 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
     const { realtimeEngine } = this;
+
+    // Large batch updates are better served by a single table-level refresh
+    // trigger; applying per-record realtime ops multiplies memory pressure and
+    // negates the gains from the streaming paste path.
+    if (isLargeRecordBatchMutation(event.updates.length)) {
+      return ok(undefined);
+    }
 
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
