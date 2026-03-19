@@ -10,11 +10,11 @@ const TriggerRecordMatchesConditions = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <path
+      d="M22.5 3.75H1.5L9.15 13.6042V20.4167L14.85 22.5V13.6042L22.5 3.75Z"
       stroke="#14B8A6"
+      strokeWidth="3"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="M22 3H2l8 9.46V19l4 2v-8.54z"
     />
   </svg>
 );

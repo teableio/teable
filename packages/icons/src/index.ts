@@ -220,6 +220,8 @@ export { default as ZoomIn } from './components/ZoomIn';
 export { default as ZoomOut } from './components/ZoomOut';
 export { default as AmazonBedrock } from './components/AmazonBedrock';
 export { default as TeableAi } from './components/TeableAi';
+export { default as Wrench } from './components/Wrench';
+export { default as Paperclip } from './components/Paperclip';
 // AI Provider Icons
 export { default as Meta } from './components/Meta';
 export { default as Moonshot } from './components/Moonshot';
