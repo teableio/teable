@@ -18,6 +18,7 @@ const GridLongTextEditorBase: ForwardRefRenderFunction<
 
   useImperativeHandle(ref, () => ({
     focus: () => textEditorRef.current?.focus?.(),
+    setValue: (value: unknown) => textEditorRef.current?.setValue?.(value as string),
     saveValue: () => textEditorRef.current?.saveValue?.(),
   }));
 
