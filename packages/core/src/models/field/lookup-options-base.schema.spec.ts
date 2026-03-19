@@ -95,10 +95,41 @@ describe('lookupOptionsVoSchema validation', () => {
       fkHostTableName: 'table1',
       selfKeyName: 'key1',
       foreignKeyName: 'key2',
+      filterByViewId: 'viwActive',
+      visibleFieldIds: ['fldYYY'],
     };
 
     const result = lookupOptionsVoSchema.safeParse(validLinkLookup);
     expect(result.success).toBe(true);
+  });
+
+  it('should keep link display config in lookup field VO payloads', () => {
+    const validLinkLookup = {
+      foreignTableId: 'tblXXX',
+      lookupFieldId: 'fldYYY',
+      linkFieldId: 'fldZZZ',
+      relationship: 'manyOne',
+      fkHostTableName: 'table1',
+      selfKeyName: 'key1',
+      foreignKeyName: 'key2',
+      filterByViewId: 'viwActive',
+      visibleFieldIds: ['fldYYY', 'fldZZZ'],
+    };
+
+    const result = lookupOptionsVoSchema.safeParse(validLinkLookup);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect('filterByViewId' in result.data).toBe(true);
+    expect('visibleFieldIds' in result.data).toBe(true);
+    if (!('filterByViewId' in result.data) || !('visibleFieldIds' in result.data)) {
+      throw new Error('Expected link lookup options');
+    }
+
+    expect(result.data.filterByViewId).toBe('viwActive');
+    expect(result.data.visibleFieldIds).toEqual(['fldYYY', 'fldZZZ']);
   });
 
   it('should provide helpful error when expression is misplaced', () => {

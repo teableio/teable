@@ -28,6 +28,12 @@ const lookupLinkOptionsVoSchema = z.object({
   foreignKeyName: z.string().meta({
     description: 'The name of the field that stores the foreign table primary key',
   }),
+  filterByViewId: z.string().nullable().optional().meta({
+    description: 'Optional foreign view used to filter lookup candidates.',
+  }),
+  visibleFieldIds: z.array(z.string()).nullable().optional().meta({
+    description: 'Optional foreign fields shown when presenting lookup-linked records.',
+  }),
   filter: filterSchema.optional(),
   linkFieldId: z.string().meta({
     description: 'The id of Linked record field to use for lookup',

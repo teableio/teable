@@ -243,4 +243,143 @@ describe('field Schema Test', () => {
     expect(result.data.recordRead).toBeUndefined();
     expect(result.data.recordCreate).toBeUndefined();
   });
+
+  it('should parse lookup field VO with link display config in lookupOptions', () => {
+    const fieldVo = {
+      id: 'fldLookupDisplayCfg',
+      name: 'Lookup Field',
+      type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: 'tblForeign',
+        lookupFieldId: 'fldForeign',
+        linkFieldId: 'fldLink',
+        relationship: Relationship.ManyOne,
+        fkHostTableName: 'table_foreign',
+        selfKeyName: 'self_id',
+        foreignKeyName: 'foreign_id',
+        filterByViewId: 'viwForeign',
+        visibleFieldIds: ['fldForeign', 'fldAnother'],
+      },
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Text,
+      dbFieldName: 'lookup_field',
+    };
+
+    const result = fieldVoSchema.safeParse(fieldVo);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect(result.data.lookupOptions).toMatchObject({
+      filterByViewId: 'viwForeign',
+      visibleFieldIds: ['fldForeign', 'fldAnother'],
+    });
+  });
+
+  it('should parse representative persisted field VOs for other system field types', () => {
+    const fieldVos = [
+      {
+        id: 'fldAttachmentField',
+        name: 'Files',
+        type: FieldType.Attachment,
+        options: {},
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        dbFieldName: 'files',
+      },
+      {
+        id: 'fldAutoNumberField',
+        name: 'ID',
+        type: FieldType.AutoNumber,
+        options: {
+          expression: 'AUTO_NUMBER()',
+        },
+        meta: {
+          persistedAsGeneratedColumn: true,
+        },
+        isComputed: true,
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Integer,
+        dbFieldName: 'id_auto',
+      },
+      {
+        id: 'fldCreatedTime',
+        name: 'Created Time',
+        type: FieldType.CreatedTime,
+        options: {
+          expression: 'CREATED_TIME()',
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'HH:mm',
+            timeZone: 'UTC',
+          },
+        },
+        meta: {
+          persistedAsGeneratedColumn: true,
+        },
+        isComputed: true,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        dbFieldName: 'created_time',
+      },
+      {
+        id: 'fldLastModifiedTime',
+        name: 'Last Modified Time',
+        type: FieldType.LastModifiedTime,
+        options: {
+          expression: 'LAST_MODIFIED_TIME()',
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'HH:mm',
+            timeZone: 'UTC',
+          },
+          trackedFieldIds: ['fldTracked'],
+        },
+        meta: {
+          persistedAsGeneratedColumn: true,
+        },
+        isComputed: true,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        dbFieldName: 'last_modified_time',
+      },
+      {
+        id: 'fldCreatedBy',
+        name: 'Created By',
+        type: FieldType.CreatedBy,
+        options: {},
+        meta: {
+          persistedAsGeneratedColumn: false,
+        },
+        isComputed: true,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: 'created_by',
+      },
+      {
+        id: 'fldLastModifiedBy',
+        name: 'Last Modified By',
+        type: FieldType.LastModifiedBy,
+        options: {
+          trackedFieldIds: ['fldTracked'],
+        },
+        meta: {
+          persistedAsGeneratedColumn: false,
+        },
+        isComputed: true,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: 'last_modified_by',
+      },
+    ];
+
+    fieldVos.forEach((fieldVo) => {
+      const result = fieldVoSchema.safeParse(fieldVo);
+      expect(result.success).toBe(true);
+    });
+  });
 });
