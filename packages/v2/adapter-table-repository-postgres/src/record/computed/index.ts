@@ -6,6 +6,8 @@ export * from './ComputedUpdateLock';
 export * from './ComputedUpdatePlanner';
 export * from './ComputedUpdateRun';
 export * from './ExternalComputedRefreshService';
+export * from './RunComputedTaskByIdCommand';
+export * from './RunComputedTaskByIdHandler';
 export * from './UserRenamePropagationService';
 export * from './FieldDependencyGraph';
 export * from './UpdateFromSelectBuilder';

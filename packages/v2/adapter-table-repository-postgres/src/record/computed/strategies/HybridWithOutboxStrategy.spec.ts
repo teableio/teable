@@ -128,6 +128,7 @@ const createOutboxStub = () => {
     enqueueSeedTask,
     enqueueFieldBackfill,
     claimBatch: async () => ok([]),
+    claimById: async () => ok(null),
     markDone: async () => ok(undefined),
     markFailed: async () => ok(undefined),
   };

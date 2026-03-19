@@ -65,6 +65,15 @@ export type ComputedUpdateWorkerParams = {
   requestId?: string;
 };
 
+export type ComputedUpdateWorkerRunTaskByIdParams = {
+  taskId: string;
+  workerId: string;
+  actorId?: ActorId;
+  tracer?: ITracer;
+  requestId?: string;
+  allowProcessingTakeover?: boolean;
+};
+
 /**
  * Background worker that processes computed update outbox tasks.
  *
@@ -133,210 +142,15 @@ export class ComputedUpdateWorker {
 
           let processed = 0;
           for (const task of claimed) {
-            // Handle field backfill tasks separately
-            if (isFieldBackfillOutboxItem(task)) {
-              const backfillResult = await this.processFieldBackfillTask(
-                task,
-                actorIdResult.value,
-                params.tracer,
-                params.requestId
-              );
-              if (backfillResult.isOk()) {
-                processed += 1;
-              }
-              continue;
-            }
-
-            // Handle seed tasks - compute plan and execute asynchronously
-            if (isSeedOutboxItem(task)) {
-              const seedResult = await this.processSeedTask(
-                task,
-                actorIdResult.value,
-                params.tracer,
-                params.requestId
-              );
-              if (seedResult.isOk()) {
-                processed += 1;
-              }
-              continue;
-            }
-
-            // Standard computed update task processing (with pre-computed plan)
-            const computedTask = task as ComputedUpdateOutboxItem;
-            const runLogContext = {
-              computedRunId: computedTask.runId,
-              computedOriginRunIds: computedTask.originRunIds,
-              computedTaskId: computedTask.id,
-            };
-            const payload = toPayload(computedTask);
-            const planResult = deserializeComputedUpdatePlan(payload);
-            if (planResult.isErr()) {
-              this.logger.error('computed:outbox:task_failed', {
-                taskId: computedTask.id,
-                error: planResult.error.message,
-                ...runLogContext,
-              });
-              await this.handleTaskFailure(computedTask, planResult.error.message, baseContext);
-              continue;
-            }
-
-            const context: IExecutionContext = {
-              actorId: actorIdResult.value,
-              tracer: params.tracer,
-              requestId: params.requestId,
-            };
-            const totalSteps =
-              computedTask.runTotalSteps > 0
-                ? computedTask.runTotalSteps
-                : computedTask.runCompletedStepsBefore + computedTask.steps.length;
-            const runId = computedTask.runId?.length ? computedTask.runId : undefined;
-            const originRunIds = computedTask.originRunIds?.length
-              ? computedTask.originRunIds
-              : undefined;
-
-            const stageFieldIdsResult = collectSeedFieldIds(computedTask);
-            if (stageFieldIdsResult.isErr()) {
-              this.logger.error('computed:outbox:task_failed', {
-                taskId: computedTask.id,
-                error: stageFieldIdsResult.error.message,
-                ...runLogContext,
-              });
-              await this.handleTaskFailure(
-                computedTask,
-                stageFieldIdsResult.error.message,
-                baseContext
-              );
-              continue;
-            }
-
-            const stageTableIdsResult = collectSeedTableIds(computedTask);
-            if (stageTableIdsResult.isErr()) {
-              this.logger.error('computed:outbox:task_failed', {
-                taskId: computedTask.id,
-                error: stageTableIdsResult.error.message,
-                ...runLogContext,
-              });
-              await this.handleTaskFailure(
-                computedTask,
-                stageTableIdsResult.error.message,
-                baseContext
-              );
-              continue;
-            }
-
-            const executeResult = await this.unitOfWork.withTransaction(
-              context,
-              async (txContext) => {
-                const run = createComputedUpdateRun({
-                  runId,
-                  originRunIds,
-                  totalSteps,
-                  completedStepsBefore: computedTask.runCompletedStepsBefore,
-                  phase: 'async',
-                  taskId: computedTask.id,
-                });
-
-                const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
-                  logContext: runLogContext,
-                });
-                if (lockResult.isErr()) return err(lockResult.error);
-
-                const stageResult = await this.updater.execute(planResult.value, txContext, run, {
-                  collectChanges: true,
-                });
-                if (stageResult.isErr()) return err(stageResult.error);
-
-                // Publish events for computed updates
-                const events = buildComputedUpdateEvents(
-                  stageResult.value.changesByStep,
-                  planResult.value.baseId
-                );
-                if (events.length > 0) {
-                  const publishResult = await this.eventBus.publishMany(txContext, events);
-                  if (publishResult.isErr()) {
-                    this.logger.warn('computed:worker:events_publish_failed', {
-                      error: publishResult.error.message,
-                      eventCount: events.length,
-                      ...runLogContext,
-                    });
-                  } else {
-                    this.logger.debug('computed:worker:events_published', {
-                      eventCount: events.length,
-                      tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
-                      ...runLogContext,
-                    });
-                  }
-                }
-
-                const completedStepsAfter =
-                  computedTask.runCompletedStepsBefore + computedTask.steps.length;
-                const seedGroupsResult = await this.updater.collectDirtySeedGroups(
-                  txContext,
-                  stageTableIdsResult.value
-                );
-                if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
-
-                const nextPlanResult = await this.planNextStage(
-                  planResult.value,
-                  txContext,
-                  stageFieldIdsResult.value,
-                  seedGroupsResult.value
-                );
-                if (nextPlanResult.isErr()) return err(nextPlanResult.error);
-
-                // Get current stage depth from task (defaults to 0 for older tasks)
-                const currentStageDepth = computedTask.stageDepth ?? 0;
-
-                if (nextPlanResult.value.steps.length > 0) {
-                  // Check if we've exceeded max stage depth
-                  if (currentStageDepth >= MAX_STAGE_DEPTH) {
-                    this.logger.warn('computed:worker:max_stage_depth_reached', {
-                      taskId: computedTask.id,
-                      stageDepth: currentStageDepth,
-                      skippedSteps: nextPlanResult.value.steps.length,
-                      ...runLogContext,
-                    });
-                    // Don't enqueue next task, but continue with marking current task done
-                  } else {
-                    const nextTotalSteps =
-                      Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
-                    const nextTask = buildOutboxTaskInput({
-                      plan: nextPlanResult.value,
-                      dirtyStats: seedGroupsResult.value.map((group) => ({
-                        tableId: group.tableId.toString(),
-                        recordCount: group.recordIds.length,
-                      })),
-                      syncMaxLevel: 0,
-                      hasher: this.hasher,
-                      runId: run.runId,
-                      originRunIds: [...run.originRunIds],
-                      runTotalSteps: nextTotalSteps,
-                      runCompletedStepsBefore: completedStepsAfter,
-                      stageDepth: currentStageDepth + 1,
-                    });
-
-                    const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
-                    if (enqueueResult.isErr()) return err(enqueueResult.error);
-                  }
-                }
-
-                const doneResult = await this.outbox.markDone(computedTask.id, txContext);
-                if (doneResult.isErr()) return err(doneResult.error);
-
-                return ok(undefined);
-              }
+            const processResult = await this.processClaimedTask(
+              task,
+              actorIdResult.value,
+              params.tracer,
+              params.requestId
             );
-            if (executeResult.isErr()) {
-              this.logger.error('computed:outbox:task_failed', {
-                taskId: computedTask.id,
-                error: executeResult.error.message,
-                ...runLogContext,
-              });
-              await this.handleTaskFailure(computedTask, executeResult.error.message, baseContext);
-              continue;
+            if (processResult.isOk()) {
+              processed += 1;
             }
-
-            processed += 1;
           }
 
           return ok(processed);
@@ -352,6 +166,237 @@ export class ComputedUpdateWorker {
     } finally {
       span?.end();
     }
+  }
+
+  async runTaskById(
+    params: ComputedUpdateWorkerRunTaskByIdParams
+  ): Promise<Result<boolean, DomainError>> {
+    const span = params.tracer?.startSpan('teable.worker.runTaskById', {
+      'worker.id': params.workerId,
+      'outbox.taskId': params.taskId,
+    });
+
+    const executeRunTaskById = async (): Promise<Result<boolean, DomainError>> => {
+      return safeTry<boolean, DomainError>(
+        async function* (this: ComputedUpdateWorker) {
+          const actorIdResult = params.actorId ? ok(params.actorId) : ActorId.create('system');
+          if (actorIdResult.isErr()) return err(actorIdResult.error);
+
+          const context: IExecutionContext = {
+            actorId: actorIdResult.value,
+            tracer: params.tracer,
+            requestId: params.requestId,
+          };
+
+          const claimed = yield* await this.outbox.claimById(
+            {
+              taskId: params.taskId,
+              workerId: params.workerId,
+              allowProcessingTakeover: params.allowProcessingTakeover ?? true,
+            },
+            context
+          );
+
+          if (!claimed) return ok(false);
+
+          const processResult = await this.processClaimedTask(
+            claimed,
+            actorIdResult.value,
+            params.tracer,
+            params.requestId
+          );
+          if (processResult.isErr()) return err(processResult.error);
+
+          return ok(true);
+        }.bind(this)
+      );
+    };
+
+    try {
+      if (span && params.tracer) {
+        return await params.tracer.withSpan(span, executeRunTaskById);
+      }
+      return await executeRunTaskById();
+    } finally {
+      span?.end();
+    }
+  }
+
+  private async processClaimedTask(
+    task: AnyOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<void, DomainError>> {
+    if (isFieldBackfillOutboxItem(task)) {
+      return this.processFieldBackfillTask(task, actorId, tracer, requestId);
+    }
+
+    if (isSeedOutboxItem(task)) {
+      return this.processSeedTask(task, actorId, tracer, requestId);
+    }
+
+    return this.processComputedTask(task as ComputedUpdateOutboxItem, actorId, tracer, requestId);
+  }
+
+  private async processComputedTask(
+    computedTask: ComputedUpdateOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<void, DomainError>> {
+    const context: IExecutionContext = { actorId, tracer, requestId };
+    const runLogContext = {
+      computedRunId: computedTask.runId,
+      computedOriginRunIds: computedTask.originRunIds,
+      computedTaskId: computedTask.id,
+    };
+    const payload = toPayload(computedTask);
+    const planResult = deserializeComputedUpdatePlan(payload);
+    if (planResult.isErr()) {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        error: planResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(computedTask, planResult.error.message, context);
+      return err(planResult.error);
+    }
+
+    const totalSteps =
+      computedTask.runTotalSteps > 0
+        ? computedTask.runTotalSteps
+        : computedTask.runCompletedStepsBefore + computedTask.steps.length;
+    const runId = computedTask.runId?.length ? computedTask.runId : undefined;
+    const originRunIds = computedTask.originRunIds?.length ? computedTask.originRunIds : undefined;
+
+    const stageFieldIdsResult = collectSeedFieldIds(computedTask);
+    if (stageFieldIdsResult.isErr()) {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        error: stageFieldIdsResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(computedTask, stageFieldIdsResult.error.message, context);
+      return err(stageFieldIdsResult.error);
+    }
+
+    const stageTableIdsResult = collectSeedTableIds(computedTask);
+    if (stageTableIdsResult.isErr()) {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        error: stageTableIdsResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(computedTask, stageTableIdsResult.error.message, context);
+      return err(stageTableIdsResult.error);
+    }
+
+    const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      const run = createComputedUpdateRun({
+        runId,
+        originRunIds,
+        totalSteps,
+        completedStepsBefore: computedTask.runCompletedStepsBefore,
+        phase: 'async',
+        taskId: computedTask.id,
+      });
+
+      const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
+        logContext: runLogContext,
+      });
+      if (lockResult.isErr()) return err(lockResult.error);
+
+      const stageResult = await this.updater.execute(planResult.value, txContext, run, {
+        collectChanges: true,
+      });
+      if (stageResult.isErr()) return err(stageResult.error);
+
+      const events = buildComputedUpdateEvents(
+        stageResult.value.changesByStep,
+        planResult.value.baseId
+      );
+      if (events.length > 0) {
+        const publishResult = await this.eventBus.publishMany(txContext, events);
+        if (publishResult.isErr()) {
+          this.logger.warn('computed:worker:events_publish_failed', {
+            error: publishResult.error.message,
+            eventCount: events.length,
+            ...runLogContext,
+          });
+        } else {
+          this.logger.debug('computed:worker:events_published', {
+            eventCount: events.length,
+            tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
+            ...runLogContext,
+          });
+        }
+      }
+
+      const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
+      const seedGroupsResult = await this.updater.collectDirtySeedGroups(
+        txContext,
+        stageTableIdsResult.value
+      );
+      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+
+      const nextPlanResult = await this.planNextStage(
+        planResult.value,
+        txContext,
+        stageFieldIdsResult.value,
+        seedGroupsResult.value
+      );
+      if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+      const currentStageDepth = computedTask.stageDepth ?? 0;
+
+      if (nextPlanResult.value.steps.length > 0) {
+        if (currentStageDepth >= MAX_STAGE_DEPTH) {
+          this.logger.warn('computed:worker:max_stage_depth_reached', {
+            taskId: computedTask.id,
+            stageDepth: currentStageDepth,
+            skippedSteps: nextPlanResult.value.steps.length,
+            ...runLogContext,
+          });
+        } else {
+          const nextTotalSteps =
+            Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
+          const nextTask = buildOutboxTaskInput({
+            plan: nextPlanResult.value,
+            dirtyStats: seedGroupsResult.value.map((group) => ({
+              tableId: group.tableId.toString(),
+              recordCount: group.recordIds.length,
+            })),
+            syncMaxLevel: 0,
+            hasher: this.hasher,
+            runId: run.runId,
+            originRunIds: [...run.originRunIds],
+            runTotalSteps: nextTotalSteps,
+            runCompletedStepsBefore: completedStepsAfter,
+            stageDepth: currentStageDepth + 1,
+          });
+
+          const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
+          if (enqueueResult.isErr()) return err(enqueueResult.error);
+        }
+      }
+
+      const doneResult = await this.outbox.markDone(computedTask.id, txContext);
+      if (doneResult.isErr()) return err(doneResult.error);
+
+      return ok(undefined);
+    });
+    if (executeResult.isErr()) {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        error: executeResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(computedTask, executeResult.error.message, context);
+      return err(executeResult.error);
+    }
+
+    return ok(undefined);
   }
 
   private async handleTaskFailure(

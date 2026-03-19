@@ -1,4 +1,5 @@
 import { Command } from '@effect/cli';
+import { computedRunTask } from './computed';
 import { dottea } from './dottea';
 import {
   explainCreate,
@@ -45,6 +46,12 @@ export const mock = Command.make('mock').pipe(
   Command.withSubcommands([mockGenerate])
 );
 
+// computed task subcommand group
+export const computed = Command.make('computed').pipe(
+  Command.withDescription('Operate computed outbox tasks'),
+  Command.withSubcommands([computedRunTask])
+);
+
 // records subcommand group (application layer queries and mutations)
 export const records = Command.make('records').pipe(
   Command.withDescription('Query and mutate records via application layer'),
@@ -79,7 +86,17 @@ export const underlying = Command.make('underlying').pipe(
 // Root command
 export const root = Command.make('teable-devtools').pipe(
   Command.withDescription('Teable v2 developer tools CLI'),
-  Command.withSubcommands([explain, mock, records, relations, schema, tables, underlying, dottea])
+  Command.withSubcommands([
+    computed,
+    explain,
+    mock,
+    records,
+    relations,
+    schema,
+    tables,
+    underlying,
+    dottea,
+  ])
 );
 
 export { dottea, relations };

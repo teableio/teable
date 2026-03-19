@@ -30,6 +30,7 @@ import { defaultComputedUpdateOutboxConfig } from './IComputedUpdateOutbox';
 import type {
   IComputedUpdateOutbox,
   ClaimBatchParams,
+  ClaimByIdParams,
   ComputedUpdateOutboxConfig,
   AnyOutboxItem,
   FieldBackfillOutboxItem,
@@ -425,6 +426,67 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         const tasks = rows.map((row) => toAnyOutboxItem(row, seedMap.get(String(row.id)) ?? []));
 
         return ok(tasks);
+      });
+    };
+
+    try {
+      if (span && context?.tracer) {
+        return await context.tracer.withSpan(span, executeClaim);
+      }
+      return await executeClaim();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async claimById(
+    params: ClaimByIdParams,
+    context?: IExecutionContext
+  ): Promise<Result<AnyOutboxItem | null, DomainError>> {
+    const span = context?.tracer?.startSpan('teable.outbox.claimById', {
+      'outbox.taskId': params.taskId,
+      'outbox.workerId': params.workerId,
+    });
+
+    const executeClaim = async (): Promise<Result<AnyOutboxItem | null, DomainError>> => {
+      const now = params.now ?? new Date();
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      const retryableStatuses = params.allowProcessingTakeover
+        ? [DEFAULT_STATUS, 'processing']
+        : [DEFAULT_STATUS];
+
+      return runInTransaction(db, context, async (trx) => {
+        const row = await trx
+          .selectFrom(OUTBOX_TABLE)
+          .selectAll()
+          .where('id', '=', params.taskId)
+          .where('status', 'in', retryableStatuses)
+          .forUpdate()
+          .executeTakeFirst();
+
+        if (!row) return ok(null);
+
+        await trx
+          .updateTable(OUTBOX_TABLE)
+          .set({
+            status: 'processing',
+            locked_at: now,
+            locked_by: params.workerId,
+            updated_at: now,
+          })
+          .where('id', '=', params.taskId)
+          .execute();
+
+        const seedMap = await this.loadSeedRecords(trx, [row]);
+        const claimedRow = {
+          ...row,
+          status: 'processing',
+          locked_at: now,
+          locked_by: params.workerId,
+          updated_at: now,
+        };
+
+        return ok(toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []));
       });
     };
 

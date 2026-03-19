@@ -1,6 +1,7 @@
 export * from './DatabaseLive';
 export * from './DebugDataLive';
 export * from './CommandExplainLive';
+export * from './ComputedTaskControlLive';
 export * from './MockRecordsLive';
 export * from './NodeCryptoHasher';
 export * from './OutputLive';

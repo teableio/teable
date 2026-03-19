@@ -105,6 +105,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([])),
+        claimById: vi.fn(),
         markDone: vi.fn(),
         markFailed: vi.fn(),
       };
@@ -142,6 +143,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        claimById: vi.fn(),
         markDone: vi.fn(),
         markFailed,
       };
@@ -191,6 +193,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        claimById: vi.fn(),
         markDone,
         markFailed: vi.fn(),
       };
@@ -242,6 +245,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task1, task2, task3])),
+        claimById: vi.fn(),
         markDone,
         markFailed: vi.fn(),
       };
@@ -305,6 +309,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        claimById: vi.fn(),
         markDone,
         markFailed: vi.fn(),
       };
@@ -369,6 +374,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        claimById: vi.fn(),
         markDone: vi.fn(),
         markFailed: vi.fn().mockResolvedValue(ok(undefined)),
       };
@@ -425,6 +431,7 @@ describe('ComputedUpdateWorker', () => {
         enqueueSeedTask: vi.fn(),
         enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        claimById: vi.fn(),
         markDone: vi.fn(),
         markFailed,
       };
@@ -468,6 +475,94 @@ describe('ComputedUpdateWorker', () => {
           taskId: task.id,
         })
       );
+    });
+  });
+
+  describe('runTaskById', () => {
+    it('claims and processes the specified task id', async () => {
+      const task = createMockTask();
+      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+      const claimById = vi.fn().mockResolvedValue(ok(task));
+
+      const outbox: IComputedUpdateOutbox = {
+        enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
+        claimBatch: vi.fn().mockResolvedValue(ok([])),
+        claimById,
+        markDone,
+        markFailed: vi.fn(),
+      };
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runTaskById({
+        taskId: task.id,
+        workerId: 'manual-worker',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(true);
+      expect(claimById).toHaveBeenCalledWith(
+        expect.objectContaining({
+          taskId: task.id,
+          workerId: 'manual-worker',
+          allowProcessingTakeover: true,
+        }),
+        expect.anything()
+      );
+      expect(markDone).toHaveBeenCalledWith(task.id, expect.anything());
+    });
+
+    it('returns false when the task cannot be claimed by id', async () => {
+      const outbox: IComputedUpdateOutbox = {
+        enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
+        claimBatch: vi.fn().mockResolvedValue(ok([])),
+        claimById: vi.fn().mockResolvedValue(ok(null)),
+        markDone: vi.fn(),
+        markFailed: vi.fn(),
+      };
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        createUpdaterStub(),
+        {} as ComputedUpdatePlanner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runTaskById({
+        taskId: 'cuo-missing',
+        workerId: 'manual-worker',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(false);
     });
   });
 });

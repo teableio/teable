@@ -167,6 +167,7 @@ const createNoopOutbox = (): IComputedUpdateOutbox => {
     enqueueSeedTask: async () => ok({ taskId: 'test', merged: false }),
     enqueueFieldBackfill: async () => ok({ taskId: 'test', merged: false }),
     claimBatch: async () => ok([]),
+    claimById: async () => ok(null),
     markDone: async () => ok(undefined),
     markFailed: async () => ok(undefined),
   };

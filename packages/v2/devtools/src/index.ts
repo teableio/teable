@@ -11,4 +11,4 @@ export * from './errors';
 export * from './utils';
 
 // Commands
-export { root, explain, mock, underlying, relations } from './commands';
+export { root, computed, explain, mock, underlying, relations } from './commands';

@@ -32,6 +32,13 @@ export type ClaimBatchParams = {
   now?: Date;
 };
 
+export type ClaimByIdParams = {
+  taskId: string;
+  workerId: string;
+  now?: Date;
+  allowProcessingTakeover?: boolean;
+};
+
 /**
  * Outbox item for field backfill tasks.
  */
@@ -112,6 +119,11 @@ export interface IComputedUpdateOutbox {
     params: ClaimBatchParams,
     context?: IExecutionContext
   ): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>>;
+
+  claimById(
+    params: ClaimByIdParams,
+    context?: IExecutionContext
+  ): Promise<Result<AnyOutboxItem | null, DomainError>>;
 
   markDone(taskId: string, context?: IExecutionContext): Promise<Result<void, DomainError>>;
 
