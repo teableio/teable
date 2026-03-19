@@ -18,6 +18,7 @@ import { SideBarFooter } from '../components/SideBarFooter';
 import { UploadProgressPanel } from '../components/upload-progress-panel/UploadProgressPanel';
 import type { IBaseResourceTable } from '../hooks/useBaseResource';
 import { useBaseResource } from '../hooks/useBaseResource';
+import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { TemplateBaseLayout } from './TemplateBaseLayout';
 
@@ -32,11 +33,17 @@ export const BaseLayout: React.FC<{
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
+  const { maxSearchFieldCount } = useEnv();
 
   return (
     <TemplateBaseLayout {...props} childrenContent={children}>
       <AppLayout>
-        <AppProvider lang={i18n.language} locale={sdkLocale} dehydratedState={dehydratedState}>
+        <AppProvider
+          lang={i18n.language}
+          locale={sdkLocale}
+          dehydratedState={dehydratedState}
+          maxSearchFieldCount={maxSearchFieldCount}
+        >
           <SessionProvider user={user}>
             <NotificationProvider>
               <AnchorContext.Provider

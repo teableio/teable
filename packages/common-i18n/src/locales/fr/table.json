@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Partager",
-        "statusLabel": "Partage",
+        "statusLabel": "Partager la vue sur le web",
         "shareLink": "Lien de partage",
         "copied": "Copié",
         "genLink": "Générer un nouveau lien",
@@ -700,6 +700,10 @@
     "refreshFailed": "Échec de la régénération du lien de partage",
     "copied": "Lien copié dans le presse-papiers",
     "shareLink": "Lien de partage",
+    "linkHolderLabel": "La personne qui a obtenu le lien",
+    "linkHolderCanView": "Peut consulter",
+    "linkHolderCanEdit": "Peut modifier",
+    "linkHolderCanCopyAndSave": "Peut enregistrer comme copie",
     "passwordProtection": "Protection par mot de passe",
     "enterPassword": "Entrer le mot de passe",
     "selectNodes": "Sélectionner les tables",

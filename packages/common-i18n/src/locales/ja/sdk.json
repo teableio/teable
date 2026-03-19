@@ -31,7 +31,8 @@
     },
     "resetSuccess": "リセット成功",
     "click": "クリック",
-    "clickedCount": "{{label}}: クリック {{text}} 回"
+    "clickedCount": "{{label}}: クリック {{text}} 回",
+    "atLeastOne": "少なくとも1つの{{noun}}を保持してください"
   },
   "notification": {
     "title": "通知"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "リンクするレコードを選択",
       "searchPlaceholder": "レコードの検索",
+      "allFields": "すべてのフィールド",
+      "globalSearch": "グローバル検索",
+      "fieldSearch": "フィールド検索",
+      "maxFieldTips": "最大{{count}}フィールドを超えました。余分なフィールドは無視されます",
       "create": "レコードの追加",
       "selectRecord": "レコードを選択",
       "all": "すべて",
@@ -435,7 +440,8 @@
     "you": "あなた",
     "instance": "インスタンス",
     "enterprise": "エンタープライズ",
-    "history": "履歴"
+    "history": "履歴",
+    "global": "グローバル"
   },
   "formula": {
     "SUM": {

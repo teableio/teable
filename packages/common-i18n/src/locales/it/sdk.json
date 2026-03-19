@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Rimesso riuscito",
     "click": "Clicca",
-    "clickedCount": "{{label}}: Cliccato {{text}} volte"
+    "clickedCount": "{{label}}: Cliccato {{text}} volte",
+    "atLeastOne": "Riserva almeno un {{noun}}"
   },
   "notification": {
     "title": "Notifica"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Seleziona record da collegare",
       "searchPlaceholder": "Cerca record",
+      "allFields": "Tutti i campi",
+      "globalSearch": "Ricerca globale",
+      "fieldSearch": "Ricerca per campo",
+      "maxFieldTips": "Superato il numero massimo di {{count}} campi, i campi extra verranno ignorati",
       "create": "Aggiungi Record",
       "selectRecord": "Seleziona Record",
       "all": "Tutti",
@@ -435,7 +440,8 @@
     "you": "Tu",
     "instance": "Istanza",
     "enterprise": "Impresa",
-    "history": "Storico"
+    "history": "Storico",
+    "global": "Globale"
   },
   "formula": {
     "SUM": {

@@ -47,6 +47,9 @@
     "preview": "Попередній перегляд",
     "viewAndEdit": "Переглянути та редагувати",
     "getMore": "Отримати більше",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "copySuccess": "Копіювання успішне"
   },
   "quickAction": {

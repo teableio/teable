@@ -15,6 +15,7 @@ import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
 import type { IBaseResourceTable } from '../hooks/useBaseResource';
 import { useBaseResource } from '../hooks/useBaseResource';
+import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { initAxios } from '../utils/init-axios';
 
@@ -36,6 +37,7 @@ export const TemplateBaseLayout = ({
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
+  const { maxSearchFieldCount } = useEnv();
   const isTemplate = !!base?.template;
   const templateHeader = base?.template?.headers;
   initAxios({ base });
@@ -65,6 +67,7 @@ export const TemplateBaseLayout = ({
         dehydratedState={dehydratedState}
         template={base?.template}
         wsPath={wsPath}
+        maxSearchFieldCount={maxSearchFieldCount}
       >
         <SessionProvider user={user}>
           <AnchorContext.Provider

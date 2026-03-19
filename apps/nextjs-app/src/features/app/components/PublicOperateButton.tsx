@@ -1,5 +1,6 @@
 import { useIsAnonymous, useIsHydrated, useShareId, useTemplate } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useRef } from 'react';
@@ -47,12 +48,27 @@ export const PublicOperateButton = () => {
     };
 
     return (
-      <>
+      <div className="flex w-full flex-col items-center">
+        <Image
+          src="/images/savefile-light.png"
+          alt=""
+          width={120}
+          height={120}
+          className="block dark:hidden"
+        />
+        <Image
+          src="/images/savefile-dark.png"
+          alt=""
+          width={120}
+          height={120}
+          className="hidden dark:block"
+        />
+        <p className="mb-3 text-xs text-muted-foreground">{t('common:actions.supportSaveCopy')}</p>
         <Button size={'sm'} className="w-full text-[13px] font-normal" onClick={handleClick}>
-          {t('common:actions.copyToMySpace')}
+          {t('common:actions.saveToMySpace')}
         </Button>
         <ShareSelectSpaceDialog ref={shareRef} />
-      </>
+      </div>
     );
   }
 

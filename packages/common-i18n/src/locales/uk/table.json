@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Поділитися",
-        "statusLabel": "Загальний доступ",
+        "statusLabel": "Поділитися виглядом у мережі",
         "noPermission": "Немає дозволу ділитися переглядом",
         "shareLink": "Посилання для спільного доступу",
         "copied": "Скопійовано",
@@ -719,6 +719,10 @@
     "refreshFailed": "Не вдалося оновити посилання для спільного доступу",
     "copied": "Посилання скопійовано в буфер обміну",
     "shareLink": "Посилання для спільного доступу",
+    "linkHolderLabel": "Особа, яка отримала посилання",
+    "linkHolderCanView": "Може переглядати",
+    "linkHolderCanEdit": "Може редагувати",
+    "linkHolderCanCopyAndSave": "Може зберегти як копію",
     "passwordProtection": "Захист паролем",
     "enterPassword": "Введіть пароль",
     "selectNodes": "Вибрати таблиці",

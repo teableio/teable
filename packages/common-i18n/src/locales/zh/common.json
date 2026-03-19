@@ -64,6 +64,8 @@
     "login": "登录",
     "useTemplate": "使用模版",
     "copyToMySpace": "复制到我的空间",
+    "saveToMySpace": "保存到我的空间",
+    "supportSaveCopy": "支持保存副本",
     "copyLink": "复制链接",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",

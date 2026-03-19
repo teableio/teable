@@ -64,6 +64,8 @@
     "login": "Login",
     "useTemplate": "Use template",
     "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "copyLink": "Copy link",
     "backToSpace": "Back to space",
     "switchBase": "Switch base",

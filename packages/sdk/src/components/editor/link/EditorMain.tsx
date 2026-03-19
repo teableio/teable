@@ -232,7 +232,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <SearchInput container={props.container} globalOnly />
+        <SearchInput container={props.container} />
         <div className="ml-4">
           <Tabs
             value={listType === LinkListType.Selected ? 'selected' : 'all'}

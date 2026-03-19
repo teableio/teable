@@ -17,6 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
 import { useBrand } from '@/features/app/hooks/useBrand';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { ShareTablePermissionProvider } from './ShareTablePermissionProvider';
@@ -31,6 +32,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
   const { tableId, viewId, view, fields, shareId } = props.shareViewData;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
+  const { maxSearchFieldCount } = useEnv();
 
   const { query } = useRouter();
   const { brandName } = useBrand();
@@ -49,6 +51,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
       wsPath={wsPath}
       locale={sdkLocale}
       forcedTheme={query.theme as string}
+      maxSearchFieldCount={maxSearchFieldCount}
     >
       <ShareViewContext.Provider value={props.shareViewData}>
         <Head>

@@ -249,13 +249,15 @@ export type I18nTranslations = {
             "refresh": string;
             "login": string;
             "useTemplate": string;
+            "copyToMySpace": string;
+            "saveToMySpace": string;
+            "supportSaveCopy": string;
             "backToSpace": string;
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
             "download": string;
             "retry": string;
-            "copyToMySpace": string;
             "copyLink": string;
             "collapse": string;
             "viewDetails": string;
@@ -1896,6 +1898,7 @@ export type I18nTranslations = {
             "resetSuccess": string;
             "click": string;
             "clickedCount": string;
+            "atLeastOne": string;
         };
         "notification": {
             "title": string;
@@ -1963,6 +1966,10 @@ export type I18nTranslations = {
             "link": {
                 "placeholder": string;
                 "searchPlaceholder": string;
+                "allFields": string;
+                "globalSearch": string;
+                "fieldSearch": string;
+                "maxFieldTips": string;
                 "create": string;
                 "selectRecord": string;
                 "all": string;
@@ -2312,6 +2319,7 @@ export type I18nTranslations = {
             "instance": string;
             "enterprise": string;
             "history": string;
+            "global": string;
         };
         "formula": {
             "SUM": {
@@ -4408,6 +4416,10 @@ export type I18nTranslations = {
             "refreshFailed": string;
             "copied": string;
             "shareLink": string;
+            "linkHolderLabel": string;
+            "linkHolderCanView": string;
+            "linkHolderCanEdit": string;
+            "linkHolderCanCopyAndSave": string;
             "passwordProtection": string;
             "enterPassword": string;
             "selectNodes": string;
@@ -4439,6 +4451,9 @@ export type I18nTranslations = {
             "publishFailed": string;
             "openLink": string;
             "appPublished": string;
+            "shareTableTab": string;
+            "shareViewTab": string;
+            "shareNodeTab": string;
         };
         "aiChat": {
             "tool": {

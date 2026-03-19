@@ -19,6 +19,7 @@ interface IAppProviderProps {
   disabledWs?: boolean;
   template?: IGetBaseVo['template'];
   shareId?: string;
+  maxSearchFieldCount?: number;
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
@@ -32,6 +33,7 @@ export const AppProvider = (props: IAppProviderProps) => {
     dehydratedState,
     template,
     shareId,
+    maxSearchFieldCount,
   } = props;
   const value = useMemo(
     () => ({
@@ -39,8 +41,9 @@ export const AppProvider = (props: IAppProviderProps) => {
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
       template,
       shareId,
+      maxSearchFieldCount,
     }),
-    [lang, locale, template, shareId]
+    [lang, locale, template, shareId, maxSearchFieldCount]
   );
 
   if (disabledWs) {

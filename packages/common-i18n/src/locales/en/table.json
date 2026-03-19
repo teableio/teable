@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Share",
-        "statusLabel": "Sharing",
+        "statusLabel": "Share view to web",
         "noPermission": "No permission to share view",
         "shareLink": "Share link",
         "copied": "Copied",
@@ -885,6 +885,10 @@
     "refreshFailed": "Failed to regenerate share link",
     "copied": "Link copied to clipboard",
     "shareLink": "Share link",
+    "linkHolderLabel": "The person who obtained the link",
+    "linkHolderCanView": "Can view",
+    "linkHolderCanEdit": "Can edit",
+    "linkHolderCanCopyAndSave": "Can save as copy",
     "passwordProtection": "Password Protection",
     "enterPassword": "Enter password",
     "selectNodes": "Select Tables",
@@ -915,7 +919,10 @@
     "publishSuccess": "App published successfully",
     "publishFailed": "Failed to publish app",
     "openLink": "Open link",
-    "appPublished": "App published"
+    "appPublished": "App published",
+    "shareTableTab": "Share table",
+    "shareViewTab": "Share view",
+    "shareNodeTab": "Share node"
   },
   "aiChat": {
     "tool": {

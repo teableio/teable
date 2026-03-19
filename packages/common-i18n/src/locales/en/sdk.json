@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Reset successfully",
     "click": "Click",
-    "clickedCount": "{{label}}: Clicked {{text}} times"
+    "clickedCount": "{{label}}: Clicked {{text}} times",
+    "atLeastOne": "At least reserve a {{noun}}"
   },
   "notification": {
     "title": "Notification"
@@ -104,6 +105,10 @@
     "link": {
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
+      "allFields": "All Fields",
+      "globalSearch": "Global search",
+      "fieldSearch": "Search field",
+      "maxFieldTips": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored",
       "create": "Add record",
       "selectRecord": "Select record",
       "all": "All",
@@ -452,7 +457,8 @@
     "you": "You",
     "instance": "Instance",
     "enterprise": "Enterprise",
-    "history": "History"
+    "history": "History",
+    "global": "Global"
   },
   "formula": {
     "SUM": {

@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "共有",
-        "statusLabel": "共有中",
+        "statusLabel": "ビューをウェブに共有",
         "shareLink": "共有リンク",
         "copied": "コピーしました",
         "genLink": "新しいリンクを生成する",
@@ -699,6 +699,10 @@
     "refreshFailed": "共有リンクの再生成に失敗しました",
     "copied": "リンクがクリップボードにコピーされました",
     "shareLink": "共有リンク",
+    "linkHolderLabel": "リンクを取得した人",
+    "linkHolderCanView": "閲覧可能",
+    "linkHolderCanEdit": "編集可能",
+    "linkHolderCanCopyAndSave": "コピーとして保存可能",
     "passwordProtection": "パスワード保護",
     "enterPassword": "パスワードを入力",
     "selectNodes": "テーブルを選択",

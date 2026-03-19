@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Paylaş",
-        "statusLabel": "Paylaşım",
+        "statusLabel": "Görünümü web'de paylaş",
         "noPermission": "Görünümü paylaşma izni yok",
         "shareLink": "Paylaşım Bağlantısı",
         "copied": "Kopyalandı",
@@ -721,6 +721,10 @@
     "refreshFailed": "Paylaşım bağlantısı yenilenemedi",
     "copied": "Bağlantı panoya kopyalandı",
     "shareLink": "Paylaşım bağlantısı",
+    "linkHolderLabel": "Bağlantıyı alan kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
     "passwordProtection": "Şifre koruması",
     "enterPassword": "Şifre girin",
     "selectNodes": "Tabloları seç",

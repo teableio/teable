@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Teilen",
-        "statusLabel": "Freigegeben",
+        "statusLabel": "Ansicht im Web teilen",
         "noPermission": "Keine Erlaubnis zum Teilen der Ansicht",
         "shareLink": "Freigabelink",
         "copied": "Kopiert",
@@ -721,6 +721,10 @@
     "refreshFailed": "Freigabelink konnte nicht erneuert werden",
     "copied": "Link in Zwischenablage kopiert",
     "shareLink": "Freigabelink",
+    "linkHolderLabel": "Die Person, die den Link erhalten hat",
+    "linkHolderCanView": "Kann anzeigen",
+    "linkHolderCanEdit": "Kann bearbeiten",
+    "linkHolderCanCopyAndSave": "Kann als Kopie speichern",
     "passwordProtection": "Passwortschutz",
     "enterPassword": "Passwort eingeben",
     "selectNodes": "Tabellen auswählen",

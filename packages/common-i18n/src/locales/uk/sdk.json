@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Скинуто успішно",
     "click": "Натисніть",
-    "clickedCount": "{{label}}: Натиснуто {{text}} разів"
+    "clickedCount": "{{label}}: Натиснуто {{text}} разів",
+    "atLeastOne": "Принаймні зарезервуйте {{noun}}"
   },
   "notification": {
     "title": "Сповіщення"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Виберіть записи для зв'язування",
       "searchPlaceholder": "Пошук записів",
+      "allFields": "Усі поля",
+      "globalSearch": "Глобальний пошук",
+      "fieldSearch": "Пошук по полю",
+      "maxFieldTips": "Перевищено максимальну кількість {{count}} полів, зайві поля будуть проігноровані",
       "create": "Додати запис",
       "selectRecord": "Виберіть запис",
       "all": "Усі",
@@ -435,7 +440,8 @@
     "you": "Ви",
     "instance": "Екземпляр",
     "enterprise": "Підприємство",
-    "history": "Історія"
+    "history": "Історія",
+    "global": "Глобальний"
   },
   "formula": {
     "SUM": {

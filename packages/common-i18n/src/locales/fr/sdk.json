@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Réinitialisation réussie",
     "click": "Cliquer",
-    "clickedCount": "{{label}}: Cliquer {{text}} fois"
+    "clickedCount": "{{label}}: Cliquer {{text}} fois",
+    "atLeastOne": "Conservez au moins un {{noun}}"
   },
   "notification": {
     "title": "Notification"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",
       "searchPlaceholder": "Rechercher des enregistrements",
+      "allFields": "Tous les champs",
+      "globalSearch": "Recherche globale",
+      "fieldSearch": "Recherche par champ",
+      "maxFieldTips": "Le nombre maximum de {{count}} champs a été dépassé, les champs supplémentaires seront ignorés",
       "create": "Ajouter un enregistrement",
       "selectRecord": "Sélectionner un enregistrement",
       "all": "Tous",
@@ -435,7 +440,8 @@
     "you": "Vous",
     "instance": "Instance",
     "enterprise": "Entreprise",
-    "history": "Historique"
+    "history": "Historique",
+    "global": "Global"
   },
   "formula": {
     "SUM": {

@@ -1,12 +1,34 @@
 import { FieldType } from '@teable/core';
-import { Search, X } from '@teable/icons';
-import { cn } from '@teable/ui-lib';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, ChevronDown, Search, X } from '@teable/icons';
+import { DEFAULT_MAX_SEARCH_FIELD_COUNT } from '@teable/openapi';
+import {
+  Button,
+  cn,
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Switch,
+  Toggle,
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@teable/ui-lib';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce, useUnmount } from 'react-use';
+import { AppContext } from '../../context/app/AppContext';
 import { useTranslation } from '../../context/app/i18n';
+import { useFieldStaticGetter } from '../../hooks/use-field-static-getter';
 import { useFields } from '../../hooks/use-fields';
 import { useSearch } from '../../hooks/use-search';
-import { FieldSelector } from '../field/FieldSelector';
+
+const ALL_FIELDS_ID = 'all_fields';
 
 export function SearchInput({
   className,
@@ -17,18 +39,21 @@ export function SearchInput({
   container?: HTMLElement;
   globalOnly?: boolean;
 }) {
+  const { maxSearchFieldCount = DEFAULT_MAX_SEARCH_FIELD_COUNT } = useContext(AppContext) ?? {};
   const fields = useFields();
 
   const { fieldId, value, setFieldId, setValue, reset, setHideNotMatchRow } = useSearch();
   const filterFields = fields.filter((f) => f.type !== FieldType.Button);
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [filterText, setFilterText] = useState('');
   const { t } = useTranslation();
+  const fieldStaticGetter = useFieldStaticGetter();
 
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // link search should filter not match row
     setHideNotMatchRow(true);
   }, [setHideNotMatchRow]);
 
@@ -46,15 +71,22 @@ export function SearchInput({
     setInputValue('');
   }, [cancel, setValue]);
 
+  const isGlobal = fieldId === ALL_FIELDS_ID;
+
+  const selectedFieldIds = useMemo(() => {
+    if (!fieldId || isGlobal) return [];
+    return fieldId.split(',');
+  }, [fieldId, isGlobal]);
+
   useEffect(() => {
     if (globalOnly) {
-      if (fieldId !== 'all_fields') {
-        setFieldId('all_fields');
+      if (fieldId !== ALL_FIELDS_ID) {
+        setFieldId(ALL_FIELDS_ID);
       }
       return;
     }
     if (!fieldId) {
-      setFieldId(fields[0]?.id);
+      setFieldId(ALL_FIELDS_ID);
     }
   }, [fieldId, fields, globalOnly, setFieldId]);
 
@@ -62,6 +94,69 @@ export function SearchInput({
     cancel();
     reset();
   });
+
+  const showAlert = useMemo(() => {
+    if (isGlobal) {
+      return filterFields.length > maxSearchFieldCount;
+    }
+    return selectedFieldIds.length > maxSearchFieldCount;
+  }, [isGlobal, filterFields.length, selectedFieldIds.length, maxSearchFieldCount]);
+
+  const searchHeader = useMemo(() => {
+    if (isGlobal) {
+      return t('noun.global');
+    }
+    const firstField = filterFields.find((f) => f.id === selectedFieldIds[0]);
+    const firstName = firstField?.name || t('common.untitled');
+    if (selectedFieldIds.length === 1) {
+      return firstName;
+    }
+    if (selectedFieldIds.length > 1) {
+      return `${firstName} +${selectedFieldIds.length - 1}`;
+    }
+    return t('noun.global');
+  }, [isGlobal, selectedFieldIds, filterFields, t]);
+
+  const switchChange = useCallback(
+    (id: string, checked: boolean) => {
+      let newSelectedFields = [...selectedFieldIds];
+      if (checked) {
+        newSelectedFields.push(id);
+      } else {
+        newSelectedFields = newSelectedFields.filter((f) => f !== id);
+      }
+      setFieldId(newSelectedFields.join(','));
+    },
+    [selectedFieldIds, setFieldId]
+  );
+
+  const onModeChange = useCallback(
+    (mode: 'global' | 'field') => {
+      if (mode === 'global') {
+        setFieldId(ALL_FIELDS_ID);
+        setFilterText('');
+      } else {
+        const firstFieldId = filterFields[0]?.id;
+        if (firstFieldId) {
+          setFieldId(firstFieldId);
+        }
+      }
+    },
+    [filterFields, setFieldId]
+  );
+
+  const commandFilter = useCallback(
+    (fieldId: string, searchValue: string) => {
+      const currentField = filterFields.find(
+        ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
+      );
+      const name = currentField?.name?.toLocaleLowerCase()?.trim() || t('common.untitled');
+      return Number(name.indexOf(searchValue.toLowerCase()) > -1);
+    },
+    [filterFields, t]
+  );
+
+  const showFieldSelector = !globalOnly;
 
   return (
     <div
@@ -76,17 +171,131 @@ export function SearchInput({
         className
       )}
     >
-      {!globalOnly && (
-        <FieldSelector
-          className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-sm font-normal"
-          value={fieldId}
-          container={container}
-          fields={filterFields}
-          onSelect={(value) => {
-            setFieldId(value);
-          }}
-          modal
-        />
+      {showFieldSelector && (
+        <TooltipProvider>
+          <Tooltip>
+            <Popover open={selectorOpen} onOpenChange={setSelectorOpen} modal>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="flex h-full max-w-[160px] shrink-0 items-center gap-1 rounded-none border-r px-2 text-sm font-normal"
+                >
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1">
+                      {showAlert && <AlertCircle className="size-3 shrink-0" />}
+                      <span className="truncate" title={searchHeader}>
+                        {searchHeader}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="max-w-96 p-1" container={container}>
+                <Command filter={commandFilter}>
+                  <CommandInput
+                    placeholder={t('common.search.placeholder')}
+                    className="h-8 text-xs"
+                    disabled={isGlobal}
+                    value={filterText}
+                    onValueChange={setFilterText}
+                  />
+                  <CommandList className="my-2 max-h-64">
+                    <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
+                    {filterFields.map((field) => {
+                      const {
+                        id,
+                        name,
+                        type,
+                        isLookup,
+                        isConditionalLookup,
+                        aiConfig,
+                        canReadFieldRecord,
+                      } = field;
+                      const { Icon } = fieldStaticGetter(type, {
+                        isLookup,
+                        isConditionalLookup,
+                        hasAiConfig: Boolean(aiConfig),
+                        deniedReadRecord: !canReadFieldRecord,
+                      });
+                      return (
+                        <CommandItem
+                          className="flex flex-1 truncate p-0"
+                          key={id}
+                          value={id}
+                          disabled={isGlobal}
+                        >
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-1 items-center truncate p-0">
+                                  <Label
+                                    htmlFor={id}
+                                    className="flex flex-1 cursor-pointer items-center truncate p-2"
+                                  >
+                                    <Switch
+                                      id={id}
+                                      className="scale-75"
+                                      checked={selectedFieldIds.includes(id) || isGlobal}
+                                      onCheckedChange={(checked) => {
+                                        switchChange(id, checked);
+                                      }}
+                                      disabled={
+                                        selectedFieldIds.includes(id) &&
+                                        selectedFieldIds.length === 1
+                                      }
+                                    />
+                                    <Icon className="ml-2 size-4 shrink-0" />
+                                    <span
+                                      className="h-full flex-1 cursor-pointer truncate pl-1 text-sm"
+                                      title={name}
+                                    >
+                                      {name}
+                                    </span>
+                                  </Label>
+                                </div>
+                              </TooltipTrigger>
+                              {selectedFieldIds.includes(id) && selectedFieldIds.length === 1 ? (
+                                <TooltipContent>
+                                  {t('common.atLeastOne', { noun: t('noun.field') })}
+                                </TooltipContent>
+                              ) : null}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandList>
+
+                  <div className="flex items-center justify-around gap-1">
+                    <Toggle
+                      pressed={isGlobal}
+                      onPressedChange={() => onModeChange('global')}
+                      size="sm"
+                      className="flex flex-1 items-center truncate p-0"
+                    >
+                      <span className="truncate text-sm">{t('editor.link.globalSearch')}</span>
+                    </Toggle>
+                    <Toggle
+                      pressed={!isGlobal}
+                      onPressedChange={() => onModeChange('field')}
+                      size="sm"
+                      className="flex flex-1 items-center truncate p-0"
+                    >
+                      <span className="truncate text-sm">{t('editor.link.fieldSearch')}</span>
+                    </Toggle>
+                  </div>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {showAlert && (
+              <TooltipContent>
+                <p>{t('editor.link.maxFieldTips', { count: maxSearchFieldCount })}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       )}
       <input
         ref={ref}

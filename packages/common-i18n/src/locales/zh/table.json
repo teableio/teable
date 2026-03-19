@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "分享",
-        "statusLabel": "分享视图",
+        "statusLabel": "公开分享视图到网络",
         "noPermission": "无权限分享视图",
         "shareLink": "分享链接",
         "copied": "已复制",
@@ -887,6 +887,10 @@
     "refreshFailed": "重新生成分享链接失败",
     "copied": "链接已复制到剪贴板",
     "shareLink": "分享链接",
+    "linkHolderLabel": "获得链接的人",
+    "linkHolderCanView": "可查看",
+    "linkHolderCanEdit": "可编辑",
+    "linkHolderCanCopyAndSave": "可另存为副本",
     "passwordProtection": "密码保护",
     "enterPassword": "输入密码",
     "selectNodes": "选择数据表",
@@ -917,7 +921,10 @@
     "publishSuccess": "应用发布成功",
     "publishFailed": "应用发布失败",
     "openLink": "打开链接",
-    "appPublished": "应用已发布"
+    "appPublished": "应用已发布",
+    "shareTableTab": "分享数据表",
+    "shareViewTab": "分享视图",
+    "shareNodeTab": "分享节点"
   },
   "aiChat": {
     "tool": {

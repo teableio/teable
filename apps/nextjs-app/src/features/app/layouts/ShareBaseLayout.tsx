@@ -16,6 +16,7 @@ import { SideBarFooter } from '../components/SideBarFooter';
 import { ShareContext } from '../context/ShareContext';
 import type { IBaseResourceTable } from '../hooks/useBaseResource';
 import { useBaseResource } from '../hooks/useBaseResource';
+import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { initAxios } from '../utils/init-axios';
 
@@ -44,6 +45,7 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
+  const { maxSearchFieldCount } = useEnv();
 
   const isShare = !!shareId;
 
@@ -85,6 +87,7 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
           dehydratedState={dehydratedState}
           wsPath={wsPath}
           shareId={shareId}
+          maxSearchFieldCount={maxSearchFieldCount}
         >
           <SessionProvider user={user} disabledApi>
             <AnchorContext.Provider

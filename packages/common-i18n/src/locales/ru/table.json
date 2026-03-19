@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Поделиться",
-        "statusLabel": "Общий доступ",
+        "statusLabel": "Поделиться видом в интернете",
         "shareLink": "Ссылка для общего доступа",
         "copied": "Скопировано",
         "genLink": "Создать новую ссылку",
@@ -700,6 +700,10 @@
     "refreshFailed": "Не удалось обновить ссылку для общего доступа",
     "copied": "Ссылка скопирована в буфер обмена",
     "shareLink": "Ссылка для общего доступа",
+    "linkHolderLabel": "Человек, получивший ссылку",
+    "linkHolderCanView": "Может просматривать",
+    "linkHolderCanEdit": "Может редактировать",
+    "linkHolderCanCopyAndSave": "Может сохранить как копию",
     "passwordProtection": "Защита паролем",
     "enterPassword": "Введите пароль",
     "selectNodes": "Выбрать таблицы",

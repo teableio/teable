@@ -6,7 +6,7 @@
     "others": {
       "share": {
         "label": "Compartir",
-        "statusLabel": "Compartiendo",
+        "statusLabel": "Compartir vista en la web",
         "noPermission": "Sin permiso para compartir vista",
         "shareLink": "Enlace para compartir",
         "copied": "Copiado",
@@ -710,6 +710,10 @@
     "refreshFailed": "Error al regenerar enlace de compartición",
     "copied": "Enlace copiado al portapapeles",
     "shareLink": "Enlace de compartición",
+    "linkHolderLabel": "La persona que obtuvo el enlace",
+    "linkHolderCanView": "Puede ver",
+    "linkHolderCanEdit": "Puede editar",
+    "linkHolderCanCopyAndSave": "Puede guardar como copia",
     "passwordProtection": "Protección con contraseña",
     "enterPassword": "Introducir contraseña",
     "selectNodes": "Seleccionar tablas",

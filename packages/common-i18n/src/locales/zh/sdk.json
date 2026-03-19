@@ -31,7 +31,8 @@
     },
     "resetSuccess": "重置成功",
     "click": "点击",
-    "clickedCount": "{{label}}: 已点击 {{text}} 次"
+    "clickedCount": "{{label}}: 已点击 {{text}} 次",
+    "atLeastOne": "至少保留一个{{noun}}"
   },
   "notification": {
     "title": "通知"
@@ -55,7 +56,8 @@
     "you": "你",
     "instance": "实例",
     "enterprise": "企业",
-    "history": "历史"
+    "history": "历史",
+    "global": "全局"
   },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
@@ -120,6 +122,10 @@
     "link": {
       "placeholder": "选择要链接的记录",
       "searchPlaceholder": "搜索记录",
+      "allFields": "所有字段",
+      "globalSearch": "全局搜索",
+      "fieldSearch": "字段搜索",
+      "maxFieldTips": "最多支持 {{count}} 个字段，多余字段将被忽略",
       "create": "添加记录",
       "selectRecord": "选择记录",
       "all": "全部",

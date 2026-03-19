@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Sıfırlama başarılı",
     "click": "Tıkla",
-    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}"
+    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}",
+    "atLeastOne": "En az bir {{noun}} bulunmalıdır"
   },
   "notification": {
     "title": "Bildirim"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Bağlanacak kayıtları seçin",
       "searchPlaceholder": "Kayıtlarda ara",
+      "allFields": "Tüm alanlar",
+      "globalSearch": "Global arama",
+      "fieldSearch": "Alan araması",
+      "maxFieldTips": "Maksimum {{count}} alan sayısı aşıldı, fazla alanlar göz ardı edilecek",
       "create": "Kayıt Ekle",
       "selectRecord": "Kayıt Seç",
       "all": "Tümü",
@@ -435,7 +440,8 @@
     "you": "Sen",
     "instance": "Örnek",
     "enterprise": "Kurumsal",
-    "history": "Geçmiş"
+    "history": "Geçmiş",
+    "global": "Global"
   },
   "formula": {
     "SUM": {

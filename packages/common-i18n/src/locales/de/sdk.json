@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Erfolgreich zurückgesetzt",
     "click": "Klicken",
-    "clickedCount": "{{label}}: Klickt {{text}} mal"
+    "clickedCount": "{{label}}: Klickt {{text}} mal",
+    "atLeastOne": "Reservieren Sie zumindest ein {{noun}}"
   },
   "notification": {
     "title": "Benachrichtigung"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Zu verknüpfende Datensätze auswählen",
       "searchPlaceholder": "Datensätze durchsuchen",
+      "allFields": "Alle Felder",
+      "globalSearch": "Globale Suche",
+      "fieldSearch": "Feldsuche",
+      "maxFieldTips": "Die maximale Anzahl von {{count}} Feldern wurde überschritten, zusätzliche Felder werden ignoriert",
       "create": "Datensatz hinzufügen",
       "selectRecord": "Datensatz auswählen",
       "all": "Alle",
@@ -435,7 +440,8 @@
     "you": "Sie",
     "instance": "Instanz",
     "enterprise": "Unternehmen",
-    "history": "Historie"
+    "history": "Historie",
+    "global": "Global"
   },
   "formula": {
     "SUM": {

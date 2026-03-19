@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Сброс успешно",
     "click": "Нажмите",
-    "clickedCount": "{{label}}: Нажато {{text}} раз"
+    "clickedCount": "{{label}}: Нажато {{text}} раз",
+    "atLeastOne": "Сохраните хотя бы один {{noun}}"
   },
   "notification": {
     "title": "Уведомление"
@@ -88,6 +89,10 @@
     "link": {
       "placeholder": "Выберите записи для ссылки",
       "searchPlaceholder": "Поиск записей",
+      "allFields": "Все поля",
+      "globalSearch": "Глобальный поиск",
+      "fieldSearch": "Поиск по полю",
+      "maxFieldTips": "Превышено максимальное количество {{count}} полей, лишние поля будут проигнорированы",
       "create": "Добавить запись",
       "selectRecord": "Выбрать запись",
       "all": "Все",
@@ -435,7 +440,8 @@
     "you": "Вы",
     "instance": "Экземпляр",
     "enterprise": "Предприятие",
-    "history": "История"
+    "history": "История",
+    "global": "Глобальный"
   },
   "formula": {
     "SUM": {
