@@ -6,6 +6,7 @@ import {
   type CallHandler,
   Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { trace } from '@opentelemetry/api';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -16,6 +17,36 @@ import type { IClsStore } from '../../../types/cls';
 export const X_TEABLE_V2_HEADER = 'x-teable-v2';
 export const X_TEABLE_V2_REASON_HEADER = 'x-teable-v2-reason';
 export const X_TEABLE_V2_FEATURE_HEADER = 'x-teable-v2-feature';
+
+type SentryScopeLike = {
+  setTag(key: string, value: string): void;
+};
+
+const getSentryScopes = (): SentryScopeLike[] => {
+  const sentryApi = Sentry as unknown as {
+    getCurrentScope?: () => SentryScopeLike | undefined;
+    getIsolationScope?: () => SentryScopeLike | undefined;
+    getCurrentHub?: () => { getScope?: () => SentryScopeLike | undefined };
+  };
+
+  const scopes = [
+    sentryApi.getCurrentScope?.(),
+    sentryApi.getIsolationScope?.(),
+    sentryApi.getCurrentHub?.()?.getScope?.(),
+  ].filter((scope): scope is SentryScopeLike => Boolean(scope));
+
+  return [...new Set(scopes)];
+};
+
+const setSentryTag = (key: string, value: string | undefined) => {
+  if (value == null) {
+    return;
+  }
+
+  for (const scope of getSentryScopes()) {
+    scope.setTag(key, value);
+  }
+};
 
 /**
  * Interceptor that adds V2 indicator to response headers and logs.
@@ -50,6 +81,12 @@ export class V2IndicatorInterceptor implements NestInterceptor {
     if (v2Feature) {
       response.setHeader(X_TEABLE_V2_FEATURE_HEADER, v2Feature);
     }
+
+    // Mirror V2 indicators into Sentry tags so issue search can distinguish v1/v2 requests.
+    setSentryTag('teable.version', useV2 ? 'v2' : 'v1');
+    setSentryTag('teable.v2.enabled', useV2 ? 'true' : 'false');
+    setSentryTag('teable.v2.reason', v2Reason);
+    setSentryTag('teable.v2.feature', v2Feature);
 
     // Add span attributes for tracing
     const span = trace.getActiveSpan();
