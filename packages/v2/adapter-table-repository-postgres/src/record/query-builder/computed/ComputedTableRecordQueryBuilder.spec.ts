@@ -3,10 +3,12 @@ import {
   ConditionalLookupOptions,
   ConditionalRollupConfig,
   DateTimeFormatting,
+  DbFieldType,
   NumberFormatting,
   NumberFormattingType,
   TimeFormatting,
   createDateField,
+  createNumberField,
   createSingleLineTextField,
   DbFieldName,
   FieldId,
@@ -755,6 +757,192 @@ describe('ComputedTableRecordQueryBuilder', () => {
       return { mainTable, foreignTable, foreignTableId };
     };
 
+    const createNestedLookupChain = (options?: { filteredInner?: boolean }) => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const hostTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const middleTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const sourceTableId = TableId.create(`tbl${'n'.repeat(16)}`)._unsafeUnwrap();
+      const sourceTitleFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+      const sourceValueFieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+      const sourceStatusFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const middleTitleFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+      const middleLinkFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+      const middleLookupFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+      const hostTitleFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+      const hostLinkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const hostLookupFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+
+      const lookupInnerField = createNumberField({
+        id: sourceValueFieldId,
+        name: FieldName.create('InnerAmount')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const sourceBuilder = Table.builder()
+        .withId(sourceTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('LookupLeaf')._unsafeUnwrap());
+      sourceBuilder
+        .field()
+        .singleLineText()
+        .withId(sourceTitleFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      sourceBuilder
+        .field()
+        .number()
+        .withId(sourceValueFieldId)
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .done();
+      sourceBuilder
+        .field()
+        .singleLineText()
+        .withId(sourceStatusFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done();
+      sourceBuilder.view().defaultGrid().done();
+
+      const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+      sourceTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_leaf_name')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      sourceTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_leaf_amount')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      sourceTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_leaf_status')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const middleLinkConfig = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: sourceTableId.toString(),
+        lookupFieldId: sourceTitleFieldId.toString(),
+        symmetricFieldId: `fld${'y'.repeat(16)}`,
+        isOneWay: true,
+      })._unsafeUnwrap();
+      const middleLookupOptions = LookupOptions.create({
+        linkFieldId: middleLinkFieldId.toString(),
+        foreignTableId: sourceTableId.toString(),
+        lookupFieldId: sourceValueFieldId.toString(),
+        ...(options?.filteredInner
+          ? {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceStatusFieldId.toString(),
+                    operator: 'is',
+                    value: 'active',
+                  },
+                ],
+              },
+            }
+          : {}),
+      })._unsafeUnwrap();
+
+      const middleBuilder = Table.builder()
+        .withId(middleTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('LookupBridge')._unsafeUnwrap());
+      middleBuilder
+        .field()
+        .singleLineText()
+        .withId(middleTitleFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      middleBuilder
+        .field()
+        .link()
+        .withId(middleLinkFieldId)
+        .withName(FieldName.create('Leaf')._unsafeUnwrap())
+        .withConfig(middleLinkConfig)
+        .done();
+      middleBuilder
+        .field()
+        .lookup()
+        .withId(middleLookupFieldId)
+        .withName(FieldName.create('LeafAmounts')._unsafeUnwrap())
+        .withLookupOptions(middleLookupOptions)
+        .withInnerField(lookupInnerField)
+        .done();
+      middleBuilder.view().defaultGrid().done();
+
+      const middleTable = middleBuilder.build({ foreignTables: [sourceTable] })._unsafeUnwrap();
+      middleTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_bridge_name')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      middleTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_bridge_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      middleTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_lookup_value')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      middleTable
+        .getFields()[2]
+        .setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const hostLinkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: middleTableId.toString(),
+        lookupFieldId: middleTitleFieldId.toString(),
+        symmetricFieldId: `fld${'z'.repeat(16)}`,
+      })._unsafeUnwrap();
+      const hostLookupOptions = LookupOptions.create({
+        linkFieldId: hostLinkFieldId.toString(),
+        foreignTableId: middleTableId.toString(),
+        lookupFieldId: middleLookupFieldId.toString(),
+      })._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('LookupHost')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostTitleFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(hostLinkFieldId)
+        .withName(FieldName.create('Bridge')._unsafeUnwrap())
+        .withConfig(hostLinkConfig)
+        .done();
+      hostBuilder
+        .field()
+        .lookup()
+        .withId(hostLookupFieldId)
+        .withName(FieldName.create('BridgeAmounts')._unsafeUnwrap())
+        .withLookupOptions(hostLookupOptions)
+        .withInnerField(lookupInnerField)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+
+      const hostTable = hostBuilder.build({ foreignTables: [middleTable] })._unsafeUnwrap();
+      hostTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_host_name')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      hostTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_host_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      hostTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_nested_lookup')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      return { hostTable, middleTable, middleTableId };
+    };
+
     type TitleFormattingCase = {
       fieldType: 'number' | 'date';
       expectedSql: string;
@@ -1118,6 +1306,46 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toContain('NULL::jsonb as "col_lookup"');
       expect(sql).not.toContain('inner join lateral');
+    });
+
+    test('uses single-level flattening for lookup-of-lookup chains without inner filters', () => {
+      const db = createTestDb();
+      const { hostTable, middleTable, middleTableId } = createNestedLookupChain();
+
+      const foreignTables = new Map([[middleTableId.toString(), middleTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          hostTable
+        )
+      );
+
+      expect(sql).toContain('"col_nested_lookup"');
+      expect(sql).toContain(
+        'jsonb_array_elements(COALESCE(jsonb_agg("f"."col_lookup_value"::jsonb)'
+      );
+      expect(sql).toContain('WITH ORDINALITY AS outer_elem(elem, outer_ord)');
+      expect(sql).toContain('ORDER BY outer_elem.outer_ord, inner_elem.inner_ord');
+      expect(sql).not.toContain('WITH RECURSIVE __flat');
+    });
+
+    test('keeps recursive flattening for lookup-of-lookup chains with filtered inner lookups', () => {
+      const db = createTestDb();
+      const { hostTable, middleTable, middleTableId } = createNestedLookupChain({
+        filteredInner: true,
+      });
+
+      const foreignTables = new Map([[middleTableId.toString(), middleTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          hostTable
+        )
+      );
+
+      expect(sql).toContain('"col_nested_lookup"');
+      expect(sql).toContain('jsonb_agg("f"."col_lookup_value"::jsonb');
+      expect(sql).toContain('WITH RECURSIVE __flat');
     });
   });
 

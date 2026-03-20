@@ -170,7 +170,7 @@ describe('lookup computed update scope regression', () => {
         )
       ).toMatchInlineSnapshot(`
         {
-          "edgeCount": 2,
+          "edgeCount": 1,
           "stepCount": 1,
           "steps": [
             {

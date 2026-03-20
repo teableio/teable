@@ -149,6 +149,11 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         estimatedComplexity: 0,
         changeType: 'insert',
       }),
+    resolveBeforeImageRequirements: async () =>
+      ok({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      }),
   } as unknown as ComputedUpdatePlanner;
 };
 

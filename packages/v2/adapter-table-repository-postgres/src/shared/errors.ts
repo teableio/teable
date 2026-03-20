@@ -71,7 +71,7 @@ export const isNotNullViolation = (error: unknown): boolean => {
   return false;
 };
 
-export type DatabaseOperation = 'insert' | 'update' | 'delete';
+export type DatabaseOperation = 'insert' | 'update' | 'delete' | 'query';
 
 export interface WrapDatabaseErrorContext {
   tableName: string;

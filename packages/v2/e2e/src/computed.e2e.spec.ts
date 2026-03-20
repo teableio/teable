@@ -1015,7 +1015,7 @@ describe('v2 computed field updates (e2e)', () => {
         expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
           "[Computed Steps: 1]
             L0: LookupTargetB -> [LookupVal]
-          [Edges: 2]"
+          [Edges: 1]"
         `);
       });
 
@@ -1438,7 +1438,7 @@ describe('v2 computed field updates (e2e)', () => {
         expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
           "[Computed Steps: 1]
             L0: RollupTargetB -> [Sum]
-          [Edges: 2]"
+          [Edges: 1]"
         `);
       });
 
@@ -1817,7 +1817,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: ChainC -> [LookupB]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
     });
 
@@ -1965,7 +1965,7 @@ describe('v2 computed field updates (e2e)', () => {
           L0: MixedA -> [Doubled]
           L1: MixedB -> [LookupDoubled]
           L2: MixedB -> [PlusTen]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
 
       const afterRecordsA = await listRecords(tableA.id);
@@ -2182,7 +2182,7 @@ describe('v2 computed field updates (e2e)', () => {
           L0: FormulaRollupA -> [Double, Total]
           L2: FormulaRollupB -> [TotalSum]
           L3: FormulaRollupC -> [SumFromB]
-        [Edges: 4]"
+        [Edges: 2]"
       `);
 
       const afterRecordsB = await listRecords(tableB.id);
@@ -2832,7 +2832,7 @@ describe('v2 computed field updates (e2e)', () => {
         expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
           "[Computed Steps: 1]
             L0: OneOneB -> [LookupVal]
-          [Edges: 2]"
+          [Edges: 1]"
         `);
       });
 
@@ -4829,7 +4829,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: SelfManyOne -> [Parent, ParentName]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
 
       const afterRecords = await listRecords(table.id);
@@ -4949,7 +4949,7 @@ describe('v2 computed field updates (e2e)', () => {
         "[Computed Steps: 2]
           L0: SelfManyMany -> [Links]
           L1: SelfManyMany -> [Sum]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
 
       records = await listRecords(table.id);
@@ -6900,7 +6900,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: ConditionalRollup Host -> [Active Sum]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
 
       const afterRecords = await listRecords(hostTable.id);
@@ -8384,7 +8384,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: ConditionalLookup Host -> [Active Values]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
 
       const afterRecords = await listRecords(hostTable.id);

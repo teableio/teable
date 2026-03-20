@@ -100,6 +100,7 @@ export interface ParsedLookupOptions {
 export interface ParsedLinkOptions {
   foreignTableId: string;
   lookupFieldId: string;
+  isOneWay?: boolean;
   symmetricFieldId?: string;
   /** FK host table name (format: baseDbName.tableDbName) */
   fkHostTableName?: string;

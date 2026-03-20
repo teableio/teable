@@ -12,10 +12,13 @@ import type { Result } from 'neverthrow';
 
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import type {
+  AllTargetRecordsReason,
+  ComputedBeforeImageRecord,
   ComputedDependencyEdge,
   ComputedUpdatePlan,
   UpdateStep,
 } from '../ComputedUpdatePlanner';
+import { isAllTargetRecordsReason } from '../ComputedUpdatePlanner';
 
 export type ComputedUpdateStepDto = {
   tableId: string;
@@ -30,10 +33,12 @@ export type ComputedDependencyEdgeDto = {
   toTableId: string;
   linkFieldId?: string;
   propagationMode?: ComputedDependencyEdge['propagationMode'];
+  allTargetRecordsReasons?: AllTargetRecordsReason[];
   /** Filter condition for conditionalFiltered mode */
   filterCondition?: {
     foreignTableId: string;
     filterDto: unknown;
+    includeBeforeImage?: boolean;
   };
   order: number;
 };
@@ -43,11 +48,48 @@ export type ComputedUpdateSeedGroupDto = {
   recordIds: string[];
 };
 
+export type ComputedBeforeImageRecordDto = {
+  recordId: string;
+  fieldValuesByDbName: Record<string, unknown>;
+};
+
+export const mergeBeforeImageRecordDtos = (
+  existing: ReadonlyArray<ComputedBeforeImageRecordDto>,
+  incoming: ReadonlyArray<ComputedBeforeImageRecordDto>
+): ComputedBeforeImageRecordDto[] => {
+  const byRecordId = new Map<string, Record<string, unknown>>();
+
+  const merge = (records: ReadonlyArray<ComputedBeforeImageRecordDto>): void => {
+    for (const record of records) {
+      const existingFields = byRecordId.get(record.recordId);
+      if (!existingFields) {
+        byRecordId.set(record.recordId, { ...record.fieldValuesByDbName });
+        continue;
+      }
+
+      for (const [dbFieldName, oldValue] of Object.entries(record.fieldValuesByDbName)) {
+        if (!(dbFieldName in existingFields)) {
+          existingFields[dbFieldName] = oldValue;
+        }
+      }
+    }
+  };
+
+  merge(existing);
+  merge(incoming);
+
+  return [...byRecordId].map(([recordId, fieldValuesByDbName]) => ({
+    recordId,
+    fieldValuesByDbName,
+  }));
+};
+
 export type ComputedUpdateOutboxPayload = {
   baseId: string;
   seedTableId: string;
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
+  beforeImageRecords: ComputedBeforeImageRecordDto[];
   steps: ComputedUpdateStepDto[];
   edges: ComputedDependencyEdgeDto[];
   estimatedComplexity: number;
@@ -96,6 +138,7 @@ export const serializeComputedUpdatePlan = (
     seedTableId: plan.seedTableId.toString(),
     seedRecordIds: plan.seedRecordIds.map((id) => id.toString()),
     extraSeedRecords: serializeSeedGroups(plan.extraSeedRecords),
+    beforeImageRecords: serializeBeforeImageRecords(plan.beforeImageRecords ?? []),
     steps: plan.steps.map(serializeStep),
     edges: plan.edges.map(serializeEdge),
     estimatedComplexity: plan.estimatedComplexity,
@@ -212,6 +255,16 @@ export const deserializeComputedUpdatePlan = (
           );
         }
 
+        if (
+          edge.allTargetRecordsReasons?.some(
+            (reason) => typeof reason !== 'string' || !isAllTargetRecordsReason(reason)
+          )
+        ) {
+          return err(
+            domainError.validation({ message: 'Invalid allTargetRecordsReasons in outbox payload' })
+          );
+        }
+
         return TableId.create(edge.fromTableId)
           .andThen((fromTableId) =>
             TableId.create(edge.toTableId).andThen((toTableId) =>
@@ -229,6 +282,7 @@ export const deserializeComputedUpdatePlan = (
                       (foreignTableId) => ({
                         foreignTableId,
                         filterDto: edge.filterCondition!.filterDto,
+                        includeBeforeImage: edge.filterCondition!.includeBeforeImage,
                       })
                     );
                   };
@@ -247,6 +301,7 @@ export const deserializeComputedUpdatePlan = (
                       fromTableId,
                       toTableId,
                       propagationMode: propagationMode ?? 'linkTraversal',
+                      allTargetRecordsReasons: edge.allTargetRecordsReasons,
                       filterCondition,
                       order: edge.order,
                     }));
@@ -258,6 +313,7 @@ export const deserializeComputedUpdatePlan = (
                     fromTableId,
                     toTableId,
                     propagationMode: propagationMode ?? 'allTargetRecords',
+                    allTargetRecordsReasons: edge.allTargetRecordsReasons,
                     filterCondition,
                     order: edge.order,
                   });
@@ -276,6 +332,8 @@ export const deserializeComputedUpdatePlan = (
 
   const extraSeedRecordsResult = deserializeSeedGroups(payload.extraSeedRecords ?? []);
   if (extraSeedRecordsResult.isErr()) return err(extraSeedRecordsResult.error);
+  const beforeImageRecordsResult = deserializeBeforeImageRecords(payload.beforeImageRecords ?? []);
+  if (beforeImageRecordsResult.isErr()) return err(beforeImageRecordsResult.error);
 
   const changeType = payload.changeType;
   if (changeType !== 'insert' && changeType !== 'update' && changeType !== 'delete') {
@@ -287,6 +345,7 @@ export const deserializeComputedUpdatePlan = (
     seedTableId: seedTableIdResult.value,
     seedRecordIds: seedRecordIdsResult.value,
     extraSeedRecords: extraSeedRecordsResult.value,
+    beforeImageRecords: beforeImageRecordsResult.value,
     steps: stepsResult.value,
     edges: edgesResult.value,
     estimatedComplexity: payload.estimatedComplexity,
@@ -310,10 +369,14 @@ const serializeEdge = (edge: ComputedDependencyEdge): ComputedDependencyEdgeDto 
   toTableId: edge.toTableId.toString(),
   linkFieldId: edge.linkFieldId?.toString(),
   propagationMode: edge.propagationMode,
+  allTargetRecordsReasons: edge.allTargetRecordsReasons
+    ? [...edge.allTargetRecordsReasons]
+    : undefined,
   filterCondition: edge.filterCondition
     ? {
         foreignTableId: edge.filterCondition.foreignTableId.toString(),
         filterDto: edge.filterCondition.filterDto,
+        includeBeforeImage: edge.filterCondition.includeBeforeImage,
       }
     : undefined,
   order: edge.order,
@@ -353,6 +416,32 @@ const deserializeSeedGroups = (
             parsed.push(entry);
             return parsed;
           })
+      ),
+    ok([])
+  );
+};
+
+const serializeBeforeImageRecords = (
+  records: ReadonlyArray<ComputedBeforeImageRecord>
+): ComputedBeforeImageRecordDto[] =>
+  records.map((record) => ({
+    recordId: record.recordId.toString(),
+    fieldValuesByDbName: { ...record.fieldValuesByDbName },
+  }));
+
+const deserializeBeforeImageRecords = (
+  records: ReadonlyArray<ComputedBeforeImageRecordDto>
+): Result<ComputedBeforeImageRecord[], DomainError> => {
+  return records.reduce<Result<ComputedBeforeImageRecord[], DomainError>>(
+    (acc, record) =>
+      acc.andThen((parsed) =>
+        RecordId.create(record.recordId).map((recordId) => {
+          parsed.push({
+            recordId,
+            fieldValuesByDbName: { ...record.fieldValuesByDbName },
+          });
+          return parsed;
+        })
       ),
     ok([])
   );

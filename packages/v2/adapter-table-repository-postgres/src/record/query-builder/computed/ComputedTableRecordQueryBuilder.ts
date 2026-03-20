@@ -7,6 +7,7 @@ import {
   FieldValueTypeVisitor,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
+  type LookupField,
   type DomainError,
   type FieldCondition,
   type ITableRecordConditionSpecVisitor,
@@ -1049,6 +1050,40 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     )`;
   }
 
+  private canUseSingleLevelLookupFlatten(foreignField: {
+    type: () => FieldType;
+  }): foreignField is LookupField {
+    if (!foreignField.type().equals(FieldType.lookup())) {
+      return false;
+    }
+
+    const condition = (foreignField as LookupField).lookupOptions().condition();
+    return !condition?.hasFilter();
+  }
+
+  /**
+   * Lookup fields already persist one flat JSON array per foreign row.
+   * When another lookup reads those stored values we only need to flatten the
+   * aggregate by one array layer while preserving row order and inner element order.
+   */
+  private buildSingleLevelLookupFlattenExpr(
+    baseAggregate: RawBuilder<unknown>
+  ): RawBuilder<unknown> {
+    return sql`(
+      SELECT jsonb_agg(inner_elem.leaf ORDER BY outer_elem.outer_ord, inner_elem.inner_ord)
+      FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb))
+        WITH ORDINALITY AS outer_elem(elem, outer_ord)
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE
+          WHEN jsonb_typeof(outer_elem.elem) = 'array' THEN outer_elem.elem
+          WHEN jsonb_typeof(outer_elem.elem) = 'null' THEN '[]'::jsonb
+          ELSE jsonb_build_array(outer_elem.elem)
+        END
+      ) WITH ORDINALITY AS inner_elem(leaf, inner_ord)
+      WHERE jsonb_typeof(inner_elem.leaf) <> 'null'
+    )`;
+  }
+
   /**
    * Build lookup aggregation expression.
    *
@@ -1101,28 +1136,25 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
 
             if (isJsonbStorage) {
-              // For JSONB columns, use ::jsonb cast and then flatten nested arrays.
-              //
-              // V1 uses a post-aggregation flattening CTE. We implement this as:
-              // 1. First aggregate: jsonb_agg(col::jsonb)
-              // 2. Then apply recursive flattening to unwrap nested arrays
-              //
-              // The recursive CTE extracts all non-array leaf values.
               const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
-              const flattenedExpr = sql`(
-                WITH RECURSIVE __flat(e) AS (
-                  SELECT ${aggExpr}
-                  UNION ALL
-                  SELECT jsonb_array_elements(
-                    CASE
-                      WHEN jsonb_typeof(__flat.e) = 'array' THEN __flat.e
-                      ELSE '[]'::jsonb
-                    END
-                  )
-                  FROM __flat
-                )
-                SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
-              )`;
+              const flattenedExpr = this.canUseSingleLevelLookupFlatten(foreignField)
+                ? this.buildSingleLevelLookupFlattenExpr(aggExpr)
+                : // For general JSONB columns we still need the recursive flattening path
+                  // to preserve v1-compatible behavior for deeper nesting.
+                  sql`(
+                    WITH RECURSIVE __flat(e) AS (
+                      SELECT ${aggExpr}
+                      UNION ALL
+                      SELECT jsonb_array_elements(
+                        CASE
+                          WHEN jsonb_typeof(__flat.e) = 'array' THEN __flat.e
+                          ELSE '[]'::jsonb
+                        END
+                      )
+                      FROM __flat
+                    )
+                    SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
+                  )`;
 
               return ok(
                 isMultiValue

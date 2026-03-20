@@ -344,7 +344,7 @@ describe('rollup field matrix (e2e)', () => {
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: RollupSnapshot_Target -> [Sum]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
     });
 

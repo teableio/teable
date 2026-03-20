@@ -3,11 +3,19 @@ import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
+import type { ComputedDependencyEdge } from '../ComputedUpdatePlanner';
 import type {
   FieldDependencyGraphData,
   FieldDependencyEdge,
   FieldMeta,
 } from '../FieldDependencyGraph';
+
+const edgeTargetsField = (
+  edge: Pick<ComputedDependencyEdge, 'toFieldId' | 'propagationTargetFieldIds'>,
+  fieldId: FieldId
+): boolean =>
+  edge.toFieldId.equals(fieldId) ||
+  edge.propagationTargetFieldIds?.some((targetFieldId) => targetFieldId.equals(fieldId)) === true;
 
 describe('ComputedUpdatePlanner', () => {
   it('updates lookup that depends on title but not lookup that depends on another field', async () => {
@@ -682,12 +690,46 @@ describe('ComputedUpdatePlanner', () => {
       // Should have edge with conditionalFiltered mode
       const conditionalEdge = plan.edges.find(
         (edge) =>
-          edge.toFieldId.equals(conditionalRollupFieldId) &&
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
           edge.propagationMode === 'conditionalFiltered'
       );
       expect(conditionalEdge).toBeDefined();
       expect(conditionalEdge?.filterCondition).toBeDefined();
       expect(conditionalEdge?.filterCondition?.filterDto).toEqual(filterDto);
+    });
+
+    it('derives before-image requirements only for source-side filter fields', async () => {
+      const planner = createPlanner();
+
+      const requirementResult = await planner.resolveBeforeImageRequirements({
+        baseId,
+        seedTableId: productsTableId,
+        changedFieldIds: [categoryFieldId],
+        changeType: 'update',
+      });
+
+      expect(requirementResult.isOk()).toBe(true);
+      expect(requirementResult._unsafeUnwrap()).toEqual({
+        needsBeforeImage: true,
+        requiredFieldIds: [categoryFieldId],
+      });
+    });
+
+    it('skips before-image requirements when only non-filter source fields change', async () => {
+      const planner = createPlanner();
+
+      const requirementResult = await planner.resolveBeforeImageRequirements({
+        baseId,
+        seedTableId: productsTableId,
+        changedFieldIds: [priceFieldId],
+        changeType: 'update',
+      });
+
+      expect(requirementResult.isOk()).toBe(true);
+      expect(requirementResult._unsafeUnwrap()).toEqual({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      });
     });
 
     it('uses allTargetRecords mode when updating filter field (Category)', async () => {
@@ -714,12 +756,79 @@ describe('ComputedUpdatePlanner', () => {
       // Should have edge with allTargetRecords mode (conservative fallback)
       const allTargetEdge = plan.edges.find(
         (edge) =>
-          edge.toFieldId.equals(conditionalRollupFieldId) &&
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
           edge.propagationMode === 'allTargetRecords'
       );
       expect(allTargetEdge).toBeDefined();
       // No filterCondition when using allTargetRecords
       expect(allTargetEdge?.filterCondition).toBeUndefined();
+    });
+
+    it('uses conditionalFiltered with before-image when updating filter field and old values are available', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          {
+            recordId,
+            fieldValuesByDbName: {
+              col_category: 'electronics-choice-id',
+            },
+          },
+        ],
+        changedFieldIds: [categoryFieldId],
+        changeType: 'update',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const conditionalEdge = plan.edges.find(
+        (edge) =>
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
+          edge.propagationMode === 'conditionalFiltered'
+      );
+      expect(conditionalEdge?.filterCondition?.includeBeforeImage).toBe(true);
+      expect(conditionalEdge?.filterCondition?.filterDto).toEqual(filterDto);
+      expect(conditionalEdge?.allTargetRecordsReasons).toBeUndefined();
+    });
+
+    it('annotates conditional allTargetRecords edges with explicit reasons', async () => {
+      const planner = createPlanner();
+
+      const updatePlanResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [categoryFieldId],
+        changeType: 'update',
+      });
+      expect(updatePlanResult.isOk()).toBe(true);
+      const updatePlan = updatePlanResult._unsafeUnwrap();
+      const updateEdge = updatePlan.edges.find((edge) =>
+        edgeTargetsField(edge, conditionalRollupFieldId)
+      );
+      expect(updateEdge?.allTargetRecordsReasons).toEqual(['conditional_filter_field_changed']);
+
+      const deletePlanResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [priceFieldId],
+        changeType: 'delete',
+      });
+      expect(deletePlanResult.isOk()).toBe(true);
+      const deletePlan = deletePlanResult._unsafeUnwrap();
+      const deleteEdge = deletePlan.edges.find((edge) =>
+        edgeTargetsField(edge, conditionalRollupFieldId)
+      );
+      expect(deleteEdge?.allTargetRecordsReasons).toEqual(['conditional_delete']);
     });
 
     it('uses allTargetRecords mode for DELETE operations', async () => {
@@ -740,10 +849,43 @@ describe('ComputedUpdatePlanner', () => {
       // For DELETE, steps targeting the seed table should be filtered out
       // But edges for dirty propagation should still exist
       const conditionalEdge = plan.edges.find((edge) =>
-        edge.toFieldId.equals(conditionalRollupFieldId)
+        edgeTargetsField(edge, conditionalRollupFieldId)
       );
       // Should use allTargetRecords for DELETE
       expect(conditionalEdge?.propagationMode).toBe('allTargetRecords');
+    });
+
+    it('uses conditionalFiltered with before-image when deleting conditional sources and old values are available', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          {
+            recordId,
+            fieldValuesByDbName: {
+              col_category: 'electronics-choice-id',
+              col_price: 42,
+            },
+          },
+        ],
+        changedFieldIds: [priceFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const conditionalEdge = plan.edges.find(
+        (edge) =>
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
+          edge.propagationMode === 'conditionalFiltered'
+      );
+      expect(conditionalEdge?.filterCondition?.includeBeforeImage).toBe(true);
+      expect(conditionalEdge?.allTargetRecordsReasons).toBeUndefined();
     });
 
     it('keeps seed-table steps for same-table conditionalRollup on DELETE', async () => {
@@ -751,6 +893,7 @@ describe('ComputedUpdatePlanner', () => {
       const samePriceFieldId = FieldId.create(`fld${'6'.repeat(16)}`)._unsafeUnwrap();
       const sameCategoryFieldId = FieldId.create(`fld${'7'.repeat(16)}`)._unsafeUnwrap();
       const sameConditionalRollupFieldId = FieldId.create(`fld${'8'.repeat(16)}`)._unsafeUnwrap();
+      const sameFormulaFieldId = FieldId.create(`fld${'9'.repeat(16)}`)._unsafeUnwrap();
       const sameRecordId = RecordId.create(`rec${'t'.repeat(16)}`)._unsafeUnwrap();
 
       const sameFilterDto = {
@@ -797,6 +940,15 @@ describe('ComputedUpdatePlanner', () => {
             filterDto: sameFilterDto,
           },
         },
+        {
+          id: sameFormulaFieldId,
+          tableId: sameTableId,
+          type: 'formula',
+          isComputed: true,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
       ];
 
       const sameTableEdges: FieldDependencyEdge[] = [
@@ -815,6 +967,14 @@ describe('ComputedUpdatePlanner', () => {
           toTableId: sameTableId,
           kind: 'cross_record',
           semantic: 'conditional_rollup_source',
+        },
+        {
+          fromFieldId: samePriceFieldId,
+          toFieldId: sameFormulaFieldId,
+          fromTableId: sameTableId,
+          toTableId: sameTableId,
+          kind: 'same_record',
+          semantic: 'formula_ref',
         },
       ];
 
@@ -845,9 +1005,12 @@ describe('ComputedUpdatePlanner', () => {
       expect(
         sameTableStep?.fieldIds.some((fieldId) => fieldId.equals(sameConditionalRollupFieldId))
       ).toBe(true);
+      expect(sameTableStep?.fieldIds.some((fieldId) => fieldId.equals(sameFormulaFieldId))).toBe(
+        false
+      );
 
       const sameTableEdge = plan.edges.find((edge) =>
-        edge.toFieldId.equals(sameConditionalRollupFieldId)
+        edgeTargetsField(edge, sameConditionalRollupFieldId)
       );
       expect(sameTableEdge?.toTableId.equals(sameTableId)).toBe(true);
       expect(sameTableEdge?.propagationMode).toBe('allTargetRecords');
@@ -869,7 +1032,7 @@ describe('ComputedUpdatePlanner', () => {
       const plan = planResult._unsafeUnwrap();
 
       // When filter field is changed, should use allTargetRecords
-      const edge = plan.edges.find((edge) => edge.toFieldId.equals(conditionalRollupFieldId));
+      const edge = plan.edges.find((edge) => edgeTargetsField(edge, conditionalRollupFieldId));
       expect(edge?.propagationMode).toBe('allTargetRecords');
     });
   });
@@ -995,7 +1158,7 @@ describe('ComputedUpdatePlanner', () => {
 
       const conditionalEdge = plan.edges.find(
         (edge) =>
-          edge.toFieldId.equals(conditionalLookupFieldId) &&
+          edgeTargetsField(edge, conditionalLookupFieldId) &&
           edge.propagationMode === 'conditionalFiltered'
       );
       expect(conditionalEdge).toBeDefined();
@@ -1019,10 +1182,619 @@ describe('ComputedUpdatePlanner', () => {
 
       const allTargetEdge = plan.edges.find(
         (edge) =>
-          edge.toFieldId.equals(conditionalLookupFieldId) &&
+          edgeTargetsField(edge, conditionalLookupFieldId) &&
           edge.propagationMode === 'allTargetRecords'
       );
       expect(allTargetEdge).toBeDefined();
+    });
+  });
+
+  describe('filtered lookup/rollup propagation mode', () => {
+    const baseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
+    const sourceTableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
+    const statusFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+    const labelFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const amountFieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+    const filteredLookupFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+    const filteredRollupFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+    const recordId = RecordId.create(`rec${'s'.repeat(16)}`)._unsafeUnwrap();
+
+    const filterDto = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: statusFieldId.toString(),
+          operator: 'is',
+          value: 'Active',
+        },
+      ],
+    };
+
+    const fields: FieldMeta[] = [
+      {
+        id: statusFieldId,
+        tableId: sourceTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: labelFieldId,
+        tableId: sourceTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: amountFieldId,
+        tableId: sourceTableId,
+        type: 'number',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: linkFieldId,
+        tableId: hostTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: sourceTableId.toString(),
+          lookupFieldId: labelFieldId.toString(),
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: filteredLookupFieldId,
+        tableId: hostTableId,
+        type: 'lookup',
+        isComputed: true,
+        options: null,
+        lookupOptions: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: sourceTableId.toString(),
+          lookupFieldId: labelFieldId.toString(),
+          filterFieldIds: [statusFieldId.toString()],
+          filterDto,
+        },
+        conditionalOptions: null,
+      },
+      {
+        id: filteredRollupFieldId,
+        tableId: hostTableId,
+        type: 'rollup',
+        isComputed: true,
+        options: null,
+        lookupOptions: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: sourceTableId.toString(),
+          lookupFieldId: amountFieldId.toString(),
+          filterFieldIds: [statusFieldId.toString()],
+          filterDto,
+        },
+        conditionalOptions: null,
+      },
+    ];
+
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: labelFieldId,
+        toFieldId: filteredLookupFieldId,
+        fromTableId: sourceTableId,
+        toTableId: hostTableId,
+        kind: 'cross_record',
+        linkFieldId,
+        semantic: 'lookup_source',
+      },
+      {
+        fromFieldId: statusFieldId,
+        toFieldId: filteredLookupFieldId,
+        fromTableId: sourceTableId,
+        toTableId: hostTableId,
+        kind: 'cross_record',
+        linkFieldId,
+        semantic: 'lookup_source',
+      },
+      {
+        fromFieldId: amountFieldId,
+        toFieldId: filteredRollupFieldId,
+        fromTableId: sourceTableId,
+        toTableId: hostTableId,
+        kind: 'cross_record',
+        linkFieldId,
+        semantic: 'rollup_source',
+      },
+      {
+        fromFieldId: statusFieldId,
+        toFieldId: filteredRollupFieldId,
+        fromTableId: sourceTableId,
+        toTableId: hostTableId,
+        kind: 'cross_record',
+        linkFieldId,
+        semantic: 'rollup_source',
+      },
+    ];
+
+    const createPlanner = () => {
+      const fieldsById = new Map<string, FieldMeta>(
+        fields.map((field) => [field.id.toString(), field])
+      );
+      const graphData: FieldDependencyGraphData = { fieldsById, edges };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      return new ComputedUpdatePlanner(graph as never);
+    };
+
+    it('uses linkTraversal mode when updating a lookup filter field', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [statusFieldId],
+        changeType: 'update',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const lookupEdge = plan.edges.find((edge) => edgeTargetsField(edge, filteredLookupFieldId));
+      expect(lookupEdge?.propagationMode).toBe('linkTraversal');
+      expect(lookupEdge?.linkFieldId?.equals(linkFieldId)).toBe(true);
+    });
+
+    it('deduplicates propagation edges that share the same traversal path', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [labelFieldId, amountFieldId],
+        changeType: 'update',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      expect(plan.edges).toHaveLength(1);
+      expect(plan.edges[0]?.propagationMode).toBe('linkTraversal');
+      expect(plan.edges[0]?.linkFieldId?.equals(linkFieldId)).toBe(true);
+      expect(
+        plan.edges[0]?.propagationTargetFieldIds?.map((fieldId) => fieldId.toString())
+      ).toEqual([filteredLookupFieldId.toString(), filteredRollupFieldId.toString()]);
+    });
+
+    it('keeps delete on filtered rollup as allTargetRecords', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [statusFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const rollupEdge = plan.edges.find((edge) => edgeTargetsField(edge, filteredRollupFieldId));
+      expect(rollupEdge?.propagationMode).toBe('allTargetRecords');
+    });
+
+    it('uses linkTraversal when deleting a filtered rollup over a junction-backed link', async () => {
+      const fieldsById = new Map<string, FieldMeta>(
+        fields.map((field) => [
+          field.id.toString(),
+          field.id.equals(linkFieldId)
+            ? {
+                ...field,
+                options: {
+                  foreignTableId: sourceTableId.toString(),
+                  lookupFieldId: labelFieldId.toString(),
+                  relationship: 'manyMany',
+                },
+              }
+            : field,
+        ])
+      );
+      const graphData: FieldDependencyGraphData = { fieldsById, edges };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [statusFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const rollupEdge = plan.edges.find((edge) => edgeTargetsField(edge, filteredRollupFieldId));
+      expect(rollupEdge?.propagationMode).toBe('linkTraversal');
+      expect(rollupEdge?.linkFieldId?.equals(linkFieldId)).toBe(true);
+    });
+
+    it.each(['manyOne', 'oneOne'] as const)(
+      'uses linkTraversal when deleting a filtered rollup over an fk-hosted %s link',
+      async (relationship) => {
+        const fieldsById = new Map<string, FieldMeta>(
+          fields.map((field) => [
+            field.id.toString(),
+            field.id.equals(linkFieldId)
+              ? {
+                  ...field,
+                  options: {
+                    foreignTableId: sourceTableId.toString(),
+                    lookupFieldId: labelFieldId.toString(),
+                    relationship,
+                  },
+                }
+              : field,
+          ])
+        );
+        const graphData: FieldDependencyGraphData = { fieldsById, edges };
+        const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+        const planner = new ComputedUpdatePlanner(graph as never);
+
+        const planResult = await planner.planStage({
+          baseId,
+          seedTableId: sourceTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [statusFieldId],
+          changeType: 'delete',
+        });
+
+        expect(planResult.isOk()).toBe(true);
+        const plan = planResult._unsafeUnwrap();
+
+        const rollupEdge = plan.edges.find((edge) => edgeTargetsField(edge, filteredRollupFieldId));
+        expect(rollupEdge?.propagationMode).toBe('linkTraversal');
+        expect(rollupEdge?.linkFieldId?.equals(linkFieldId)).toBe(true);
+      }
+    );
+
+    it('skips delete propagation when the target table is already extra-seeded', async () => {
+      const planner = createPlanner();
+      const hostRecordId = RecordId.create(`rec${'t'.repeat(16)}`)._unsafeUnwrap();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [{ tableId: hostTableId, recordIds: [hostRecordId] }],
+        changedFieldIds: [statusFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      expect(plan.edges).toHaveLength(0);
+      expect(
+        plan.steps.some((step) =>
+          step.fieldIds.some((fieldId) => fieldId.equals(filteredLookupFieldId))
+        )
+      ).toBe(true);
+      expect(
+        plan.steps.some((step) =>
+          step.fieldIds.some((fieldId) => fieldId.equals(filteredRollupFieldId))
+        )
+      ).toBe(true);
+    });
+  });
+
+  describe('no-seed schema update propagation', () => {
+    it('keeps same-table recomputation steps without adding a redundant self allTargetRecords edge', async () => {
+      const baseId = BaseId.create(`bse${'n'.repeat(16)}`)._unsafeUnwrap();
+      const tableId = TableId.create(`tbl${'w'.repeat(16)}`)._unsafeUnwrap();
+      const foreignTableId = TableId.create(`tbl${'x'.repeat(16)}`)._unsafeUnwrap();
+      const foreignNameFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(`fld${'0'.repeat(16)}`)._unsafeUnwrap();
+
+      const fields: FieldMeta[] = [
+        {
+          id: foreignNameFieldId,
+          tableId: foreignTableId,
+          type: 'singleLineText',
+          isComputed: false,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: linkFieldId,
+          tableId,
+          type: 'link',
+          isComputed: true,
+          options: {
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: foreignNameFieldId.toString(),
+          },
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: lookupFieldId,
+          tableId,
+          type: 'lookup',
+          isComputed: true,
+          options: null,
+          lookupOptions: {
+            linkFieldId: linkFieldId.toString(),
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: foreignNameFieldId.toString(),
+          },
+          conditionalOptions: null,
+        },
+      ];
+
+      const edges: FieldDependencyEdge[] = [
+        {
+          fromFieldId: linkFieldId,
+          toFieldId: lookupFieldId,
+          fromTableId: tableId,
+          toTableId: tableId,
+          kind: 'same_record',
+          semantic: 'lookup_link',
+        },
+      ];
+
+      const fieldsById = new Map<string, FieldMeta>(
+        fields.map((field) => [field.id.toString(), field])
+      );
+      const graphData: FieldDependencyGraphData = { fieldsById, edges };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [],
+        extraSeedRecords: [],
+        changedFieldIds: [linkFieldId],
+        changeType: 'update',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      expect(
+        plan.steps.some(
+          (step) =>
+            step.tableId.equals(tableId) &&
+            step.fieldIds.some((fieldId) => fieldId.equals(linkFieldId))
+        )
+      ).toBe(true);
+      expect(
+        plan.steps.some(
+          (step) =>
+            step.tableId.equals(tableId) &&
+            step.fieldIds.some((fieldId) => fieldId.equals(lookupFieldId))
+        )
+      ).toBe(true);
+      expect(plan.edges).toHaveLength(0);
+    });
+  });
+
+  describe('symmetric propagation pruning', () => {
+    it('skips symmetric propagation when the foreign table is already extra-seeded', async () => {
+      const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+      const hostTableId = TableId.create(`tbl${'1'.repeat(16)}`)._unsafeUnwrap();
+      const foreignTableId = TableId.create(`tbl${'2'.repeat(16)}`)._unsafeUnwrap();
+      const hostLinkFieldId = FieldId.create(`fld${'3'.repeat(16)}`)._unsafeUnwrap();
+      const foreignLinkFieldId = FieldId.create(`fld${'4'.repeat(16)}`)._unsafeUnwrap();
+      const hostRecordId = RecordId.create(`rec${'5'.repeat(16)}`)._unsafeUnwrap();
+      const foreignRecordId = RecordId.create(`rec${'6'.repeat(16)}`)._unsafeUnwrap();
+
+      const fields: FieldMeta[] = [
+        {
+          id: hostLinkFieldId,
+          tableId: hostTableId,
+          type: 'link',
+          isComputed: true,
+          options: {
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: hostLinkFieldId.toString(),
+            symmetricFieldId: foreignLinkFieldId.toString(),
+            relationship: 'manyMany',
+          },
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+      ];
+
+      const graphData: FieldDependencyGraphData = {
+        fieldsById: new Map(fields.map((field) => [field.id.toString(), field])),
+        edges: [],
+      };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: hostTableId,
+        seedRecordIds: [hostRecordId],
+        extraSeedRecords: [{ tableId: foreignTableId, recordIds: [foreignRecordId] }],
+        changedFieldIds: [hostLinkFieldId],
+        changeType: 'update',
+        impact: {
+          valueFieldIds: [],
+          linkFieldIds: [hostLinkFieldId],
+        },
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      expect(plan.edges).toHaveLength(0);
+      expect(
+        plan.steps.some((step) =>
+          step.fieldIds.some((fieldId) => fieldId.equals(foreignLinkFieldId))
+        )
+      ).toBe(true);
+    });
+  });
+
+  describe('delete seed-table retention', () => {
+    it('keeps self-referential cross-record dependents when same-table allTargetRecords refresh is retained', async () => {
+      const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+      const tableId = TableId.create(`tbl${'n'.repeat(16)}`)._unsafeUnwrap();
+      const recordId = RecordId.create(`rec${'o'.repeat(16)}`)._unsafeUnwrap();
+      const statusFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const selfLinkFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+      const conditionalFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+      const selfLookupFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+
+      const fields: FieldMeta[] = [
+        {
+          id: statusFieldId,
+          tableId,
+          type: 'singleSelect',
+          isComputed: false,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: selfLinkFieldId,
+          tableId,
+          type: 'link',
+          isComputed: true,
+          options: {
+            foreignTableId: tableId.toString(),
+            lookupFieldId: statusFieldId.toString(),
+            relationship: 'manyMany',
+          },
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+        {
+          id: conditionalFieldId,
+          tableId,
+          type: 'conditionalRollup',
+          isComputed: true,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: {
+            foreignTableId: tableId.toString(),
+            lookupFieldId: statusFieldId.toString(),
+            linkFieldId: selfLinkFieldId.toString(),
+            conditionFieldIds: [statusFieldId.toString()],
+            filterDto: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusFieldId.toString(),
+                  operator: 'is',
+                  value: 'active',
+                },
+              ],
+            },
+          },
+        },
+        {
+          id: selfLookupFieldId,
+          tableId,
+          type: 'lookup',
+          isComputed: true,
+          options: null,
+          lookupOptions: {
+            linkFieldId: selfLinkFieldId.toString(),
+            foreignTableId: tableId.toString(),
+            lookupFieldId: conditionalFieldId.toString(),
+          },
+          conditionalOptions: null,
+        },
+      ];
+
+      const edges: FieldDependencyEdge[] = [
+        {
+          fromFieldId: selfLinkFieldId,
+          toFieldId: conditionalFieldId,
+          fromTableId: tableId,
+          toTableId: tableId,
+          kind: 'same_record',
+          semantic: 'conditional_rollup_link',
+        },
+        {
+          fromFieldId: statusFieldId,
+          toFieldId: conditionalFieldId,
+          fromTableId: tableId,
+          toTableId: tableId,
+          kind: 'cross_record',
+          linkFieldId: selfLinkFieldId,
+          semantic: 'conditional_rollup_source',
+        },
+        {
+          fromFieldId: selfLinkFieldId,
+          toFieldId: selfLookupFieldId,
+          fromTableId: tableId,
+          toTableId: tableId,
+          kind: 'same_record',
+          semantic: 'lookup_link',
+        },
+        {
+          fromFieldId: conditionalFieldId,
+          toFieldId: selfLookupFieldId,
+          fromTableId: tableId,
+          toTableId: tableId,
+          kind: 'cross_record',
+          linkFieldId: selfLinkFieldId,
+          semantic: 'lookup_source',
+        },
+      ];
+
+      const graphData: FieldDependencyGraphData = {
+        fieldsById: new Map(fields.map((field) => [field.id.toString(), field])),
+        edges,
+      };
+      const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [statusFieldId],
+        changeType: 'delete',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      expect(
+        plan.edges.find((edge) => edgeTargetsField(edge, conditionalFieldId))?.propagationMode
+      ).toBe('allTargetRecords');
+      expect(
+        plan.steps.some((step) =>
+          step.fieldIds.some((fieldId) => fieldId.equals(conditionalFieldId))
+        )
+      ).toBe(true);
+      expect(
+        plan.steps.some((step) =>
+          step.fieldIds.some((fieldId) => fieldId.equals(selfLookupFieldId))
+        )
+      ).toBe(true);
     });
   });
 });

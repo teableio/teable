@@ -2,7 +2,11 @@ import { BaseId, FieldId, NoopHasher, RecordId, TableId } from '@teable/v2-core'
 import { describe, expect, it } from 'vitest';
 
 import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
-import { buildOutboxTaskInput, deserializeComputedUpdatePlan } from './ComputedUpdateOutboxPayload';
+import {
+  buildOutboxTaskInput,
+  deserializeComputedUpdatePlan,
+  mergeBeforeImageRecordDtos,
+} from './ComputedUpdateOutboxPayload';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'b'.repeat(16)}`;
@@ -38,8 +42,67 @@ const createPlan = (): ComputedUpdatePlan => ({
 });
 
 describe('ComputedUpdateOutboxPayload', () => {
+  it('preserves the earliest before-image values when merging DTOs', () => {
+    const merged = mergeBeforeImageRecordDtos(
+      [
+        {
+          recordId: RECORD_ID,
+          fieldValuesByDbName: {
+            col_status: 'open',
+            col_score: 1,
+          },
+        },
+      ],
+      [
+        {
+          recordId: RECORD_ID,
+          fieldValuesByDbName: {
+            col_status: 'closed',
+            col_owner: 'usr_1',
+          },
+        },
+        {
+          recordId: EXTRA_RECORD_ID,
+          fieldValuesByDbName: {
+            col_status: 'new',
+          },
+        },
+      ]
+    );
+
+    expect(merged).toEqual([
+      {
+        recordId: RECORD_ID,
+        fieldValuesByDbName: {
+          col_status: 'open',
+          col_score: 1,
+          col_owner: 'usr_1',
+        },
+      },
+      {
+        recordId: EXTRA_RECORD_ID,
+        fieldValuesByDbName: {
+          col_status: 'new',
+        },
+      },
+    ]);
+  });
+
   it('serializes and deserializes computed update plans', () => {
-    const plan = createPlan();
+    const plan = {
+      ...createPlan(),
+      edges: [
+        {
+          fromFieldId: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+          toFieldId: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+          fromTableId: TableId.create(TABLE_ID)._unsafeUnwrap(),
+          toTableId: TableId.create(EXTRA_TABLE_ID)._unsafeUnwrap(),
+          propagationMode: 'allTargetRecords' as const,
+          allTargetRecordsReasons: ['conditional_delete' as const],
+          order: 0,
+        },
+      ],
+    } satisfies ComputedUpdatePlan;
     const task = buildOutboxTaskInput({
       plan,
       syncMaxLevel: 0,
@@ -70,5 +133,6 @@ describe('ComputedUpdateOutboxPayload', () => {
     expect(deserialized.value.steps[0].fieldIds[0].toString()).toBe(FIELD_ID);
     expect(deserialized.value.extraSeedRecords[0].tableId.toString()).toBe(EXTRA_TABLE_ID);
     expect(deserialized.value.extraSeedRecords[0].recordIds[0].toString()).toBe(EXTRA_RECORD_ID);
+    expect(deserialized.value.edges[0]?.allTargetRecordsReasons).toEqual(['conditional_delete']);
   });
 });

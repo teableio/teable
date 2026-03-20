@@ -171,6 +171,23 @@ describe('parsers', () => {
       });
     });
 
+    it('preserves the one-way flag when present', () => {
+      const raw = JSON.stringify({
+        foreignTableId: 'tbl1',
+        lookupFieldId: 'fld1',
+        relationship: 'oneMany',
+        isOneWay: true,
+      });
+      const result = parseLinkOptions(raw);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        foreignTableId: 'tbl1',
+        lookupFieldId: 'fld1',
+        relationship: 'oneMany',
+        isOneWay: true,
+      });
+    });
+
     it('returns error for missing foreignTableId', () => {
       const raw = JSON.stringify({ lookupFieldId: 'fld1' });
       const result = parseLinkOptions(raw);

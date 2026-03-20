@@ -50,6 +50,21 @@ export const readOptionalString = (
 };
 
 /**
+ * Read an optional boolean value from an object.
+ */
+export const readOptionalBoolean = (
+  value: Record<string, unknown>,
+  key: string
+): Result<boolean | undefined, DomainError> => {
+  const candidate = value[key];
+  if (candidate === undefined || candidate === null) return ok(undefined);
+  if (typeof candidate !== 'boolean') {
+    return err(domainError.validation({ message: `Invalid boolean "${key}" in config` }));
+  }
+  return ok(candidate);
+};
+
+/**
  * Extract field IDs from a condition filter object.
  * Handles nested filter structures with conjunction (and/or) and filterSet.
  *
@@ -126,6 +141,8 @@ export const parseLinkOptions = (
   if (foreignTableId.isErr()) return err(foreignTableId.error);
   const lookupFieldId = readString(value, 'lookupFieldId');
   if (lookupFieldId.isErr()) return err(lookupFieldId.error);
+  const isOneWay = readOptionalBoolean(value, 'isOneWay');
+  if (isOneWay.isErr()) return err(isOneWay.error);
   const symmetricFieldId = readOptionalString(value, 'symmetricFieldId');
   if (symmetricFieldId.isErr()) return err(symmetricFieldId.error);
   const fkHostTableName = readOptionalString(value, 'fkHostTableName');
@@ -136,6 +153,7 @@ export const parseLinkOptions = (
   return ok({
     foreignTableId: foreignTableId.value,
     lookupFieldId: lookupFieldId.value,
+    ...(isOneWay.value !== undefined ? { isOneWay: isOneWay.value } : {}),
     ...(symmetricFieldId.value ? { symmetricFieldId: symmetricFieldId.value } : {}),
     ...(fkHostTableName.value ? { fkHostTableName: fkHostTableName.value } : {}),
     ...(relationship.value ? { relationship: relationship.value as LinkRelationship } : {}),

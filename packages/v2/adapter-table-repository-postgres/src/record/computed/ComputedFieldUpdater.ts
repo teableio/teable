@@ -41,6 +41,7 @@ import {
   defaultComputedUpdateLockConfig,
 } from './ComputedUpdateLock';
 import type {
+  AllTargetRecordsReason,
   ComputedDependencyEdge,
   ComputedSeedGroup,
   ComputedUpdatePlan,
@@ -60,8 +61,32 @@ import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
 const DIRTY_TABLE = 'tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
 const DIRTY_RECORD_ID_COL = 'record_id';
+const BEFORE_IMAGE_TABLE = 'tmp_computed_before_image';
+const BEFORE_IMAGE_SNAPSHOT_COL = 'field_values';
 const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
+
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+
+const splitSchemaQualifiedTableName = (
+  tableName: string
+): { schemaName?: string; plainTableName: string } => {
+  const splitIndex = tableName.indexOf('.');
+  if (splitIndex === -1) {
+    return { plainTableName: tableName };
+  }
+  return {
+    schemaName: tableName.slice(0, splitIndex),
+    plainTableName: tableName.slice(splitIndex + 1),
+  };
+};
+
+const toQualifiedIdentifierLiteral = (tableName: string): string => {
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  return schemaName
+    ? `${quoteIdentifier(schemaName)}.${quoteIdentifier(plainTableName)}`
+    : quoteIdentifier(plainTableName);
+};
 
 /**
  * Change data for a single field in a record.
@@ -107,7 +132,11 @@ const stepKey = (step: UpdateStep): string => `${step.tableId.toString()}|${step
  * in one UPDATE...FROM by selecting multiple fields at once.
  */
 const optimizeSameTableBatches = (plan: ComputedUpdatePlan): ComputedUpdatePlan => {
-  const crossRecordDependentFieldIds = new Set(plan.edges.map((e) => e.toFieldId.toString()));
+  const crossRecordDependentFieldIds = new Set(
+    plan.edges.flatMap((edge) =>
+      (edge.propagationTargetFieldIds ?? [edge.toFieldId]).map((fieldId) => fieldId.toString())
+    )
+  );
 
   // Only collapse batches that are purely same-record computed fields across levels.
   // If a batch includes a cross-record-dependent field (e.g. lookup/rollup/link), keep
@@ -168,6 +197,58 @@ export interface DirtyRecordStats {
   recordCount: number;
 }
 
+type AllTargetReasonCounts = Partial<Record<AllTargetRecordsReason, number>>;
+
+export type DirtyPropagationStats = {
+  plannedAllTargetReasonCounts: AllTargetReasonCounts;
+  runtimeAllTargetFallbackReasonCounts: AllTargetReasonCounts;
+};
+
+const incrementAllTargetReasonCount = (
+  counts: AllTargetReasonCounts,
+  reason: AllTargetRecordsReason | undefined
+): void => {
+  if (!reason) return;
+  counts[reason] = (counts[reason] ?? 0) + 1;
+};
+
+const incrementAllTargetReasonCounts = (
+  counts: AllTargetReasonCounts,
+  reasons: ReadonlyArray<AllTargetRecordsReason> | undefined
+): void => {
+  for (const reason of reasons ?? []) {
+    incrementAllTargetReasonCount(counts, reason);
+  }
+};
+
+const countAllTargetReasonOccurrences = (counts: AllTargetReasonCounts): number =>
+  Object.values(counts).reduce((sum, count) => sum + (count ?? 0), 0);
+
+const summarizeAllTargetReasonCounts = (counts: AllTargetReasonCounts): string | undefined => {
+  const entries = Object.entries(counts).filter(([, count]) => (count ?? 0) > 0);
+  if (entries.length === 0) return undefined;
+  return entries
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([reason, count]) => `${reason}:${count}`)
+    .join(',');
+};
+
+const countPlannedAllTargetReasonCounts = (
+  edges: ReadonlyArray<ComputedDependencyEdge>
+): AllTargetReasonCounts => {
+  const counts: AllTargetReasonCounts = {};
+  for (const edge of edges) {
+    if (edge.propagationMode !== 'allTargetRecords') continue;
+    incrementAllTargetReasonCounts(counts, edge.allTargetRecordsReasons);
+  }
+  return counts;
+};
+
+const emptyDirtyPropagationStats = (): DirtyPropagationStats => ({
+  plannedAllTargetReasonCounts: {},
+  runtimeAllTargetFallbackReasonCounts: {},
+});
+
 /**
  * Trace information for a single update step execution.
  */
@@ -203,6 +284,7 @@ export type PreparedDirtyState = {
   tableById: Map<string, Table>;
   dirtyStats: ReadonlyArray<DirtyRecordStats>;
   totalDirtyRecords: number;
+  propagationStats: DirtyPropagationStats;
 };
 
 type ComputedUpdateLockOptions = {
@@ -256,6 +338,13 @@ export class ComputedFieldUpdater {
       });
     const runLogger = this.logger.child(toRunLogContext(resolvedRun));
     const runStartTime = Date.now();
+    const plannedAllTargetReasonCounts = countPlannedAllTargetReasonCounts(effectivePlan.edges);
+    const plannedAllTargetReasonCount = countAllTargetReasonOccurrences(
+      plannedAllTargetReasonCounts
+    );
+    const plannedAllTargetReasonSummary = summarizeAllTargetReasonCounts(
+      plannedAllTargetReasonCounts
+    );
 
     // Collect table and field summary for tracing
     const affectedTableIds = [...new Set(effectivePlan.steps.map((s) => s.tableId.toString()))];
@@ -281,6 +370,7 @@ export class ComputedFieldUpdater {
       'computed.affectedTableIds': affectedTableIds.join(','),
       // Complexity estimate
       'computed.estimatedComplexity': effectivePlan.estimatedComplexity,
+      'computed.plannedAllTargetReasonCount': plannedAllTargetReasonCount,
       // Step levels summary (min/max)
       'computed.minLevel':
         effectivePlan.steps.length > 0 ? Math.min(...effectivePlan.steps.map((s) => s.level)) : 0,
@@ -288,6 +378,9 @@ export class ComputedFieldUpdater {
         effectivePlan.steps.length > 0 ? Math.max(...effectivePlan.steps.map((s) => s.level)) : 0,
     });
     mainSpan?.setAttributes(toRunSpanAttributes(resolvedRun));
+    if (plannedAllTargetReasonSummary) {
+      mainSpan?.setAttribute('computed.plannedAllTargetReasons', plannedAllTargetReasonSummary);
+    }
 
     // Log plan summary for structured logging
     runLogger.info('computed:run:start', {
@@ -313,8 +406,11 @@ export class ComputedFieldUpdater {
         from: `${e.fromTableId.toString()}.${e.fromFieldId.toString()}`,
         to: `${e.toTableId.toString()}.${e.toFieldId.toString()}`,
         linkFieldId: e.linkFieldId?.toString(),
+        propagationMode: e.propagationMode,
+        allTargetRecordsReasons: e.allTargetRecordsReasons,
         order: e.order,
       })),
+      plannedAllTargetReasonCounts,
       sameTableBatches: plan.sameTableBatches.map((b) => ({
         tableId: b.tableId.toString(),
         stepCount: b.steps.length,
@@ -347,10 +443,24 @@ export class ComputedFieldUpdater {
           const prepared = yield* await this.prepareDirtyState(effectivePlan, context);
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
           mainSpan?.setAttribute('computed.affectedTableCount', prepared.dirtyStats.length);
+          const runtimeFallbackCount = countAllTargetReasonOccurrences(
+            prepared.propagationStats.runtimeAllTargetFallbackReasonCounts
+          );
+          const runtimeFallbackSummary = summarizeAllTargetReasonCounts(
+            prepared.propagationStats.runtimeAllTargetFallbackReasonCounts
+          );
+          mainSpan?.setAttribute('computed.runtimeAllTargetFallbackCount', runtimeFallbackCount);
+          if (runtimeFallbackSummary) {
+            mainSpan?.setAttribute(
+              'computed.runtimeAllTargetFallbackReasons',
+              runtimeFallbackSummary
+            );
+          }
 
           runLogger.debug('computed:dirtyStats', {
             totalDirtyRecords: prepared.totalDirtyRecords,
             affectedTables: prepared.dirtyStats,
+            propagationStats: prepared.propagationStats,
           });
 
           const stepsResult = yield* await this.executePreparedSteps(
@@ -459,6 +569,7 @@ export class ComputedFieldUpdater {
         tableById: new Map(),
         dirtyStats: [],
         totalDirtyRecords: 0,
+        propagationStats: emptyDirtyPropagationStats(),
       });
     }
 
@@ -495,6 +606,9 @@ export class ComputedFieldUpdater {
         yield* await runWithSpan('teable.ComputedFieldUpdater.resetDirtyTable', () =>
           resetDirtyTable(db)
         );
+        yield* await runWithSpan('teable.ComputedFieldUpdater.resetBeforeImageTable', () =>
+          resetBeforeImageTable(db)
+        );
 
         // Seed dirty records - wrap with span
         yield* await runWithSpan(
@@ -521,13 +635,20 @@ export class ComputedFieldUpdater {
             extraSeedCount: plan.extraSeedRecords.length,
           }
         );
+        yield* await runWithSpan(
+          'teable.ComputedFieldUpdater.seedBeforeImageRecords',
+          () => seedBeforeImageRecords(db, plan.seedTableId, plan.beforeImageRecords ?? []),
+          {
+            beforeImageCount: (plan.beforeImageRecords ?? []).length,
+          }
+        );
 
         // Propagate dirty records - wrap with span so propagateEdge spans are children
-        yield* await runWithSpan(
+        const propagationStats = (yield* await runWithSpan(
           'teable.ComputedFieldUpdater.propagateDirtyRecords',
           () => propagateDirtyRecords(db, plan.edges, tableById, context),
           { 'propagate.edgeCount': plan.edges.length }
-        );
+        )) as DirtyPropagationStats;
 
         // Collect dirty stats - wrap with span
         const dirtyStats = yield* await runWithSpan(
@@ -541,6 +662,7 @@ export class ComputedFieldUpdater {
           tableById,
           dirtyStats,
           totalDirtyRecords,
+          propagationStats,
         });
       }.bind(this)
     );
@@ -1376,6 +1498,27 @@ const resetDirtyTable = async (db: Kysely<DynamicDB>): Promise<Result<void, Doma
   }
 };
 
+const resetBeforeImageTable = async (db: Kysely<DynamicDB>): Promise<Result<void, DomainError>> => {
+  try {
+    await db.executeQuery(sql`drop table if exists ${sql.table(BEFORE_IMAGE_TABLE)}`.compile(db));
+    await db.executeQuery(
+      sql`create temporary table ${sql.table(BEFORE_IMAGE_TABLE)} (
+        ${sql.raw(DIRTY_TABLE_ID_COL)} text not null,
+        ${sql.raw(DIRTY_RECORD_ID_COL)} text not null,
+        ${sql.raw(BEFORE_IMAGE_SNAPSHOT_COL)} jsonb not null,
+        primary key (${sql.raw(DIRTY_TABLE_ID_COL)}, ${sql.raw(DIRTY_RECORD_ID_COL)})
+      ) on commit drop`.compile(db)
+    );
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to create before-image table: ${describeError(error)}`,
+      })
+    );
+  }
+};
+
 const seedDirtyRecords = async (
   db: Kysely<DynamicDB>,
   tableId: TableId,
@@ -1447,6 +1590,46 @@ const seedAllDirtyRecordsForTable = async (
     return err(
       domainError.infrastructure({
         message: `Failed to seed all dirty records: ${describeError(error)}`,
+      })
+    );
+  }
+};
+
+const seedBeforeImageRecords = async (
+  db: Kysely<DynamicDB>,
+  tableId: TableId,
+  beforeImageRecords: ReadonlyArray<{
+    recordId: RecordId;
+    fieldValuesByDbName: Readonly<Record<string, unknown>>;
+  }>
+): Promise<Result<void, DomainError>> => {
+  if (beforeImageRecords.length === 0) {
+    return ok(undefined);
+  }
+
+  try {
+    const values = beforeImageRecords.map((record) => ({
+      [DIRTY_TABLE_ID_COL]: tableId.toString(),
+      [DIRTY_RECORD_ID_COL]: record.recordId.toString(),
+      [BEFORE_IMAGE_SNAPSHOT_COL]: JSON.stringify(record.fieldValuesByDbName),
+    }));
+    const batchSize = 500;
+    for (let i = 0; i < values.length; i += batchSize) {
+      await db
+        .insertInto(BEFORE_IMAGE_TABLE)
+        .values(values.slice(i, i + batchSize))
+        .onConflict((oc) =>
+          oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doUpdateSet({
+            [BEFORE_IMAGE_SNAPSHOT_COL]: sql.ref(`excluded.${BEFORE_IMAGE_SNAPSHOT_COL}`),
+          })
+        )
+        .execute();
+    }
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to seed before-image records: ${describeError(error)}`,
       })
     );
   }
@@ -1528,12 +1711,25 @@ const buildEdgeTraceInfo = (
 
 type DirtySelectQuery = QB;
 
+type BuiltPropagationSelect = {
+  query: DirtySelectQuery;
+  runtimeAllTargetFallbackReason?: AllTargetRecordsReason;
+};
+
+type PreparedPropagationSelect = {
+  query: DirtySelectQuery;
+  traceInfos: EdgeTraceInfo[];
+};
+
+const propagationQueryKey = (compiled: ReturnType<DirtySelectQuery['compile']>): string =>
+  `${compiled.sql}::${JSON.stringify(compiled.parameters)}`;
+
 const propagateDirtyRecords = async (
   db: Kysely<DynamicDB>,
   edges: ReadonlyArray<ComputedDependencyEdge>,
   tableById: Map<string, Table>,
   context?: IExecutionContext
-): Promise<Result<void, DomainError>> => {
+): Promise<Result<DirtyPropagationStats, DomainError>> => {
   try {
     const countDirtyRecords = async (): Promise<number> => {
       const result = await db
@@ -1543,34 +1739,47 @@ const propagateDirtyRecords = async (
       return result ? Number(result.count) : 0;
     };
 
-    const maxPasses = Math.max(edges.length, 1);
-    let previousCount = await countDirtyRecords();
-
     // Build trace info for all edges once
     const edgeTraceInfos = edges.map((edge, i) => buildEdgeTraceInfo(edge, i, tableById));
+    const plannedAllTargetReasonCounts = countPlannedAllTargetReasonCounts(edges);
+    const plannedAllTargetReasonSummary = summarizeAllTargetReasonCounts(
+      plannedAllTargetReasonCounts
+    );
+    const runtimeAllTargetFallbackReasonCounts: AllTargetReasonCounts = {};
 
-    for (let pass = 0; pass < maxPasses; pass += 1) {
-      // Collect all SELECT queries for this pass
-      const selectQueries: Array<{
-        query: DirtySelectQuery;
-        traceInfo: EdgeTraceInfo;
-        sql: string;
-      }> = [];
-
-      for (const traceInfo of edgeTraceInfos) {
-        const selectResult = buildPropagationSelect(db, traceInfo.edge, tableById);
-        if (selectResult.isErr()) {
-          return err(selectResult.error);
-        }
-
-        const compiled = selectResult.value.compile();
-        selectQueries.push({
-          query: selectResult.value,
-          traceInfo,
-          sql: compiled.sql,
-        });
+    // Multiple computed fields can share the same dirty-propagation path. Collapse
+    // identical SELECTs up front so we don't emit repeated UNION ALL branches.
+    const preparedQueries = new Map<string, PreparedPropagationSelect>();
+    for (const traceInfo of edgeTraceInfos) {
+      const selectResult = buildPropagationSelect(db, traceInfo.edge, tableById);
+      if (selectResult.isErr()) {
+        return err(selectResult.error);
       }
 
+      incrementAllTargetReasonCount(
+        runtimeAllTargetFallbackReasonCounts,
+        selectResult.value.runtimeAllTargetFallbackReason
+      );
+
+      const compiled = selectResult.value.query.compile();
+      const key = propagationQueryKey(compiled);
+      const existing = preparedQueries.get(key);
+      if (existing) {
+        existing.traceInfos.push(traceInfo);
+        continue;
+      }
+
+      preparedQueries.set(key, {
+        query: selectResult.value.query,
+        traceInfos: [traceInfo],
+      });
+    }
+
+    const selectQueries = [...preparedQueries.values()];
+    const maxPasses = Math.max(selectQueries.length, 1);
+    let previousCount = await countDirtyRecords();
+
+    for (let pass = 0; pass < maxPasses; pass += 1) {
       if (selectQueries.length === 0) {
         break;
       }
@@ -1581,14 +1790,42 @@ const propagateDirtyRecords = async (
         {
           'batch.pass': pass,
           'batch.edgeCount': selectQueries.length,
+          'batch.originalEdgeCount': edges.length,
+          'batch.plannedAllTargetReasonCount': countAllTargetReasonOccurrences(
+            plannedAllTargetReasonCounts
+          ),
+          'batch.runtimeAllTargetFallbackCount': countAllTargetReasonOccurrences(
+            runtimeAllTargetFallbackReasonCounts
+          ),
           'batch.edges': selectQueries
-            .map(
-              (q) =>
-                `${q.traceInfo.sourceTableName}.${q.traceInfo.fromFieldName} → ${q.traceInfo.targetTableName}.${q.traceInfo.toFieldName}`
-            )
+            .map((q) => {
+              const labels = [
+                ...new Set(
+                  q.traceInfos.map(
+                    (traceInfo) =>
+                      `${traceInfo.sourceTableName}.${traceInfo.fromFieldName} → ${traceInfo.targetTableName}.${traceInfo.toFieldName}`
+                  )
+                ),
+              ];
+              return labels.length > 1
+                ? `${labels[0]} (+${labels.length - 1} equivalent)`
+                : labels[0];
+            })
             .join('; '),
         }
       );
+      if (plannedAllTargetReasonSummary) {
+        batchSpan?.setAttribute('batch.plannedAllTargetReasons', plannedAllTargetReasonSummary);
+      }
+      const runtimeFallbackReasonSummary = summarizeAllTargetReasonCounts(
+        runtimeAllTargetFallbackReasonCounts
+      );
+      if (runtimeFallbackReasonSummary) {
+        batchSpan?.setAttribute(
+          'batch.runtimeAllTargetFallbackReasons',
+          runtimeFallbackReasonSummary
+        );
+      }
 
       const executeBatchWork = async (): Promise<void> => {
         // Build UNION ALL query from all SELECT queries
@@ -1640,7 +1877,10 @@ const propagateDirtyRecords = async (
       }
       previousCount = nextCount;
     }
-    return ok(undefined);
+    return ok({
+      plannedAllTargetReasonCounts,
+      runtimeAllTargetFallbackReasonCounts,
+    });
   } catch (error) {
     return err(
       domainError.infrastructure({
@@ -1767,6 +2007,28 @@ const buildDirtySelectQuery = (
   });
 };
 
+const buildGatedAllTargetSelect = (
+  db: Kysely<DynamicDB>,
+  edge: Pick<ComputedDependencyEdge, 'fromTableId' | 'toTableId'>,
+  targetDbName: string
+): DirtySelectQuery => {
+  const dirtyGate = db
+    .selectFrom(`${DIRTY_TABLE} as d`)
+    .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+    .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+    .limit(1)
+    .as('dg');
+
+  return db
+    .selectFrom(`${targetDbName} as t`)
+    .innerJoin(dirtyGate, (join) => join.onTrue())
+    .select([
+      sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+      sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+    ])
+    .distinct() as unknown as DirtySelectQuery;
+};
+
 /**
  * Build a SELECT query for dirty record propagation (without INSERT wrapper).
  * This allows combining multiple SELECT queries with UNION ALL.
@@ -1775,7 +2037,7 @@ const buildPropagationSelect = (
   db: Kysely<DynamicDB>,
   edge: ComputedDependencyEdge,
   tableById: Map<string, Table>
-): Result<DirtySelectQuery, DomainError> => {
+): Result<BuiltPropagationSelect, DomainError> => {
   return safeTry(function* () {
     const targetTable = tableById.get(edge.toTableId.toString());
     if (!targetTable) {
@@ -1799,24 +2061,9 @@ const buildPropagationSelect = (
               sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
             ])
             .distinct()
-        : db
-            .selectFrom(`${targetDbName} as t`)
-            .innerJoin(
-              db
-                .selectFrom(`${DIRTY_TABLE} as d`)
-                .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-                .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-                .limit(1)
-                .as('dg'),
-              (join) => join.onTrue()
-            )
-            .select([
-              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-            ])
-            .distinct();
+        : buildGatedAllTargetSelect(db, edge, targetDbName);
 
-      return ok(select as unknown as DirtySelectQuery);
+      return ok({ query: select as unknown as DirtySelectQuery });
     }
 
     // conditionalFiltered: Only mark target records as dirty if dirty source records match the filter
@@ -1837,46 +2084,20 @@ const buildPropagationSelect = (
       if (fieldConditionResult.isErr()) {
         // Fallback to allTargetRecords if filter is invalid
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(select as unknown as DirtySelectQuery);
+        return ok({
+          query: buildGatedAllTargetSelect(db, edge, targetDbName),
+          runtimeAllTargetFallbackReason: 'conditional_runtime_invalid_filter',
+        });
       }
 
       const fieldCondition = fieldConditionResult.value;
       if (!fieldCondition.hasFilter()) {
         // No filter - fallback to allTargetRecords
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(select as unknown as DirtySelectQuery);
+        return ok({
+          query: buildGatedAllTargetSelect(db, edge, targetDbName),
+          runtimeAllTargetFallbackReason: 'conditional_runtime_empty_filter',
+        });
       }
 
       // Convert to RecordConditionSpec
@@ -1887,51 +2108,21 @@ const buildPropagationSelect = (
         // Condition references a field that no longer exists (e.g., deleted field) -
         // fallback to allTargetRecords so the field can still be recalculated/cleared
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(select as unknown as DirtySelectQuery);
+        return ok({
+          query: buildGatedAllTargetSelect(db, edge, targetDbName),
+          runtimeAllTargetFallbackReason: 'conditional_runtime_invalid_condition_spec',
+        });
       }
       const specResult = conditionSpecResult.value;
       if (!specResult) {
         // No spec generated - fallback to allTargetRecords
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(select as unknown as DirtySelectQuery);
+        return ok({
+          query: buildGatedAllTargetSelect(db, edge, targetDbName),
+          runtimeAllTargetFallbackReason: 'conditional_runtime_missing_condition_spec',
+        });
       }
 
-      // Generate WHERE clause using visitor
-      // For conditional lookups with field references, pass both table aliases:
-      // - tableAlias 's' for foreign (source) table fields in the filter
-      // - hostTableAlias 't' for host (target) table field references (isSymbol)
       const visitor = new TableRecordConditionWhereVisitor({
         tableAlias: 's',
         hostTableAlias: 't',
@@ -1949,32 +2140,72 @@ const buildPropagationSelect = (
       const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
 
-      // Build SQL for conditional lookup dirty propagation:
-      // When source (foreign) table has dirty records, find all target (host) records
-      // that might be affected based on the filter condition.
-      //
-      // The filter may reference both source fields (regular filter) and target fields (isSymbol).
-      // We need a correlated subquery that can access the outer 't' alias for host field references.
-      // Use LATERAL join so the subquery can reference the outer 't' table.
-      const dirtySourceGate = db
+      const currentMatchQuery = db
         .selectFrom(`${DIRTY_TABLE} as d`)
         .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
         .select(sql.lit(1).as('one'))
         .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
         .where(filterWhere)
-        .limit(1)
-        .as('dg');
+        .limit(1);
+
+      let matchCondition = sql<SqlBool>`exists (${currentMatchQuery})`;
+
+      if (edge.filterCondition.includeBeforeImage) {
+        const beforeImageVisitor = new TableRecordConditionWhereVisitor({
+          tableAlias: 's_before',
+          hostTableAlias: 't',
+        });
+        const beforeAcceptResult = specResult.accept(beforeImageVisitor);
+        if (beforeAcceptResult.isErr()) {
+          return err(beforeAcceptResult.error);
+        }
+        const beforeWhereResult = beforeImageVisitor.where();
+        if (beforeWhereResult.isErr()) {
+          return err(beforeWhereResult.error);
+        }
+        const beforeFilterWhere = beforeWhereResult.value as unknown as Expression<SqlBool>;
+        const sourceTableTypeLiteral = toQualifiedIdentifierLiteral(sourceDbName);
+
+        const beforeImageMatchQuery = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .innerJoin(`${BEFORE_IMAGE_TABLE} as bi`, (join) =>
+            join
+              .onRef(`bi.${DIRTY_TABLE_ID_COL}`, '=', `d.${DIRTY_TABLE_ID_COL}`)
+              .onRef(`bi.${DIRTY_RECORD_ID_COL}`, '=', `d.${DIRTY_RECORD_ID_COL}`)
+          )
+          .leftJoin(`${sourceDbName} as s_current`, 's_current.__id', `d.${DIRTY_RECORD_ID_COL}`)
+          .innerJoinLateral(
+            sql<{ one: number }>`(
+              select 1 as one
+              -- Reconstruct the pre-change source row by starting from the current row
+              -- (or an empty JSON object for DELETE) and overlaying the captured old column values.
+              from jsonb_populate_record(
+                null::${sql.raw(sourceTableTypeLiteral)},
+                coalesce(to_jsonb(${sql.raw(quoteIdentifier('s_current'))}), '{}'::jsonb)
+                  || ${sql.ref(`bi.${BEFORE_IMAGE_SNAPSHOT_COL}`)}
+              ) as s_before
+              where ${beforeFilterWhere}
+              limit 1
+            )`.as('sb'),
+            (join) => join.onTrue()
+          )
+          .select(sql.lit(1).as('one'))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1);
+
+        matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+      }
 
       const select = db
         .selectFrom(`${targetDbName} as t`)
-        .innerJoinLateral(dirtySourceGate, (join) => join.onTrue())
         .select([
           sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
           sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
         ])
+        .where(matchCondition)
         .distinct();
 
-      return ok(select as unknown as DirtySelectQuery);
+      return ok({ query: select as unknown as DirtySelectQuery });
     }
 
     if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));
@@ -2000,7 +2231,7 @@ const buildPropagationSelect = (
           sql.ref(DIRTY_RECORD_ID_COL).as(DIRTY_RECORD_ID_COL),
         ])
         .where(sql<SqlBool>`false`);
-      return ok(select as unknown as DirtySelectQuery);
+      return ok({ query: select as unknown as DirtySelectQuery });
     }
     const linkField = linkFieldResult.value;
 
@@ -2012,7 +2243,7 @@ const buildPropagationSelect = (
           sql.ref(DIRTY_RECORD_ID_COL).as(DIRTY_RECORD_ID_COL),
         ])
         .where(sql<SqlBool>`false`);
-      return ok(select as unknown as DirtySelectQuery);
+      return ok({ query: select as unknown as DirtySelectQuery });
     }
 
     const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
@@ -2029,7 +2260,7 @@ const buildPropagationSelect = (
       targetTableId: edge.toTableId.toString(),
     });
 
-    return ok(selectQuery);
+    return ok({ query: selectQuery });
   });
 };
 

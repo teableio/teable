@@ -1,6 +1,7 @@
 import {
   ActorId,
   BaseId,
+  DbFieldName,
   FieldId,
   FieldName,
   LinkFieldConfig,
@@ -145,6 +146,11 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         estimatedComplexity: 0,
         changeType: 'delete',
       }),
+    resolveBeforeImageRequirements: async () =>
+      ok({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      }),
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -181,9 +187,12 @@ const createNoopRecordOrderCalculator = (): IRecordOrderCalculator => {
   };
 };
 
-const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
+const createRepository = (
+  db: Kysely<DynamicDB>,
+  table: Table,
+  computedUpdatePlanner: ComputedUpdatePlanner = createNoopComputedPlanner(table)
+) => {
   const logger = createLogger();
-  const computedUpdatePlanner = createNoopComputedPlanner(table);
   const computedFieldUpdater = {} as ComputedFieldUpdater;
   const computedUpdateStrategy = createNoopStrategy();
   const computedUpdateOutbox = createNoopOutbox();
@@ -207,11 +216,30 @@ const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
 const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowProvider => {
   const target = `from ${tableName}`;
   return (compiledQuery) => {
+    if (compiledQuery.sql.includes('select *') && compiledQuery.sql.includes(target)) {
+      return recordIds.map((recordId) => ({
+        __id: recordId,
+        record_id: recordId,
+      }));
+    }
     if (
       compiledQuery.sql.includes('select "__id" as "record_id"') &&
       compiledQuery.sql.includes(target)
     ) {
       return recordIds.map((recordId) => ({ record_id: recordId }));
+    }
+    return [];
+  };
+};
+
+const createSnapshotRowProvider = (
+  tableName: string,
+  rows: ReadonlyArray<Record<string, unknown>>
+): RowProvider => {
+  const target = `from ${tableName}`;
+  return (compiledQuery) => {
+    if (compiledQuery.sql.includes(target) && compiledQuery.sql.includes('select "__id"')) {
+      return [...rows];
     }
     return [];
   };
@@ -449,6 +477,127 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
       ]
     `);
+    vi.useRealTimers();
+  });
+
+  it('captures only required before-image columns for delete propagation', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const capturedPlanInputs: Array<Record<string, unknown>> = [];
+    const mockPlan = {
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [],
+      edges: [],
+      estimatedComplexity: 0,
+      changeType: 'delete' as const,
+    };
+    const computedUpdatePlanner = {
+      plan: async () => ok(mockPlan),
+      planStage: async (input: Record<string, unknown>) => {
+        capturedPlanInputs.push(input);
+        return ok({
+          ...mockPlan,
+          beforeImageRecords: input.beforeImageRecords as never,
+        });
+      },
+      resolveBeforeImageRequirements: async () =>
+        ok({
+          needsBeforeImage: true,
+          requiredFieldIds: [nameFieldId],
+        }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db, driver } = createRecordingDb(
+      createSnapshotRowProvider(tableName, [
+        {
+          record_id: recordId.toString(),
+          [`old_${nameFieldId.toString()}`]: 'Alice',
+        },
+      ])
+    );
+    const repo = createRepository(db, table, computedUpdatePlanner);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+
+    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
+      [
+        {
+          "parameters": [
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "select "__id" as "record_id", "col_name" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "link",
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+        },
+        {
+          "parameters": [
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
+        },
+        {
+          "parameters": [
+            "usr_test",
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
+        },
+      ]
+    `);
+    expect(capturedPlanInputs[0]?.beforeImageRecords).toEqual([
+      {
+        recordId,
+        fieldValuesByDbName: {
+          col_name: 'Alice',
+        },
+      },
+    ]);
+
     vi.useRealTimers();
   });
 });

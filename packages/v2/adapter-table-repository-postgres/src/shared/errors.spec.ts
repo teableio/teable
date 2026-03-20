@@ -214,6 +214,22 @@ describe('PostgreSQL error utilities', () => {
       });
     });
 
+    describe('query operation', () => {
+      it('uses query-specific infrastructure error metadata for read failures', () => {
+        const error = new Error('Read timeout');
+        const result = wrapDatabaseError(error, 'query', { tableName, recordId });
+
+        expect(result.tags).toContain('infrastructure');
+        expect(result.code).toBe('infrastructure.database.query_failed');
+        expect(result.message).toContain('Failed to query record');
+        expect(result.details).toEqual({
+          tableName,
+          recordId,
+          error: 'Error: Read timeout',
+        });
+      });
+    });
+
     describe('delete operation', () => {
       it('wraps unknown error as infrastructure error with count', () => {
         const error = new Error('Foreign key constraint');

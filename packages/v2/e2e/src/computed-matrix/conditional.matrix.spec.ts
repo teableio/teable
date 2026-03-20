@@ -412,7 +412,7 @@ describe('conditional field matrix (e2e)', () => {
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: CondRollup_Snapshot_Host -> [ActiveSum]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
     });
 

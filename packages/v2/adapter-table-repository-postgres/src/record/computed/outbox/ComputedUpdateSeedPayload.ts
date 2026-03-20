@@ -10,8 +10,15 @@ import {
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { ComputedUpdateCyclePolicy } from '../ComputedUpdatePlanner';
-import type { ComputedUpdateSeedGroupDto } from './ComputedUpdateOutboxPayload';
+import type {
+  ComputedBeforeImageRecord,
+  ComputedUpdateCyclePolicy,
+} from '../ComputedUpdatePlanner';
+import type {
+  ComputedBeforeImageRecordDto,
+  ComputedUpdateSeedGroupDto,
+} from './ComputedUpdateOutboxPayload';
+import { mergeBeforeImageRecordDtos } from './ComputedUpdateOutboxPayload';
 
 /**
  * Impact hint for seed tasks - describes which fields changed.
@@ -33,6 +40,7 @@ export type ComputedUpdateSeedPayload = {
   seedTableId: string;
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
+  beforeImageRecords: ComputedBeforeImageRecordDto[];
   changedFieldIds: string[];
   changeType: 'insert' | 'update' | 'delete';
   impact?: SeedImpactHintDto;
@@ -55,6 +63,7 @@ export type DeserializedSeedTask = {
   seedTableId: TableId;
   seedRecordIds: RecordId[];
   extraSeedRecords: Array<{ tableId: TableId; recordIds: RecordId[] }>;
+  beforeImageRecords: ComputedBeforeImageRecord[];
   changedFieldIds: FieldId[];
   changeType: 'insert' | 'update' | 'delete';
   impact?: {
@@ -72,6 +81,7 @@ export const serializeSeedPayload = (params: {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<{ tableId: TableId; recordIds: ReadonlyArray<RecordId> }>;
+  beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
   impact?: {
@@ -87,6 +97,10 @@ export const serializeSeedPayload = (params: {
   extraSeedRecords: params.extraSeedRecords.map((group) => ({
     tableId: group.tableId.toString(),
     recordIds: group.recordIds.map((id) => id.toString()),
+  })),
+  beforeImageRecords: (params.beforeImageRecords ?? []).map((record) => ({
+    recordId: record.recordId.toString(),
+    fieldValuesByDbName: { ...record.fieldValuesByDbName },
   })),
   changedFieldIds: params.changedFieldIds.map((id) => id.toString()),
   changeType: params.changeType,
@@ -154,6 +168,23 @@ export const deserializeSeedPayload = (
   );
   if (extraSeedRecordsResult.isErr()) return err(extraSeedRecordsResult.error);
 
+  const beforeImageRecordsResult = (payload.beforeImageRecords ?? []).reduce<
+    Result<ComputedBeforeImageRecord[], DomainError>
+  >(
+    (acc, record) =>
+      acc.andThen((parsed) =>
+        RecordId.create(record.recordId).map((recordId) => {
+          parsed.push({
+            recordId,
+            fieldValuesByDbName: { ...record.fieldValuesByDbName },
+          });
+          return parsed;
+        })
+      ),
+    ok([])
+  );
+  if (beforeImageRecordsResult.isErr()) return err(beforeImageRecordsResult.error);
+
   // Parse changedFieldIds
   const changedFieldIdsResult = payload.changedFieldIds.reduce<Result<FieldId[], DomainError>>(
     (acc, fieldId) =>
@@ -216,6 +247,7 @@ export const deserializeSeedPayload = (
     seedTableId: seedTableIdResult.value,
     seedRecordIds: seedRecordIdsResult.value,
     extraSeedRecords: extraSeedRecordsResult.value,
+    beforeImageRecords: beforeImageRecordsResult.value,
     changedFieldIds: changedFieldIdsResult.value,
     changeType,
     impact,
@@ -246,6 +278,7 @@ export const buildSeedTaskInput = (params: {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<{ tableId: TableId; recordIds: ReadonlyArray<RecordId> }>;
+  beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
   impact?: {
@@ -261,6 +294,7 @@ export const buildSeedTaskInput = (params: {
     seedTableId: params.seedTableId,
     seedRecordIds: params.seedRecordIds,
     extraSeedRecords: params.extraSeedRecords,
+    beforeImageRecords: params.beforeImageRecords,
     changedFieldIds: params.changedFieldIds,
     changeType: params.changeType,
     impact: params.impact,
@@ -312,6 +346,11 @@ export const mergeSeedPayloads = (
     mergedExtraSeedRecords.push({ tableId, recordIds: [...recordIds] });
   }
 
+  const mergedBeforeImageRecords = mergeBeforeImageRecordDtos(
+    existing.beforeImageRecords ?? [],
+    incoming.beforeImageRecords ?? []
+  );
+
   // Merge impact if both have it
   let mergedImpact: SeedImpactHintDto | undefined;
   if (existing.impact || incoming.impact) {
@@ -342,6 +381,7 @@ export const mergeSeedPayloads = (
     seedTableId: existing.seedTableId,
     seedRecordIds: mergedSeedRecordIds,
     extraSeedRecords: mergedExtraSeedRecords,
+    beforeImageRecords: mergedBeforeImageRecords,
     changedFieldIds: mergedChangedFieldIds,
     changeType: existing.changeType, // Keep the existing changeType
     impact: mergedImpact,

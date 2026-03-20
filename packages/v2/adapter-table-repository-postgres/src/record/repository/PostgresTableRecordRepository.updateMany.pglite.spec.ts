@@ -142,6 +142,11 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
   return {
     plan: async () => ok(plan),
     planStage: async () => ok(plan),
+    resolveBeforeImageRequirements: async () =>
+      ok({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      }),
   } as unknown as ComputedUpdatePlanner;
 };
 

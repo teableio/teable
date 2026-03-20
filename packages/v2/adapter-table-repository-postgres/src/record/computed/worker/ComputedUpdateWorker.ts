@@ -646,6 +646,7 @@ export class ComputedUpdateWorker {
     const plan: ComputedUpdatePlan = {
       ...planResult.value,
       extraSeedRecords: seedData.extraSeedRecords,
+      beforeImageRecords: seedData.beforeImageRecords,
     };
 
     // If no steps, nothing to do
@@ -787,6 +788,7 @@ export class ComputedUpdateWorker {
         seedTableId: seedSplit.seedTableId,
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
+        beforeImageRecords: [],
         changedFieldIds: seedFieldIds,
         // After the initial insert/delete is processed, subsequent stages should behave like
         // updates. Follow-up stages are recomputing surviving records based on computed-field
@@ -824,6 +826,7 @@ const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload 
   seedTableId: task.seedTableId,
   seedRecordIds: task.seedRecordIds,
   extraSeedRecords: task.extraSeedRecords,
+  beforeImageRecords: task.beforeImageRecords,
   steps: task.steps,
   edges: task.edges,
   estimatedComplexity: task.estimatedComplexity,

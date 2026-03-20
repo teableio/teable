@@ -53,12 +53,18 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 // Test utilities
 // =============================================================================
 
+type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
+
 class RecordingConnection implements DatabaseConnection {
-  constructor(private readonly queries: CompiledQuery[]) {}
+  constructor(
+    private readonly queries: CompiledQuery[],
+    private readonly rowProvider?: RowProvider
+  ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
-    return { rows: [] };
+    const rows = (this.rowProvider?.(compiledQuery) ?? []) as R[];
+    return { rows };
   }
 
   async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {
@@ -69,12 +75,14 @@ class RecordingConnection implements DatabaseConnection {
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
 
+  constructor(private readonly rowProvider?: RowProvider) {}
+
   async init(): Promise<void> {
     return undefined;
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries);
+    return new RecordingConnection(this.queries, this.rowProvider);
   }
 
   async beginTransaction(): Promise<void> {
@@ -103,8 +111,8 @@ class RecordingDriver implements Driver {
   }
 }
 
-const createRecordingDb = () => {
-  const driver = new RecordingDriver();
+const createRecordingDb = (rowProvider?: RowProvider) => {
+  const driver = new RecordingDriver(rowProvider);
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -142,6 +150,11 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
   return {
     plan: async () => ok(mockPlan),
     planStage: async () => ok(mockPlan),
+    resolveBeforeImageRequirements: async () =>
+      ok({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      }),
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -178,9 +191,12 @@ const createNoopRecordOrderCalculator = (): IRecordOrderCalculator => {
   };
 };
 
-const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
+const createRepository = (
+  db: Kysely<DynamicDB>,
+  table: Table,
+  computedUpdatePlanner: ComputedUpdatePlanner = createNoopComputedPlanner(table)
+) => {
   const logger = createLogger();
-  const computedUpdatePlanner = createNoopComputedPlanner(table);
   const computedFieldUpdater = {} as ComputedFieldUpdater;
   const computedUpdateStrategy = createNoopStrategy();
   const computedUpdateOutbox = createNoopOutbox();
@@ -214,6 +230,16 @@ const hydrateLinkField = (params: {
 
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
   queries.map((query) => ({ sql: query.sql, parameters: query.parameters }));
+
+const createSingleRowProvider = (tableName: string, row: Record<string, unknown>): RowProvider => {
+  const target = `from ${tableName}`;
+  return (compiledQuery) => {
+    if (compiledQuery.sql.includes(target) && compiledQuery.sql.includes('select "__id"')) {
+      return [row];
+    }
+    return [];
+  };
+};
 
 // Fixed IDs for stable snapshots
 const BASE_ID = `bse${'a'.repeat(16)}`;
@@ -492,6 +518,132 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         },
       ]
     `);
+
+    vi.useRealTimers();
+  });
+
+  it('reads only required before-image columns when conditional propagation needs old values', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const numberFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId)
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(numberFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_amount')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap().mutateSpec;
+
+    const capturedPlanInputs: Array<Record<string, unknown>> = [];
+    const mockPlan = {
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [],
+      edges: [],
+      estimatedComplexity: 0,
+      changeType: 'update' as const,
+    };
+    const computedUpdatePlanner = {
+      plan: async () => ok(mockPlan),
+      planStage: async (input: Record<string, unknown>) => {
+        capturedPlanInputs.push(input);
+        return ok({
+          ...mockPlan,
+          beforeImageRecords: input.beforeImageRecords as never,
+        });
+      },
+      resolveBeforeImageRequirements: async () =>
+        ok({
+          needsBeforeImage: true,
+          requiredFieldIds: [numberFieldId],
+        }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db, driver } = createRecordingDb(
+      createSingleRowProvider(tableName, {
+        record_id: recordId.toString(),
+        [`old_${numberFieldId.toString()}`]: 7,
+      })
+    );
+    const repo = createRepository(db, table, computedUpdatePlanner);
+
+    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
+    expect(result.isOk()).toBe(true);
+
+    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
+      [
+        {
+          "parameters": [
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "select "__id" as "record_id", "col_amount" as "old_fldnnnnnnnnnnnnnnnn" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
+        },
+        {
+          "parameters": [
+            "2025-01-01T00:00:00.000Z",
+            "usr_test",
+            "Alice",
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4",
+        },
+        {
+          "parameters": [
+            "usr_test",
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
+        },
+      ]
+    `);
+    expect(capturedPlanInputs[0]?.beforeImageRecords).toEqual([
+      {
+        recordId,
+        fieldValuesByDbName: {
+          col_amount: 7,
+        },
+      },
+    ]);
 
     vi.useRealTimers();
   });

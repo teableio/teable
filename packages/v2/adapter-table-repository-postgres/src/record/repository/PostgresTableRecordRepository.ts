@@ -20,6 +20,7 @@ import type { Result } from 'neverthrow';
 import { resolvePostgresDbOrTx } from '../../shared/db';
 import { describeError, wrapDatabaseError } from '../../shared/errors';
 import type {
+  ComputedBeforeImageRecord,
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
   ComputedUpdateResult,
@@ -56,6 +57,15 @@ type BulkUpdateTrackedField = {
   fieldId: core.FieldId;
   dbFieldName: string;
   oldValueAlias: string;
+};
+
+type BeforeImageCapturePlan = {
+  needsBeforeImage: boolean;
+  trackedFields: ReadonlyArray<BulkUpdateTrackedField>;
+};
+
+type BeforeImageTrackedRow = Record<string, unknown> & {
+  record_id?: string;
 };
 
 type ExtraSeedRecordGroup = {
@@ -265,6 +275,82 @@ const toBulkUpdateTrackedFields = (
     return ok(trackedFields);
   });
 
+const buildBeforeImageFromTrackedValues = (
+  recordId: core.RecordId,
+  trackedFields: ReadonlyArray<BulkUpdateTrackedField>,
+  oldFieldValues: Readonly<Record<string, unknown>>
+): ComputedBeforeImageRecord => ({
+  recordId,
+  fieldValuesByDbName: Object.fromEntries(
+    trackedFields.map(({ fieldId, dbFieldName }) => [
+      dbFieldName,
+      oldFieldValues[fieldId.toString()],
+    ])
+  ),
+});
+
+const buildEmptyBeforeImageRecord = (recordId: core.RecordId): ComputedBeforeImageRecord => ({
+  recordId,
+  fieldValuesByDbName: {},
+});
+
+const mergeTrackedFields = (
+  ...groups: ReadonlyArray<ReadonlyArray<BulkUpdateTrackedField>>
+): ReadonlyArray<BulkUpdateTrackedField> => {
+  const trackedFields = new Map<string, BulkUpdateTrackedField>();
+  for (const group of groups) {
+    for (const field of group) {
+      trackedFields.set(field.fieldId.toString(), field);
+    }
+  }
+  return [...trackedFields.values()];
+};
+
+const loadBeforeImageForRecord = async (
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  recordId: core.RecordId,
+  trackedFields: ReadonlyArray<BulkUpdateTrackedField>
+): Promise<Result<ComputedBeforeImageRecord | undefined, DomainError>> => {
+  if (trackedFields.length === 0) {
+    return ok(undefined);
+  }
+
+  try {
+    const row = (await db
+      .selectFrom(tableName)
+      .select([
+        sql.ref(RECORD_ID_COLUMN).as('record_id'),
+        ...trackedFields.map(({ dbFieldName, oldValueAlias }) =>
+          sql.ref(dbFieldName).as(oldValueAlias)
+        ),
+      ])
+      .where(RECORD_ID_COLUMN, '=', recordId.toString())
+      .executeTakeFirst()) as BeforeImageTrackedRow | undefined;
+
+    if (!row || row.record_id !== recordId.toString()) {
+      return ok(undefined);
+    }
+
+    return ok(
+      buildBeforeImageFromTrackedValues(
+        recordId,
+        trackedFields,
+        Object.fromEntries(
+          trackedFields.map(({ fieldId, oldValueAlias }) => [
+            fieldId.toString(),
+            row[oldValueAlias],
+          ])
+        )
+      )
+    );
+  } catch (error) {
+    return err(
+      wrapDatabaseError(error, 'query', { tableName, recordId: recordId.toString() }, undefined)
+    );
+  }
+};
+
 /**
  * PostgreSQL implementation of TableRecordRepository.
  *
@@ -292,6 +378,48 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2CoreTokens.hasher)
     private readonly hasher: IHasher
   ) {}
+
+  private async resolveBeforeImageCapturePlan(
+    context: core.IExecutionContext,
+    table: core.Table,
+    changedFieldIds: ReadonlyArray<core.FieldId>,
+    changeType: 'update' | 'delete',
+    impact?: UpdateImpactHint
+  ): Promise<Result<BeforeImageCapturePlan, DomainError>> {
+    if (changedFieldIds.length === 0) {
+      return ok({
+        needsBeforeImage: false,
+        trackedFields: [],
+      });
+    }
+
+    const requirementResult = await this.computedUpdatePlanner.resolveBeforeImageRequirements(
+      {
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        changedFieldIds,
+        changeType,
+        impact,
+      },
+      context
+    );
+    if (requirementResult.isErr()) {
+      return err(requirementResult.error);
+    }
+
+    const trackedFieldsResult = toBulkUpdateTrackedFields(
+      table,
+      requirementResult.value.requiredFieldIds
+    );
+    if (trackedFieldsResult.isErr()) {
+      return err(trackedFieldsResult.error);
+    }
+
+    return ok({
+      needsBeforeImage: requirementResult.value.needsBeforeImage,
+      trackedFields: trackedFieldsResult.value,
+    });
+  }
 
   private async resolveRestoreActorIdentity(
     db: Kysely<DynamicDB>,
@@ -861,6 +989,30 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             },
           });
         const { impactHint, extraSeedRecords, exclusivityConstraints } = impact;
+        const normalizedImpact = this.normalizeImpactHint(impactHint);
+        const expandedChangedFieldIds = this.expandComputedSeedFieldIds(
+          table,
+          impactHint.valueFieldIds.concat(impactHint.linkFieldIds)
+        );
+        const beforeImageCapturePlan = yield* await this.resolveBeforeImageCapturePlan(
+          context,
+          table,
+          expandedChangedFieldIds,
+          'update',
+          normalizedImpact
+        );
+        let beforeImageRecord: ComputedBeforeImageRecord | undefined;
+        if (beforeImageCapturePlan.needsBeforeImage) {
+          beforeImageRecord =
+            beforeImageCapturePlan.trackedFields.length === 0
+              ? buildEmptyBeforeImageRecord(recordId)
+              : yield* await loadBeforeImageForRecord(
+                  db,
+                  tableName,
+                  recordId,
+                  beforeImageCapturePlan.trackedFields
+                );
+        }
 
         // Validate link exclusivity constraints before persisting
         // This ensures that in oneMany/oneOne relationships, a foreign record
@@ -887,7 +1039,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordId,
             'update',
             impactHint,
-            extraSeedRecords
+            extraSeedRecords,
+            beforeImageRecord ? [beforeImageRecord] : []
           );
           // Extract computed changes for this specific record
           await this.touchTableMeta(db, table.id().toString(), actorId);
@@ -955,7 +1108,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           );
         }
 
-        const trackedFields = yield* toBulkUpdateTrackedFields(table, changedFieldIds);
+        const expandedChangedFieldIds = this.expandComputedSeedFieldIds(table, changedFieldIds);
+        const beforeImageCapturePlan = yield* await this.resolveBeforeImageCapturePlan(
+          context,
+          table,
+          expandedChangedFieldIds,
+          'update'
+        );
+        const changedTrackedFields = yield* toBulkUpdateTrackedFields(table, changedFieldIds);
+        const trackedFields = mergeTrackedFields(
+          changedTrackedFields,
+          beforeImageCapturePlan.trackedFields
+        );
 
         try {
           const matchedSelects = [
@@ -1013,11 +1177,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
 
           if (updatedRecordIds.length > 0 && changedFieldIds.length > 0) {
+            const beforeImageRecords = beforeImageCapturePlan.needsBeforeImage
+              ? updatedRecords.map((record) =>
+                  beforeImageCapturePlan.trackedFields.length === 0
+                    ? buildEmptyBeforeImageRecord(record.recordId)
+                    : buildBeforeImageFromTrackedValues(
+                        record.recordId,
+                        beforeImageCapturePlan.trackedFields,
+                        record.oldFieldValues
+                      )
+                )
+              : [];
             const computedResult = await this.runComputedUpdateManyByIds(
               context,
               table,
               updatedRecordIds,
-              changedFieldIds
+              changedFieldIds,
+              beforeImageRecords
             );
             if (computedResult.isErr()) {
               return err(computedResult.error);
@@ -1211,7 +1387,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     recordIds: ReadonlyArray<core.RecordId>,
-    changedFieldIds: ReadonlyArray<core.FieldId>
+    changedFieldIds: ReadonlyArray<core.FieldId>,
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<void, DomainError>> {
     const expandedChangedFieldIds = this.expandComputedSeedFieldIds(table, changedFieldIds);
     if (recordIds.length === 0 || expandedChangedFieldIds.length === 0) {
@@ -1224,6 +1401,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       seedTableId: table.id(),
       seedRecordIds: [...recordIds],
       extraSeedRecords: [],
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: [...expandedChangedFieldIds],
       changeType: 'update' as const,
       cyclePolicy: 'skip' as const,
@@ -1276,6 +1454,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       seedTableId: table.id(),
       seedRecordIds: [...recordIds],
       extraSeedRecords: [],
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: [...expandedChangedFieldIds],
       changeType: 'update',
       cyclePolicy: 'skip',
@@ -1332,15 +1511,28 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         >();
 
         const whereExpression = whereClause as unknown as Expression<SqlBool>;
-        const recordIdRows = await db
+        const deleteChangedFieldIds = table.getFields().map((field) => field.id());
+        const beforeImageCapturePlan = yield* await this.resolveBeforeImageCapturePlan(
+          context,
+          table,
+          deleteChangedFieldIds,
+          'delete'
+        );
+        const recordRows = await db
           .selectFrom(tableName)
-          .select(sql.ref(RECORD_ID_COLUMN).as('record_id'))
+          .select([
+            sql.ref(RECORD_ID_COLUMN).as('record_id'),
+            ...beforeImageCapturePlan.trackedFields.map(({ dbFieldName, oldValueAlias }) =>
+              sql.ref(dbFieldName).as(oldValueAlias)
+            ),
+          ])
           .where(whereExpression)
           .execute();
 
         const recordIds: core.RecordId[] = [];
         const recordIdStrings: string[] = [];
-        for (const row of recordIdRows) {
+        const beforeImageRecords: ComputedBeforeImageRecord[] = [];
+        for (const row of recordRows as BeforeImageTrackedRow[]) {
           const rawId = row.record_id;
           if (!rawId || typeof rawId !== 'string') {
             continue;
@@ -1349,6 +1541,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           if (recordIdResult.isErr()) return err(recordIdResult.error);
           recordIds.push(recordIdResult.value);
           recordIdStrings.push(rawId);
+          if (!beforeImageCapturePlan.needsBeforeImage) {
+            continue;
+          }
+          beforeImageRecords.push(
+            beforeImageCapturePlan.trackedFields.length === 0
+              ? buildEmptyBeforeImageRecord(recordIdResult.value)
+              : buildBeforeImageFromTrackedValues(
+                  recordIdResult.value,
+                  beforeImageCapturePlan.trackedFields,
+                  Object.fromEntries(
+                    beforeImageCapturePlan.trackedFields.map(({ fieldId, oldValueAlias }) => [
+                      fieldId.toString(),
+                      row[oldValueAlias],
+                    ])
+                  )
+                )
+          );
         }
 
         if (recordIds.length === 0) {
@@ -1445,7 +1654,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context,
             table,
             recordIds,
-            finalizeExtraSeedRecords(extraSeedMap)
+            finalizeExtraSeedRecords(extraSeedMap),
+            beforeImageRecords
           );
           if (computedResult.isErr()) {
             return err(computedResult.error);
@@ -1524,7 +1734,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     record: core.TableRecord,
     changeType: 'insert' | 'update' | 'delete',
     impact: UpdateImpactHint | undefined = undefined,
-    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     const changedFieldIds = record
       .fields()
@@ -1549,6 +1760,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           tableId: group.tableId,
           recordIds: [...group.recordIds],
         })),
+        beforeImageRecords: [...beforeImageRecords],
         changedFieldIds: expandedChangedFieldIds,
         changeType,
         cyclePolicy: 'skip' as const,
@@ -1603,6 +1815,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         tableId: group.tableId,
         recordIds: [...group.recordIds],
       })),
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: expandedChangedFieldIds,
       changeType,
       cyclePolicy: 'skip',
@@ -1649,7 +1862,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     table: core.Table,
     records: ReadonlyArray<core.TableRecord>,
     changeType: 'insert' | 'update' | 'delete',
-    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     if (records.length === 0) return ok(undefined);
     const fieldIds = new Map<string, core.FieldId>();
@@ -1690,6 +1904,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           tableId: group.tableId,
           recordIds: [...group.recordIds],
         })),
+        beforeImageRecords: [...beforeImageRecords],
         changedFieldIds,
         changeType,
         cyclePolicy: 'skip' as const,
@@ -1738,6 +1953,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         tableId: group.tableId,
         recordIds: [...group.recordIds],
       })),
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds,
       changeType,
       cyclePolicy: 'skip',
@@ -1779,7 +1995,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     recordId: core.RecordId,
     changeType: 'insert' | 'update' | 'delete',
     impact: UpdateImpactHint | undefined = undefined,
-    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     // Get changed field IDs from impact hint (value fields + link fields)
     const changedFieldIds: core.FieldId[] = [];
@@ -1805,6 +2022,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           tableId: group.tableId,
           recordIds: [...group.recordIds],
         })),
+        beforeImageRecords: [...beforeImageRecords],
         changedFieldIds: expandedChangedFieldIds,
         changeType,
         cyclePolicy: 'skip' as const,
@@ -1859,6 +2077,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         tableId: group.tableId,
         recordIds: [...group.recordIds],
       })),
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: expandedChangedFieldIds,
       changeType,
       cyclePolicy: 'skip',
@@ -1991,7 +2210,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     recordIds: ReadonlyArray<core.RecordId>,
-    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<void, DomainError>> {
     if (recordIds.length === 0) return ok(undefined);
     const changedFieldIds = table.getFields().map((field) => field.id());
@@ -2011,6 +2231,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           tableId: group.tableId,
           recordIds: [...group.recordIds],
         })),
+        beforeImageRecords: [...beforeImageRecords],
         changedFieldIds,
         changeType: 'delete' as const,
         cyclePolicy: 'skip' as const,
@@ -2056,6 +2277,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         tableId: group.tableId,
         recordIds: [...group.recordIds],
       })),
+      beforeImageRecords: [...beforeImageRecords],
       changedFieldIds,
       changeType: 'delete',
       cyclePolicy: 'skip',

@@ -23,6 +23,7 @@ import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
+import { mergeBeforeImageRecordDtos } from './ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import { mergeSeedPayloads } from './ComputedUpdateSeedPayload';
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
@@ -147,6 +148,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           parseDirtyStats(existing.dirty_stats),
           task.dirtyStats
         );
+        const mergedBeforeImageRecords = mergeBeforeImageRecordDtos(
+          parseBeforeImageRecordDtos(existing.dirty_stats),
+          task.beforeImageRecords
+        );
         const mergedOriginRunIds = mergeOriginRunIds(
           parseStringArray(existing.origin_run_ids),
           task.originRunIds
@@ -168,7 +173,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           .updateTable(OUTBOX_TABLE)
           .set({
             seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
-            dirty_stats: toJsonValue(mergedDirtyStats),
+            dirty_stats: toJsonValue({
+              dirtyStats: mergedDirtyStats,
+              beforeImageRecords: mergedBeforeImageRecords,
+            }),
             run_id: mergedRunId,
             origin_run_ids: mergedOriginRunIds,
             run_total_steps: Math.max(Number(existing.run_total_steps ?? 0), task.runTotalSteps),
@@ -356,6 +364,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             dirty_stats: toJsonValue({
               changeType: mergedPayload.changeType,
               impact: mergedPayload.impact ?? null,
+              beforeImageRecords: mergedPayload.beforeImageRecords,
             }),
             next_run_at: now,
             updated_at: now,
@@ -631,7 +640,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         last_error: null,
         estimated_complexity: task.estimatedComplexity,
         plan_hash: task.planHash,
-        dirty_stats: toJsonValue(task.dirtyStats),
+        dirty_stats: toJsonValue({
+          dirtyStats: task.dirtyStats,
+          beforeImageRecords: task.beforeImageRecords,
+        }),
         run_id: task.runId,
         origin_run_ids: task.originRunIds,
         run_total_steps: task.runTotalSteps,
@@ -832,6 +844,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         dirty_stats: toJsonValue({
           changeType: task.changeType,
           impact: task.impact ?? null,
+          beforeImageRecords: task.beforeImageRecords,
         }),
         run_id: task.runId,
         origin_run_ids: [],
@@ -880,6 +893,7 @@ const toOutboxItem = (
     seedTableId,
     seedRecordIds,
     extraSeedRecords,
+    beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     steps: parseJsonArray(row.steps) ?? [],
     edges: parseJsonArray(row.edges) ?? [],
     estimatedComplexity: Number(row.estimated_complexity ?? 0),
@@ -935,8 +949,14 @@ const parseStringArray = (value: unknown): string[] => {
 
 const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | undefined => {
   const parsed = parseJsonValue(value);
-  if (!Array.isArray(parsed)) return undefined;
-  return parsed
+  // Rolling upgrade compatibility: older rows store dirty_stats as the raw stats array,
+  // while newer rows store an object with { dirtyStats, beforeImageRecords }.
+  const rawStats =
+    Array.isArray(parsed) || parsed == null || typeof parsed !== 'object'
+      ? parsed
+      : (parsed as { dirtyStats?: unknown }).dirtyStats;
+  if (!Array.isArray(rawStats)) return undefined;
+  return rawStats
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const entry = item as { tableId?: unknown; recordCount?: unknown };
@@ -947,6 +967,36 @@ const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | unde
       };
     })
     .filter((item): item is DirtyRecordStats => item !== null);
+};
+
+const parseBeforeImageRecordDtos = (
+  value: unknown
+): ComputedUpdateOutboxItem['beforeImageRecords'] => {
+  const parsed = parseJsonValue(value);
+  // Rolling upgrade compatibility: old rows have no before-image payload, so raw array
+  // dirty_stats should decode to [] here instead of being treated as malformed data.
+  const rawRecords =
+    Array.isArray(parsed) || parsed == null || typeof parsed !== 'object'
+      ? parsed
+      : (parsed as { beforeImageRecords?: unknown }).beforeImageRecords;
+  if (!Array.isArray(rawRecords)) return [];
+
+  return rawRecords
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as { recordId?: unknown; fieldValuesByDbName?: unknown };
+      if (typeof record.recordId !== 'string') return null;
+      if (!record.fieldValuesByDbName || typeof record.fieldValuesByDbName !== 'object') {
+        return null;
+      }
+      return {
+        recordId: record.recordId,
+        fieldValuesByDbName: { ...(record.fieldValuesByDbName as Record<string, unknown>) },
+      };
+    })
+    .filter(
+      (item): item is ComputedUpdateOutboxItem['beforeImageRecords'][number] => item !== null
+    );
 };
 
 const parseSeedGroups = (value: unknown, seedTableId: string): SeedGroup[] => {
@@ -1252,6 +1302,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     seedTableId,
     seedRecordIds,
     extraSeedRecords,
+    beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType,
     impact,
@@ -1283,6 +1334,7 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     seedTableId,
     seedRecordIds,
     extraSeedRecords,
+    beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType: parseSeedChangeType(row.dirty_stats) ?? 'update',
     impact: parseSeedImpact(row.dirty_stats),
@@ -1412,7 +1464,11 @@ const buildDeadLetterValues = (
       steps: toJsonValue([]),
       edges: toJsonValue([]),
       estimated_complexity: seedTask.seedRecordIds.length,
-      dirty_stats: seedTask.impact ? toJsonValue(seedTask.impact) : null,
+      dirty_stats: toJsonValue({
+        changeType: seedTask.changeType,
+        impact: seedTask.impact ?? null,
+        beforeImageRecords: seedTask.beforeImageRecords,
+      }),
       origin_run_ids: [],
       run_total_steps: 0,
       run_completed_steps_before: 0,
@@ -1432,7 +1488,10 @@ const buildDeadLetterValues = (
     steps: toJsonValue(computedTask.steps),
     edges: toJsonValue(computedTask.edges),
     estimated_complexity: computedTask.estimatedComplexity,
-    dirty_stats: toJsonValue(computedTask.dirtyStats),
+    dirty_stats: toJsonValue({
+      dirtyStats: computedTask.dirtyStats,
+      beforeImageRecords: computedTask.beforeImageRecords,
+    }),
     origin_run_ids: computedTask.originRunIds,
     run_total_steps: computedTask.runTotalSteps,
     run_completed_steps_before: computedTask.runCompletedStepsBefore,

@@ -31,11 +31,30 @@ export type ComputedSeedGroup = {
   recordIds: ReadonlyArray<RecordId>;
 };
 
+export type ComputedBeforeImageRecord = {
+  recordId: RecordId;
+  /**
+   * Partial or full row snapshot keyed by physical DB column name.
+   * For UPDATE, changed columns are sufficient because execution overlays
+   * the snapshot on the current source row.
+   * For DELETE, callers should provide the source-side columns needed to
+   * reconstruct the old conditional match because no live source row remains
+   * to supply unchanged values.
+   */
+  fieldValuesByDbName: Readonly<Record<string, unknown>>;
+};
+
+export type ComputedBeforeImageRequirements = {
+  needsBeforeImage: boolean;
+  requiredFieldIds: ReadonlyArray<FieldId>;
+};
+
 export type PlanStageContext = {
   baseId: BaseId;
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<ComputedSeedGroup>;
+  beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
   impact?: UpdateImpactHint;
@@ -70,6 +89,26 @@ export type SameTableBatch = {
 
 export type DirtyPropagationMode = 'linkTraversal' | 'allTargetRecords' | 'conditionalFiltered';
 
+export const allTargetRecordsReasonValues = [
+  'conditional_filter_field_changed',
+  'conditional_missing_filter',
+  'conditional_delete',
+  'conditional_filter_fields_not_in_source',
+  'filtered_lookup_delete_requires_source_record',
+  'symmetric_no_seed_records',
+  'conditional_runtime_invalid_filter',
+  'conditional_runtime_empty_filter',
+  'conditional_runtime_invalid_condition_spec',
+  'conditional_runtime_missing_condition_spec',
+] as const;
+
+export type AllTargetRecordsReason = (typeof allTargetRecordsReasonValues)[number];
+
+const allTargetRecordsReasonSet = new Set<string>(allTargetRecordsReasonValues);
+
+export const isAllTargetRecordsReason = (value: string): value is AllTargetRecordsReason =>
+  allTargetRecordsReasonSet.has(value);
+
 export type ComputedUpdateCyclePolicy = 'error' | 'skip';
 
 /**
@@ -80,15 +119,30 @@ export type ConditionalFilterCondition = {
   foreignTableId: TableId;
   /** Original filter DTO from the conditional field options */
   filterDto: unknown;
+  /**
+   * When true, dirty propagation must consider both the current source row and
+   * the seed-stage before-image row to catch records leaving the condition.
+   */
+  includeBeforeImage?: boolean;
 };
 
 export type ComputedDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
+  /**
+   * Target computed fields covered by this propagation edge. Planner-level deduplication
+   * may collapse multiple target fields that share the same dirty-propagation path.
+   */
+  propagationTargetFieldIds?: ReadonlyArray<FieldId>;
   fromTableId: TableId;
   toTableId: TableId;
   linkFieldId?: FieldId;
   propagationMode?: DirtyPropagationMode;
+  /**
+   * Planner-side reasons for using allTargetRecords. Equivalent edges may be merged,
+   * so more than one reason can be attached to the same propagation path.
+   */
+  allTargetRecordsReasons?: ReadonlyArray<AllTargetRecordsReason>;
   /** Filter condition for conditionalFiltered mode */
   filterCondition?: ConditionalFilterCondition;
   order: number;
@@ -107,6 +161,7 @@ export type ComputedUpdatePlan = {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<ComputedSeedGroup>;
+  beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   steps: ReadonlyArray<UpdateStep>;
   edges: ReadonlyArray<ComputedDependencyEdge>;
   estimatedComplexity: number;
@@ -161,6 +216,7 @@ export class ComputedUpdatePlanner {
         seedTableId: context.table.id(),
         seedRecordIds: context.changedRecordIds,
         extraSeedRecords: [],
+        beforeImageRecords: [],
         changedFieldIds: context.changedFieldIds,
         changeType: context.changeType,
         impact: context.impact,
@@ -171,12 +227,56 @@ export class ComputedUpdatePlanner {
     );
   }
 
+  async resolveBeforeImageRequirements(
+    context: Pick<
+      PlanStageContext,
+      'baseId' | 'seedTableId' | 'changedFieldIds' | 'changeType' | 'impact'
+    >,
+    executionContext?: IExecutionContext
+  ): Promise<Result<ComputedBeforeImageRequirements, DomainError>> {
+    return safeTry<ComputedBeforeImageRequirements, DomainError>(
+      async function* (this: ComputedUpdatePlanner) {
+        if (context.changeType === 'insert' || context.changedFieldIds.length === 0) {
+          return ok({
+            needsBeforeImage: false,
+            requiredFieldIds: [],
+          });
+        }
+
+        const graphData = yield* await this.graph.load(context.baseId, executionContext, {
+          requiredFieldIds: context.changedFieldIds,
+        });
+        const { fieldsById, edges } = graphData;
+
+        const impactResult = resolveUpdateImpact(fieldsById, {
+          changedFieldIds: context.changedFieldIds,
+          changeType: context.changeType,
+          impact: context.impact,
+        });
+        if (impactResult.isErr()) return err(impactResult.error);
+        const impact = impactResult.value;
+
+        return ok(
+          collectConditionalBeforeImageRequirements({
+            edges: collectRelevantEdgesForImpact(edges, impact),
+            fieldsById,
+            seedTableId: context.seedTableId,
+            changedFieldIds: context.changedFieldIds,
+            changeType: context.changeType,
+          })
+        );
+      }.bind(this)
+    );
+  }
+
   async planStage(
     context: PlanStageContext,
     executionContext?: IExecutionContext
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     return safeTry<ComputedUpdatePlan, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
+        const beforeImageRecords = context.beforeImageRecords ?? [];
+
         // For INSERT, we need initial values for all stored computed fields, including those
         // that depend on "unprovided" (implicitly null) inputs, or have no dependencies at all.
         // Seed planning with all table fields so the incremental graph can include every computed field.
@@ -504,6 +604,7 @@ export class ComputedUpdatePlanner {
             seedTableId: context.seedTableId,
             seedRecordIds: context.seedRecordIds,
             extraSeedRecords: context.extraSeedRecords,
+            beforeImageRecords,
             steps: [],
             edges: [],
             estimatedComplexity: 0,
@@ -631,6 +732,7 @@ export class ComputedUpdatePlanner {
               seedTableId: context.seedTableId,
               seedRecordIds: context.seedRecordIds,
               extraSeedRecords: context.extraSeedRecords,
+              beforeImageRecords,
               steps: [],
               edges: [],
               estimatedComplexity: 0,
@@ -648,9 +750,16 @@ export class ComputedUpdatePlanner {
           computedFieldIds,
           levels,
           symmetricLinkEdges,
+          context.seedTableId,
+          new Set(
+            context.extraSeedRecords
+              .filter((group) => group.recordIds.length > 0)
+              .map((group) => group.tableId.toString())
+          ),
           context.changedFieldIds,
           context.changeType,
-          countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0
+          countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0,
+          beforeImageRecords
         );
 
         const steps = yield* buildSteps(ordered, levels, fieldsById);
@@ -668,8 +777,30 @@ export class ComputedUpdatePlanner {
           );
 
         const filteredSteps =
-          context.changeType === 'delete' && !keepSeedTableStepsOnDelete
-            ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
+          context.changeType === 'delete'
+            ? !keepSeedTableStepsOnDelete
+              ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
+              : (() => {
+                  const seedFieldIdsToKeep = collectDeleteSeedTableRetainedFieldIds(
+                    propagationEdges,
+                    relevantEdges,
+                    context.seedTableId
+                  );
+                  return steps.flatMap((step) => {
+                    if (!step.tableId.equals(context.seedTableId)) {
+                      return [step];
+                    }
+
+                    const retainedFieldIds = step.fieldIds.filter((fieldId) =>
+                      seedFieldIdsToKeep.has(fieldId.toString())
+                    );
+                    if (retainedFieldIds.length === 0) {
+                      return [];
+                    }
+
+                    return [{ ...step, fieldIds: retainedFieldIds }];
+                  });
+                })()
             : steps;
 
         // Build same-table batches for CTE optimization
@@ -684,6 +815,7 @@ export class ComputedUpdatePlanner {
           seedTableId: context.seedTableId,
           seedRecordIds: context.seedRecordIds,
           extraSeedRecords: context.extraSeedRecords,
+          beforeImageRecords,
           steps: filteredSteps,
           edges: propagationEdges,
           estimatedComplexity,
@@ -766,6 +898,75 @@ const isEdgeRelevantForValue = (edge: FieldDependencyEdge): boolean =>
 const isEdgeRelevantForLink = (edge: FieldDependencyEdge): boolean =>
   // Only edges that depend on link relationships, not values
   edge.kind === 'same_record' && edge.semantic === 'lookup_link';
+
+const collectRelevantEdgesForImpact = (
+  edges: ReadonlyArray<FieldDependencyEdge>,
+  impact: UpdateImpact
+): ReadonlyArray<FieldDependencyEdge> => {
+  const relevantEdges: FieldDependencyEdge[] = [];
+  if (impact.includesValueChange) {
+    relevantEdges.push(...edges.filter(isEdgeRelevantForValue));
+  }
+  if (impact.includesLinkRelation) {
+    relevantEdges.push(...edges.filter(isEdgeRelevantForLink));
+  }
+  return relevantEdges;
+};
+
+const collectConditionalBeforeImageRequirements = (params: {
+  edges: ReadonlyArray<FieldDependencyEdge>;
+  fieldsById: Map<string, FieldMeta>;
+  seedTableId: TableId;
+  changedFieldIds: ReadonlyArray<FieldId>;
+  changeType: 'insert' | 'update' | 'delete';
+}): ComputedBeforeImageRequirements => {
+  const changedFieldIdSet = new Set(params.changedFieldIds.map((id) => id.toString()));
+  const requiredFieldIds = new Map<string, FieldId>();
+  let needsBeforeImage = false;
+
+  for (const edge of params.edges) {
+    if (edge.kind !== 'cross_record') continue;
+    if (!edge.fromTableId.equals(params.seedTableId)) continue;
+
+    const targetMeta = params.fieldsById.get(edge.toFieldId.toString());
+    if (!targetMeta) continue;
+    if (targetMeta.type !== 'conditionalLookup' && targetMeta.type !== 'conditionalRollup') {
+      continue;
+    }
+
+    const conditionalOptions = targetMeta.conditionalOptions;
+    if (!conditionalOptions?.filterDto) {
+      continue;
+    }
+
+    const filterFieldIds = conditionalOptions.conditionFieldIds ?? [];
+    const filterFieldsChanged = filterFieldIds.some((id) => changedFieldIdSet.has(id));
+    const filterFieldsInSource = filterFieldIds.every((id) => {
+      const fieldMeta = params.fieldsById.get(id);
+      return fieldMeta?.tableId.equals(edge.fromTableId) ?? false;
+    });
+    const requiresOldMatchTracking =
+      filterFieldsChanged || params.changeType === 'delete' || !filterFieldsInSource;
+
+    if (!requiresOldMatchTracking) {
+      continue;
+    }
+
+    needsBeforeImage = true;
+    for (const filterFieldId of filterFieldIds) {
+      const fieldMeta = params.fieldsById.get(filterFieldId);
+      if (!fieldMeta?.tableId.equals(params.seedTableId)) {
+        continue;
+      }
+      requiredFieldIds.set(filterFieldId, fieldMeta.id);
+    }
+  }
+
+  return {
+    needsBeforeImage,
+    requiredFieldIds: [...requiredFieldIds.values()],
+  };
+};
 
 /**
  * Collect all transitively affected field IDs starting from the seed fields.
@@ -1148,6 +1349,70 @@ const buildSteps = (
   return ok(steps);
 };
 
+const getPropagationTargetFieldIds = (
+  edge: Pick<ComputedDependencyEdge, 'toFieldId' | 'propagationTargetFieldIds'>
+): ReadonlyArray<FieldId> => edge.propagationTargetFieldIds ?? [edge.toFieldId];
+
+const collectDeleteSeedTableRetainedFieldIds = (
+  propagationEdges: ReadonlyArray<ComputedDependencyEdge>,
+  relevantEdges: ReadonlyArray<FieldDependencyEdge>,
+  seedTableId: TableId
+): Set<string> => {
+  const refreshSeedFieldIds = propagationEdges
+    .filter(
+      (edge) => edge.toTableId.equals(seedTableId) && edge.propagationMode === 'allTargetRecords'
+    )
+    .flatMap(getPropagationTargetFieldIds);
+
+  const retained = new Set(refreshSeedFieldIds.map((fieldId) => fieldId.toString()));
+  if (refreshSeedFieldIds.length === 0) {
+    return retained;
+  }
+
+  const sameTableRefreshEdges = relevantEdges.filter(
+    (edge) => edge.fromTableId.equals(seedTableId) && edge.toTableId.equals(seedTableId)
+  );
+
+  // Retain the entire same-table refresh chain for delete, including self-referential
+  // cross-record edges. A same-table allTargetRecords refresh can still feed another
+  // computed field in the same table through a self-link traversal.
+  for (const fieldId of collectDirectAffectedFieldIds(
+    sameTableRefreshEdges,
+    refreshSeedFieldIds,
+    true
+  )) {
+    retained.add(fieldId);
+  }
+
+  return retained;
+};
+
+const mergeAllTargetRecordsReasons = (
+  existing: ReadonlyArray<AllTargetRecordsReason> | undefined,
+  incoming: ReadonlyArray<AllTargetRecordsReason> | undefined
+): ReadonlyArray<AllTargetRecordsReason> | undefined => {
+  if (!existing?.length && !incoming?.length) return undefined;
+  return [...new Set([...(existing ?? []), ...(incoming ?? [])])];
+};
+
+const resolveConditionalAllTargetRecordsReason = (params: {
+  filterFieldsChanged: boolean;
+  filterDto: unknown;
+  changeType: 'insert' | 'update' | 'delete';
+  filterFieldsInSource: boolean;
+}): AllTargetRecordsReason => {
+  if (params.filterFieldsChanged) {
+    return 'conditional_filter_field_changed';
+  }
+  if (!params.filterDto) {
+    return 'conditional_missing_filter';
+  }
+  if (params.changeType === 'delete') {
+    return 'conditional_delete';
+  }
+  return 'conditional_filter_fields_not_in_source';
+};
+
 const buildPropagationEdges = (
   edges: ReadonlyArray<FieldDependencyEdge>,
   fieldsById: Map<string, FieldMeta>,
@@ -1159,20 +1424,66 @@ const buildPropagationEdges = (
     fromTableId: TableId;
     toTableId: TableId;
   }>,
+  seedTableId: TableId,
+  extraSeedTableIds: ReadonlySet<string>,
   changedFieldIds: ReadonlyArray<FieldId>,
   changeType: 'insert' | 'update' | 'delete',
-  hasSeedRecords: boolean
+  hasSeedRecords: boolean,
+  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord>
 ): Result<ReadonlyArray<ComputedDependencyEdge>, DomainError> => {
   const result: ComputedDependencyEdge[] = [];
   const changedFieldIdSet = new Set(changedFieldIds.map((id) => id.toString()));
-  const existingEdgeKeys = new Set<string>();
-  const edgeKey = (edge: {
-    fromFieldId: FieldId;
-    toFieldId: FieldId;
-    fromTableId: TableId;
-    toTableId: TableId;
-  }) =>
-    `${edge.fromTableId.toString()}:${edge.fromFieldId.toString()}->${edge.toTableId.toString()}:${edge.toFieldId.toString()}`;
+  const edgeIndexByKey = new Map<string, number>();
+  const filterConditionKey = (edge: Pick<ComputedDependencyEdge, 'filterCondition'>): string =>
+    edge.filterCondition
+      ? `${edge.filterCondition.foreignTableId.toString()}:${JSON.stringify(edge.filterCondition.filterDto)}:${edge.filterCondition.includeBeforeImage ? 'before' : 'current'}`
+      : '';
+  const propagationEdgeKey = (edge: ComputedDependencyEdge): string => {
+    const propagationMode =
+      edge.propagationMode ?? (edge.linkFieldId ? 'linkTraversal' : 'allTargetRecords');
+    const isSelfRefresh =
+      propagationMode === 'allTargetRecords' &&
+      edge.fromTableId.equals(edge.toTableId) &&
+      edge.fromFieldId.equals(edge.toFieldId);
+
+    return [
+      propagationMode,
+      edge.fromTableId.toString(),
+      edge.toTableId.toString(),
+      isSelfRefresh ? 'self' : 'gated',
+      edge.linkFieldId?.toString() ?? '',
+      filterConditionKey(edge),
+    ].join('|');
+  };
+  const addPropagationEdge = (edge: ComputedDependencyEdge): void => {
+    const key = propagationEdgeKey(edge);
+    const existingIndex = edgeIndexByKey.get(key);
+    if (existingIndex == null) {
+      result.push({
+        ...edge,
+        allTargetRecordsReasons: mergeAllTargetRecordsReasons(
+          undefined,
+          edge.allTargetRecordsReasons
+        ),
+        propagationTargetFieldIds: [edge.toFieldId],
+      });
+      edgeIndexByKey.set(key, result.length - 1);
+      return;
+    }
+
+    const existing = result[existingIndex];
+    const targetFieldIds = existing.propagationTargetFieldIds ?? [existing.toFieldId];
+    if (!targetFieldIds.some((fieldId) => fieldId.equals(edge.toFieldId))) {
+      existing.propagationTargetFieldIds = [...targetFieldIds, edge.toFieldId];
+    }
+    existing.allTargetRecordsReasons = mergeAllTargetRecordsReasons(
+      existing.allTargetRecordsReasons,
+      edge.allTargetRecordsReasons
+    );
+    if (edge.order < existing.order) {
+      existing.order = edge.order;
+    }
+  };
 
   for (const edge of edges) {
     const toId = edge.toFieldId.toString();
@@ -1184,6 +1495,15 @@ const buildPropagationEdges = (
 
     const meta = fieldsById.get(toId);
     if (!meta) continue;
+
+    if (
+      changeType === 'delete' &&
+      edge.fromTableId.equals(seedTableId) &&
+      !edge.toTableId.equals(seedTableId) &&
+      extraSeedTableIds.has(edge.toTableId.toString())
+    ) {
+      continue;
+    }
 
     const isConditionalField =
       meta.type === 'conditionalLookup' || meta.type === 'conditionalRollup';
@@ -1200,6 +1520,10 @@ const buildPropagationEdges = (
 
       // Check if any filter field was changed
       const filterFieldsChanged = [...filterFieldIds].some((id) => changedFieldIdSet.has(id));
+      const canUseBeforeImage =
+        beforeImageRecords.length > 0 && edge.fromTableId.equals(seedTableId);
+      const requiresOldMatchTracking =
+        filterFieldsChanged || changeType === 'delete' || !filterFieldsInSource;
 
       // Use allTargetRecords when:
       // 1. Filter fields were modified (can't determine old vs new match - records may enter/exit filter)
@@ -1208,19 +1532,50 @@ const buildPropagationEdges = (
       //
       // Note: When only the lookup field changes (but not filter fields), we can use conditionalFiltered
       // because the set of records matching the filter hasn't changed - only their values have.
-      if (filterFieldsChanged || !filterDto || changeType === 'delete' || !filterFieldsInSource) {
-        result.push({
+      if (!filterDto) {
+        addPropagationEdge({
           fromFieldId: edge.fromFieldId,
           toFieldId: edge.toFieldId,
           fromTableId: edge.fromTableId,
           toTableId: edge.toTableId,
           propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['conditional_missing_filter'],
           order: levels.get(toId) ?? 0,
         });
-        existingEdgeKeys.add(edgeKey(edge));
+      } else if (requiresOldMatchTracking && canUseBeforeImage) {
+        addPropagationEdge({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'conditionalFiltered',
+          filterCondition: {
+            foreignTableId: edge.fromTableId,
+            filterDto,
+            includeBeforeImage: true,
+          },
+          order: levels.get(toId) ?? 0,
+        });
+      } else if (requiresOldMatchTracking) {
+        addPropagationEdge({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: [
+            resolveConditionalAllTargetRecordsReason({
+              filterFieldsChanged,
+              filterDto,
+              changeType,
+              filterFieldsInSource,
+            }),
+          ],
+          order: levels.get(toId) ?? 0,
+        });
       } else {
         // Filter fields not changed - can use precise filtering
-        result.push({
+        addPropagationEdge({
           fromFieldId: edge.fromFieldId,
           toFieldId: edge.toFieldId,
           fromTableId: edge.fromTableId,
@@ -1232,7 +1587,6 @@ const buildPropagationEdges = (
           },
           order: levels.get(toId) ?? 0,
         });
-        existingEdgeKeys.add(edgeKey(edge));
       }
       continue;
     }
@@ -1264,42 +1618,50 @@ const buildPropagationEdges = (
       const filterFieldIds = new Set(lookupOptions?.filterFieldIds ?? []);
       const filterDto = lookupOptions?.filterDto;
 
-      // If filter fields exist and any was changed, use allTargetRecords propagation
-      // because the filter match status may have changed
+      // Filtered lookup/rollup fields are still bounded by the link relation itself:
+      // when a foreign record changes, only host records linked to that foreign record
+      // can be affected. For UPDATE we can therefore keep linkTraversal even when the
+      // changed field participates in the filter. DELETE remains conservative because
+      // some link layouts need the deleted source row to traverse precisely.
       if (filterFieldIds.size > 0) {
         const filterFieldsChanged = [...filterFieldIds].some((id) => changedFieldIdSet.has(id));
+        const linkMeta = fieldsById.get(linkFieldId.toString());
+        const canTraverseDelete =
+          linkMeta != null && canTraverseFilteredDeleteWithoutSourceRecord(linkMeta);
 
-        if (filterFieldsChanged || changeType === 'delete') {
-          result.push({
+        if (changeType === 'delete' && !canTraverseDelete) {
+          addPropagationEdge({
             fromFieldId: edge.fromFieldId,
             toFieldId: edge.toFieldId,
             fromTableId: edge.fromTableId,
             toTableId: edge.toTableId,
             linkFieldId,
             propagationMode: 'allTargetRecords',
+            allTargetRecordsReasons: ['filtered_lookup_delete_requires_source_record'],
             order: levels.get(toId) ?? 0,
           });
-          existingEdgeKeys.add(edgeKey(edge));
           continue;
         }
 
         // Filter fields not changed - use linkTraversal with filter
-        result.push({
+        addPropagationEdge({
           fromFieldId: edge.fromFieldId,
           toFieldId: edge.toFieldId,
           fromTableId: edge.fromTableId,
           toTableId: edge.toTableId,
           linkFieldId,
           propagationMode: 'linkTraversal',
-          filterCondition: filterDto ? { foreignTableId: edge.fromTableId, filterDto } : undefined,
+          filterCondition:
+            !filterFieldsChanged && filterDto
+              ? { foreignTableId: edge.fromTableId, filterDto }
+              : undefined,
           order: levels.get(toId) ?? 0,
         });
-        existingEdgeKeys.add(edgeKey(edge));
         continue;
       }
     }
 
-    result.push({
+    addPropagationEdge({
       fromFieldId: edge.fromFieldId,
       toFieldId: edge.toFieldId,
       fromTableId: edge.fromTableId,
@@ -1308,35 +1670,6 @@ const buildPropagationEdges = (
       propagationMode: 'linkTraversal',
       order: levels.get(toId) ?? 0,
     });
-    existingEdgeKeys.add(edgeKey(edge));
-  }
-
-  // Schema-level link updates have no seed records, so link fields would otherwise
-  // never become dirty. Add a self edge to force a full-table refresh.
-  if (!hasSeedRecords) {
-    for (const changedFieldId of changedFieldIds) {
-      const meta = fieldsById.get(changedFieldId.toString());
-      if (!meta || meta.type !== 'link') continue;
-      const fieldIdStr = meta.id.toString();
-      if (!computedFieldIds.has(fieldIdStr)) continue;
-
-      const selfEdge = {
-        fromFieldId: meta.id,
-        toFieldId: meta.id,
-        fromTableId: meta.tableId,
-        toTableId: meta.tableId,
-      };
-      const key = edgeKey(selfEdge);
-      if (existingEdgeKeys.has(key)) continue;
-
-      result.push({
-        ...selfEdge,
-        linkFieldId: meta.id,
-        propagationMode: 'allTargetRecords',
-        order: levels.get(fieldIdStr) ?? 0,
-      });
-      existingEdgeKeys.add(key);
-    }
   }
 
   result.sort((a, b) => a.order - b.order);
@@ -1345,18 +1678,23 @@ const buildPropagationEdges = (
     ? 'linkTraversal'
     : 'allTargetRecords';
   for (const edge of symmetricLinkEdges) {
+    if (extraSeedTableIds.has(edge.toTableId.toString())) {
+      continue;
+    }
+
     const toId = edge.toFieldId.toString();
     const order = levels.get(toId) ?? 0;
-    result.push({
+    addPropagationEdge({
       fromFieldId: edge.fromFieldId,
       toFieldId: edge.toFieldId,
       fromTableId: edge.fromTableId,
       toTableId: edge.toTableId,
       linkFieldId: edge.toFieldId,
       propagationMode: symmetricPropagationMode,
+      allTargetRecordsReasons:
+        symmetricPropagationMode === 'allTargetRecords' ? ['symmetric_no_seed_records'] : undefined,
       order,
     });
-    existingEdgeKeys.add(edgeKey(edge));
   }
 
   result.sort((a, b) => a.order - b.order);
@@ -1466,4 +1804,16 @@ const reverseRelationship = (
     default:
       return undefined;
   }
+};
+
+const canTraverseFilteredDeleteWithoutSourceRecord = (linkMeta: FieldMeta): boolean => {
+  if (linkMeta.type !== 'link' || !linkMeta.options) return false;
+
+  const { relationship, isOneWay } = linkMeta.options;
+  return (
+    relationship === 'manyMany' ||
+    relationship === 'manyOne' ||
+    relationship === 'oneOne' ||
+    (relationship === 'oneMany' && isOneWay === true)
+  );
 };

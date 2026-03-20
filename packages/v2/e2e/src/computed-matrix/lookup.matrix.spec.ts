@@ -331,7 +331,7 @@ describe('lookup field matrix (e2e)', () => {
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: LookupSnapshot_Target -> [LookupVal]
-        [Edges: 2]"
+        [Edges: 1]"
       `);
     });
 
