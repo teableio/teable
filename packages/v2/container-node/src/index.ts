@@ -10,6 +10,7 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-po
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
+  startComputedUpdatePollingIfEnabled,
   type IV2TableRepositoryPostgresConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
@@ -156,6 +157,8 @@ export const registerV2NodePgDependencies = async (
 
   // Register command explain module
   registerCommandExplainModule(c);
+
+  startComputedUpdatePollingIfEnabled(c);
 
   return c;
 };

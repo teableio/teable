@@ -105,6 +105,11 @@ export class ComputedUpdatePollingService {
   ) {
     // Auto-start if enabled
     if (this.config.enabled) {
+      this.logger.debug('computed:polling:auto_start_scheduled', {
+        workerId: this.config.workerId,
+        batchSize: this.config.batchSize,
+        pollIntervalMs: this.config.pollIntervalMs,
+      });
       // Use setImmediate to avoid blocking constructor
       setImmediate(() => this.start());
     }
@@ -193,6 +198,12 @@ export class ComputedUpdatePollingService {
     if (this.stopRequested) return;
 
     try {
+      this.logger.debug('computed:polling:tick', {
+        workerId: this.config.workerId,
+        batchSize: this.config.batchSize,
+        consecutiveErrors: this.consecutiveErrors,
+      });
+
       const result = await this.worker.runOnce({
         workerId: this.config.workerId,
         limit: this.config.batchSize,
@@ -223,10 +234,20 @@ export class ComputedUpdatePollingService {
             workerId: this.config.workerId,
             count: processed,
           });
+        } else {
+          this.logger.debug('computed:polling:idle', {
+            workerId: this.config.workerId,
+            pollIntervalMs: this.config.pollIntervalMs,
+          });
         }
 
         // If we processed a full batch, poll again immediately
         if (processed >= this.config.batchSize) {
+          this.logger.debug('computed:polling:continue_immediately', {
+            workerId: this.config.workerId,
+            batchSize: this.config.batchSize,
+            processed,
+          });
           setImmediate(() => void this.poll());
           return;
         }
@@ -242,6 +263,10 @@ export class ComputedUpdatePollingService {
 
     // Schedule next poll
     if (!this.stopRequested) {
+      this.logger.debug('computed:polling:scheduled', {
+        workerId: this.config.workerId,
+        delayMs: this.config.pollIntervalMs,
+      });
       this.pollTimer = setTimeout(() => void this.poll(), this.config.pollIntervalMs);
     }
   }

@@ -129,8 +129,9 @@ const createOutboxStub = () => {
     enqueueFieldBackfill,
     claimBatch: async () => ok([]),
     claimById: async () => ok(null),
-    markDone: async () => ok(undefined),
-    markFailed: async () => ok(undefined),
+    renewLease: async () => ok([]),
+    markDone: async () => ok(true),
+    markFailed: async () => ok(true),
   };
 
   return { outbox, enqueueOrMerge, enqueueSeedTask, enqueueFieldBackfill };

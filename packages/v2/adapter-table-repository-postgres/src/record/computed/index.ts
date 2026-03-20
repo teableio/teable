@@ -21,3 +21,4 @@ export * from './strategies/index';
 export * from './types/index';
 export * from './worker/ComputedUpdateWorker';
 export * from './worker/ComputedUpdatePollingService';
+export * from './worker/startComputedUpdatePollingIfEnabled';

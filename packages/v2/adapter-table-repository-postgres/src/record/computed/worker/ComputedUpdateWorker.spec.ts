@@ -7,7 +7,10 @@ import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillServi
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
-import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+import {
+  defaultComputedUpdateOutboxConfig,
+  type IComputedUpdateOutbox,
+} from '../outbox/IComputedUpdateOutbox';
 import { ComputedUpdateWorker } from './ComputedUpdateWorker';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
@@ -64,6 +67,22 @@ const createUpdaterStub = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   }) as unknown as ComputedFieldUpdater;
 
+const createOutboxStub = (
+  overrides: Partial<IComputedUpdateOutbox> = {}
+): IComputedUpdateOutbox => ({
+  enqueueOrMerge: vi.fn(),
+  enqueueSeedTask: vi.fn(),
+  enqueueFieldBackfill: vi.fn(),
+  claimBatch: vi.fn().mockResolvedValue(ok([])),
+  claimById: vi.fn().mockResolvedValue(ok(null)),
+  renewLease: vi
+    .fn()
+    .mockImplementation(({ taskIds }: { taskIds: string[] }) => Promise.resolve(ok(taskIds))),
+  markDone: vi.fn().mockResolvedValue(ok(true)),
+  markFailed: vi.fn().mockResolvedValue(ok(true)),
+  ...overrides,
+});
+
 // Create a mock task
 const createMockTask = (
   overrides: Partial<ComputedUpdateOutboxItem> = {}
@@ -100,15 +119,7 @@ const createMockTask = (
 describe('ComputedUpdateWorker', () => {
   describe('runOnce', () => {
     it('returns 0 when no tasks are claimed', async () => {
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
-        claimBatch: vi.fn().mockResolvedValue(ok([])),
-        claimById: vi.fn(),
-        markDone: vi.fn(),
-        markFailed: vi.fn(),
-      };
+      const outbox = createOutboxStub();
 
       const updater = createUpdaterStub();
       const planner = {} as ComputedUpdatePlanner;
@@ -118,6 +129,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -136,17 +148,12 @@ describe('ComputedUpdateWorker', () => {
 
     it('calls markFailed when task execution fails', async () => {
       const task = createMockTask();
-      const markFailed = vi.fn().mockResolvedValue(ok(undefined));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
-        claimById: vi.fn(),
-        markDone: vi.fn(),
         markFailed,
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi
@@ -169,6 +176,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -186,17 +194,12 @@ describe('ComputedUpdateWorker', () => {
 
     it('calls markDone when task execution succeeds', async () => {
       const task = createMockTask();
-      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
-        claimById: vi.fn(),
         markDone,
-        markFailed: vi.fn(),
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
@@ -217,6 +220,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -231,24 +235,19 @@ describe('ComputedUpdateWorker', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBe(1);
-      expect(markDone).toHaveBeenCalledWith(task.id, expect.anything());
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
     });
 
     it('processes multiple tasks and counts successful ones', async () => {
       const task1 = createMockTask({ id: 'cuo1' });
       const task2 = createMockTask({ id: 'cuo2' });
       const task3 = createMockTask({ id: 'cuo3' });
-      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task1, task2, task3])),
-        claimById: vi.fn(),
         markDone,
-        markFailed: vi.fn(),
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
@@ -269,6 +268,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -302,17 +302,12 @@ describe('ComputedUpdateWorker', () => {
           },
         ],
       });
-      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
-        claimById: vi.fn(),
         markDone,
-        markFailed: vi.fn(),
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
@@ -340,6 +335,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -369,15 +365,9 @@ describe('ComputedUpdateWorker', () => {
         originRunIds: ['origin-1', 'origin-2'],
       });
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
-        claimById: vi.fn(),
-        markDone: vi.fn(),
-        markFailed: vi.fn().mockResolvedValue(ok(undefined)),
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi
@@ -398,6 +388,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -426,15 +417,10 @@ describe('ComputedUpdateWorker', () => {
         .fn()
         .mockResolvedValue(err(domainError.infrastructure({ message: 'Mark failed error' })));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
+      const outbox = createOutboxStub({
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
-        claimById: vi.fn(),
-        markDone: vi.fn(),
         markFailed,
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi
@@ -455,6 +441,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         unitOfWork,
@@ -476,23 +463,125 @@ describe('ComputedUpdateWorker', () => {
         })
       );
     });
+
+    it('renews leases while a long-running task is still processing', async () => {
+      vi.useFakeTimers();
+      try {
+        const task = createMockTask({ lockedBy: 'worker-1:cuc_lease' });
+        const renewLease = vi.fn().mockResolvedValue(ok([task.id]));
+        const markDone = vi.fn().mockResolvedValue(ok(true));
+
+        const outbox = createOutboxStub({
+          claimBatch: vi.fn().mockResolvedValue(ok([task])),
+          renewLease,
+          markDone,
+        });
+
+        const updater = createUpdaterStub({
+          execute: vi.fn().mockImplementation(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 3500));
+            return ok({ changesByStep: [] });
+          }),
+          collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        });
+
+        const planner = {
+          planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+        } as unknown as ComputedUpdatePlanner;
+
+        const worker = new ComputedUpdateWorker(
+          outbox,
+          {
+            ...defaultComputedUpdateOutboxConfig,
+            processingLeaseMs: 3000,
+            heartbeatIntervalMs: 1000,
+          },
+          updater,
+          planner,
+          createUnitOfWork(),
+          createLogger(),
+          createHasher(),
+          createTableRepository(),
+          createBackfillService(),
+          createEventBus()
+        );
+
+        const runPromise = worker.runOnce({ workerId: 'worker-1', limit: 10 });
+        await vi.advanceTimersByTimeAsync(3500);
+        const result = await runPromise;
+
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()).toBe(1);
+        expect(renewLease).toHaveBeenCalled();
+        expect(renewLease.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('skips claimed tasks that lose their lease before processing starts', async () => {
+      const task1 = createMockTask({ id: 'cuo-lease-1', lockedBy: 'worker-1:cuc_batch' });
+      const task2 = createMockTask({ id: 'cuo-lease-2', lockedBy: 'worker-1:cuc_batch' });
+      const renewLease = vi
+        .fn()
+        .mockImplementation(({ taskIds }: { taskIds: string[] }) =>
+          Promise.resolve(ok(taskIds.includes(task2.id) ? [] : taskIds))
+        );
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task1, task2])),
+        renewLease,
+        markDone,
+      });
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const logger = createLogger();
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        logger,
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(1);
+      expect(markDone).toHaveBeenCalledTimes(1);
+      expect(markDone).toHaveBeenCalledWith(task1, expect.anything());
+      expect(logger.warn).toHaveBeenCalledWith(
+        'computed:worker:task_skipped_lost_lease',
+        expect.objectContaining({ taskId: task2.id })
+      );
+    });
   });
 
   describe('runTaskById', () => {
     it('claims and processes the specified task id', async () => {
       const task = createMockTask();
-      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
       const claimById = vi.fn().mockResolvedValue(ok(task));
 
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
-        claimBatch: vi.fn().mockResolvedValue(ok([])),
+      const outbox = createOutboxStub({
         claimById,
         markDone,
-        markFailed: vi.fn(),
-      };
+      });
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
@@ -505,6 +594,7 @@ describe('ComputedUpdateWorker', () => {
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         updater,
         planner,
         createUnitOfWork(),
@@ -530,22 +620,17 @@ describe('ComputedUpdateWorker', () => {
         }),
         expect.anything()
       );
-      expect(markDone).toHaveBeenCalledWith(task.id, expect.anything());
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
     });
 
     it('returns false when the task cannot be claimed by id', async () => {
-      const outbox: IComputedUpdateOutbox = {
-        enqueueOrMerge: vi.fn(),
-        enqueueSeedTask: vi.fn(),
-        enqueueFieldBackfill: vi.fn(),
-        claimBatch: vi.fn().mockResolvedValue(ok([])),
+      const outbox = createOutboxStub({
         claimById: vi.fn().mockResolvedValue(ok(null)),
-        markDone: vi.fn(),
-        markFailed: vi.fn(),
-      };
+      });
 
       const worker = new ComputedUpdateWorker(
         outbox,
+        defaultComputedUpdateOutboxConfig,
         createUpdaterStub(),
         {} as ComputedUpdatePlanner,
         createUnitOfWork(),

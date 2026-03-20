@@ -43,6 +43,7 @@ import {
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
 import type {
   AnyOutboxItem,
+  ComputedUpdateOutboxConfig,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
   IComputedUpdateOutbox,
@@ -74,6 +75,124 @@ export type ComputedUpdateWorkerRunTaskByIdParams = {
   allowProcessingTakeover?: boolean;
 };
 
+class ClaimedTaskLeaseManager {
+  private readonly taskOwners = new Map<string, string>();
+  private readonly lostTaskIds = new Set<string>();
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatPromise: Promise<void> | null = null;
+
+  constructor(
+    tasks: ReadonlyArray<AnyOutboxItem>,
+    private readonly outbox: IComputedUpdateOutbox,
+    private readonly logger: ILogger,
+    private readonly heartbeatIntervalMs: number
+  ) {
+    for (const task of tasks) {
+      if (task.lockedBy) {
+        this.taskOwners.set(task.id, task.lockedBy);
+      }
+    }
+  }
+
+  start(): void {
+    if (this.taskOwners.size === 0 || this.heartbeatIntervalMs <= 0 || this.timer) return;
+    this.timer = setInterval(() => {
+      void this.heartbeat();
+    }, this.heartbeatIntervalMs);
+  }
+
+  async stop(): Promise<void> {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    if (this.heartbeatPromise) {
+      await this.heartbeatPromise;
+    }
+  }
+
+  releaseTask(taskId: string): void {
+    this.taskOwners.delete(taskId);
+    this.lostTaskIds.delete(taskId);
+    if (this.taskOwners.size === 0 && this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  async ensureTaskActive(taskId: string): Promise<boolean> {
+    if (this.lostTaskIds.has(taskId)) return false;
+    const leaseOwner = this.taskOwners.get(taskId);
+    if (!leaseOwner) return true;
+
+    await this.heartbeat([taskId]);
+    return !this.lostTaskIds.has(taskId);
+  }
+
+  private async heartbeat(taskIds?: string[]): Promise<void> {
+    if (this.taskOwners.size === 0) return;
+    if (this.heartbeatPromise) {
+      await this.heartbeatPromise;
+      if (!taskIds) return;
+    }
+
+    this.heartbeatPromise = this.runHeartbeat(taskIds).finally(() => {
+      this.heartbeatPromise = null;
+    });
+    await this.heartbeatPromise;
+  }
+
+  private async runHeartbeat(taskIds?: string[]): Promise<void> {
+    const groupedTaskIds = this.groupTaskIds(taskIds);
+    if (groupedTaskIds.size === 0) return;
+
+    for (const [leaseOwner, ids] of groupedTaskIds) {
+      const renewResult = await this.outbox.renewLease({
+        taskIds: ids,
+        leaseOwner,
+      });
+
+      if (renewResult.isErr()) {
+        this.logger.warn('computed:worker:lease_renew_failed', {
+          leaseOwner,
+          taskIds: ids,
+          error: renewResult.error.message,
+        });
+        continue;
+      }
+
+      const renewedIds = new Set(renewResult.value);
+      const lostIds = ids.filter((id) => !renewedIds.has(id));
+      if (lostIds.length === 0) continue;
+
+      for (const lostId of lostIds) {
+        this.taskOwners.delete(lostId);
+        this.lostTaskIds.add(lostId);
+      }
+
+      this.logger.warn('computed:worker:lease_lost', {
+        leaseOwner,
+        taskIds: lostIds,
+      });
+    }
+  }
+
+  private groupTaskIds(taskIds?: string[]): Map<string, string[]> {
+    const grouped = new Map<string, string[]>();
+    const ids = taskIds ?? [...this.taskOwners.keys()];
+
+    for (const taskId of ids) {
+      const leaseOwner = this.taskOwners.get(taskId);
+      if (!leaseOwner) continue;
+      const group = grouped.get(leaseOwner) ?? [];
+      group.push(taskId);
+      grouped.set(leaseOwner, group);
+    }
+
+    return grouped;
+  }
+}
+
 /**
  * Background worker that processes computed update outbox tasks.
  *
@@ -87,6 +206,8 @@ export class ComputedUpdateWorker {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
     private readonly outbox: IComputedUpdateOutbox,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig)
+    private readonly outboxConfig: ComputedUpdateOutboxConfig,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldUpdater)
     private readonly updater: ComputedFieldUpdater,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
@@ -140,17 +261,37 @@ export class ComputedUpdateWorker {
             ),
           });
 
+          const leaseManager = this.createLeaseManager(claimed);
+          leaseManager.start();
+
           let processed = 0;
-          for (const task of claimed) {
-            const processResult = await this.processClaimedTask(
-              task,
-              actorIdResult.value,
-              params.tracer,
-              params.requestId
-            );
-            if (processResult.isOk()) {
-              processed += 1;
+          try {
+            for (const task of claimed) {
+              if (!(await leaseManager.ensureTaskActive(task.id))) {
+                this.logger.warn('computed:worker:task_skipped_lost_lease', {
+                  taskId: task.id,
+                  leaseOwner: task.lockedBy ?? null,
+                });
+                leaseManager.releaseTask(task.id);
+                continue;
+              }
+
+              try {
+                const processResult = await this.processClaimedTask(
+                  task,
+                  actorIdResult.value,
+                  params.tracer,
+                  params.requestId
+                );
+                if (processResult.isOk() && processResult.value) {
+                  processed += 1;
+                }
+              } finally {
+                leaseManager.releaseTask(task.id);
+              }
             }
+          } finally {
+            await leaseManager.stop();
           }
 
           return ok(processed);
@@ -199,15 +340,25 @@ export class ComputedUpdateWorker {
 
           if (!claimed) return ok(false);
 
-          const processResult = await this.processClaimedTask(
-            claimed,
-            actorIdResult.value,
-            params.tracer,
-            params.requestId
-          );
-          if (processResult.isErr()) return err(processResult.error);
+          const leaseManager = this.createLeaseManager([claimed]);
+          leaseManager.start();
+          try {
+            if (!(await leaseManager.ensureTaskActive(claimed.id))) {
+              return ok(false);
+            }
 
-          return ok(true);
+            const processResult = await this.processClaimedTask(
+              claimed,
+              actorIdResult.value,
+              params.tracer,
+              params.requestId
+            );
+            if (processResult.isErr()) return err(processResult.error);
+            return ok(processResult.value);
+          } finally {
+            leaseManager.releaseTask(claimed.id);
+            await leaseManager.stop();
+          }
         }.bind(this)
       );
     };
@@ -222,12 +373,21 @@ export class ComputedUpdateWorker {
     }
   }
 
+  private createLeaseManager(tasks: ReadonlyArray<AnyOutboxItem>): ClaimedTaskLeaseManager {
+    return new ClaimedTaskLeaseManager(
+      tasks,
+      this.outbox,
+      this.logger,
+      this.outboxConfig.heartbeatIntervalMs
+    );
+  }
+
   private async processClaimedTask(
     task: AnyOutboxItem,
     actorId: ActorId,
     tracer?: ITracer,
     requestId?: string
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<boolean, DomainError>> {
     if (isFieldBackfillOutboxItem(task)) {
       return this.processFieldBackfillTask(task, actorId, tracer, requestId);
     }
@@ -244,7 +404,7 @@ export class ComputedUpdateWorker {
     actorId: ActorId,
     tracer?: ITracer,
     requestId?: string
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
       computedRunId: computedTask.runId,
@@ -381,10 +541,11 @@ export class ComputedUpdateWorker {
         }
       }
 
-      const doneResult = await this.outbox.markDone(computedTask.id, txContext);
+      const doneResult = await this.outbox.markDone(computedTask, txContext);
       if (doneResult.isErr()) return err(doneResult.error);
+      if (!doneResult.value) return ok(false);
 
-      return ok(undefined);
+      return ok(true);
     });
     if (executeResult.isErr()) {
       this.logger.error('computed:outbox:task_failed', {
@@ -396,21 +557,31 @@ export class ComputedUpdateWorker {
       return err(executeResult.error);
     }
 
-    return ok(undefined);
+    return ok(executeResult.value);
   }
 
   private async handleTaskFailure(
     task: AnyOutboxItem,
     message: string,
     context?: IExecutionContext
-  ) {
+  ): Promise<boolean> {
     const result = await this.outbox.markFailed(task, message, context);
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
         taskId: task.id,
         error: result.error.message,
       });
+      return false;
     }
+
+    if (!result.value) {
+      this.logger.warn('computed:outbox:markFailed_skipped', {
+        taskId: task.id,
+        leaseOwner: task.lockedBy ?? null,
+      });
+    }
+
+    return result.value;
   }
 
   /**
@@ -422,7 +593,7 @@ export class ComputedUpdateWorker {
     actorId: ActorId,
     tracer?: ITracer,
     requestId?: string
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
       computedRunId: task.runId,
@@ -511,25 +682,29 @@ export class ComputedUpdateWorker {
         ...runLogContext,
       });
       // Mark as done since there's nothing to backfill
-      const doneResult = await this.outbox.markDone(task.id, context);
+      const doneResult = await this.outbox.markDone(task, context);
       return doneResult;
     }
 
     // Execute backfill within a transaction
-    const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
-      // Execute sync backfill for all fields
-      const backfillResult = await this.backfillService.executeSyncMany(txContext, {
-        table,
-        fields: fieldsToBackfill,
-      });
-      if (backfillResult.isErr()) return backfillResult;
+    const executeResult: Result<boolean, DomainError> = await this.unitOfWork.withTransaction(
+      context,
+      async (txContext) => {
+        // Execute sync backfill for all fields
+        const backfillResult = await this.backfillService.executeSyncMany(txContext, {
+          table,
+          fields: fieldsToBackfill,
+        });
+        if (backfillResult.isErr()) return err(backfillResult.error);
 
-      // Mark task as done
-      const doneResult = await this.outbox.markDone(task.id, txContext);
-      if (doneResult.isErr()) return doneResult;
+        // Mark task as done
+        const doneResult = await this.outbox.markDone(task, txContext);
+        if (doneResult.isErr()) return doneResult;
+        if (!doneResult.value) return ok(false);
 
-      return ok(undefined);
-    });
+        return ok(true);
+      }
+    );
 
     if (executeResult.isErr()) {
       this.logger.error('computed:worker:field_backfill_failed', {
@@ -537,7 +712,7 @@ export class ComputedUpdateWorker {
         error: executeResult.error.message,
         ...runLogContext,
       });
-      await this.handleTaskFailure(task, executeResult.error.message);
+      await this.handleTaskFailure(task, executeResult.error.message, context);
       return err(executeResult.error);
     }
 
@@ -548,7 +723,7 @@ export class ComputedUpdateWorker {
       ...runLogContext,
     });
 
-    return ok(undefined);
+    return ok(true);
   }
 
   /**
@@ -561,7 +736,7 @@ export class ComputedUpdateWorker {
     actorId: ActorId,
     tracer?: ITracer,
     requestId?: string
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
       computedRunId: task.runId,
@@ -655,7 +830,7 @@ export class ComputedUpdateWorker {
         taskId: task.id,
         ...runLogContext,
       });
-      const doneResult = await this.outbox.markDone(task.id, context);
+      const doneResult = await this.outbox.markDone(task, context);
       return doneResult;
     }
 
@@ -707,9 +882,10 @@ export class ComputedUpdateWorker {
       // If there are no cross-record propagation edges, the plan is purely same-record
       // (e.g. same-table formula chains) and should not enqueue follow-up stages.
       if (plan.edges.length === 0) {
-        const doneResult = await this.outbox.markDone(task.id, txContext);
+        const doneResult = await this.outbox.markDone(task, txContext);
         if (doneResult.isErr()) return err(doneResult.error);
-        return ok(undefined);
+        if (!doneResult.value) return ok(false);
+        return ok(true);
       }
       const stageFieldIds = plan.steps.flatMap((step) => step.fieldIds);
       const nextPlanResult = await this.planNextStage(
@@ -743,10 +919,11 @@ export class ComputedUpdateWorker {
       }
 
       // Mark seed task as done
-      const doneResult = await this.outbox.markDone(task.id, txContext);
+      const doneResult = await this.outbox.markDone(task, txContext);
       if (doneResult.isErr()) return err(doneResult.error);
+      if (!doneResult.value) return ok(false);
 
-      return ok(undefined);
+      return ok(true);
     });
 
     if (executeResult.isErr()) {
@@ -766,7 +943,7 @@ export class ComputedUpdateWorker {
       ...runLogContext,
     });
 
-    return ok(undefined);
+    return ok(executeResult.value);
   }
 
   private async planNextStage(

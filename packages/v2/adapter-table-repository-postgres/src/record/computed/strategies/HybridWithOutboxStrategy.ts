@@ -96,11 +96,11 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
   syncMaxDirtyPerTable: 2000,
   syncMaxTotalDirty: 5000,
   syncMaxLevelHardCap: 1,
-  // Default to 'push' with 50ms delay for safety
-  dispatchMode: 'push',
+  // Default to external polling for restart-safe production behavior.
+  dispatchMode: 'external',
   dispatchWorkerLimit: 50,
   dispatchWorkerId: 'computed-inline',
-  dispatchDelayMs: 50, // Changed from 0 to 50 to avoid race condition
+  dispatchDelayMs: 50,
 };
 
 /**

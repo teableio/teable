@@ -1,5 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateOutboxConfig,
+} from '@teable/v2-adapter-table-repository-postgres';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
@@ -15,6 +19,10 @@ async function handleGet() {
   try {
     const container = await createPlaygroundContainer();
     const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const outboxConfig = container.resolve<ComputedUpdateOutboxConfig>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
+    );
+    const now = new Date();
 
     const tasks = await db
       .selectFrom('computed_update_outbox as o')
@@ -33,6 +41,8 @@ async function handleGet() {
         'o.created_at as createdAt',
         'o.updated_at as updatedAt',
         'o.next_run_at as nextRunAt',
+        'o.locked_at as lockedAt',
+        'o.locked_by as lockedBy',
         (eb) => eb.fn.count<number>('s.id').as('seedCount'),
       ])
       .groupBy('o.id')
@@ -40,9 +50,36 @@ async function handleGet() {
       .limit(100)
       .execute();
 
+    const items = tasks.map((task) => {
+      const lockedAt = task.lockedAt ? new Date(task.lockedAt) : null;
+      const leaseExpiresAt = lockedAt
+        ? new Date(lockedAt.getTime() + outboxConfig.processingLeaseMs)
+        : null;
+      const lockedBy = task.lockedBy ?? null;
+      const lockedWorkerId =
+        typeof lockedBy === 'string' && lockedBy.includes(':')
+          ? lockedBy.split(':', 1)[0]
+          : lockedBy;
+      const isStaleProcessing =
+        task.status === 'processing' && leaseExpiresAt
+          ? leaseExpiresAt.getTime() <= now.getTime()
+          : false;
+
+      return {
+        ...task,
+        lockedAt,
+        lockedBy,
+        lockedWorkerId,
+        processingLeaseMs: outboxConfig.processingLeaseMs,
+        leaseExpiresAt,
+        leaseAgeMs: lockedAt ? Math.max(now.getTime() - lockedAt.getTime(), 0) : null,
+        isStaleProcessing,
+      };
+    });
+
     return jsonResponse({
-      items: tasks,
-      total: tasks.length,
+      items,
+      total: items.length,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch outbox tasks';

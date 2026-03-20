@@ -110,6 +110,8 @@ spec:
                 postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-__NAMESPACE__.svc:$(PG_PORT)/teable
             - name: PUBLIC_ORIGIN
               value: https://__INSTANCE_DOMAIN__.sealoshzh.site
+            - name: LOG_LEVEL
+              value: debug
             - name: BACKEND_JWT_SECRET
               value: exdpbfxmlqhjnqxu
             - name: BACKEND_SESSION_SECRET

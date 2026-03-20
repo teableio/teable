@@ -32,6 +32,7 @@ import type {
   IComputedUpdateOutbox,
   ClaimBatchParams,
   ClaimByIdParams,
+  RenewLeaseParams,
   ComputedUpdateOutboxConfig,
   AnyOutboxItem,
   FieldBackfillOutboxItem,
@@ -47,6 +48,8 @@ const OUTBOX_ID_PREFIX = 'cuo';
 const OUTBOX_ID_BODY_LENGTH = 16;
 const OUTBOX_SEED_ID_PREFIX = 'cus';
 const OUTBOX_SEED_ID_BODY_LENGTH = 16;
+const OUTBOX_CLAIM_ID_PREFIX = 'cuc';
+const OUTBOX_CLAIM_ID_BODY_LENGTH = 10;
 
 /** Change type for field backfill tasks (stored in change_type column) */
 const FIELD_BACKFILL_CHANGE_TYPE = 'field-backfill';
@@ -57,6 +60,8 @@ const SEED_CHANGE_TYPE = 'seed';
 const createOutboxId = (): string => generatePrefixedId(OUTBOX_ID_PREFIX, OUTBOX_ID_BODY_LENGTH);
 const createOutboxSeedId = (): string =>
   generatePrefixedId(OUTBOX_SEED_ID_PREFIX, OUTBOX_SEED_ID_BODY_LENGTH);
+const createClaimOwner = (workerId: string): string =>
+  `${workerId}:${generatePrefixedId(OUTBOX_CLAIM_ID_PREFIX, OUTBOX_CLAIM_ID_BODY_LENGTH)}`;
 
 type OutboxRow = Record<string, unknown>;
 
@@ -403,19 +408,44 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeClaim = async (): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>> => {
       const now = params.now ?? new Date();
+      const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
+      const reclaimLimit = Math.min(params.limit, this.config.reclaimBatchSize);
+      const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
       return runInTransaction(db, context, async (trx) => {
-        const rows = await trx
-          .selectFrom(OUTBOX_TABLE)
-          .selectAll()
-          .where('status', '=', DEFAULT_STATUS)
-          .where('next_run_at', '<=', now)
-          .orderBy('created_at', 'asc')
-          .limit(params.limit)
-          .forUpdate()
-          .skipLocked()
-          .execute();
+        const staleRows =
+          reclaimLimit > 0
+            ? await trx
+                .selectFrom(OUTBOX_TABLE)
+                .selectAll()
+                .where('status', '=', 'processing')
+                .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
+                .orderBy('locked_at', 'asc')
+                .orderBy('created_at', 'asc')
+                .limit(reclaimLimit)
+                .forUpdate()
+                .skipLocked()
+                .execute()
+            : [];
+
+        const remaining = Math.max(params.limit - staleRows.length, 0);
+        const pendingRows =
+          remaining > 0
+            ? await trx
+                .selectFrom(OUTBOX_TABLE)
+                .selectAll()
+                .where('status', '=', DEFAULT_STATUS)
+                .where('next_run_at', '<=', now)
+                .orderBy('next_run_at', 'asc')
+                .orderBy('created_at', 'asc')
+                .limit(remaining)
+                .forUpdate()
+                .skipLocked()
+                .execute()
+            : [];
+
+        const rows = [...staleRows, ...pendingRows];
 
         if (rows.length === 0) return ok([]);
 
@@ -425,14 +455,45 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           .set({
             status: 'processing',
             locked_at: now,
-            locked_by: params.workerId,
+            locked_by: claimOwner,
             updated_at: now,
           })
           .where('id', 'in', ids)
           .execute();
 
         const seedMap = await this.loadSeedRecords(trx, rows);
-        const tasks = rows.map((row) => toAnyOutboxItem(row, seedMap.get(String(row.id)) ?? []));
+        const tasks = rows.map((row) =>
+          toAnyOutboxItem(
+            {
+              ...row,
+              status: 'processing',
+              locked_at: now,
+              locked_by: claimOwner,
+              updated_at: now,
+            },
+            seedMap.get(String(row.id)) ?? []
+          )
+        );
+
+        this.logger.debug('computed:outbox:claimed', {
+          workerId: params.workerId,
+          leaseOwner: claimOwner,
+          claimedCount: rows.length,
+          pendingCount: pendingRows.length,
+          reclaimedCount: staleRows.length,
+          taskIds: ids,
+        });
+
+        if (staleRows.length > 0) {
+          this.logger.warn('computed:outbox:stale_processing_reclaimed', {
+            workerId: params.workerId,
+            leaseOwner: claimOwner,
+            reclaimedCount: staleRows.length,
+            processingLeaseMs: this.config.processingLeaseMs,
+            reclaimBefore,
+            taskIds: staleRows.map((row) => String(row.id)),
+          });
+        }
 
         return ok(tasks);
       });
@@ -459,6 +520,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeClaim = async (): Promise<Result<AnyOutboxItem | null, DomainError>> => {
       const now = params.now ?? new Date();
+      const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       const retryableStatuses = params.allowProcessingTakeover
         ? [DEFAULT_STATUS, 'processing']
@@ -480,7 +542,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           .set({
             status: 'processing',
             locked_at: now,
-            locked_by: params.workerId,
+            locked_by: claimOwner,
             updated_at: now,
           })
           .where('id', '=', params.taskId)
@@ -491,9 +553,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           ...row,
           status: 'processing',
           locked_at: now,
-          locked_by: params.workerId,
+          locked_by: claimOwner,
           updated_at: now,
         };
+
+        if (String(row.status) === 'processing') {
+          this.logger.warn('computed:outbox:processing_taken_over', {
+            taskId: params.taskId,
+            workerId: params.workerId,
+            previousLeaseOwner: row.locked_by ? String(row.locked_by) : null,
+            newLeaseOwner: claimOwner,
+          });
+        }
 
         return ok(toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []));
       });
@@ -509,17 +580,83 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     }
   }
 
-  async markDone(taskId: string, context?: IExecutionContext): Promise<Result<void, DomainError>> {
+  async renewLease(
+    params: RenewLeaseParams,
+    context?: IExecutionContext
+  ): Promise<Result<ReadonlyArray<string>, DomainError>> {
+    const taskIds = [...new Set(params.taskIds)].filter(Boolean);
+    if (taskIds.length === 0) return ok([]);
+
+    const span = context?.tracer?.startSpan('teable.outbox.renewLease', {
+      'outbox.taskCount': taskIds.length,
+      'outbox.leaseOwner': params.leaseOwner,
+    });
+
+    const executeRenew = async (): Promise<Result<ReadonlyArray<string>, DomainError>> => {
+      const now = params.now ?? new Date();
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      return runInTransaction(db, context, async (trx) => {
+        const renewed = await trx
+          .updateTable(OUTBOX_TABLE)
+          .set({
+            locked_at: now,
+            updated_at: now,
+          })
+          .where('id', 'in', taskIds)
+          .where('status', '=', 'processing')
+          .where('locked_by', '=', params.leaseOwner)
+          .returning('id')
+          .execute();
+
+        return ok(renewed.map((row) => String(row.id)));
+      });
+    };
+
+    try {
+      if (span && context?.tracer) {
+        return await context.tracer.withSpan(span, executeRenew);
+      }
+      return await executeRenew();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async markDone(
+    taskOrId: AnyOutboxItem | string,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>> {
+    const taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
+    const leaseOwner = typeof taskOrId === 'string' ? null : taskOrId.lockedBy ?? null;
     const span = context?.tracer?.startSpan('teable.outbox.markDone', {
       'outbox.taskId': taskId,
     });
 
-    const executeMarkDone = async (): Promise<Result<void, DomainError>> => {
+    const executeMarkDone = async (): Promise<Result<boolean, DomainError>> => {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       return runInTransaction(db, context, async (trx) => {
-        await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).execute();
+        const deleted = leaseOwner
+          ? await trx
+              .deleteFrom(OUTBOX_TABLE)
+              .where('id', '=', taskId)
+              .where('status', '=', 'processing')
+              .where('locked_by', '=', leaseOwner)
+              .returning('id')
+              .execute()
+          : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returning('id').execute();
+
+        if (deleted.length === 0) {
+          if (leaseOwner) {
+            this.logger.warn('computed:outbox:markDone_skipped_owner_mismatch', {
+              taskId,
+              leaseOwner,
+            });
+          }
+          return ok(false);
+        }
+
         await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-        return ok(undefined);
+        return ok(true);
       });
     };
 
@@ -537,19 +674,39 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     task: AnyOutboxItem,
     error: string,
     context?: IExecutionContext
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<boolean, DomainError>> {
     const span = context?.tracer?.startSpan('teable.outbox.markFailed', {
       'outbox.taskId': task.id,
       'outbox.attempts': task.attempts,
       'outbox.maxAttempts': task.maxAttempts,
     });
 
-    const executeMarkFailed = async (): Promise<Result<void, DomainError>> => {
+    const executeMarkFailed = async (): Promise<Result<boolean, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       const nextAttempts = task.attempts + 1;
+      const leaseOwner = task.lockedBy ?? null;
 
       return runInTransaction(db, context, async (trx) => {
+        if (leaseOwner) {
+          const ownedRow = await trx
+            .selectFrom(OUTBOX_TABLE)
+            .select(['id'])
+            .where('id', '=', task.id)
+            .where('status', '=', 'processing')
+            .where('locked_by', '=', leaseOwner)
+            .forUpdate()
+            .executeTakeFirst();
+
+          if (!ownedRow) {
+            this.logger.warn('computed:outbox:markFailed_skipped_owner_mismatch', {
+              taskId: task.id,
+              leaseOwner,
+            });
+            return ok(false);
+          }
+        }
+
         if (nextAttempts >= task.maxAttempts) {
           const isBackfill = isFieldBackfillItem(task);
           const isSeed = isSeedItem(task);
@@ -569,7 +726,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
 
           this.logger.warn('computed:outbox:dead_letter', { taskId: task.id, error });
-          return ok(undefined);
+          return ok(true);
         }
 
         const delay = Math.min(
@@ -598,7 +755,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           nextRunAt,
         });
 
-        return ok(undefined);
+        return ok(true);
       });
     };
 

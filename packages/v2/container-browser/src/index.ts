@@ -6,7 +6,10 @@ import {
 } from '@teable/v2-adapter-db-postgres-pglite';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
-import { registerV2TableRepositoryPostgresAdapter } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  registerV2TableRepositoryPostgresAdapter,
+  startComputedUpdatePollingIfEnabled,
+} from '@teable/v2-adapter-table-repository-postgres';
 import {
   AsyncMemoryEventBus,
   MemoryCommandBus,
@@ -138,6 +141,8 @@ export const registerV2BrowserPgliteDependencies = async (
 
   // Register core services (uses defaults unless already registered)
   registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
+
+  startComputedUpdatePollingIfEnabled(c);
 
   return c;
 };

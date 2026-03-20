@@ -271,33 +271,37 @@ describe('ComputedUpdateOutbox', () => {
   });
 
   describe('claimBatch', () => {
-    it('only claims tasks with pending status and next_run_at <= now', async () => {
+    it('checks stale processing before claiming pending work', async () => {
       const now = new Date('2026-01-05T12:00:00Z');
-      let statusValue: string | null = null;
+      const statuses: string[] = [];
+
+      const createSelectChain = (rows: unknown[]) => ({
+        selectAll: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation((col, _op, val) => {
+            if (col === 'status') statuses.push(String(val));
+            return {
+              where: vi.fn().mockReturnThis(),
+              orderBy: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnValue({
+                forUpdate: vi.fn().mockReturnValue({
+                  skipLocked: vi.fn().mockReturnValue({
+                    execute: vi.fn().mockResolvedValue(rows),
+                  }),
+                }),
+              }),
+            };
+          }),
+        }),
+      });
 
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
-        selectFrom: vi.fn().mockReturnValue({
-          selectAll: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation((col, _op, val) => {
-              if (col === 'status') statusValue = val;
-              return {
-                where: vi.fn().mockReturnThis(),
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    forUpdate: vi.fn().mockReturnValue({
-                      skipLocked: vi.fn().mockReturnValue({
-                        execute: vi.fn().mockResolvedValue([]),
-                      }),
-                    }),
-                  }),
-                }),
-              };
-            }),
-          }),
-        }),
+        selectFrom: vi
+          .fn()
+          .mockImplementationOnce(() => createSelectChain([]))
+          .mockImplementationOnce(() => createSelectChain([])),
       } as unknown as MockDb;
 
       const logger = createLogger();
@@ -305,11 +309,12 @@ describe('ComputedUpdateOutbox', () => {
 
       await outbox.claimBatch({ workerId: 'worker-1', limit: 10, now });
 
-      expect(statusValue).toBe('pending');
+      expect(statuses).toEqual(['processing', 'pending']);
     });
 
     it('marks claimed tasks as processing', async () => {
       let updateStatus: string | null = null;
+      let lockedBy: string | null = null;
 
       const mockRow = {
         id: 'cuo123',
@@ -340,35 +345,35 @@ describe('ComputedUpdateOutbox', () => {
         updated_at: new Date().toISOString(),
       };
 
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
-        }),
-        selectFrom: vi.fn().mockReturnValue({
-          selectAll: vi.fn().mockReturnValue({
+      const createSelectChain = (rows: unknown[]) => ({
+        selectAll: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
             where: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    forUpdate: vi.fn().mockReturnValue({
-                      skipLocked: vi.fn().mockReturnValue({
-                        execute: vi.fn().mockResolvedValue([mockRow]),
-                      }),
-                    }),
+              orderBy: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnValue({
+                forUpdate: vi.fn().mockReturnValue({
+                  skipLocked: vi.fn().mockReturnValue({
+                    execute: vi.fn().mockResolvedValue(rows),
                   }),
                 }),
               }),
             }),
           }),
-          select: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([]),
-            }),
-          }),
         }),
+      });
+
+      const mockDb = {
+        transaction: () => ({
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+        }),
+        selectFrom: vi
+          .fn()
+          .mockImplementationOnce(() => createSelectChain([]))
+          .mockImplementationOnce(() => createSelectChain([mockRow])),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockImplementation((values) => {
             updateStatus = values.status;
+            lockedBy = values.locked_by;
             return {
               where: vi.fn().mockReturnValue({
                 execute: vi.fn().mockResolvedValue([]),
@@ -384,6 +389,7 @@ describe('ComputedUpdateOutbox', () => {
       await outbox.claimBatch({ workerId: 'worker-1', limit: 10 });
 
       expect(updateStatus).toBe('processing');
+      expect(lockedBy).toContain('worker-1:');
     });
   });
 
@@ -397,6 +403,15 @@ describe('ComputedUpdateOutbox', () => {
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
           deletedTables.push(table);
+          if (table === 'computed_update_outbox') {
+            return {
+              where: vi.fn().mockReturnValue({
+                returning: vi.fn().mockReturnValue({
+                  execute: vi.fn().mockResolvedValue([{ id: 'cuo123' }]),
+                }),
+              }),
+            };
+          }
           return {
             where: vi.fn().mockReturnValue({
               execute: vi.fn().mockResolvedValue([]),

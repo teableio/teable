@@ -15,7 +15,9 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-po
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
+  startComputedUpdatePollingIfEnabled,
   v2RecordRepositoryPostgresTokens,
+  type IV2TableRepositoryPostgresConfig,
   type ComputedUpdateWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
@@ -76,6 +78,7 @@ export interface IV2NodeTestContainer {
   eventBus: MemoryEventBus;
   baseId: BaseId;
   db: Kysely<V1TeableDatabase>;
+  connectionString: string;
   /**
    * Process all pending outbox tasks (for tests that need to wait for async computed updates).
    * Returns the number of tasks processed.
@@ -117,6 +120,7 @@ export interface IV2NodeTestContainerOptions {
   ensureSchema?: boolean;
   seedBase?: boolean;
   maxFreeRowLimit?: number;
+  computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
 }
 
 export const createV2NodeTestContainer = async (
@@ -193,6 +197,7 @@ export const createV2NodeTestContainer = async (
     computedUpdate: {
       hybridConfig: { dispatchMode: 'external' },
       pollingConfig: { enabled: false },
+      ...options.computedUpdate,
     },
     typeValidationStrategy,
   });
@@ -238,6 +243,8 @@ export const createV2NodeTestContainer = async (
 
   // Register command explain module (used by explain endpoints in tests)
   registerCommandExplainModule(c);
+
+  const computedUpdatePollingService = startComputedUpdatePollingIfEnabled(c);
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
@@ -339,9 +346,11 @@ export const createV2NodeTestContainer = async (
     eventBus,
     baseId,
     db,
+    connectionString,
     processOutbox,
     dispose: async () => {
       try {
+        await computedUpdatePollingService?.stop();
         await db.destroy();
       } finally {
         if (pgContainer) {

@@ -17,6 +17,21 @@ export type ComputedUpdateOutboxConfig = {
   baseBackoffMs: number;
   /** Max backoff in milliseconds for retry scheduling. */
   maxBackoffMs: number;
+  /**
+   * Lease duration for claimed `processing` tasks.
+   * Workers must renew `locked_at` before this expires.
+   */
+  processingLeaseMs: number;
+  /**
+   * Heartbeat interval for renewing claimed task leases.
+   * Values slower than the lease window are clamped during registration.
+   */
+  heartbeatIntervalMs: number;
+  /**
+   * Upper bound of stale `processing` tasks reclaimed per batch.
+   * Pending work still fills the remaining batch capacity.
+   */
+  reclaimBatchSize: number;
 };
 
 export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
@@ -24,6 +39,25 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   maxAttempts: 8,
   baseBackoffMs: 5000,
   maxBackoffMs: 5 * 60 * 1000,
+  processingLeaseMs: 2 * 60 * 1000,
+  heartbeatIntervalMs: 30 * 1000,
+  reclaimBatchSize: 50,
+};
+
+export const normalizeComputedUpdateOutboxConfig = (
+  config: ComputedUpdateOutboxConfig
+): ComputedUpdateOutboxConfig => {
+  const processingLeaseMs = Math.max(5000, Math.trunc(config.processingLeaseMs));
+  const recommendedHeartbeat = Math.max(1000, Math.trunc(processingLeaseMs / 3));
+  return {
+    ...config,
+    processingLeaseMs,
+    heartbeatIntervalMs: Math.max(
+      1000,
+      Math.min(Math.trunc(config.heartbeatIntervalMs), recommendedHeartbeat)
+    ),
+    reclaimBatchSize: Math.max(1, Math.trunc(config.reclaimBatchSize)),
+  };
 };
 
 export type ClaimBatchParams = {
@@ -37,6 +71,12 @@ export type ClaimByIdParams = {
   workerId: string;
   now?: Date;
   allowProcessingTakeover?: boolean;
+};
+
+export type RenewLeaseParams = {
+  taskIds: string[];
+  leaseOwner: string;
+  now?: Date;
 };
 
 /**
@@ -125,11 +165,19 @@ export interface IComputedUpdateOutbox {
     context?: IExecutionContext
   ): Promise<Result<AnyOutboxItem | null, DomainError>>;
 
-  markDone(taskId: string, context?: IExecutionContext): Promise<Result<void, DomainError>>;
+  renewLease(
+    params: RenewLeaseParams,
+    context?: IExecutionContext
+  ): Promise<Result<ReadonlyArray<string>, DomainError>>;
+
+  markDone(
+    taskOrId: AnyOutboxItem | string,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>>;
 
   markFailed(
     task: AnyOutboxItem,
     error: string,
     context?: IExecutionContext
-  ): Promise<Result<void, DomainError>>;
+  ): Promise<Result<boolean, DomainError>>;
 }

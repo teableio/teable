@@ -34,6 +34,7 @@ import {
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   defaultPollingConfig,
+  normalizeComputedUpdateOutboxConfig,
   ComputedUpdateWorker,
   UserRenamePropagationService,
 } from '../record/computed';
@@ -183,10 +184,10 @@ export const registerV2TableRepositoryPostgresAdapter = (
     ...defaultHybridWithOutboxStrategyConfig,
     ...config.computedUpdate?.hybridConfig,
   };
-  const outboxConfig: ComputedUpdateOutboxConfig = {
+  const outboxConfig: ComputedUpdateOutboxConfig = normalizeComputedUpdateOutboxConfig({
     ...defaultComputedUpdateOutboxConfig,
     ...config.computedUpdate?.outboxConfig,
-  };
+  });
   const lockConfig: ComputedUpdateLockConfig = {
     ...defaultComputedUpdateLockConfig,
     ...config.computedUpdate?.lockConfig,
@@ -202,7 +203,8 @@ export const registerV2TableRepositoryPostgresAdapter = (
   };
   c.registerInstance(v2RecordRepositoryPostgresTokens.fieldBackfillConfig, fieldBackfillConfig);
 
-  const dispatchMode = hybridConfig.dispatchMode ?? 'push';
+  const dispatchMode =
+    hybridConfig.dispatchMode ?? defaultHybridWithOutboxStrategyConfig.dispatchMode;
   const pollingEnabled =
     config.computedUpdate?.pollingConfig?.enabled ??
     (dispatchMode === 'hybrid' || dispatchMode === 'external');
