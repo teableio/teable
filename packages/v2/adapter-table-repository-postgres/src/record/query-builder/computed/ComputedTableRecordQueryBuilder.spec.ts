@@ -2057,9 +2057,48 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
+      expect(sql).not.toContain('inner join lateral');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1 order by "f"."__auto_number" asc limit $2) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1 order by "f"."__auto_number" asc limit $2) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
       );
+    });
+
+    test('conditional rollup falls back to lateral for complex source-only filter', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              conjunction: 'or',
+              filterSet: [
+                {
+                  fieldId: FOREIGN_FILTER_FIELD_ID,
+                  operator: 'is',
+                  value: 'A',
+                },
+                {
+                  fieldId: FOREIGN_FILTER_FIELD_ID,
+                  operator: 'is',
+                  value: 'B',
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('inner join lateral');
+      expect(sql).toContain('"f"."col_category" = $1');
+      expect(sql).toContain('"f"."col_category" = $2');
     });
 
     test('conditional rollup snapshot with field reference filter', () => {
@@ -2086,6 +2125,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
+      expect(sql).toContain('inner join lateral');
       expect(sql).toMatchInlineSnapshot(
         `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref" order by "f"."__auto_number" asc limit $1) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
       );

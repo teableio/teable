@@ -71,6 +71,19 @@ const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
   parsePositiveInt(process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT, CONDITIONAL_QUERY_MAX_LIMIT),
   CONDITIONAL_QUERY_MAX_LIMIT
 );
+const SIMPLE_CONDITIONAL_ROLLUP_OPERATORS: ReadonlySet<string> = new Set(['is', 'isAnyOf']);
+
+type SimpleConditionalRollupFilterItem = {
+  fieldId: string;
+  operator: 'is' | 'isAnyOf';
+  value?: unknown;
+  isSymbol?: boolean;
+};
+
+type SimpleConditionalRollupFilter = {
+  conjunction: 'and';
+  filterSet: SimpleConditionalRollupFilterItem[];
+};
 
 type ResolvedOrderBy = {
   column: string;
@@ -80,10 +93,70 @@ type ResolvedOrderBy = {
   userLikeSource?: 'field' | 'system';
 };
 
+const isSimpleConditionalRollupScalar = (value: unknown): value is string | number | boolean =>
+  typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+const isSimpleConditionalRollupItem = (
+  value: unknown,
+  foreignFieldIds: ReadonlySet<string>
+): value is SimpleConditionalRollupFilterItem => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  if ('filterSet' in value) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const fieldId = candidate.fieldId;
+  const operator = candidate.operator;
+
+  if (
+    typeof fieldId !== 'string' ||
+    !foreignFieldIds.has(fieldId) ||
+    typeof operator !== 'string' ||
+    !SIMPLE_CONDITIONAL_ROLLUP_OPERATORS.has(operator) ||
+    candidate.isSymbol === true
+  ) {
+    return false;
+  }
+
+  if (operator === 'is') {
+    return isSimpleConditionalRollupScalar(candidate.value);
+  }
+
+  return (
+    Array.isArray(candidate.value) &&
+    candidate.value.length > 0 &&
+    candidate.value.every((item) => isSimpleConditionalRollupScalar(item))
+  );
+};
+
+const isSimpleConditionalRollupFilter = (
+  value: unknown,
+  foreignFieldIds: ReadonlySet<string>
+): value is SimpleConditionalRollupFilter => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.conjunction !== 'and' || !Array.isArray(candidate.filterSet)) {
+    return false;
+  }
+
+  return (
+    candidate.filterSet.length > 0 &&
+    candidate.filterSet.every((item) => isSimpleConditionalRollupItem(item, foreignFieldIds))
+  );
+};
+
 type ResolvedOrderByColumn = Pick<
   ResolvedOrderBy,
   'column' | 'expression' | 'userLikeMode' | 'userLikeSource'
 >;
+
 /**
  * Configuration for dirty record filtering.
  * When provided, the query will INNER JOIN with the dirty table early
@@ -590,7 +663,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     return safeTry<(qb: QB) => QB, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
-        const subqueries: AliasedExpression<Record<string, unknown>, string>[] = [];
+        const subqueries: Array<{
+          query: AliasedExpression<Record<string, unknown>, string>;
+          useLateralJoin: boolean;
+        }> = [];
 
         for (const [, lateral] of conditionalLaterals) {
           const foreignTable = foreignTables.get(lateral.foreignTableId);
@@ -622,6 +698,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const isConditionalDerived =
             firstColumnType?.type === 'conditionalLookup' ||
             firstColumnType?.type === 'conditionalRollup';
+          const useUncorrelatedRollupFastPath = this.shouldUseConditionalRollupFastPath(
+            foreignTable,
+            firstColumnType
+          );
           const defaultOrderBy = isConditionalDerived ? DEFAULT_CONDITIONAL_ORDER_BY : undefined;
           const orderByForSelect = sortClause ?? defaultOrderBy;
           const orderByForLimit =
@@ -678,14 +758,46 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 return baseQuery.as(lateral.alias);
               })();
 
-          subqueries.push(query);
+          subqueries.push({
+            query,
+            useLateralJoin: !useUncorrelatedRollupFastPath,
+          });
         }
 
-        return ok((qb: QB) =>
-          subqueries.reduce((q, sub) => q.innerJoinLateral(sub, (j) => j.onTrue()), qb)
+        return ok(
+          (qb: QB) =>
+            subqueries.reduce((q, subquery) => {
+              if (subquery.useLateralJoin) {
+                return q.innerJoinLateral(subquery.query, (j) => j.onTrue()) as QB;
+              }
+              return q.innerJoin(subquery.query, (j) => j.onTrue()) as QB;
+            }, qb) as QB
         );
       }.bind(this)
     );
+  }
+
+  private shouldUseConditionalRollupFastPath(
+    foreignTable: Table,
+    columnType: LateralColumnType | undefined
+  ): boolean {
+    if (!columnType || columnType.type !== 'conditionalRollup') {
+      return false;
+    }
+
+    const condition = columnType.condition;
+    if (!condition.hasFilter() || condition.hasSort() || condition.hasLimit()) {
+      return false;
+    }
+
+    const foreignFieldIds = new Set(foreignTable.getFields().map((field) => field.id().toString()));
+    if (
+      condition.referencedFieldIds().some((fieldId) => !foreignFieldIds.has(fieldId.toString()))
+    ) {
+      return false;
+    }
+
+    return isSimpleConditionalRollupFilter(condition.toDto().filter, foreignFieldIds);
   }
 
   /**
