@@ -1,5 +1,11 @@
 import { Command } from '@effect/cli';
-import { computedRunTask } from './computed';
+import {
+  computedReplay,
+  computedRunTask,
+  computedSummary,
+  computedTask,
+  computedTasks,
+} from './computed';
 import { dottea } from './dottea';
 import {
   explainCreate,
@@ -49,7 +55,13 @@ export const mock = Command.make('mock').pipe(
 // computed task subcommand group
 export const computed = Command.make('computed').pipe(
   Command.withDescription('Operate computed outbox tasks'),
-  Command.withSubcommands([computedRunTask])
+  Command.withSubcommands([
+    computedSummary,
+    computedTasks,
+    computedTask,
+    computedRunTask,
+    computedReplay,
+  ])
 );
 
 // records subcommand group (application layer queries and mutations)

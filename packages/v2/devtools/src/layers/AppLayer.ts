@@ -1,6 +1,7 @@
 import { Layer } from 'effect';
 import type { CommandExplain } from '../services/CommandExplain';
 import type { ComputedTaskControl } from '../services/ComputedTaskControl';
+import type { ComputedTaskInspector } from '../services/ComputedTaskInspector';
 import type { DatabaseConfig } from '../services/Database';
 import type { DebugData } from '../services/DebugData';
 import type { DotTeaImporter } from '../services/DotTeaImporter';
@@ -11,6 +12,7 @@ import type { SchemaChecker } from '../services/SchemaChecker';
 import type { TableCreator } from '../services/TableCreator';
 import { CommandExplainLive } from './CommandExplainLive';
 import { ComputedTaskControlLive } from './ComputedTaskControlLive';
+import { ComputedTaskInspectorLive } from './ComputedTaskInspectorLive';
 import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
 import { DebugDataLive } from './DebugDataLive';
 import { DotTeaImporterLive } from './DotTeaImporterLive';
@@ -61,6 +63,7 @@ export const FullLayer = (connectionString?: string) => {
     DebugDataLive.pipe(Layer.provide(dbLayer)),
     CommandExplainLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskControlLive.pipe(Layer.provide(dbLayer)),
+    ComputedTaskInspectorLive.pipe(Layer.provide(dbLayer)),
     MockRecordsLive.pipe(Layer.provide(dbLayer)),
     SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
     TableCreatorLive.pipe(Layer.provide(dbLayer)),
@@ -77,6 +80,7 @@ export type AppLayerType = Layer.Layer<
     DebugData['Type'] &
     CommandExplain['Type'] &
     ComputedTaskControl['Type'] &
+    ComputedTaskInspector['Type'] &
     MockRecords['Type'] &
     SchemaChecker['Type'] &
     TableCreator['Type'] &

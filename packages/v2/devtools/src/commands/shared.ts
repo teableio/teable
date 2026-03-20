@@ -30,6 +30,23 @@ export const baseIdOptionalOption = Options.text('base-id').pipe(
   Options.optional
 );
 
+export const baseIdsOption = Options.text('base-ids').pipe(
+  Options.withDescription('Comma-separated base IDs'),
+  Options.optional
+);
+
+export const tableIdsOption = Options.text('table-ids').pipe(
+  Options.withDescription('Comma-separated table IDs'),
+  Options.optional
+);
+
+export const tableMatchOption = Options.choice('table-match', ['seed', 'target', 'any']).pipe(
+  Options.withDefault('any' as const),
+  Options.withDescription(
+    'How table filtering should match tasks: seed table only, direct target tables only, or either'
+  )
+);
+
 /**
  * Record ID option
  */
@@ -59,6 +76,31 @@ export const offsetOption = Options.integer('offset').pipe(
   Options.withDescription('Number of records to skip (default: 0)')
 );
 
+export const staleHoursOption = Options.integer('stale-hours').pipe(
+  Options.withDefault(1),
+  Options.withDescription('Age threshold in hours for stale processing tasks (default: 1)')
+);
+
+export const updatedFromOption = Options.text('updated-from').pipe(
+  Options.withDescription('Inclusive lower bound for updated_at, ISO-8601'),
+  Options.optional
+);
+
+export const updatedToOption = Options.text('updated-to').pipe(
+  Options.withDescription('Inclusive upper bound for updated_at, ISO-8601'),
+  Options.optional
+);
+
+export const csvPathOption = Options.text('csv-path').pipe(
+  Options.withDescription('Write a selected table output to a local CSV file'),
+  Options.optional
+);
+
+export const topOption = Options.integer('top').pipe(
+  Options.withDefault(20),
+  Options.withDescription('Maximum number of grouped rows to return (default: 20)')
+);
+
 /**
  * Mode option for record queries
  */
@@ -74,3 +116,11 @@ export const modeOption = Options.choice('mode', ['stored', 'computed']).pipe(
  */
 export const optionToUndefined = <T>(opt: Option.Option<T>): T | undefined =>
   Option.getOrUndefined(opt);
+
+export const parseCsv = (value: string | undefined): string[] =>
+  value
+    ? value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
