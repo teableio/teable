@@ -2,7 +2,7 @@
   "name": "@teable/sdk",
   "version": "1.10.0",
   "license": "MIT",
-  "homepage": "https://github.com/teableio/teable",
+  "homepage": "https://teable.ai",
   "publishConfig": {
     "access": "public"
   },
