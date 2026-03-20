@@ -6,7 +6,10 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
+  IncomingLinkCandidateSpec,
+  IncomingLinkSelectedSpec,
   LinkFieldConfig,
+  RecordId,
   RecordConditionFieldReferenceValue,
   LongTextConditionSpec,
   NumberConditionSpec,
@@ -482,6 +485,71 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('("f"."col_due_date" AT TIME ZONE $1)::date');
       expect(sql).toContain('("t"."col_created_time" AT TIME ZONE $2)::date');
       expect(parameters).toEqual(['utc', 'Asia/Shanghai']);
+    });
+  });
+
+  describe('incoming link selection specs', () => {
+    test('incoming selected host references compile to EXISTS subquery', () => {
+      const spec = IncomingLinkSelectedSpec.create({
+        mode: 'hostReferenceExists',
+        selfKeyName: '__host_id',
+        fkHostTableName: 'public.link_host',
+        foreignKeyName: '__foreign_id',
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('from "public"."link_host" as h');
+      expect(sql).toContain('"h"."__foreign_id" = "t"."__id"');
+      expect(parameters).toEqual([]);
+    });
+
+    test('incoming candidate current-column availability keeps current host record selectable', () => {
+      const hostRecordId = RecordId.create(`rec${'c'.repeat(16)}`)._unsafeUnwrap();
+      const spec = IncomingLinkCandidateSpec.create({
+        mode: 'currentColumnAvailable',
+        selfKeyName: '__parent_id',
+        hostRecordId,
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('"t"."__parent_id" is null or "t"."__parent_id" = $1');
+      expect(parameters).toEqual([hostRecordId.toString()]);
+    });
+
+    test('incoming candidate host references compile to correlated NOT EXISTS', () => {
+      const hostRecordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+      const spec = IncomingLinkCandidateSpec.create({
+        mode: 'hostReferenceAvailable',
+        selfKeyName: '__host_id',
+        fkHostTableName: 'public.link_host',
+        foreignKeyName: '__foreign_id',
+        hostRecordId,
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('from "public"."link_host" as h');
+      expect(sql).toContain('"h"."__foreign_id" is not null');
+      expect(sql).toContain('"h"."__foreign_id" = "t"."__id"');
+      expect(sql).toContain('"h"."__host_id" <> $1');
+      expect(parameters).toEqual([hostRecordId.toString()]);
+    });
+
+    test('incoming candidate junction references compile to correlated NOT EXISTS', () => {
+      const spec = IncomingLinkCandidateSpec.create({
+        mode: 'junctionReferenceAvailable',
+        selfKeyName: '__host_id',
+        fkHostTableName: 'public.junction_links',
+        foreignKeyName: '__foreign_id',
+      });
+
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('from "public"."junction_links" as h');
+      expect(sql).toContain('"h"."__foreign_id" = "t"."__id"');
+      expect(parameters).toEqual([]);
     });
   });
 

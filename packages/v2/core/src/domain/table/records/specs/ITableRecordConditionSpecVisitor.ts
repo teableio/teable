@@ -9,6 +9,8 @@ import type { ConditionalLookupConditionSpec } from './ConditionalLookupConditio
 import type { ConditionalRollupConditionSpec } from './ConditionalRollupConditionSpec';
 import type { DateConditionSpec } from './DateConditionSpec';
 import type { FormulaConditionSpec } from './FormulaConditionSpec';
+import type { IncomingLinkCandidateSpec } from './IncomingLinkCandidateSpec';
+import type { IncomingLinkSelectedSpec } from './IncomingLinkSelectedSpec';
 import type { LinkConditionSpec } from './LinkConditionSpec';
 import type { LongTextConditionSpec } from './LongTextConditionSpec';
 import type { MultipleSelectConditionSpec } from './MultipleSelectConditionSpec';
@@ -24,6 +26,8 @@ import type { UserConditionSpec } from './UserConditionSpec';
 export interface ITableRecordConditionSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitRecordById(spec: RecordByIdSpec): Result<TResult, DomainError>;
   visitRecordByIds(spec: RecordByIdsSpec): Result<TResult, DomainError>;
+  visitIncomingLinkSelected(spec: IncomingLinkSelectedSpec): Result<TResult, DomainError>;
+  visitIncomingLinkCandidate(spec: IncomingLinkCandidateSpec): Result<TResult, DomainError>;
 
   visitSingleLineTextIs(spec: SingleLineTextConditionSpec): Result<TResult, DomainError>;
   visitSingleLineTextIsNot(spec: SingleLineTextConditionSpec): Result<TResult, DomainError>;

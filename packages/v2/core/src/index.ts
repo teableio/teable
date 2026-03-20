@@ -186,6 +186,8 @@ export * from './domain/table/records/specs/RecordConditionOperators';
 export * from './domain/table/records/specs/RecordConditionValues';
 export * from './domain/table/records/specs/RecordByIdSpec';
 export * from './domain/table/records/specs/RecordByIdsSpec';
+export * from './domain/table/records/specs/IncomingLinkSelectedSpec';
+export * from './domain/table/records/specs/IncomingLinkCandidateSpec';
 export * from './domain/table/records/specs/RecordConditionSpec';
 export * from './domain/table/records/specs/RecordConditionSpecBuilder';
 export * from './domain/table/records/specs/FieldConditionSpecBuilder';

@@ -9,11 +9,19 @@ import {
   type Table,
   type TableRecord,
 } from '@teable/v2-core';
-import { sql, type AliasedRawBuilder, type Expression, type Kysely, type SqlBool } from 'kysely';
+import {
+  sql,
+  type AliasedRawBuilder,
+  type Expression,
+  type Kysely,
+  type RawBuilder,
+  type SqlBool,
+} from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 
 import { TableRecordConditionWhereVisitor } from '../../visitors';
+import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -29,6 +37,7 @@ const T = 't'; // main table alias
 type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
+  expression?: RawBuilder<unknown>;
   userLikeMode?: 'single' | 'multiple';
   userLikeSource?: 'field' | 'system';
   selectChoiceMode?: 'single' | 'multiple';
@@ -182,7 +191,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             // Align null ordering with v1: ASC => nulls first, DESC => nulls last.
             // Without this, PostgreSQL defaults to ASC NULLS LAST / DESC NULLS FIRST,
             // which is the opposite of v1, causing row offset mismatches during paste.
-            const columnRef = sql`${sql.ref(`${T}.${orderBy.column}`)}`;
+            const columnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
             const nullOrderDirection: 'asc' | 'desc' = orderBy.direction === 'asc' ? 'desc' : 'asc';
             query = query
               .orderBy(sql`${columnRef} is null`, nullOrderDirection)
@@ -232,12 +241,16 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             fieldType.equals(FieldType.link()) ||
             fieldType.equals(FieldType.createdBy()) ||
             fieldType.equals(FieldType.lastModifiedBy());
+          const resolveDateLikeOrderBy = (column: string) => {
+            const expression = buildDateLikeOrderExpression(field, T, column);
+            return ok(expression ? { column, direction, expression } : { column, direction });
+          };
 
           if (fieldType.equals(FieldType.createdTime())) {
-            return ok({ column: '__created_time', direction });
+            return resolveDateLikeOrderBy('__created_time');
           }
           if (fieldType.equals(FieldType.lastModifiedTime())) {
-            return ok({ column: '__last_modified_time', direction });
+            return resolveDateLikeOrderBy('__last_modified_time');
           }
           if (fieldType.equals(FieldType.createdBy())) {
             return ok({
@@ -269,6 +282,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             dbFieldName.value().map((column) => ({
               column,
               direction,
+              expression: buildDateLikeOrderExpression(field, T, column) ?? undefined,
               ...(isUserLike
                 ? {
                     userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<

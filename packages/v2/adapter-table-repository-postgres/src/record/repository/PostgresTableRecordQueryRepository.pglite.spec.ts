@@ -6,6 +6,8 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
+  RecordByIdsSpec,
+  RecordId,
   Table,
   TableId,
   TableName,
@@ -400,6 +402,47 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(Object.keys(record.fields)).toEqual([nameFieldId.toString()]);
     expect(record.fields[nameFieldId.toString()]).toBe('Alice');
     expect(record.fields).not.toHaveProperty(ageFieldId.toString());
+  });
+
+  it('preserves explicit recordIdsOrder in SQL before pagination', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'ordered-ids',
+      rows: [
+        { name: 'A', age: 10 },
+        { name: 'B', age: 20 },
+        { name: 'C', age: 30 },
+      ],
+    });
+    const orderedIds = [
+      RecordId.create(fixture.insertedRecordIds[2]!)._unsafeUnwrap(),
+      RecordId.create(fixture.insertedRecordIds[0]!)._unsafeUnwrap(),
+    ];
+
+    driver.queries.length = 0;
+    driver.rowSnapshots.length = 0;
+
+    const result = await fixture.repository.find(
+      fixture.context,
+      fixture.table,
+      RecordByIdsSpec.create(orderedIds),
+      {
+        mode: 'stored',
+        includeTotal: false,
+        recordIdsOrder: orderedIds,
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(result.value.records.map((record) => record.id)).toEqual(
+      orderedIds.map((recordId) => recordId.toString())
+    );
+    expect(driver.queries).toHaveLength(1);
+    expect(driver.queries[0].sql).toContain('order by case when "t"."__id" =');
+    expect(driver.queries[0].sql).not.toContain('order by "t"."__auto_number"');
   });
 
   it('streams correct pages for cursor pagination and respects projection', async () => {

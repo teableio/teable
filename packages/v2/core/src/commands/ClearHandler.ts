@@ -35,7 +35,11 @@ import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { ClearCommand } from './ClearCommand';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './shared/orderBy';
+import {
+  mergeOrderByWithViewRowTieBreaker,
+  resolveGroupByToOrderBy,
+  resolveOrderBy,
+} from './shared/orderBy';
 
 export interface ClearResult {
   /** Number of records updated (cleared) */
@@ -152,7 +156,11 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
-      const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
+      const orderBy = mergeOrderByWithViewRowTieBreaker(
+        groupByOrderBy,
+        sortOrderBy,
+        command.viewId.toString()
+      );
 
       // 9. Query existing records in the range
       const existingRecordsStream = handler.tableRecordQueryRepository.findStream(

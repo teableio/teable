@@ -39,6 +39,8 @@ match(operator)
 - `RecordConditionOperators.ts` - Role: operators; Purpose: define operators, date modes, and field-operator compatibility.
 - `RecordConditionValues.ts` - Role: value objects; Purpose: wrap literals, lists, date modes, and field references.
 - `RecordConditionSpec.ts` - Role: spec base; Purpose: common condition spec behavior and evaluation helpers.
+- `IncomingLinkSelectedSpec.ts` - Role: spec; Purpose: current-table selection via an incoming link field on another table.
+- `IncomingLinkCandidateSpec.ts` - Role: spec; Purpose: candidate availability via an incoming exclusive link field.
 - `RecordConditionSpecBuilder.ts` - Role: spec builder; Purpose: compose condition specs with and/or/not groups.
 - `FieldConditionSpecBuilder.ts` - Role: field spec builder; Purpose: validate operator/value compatibility and create specs per field.
 - `RecordConditionSpecFactory.ts` - Role: spec factory; Purpose: delegate spec creation via field-level builder.

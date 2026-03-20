@@ -59,8 +59,9 @@ export const resolveGroupByToOrderBy = (
 
 /**
  * Merge groupBy + sort order into a single orderBy list.
- * Always appends a stable row order column for consistent pagination.
- * The repository will fall back to `__auto_number` if the row order column doesn't exist.
+ * Always appends a stable tie-breaker for consistent pagination.
+ * Use view row order only when the caller did not request any field/group sorting;
+ * otherwise fall back to `__auto_number` to match v1's tie-breaking semantics.
  */
 export const mergeOrderBy = (
   groupByOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
@@ -81,11 +82,53 @@ export const mergeOrderBy = (
   groupByOrderBy?.forEach(pushUnique);
   sortOrderBy?.forEach(pushUnique);
 
-  // Always append stable row order to match v1 pagination behavior.
-  // The repository will fall back to __auto_number if the view order column doesn't exist.
+  const hasExplicitOrder = result.length > 0;
+
+  // Use view row order only for pure manual row ordering. Once a field/group sort is active,
+  // v1 falls back to auto number within ties instead of reusing the view row column.
+  pushUnique({
+    column: !hasExplicitOrder && viewId ? `__row_${viewId}` : '__auto_number',
+    direction: 'asc',
+  });
+
+  return result.length > 0 ? result : undefined;
+};
+
+/**
+ * Merge groupBy + sort order for offset-targeted range commands.
+ * Range commands address visible rows, so ties must continue to respect the view row order
+ * before falling back to auto number for a final deterministic ordering.
+ */
+export const mergeOrderByWithViewRowTieBreaker = (
+  groupByOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
+  sortOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
+  viewId: string | undefined
+): ReadonlyArray<TableRecordQueryRepositoryPort.TableRecordOrderBy> | undefined => {
+  const result: TableRecordQueryRepositoryPort.TableRecordOrderBy[] = [];
+  const seen = new Set<string>();
+
+  const pushUnique = (item: TableRecordQueryRepositoryPort.TableRecordOrderBy) => {
+    const key =
+      'fieldId' in item ? `field:${item.fieldId.toString()}` : `column:${String(item.column)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(item);
+  };
+
+  groupByOrderBy?.forEach(pushUnique);
+  sortOrderBy?.forEach(pushUnique);
+
   if (viewId) {
-    pushUnique({ column: `__row_${viewId}`, direction: 'asc' });
+    pushUnique({
+      column: `__row_${viewId}`,
+      direction: 'asc',
+    });
   }
+
+  pushUnique({
+    column: '__auto_number',
+    direction: 'asc',
+  });
 
   return result.length > 0 ? result : undefined;
 };

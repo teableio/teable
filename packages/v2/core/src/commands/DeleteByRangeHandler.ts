@@ -32,7 +32,11 @@ import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteByRangeCommand } from './DeleteByRangeCommand';
-import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './shared/orderBy';
+import {
+  mergeOrderByWithViewRowTieBreaker,
+  resolveGroupByToOrderBy,
+  resolveOrderBy,
+} from './shared/orderBy';
 
 export interface DeleteByRangeResult {
   /** Number of records deleted */
@@ -154,7 +158,11 @@ export class DeleteByRangeHandler
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
-      const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
+      const orderBy = mergeOrderByWithViewRowTieBreaker(
+        groupByOrderBy,
+        sortOrderBy,
+        command.viewId.toString()
+      );
 
       // 5. Query records based on range type
       let recordsToDelete: ReadonlyArray<TableRecordReadModel> = [];

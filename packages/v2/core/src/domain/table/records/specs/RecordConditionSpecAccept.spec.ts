@@ -30,6 +30,8 @@ import { ButtonConditionSpec } from './ButtonConditionSpec';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
 import { DateConditionSpec } from './DateConditionSpec';
 import { FormulaConditionSpec } from './FormulaConditionSpec';
+import { IncomingLinkCandidateSpec } from './IncomingLinkCandidateSpec';
+import { IncomingLinkSelectedSpec } from './IncomingLinkSelectedSpec';
 import { LinkConditionSpec } from './LinkConditionSpec';
 import { LongTextConditionSpec } from './LongTextConditionSpec';
 import { MultipleSelectConditionSpec } from './MultipleSelectConditionSpec';
@@ -49,6 +51,7 @@ import {
 } from './RecordConditionOperators';
 import { RecordConditionLiteralValue } from './RecordConditionValues';
 import { RollupConditionSpec } from './RollupConditionSpec';
+import { RecordId } from '../RecordId';
 import { SingleLineTextConditionSpec } from './SingleLineTextConditionSpec';
 import { SingleSelectConditionSpec } from './SingleSelectConditionSpec';
 import { UserConditionSpec } from './UserConditionSpec';
@@ -241,5 +244,31 @@ describe('RecordConditionSpec accept', () => {
         RollupConditionSpec.create(fields.rollupField, operator, value).accept(visitor).isOk()
       ).toBe(true);
     }
+  });
+
+  it('routes incoming link specs to visitor methods', () => {
+    const visitor = new NoopRecordConditionSpecVisitor();
+    const hostRecordId = RecordId.create(`rec${'z'.repeat(16)}`)._unsafeUnwrap();
+
+    expect(
+      IncomingLinkSelectedSpec.create({
+        mode: 'currentColumnNotNull',
+        selfKeyName: '__parent_id',
+      })
+        .accept(visitor)
+        .isOk()
+    ).toBe(true);
+
+    expect(
+      IncomingLinkCandidateSpec.create({
+        mode: 'junctionReferenceAvailable',
+        selfKeyName: '__self_id',
+        fkHostTableName: 'public.junction_links',
+        foreignKeyName: '__foreign_id',
+        hostRecordId,
+      })
+        .accept(visitor)
+        .isOk()
+    ).toBe(true);
   });
 });

@@ -71,7 +71,11 @@ import type { ITableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { PasteCommand } from './PasteCommand';
 import type { SourceFieldMeta } from './PasteCommand';
-import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './shared/orderBy';
+import {
+  mergeOrderByWithViewRowTieBreaker,
+  resolveGroupByToOrderBy,
+  resolveOrderBy,
+} from './shared/orderBy';
 import type { ICreateTableFieldSpec } from './TableFieldSpecs';
 import {
   collectForeignTableReferences,
@@ -287,7 +291,11 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
-      const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
+      const orderBy = mergeOrderByWithViewRowTieBreaker(
+        groupByOrderBy,
+        sortOrderBy,
+        command.viewId.toString()
+      );
 
       // 11. Create streaming query for existing records with filter and sort
       const existingRecordsStream = handler.tableRecordQueryRepository.findStream(

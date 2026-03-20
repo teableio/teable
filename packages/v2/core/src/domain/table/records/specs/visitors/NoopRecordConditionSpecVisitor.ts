@@ -10,6 +10,8 @@ import type { ConditionalLookupConditionSpec } from '../ConditionalLookupConditi
 import type { ConditionalRollupConditionSpec } from '../ConditionalRollupConditionSpec';
 import type { DateConditionSpec } from '../DateConditionSpec';
 import type { FormulaConditionSpec } from '../FormulaConditionSpec';
+import type { IncomingLinkCandidateSpec } from '../IncomingLinkCandidateSpec';
+import type { IncomingLinkSelectedSpec } from '../IncomingLinkSelectedSpec';
 import type { ITableRecordConditionSpecVisitor } from '../ITableRecordConditionSpecVisitor';
 import type { LinkConditionSpec } from '../LinkConditionSpec';
 import type { LongTextConditionSpec } from '../LongTextConditionSpec';
@@ -36,6 +38,12 @@ export class NoopRecordConditionSpecVisitor implements ITableRecordConditionSpec
     return this.noop();
   }
   visitRecordByIds(_: RecordByIdsSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitIncomingLinkSelected(_: IncomingLinkSelectedSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitIncomingLinkCandidate(_: IncomingLinkCandidateSpec): Result<void, DomainError> {
     return this.noop();
   }
 

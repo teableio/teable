@@ -260,7 +260,7 @@ const buildFieldSearchCondition = (
     const cellValueType = fieldValueType.cellValueType;
     const isMultiple = fieldValueType.isMultipleCellValue.isMultiple();
 
-    if (cellValueType.equals(CellValueType.boolean())) {
+    if (cellValueType.equals(CellValueType.boolean()) && search.searchesAllFields()) {
       return ok(undefined);
     }
 
@@ -292,6 +292,10 @@ const buildFieldSearchCondition = (
           ? buildDateMultipleCondition(columnRef, search.value, timeZone)
           : sql<SqlBool>`TO_CHAR(TIMEZONE(${timeZone}, ${columnRef}), ${DEFAULT_DATE_TIME_FORMAT}) ILIKE ${`%${escapeLikeWildcards(search.value)}%`} ESCAPE '\\'`
       );
+    }
+
+    if (cellValueType.equals(CellValueType.boolean())) {
+      return ok(undefined);
     }
 
     if (isMultiple) {
@@ -334,7 +338,7 @@ export const buildRecordSearchWhereClause = (
     }
 
     if (!searchConditions.length) {
-      return ok(sql<SqlBool>`false`);
+      return ok(resolvedFields.length ? null : sql<SqlBool>`false`);
     }
 
     const [firstCondition, ...restConditions] = searchConditions;

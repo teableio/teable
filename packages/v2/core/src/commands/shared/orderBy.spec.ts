@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
-import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from './orderBy';
+import {
+  mergeOrderBy,
+  mergeOrderByWithViewRowTieBreaker,
+  resolveGroupByToOrderBy,
+  resolveOrderBy,
+} from './orderBy';
 
 const fieldA = 'fld0000000000000001';
 const fieldB = 'fld0000000000000002';
@@ -67,7 +72,7 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('merges group + sort and appends row order column', () => {
+  it('merges group + sort and appends auto number as the stable tie-breaker', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
     const merged = mergeOrderBy(groupBy, sortBy, viewId);
@@ -84,6 +89,19 @@ describe('orderBy helpers', () => {
           "type": "field",
         },
         {
+          "column": "__auto_number",
+          "direction": "asc",
+          "type": "column",
+        },
+      ]
+    `);
+  });
+
+  it('uses view row order only when no field/group sort is active', () => {
+    const merged = mergeOrderBy(undefined, undefined, viewId);
+    expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
+      [
+        {
           "column": "__row_viw0000000000000001",
           "direction": "asc",
           "type": "column",
@@ -92,7 +110,7 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('does not append row order column when viewId is undefined', () => {
+  it('appends auto number when viewId is undefined', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const merged = mergeOrderBy(groupBy, undefined, undefined);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
@@ -102,11 +120,16 @@ describe('orderBy helpers', () => {
           "fieldId": "fld0000000000000001",
           "type": "field",
         },
+        {
+          "column": "__auto_number",
+          "direction": "asc",
+          "type": "column",
+        },
       ]
     `);
   });
 
-  it('deduplicates repeated fields and row-order columns', () => {
+  it('deduplicates repeated fields and keeps auto number as the fallback when sorting exists', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const sortBy = [
       ...resolveOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap()!,
@@ -122,6 +145,35 @@ describe('orderBy helpers', () => {
         },
         {
           "column": "__row_viw0000000000000001",
+          "direction": "asc",
+          "type": "column",
+        },
+        {
+          "column": "__auto_number",
+          "direction": "asc",
+          "type": "column",
+        },
+      ]
+    `);
+  });
+
+  it('keeps view row order ahead of auto number for range-command tie breaking', () => {
+    const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
+    const merged = mergeOrderByWithViewRowTieBreaker(undefined, sortBy, viewId);
+    expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
+      [
+        {
+          "direction": "desc",
+          "fieldId": "fld0000000000000002",
+          "type": "field",
+        },
+        {
+          "column": "__row_viw0000000000000001",
+          "direction": "asc",
+          "type": "column",
+        },
+        {
+          "column": "__auto_number",
           "direction": "asc",
           "type": "column",
         },

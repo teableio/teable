@@ -49,6 +49,12 @@ export interface ITableRecordQueryOptions {
   readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
 
   /**
+   * Optional explicit record-id order.
+   * When provided, repository should preserve this order in SQL before pagination.
+   */
+  readonly recordIdsOrder?: ReadonlyArray<RecordId>;
+
+  /**
    * Include view order values in the result.
    * When true, the `orders` field in TableRecordReadModel will be populated
    * with the order values for each view (viewId -> order number).

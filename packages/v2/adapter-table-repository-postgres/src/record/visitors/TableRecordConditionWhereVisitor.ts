@@ -1367,6 +1367,71 @@ export class TableRecordConditionWhereVisitor
     return this.addCondition(sql`${sql.ref(column)} in (${sql.join(ids)})`);
   }
 
+  visitIncomingLinkSelected(
+    spec: core.IncomingLinkSelectedSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    const currentIdColumn = this.tableAlias ? `${this.tableAlias}.__id` : '__id';
+    const currentSelfColumn = this.tableAlias
+      ? `${this.tableAlias}.${spec.selfKeyName()}`
+      : spec.selfKeyName();
+
+    if (spec.mode() === 'currentColumnNotNull') {
+      return this.addCondition(sql`${sql.ref(currentSelfColumn)} is not null`);
+    }
+
+    return this.addCondition(
+      sql`exists (
+        select 1
+        from ${sql.table(spec.fkHostTableName()!)} as h
+        where ${sql.ref(`h.${spec.foreignKeyName()!}`)} = ${sql.ref(currentIdColumn)}
+      )`
+    );
+  }
+
+  visitIncomingLinkCandidate(
+    spec: core.IncomingLinkCandidateSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    const currentIdColumn = this.tableAlias ? `${this.tableAlias}.__id` : '__id';
+    const currentSelfColumn = this.tableAlias
+      ? `${this.tableAlias}.${spec.selfKeyName()}`
+      : spec.selfKeyName();
+    const hostRecordId = spec.hostRecordId()?.toString();
+
+    if (spec.mode() === 'currentColumnAvailable') {
+      if (!hostRecordId) {
+        return this.addCondition(sql`${sql.ref(currentSelfColumn)} is null`);
+      }
+      return this.addCondition(
+        sql`(${sql.ref(currentSelfColumn)} is null or ${sql.ref(currentSelfColumn)} = ${hostRecordId})`
+      );
+    }
+
+    const hostRecordExclusion = hostRecordId
+      ? sql`and ${sql.ref(`h.${spec.selfKeyName()}`)} <> ${hostRecordId}`
+      : sql``;
+
+    if (spec.mode() === 'hostReferenceAvailable') {
+      return this.addCondition(
+        sql`not exists (
+          select 1
+          from ${sql.table(spec.fkHostTableName()!)} as h
+          where ${sql.ref(`h.${spec.foreignKeyName()!}`)} is not null
+            and ${sql.ref(`h.${spec.foreignKeyName()!}`)} = ${sql.ref(currentIdColumn)}
+            ${hostRecordExclusion}
+        )`
+      );
+    }
+
+    return this.addCondition(
+      sql`not exists (
+        select 1
+        from ${sql.table(spec.fkHostTableName()!)} as h
+        where ${sql.ref(`h.${spec.foreignKeyName()!}`)} = ${sql.ref(currentIdColumn)}
+          ${hostRecordExclusion}
+      )`
+    );
+  }
+
   visitSingleLineTextIs(
     spec: core.SingleLineTextConditionSpec
   ): Result<RecordConditionWhere, DomainError> {

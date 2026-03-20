@@ -111,39 +111,42 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
 
           const orderBy = options?.orderBy;
-          if (orderBy && orderBy.length > 0) {
-            for (const sort of orderBy) {
-              if (isFieldOrderBy(sort)) {
-                // Order by user-defined field
-                queryBuilder.orderBy(sort.fieldId, sort.direction);
-              } else if (isSystemColumnOrderBy(sort)) {
-                // Order by system column
-                const column = sort.column;
-                // Check if it's a view row order column that might not exist
-                if (column.startsWith('__row_')) {
-                  // Check if the view row order column exists
-                  const columnExists = await this.getOrderColumnExists(
-                    dynamicDb,
-                    schemaName,
-                    tableNameOnly,
-                    column
-                  );
+          const explicitRecordIdsOrder = options?.recordIdsOrder;
+          if (!explicitRecordIdsOrder?.length) {
+            if (orderBy && orderBy.length > 0) {
+              for (const sort of orderBy) {
+                if (isFieldOrderBy(sort)) {
+                  // Order by user-defined field
+                  queryBuilder.orderBy(sort.fieldId, sort.direction);
+                } else if (isSystemColumnOrderBy(sort)) {
+                  // Order by system column
+                  const column = sort.column;
+                  // Check if it's a view row order column that might not exist
+                  if (column.startsWith('__row_')) {
+                    // Check if the view row order column exists
+                    const columnExists = await this.getOrderColumnExists(
+                      dynamicDb,
+                      schemaName,
+                      tableNameOnly,
+                      column
+                    );
 
-                  if (columnExists) {
-                    queryBuilder.orderBy(column as '__auto_number', sort.direction);
+                    if (columnExists) {
+                      queryBuilder.orderBy(column as '__auto_number', sort.direction);
+                    } else {
+                      // Fall back to auto_number if view row order column doesn't exist
+                      queryBuilder.orderBy('__auto_number', 'asc');
+                    }
                   } else {
-                    // Fall back to auto_number if view row order column doesn't exist
-                    queryBuilder.orderBy('__auto_number', 'asc');
+                    // Standard system column (e.g., __auto_number, __created_time)
+                    queryBuilder.orderBy(column as '__auto_number', sort.direction);
                   }
-                } else {
-                  // Standard system column (e.g., __auto_number, __created_time)
-                  queryBuilder.orderBy(column as '__auto_number', sort.direction);
                 }
               }
+            } else {
+              // Default ordering by auto_number
+              queryBuilder.orderBy('__auto_number', 'asc');
             }
-          } else {
-            // Default ordering by auto_number
-            queryBuilder.orderBy('__auto_number', 'asc');
           }
 
           // Apply pagination if provided
@@ -187,6 +190,17 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           // Build the query
           let builtQuery = yield* queryBuilder.build();
+          if (explicitRecordIdsOrder?.length) {
+            const recordRankClauses = explicitRecordIdsOrder.map((recordId, index) => {
+              const rank = index + 1;
+              return sql`when ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)} = ${recordId.toString()} then ${rank}`;
+            });
+            builtQuery = builtQuery.orderBy(
+              sql`case ${sql.join(recordRankClauses, sql` `)} else ${
+                explicitRecordIdsOrder.length + 1
+              } end`
+            );
+          }
           if (searchWhereClause.value !== null) {
             builtQuery = builtQuery.where(searchWhereClause.value);
           }

@@ -1,5 +1,7 @@
 import {
   BaseId,
+  DateFormattingPreset,
+  DateTimeFormatting,
   DbFieldName,
   FieldName,
   FieldType,
@@ -7,6 +9,7 @@ import {
   Table,
   TableId,
   TableName,
+  TimeFormatting,
   UserConditionSpec,
   UserMultiplicity,
 } from '@teable/v2-core';
@@ -196,21 +199,84 @@ describe('StoredTableRecordQueryBuilder', () => {
       );
     });
 
-    test('orders by system created time for createdTime field', () => {
+    test('orders createdTime by formatted day when time formatting omits time', () => {
       const db = createTestDb();
-      const table = createTableWithAllFields();
-      const createdTimeField = table
-        .getFields()
-        .find((field) => field.type().equals(FieldType.createdTime()));
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Singapore',
+      })._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('CreatedTimeSortTable')._unsafeUnwrap())
+        .field()
+        .createdTime()
+        .withName(FieldName.create('CreatedTime')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const createdTimeField = table.getFields()[0];
+      createdTimeField
+        .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
+        ._unsafeUnwrap();
 
       expect(createdTimeField).toBeDefined();
-      if (!createdTimeField) return;
 
       const qb = new StoredTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(table).orderBy(createdTimeField.id(), 'desc'));
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).orderBy(createdTimeField.id(), 'desc')
+      );
 
-      // ORDER BY should use system column, not stored column
-      expect(sql).toContain('order by "t"."__created_time"');
+      expect(sql).toContain('order by to_char(timezone($1, "t"."__created_time"), $2) is null asc');
+      expect(sql).toContain('to_char(timezone($3, "t"."__created_time"), $4) desc');
+      expect(parameters.slice(-4)).toEqual([
+        'Asia/Singapore',
+        'YYYY-MM-DD',
+        'Asia/Singapore',
+        'YYYY-MM-DD',
+      ]);
+    });
+
+    test('orders date fields by formatted year when date formatting collapses precision', () => {
+      const db = createTestDb();
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.Y,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Singapore',
+      })._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('DateSortTable')._unsafeUnwrap())
+        .field()
+        .date()
+        .withName(FieldName.create('Date')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const dateField = table.getFields()[0];
+      dateField.setDbFieldName(DbFieldName.rehydrate('col_date')._unsafeUnwrap())._unsafeUnwrap();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(db, qb.from(table).orderBy(dateField.id(), 'asc'));
+
+      expect(sql).toContain('order by to_char(timezone($1, "t"."col_date"), $2) is null desc');
+      expect(sql).toContain('to_char(timezone($3, "t"."col_date"), $4) asc');
+      expect(parameters.slice(-4)).toEqual(['Asia/Singapore', 'YYYY', 'Asia/Singapore', 'YYYY']);
     });
 
     test('orders single user field by title with ASC null-first semantics', () => {

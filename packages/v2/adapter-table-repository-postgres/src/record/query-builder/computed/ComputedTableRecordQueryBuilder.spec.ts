@@ -2,10 +2,12 @@ import {
   BaseId,
   ConditionalLookupOptions,
   ConditionalRollupConfig,
+  DateFormattingPreset,
   DateTimeFormatting,
   DbFieldType,
   NumberFormatting,
   NumberFormattingType,
+  FieldType,
   TimeFormatting,
   createDateField,
   createNumberField,
@@ -255,6 +257,90 @@ describe('ComputedTableRecordQueryBuilder', () => {
         10,
         20,
       ]);
+    });
+
+    test('orders createdTime by formatted day when time formatting omits time', () => {
+      const db = createTestDb();
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Singapore',
+      })._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('CreatedTimeSortTable')._unsafeUnwrap())
+        .field()
+        .createdTime()
+        .withName(FieldName.create('CreatedTime')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const createdTimeField = table.getFields()[0];
+      createdTimeField
+        .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      expect(createdTimeField).toBeDefined();
+
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).orderBy(createdTimeField.id(), 'desc')
+      );
+
+      expect(sql).toMatch(
+        /order by to_char\(timezone\(\$\d+, "t"\."__created_time"\), \$\d+\) is null asc/
+      );
+      expect(sql).toMatch(/to_char\(timezone\(\$\d+, "t"\."__created_time"\), \$\d+\) desc/);
+      expect(parameters.slice(-4)).toEqual([
+        'Asia/Singapore',
+        'YYYY-MM-DD',
+        'Asia/Singapore',
+        'YYYY-MM-DD',
+      ]);
+    });
+
+    test('orders date fields by formatted year when date formatting collapses precision', () => {
+      const db = createTestDb();
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.Y,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Singapore',
+      })._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('DateSortTable')._unsafeUnwrap())
+        .field()
+        .date()
+        .withName(FieldName.create('Date')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const dateField = table.getFields()[0];
+      dateField.setDbFieldName(DbFieldName.rehydrate('col_date')._unsafeUnwrap())._unsafeUnwrap();
+
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql, parameters } = compileQuery(db, qb.from(table).orderBy(dateField.id(), 'asc'));
+
+      expect(sql).toMatch(
+        /order by to_char\(timezone\(\$\d+, "t"\."col_date"\), \$\d+\) is null desc/
+      );
+      expect(sql).toMatch(/to_char\(timezone\(\$\d+, "t"\."col_date"\), \$\d+\) asc/);
+      expect(parameters.slice(-4)).toEqual(['Asia/Singapore', 'YYYY', 'Asia/Singapore', 'YYYY']);
     });
 
     test('aligns sort semantics with v1 for null and user-like fields', () => {

@@ -80,6 +80,7 @@ type SearchFixture = {
     owner: FieldId;
     collaborators: FieldId;
     tags: FieldId;
+    checkbox: FieldId;
   };
 };
 
@@ -98,6 +99,7 @@ const setupSearchFixture = async ({
   const ownerFieldId = FieldId.create(createId('fld', `o-${seed}`))._unsafeUnwrap();
   const collaboratorsFieldId = FieldId.create(createId('fld', `c-${seed}`))._unsafeUnwrap();
   const tagsFieldId = FieldId.create(createId('fld', `t-${seed}`))._unsafeUnwrap();
+  const checkboxFieldId = FieldId.create(createId('fld', `b-${seed}`))._unsafeUnwrap();
 
   const alphaOption = SelectOption.create({ name: 'Alpha', color: 'blue' })._unsafeUnwrap();
   const betaOption = SelectOption.create({ name: 'Beta', color: 'green' })._unsafeUnwrap();
@@ -136,6 +138,12 @@ const setupSearchFixture = async ({
     .withName(FieldName.create('Tags')._unsafeUnwrap())
     .withOptions([alphaOption, betaOption, gammaOption, deltaOption])
     .done();
+  builder
+    .field()
+    .checkbox()
+    .withId(checkboxFieldId)
+    .withName(FieldName.create('Checkbox')._unsafeUnwrap())
+    .done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
@@ -159,6 +167,11 @@ const setupSearchFixture = async ({
     ._unsafeUnwrap()
     .setDbFieldName(DbFieldName.rehydrate('col_tags')._unsafeUnwrap())
     ._unsafeUnwrap();
+  table
+    .getField((field) => field.id().equals(checkboxFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_checkbox')._unsafeUnwrap())
+    ._unsafeUnwrap();
 
   const schemaName = baseId.toString();
   const tableName = tableId.toString();
@@ -173,7 +186,8 @@ const setupSearchFixture = async ({
       col_name text,
       col_owner jsonb,
       col_collaborators jsonb,
-      col_tags jsonb
+      col_tags jsonb,
+      col_checkbox boolean
     )
   `.execute(db);
 
@@ -181,26 +195,28 @@ const setupSearchFixture = async ({
   const bravoRecordId = createId('rec', `bravo-${seed}`);
 
   await sql`
-    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags)
+    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_checkbox)
     VALUES (
       ${alphaRecordId},
       1,
       ${'Alpha'},
       ${JSON.stringify({ title: 'Visible Owner', name: 'owner@example.com', id: 'usr_alpha' })}::jsonb,
       ${JSON.stringify([{ title: 'Alice Visible', name: 'alice@example.com', id: 'usr_a' }])}::jsonb,
-      ${JSON.stringify(['Alpha', 'Beta'])}::jsonb
+      ${JSON.stringify(['Alpha', 'Beta'])}::jsonb,
+      ${true}
     )
   `.execute(db);
 
   await sql`
-    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags)
+    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_checkbox)
     VALUES (
       ${bravoRecordId},
       2,
       ${'Bravo'},
       ${JSON.stringify({ title: 'Title Only', name: 'hidden-name@example.com', id: 'usr_bravo' })}::jsonb,
       ${JSON.stringify([{ title: 'Team Visible', name: 'team-hidden@example.com', id: 'usr_b' }])}::jsonb,
-      ${JSON.stringify(['Gamma', 'Delta'])}::jsonb
+      ${JSON.stringify(['Gamma', 'Delta'])}::jsonb,
+      ${false}
     )
   `.execute(db);
 
@@ -216,6 +232,7 @@ const setupSearchFixture = async ({
       owner: ownerFieldId,
       collaborators: collaboratorsFieldId,
       tags: tagsFieldId,
+      checkbox: checkboxFieldId,
     },
   };
 };
@@ -244,12 +261,16 @@ const findMatchingRecordIds = async ({
     }
   )._unsafeUnwrap();
 
-  const rows = await db
+  let query = db
     .selectFrom(`${fullTableName} as t`)
     .select('t.__id as id')
-    .where(whereClause!)
-    .orderBy('t.__auto_number')
-    .execute();
+    .orderBy('t.__auto_number');
+
+  if (whereClause != null) {
+    query = query.where(whereClause);
+  }
+
+  const rows = await query.execute();
 
   return rows.map((row) => row.id as string);
 };
@@ -358,5 +379,27 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         search: RecordSearch.fromTuple(['Beta', fixture.fieldIds.tags.toString(), true]),
       })
     ).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
+  it('does not filter rows for checkbox field-specific visible-row search', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'checkbox' });
+
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple(['true', fixture.fieldIds.checkbox.toString(), true]),
+      })
+    ).resolves.toEqual([fixture.recordIds.alpha, fixture.recordIds.bravo]);
+
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple(['maybe', fixture.fieldIds.checkbox.toString(), true]),
+      })
+    ).resolves.toEqual([fixture.recordIds.alpha, fixture.recordIds.bravo]);
   });
 });

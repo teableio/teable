@@ -8,6 +8,7 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
 import { TableId } from '../domain/table/TableId';
+import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 
 /** Default page size for records */
@@ -30,23 +31,41 @@ const recordSortSchema = z.object({
   order: z.enum(['asc', 'desc']),
 });
 
-const recordSearchSchema = z.tuple([z.string(), z.string(), z.boolean().optional()]);
-
 const recordGroupBySchema = z.array(z.string().min(1));
+const incomingLinkSelectionSchema = z.union([
+  z.string().min(1),
+  z.tuple([z.string().min(1), z.string().min(1)]),
+]);
 
 export type RecordSortValue = z.infer<typeof recordSortSchema>;
-export type RecordSearchValue = z.infer<typeof recordSearchSchema>;
+export type RecordSearchValue = RecordSearchInput;
 
-export const listTableRecordsInputSchema = z.object({
-  tableId: z.string(),
-  filter: parseJsonInput(recordFilterSchema).optional(),
-  sort: parseJsonInput(z.array(recordSortSchema)).optional(),
-  groupBy: parseJsonInput(recordGroupBySchema).optional(),
-  search: parseJsonInput(recordSearchSchema).optional(),
-  limit: z.coerce.number().int().positive().max(MAX_RECORDS_LIMIT).optional(),
-  offset: z.coerce.number().int().nonnegative().optional(),
-  fieldKeyType: fieldKeyTypeSchema,
-});
+export const listTableRecordsInputSchema = z
+  .object({
+    tableId: z.string(),
+    filter: parseJsonInput(recordFilterSchema).optional(),
+    sort: parseJsonInput(z.array(recordSortSchema)).optional(),
+    groupBy: parseJsonInput(recordGroupBySchema).optional(),
+    search: parseJsonInput(recordSearchInputSchema).optional(),
+    filterLinkCellSelected: parseJsonInput(incomingLinkSelectionSchema).optional(),
+    filterLinkCellCandidate: parseJsonInput(incomingLinkSelectionSchema).optional(),
+    selectedRecordIds: parseJsonInput(z.array(z.string().min(1))).optional(),
+    viewId: z.string().min(1).optional(),
+    ignoreViewQuery: z.coerce.boolean().optional(),
+    limit: z.coerce.number().int().positive().max(MAX_RECORDS_LIMIT).optional(),
+    offset: z.coerce.number().int().nonnegative().optional(),
+    fieldKeyType: fieldKeyTypeSchema,
+  })
+  .superRefine((value, ctx) => {
+    if (value.filterLinkCellSelected && value.filterLinkCellCandidate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
+        path: ['filterLinkCellSelected'],
+      });
+    }
+  });
 
 export type IListTableRecordsQueryInput = z.input<typeof listTableRecordsInputSchema>;
 type IListTableRecordsQueryOutput = z.output<typeof listTableRecordsInputSchema>;
@@ -58,8 +77,13 @@ export class ListTableRecordsQuery {
     readonly pagination: OffsetPagination,
     readonly fieldKeyType: FieldKeyType,
     readonly sort?: ReadonlyArray<RecordSortValue>,
-    readonly search?: RecordSearchValue,
-    readonly groupBy?: ReadonlyArray<string>
+    readonly search?: RecordSearchInput,
+    readonly groupBy?: ReadonlyArray<string>,
+    readonly filterLinkCellSelected?: string | [string, string],
+    readonly filterLinkCellCandidate?: string | [string, string],
+    readonly selectedRecordIds?: ReadonlyArray<string>,
+    readonly viewId?: string,
+    readonly ignoreViewQuery?: boolean
   ) {}
 
   static create(raw: unknown): Result<ListTableRecordsQuery, DomainError> {
@@ -83,7 +107,12 @@ export class ListTableRecordsQuery {
             parsed.data.fieldKeyType,
             parsed.data.sort,
             parsed.data.search,
-            parsed.data.groupBy
+            parsed.data.groupBy,
+            parsed.data.filterLinkCellSelected,
+            parsed.data.filterLinkCellCandidate,
+            parsed.data.selectedRecordIds,
+            parsed.data.viewId,
+            parsed.data.ignoreViewQuery
           )
       )
     );

@@ -36,6 +36,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import { TableRecordConditionWhereVisitor } from '../../visitors';
+import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -74,9 +75,15 @@ const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
 type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
+  expression?: RawBuilder<unknown>;
   userLikeMode?: 'single' | 'multiple';
   userLikeSource?: 'field' | 'system';
 };
+
+type ResolvedOrderByColumn = Pick<
+  ResolvedOrderBy,
+  'column' | 'expression' | 'userLikeMode' | 'userLikeSource'
+>;
 /**
  * Configuration for dirty record filtering.
  * When provided, the query will INNER JOIN with the dirty table early
@@ -275,6 +282,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             resolvedOrderBy.push({
               column: columnResult.column,
               direction: orderBy.direction,
+              expression: columnResult.expression,
               userLikeMode: columnResult.userLikeMode,
               userLikeSource: columnResult.userLikeSource,
             });
@@ -312,7 +320,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               orderBy.userLikeSource ?? 'field'
             );
           } else {
-            const columnRef = sql`${sql.ref(`${T}.${orderBy.column}`)}`;
+            const columnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
             const nullOrderDirection: 'asc' | 'desc' = orderBy.direction === 'asc' ? 'desc' : 'asc';
             query = query
               .orderBy(sql`${columnRef} is null`, nullOrderDirection)
@@ -1495,14 +1503,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private resolveOrderByColumn(
     table: Table,
     orderByColumn: OrderByColumn
-  ): Result<
-    {
-      column: string;
-      userLikeMode?: 'single' | 'multiple';
-      userLikeSource?: 'field' | 'system';
-    } | null,
-    DomainError
-  > {
+  ): Result<ResolvedOrderByColumn | null, DomainError> {
     // If it's a FieldId, resolve to dbFieldName
     if (orderByColumn instanceof FieldId) {
       return table
@@ -1514,10 +1515,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             fieldType.equals(FieldType.link()) ||
             fieldType.equals(FieldType.createdBy()) ||
             fieldType.equals(FieldType.lastModifiedBy());
+          const resolveDateLikeOrderBy = (column: string) => {
+            const expression = buildDateLikeOrderExpression(field, T, column);
+            return ok(expression ? { column, expression } : { column });
+          };
 
-          if (fieldType.equals(FieldType.createdTime())) return ok({ column: '__created_time' });
+          if (fieldType.equals(FieldType.createdTime())) {
+            return resolveDateLikeOrderBy('__created_time');
+          }
           if (fieldType.equals(FieldType.lastModifiedTime())) {
-            return ok({ column: '__last_modified_time' });
+            return resolveDateLikeOrderBy('__last_modified_time');
           }
           if (fieldType.equals(FieldType.createdBy())) {
             return ok({
@@ -1542,6 +1549,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
+              expression: buildDateLikeOrderExpression(field, T, column) ?? undefined,
               ...(isUserLike
                 ? {
                     userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<

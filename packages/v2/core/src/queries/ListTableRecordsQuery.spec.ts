@@ -52,4 +52,32 @@ describe('ListTableRecordsQuery', () => {
       expect(result.value.filter.value).toBeNull();
     }
   });
+
+  it('accepts advanced selection inputs', () => {
+    const tableId = createTableId('d').toString();
+    const result = ListTableRecordsQuery.create({
+      tableId,
+      filterLinkCellCandidate: JSON.stringify([`fld${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`]),
+      selectedRecordIds: JSON.stringify([`rec${'c'.repeat(16)}`]),
+      viewId: `viw${'d'.repeat(16)}`,
+      ignoreViewQuery: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    const query = result._unsafeUnwrap();
+    expect(query.filterLinkCellCandidate).toEqual([`fld${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`]);
+    expect(query.selectedRecordIds).toEqual([`rec${'c'.repeat(16)}`]);
+    expect(query.viewId).toBe(`viw${'d'.repeat(16)}`);
+    expect(query.ignoreViewQuery).toBe(true);
+  });
+
+  it('rejects mutually exclusive advanced link filters', () => {
+    const result = ListTableRecordsQuery.create({
+      tableId: createTableId('e').toString(),
+      filterLinkCellSelected: `fld${'a'.repeat(16)}`,
+      filterLinkCellCandidate: `fld${'b'.repeat(16)}`,
+    });
+
+    expect(result.isErr()).toBe(true);
+  });
 });

@@ -3,15 +3,17 @@
 import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
+  CellFormat,
   CellValueType,
   FieldKeyType,
   FieldType,
-  Relationship,
+  type IDatetimeFormatting,
+  TimeFormatting,
+  formatDateToString,
   isMeTag,
   parseClipboardText,
 } from '@teable/core';
 import type { IFilter, IFilterSet } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IUpdateRecordRo,
   IFormSubmitRo,
@@ -43,6 +45,7 @@ import { v2CoreTokens } from '@teable/v2-core';
 import type {
   ICommandBus,
   IExecutionContext,
+  IListTableRecordsQueryInput,
   IQueryBus,
   RecordFilter,
   RecordFilterDateValue,
@@ -51,14 +54,11 @@ import type {
   RecordFilterOperator,
   RecordFilterValue,
 } from '@teable/v2-core';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
-import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
@@ -98,8 +98,6 @@ export class RecordOpenApiV2Service {
     private readonly fieldService: FieldService,
     private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
-    private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @Inject(forwardRef(() => SelectionService))
     private readonly selectionService: SelectionService
   ) {}
@@ -146,126 +144,13 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = query.groupBy?.map((item) => item.fieldId);
-    const shouldApplySearchFilter = this.shouldApplySearchFilter(query.search);
-    const shouldUseBulkListPath =
-      this.shouldApplyAdvancedSelectionFilters(query) || shouldApplySearchFilter;
     const queryExtra = this.shouldLoadQueryExtra(query)
       ? await this.getQueryExtra(tableId, query)
       : undefined;
 
     const container = await this.v2ContainerService.getContainer();
-    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const context = await this.createV2ReadContext(tableId, query);
-    const shouldUseDocIdsPathForView = Boolean(query.viewId);
-
-    if (shouldUseDocIdsPathForView) {
-      const queryResult = await this.recordService.getDocIdsByQuery(
-        tableId,
-        {
-          ...query,
-          skip: query.skip,
-          take: query.take,
-        },
-        true
-      );
-
-      const recordIds = queryResult.ids;
-      const responseExtra = queryExtra ?? queryResult.extra;
-      if (!recordIds.length) {
-        return responseExtra ? { records: [], extra: responseExtra } : { records: [] };
-      }
-
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        recordIds,
-        snapshotProjection,
-        requestedFieldKeyType,
-        query.cellFormat,
-        true
-      );
-
-      if (snapshots.length !== recordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      const snapshotMap = new Map(
-        snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
-      );
-      const records = recordIds
-        .map((recordId) => snapshotMap.get(recordId))
-        .filter((record): record is IRecord => Boolean(record));
-
-      if (records.length !== recordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      return responseExtra ? { records, extra: responseExtra } : { records };
-    }
-
-    if (shouldUseBulkListPath) {
-      const allRecords = await this.listAllTableRecordsFromV2(
-        tableId,
-        normalizedFilter ?? undefined,
-        normalizedSort,
-        normalizedGroupBy,
-        undefined,
-        context,
-        queryBus
-      );
-      let filteredRecordIds = allRecords.map((record) => record.id);
-
-      if (shouldApplySearchFilter) {
-        const searchMatchedRecordIds = await this.getSearchMatchedRecordIds(tableId, query);
-        const searchMatchedRecordIdSet = new Set(searchMatchedRecordIds);
-        filteredRecordIds = filteredRecordIds.filter((recordId) =>
-          searchMatchedRecordIdSet.has(recordId)
-        );
-      }
-
-      if (this.shouldApplyAdvancedSelectionFilters(query)) {
-        filteredRecordIds = await this.applyAdvancedSelectionFilters(
-          tableId,
-          query,
-          filteredRecordIds
-        );
-      }
-
-      const skip = query.skip ?? 0;
-      const take = query.take ?? 100;
-      const pagedRecordIds = filteredRecordIds.slice(skip, skip + take);
-
-      if (!pagedRecordIds.length) {
-        return queryExtra ? { records: [], extra: queryExtra } : { records: [] };
-      }
-
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        pagedRecordIds,
-        snapshotProjection,
-        requestedFieldKeyType,
-        query.cellFormat,
-        true
-      );
-
-      if (snapshots.length !== pagedRecordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      const snapshotMap = new Map(
-        snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
-      );
-      const orderedRecords = pagedRecordIds
-        .map((recordId) => snapshotMap.get(recordId))
-        .filter((record): record is IRecord => Boolean(record));
-
-      if (orderedRecords.length !== pagedRecordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      const records = orderedRecords;
-      return queryExtra ? { records, extra: queryExtra } : { records };
-    }
-
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const pageResult = await this.executeListRecordsEndpoint(
       {
         tableId,
@@ -276,6 +161,16 @@ export class RecordOpenApiV2Service {
         ...(normalizedFilter ? { filter: normalizedFilter } : {}),
         ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
         ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
+        ...(query.search ? { search: query.search } : {}),
+        ...(query.filterLinkCellSelected
+          ? { filterLinkCellSelected: query.filterLinkCellSelected }
+          : {}),
+        ...(query.filterLinkCellCandidate
+          ? { filterLinkCellCandidate: query.filterLinkCellCandidate }
+          : {}),
+        ...(query.selectedRecordIds?.length ? { selectedRecordIds: query.selectedRecordIds } : {}),
+        ...(query.viewId ? { viewId: query.viewId } : {}),
+        ...(query.ignoreViewQuery !== undefined ? { ignoreViewQuery: query.ignoreViewQuery } : {}),
       },
       context,
       queryBus
@@ -311,7 +206,87 @@ export class RecordOpenApiV2Service {
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    return queryExtra ? { records, extra: queryExtra } : { records };
+    const normalizedRecords = await this.formatSystemDatetimeFields(
+      tableId,
+      records,
+      query.cellFormat,
+      sortWithGroupFallback?.map((item) => item.fieldId)
+    );
+
+    return queryExtra
+      ? { records: normalizedRecords, extra: queryExtra }
+      : { records: normalizedRecords };
+  }
+
+  private async formatSystemDatetimeFields(
+    tableId: string,
+    records: IRecord[],
+    cellFormat?: CellFormat,
+    sortedFieldIds?: ReadonlyArray<string>
+  ): Promise<IRecord[]> {
+    if (!records.length || cellFormat === CellFormat.Text || !sortedFieldIds?.length) {
+      return records;
+    }
+
+    const sortedFieldIdSet = new Set(sortedFieldIds);
+    const fields = await this.fieldService.getFieldsByQuery(tableId);
+    const formatters = fields.flatMap((field) => {
+      if (!sortedFieldIdSet.has(field.id)) {
+        return [];
+      }
+      if (field.type !== FieldType.CreatedTime && field.type !== FieldType.LastModifiedTime) {
+        return [];
+      }
+
+      const formatting = this.extractDatetimeFormatting(field.options);
+      if (!formatting || formatting.time !== TimeFormatting.None) {
+        return [];
+      }
+
+      return [
+        {
+          topLevelKey:
+            field.type === FieldType.CreatedTime
+              ? ('createdTime' as const)
+              : ('lastModifiedTime' as const),
+          formatting,
+        },
+      ];
+    });
+
+    if (!formatters.length) {
+      return records;
+    }
+
+    return records.map((record) => {
+      let nextRecord: IRecord | undefined;
+
+      for (const formatter of formatters) {
+        const topLevelValue = record[formatter.topLevelKey];
+        if (typeof topLevelValue === 'string') {
+          const formattedTopLevel = formatDateToString(topLevelValue, formatter.formatting);
+          if (formattedTopLevel !== topLevelValue) {
+            nextRecord ??= { ...record };
+            nextRecord[formatter.topLevelKey] = formattedTopLevel;
+          }
+        }
+      }
+
+      return nextRecord ?? record;
+    });
+  }
+
+  private extractDatetimeFormatting(options: unknown): IDatetimeFormatting | undefined {
+    if (!options || typeof options !== 'object' || !('formatting' in options)) {
+      return undefined;
+    }
+
+    const formatting = options.formatting;
+    if (!formatting || typeof formatting !== 'object') {
+      return undefined;
+    }
+
+    return formatting as IDatetimeFormatting;
   }
 
   private toProjectionMap(fieldKeys?: string | string[]): Record<string, boolean> | undefined {
@@ -367,16 +342,7 @@ export class RecordOpenApiV2Service {
   }
 
   private async executeListRecordsEndpoint(
-    input: {
-      tableId: string;
-      fieldKeyType: FieldKeyType;
-      limit?: number;
-      offset?: number;
-      filter?: RecordFilter;
-      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
-      groupBy?: string[];
-      search?: [string, string, boolean?];
-    },
+    input: IListTableRecordsQueryInput,
     context: IExecutionContext,
     queryBus: IQueryBus
   ): Promise<{
@@ -405,9 +371,8 @@ export class RecordOpenApiV2Service {
     query: Pick<IGetRecordsRo, 'viewId' | 'ignoreViewQuery' | 'filterLinkCellSelected'>
   ): Promise<IExecutionContext> {
     const context = await this.v2ContextFactory.createContext();
-    const viewId = query.ignoreViewQuery ? undefined : query.viewId;
     const readSource = await this.recordPermissionService.getReadQuerySource(tableId, {
-      viewId,
+      viewId: query.viewId,
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
     });
     if (!readSource) {
@@ -419,86 +384,13 @@ export class RecordOpenApiV2Service {
         tableName: readSource.tableName,
         cteName: readSource.cteName,
         cteSql: readSource.cteSql,
+        enabledFieldIds: readSource.enabledFieldIds,
       },
     } as IExecutionContext;
   }
 
-  private async listAllTableRecordsFromV2(
-    tableId: string,
-    filter: RecordFilter | undefined,
-    sort: Array<{ fieldId: string; order: 'asc' | 'desc' }> | undefined,
-    groupBy: string[] | undefined,
-    search: [string, string, boolean?] | undefined,
-    context: IExecutionContext,
-    queryBus: IQueryBus
-  ): Promise<Array<{ id: string; fields: Record<string, unknown> }>> {
-    const pageSize = 1000;
-    let offset = 0;
-    const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
-
-    while (true) {
-      const page = await this.executeListRecordsEndpoint(
-        {
-          tableId,
-          fieldKeyType: FieldKeyType.Id,
-          limit: pageSize,
-          offset,
-          ...(filter ? { filter } : {}),
-          ...(sort?.length ? { sort } : {}),
-          ...(groupBy?.length ? { groupBy } : {}),
-          ...(search ? { search } : {}),
-        },
-        context,
-        queryBus
-      );
-      records.push(...page.records);
-      if (!page.pagination.hasMore || page.records.length === 0) {
-        break;
-      }
-      offset += page.records.length;
-    }
-
-    return records;
-  }
-
-  private shouldApplyAdvancedSelectionFilters(query: IGetRecordsRo): boolean {
-    return Boolean(
-      query.filterLinkCellCandidate ||
-        query.filterLinkCellSelected ||
-        query.selectedRecordIds?.length
-    );
-  }
-
-  private shouldApplySearchFilter(search: IGetRecordsRo['search']): boolean {
-    return Boolean(search?.[0] && search[2]);
-  }
-
   private shouldLoadQueryExtra(query: IGetRecordsRo): boolean {
     return Boolean(query.search || query.groupBy?.length || query.collapsedGroupIds?.length);
-  }
-
-  private async getSearchMatchedRecordIds(
-    tableId: string,
-    query: IGetRecordsRo
-  ): Promise<string[]> {
-    const result = await this.recordService.getDocIdsByQuery(
-      tableId,
-      {
-        fieldKeyType: FieldKeyType.Id,
-        ignoreViewQuery: query.ignoreViewQuery ?? false,
-        viewId: query.viewId,
-        filter: query.filter,
-        orderBy: query.orderBy,
-        search: query.search,
-        groupBy: query.groupBy,
-        collapsedGroupIds: query.collapsedGroupIds,
-        projection: query.projection,
-        skip: 0,
-        take: -1,
-      },
-      true
-    );
-    return result.ids;
   }
 
   private async getQueryExtra(
@@ -523,248 +415,6 @@ export class RecordOpenApiV2Service {
       true
     );
     return result.extra;
-  }
-
-  private async applyAdvancedSelectionFilters(
-    tableId: string,
-    query: IGetRecordsRo,
-    baseOrderedRecordIds: string[]
-  ): Promise<string[]> {
-    let orderedRecordIds = [...baseOrderedRecordIds];
-    let selectedOrder: string[] | undefined;
-
-    if (query.filterLinkCellSelected) {
-      const selected = await this.resolveSelectedRecordIds(tableId, query.filterLinkCellSelected);
-      const selectedSet = new Set(selected.ids);
-      orderedRecordIds = orderedRecordIds.filter((id) => selectedSet.has(id));
-      selectedOrder = selected.orderedIds;
-    }
-
-    if (query.filterLinkCellCandidate) {
-      const candidateIds = await this.resolveCandidateRecordIds(
-        tableId,
-        query.filterLinkCellCandidate
-      );
-      if (candidateIds) {
-        const candidateSet = new Set(candidateIds);
-        orderedRecordIds = orderedRecordIds.filter((id) => candidateSet.has(id));
-      }
-    }
-
-    if (query.selectedRecordIds?.length) {
-      const selectedSet = new Set(query.selectedRecordIds);
-      orderedRecordIds = query.filterLinkCellCandidate
-        ? orderedRecordIds.filter((id) => !selectedSet.has(id))
-        : orderedRecordIds.filter((id) => selectedSet.has(id));
-    }
-
-    if (selectedOrder?.length) {
-      const rank = new Map(selectedOrder.map((id, index) => [id, index]));
-      orderedRecordIds.sort(
-        (left, right) =>
-          (rank.get(left) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right) ?? Number.MAX_SAFE_INTEGER)
-      );
-    }
-
-    return orderedRecordIds;
-  }
-
-  private async resolveSelectedRecordIds(
-    tableId: string,
-    filterLinkCellSelected: [string, string] | string
-  ): Promise<{ ids: string[]; orderedIds?: string[] }> {
-    const fieldId = Array.isArray(filterLinkCellSelected)
-      ? filterLinkCellSelected[0]
-      : filterLinkCellSelected;
-    const recordId = Array.isArray(filterLinkCellSelected) ? filterLinkCellSelected[1] : undefined;
-    const { fieldRaw, options } = await this.resolveLinkFieldForCurrentTable(tableId, fieldId);
-    const currentTableDbName = await this.recordService.getDbTableName(tableId);
-
-    if (recordId) {
-      const orderedIds = await this.getLinkCellIds(fieldRaw, recordId);
-      return { ids: orderedIds, orderedIds };
-    }
-
-    if (options.fkHostTableName !== currentTableDbName) {
-      const ids = await this.runIdQuery(
-        this.knex(options.fkHostTableName)
-          .distinct({ id: options.foreignKeyName })
-          .whereNotNull(options.foreignKeyName)
-      );
-      return { ids };
-    }
-
-    const ids = await this.runIdQuery(
-      this.knex(currentTableDbName).distinct({ id: '__id' }).whereNotNull(options.selfKeyName)
-    );
-    return { ids };
-  }
-
-  private async resolveCandidateRecordIds(
-    tableId: string,
-    filterLinkCellCandidate: [string, string] | string
-  ): Promise<string[] | null> {
-    const fieldId = Array.isArray(filterLinkCellCandidate)
-      ? filterLinkCellCandidate[0]
-      : filterLinkCellCandidate;
-    const recordId = Array.isArray(filterLinkCellCandidate)
-      ? filterLinkCellCandidate[1]
-      : undefined;
-    const { options } = await this.resolveLinkFieldForCurrentTable(tableId, fieldId);
-    const currentTableDbName = await this.recordService.getDbTableName(tableId);
-    const baseQuery = this.knex(currentTableDbName).distinct({ id: '__id' });
-
-    if (options.relationship === Relationship.OneMany) {
-      if (this.isJunctionTable(options.fkHostTableName)) {
-        const subQuery = this.knex(options.fkHostTableName).select(options.foreignKeyName);
-        if (recordId) {
-          subQuery.whereNot(options.selfKeyName, recordId);
-        }
-        baseQuery.whereNotIn('__id', subQuery);
-      } else {
-        baseQuery.where((builder) => {
-          builder.whereNull(options.selfKeyName);
-          if (recordId) {
-            builder.orWhere(options.selfKeyName, recordId);
-          }
-        });
-      }
-      return this.runIdQuery(baseQuery);
-    }
-
-    if (options.relationship === Relationship.OneOne) {
-      if (options.selfKeyName === '__id') {
-        const subQuery = this.knex(options.fkHostTableName)
-          .select(options.foreignKeyName)
-          .whereNotNull(options.foreignKeyName);
-        if (recordId) {
-          subQuery.whereNot(options.selfKeyName, recordId);
-        }
-        baseQuery.whereNotIn('__id', subQuery);
-      } else {
-        baseQuery.where((builder) => {
-          builder.whereNull(options.selfKeyName);
-          if (recordId) {
-            builder.orWhere(options.selfKeyName, recordId);
-          }
-        });
-      }
-      return this.runIdQuery(baseQuery);
-    }
-
-    return null;
-  }
-
-  private isJunctionTable(dbTableName: string): boolean {
-    if (dbTableName.includes('.')) {
-      return dbTableName.split('.')[1]?.startsWith('junction') ?? false;
-    }
-    return dbTableName.split('_')[1]?.startsWith('junction') ?? false;
-  }
-
-  private async resolveLinkFieldForCurrentTable(
-    tableId: string,
-    fieldId: string
-  ): Promise<{
-    fieldRaw: Record<string, unknown> & { tableId: string; dbFieldName: string };
-    options: {
-      relationship: Relationship;
-      foreignTableId: string;
-      fkHostTableName: string;
-      selfKeyName: string;
-      foreignKeyName: string;
-    };
-  }> {
-    const fieldRaw = await this.prismaService.txClient().field.findFirst({
-      where: { id: fieldId, deletedTime: null },
-    });
-
-    if (!fieldRaw) {
-      this.throwV2Error(
-        {
-          code: 'resource.not_found',
-          message: `Field ${fieldId} not found`,
-          tags: ['resource'],
-        },
-        HttpStatus.NOT_FOUND
-      );
-    }
-
-    const field = createFieldInstanceByRaw(fieldRaw as never);
-    if (field.type !== FieldType.Link) {
-      this.throwV2Error(
-        {
-          code: 'validation.invalid_filter',
-          message: 'You can only filter by link field',
-          tags: ['validation'],
-        },
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    const options = field.options as {
-      relationship: Relationship;
-      foreignTableId: string;
-      fkHostTableName: string;
-      selfKeyName: string;
-      foreignKeyName: string;
-    };
-    if (options.foreignTableId !== tableId) {
-      this.throwV2Error(
-        {
-          code: 'validation.invalid_filter',
-          message: 'Field is not linked to current table',
-          tags: ['validation'],
-        },
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    return { fieldRaw, options };
-  }
-
-  private async getLinkCellIds(
-    fieldRaw: Record<string, unknown> & { tableId: string; dbFieldName: string },
-    recordId: string
-  ): Promise<string[]> {
-    const field = createFieldInstanceByRaw(fieldRaw as never);
-    const dbTableName = await this.recordService.getDbTableName(fieldRaw.tableId);
-    const sqlNative = this.knex(dbTableName)
-      .select(field.dbFieldName)
-      .where('__id', recordId)
-      .limit(1)
-      .toSQL()
-      .toNative();
-    const rows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ [key: string]: unknown }[]>(sqlNative.sql, ...sqlNative.bindings);
-    if (!rows.length) {
-      return [];
-    }
-
-    const rawValue = rows[0]?.[field.dbFieldName];
-    const value = field.convertDBValue2CellValue(rawValue) as
-      | { id: string }
-      | Array<{ id: string }>
-      | null
-      | undefined;
-    if (!value) {
-      return [];
-    }
-    if (Array.isArray(value)) {
-      return value.map((item) => item.id).filter((id): id is string => typeof id === 'string');
-    }
-    return typeof value.id === 'string' ? [value.id] : [];
-  }
-
-  private async runIdQuery(queryBuilder: Knex.QueryBuilder): Promise<string[]> {
-    const sqlNative = queryBuilder.toSQL().toNative();
-    const rows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<Array<{ id?: string; __id?: string }>>(sqlNative.sql, ...sqlNative.bindings);
-    return rows
-      .map((row) => row.id ?? row.__id)
-      .filter((id): id is string => typeof id === 'string');
   }
 
   async updateRecord(
