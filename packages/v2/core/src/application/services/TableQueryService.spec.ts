@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
@@ -84,6 +84,33 @@ describe('TableQueryService', () => {
     expect(missing._unsafeUnwrap()).toBe(false);
   });
 
+  it('loads deleted tables by id within the base', async () => {
+    const table = buildTable('d', 'e');
+    const context = createContext();
+    const repository: ITableRepository = {
+      insert: async () => err(domainError.notImplemented({ message: 'insert failed' })),
+      insertMany: async () => err(domainError.notImplemented({ message: 'insert many failed' })),
+      findOne: async (_context, spec, options) => {
+        if (options?.state !== 'deleted') {
+          return err(domainError.notFound({ message: 'Not found' }));
+        }
+        return spec.isSatisfiedBy(table)
+          ? ok(table)
+          : err(domainError.notFound({ message: 'Not found' }));
+      },
+      find: async () => ok([]),
+      updateOne: async () => err(domainError.notImplemented({ message: 'update failed' })),
+      restore: async () => err(domainError.notImplemented({ message: 'restore failed' })),
+      delete: async () => err(domainError.notImplemented({ message: 'delete failed' })),
+    };
+
+    const service = new TableQueryService(repository);
+
+    const result = await service.getDeletedByIdInBase(context, table.baseId(), table.id());
+
+    expect(result._unsafeUnwrap().id().toString()).toBe(table.id().toString());
+  });
+
   it('returns unexpected errors from the repository', async () => {
     const repository: ITableRepository = {
       insert: async () => err(domainError.unexpected({ message: 'insert failed' })),
@@ -91,6 +118,7 @@ describe('TableQueryService', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      restore: async () => err(domainError.unexpected({ message: 'restore failed' })),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 

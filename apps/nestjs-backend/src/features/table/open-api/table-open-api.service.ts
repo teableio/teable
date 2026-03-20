@@ -141,31 +141,34 @@ export class TableOpenApiService {
   }
 
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
-    const simpleFields: IFieldRo[] = [];
-    const computeFields: IFieldRo[] = [];
+    const independentFields: IFieldRo[] = [];
+    const dependentFields: IFieldRo[] = [];
     fieldRos.forEach((field) => {
-      if (field.type === FieldType.Link || field.type === FieldType.Formula || field.isLookup) {
-        computeFields.push(field);
+      if (field.type === FieldType.Formula || field.type === FieldType.Rollup || field.isLookup) {
+        dependentFields.push(field);
       } else {
-        simpleFields.push(field);
+        independentFields.push(field);
       }
     });
 
     const fields: IFieldVo[] = await this.fieldSupplementService.prepareCreateFields(
       tableId,
-      simpleFields
+      independentFields
     );
 
-    const allFieldRos = simpleFields.concat(computeFields);
+    const allFieldRos = independentFields.concat(dependentFields);
 
     const fieldVoMap = new Map<IFieldRo, IFieldVo>();
-    simpleFields.forEach((f, i) => fieldVoMap.set(f, fields[i]));
+    independentFields.forEach((f, i) => fieldVoMap.set(f, fields[i]));
 
-    for (const fieldRo of computeFields) {
+    for (const fieldRo of dependentFields) {
+      const batchFieldVos = allFieldRos
+        .filter((ro) => ro !== fieldRo)
+        .map((ro) => fieldVoMap.get(ro) ?? (ro as unknown as IFieldVo));
       const computedFieldVo = await this.fieldSupplementService.prepareCreateField(
         tableId,
         fieldRo,
-        allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
+        batchFieldVos
       );
       fieldVoMap.set(fieldRo, computedFieldVo);
     }

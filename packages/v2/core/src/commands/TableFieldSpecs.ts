@@ -6,6 +6,7 @@ import { match } from 'ts-pattern';
 import type { BaseId } from '../domain/base/BaseId';
 import type { IDomainContext } from '../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import {
   createAttachmentField,
@@ -50,6 +51,7 @@ import { FieldUnique } from '../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import type { FormulaFormatting, FormulaShowAs } from '../domain/table/fields/types/FormulaField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
@@ -480,6 +482,71 @@ class CreateTableFieldWithAiConfigSpec implements ICreateTableFieldSpec {
   }
 }
 
+const applyFieldDbFieldName = (
+  field: Field,
+  rawDbFieldName: string | undefined
+): Result<Field, DomainError> => {
+  if (!rawDbFieldName) {
+    return ok(field);
+  }
+
+  return DbFieldName.rehydrate(rawDbFieldName).andThen((dbFieldName) => {
+    const existingDbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+
+    if (existingDbFieldNameResult.isErr()) {
+      return field.setDbFieldName(dbFieldName).map(() => field);
+    }
+
+    if (existingDbFieldNameResult.value === rawDbFieldName) {
+      return ok(field);
+    }
+
+    return field.renameDbFieldName(dbFieldName).map(() => field);
+  });
+};
+
+class CreateTableFieldWithDbFieldNameSpec implements ICreateTableFieldSpec {
+  constructor(
+    private readonly spec: ICreateTableFieldSpec,
+    private readonly dbFieldName: string | undefined,
+    private readonly fieldName: string,
+    private readonly fieldId?: string
+  ) {}
+
+  applyTo(builder: TableBuilder): void {
+    this.spec.applyTo(builder);
+  }
+
+  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    return this.spec
+      .createField(params)
+      .andThen((field) => applyFieldDbFieldName(field, this.dbFieldName));
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return this.spec.foreignTableReferences();
+  }
+
+  applyPostBuild(table: Table): Result<void, DomainError> {
+    const applyInner = this.spec.applyPostBuild ? this.spec.applyPostBuild(table) : ok(undefined);
+
+    if (!this.dbFieldName) {
+      return applyInner;
+    }
+
+    return applyInner.andThen(() =>
+      table
+        .getField((field) =>
+          this.fieldId
+            ? field.id().toString() === this.fieldId
+            : field.name().toString() === this.fieldName
+        )
+        .andThen((field) => applyFieldDbFieldName(field, this.dbFieldName))
+        .map(() => undefined)
+    );
+  }
+}
+
 const withFieldDescription = (
   spec: ICreateTableFieldSpec,
   description: string | null | undefined,
@@ -494,6 +561,15 @@ const withFieldAiConfig = (
   fieldName: string
 ): ICreateTableFieldSpec => {
   return new CreateTableFieldWithAiConfigSpec(spec, aiConfig, fieldName);
+};
+
+const withFieldDbFieldName = (
+  spec: ICreateTableFieldSpec,
+  dbFieldName: string | undefined,
+  fieldName: string,
+  fieldId?: string
+): ICreateTableFieldSpec => {
+  return new CreateTableFieldWithDbFieldNameSpec(spec, dbFieldName, fieldName, fieldId);
 };
 
 const uniqueForeignTableReferences = (
@@ -597,6 +673,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
+    private readonly showAs: LongTextShowAs | undefined,
     private readonly defaultValue: TextDefaultValue | undefined,
     private readonly notNull: FieldNotNull,
     private readonly unique: FieldUnique
@@ -607,6 +684,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
     name: FieldName,
     options: {
       isPrimary: boolean;
+      showAs?: LongTextShowAs;
       defaultValue?: TextDefaultValue;
       notNull: FieldNotNull;
       unique: FieldUnique;
@@ -615,6 +693,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
     return new CreateLongTextFieldSpec(
       id,
       name,
+      options.showAs,
       options.defaultValue,
       options.notNull,
       options.unique
@@ -629,6 +708,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
       .withNotNull(this.notNull)
       .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
+    if (this.showAs) fieldBuilder.withShowAs(this.showAs);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
@@ -641,6 +721,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
       createLongTextField({
         id,
         name: this.name,
+        showAs: this.showAs,
         defaultValue: this.defaultValue,
         notNull: this.notNull,
         unique: this.unique,
@@ -2305,13 +2386,16 @@ export const parseTableFieldSpec = (
             )
           )
           .with({ type: 'longText' }, (field) =>
-            optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
-              CreateLongTextFieldSpec.create(id, name, {
-                isPrimary: options.isPrimary,
-                defaultValue,
-                notNull: validation.notNull,
-                unique: validation.unique,
-              })
+            optional(field.options?.showAs, LongTextShowAs.create).andThen((showAs) =>
+              optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
+                CreateLongTextFieldSpec.create(id, name, {
+                  isPrimary: options.isPrimary,
+                  showAs,
+                  defaultValue,
+                  notNull: validation.notNull,
+                  unique: validation.unique,
+                })
+              )
             )
           )
           .with({ type: 'number' }, (field) =>
@@ -2620,10 +2704,15 @@ export const parseTableFieldSpec = (
           )
           .exhaustive()
           .map((spec) =>
-            withFieldAiConfig(
-              withFieldDescription(spec, field.description, field.name),
-              field.aiConfig,
-              field.name
+            withFieldDbFieldName(
+              withFieldAiConfig(
+                withFieldDescription(spec, field.description, field.name),
+                field.aiConfig,
+                field.name
+              ),
+              field.dbFieldName,
+              field.name,
+              field.id
             )
           )
       )

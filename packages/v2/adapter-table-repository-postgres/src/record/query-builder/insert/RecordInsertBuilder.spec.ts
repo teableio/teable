@@ -101,21 +101,27 @@ const LOOKUP_FIELD_ID = `fld${'d'.repeat(16)}`;
 const LINK_FIELD_ID = `fld${'e'.repeat(16)}`;
 const SYMMETRIC_FIELD_ID = `fld${'f'.repeat(16)}`;
 
-const buildTable = () => {
+const buildTable = (options?: {
+  relationship?: 'manyMany' | 'oneMany';
+  hasOrderColumn?: boolean;
+}) => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
   const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
   const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
   const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
   const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
   const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
+  const relationship = options?.relationship ?? 'manyMany';
 
   const linkConfig = LinkFieldConfig.create({
-    relationship: 'manyMany',
+    relationship,
     foreignTableId: foreignTableId.toString(),
     lookupFieldId: lookupFieldId.toString(),
     symmetricFieldId: symmetricFieldId.toString(),
   })._unsafeUnwrap();
-  const linkMeta = LinkFieldMeta.create({ hasOrderColumn: false })._unsafeUnwrap();
+  const linkMeta = LinkFieldMeta.create({
+    hasOrderColumn: options?.hasOrderColumn ?? false,
+  })._unsafeUnwrap();
 
   const builder = Table.builder()
     .withId(tableId)
@@ -168,5 +174,37 @@ describe('RecordInsertBuilder', () => {
 
     const statements = result._unsafeUnwrap().additionalStatements.map((stmt) => stmt.compiled.sql);
     expect(statements.some((sql) => sql.includes('__order'))).toBe(false);
+  });
+
+  it('sets oneMany order column when link meta hasOrderColumn is true', () => {
+    const { db } = createRecordingDb();
+    const { table, linkFieldId } = buildTable({
+      relationship: 'oneMany',
+      hasOrderColumn: true,
+    });
+    const builder = new RecordInsertBuilder(db);
+
+    const fieldValues = new Map<string, unknown>([
+      [linkFieldId.toString(), [{ id: 'rec_one' }, { id: 'rec_two' }]],
+    ]);
+
+    const result = builder.buildInsertData({
+      table,
+      fieldValues,
+      context: { recordId: 'rec_main', actorId: 'usr_test', now: '2025-01-01T00:00:00.000Z' },
+    });
+
+    const statements = result._unsafeUnwrap().additionalStatements;
+    expect(statements).toHaveLength(1);
+    expect(statements[0]?.compiled.sql).toContain('"__fk_fldffffffffffffffff_order"');
+    expect(statements[0]?.compiled.sql).toContain('from (values ($1, $2, $3), ($4, $5, $6)) as v');
+    expect(statements[0]?.compiled.parameters).toEqual([
+      'rec_one',
+      'rec_main',
+      1,
+      'rec_two',
+      'rec_main',
+      2,
+    ]);
   });
 });

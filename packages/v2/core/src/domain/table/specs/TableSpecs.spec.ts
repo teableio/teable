@@ -50,6 +50,7 @@ import type {
 } from './field-updates';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
+import type { TableAddFieldsSpec } from './TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
@@ -79,6 +80,11 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableAddField(_: TableAddFieldSpec): ReturnType<ITableSpecVisitor['visitTableAddField']> {
     this.calls.push('TableAddFieldSpec');
+    return ok(undefined);
+  }
+
+  visitTableAddFields(_: TableAddFieldsSpec): ReturnType<ITableSpecVisitor['visitTableAddFields']> {
+    this.calls.push('TableAddFieldsSpec');
     return ok(undefined);
   }
 

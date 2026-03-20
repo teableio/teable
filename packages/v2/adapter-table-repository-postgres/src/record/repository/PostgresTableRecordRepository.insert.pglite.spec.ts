@@ -4,6 +4,10 @@ import {
   ActorId,
   BaseId,
   DbFieldName,
+  type IHasher,
+  type IEventBus,
+  type ILogger,
+  type IRecordOrderCalculator,
   FieldName,
   Table,
   TableId,
@@ -11,7 +15,6 @@ import {
   ViewName,
   ok,
 } from '@teable/v2-core';
-import type { IHasher, ILogger, IRecordOrderCalculator } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
 import {
@@ -178,6 +181,13 @@ const createNoopOutbox = (): IComputedUpdateOutbox => {
   };
 };
 
+const createNoopEventBus = (): IEventBus => {
+  return {
+    publish: async () => ok(undefined),
+    publishMany: async () => ok(undefined),
+  };
+};
+
 const createNoopHasher = (): IHasher => {
   return {
     sha256: () => 'test-hash',
@@ -196,6 +206,7 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
   const computedFieldUpdater = {} as ComputedFieldUpdater;
   const computedUpdateStrategy = createNoopStrategy();
   const computedUpdateOutbox = createNoopOutbox();
+  const eventBus = createNoopEventBus();
   const hasher = createNoopHasher();
 
   return new PostgresTableRecordRepository(
@@ -206,6 +217,7 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    eventBus,
     hasher
   );
 };
@@ -332,5 +344,39 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
     expect(rows.rows).toHaveLength(2);
     expect(rows.rows.every((row) => row.order_value != null)).toBe(true);
     expect(rows.rows.map((row) => row.order_value)).toEqual([1, 2]);
+  });
+
+  it('analyzes the first batch inserted into an empty table', async () => {
+    const { table, schemaName, tableName, primaryFieldId } = await createTableWithStorage(
+      db,
+      'insertmany-analyze'
+    );
+    createdSchemas.push(schemaName);
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const context = { actorId };
+
+    const statsBefore = await sql<{ count: string }>`
+      SELECT COUNT(*)::text AS count
+      FROM pg_stats
+      WHERE schemaname = ${schemaName}
+      AND tablename = ${tableName}
+    `.execute(db);
+    expect(Number(statsBefore.rows[0]?.count ?? '0')).toBe(0);
+
+    const recordA = table.createRecord(new Map([[primaryFieldId, 'A']]))._unsafeUnwrap().record;
+    const recordB = table.createRecord(new Map([[primaryFieldId, 'B']]))._unsafeUnwrap().record;
+
+    const result = await repository.insertMany(context, table, [recordA, recordB]);
+    expect(result.isOk()).toBe(true);
+
+    const statsAfter = await sql<{ count: string }>`
+      SELECT COUNT(*)::text AS count
+      FROM pg_stats
+      WHERE schemaname = ${schemaName}
+      AND tablename = ${tableName}
+    `.execute(db);
+    expect(Number(statsAfter.rows[0]?.count ?? '0')).toBeGreaterThan(0);
   });
 });

@@ -69,6 +69,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = table.baseId().toString();
+    const tableToPersist = table;
 
     let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
@@ -80,19 +81,35 @@ export class PostgresTableRepository implements core.ITableRepository {
           where base_id = ${baseId}
         )
       `;
-      const existingDbTableNameResult = table.dbTableName().andThen((name) => name.value());
+      const existingDbTableNameResult = tableToPersist
+        .dbTableName()
+        .andThen((name) => name.value());
       const dbTableNameResult = existingDbTableNameResult.isOk()
         ? ok(existingDbTableNameResult.value)
-        : ok(joinDbTableName(baseId, table.id().toString()));
+        : ok(joinDbTableName(baseId, tableToPersist.id().toString()));
       if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
       const dbTableName = dbTableNameResult.value;
 
-      const dtoResult = this.tableMapper.toDTO(table);
+      if (existingDbTableNameResult.isOk()) {
+        const existingTable = await trx
+          .selectFrom('table_meta')
+          .select('id')
+          .where('base_id', '=', baseId)
+          .where('db_table_name', '=', dbTableName)
+          .executeTakeFirst();
+        if (existingTable) {
+          return err(
+            domainError.validation({ message: `dbTableName ${dbTableName} already exists` })
+          );
+        }
+      }
+
+      const dtoResult = this.tableMapper.toDTO(tableToPersist);
       if (dtoResult.isErr()) return err(dtoResult.error);
       const dto = dtoResult.value;
 
       const fieldRowBuilder = new TableFieldPersistenceBuilder({
-        table,
+        table: tableToPersist,
         tableMapper: this.tableMapper,
         now,
         actorId,
@@ -340,10 +357,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     if (!tableDbMetaValue)
       return err(domainError.validation({ message: 'Missing table db metadata' }));
 
-    const applyDbMetaResult = this.applyDbMeta(table, tableDbMetaValue);
+    const applyDbMetaResult = this.applyDbMeta(tableToPersist, tableDbMetaValue);
     if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
 
-    return ok(table);
+    return ok(tableToPersist);
   }
 
   @core.TraceSpan()
@@ -969,6 +986,61 @@ export class PostgresTableRepository implements core.ITableRepository {
     } catch (error) {
       return err(
         domainError.infrastructure({ message: `Failed to delete table: ${describeError(error)}` })
+      );
+    }
+  }
+
+  @core.TraceSpan()
+  async restore(
+    context: core.IExecutionContext,
+    table: core.Table
+  ): Promise<Result<void, DomainError>> {
+    const now = new Date();
+    const actorId = context.actorId.toString();
+    const tableId = table.id().toString();
+
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context);
+      const tableUpdate = await db
+        .updateTable('table_meta')
+        .set({
+          deleted_time: null,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('id', '=', tableId)
+        .where('deleted_time', 'is not', null)
+        .executeTakeFirst();
+
+      const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
+      if (updatedRows === 0) return err(domainError.notFound({ message: 'Not found' }));
+
+      await db
+        .updateTable('field')
+        .set({
+          deleted_time: null,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('table_id', '=', tableId)
+        .where('deleted_time', 'is not', null)
+        .execute();
+
+      await db
+        .updateTable('view')
+        .set({
+          deleted_time: null,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('table_id', '=', tableId)
+        .where('deleted_time', 'is not', null)
+        .execute();
+
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to restore table: ${describeError(error)}` })
       );
     }
   }

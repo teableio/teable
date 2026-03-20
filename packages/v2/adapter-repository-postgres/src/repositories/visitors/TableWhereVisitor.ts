@@ -2,6 +2,7 @@ import {
   AbstractSpecFilterVisitor,
   type ITableSpecVisitor,
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableAddSelectOptionsSpec,
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
@@ -114,6 +115,12 @@ export class TableWhereVisitor
   visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, DomainError> {
     return err(
       domainError.validation({ message: 'TableAddFieldSpec is not supported for table filters' })
+    );
+  }
+
+  visitTableAddFields(_: TableAddFieldsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({ message: 'TableAddFieldsSpec is not supported for table filters' })
     );
   }
 

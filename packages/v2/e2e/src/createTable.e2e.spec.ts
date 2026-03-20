@@ -2,7 +2,7 @@
 import { createTableOkResponseSchema } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
-import { tableTemplates } from '@teable/v2-table-templates';
+import { createAllFieldTypesFields, tableTemplates } from '@teable/v2-table-templates';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -138,6 +138,214 @@ describe('v2 http createTable (e2e)', () => {
     const fetchedAmountField = fetched.fields.find((field) => field.id === amountFieldId);
     expect(fetchedNameField?.description).toBe('primary description');
     expect(fetchedAmountField?.description).toBe('amount description');
+  });
+
+  it('creates a table with all field types in a single create request', async () => {
+    const companyNameFieldId = createFieldId();
+    const companyRevenueFieldId = createFieldId();
+    const companyLinkFieldId = createFieldId();
+    const companyLookupFieldId = createFieldId();
+    const companyRollupFieldId = createFieldId();
+    const conditionalLookupFieldId = createFieldId();
+    const conditionalRollupFieldId = createFieldId();
+    const autoNumberFieldId = createFieldId();
+    const createdTimeFieldId = createFieldId();
+    const lastModifiedTimeFieldId = createFieldId();
+    const createdByFieldId = createFieldId();
+    const lastModifiedByFieldId = createFieldId();
+
+    const companies = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'All Field Types Companies',
+      fields: [
+        { type: 'singleLineText', id: companyNameFieldId, name: 'Name', isPrimary: true },
+        { type: 'number', id: companyRevenueFieldId, name: 'Revenue' },
+      ],
+      records: [{ fields: { [companyNameFieldId]: 'Acme Inc.', [companyRevenueFieldId]: 120 } }],
+    });
+
+    const companyRecord = (await ctx.listRecords(companies.id, { limit: 10 })).at(0);
+    expect(companyRecord).toBeDefined();
+    if (!companyRecord) return;
+
+    const payload: ICreateTableCommandInput = {
+      baseId: ctx.baseId,
+      name: 'Create Table All Types',
+      fields: [
+        ...createAllFieldTypesFields(),
+        { type: 'autoNumber', id: autoNumberFieldId, name: 'Auto Number' },
+        { type: 'createdTime', id: createdTimeFieldId, name: 'Created Time' },
+        { type: 'lastModifiedTime', id: lastModifiedTimeFieldId, name: 'Last Modified Time' },
+        { type: 'createdBy', id: createdByFieldId, name: 'Created By' },
+        { type: 'lastModifiedBy', id: lastModifiedByFieldId, name: 'Last Modified By' },
+        {
+          type: 'link',
+          id: companyLinkFieldId,
+          name: 'Company',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: companies.id,
+            lookupFieldId: companyNameFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: companyLookupFieldId,
+          name: 'Company Name',
+          options: {
+            linkFieldId: companyLinkFieldId,
+            foreignTableId: companies.id,
+            lookupFieldId: companyNameFieldId,
+          },
+        },
+        {
+          type: 'rollup',
+          id: companyRollupFieldId,
+          name: 'Company Revenue Total',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId: companyLinkFieldId,
+            foreignTableId: companies.id,
+            lookupFieldId: companyRevenueFieldId,
+          },
+        },
+        {
+          type: 'conditionalLookup',
+          id: conditionalLookupFieldId,
+          name: 'High Revenue Companies',
+          options: {
+            foreignTableId: companies.id,
+            lookupFieldId: companyNameFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: companyRevenueFieldId,
+                    operator: 'isGreater',
+                    value: 100,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          type: 'conditionalRollup',
+          id: conditionalRollupFieldId,
+          name: 'High Revenue Total',
+          options: { expression: 'sum({values})' },
+          config: {
+            foreignTableId: companies.id,
+            lookupFieldId: companyRevenueFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: companyRevenueFieldId,
+                    operator: 'isGreater',
+                    value: 100,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    const created = await ctx.createTable(payload);
+    const fieldByName = new Map(created.fields.map((field) => [field.name, field]));
+
+    expect(fieldByName.get('Name')?.type).toBe('singleLineText');
+    expect(fieldByName.get('Description')?.type).toBe('longText');
+    expect(fieldByName.get('Amount')?.type).toBe('number');
+    expect(fieldByName.get('Score')?.type).toBe('formula');
+    expect(fieldByName.get('Priority')?.type).toBe('rating');
+    expect(fieldByName.get('Status')?.type).toBe('singleSelect');
+    expect(fieldByName.get('Tags')?.type).toBe('multipleSelect');
+    expect(fieldByName.get('Done')?.type).toBe('checkbox');
+    expect(fieldByName.get('Files')?.type).toBe('attachment');
+    expect(fieldByName.get('Due Date')?.type).toBe('date');
+    expect(fieldByName.get('Auto Number')?.type).toBe('autoNumber');
+    expect(fieldByName.get('Created Time')?.type).toBe('createdTime');
+    expect(fieldByName.get('Last Modified Time')?.type).toBe('lastModifiedTime');
+    expect(fieldByName.get('Created By')?.type).toBe('createdBy');
+    expect(fieldByName.get('Last Modified By')?.type).toBe('lastModifiedBy');
+    expect(fieldByName.get('Owner')?.type).toBe('user');
+    expect(fieldByName.get('Action')?.type).toBe('button');
+    expect(fieldByName.get('Company')?.type).toBe('link');
+    expect(fieldByName.get('Company Name')?.type).toBe('singleLineText');
+    expect(fieldByName.get('Company Name')?.isLookup).toBe(true);
+    expect(fieldByName.get('Company Revenue Total')?.type).toBe('rollup');
+    expect(fieldByName.get('High Revenue Companies')?.type).toBe('singleLineText');
+    expect(fieldByName.get('High Revenue Companies')?.isLookup).toBe(true);
+    expect(fieldByName.get('High Revenue Companies')?.conditionalLookupOptions).toBeTruthy();
+    expect(fieldByName.get('High Revenue Total')?.type).toBe('conditionalRollup');
+
+    const statusField = fieldByName.get('Status');
+    const tagField = fieldByName.get('Tags');
+    const companyField = fieldByName.get('Company');
+    expect(statusField).toBeDefined();
+    expect(tagField).toBeDefined();
+    expect(companyField).toBeDefined();
+    if (!statusField || !tagField || !companyField) return;
+
+    const statusChoices =
+      statusField.options &&
+      typeof statusField.options === 'object' &&
+      'choices' in statusField.options
+        ? (statusField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? []
+        : [];
+    const tagChoices =
+      tagField.options && typeof tagField.options === 'object' && 'choices' in tagField.options
+        ? (tagField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? []
+        : [];
+
+    await ctx.createRecord(created.id, {
+      Name: 'owner@example.com',
+      Description: 'Created with all field types',
+      Amount: 10,
+      Priority: 4,
+      Status: statusChoices.find((choice) => choice.name === 'Todo')?.id,
+      Tags: tagChoices
+        .filter((choice) => choice.name === 'Frontend' || choice.name === 'Bug')
+        .map((choice) => choice.id)
+        .filter((id): id is string => Boolean(id)),
+      Done: true,
+      Files: [],
+      'Due Date': '2025-02-10T00:00:00.000Z',
+      Company: { id: companyRecord.id },
+    });
+    await ctx.drainOutbox();
+
+    const records = await ctx.listRecords(created.id, { limit: 10 });
+    const createdRecord = records.at(0);
+    expect(createdRecord).toBeDefined();
+    if (!createdRecord) return;
+
+    expect(createdRecord.fields[companyLookupFieldId]).toEqual(
+      expect.arrayContaining(['Acme Inc.'])
+    );
+    expect(Number(createdRecord.fields[companyRollupFieldId])).toBe(120);
+    expect(createdRecord.fields[conditionalLookupFieldId]).toEqual(
+      expect.arrayContaining(['Acme Inc.'])
+    );
+    expect(Number(createdRecord.fields[conditionalRollupFieldId])).toBe(120);
+    expect(typeof createdRecord.fields[autoNumberFieldId]).toBe('number');
+    expect(typeof createdRecord.fields[createdTimeFieldId]).toBe('string');
+    expect(typeof createdRecord.fields[lastModifiedTimeFieldId]).toBe('string');
+    expect(createdRecord.fields[createdByFieldId]).toMatchObject({
+      id: ctx.testUser.id,
+      title: ctx.testUser.name,
+      email: ctx.testUser.email,
+    });
+    expect(createdRecord.fields[lastModifiedByFieldId]).toMatchObject({
+      id: ctx.testUser.id,
+      title: ctx.testUser.name,
+      email: ctx.testUser.email,
+    });
   });
 
   it('allows creating two tables with the same name', async () => {

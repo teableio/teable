@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import type { IConvertFieldRo, IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
@@ -13,43 +12,52 @@ import {
   getDbFieldType,
   ViewOpBuilder,
   ViewType,
+  type IConvertFieldRo,
+  type IFieldRo,
+  type IFieldVo,
   type IGridColumnMeta,
   type IGridViewOptions,
-  type IViewVo,
   type IOtOperation,
+  type IUpdateFieldRo,
+  type IViewVo,
 } from '@teable/core';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import {
-  executeCreateFieldEndpoint,
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+  mapFieldToDto,
+} from '@teable/v2-contract-http';
+import {
   executeDeleteFieldEndpoint,
   executeDuplicateFieldEndpoint,
   executeUpdateFieldEndpoint,
   executeUpdateRecordEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import {
+  CreateFieldCommand,
+  type CreateFieldResult,
+  CreateFieldsCommand,
+  type CreateFieldsResult,
   DeleteFieldsCommand,
   DbTableName,
+  type Field,
   FieldId,
+  type ICommandBus,
+  type IExecutionContext,
+  type ITableMapper,
   LinkFieldConfig,
   LinkRelationship,
   TableId,
+  type Table,
+  type TableQueryService,
   v2CoreTokens,
-} from '@teable/v2-core';
-import type {
-  ICommandBus,
-  IExecutionContext,
-  Table,
-  TableQueryService,
-  ITableMapper,
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
+import type { IClsStore } from '../../../types/cls';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
-import { FieldOpenApiService } from './field-open-api.service';
-import { ViewService } from '../../view/view.service';
-import { adjustFrozenField } from '../../view/utils/derive-frozen-fields';
 import {
   V2_FIELD_UPDATE_AUDIT_CONTEXT_KEY,
   type IV2FieldUpdateAuditContext,
@@ -64,7 +72,9 @@ import {
   V2_FIELD_CONVERT_UNDO_CONTEXT_KEY,
   type IV2FieldConvertUndoContext,
 } from '../../v2/v2-undo-redo.constants';
-import type { IClsStore } from '../../../types/cls';
+import { adjustFrozenField } from '../../view/utils/derive-frozen-fields';
+import { ViewService } from '../../view/view.service';
+import { FieldOpenApiService } from './field-open-api.service';
 
 const internalServerError = 'Internal server error';
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -74,10 +84,20 @@ type ConvertFieldExecutionOptions = {
   undoRedoMode?: 'undo' | 'redo' | 'normal';
 };
 
-type GridViewDeleteSnapshot = {
+type IGridViewDeleteSnapshot = {
   viewId: string;
   options: IGridViewOptions;
   columnMeta: IGridColumnMeta;
+};
+
+type ITableDtoWithFields = {
+  fields: ReadonlyArray<Record<string, unknown>>;
+};
+
+type IPreparedLegacyCreateField = {
+  v2Field: Record<string, unknown>;
+  hasAiConfig: boolean;
+  nextAiConfig: IFieldVo['aiConfig'] | undefined;
 };
 
 @Injectable()
@@ -119,12 +139,14 @@ export class FieldOpenApiV2Service {
     this.dataLoaderService.field.invalidateTables(ids);
   }
 
-  private async captureGridViewDeleteSnapshots(tableId: string): Promise<GridViewDeleteSnapshot[]> {
+  private async captureGridViewDeleteSnapshots(
+    tableId: string
+  ): Promise<IGridViewDeleteSnapshot[]> {
     const views = await this.viewService.getViews(tableId);
     return views.flatMap((view) => this.toGridViewDeleteSnapshot(view));
   }
 
-  private toGridViewDeleteSnapshot(view: IViewVo): GridViewDeleteSnapshot[] {
+  private toGridViewDeleteSnapshot(view: IViewVo): IGridViewDeleteSnapshot[] {
     if (view.type !== ViewType.Grid) {
       return [];
     }
@@ -141,7 +163,7 @@ export class FieldOpenApiV2Service {
   }
 
   private buildFrozenFieldDeleteOps(
-    viewSnapshots: ReadonlyArray<GridViewDeleteSnapshot>,
+    viewSnapshots: ReadonlyArray<IGridViewDeleteSnapshot>,
     fieldIds: ReadonlyArray<string>
   ): Record<string, IOtOperation[]> {
     const columnMetaUpdate = Object.fromEntries(fieldIds.map((fieldId) => [fieldId, null]));
@@ -174,7 +196,7 @@ export class FieldOpenApiV2Service {
     tableId: string,
     fieldIds: ReadonlyArray<string>,
     payload: Awaited<ReturnType<FieldOpenApiService['captureDeleteFieldsLegacyPayload']>>,
-    gridViewSnapshots: ReadonlyArray<GridViewDeleteSnapshot>
+    gridViewSnapshots: ReadonlyArray<IGridViewDeleteSnapshot>
   ): void {
     (
       context as IExecutionContext & {
@@ -317,6 +339,10 @@ export class FieldOpenApiV2Service {
 
     if (vo.isMultipleCellValue === false) {
       delete raw.isMultipleCellValue;
+    }
+
+    if (vo.isPrimary === false) {
+      delete raw.isPrimary;
     }
 
     if (vo.isComputed === true && raw.isPending == null) {
@@ -483,85 +509,265 @@ export class FieldOpenApiV2Service {
       throw new HttpException(tableDtoResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const field = tableDtoResult.value.fields.find((item) => item.id === fieldId);
+    return this.extractFieldVoFromTableDto(tableDtoResult.value, fieldId, queryContext);
+  }
+
+  private mapDomainFieldToDto(table: Table, field: Field): Record<string, unknown> {
+    const fieldDtoResult = mapFieldToDto(field, table.primaryFieldId());
+    if (fieldDtoResult.isErr()) {
+      throw new HttpException(fieldDtoResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return fieldDtoResult.value as Record<string, unknown>;
+  }
+
+  private enrichLookupLinkMetadata(
+    vo: IFieldVo,
+    resolveLinkFieldDto: (linkFieldId: string) => Record<string, unknown> | undefined
+  ): void {
+    // Enrich lookupOptions with link metadata for v1 API compatibility.
+    // v2 stores link metadata (relationship, fkHostTableName, selfKeyName, foreignKeyName) on the
+    // LinkField, not on the LookupField. v1 API consumers expect these in lookupOptions.
+    if (!vo.lookupOptions || !('linkFieldId' in vo.lookupOptions)) {
+      return;
+    }
+
+    const linkFieldDto = resolveLinkFieldDto(
+      (vo.lookupOptions as { linkFieldId: string }).linkFieldId
+    );
+    if (!linkFieldDto?.options || typeof linkFieldDto.options !== 'object') {
+      return;
+    }
+
+    const linkOpts = linkFieldDto.options as Record<string, unknown>;
+    const lookup = vo.lookupOptions as Record<string, unknown>;
+    if (linkOpts.relationship != null) lookup.relationship = linkOpts.relationship;
+    if (lookup.foreignTableId == null && linkOpts.foreignTableId != null) {
+      lookup.foreignTableId = linkOpts.foreignTableId;
+    }
+    if (linkOpts.fkHostTableName != null) lookup.fkHostTableName = linkOpts.fkHostTableName;
+    if (linkOpts.selfKeyName != null) lookup.selfKeyName = linkOpts.selfKeyName;
+    if (linkOpts.foreignKeyName != null) lookup.foreignKeyName = linkOpts.foreignKeyName;
+  }
+
+  private async hydrateLookupFieldVo(
+    vo: IFieldVo,
+    queryContext?: IExecutionContext
+  ): Promise<void> {
+    if (!vo.isLookup || !vo.lookupOptions || typeof vo.lookupOptions !== 'object') {
+      return;
+    }
+
+    const lookupOpts = vo.lookupOptions as Record<string, unknown>;
+    if (lookupOpts.isOneWay === false) {
+      delete lookupOpts.isOneWay;
+    }
+    if (lookupOpts.symmetricFieldId != null) {
+      delete lookupOpts.symmetricFieldId;
+    }
+    const foreignTableId = lookupOpts.foreignTableId;
+    const lookupFieldId = lookupOpts.lookupFieldId;
+    if (typeof foreignTableId === 'string' && typeof lookupFieldId === 'string') {
+      try {
+        const sourceVo = await this.getFieldFromV2(foreignTableId, lookupFieldId, queryContext);
+        // Conditional lookup already exposes innerType via normalizeFieldVo.
+        // Do not overwrite it with foreign lookup source field type.
+        if (!vo.isConditionalLookup && sourceVo.type) {
+          vo.type = sourceVo.type;
+        }
+
+        const sourceOptions =
+          sourceVo.options &&
+          typeof sourceVo.options === 'object' &&
+          !Array.isArray(sourceVo.options)
+            ? (sourceVo.options as Record<string, unknown>)
+            : undefined;
+        const currentOptions =
+          vo.options && typeof vo.options === 'object' && !Array.isArray(vo.options)
+            ? (vo.options as Record<string, unknown>)
+            : undefined;
+
+        if (sourceOptions || currentOptions) {
+          vo.options = {
+            ...(sourceOptions ?? {}),
+            ...(currentOptions ?? {}),
+          } as IFieldVo['options'];
+          vo.options = this.denormalizeLegacyTimeZone(vo.options) as IFieldVo['options'];
+        }
+
+        if (sourceVo.cellValueType != null && vo.cellValueType == null) {
+          vo.cellValueType = sourceVo.cellValueType;
+        }
+      } catch {
+        // If the lookup source field can't be retrieved, we can still return the lookup field with best-effort type inference based on the field definition. This can happen if the foreign table or lookup field has been deleted, or if the user doesn't have access to the foreign table.
+      }
+    }
+
+    if (vo.options == null) {
+      vo.options = {};
+    }
+  }
+
+  private async extractFieldVoFromTableDto(
+    tableDto: ITableDtoWithFields,
+    fieldId: string,
+    queryContext?: IExecutionContext
+  ): Promise<IFieldVo> {
+    const field = tableDto.fields.find((item) => item.id === fieldId);
     if (!field) {
       throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
     }
 
     const vo = this.normalizeFieldVo(field);
 
-    // Enrich lookupOptions with link metadata for v1 API compatibility.
-    // v2 stores link metadata (relationship, fkHostTableName, selfKeyName, foreignKeyName) on the
-    // LinkField, not on the LookupField. v1 API consumers expect these in lookupOptions.
-    if (vo.lookupOptions && 'linkFieldId' in vo.lookupOptions) {
-      const linkFieldDto = tableDtoResult.value.fields.find(
-        (f) => f.id === (vo.lookupOptions as { linkFieldId: string }).linkFieldId
-      );
-      if (linkFieldDto?.options && typeof linkFieldDto.options === 'object') {
-        const linkOpts = linkFieldDto.options as Record<string, unknown>;
-        const lookup = vo.lookupOptions as Record<string, unknown>;
-        if (linkOpts.relationship != null) lookup.relationship = linkOpts.relationship;
-        if (lookup.foreignTableId == null && linkOpts.foreignTableId != null) {
-          lookup.foreignTableId = linkOpts.foreignTableId;
-        }
-        if (linkOpts.fkHostTableName != null) lookup.fkHostTableName = linkOpts.fkHostTableName;
-        if (linkOpts.selfKeyName != null) lookup.selfKeyName = linkOpts.selfKeyName;
-        if (linkOpts.foreignKeyName != null) lookup.foreignKeyName = linkOpts.foreignKeyName;
-      }
-    }
+    this.enrichLookupLinkMetadata(vo, (linkFieldId) =>
+      tableDto.fields.find((f) => f.id === linkFieldId)
+    );
 
-    if (vo.isLookup && vo.lookupOptions && typeof vo.lookupOptions === 'object') {
-      const lookupOpts = vo.lookupOptions as Record<string, unknown>;
-      if (lookupOpts.isOneWay === false) {
-        delete lookupOpts.isOneWay;
-      }
-      if (lookupOpts.symmetricFieldId != null) {
-        delete lookupOpts.symmetricFieldId;
-      }
-      const foreignTableId = lookupOpts.foreignTableId;
-      const lookupFieldId = lookupOpts.lookupFieldId;
-      if (typeof foreignTableId === 'string' && typeof lookupFieldId === 'string') {
-        try {
-          const sourceVo = await this.getFieldFromV2(foreignTableId, lookupFieldId, queryContext);
-          // Conditional lookup already exposes innerType via normalizeFieldVo.
-          // Do not overwrite it with foreign lookup source field type.
-          if (!vo.isConditionalLookup && sourceVo.type) {
-            vo.type = sourceVo.type;
-          }
-
-          const sourceOptions =
-            sourceVo.options &&
-            typeof sourceVo.options === 'object' &&
-            !Array.isArray(sourceVo.options)
-              ? (sourceVo.options as Record<string, unknown>)
-              : undefined;
-          const currentOptions =
-            vo.options && typeof vo.options === 'object' && !Array.isArray(vo.options)
-              ? (vo.options as Record<string, unknown>)
-              : undefined;
-
-          if (sourceOptions || currentOptions) {
-            vo.options = {
-              ...(sourceOptions ?? {}),
-              ...(currentOptions ?? {}),
-            } as IFieldVo['options'];
-            vo.options = this.denormalizeLegacyTimeZone(vo.options) as IFieldVo['options'];
-          }
-
-          if (sourceVo.cellValueType != null && vo.cellValueType == null) {
-            vo.cellValueType = sourceVo.cellValueType;
-          }
-        } catch {
-          // If the lookup source field can't be retrieved, we can still return the lookup field with best-effort type inference based on the field definition. This can happen if the foreign table or lookup field has been deleted, or if the user doesn't have access to the foreign table.
-        }
-      }
-
-      if (vo.options == null) {
-        vo.options = {};
-      }
-    }
+    await this.hydrateLookupFieldVo(vo, queryContext);
 
     return vo;
+  }
+
+  private async extractFieldVoFromDomainTable(
+    table: Table,
+    fieldId: string,
+    queryContext?: IExecutionContext
+  ): Promise<IFieldVo> {
+    const fieldIdResult = FieldId.create(fieldId);
+    if (fieldIdResult.isErr()) {
+      throw new HttpException('Invalid field id', HttpStatus.BAD_REQUEST);
+    }
+
+    const fieldResult = table.getField((candidate) => candidate.id().equals(fieldIdResult.value));
+    if (fieldResult.isErr()) {
+      throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
+    }
+
+    const vo = this.normalizeFieldVo(this.mapDomainFieldToDto(table, fieldResult.value));
+    this.enrichLookupLinkMetadata(vo, (linkFieldId) => {
+      const linkFieldIdResult = FieldId.create(linkFieldId);
+      if (linkFieldIdResult.isErr()) {
+        return undefined;
+      }
+      const linkFieldResult = table.getField((candidate) =>
+        candidate.id().equals(linkFieldIdResult.value)
+      );
+      if (linkFieldResult.isErr()) {
+        return undefined;
+      }
+      return this.mapDomainFieldToDto(table, linkFieldResult.value);
+    });
+
+    await this.hydrateLookupFieldVo(vo, queryContext);
+
+    return vo;
+  }
+
+  private async getCreateFieldContext(tableId: string): Promise<{
+    commandBus: ICommandBus;
+    tableQueryService: TableQueryService;
+    context: IExecutionContext;
+    table: Table;
+  }> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const context = await this.v2ContextFactory.createContext();
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    }
+
+    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
+    if (tableResult.isErr()) {
+      const errMsg = tableResult.error.message ?? 'Table not found';
+      const isNotFound =
+        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+      throw new HttpException(
+        errMsg,
+        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    return {
+      commandBus,
+      tableQueryService,
+      context,
+      table: tableResult.value,
+    };
+  }
+
+  private async prepareLegacyCreateField(
+    fieldRo: IFieldRo,
+    currentTable: Table,
+    tableQueryService: TableQueryService,
+    context: IExecutionContext
+  ): Promise<IPreparedLegacyCreateField> {
+    const rawFieldRo = fieldRo as Record<string, unknown>;
+    const hasAiConfig = Object.prototype.hasOwnProperty.call(rawFieldRo, 'aiConfig');
+    const nextAiConfig = hasAiConfig
+      ? (rawFieldRo.aiConfig as IFieldVo['aiConfig'] | null | undefined) ?? null
+      : undefined;
+    const mappedField = this.mapLegacyCreateFieldToV2(fieldRo);
+    const v2Field = await this.completeLegacyLinkDbConfigForCreate(
+      mappedField,
+      currentTable,
+      tableQueryService,
+      context
+    );
+
+    return {
+      v2Field,
+      hasAiConfig,
+      nextAiConfig,
+    };
+  }
+
+  private collectFieldInvalidateTableIds(
+    tableId: string,
+    v2Fields: ReadonlyArray<Record<string, unknown>>
+  ): string[] {
+    const tableIdsToInvalidate = [tableId];
+
+    for (const v2Field of v2Fields) {
+      const mappedOptions =
+        v2Field.options && typeof v2Field.options === 'object' && !Array.isArray(v2Field.options)
+          ? (v2Field.options as Record<string, unknown>)
+          : undefined;
+      const mappedConfig =
+        v2Field.config && typeof v2Field.config === 'object' && !Array.isArray(v2Field.config)
+          ? (v2Field.config as Record<string, unknown>)
+          : undefined;
+
+      if (typeof mappedOptions?.foreignTableId === 'string') {
+        tableIdsToInvalidate.push(mappedOptions.foreignTableId);
+      }
+      if (typeof mappedConfig?.foreignTableId === 'string') {
+        tableIdsToInvalidate.push(mappedConfig.foreignTableId);
+      }
+    }
+
+    return tableIdsToInvalidate;
+  }
+
+  private async materializeCreatedFieldVo(
+    tableId: string,
+    table: Table,
+    fieldId: string,
+    context: IExecutionContext,
+    options?: {
+      forceCompatLookupRead?: boolean;
+    }
+  ): Promise<IFieldVo> {
+    const createdFieldFromDomain = await this.extractFieldVoFromDomainTable(
+      table,
+      fieldId,
+      context
+    );
+    return options?.forceCompatLookupRead === true || createdFieldFromDomain.isLookup === true
+      ? await this.getFieldFromV2(tableId, fieldId, context)
+      : createdFieldFromDomain;
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
@@ -1044,31 +1250,13 @@ export class FieldOpenApiV2Service {
   }
 
   async createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainer();
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
-    const tableIdResult = TableId.create(tableId);
-    if (tableIdResult.isErr()) {
-      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
-    }
-
-    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
-    if (tableResult.isErr()) {
-      const errMsg = tableResult.error.message ?? 'Table not found';
-      const isNotFound =
-        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
-      throw new HttpException(
-        errMsg,
-        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
-
+    const { commandBus, tableQueryService, context, table } =
+      await this.getCreateFieldContext(tableId);
     const rawFieldRo = fieldRo as Record<string, unknown>;
     const rawDbFieldName = rawFieldRo.dbFieldName;
     if (
       typeof rawDbFieldName === 'string' &&
-      this.hasDuplicatedDbFieldName(tableResult.value, rawDbFieldName)
+      this.hasDuplicatedDbFieldName(table, rawDbFieldName)
     ) {
       throw new CustomHttpException(
         `Db Field name ${rawDbFieldName} already exists in this table`,
@@ -1076,16 +1264,13 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const hasAiConfig = Object.prototype.hasOwnProperty.call(rawFieldRo, 'aiConfig');
-    const nextAiConfig = hasAiConfig ? rawFieldRo.aiConfig ?? null : undefined;
-    const mappedField = this.mapLegacyCreateFieldToV2(fieldRo);
-    const linkDbCompletedField = await this.completeLegacyLinkDbConfigForCreate(
-      mappedField,
-      tableResult.value,
+    const preparedField = await this.prepareLegacyCreateField(
+      fieldRo,
+      table,
       tableQueryService,
       context
     );
-    const v2Field = linkDbCompletedField;
+    const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
     const legacyOrder =
       fieldRo && typeof fieldRo === 'object' && 'order' in fieldRo
         ? (fieldRo.order as
@@ -1102,51 +1287,146 @@ export class FieldOpenApiV2Service {
             orderIndex: legacyOrder.orderIndex,
           }
         : undefined;
-    const result = await executeCreateFieldEndpoint(
+    const commandResult = CreateFieldCommand.create({
+      baseId: table.baseId().toString(),
+      tableId,
+      field: v2Field,
+      ...(normalizedOrder ? { order: normalizedOrder } : {}),
+    });
+
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
       context,
-      {
-        baseId: tableResult.value.baseId().toString(),
-        tableId,
-        field: v2Field,
-        ...(normalizedOrder ? { order: normalizedOrder } : {}),
-      },
-      commandBus
+      commandResult.value
     );
 
-    if (result.status === 200 && result.body.ok) {
-      const tableIdsToInvalidate = [tableId];
-      const mappedOptions =
-        v2Field.options && typeof v2Field.options === 'object' && !Array.isArray(v2Field.options)
-          ? (v2Field.options as Record<string, unknown>)
-          : undefined;
-      const mappedConfig =
-        v2Field.config && typeof v2Field.config === 'object' && !Array.isArray(v2Field.config)
-          ? (v2Field.config as Record<string, unknown>)
-          : undefined;
-      if (typeof mappedOptions?.foreignTableId === 'string') {
-        tableIdsToInvalidate.push(mappedOptions.foreignTableId);
-      }
-      if (typeof mappedConfig?.foreignTableId === 'string') {
-        tableIdsToInvalidate.push(mappedConfig.foreignTableId);
-      }
-      this.invalidateFieldLoader(tableIdsToInvalidate);
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
 
-      if (typeof v2Field.id === 'string') {
-        const createdField = await this.getFieldFromV2(tableId, v2Field.id, context);
+    this.invalidateFieldLoader(this.collectFieldInvalidateTableIds(tableId, [v2Field]));
+
+    if (typeof v2Field.id === 'string') {
+      const shouldForceCompatLookupRead =
+        v2Field.type === 'lookup' || v2Field.type === 'conditionalLookup';
+      const createdField = await this.materializeCreatedFieldVo(
+        tableId,
+        result.value.table,
+        v2Field.id,
+        context,
+        {
+          forceCompatLookupRead: shouldForceCompatLookupRead,
+        }
+      );
+
+      if (hasAiConfig) {
+        createdField.aiConfig = nextAiConfig as IFieldVo['aiConfig'];
+      }
+
+      return createdField;
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async createFields(tableId: string, fieldRos: IFieldRo[]): Promise<IFieldVo[]> {
+    if (!fieldRos.length) {
+      return [];
+    }
+
+    const { commandBus, tableQueryService, context, table } =
+      await this.getCreateFieldContext(tableId);
+    const explicitDbFieldNames = new Set<string>();
+    for (const fieldRo of fieldRos) {
+      const rawFieldRo = fieldRo as Record<string, unknown>;
+      const rawDbFieldName = rawFieldRo.dbFieldName;
+      if (typeof rawDbFieldName !== 'string') {
+        continue;
+      }
+      if (
+        explicitDbFieldNames.has(rawDbFieldName) ||
+        this.hasDuplicatedDbFieldName(table, rawDbFieldName)
+      ) {
+        throw new CustomHttpException(
+          `Db Field name ${rawDbFieldName} already exists in this table`,
+          getDefaultCodeByStatus(HttpStatus.BAD_REQUEST)
+        );
+      }
+      explicitDbFieldNames.add(rawDbFieldName);
+    }
+
+    const preparedFields = await Promise.all(
+      fieldRos.map((fieldRo) =>
+        this.prepareLegacyCreateField(fieldRo, table, tableQueryService, context)
+      )
+    );
+    const commandResult = CreateFieldsCommand.create({
+      baseId: table.baseId().toString(),
+      tableId,
+      fields: preparedFields.map((field) => field.v2Field),
+    });
+
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<CreateFieldsCommand, CreateFieldsResult>(
+      context,
+      commandResult.value
+    );
+
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    this.invalidateFieldLoader(
+      this.collectFieldInvalidateTableIds(
+        tableId,
+        preparedFields.map((field) => field.v2Field)
+      )
+    );
+
+    return await Promise.all(
+      preparedFields.map(async ({ v2Field, hasAiConfig, nextAiConfig }) => {
+        if (typeof v2Field.id !== 'string') {
+          throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        const shouldForceCompatLookupRead =
+          v2Field.type === 'lookup' || v2Field.type === 'conditionalLookup';
+
+        const createdField = await this.materializeCreatedFieldVo(
+          tableId,
+          result.value.table,
+          v2Field.id,
+          context,
+          {
+            forceCompatLookupRead: shouldForceCompatLookupRead,
+          }
+        );
 
         if (hasAiConfig) {
           createdField.aiConfig = nextAiConfig as IFieldVo['aiConfig'];
         }
 
         return createdField;
-      }
-    }
-
-    if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
-    }
-
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      })
+    );
   }
 
   async duplicateField(

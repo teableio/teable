@@ -7,6 +7,7 @@ import { ResourceType } from '@teable/openapi';
 import {
   ProjectionHandler,
   RecordsDeleted,
+  TableRestored,
   TableTrashed,
   TableQueryService,
   ok,
@@ -138,6 +139,25 @@ export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
   }
 }
 
+@ProjectionHandler(TableRestored)
+export class V2TableRestoredProjection implements IEventHandler<TableRestored> {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: TableRestored
+  ): Promise<Result<void, DomainError>> {
+    await this.prisma.trash.deleteMany({
+      where: {
+        resourceId: event.tableId.toString(),
+        resourceType: ResourceType.Table,
+      },
+    });
+
+    return ok(undefined);
+  }
+}
+
 @Injectable()
 export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit {
   private readonly logger = new Logger(V2TableTrashService.name);
@@ -168,5 +188,9 @@ export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit
       new V2RecordsDeletedAttachmentProjection(this.attachmentsTableService)
     );
     container.registerInstance(V2TableTrashedProjection, new V2TableTrashedProjection(this.prisma));
+    container.registerInstance(
+      V2TableRestoredProjection,
+      new V2TableRestoredProjection(this.prisma)
+    );
   }
 }

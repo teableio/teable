@@ -7,6 +7,7 @@ import {
 } from '@teable/v2-core';
 import type {
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableAddSelectOptionsSpec,
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
@@ -428,6 +429,27 @@ export class TableSchemaUpdateVisitor
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
         statements.push(createSearchIdx);
+      }
+      yield* addCond(statements);
+      return ok(statements);
+    });
+  }
+
+  visitTableAddFields(
+    spec: TableAddFieldsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const visitor = this;
+    const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
+    const addCond = this.addCond.bind(this);
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const statements: TableSchemaStatementBuilder[] = [];
+      for (const field of spec.fields()) {
+        statements.push(...(yield* field.accept(fieldVisitor)));
+        const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
+        const createSearchIdx = visitor.createSearchIndexStatement(field, dbFieldName);
+        if (createSearchIdx) {
+          statements.push(createSearchIdx);
+        }
       }
       yield* addCond(statements);
       return ok(statements);

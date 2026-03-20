@@ -14,6 +14,7 @@ import {
   LinkFieldConfig,
   Table,
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableId,
   TableName,
   TableUpdateFieldHasErrorSpec,
@@ -1029,6 +1030,34 @@ describe('TableSchemaUpdateVisitor', () => {
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(false);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(false);
+    });
+
+    it('should generate statements for multiple fields in one batch spec', () => {
+      const searchableField = createField({ id: 'fldSearchField00001', kind: 'singleLineText' });
+      const unsupportedField = createField({ id: 'fldCheckboxField001', kind: 'checkbox' });
+      const spec = TableAddFieldsSpec.create([searchableField, unsupportedField]);
+      const visitor = createVisitor();
+
+      const result = visitor.visitTableAddFields(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      const searchableDbFieldName = searchableField
+        .dbFieldName()
+        ._unsafeUnwrap()
+        .value()
+        ._unsafeUnwrap();
+      const unsupportedDbFieldName = unsupportedField
+        .dbFieldName()
+        ._unsafeUnwrap()
+        .value()
+        ._unsafeUnwrap();
+
+      expect(sqls.length).toBeGreaterThanOrEqual(3);
+      expect(sqls.some((text) => text.includes(searchableDbFieldName))).toBe(true);
+      expect(sqls.some((text) => text.includes(unsupportedDbFieldName))).toBe(true);
+      expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
+      expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
     });
   });
 

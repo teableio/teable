@@ -54,6 +54,15 @@ import {
 describe('OpenAPI TableController for duplicate (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
+  const normalizeComparedField = <T extends Record<string, any>>(field: T) => {
+    const normalized = { ...field };
+    if (isForceV2 && normalized.isMultipleCellValue === false) {
+      delete normalized.isMultipleCellValue;
+    }
+    return normalized;
+  };
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -217,10 +226,18 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
 
       const otherFieldsWithOutLink = assertField
         .filter(({ type, isLookup }) => type !== FieldType.Link && !isLookup)
-        .map((f) => omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy']));
+        .map((f) =>
+          normalizeComparedField(
+            omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy'])
+          )
+        );
       const otherAssertFieldsWithOutLink = targetFields
         .filter(({ type, isLookup }) => type !== FieldType.Link && !isLookup)
-        .map((f) => omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy']));
+        .map((f) =>
+          normalizeComparedField(
+            omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy'])
+          )
+        );
 
       const duplicatedViews = targetViews.map((v) =>
         omit(v, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy', 'shareId'])

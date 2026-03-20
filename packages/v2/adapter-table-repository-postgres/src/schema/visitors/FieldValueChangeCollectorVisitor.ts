@@ -4,6 +4,7 @@ import type {
   ISpecification,
   ITableSpecVisitor,
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableAddSelectOptionsSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
@@ -125,6 +126,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   visitTableAddField(_spec: TableAddFieldSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableAddFields(_spec: TableAddFieldsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

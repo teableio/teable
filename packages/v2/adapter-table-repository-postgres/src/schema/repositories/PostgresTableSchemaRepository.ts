@@ -62,6 +62,7 @@ type ComputedFieldBackfillService = {
       table: Table;
       fields: ReadonlyArray<Field>;
       includeOneManyTwoWay?: boolean;
+      skipDistinctFilter?: boolean;
     }
   ): Promise<Result<void, DomainError>>;
 };
@@ -328,6 +329,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         yield* await repository.computedFieldBackfillService.backfillMany(context, {
           table,
           fields,
+          // Newly added fields have no prior stored values, so we can skip the
+          // expensive DISTINCT comparison and backfill every existing row directly.
+          skipDistinctFilter: true,
           includeOneManyTwoWay: fields.some((field) => {
             if (field.type().toString() !== 'link') {
               return false;

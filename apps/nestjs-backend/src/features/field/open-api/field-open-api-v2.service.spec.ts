@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { CellValueType, DbFieldType, getDefaultFormatting, type IFieldVo } from '@teable/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 
 type ITestFieldOpenApiV2Service = {
@@ -33,6 +33,14 @@ type ITestFieldOpenApiV2Service = {
     currentField?: Record<string, unknown>
   ) => Record<string, unknown>;
   normalizeFieldVo: (field: unknown) => IFieldVo;
+  createField: (tableId: string, fieldRo: Record<string, unknown>) => Promise<IFieldVo>;
+  createFields: (tableId: string, fieldRos: Array<Record<string, unknown>>) => Promise<IFieldVo[]>;
+  extractFieldVoFromTableDto: (
+    tableDto: {
+      fields: Array<Record<string, unknown>>;
+    },
+    fieldId: string
+  ) => Promise<IFieldVo>;
   hasDuplicatedDbFieldName: (
     table: { getFields: () => Array<unknown> },
     dbFieldName: string
@@ -1233,6 +1241,20 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
     expect(vo.isMultipleCellValue).toBeUndefined();
   });
 
+  it('omits false isPrimary for v1 compatibility', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldPrimaryNormalize0001',
+      name: 'Secondary Text',
+      type: 'singleLineText',
+      dbFieldName: 'secondary_text',
+      isPrimary: false,
+      options: {},
+    });
+
+    expect(vo.isPrimary).toBeUndefined();
+  });
+
   it('strips undefined keys from options payload', () => {
     const service = createNormalizeService();
     const vo = service.normalizeFieldVo({
@@ -1288,6 +1310,303 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
     });
 
     expect(vo.options).toEqual({});
+  });
+
+  it('extracts field vo directly from returned table dto and preserves lookup link metadata', async () => {
+    const service = createNormalizeService();
+    const vo = await service.extractFieldVoFromTableDto(
+      {
+        fields: [
+          {
+            id: 'fldLink000000000001',
+            name: 'Link',
+            type: 'link',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: 'tblForeign00000001',
+              fkHostTableName: 'bseBase.tblJunction',
+              selfKeyName: '__fk_self',
+              foreignKeyName: '__fk_foreign',
+            },
+          },
+          {
+            id: 'fldLookup000000001',
+            name: 'Lookup',
+            type: 'singleLineText',
+            isLookup: true,
+            lookupOptions: {
+              linkFieldId: 'fldLink000000000001',
+              foreignTableId: 'tblForeign00000001',
+              lookupFieldId: 'fldSource000000001',
+            },
+            options: null,
+          },
+        ],
+      },
+      'fldLookup000000001'
+    );
+
+    expect(vo.lookupOptions).toMatchObject({
+      linkFieldId: 'fldLink000000000001',
+      relationship: 'manyMany',
+      foreignTableId: 'tblForeign00000001',
+      fkHostTableName: 'bseBase.tblJunction',
+      selfKeyName: '__fk_self',
+      foreignKeyName: '__fk_foreign',
+    });
+  });
+});
+
+describe('FieldOpenApiV2Service createField', () => {
+  it('reuses the created domain table instead of remapping the full table dto', async () => {
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          table: { kind: 'domainTable' },
+        },
+      }),
+    };
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          baseId: () => ({
+            toString: () => 'bseTestBaseId',
+          }),
+        },
+      }),
+    };
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainer: async () => ({
+          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
+        }),
+      } as never,
+      { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
+      { field: { invalidateTables: vi.fn() } } as never,
+      {} as never,
+      {} as never,
+      {} as never
+    ) as unknown as ITestFieldOpenApiV2Service;
+
+    vi.spyOn(service as object, 'hasDuplicatedDbFieldName' as never).mockReturnValue(false);
+    vi.spyOn(service as object, 'completeLegacyLinkDbConfigForCreate' as never).mockImplementation(
+      async (field) => field as Record<string, unknown>
+    );
+
+    const extractFieldVoFromDomainTable = vi
+      .spyOn(service as object, 'extractFieldVoFromDomainTable' as never)
+      .mockResolvedValue({
+        id: 'fldCreated000000001',
+        name: 'Created Field',
+        type: 'singleLineText',
+      } as IFieldVo);
+    const extractFieldVoFromTableDto = vi.spyOn(
+      service as object,
+      'extractFieldVoFromTableDto' as never
+    );
+
+    const createdField = await service.createField('tbl3sYKYH4tDz0IEg91', {
+      type: 'singleLineText',
+      name: 'Created Field',
+    });
+
+    expect(createdField).toMatchObject({
+      id: 'fldCreated000000001',
+      name: 'Created Field',
+      type: 'singleLineText',
+    });
+    expect(commandBus.execute).toHaveBeenCalledTimes(1);
+    expect(extractFieldVoFromDomainTable).toHaveBeenCalledWith(
+      { kind: 'domainTable' },
+      expect.stringMatching(/^fld/),
+      { requestId: 'reqTestId' }
+    );
+    expect(extractFieldVoFromTableDto).not.toHaveBeenCalled();
+  });
+
+  it('falls back to v2 field read for lookup fields to preserve legacy response shape', async () => {
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          table: { kind: 'domainTable' },
+        },
+      }),
+    };
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          baseId: () => ({
+            toString: () => 'bseTestBaseId',
+          }),
+        },
+      }),
+    };
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainer: async () => ({
+          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
+        }),
+      } as never,
+      { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
+      { field: { invalidateTables: vi.fn() } } as never,
+      {} as never,
+      {} as never,
+      {} as never
+    ) as unknown as ITestFieldOpenApiV2Service;
+
+    vi.spyOn(service as object, 'hasDuplicatedDbFieldName' as never).mockReturnValue(false);
+    vi.spyOn(service as object, 'completeLegacyLinkDbConfigForCreate' as never).mockImplementation(
+      async () =>
+        ({
+          id: 'fldLookup000000001',
+          type: 'lookup',
+          options: {
+            foreignTableId: 'tblForeign00000001',
+            lookupFieldId: 'fldSource000000001',
+            linkFieldId: 'fldLink000000000001',
+          },
+        }) as Record<string, unknown>
+    );
+
+    vi.spyOn(service as object, 'extractFieldVoFromDomainTable' as never).mockResolvedValue({
+      id: 'fldLookup000000001',
+      name: 'Lookup Field',
+      type: 'singleLineText',
+    } as IFieldVo);
+    const getFieldFromV2 = vi
+      .spyOn(service as object, 'getFieldFromV2' as never)
+      .mockResolvedValue({
+        id: 'fldLookup000000001',
+        name: 'Lookup Field',
+        type: 'singleLineText',
+        isLookup: true,
+        dbFieldType: DbFieldType.Json,
+        isMultipleCellValue: true,
+      } as IFieldVo);
+
+    const createdField = await service.createField('tbl3sYKYH4tDz0IEg91', {
+      type: 'singleLineText',
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldSource000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+    });
+
+    expect(getFieldFromV2).toHaveBeenCalledWith('tbl3sYKYH4tDz0IEg91', 'fldLookup000000001', {
+      requestId: 'reqTestId',
+    });
+    expect(createdField).toMatchObject({
+      id: 'fldLookup000000001',
+      isLookup: true,
+      dbFieldType: DbFieldType.Json,
+      isMultipleCellValue: true,
+    });
+  });
+});
+
+describe('FieldOpenApiV2Service createFields', () => {
+  it('reuses the created domain table for non-lookup fields and falls back to v2 reads for lookup fields', async () => {
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          table: { kind: 'domainTable' },
+        },
+      }),
+    };
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          baseId: () => ({
+            toString: () => 'bseTestBaseId',
+          }),
+        },
+      }),
+    };
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainer: async () => ({
+          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
+        }),
+      } as never,
+      { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
+      { field: { invalidateTables: vi.fn() } } as never,
+      {} as never,
+      {} as never,
+      {} as never
+    ) as unknown as ITestFieldOpenApiV2Service;
+
+    vi.spyOn(service as object, 'hasDuplicatedDbFieldName' as never).mockReturnValue(false);
+    vi.spyOn(service as object, 'completeLegacyLinkDbConfigForCreate' as never).mockImplementation(
+      async (field) => field as Record<string, unknown>
+    );
+
+    vi.spyOn(service as object, 'extractFieldVoFromDomainTable' as never)
+      .mockResolvedValueOnce({
+        id: 'fldText000000000001',
+        name: 'Text Field',
+        type: 'singleLineText',
+      } as IFieldVo)
+      .mockResolvedValueOnce({
+        id: 'fldLookup000000001',
+        name: 'Lookup Field',
+        type: 'singleLineText',
+      } as IFieldVo);
+    const getFieldFromV2 = vi
+      .spyOn(service as object, 'getFieldFromV2' as never)
+      .mockResolvedValue({
+        id: 'fldLookup000000001',
+        name: 'Lookup Field',
+        type: 'singleLineText',
+        isLookup: true,
+        dbFieldType: DbFieldType.Json,
+        isMultipleCellValue: true,
+      } as IFieldVo);
+
+    const createdFields = await service.createFields('tbl3sYKYH4tDz0IEg91', [
+      {
+        id: 'fldText000000000001',
+        type: 'singleLineText',
+        name: 'Text Field',
+      },
+      {
+        id: 'fldLookup000000001',
+        type: 'number',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldSource000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      },
+    ]);
+
+    expect(createdFields).toEqual([
+      {
+        id: 'fldText000000000001',
+        name: 'Text Field',
+        type: 'singleLineText',
+      },
+      {
+        id: 'fldLookup000000001',
+        name: 'Lookup Field',
+        type: 'singleLineText',
+        isLookup: true,
+        dbFieldType: DbFieldType.Json,
+        isMultipleCellValue: true,
+      },
+    ]);
+    expect(commandBus.execute).toHaveBeenCalledTimes(1);
+    expect(getFieldFromV2).toHaveBeenCalledWith('tbl3sYKYH4tDz0IEg91', 'fldLookup000000001', {
+      requestId: 'reqTestId',
+    });
   });
 });
 

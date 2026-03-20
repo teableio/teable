@@ -17,6 +17,7 @@ import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
 import { TableActionTriggerRequested } from './events/TableActionTriggerRequested';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
+import { TableRestored } from './events/TableRestored';
 import { TableTrashed } from './events/TableTrashed';
 import type { DbFieldName } from './fields/DbFieldName';
 import type { Field } from './fields/Field';
@@ -592,6 +593,19 @@ export class Table extends AggregateRoot<TableId> {
   markTrashed(): Result<void, DomainError> {
     this.addDomainEvent(
       TableTrashed.create({
+        tableId: this.id(),
+        baseId: this.baseIdValue,
+        tableName: this.nameValue,
+        fieldIds: this.fieldIds(),
+        viewIds: this.viewIds(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  markRestored(): Result<void, DomainError> {
+    this.addDomainEvent(
+      TableRestored.create({
         tableId: this.id(),
         baseId: this.baseIdValue,
         tableName: this.nameValue,

@@ -1,5 +1,5 @@
 import { ResourceType } from '@teable/openapi';
-import { ActorId, BaseId, TableId, TableName, TableTrashed } from '@teable/v2-core';
+import { ActorId, BaseId, TableId, TableName, TableRestored, TableTrashed } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@teable/db-main-prisma', () => ({
@@ -7,7 +7,7 @@ vi.mock('@teable/db-main-prisma', () => ({
   PrismaService: class PrismaService {},
 }));
 
-import { V2TableTrashedProjection } from './v2-table-trash.service';
+import { V2TableRestoredProjection, V2TableTrashedProjection } from './v2-table-trash.service';
 
 describe('V2TableTrashedProjection', () => {
   it('writes a table trash entry for soft-deleted tables', async () => {
@@ -57,6 +57,38 @@ describe('V2TableTrashedProjection', () => {
         parentId: 'bseaaaaaaaaaaaaaaaa',
         deletedTime,
         deletedBy: 'usrTestUserId',
+      },
+    });
+  });
+});
+
+describe('V2TableRestoredProjection', () => {
+  it('removes a table trash entry after restore', async () => {
+    const prisma = {
+      trash: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+
+    const projection = new V2TableRestoredProjection(prisma as never);
+    const context = {
+      actorId: ActorId.create('usrTestUserId')._unsafeUnwrap(),
+    };
+    const event = TableRestored.create({
+      tableId: TableId.create('tblaaaaaaaaaaaaaaaa')._unsafeUnwrap(),
+      baseId: BaseId.create('bseaaaaaaaaaaaaaaaa')._unsafeUnwrap(),
+      tableName: TableName.create('Restore Me')._unsafeUnwrap(),
+      fieldIds: [],
+      viewIds: [],
+    });
+
+    const result = await projection.handle(context, event);
+
+    expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(prisma.trash.deleteMany).toHaveBeenCalledWith({
+      where: {
+        resourceId: 'tblaaaaaaaaaaaaaaaa',
+        resourceType: ResourceType.Table,
       },
     });
   });

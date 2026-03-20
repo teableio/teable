@@ -212,23 +212,25 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         return err(domainError.unexpected({ message: 'Field not created' }));
       }
 
-      const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-        context,
-        updateResult.table,
-        createdField.id()
-      );
-      yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
-        undoCommand: createUndoRedoCommand('DeleteField', {
-          baseId: command.baseId.toString(),
-          tableId: command.tableId.toString(),
-          fieldId: createdField.id().toString(),
-        }),
-        redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
-          baseId: command.baseId.toString(),
-          tableId: command.tableId.toString(),
-          snapshot,
-        }),
-      });
+      if (handler.shouldCaptureUndoRedo(context)) {
+        const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+          context,
+          updateResult.table,
+          createdField.id()
+        );
+        yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
+          undoCommand: createUndoRedoCommand('DeleteField', {
+            baseId: command.baseId.toString(),
+            tableId: command.tableId.toString(),
+            fieldId: createdField.id().toString(),
+          }),
+          redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
+            baseId: command.baseId.toString(),
+            tableId: command.tableId.toString(),
+            snapshot,
+          }),
+        });
+      }
       await pluginExecution.afterCommit({
         ...basePluginContext,
         table: updateResult.table,
@@ -240,6 +242,10 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
 
       return ok(CreateFieldResult.create(updateResult.table, updateResult.events));
     });
+  }
+
+  private shouldCaptureUndoRedo(context: ExecutionContextPort.IExecutionContext): boolean {
+    return Boolean(context.windowId) && context.undoRedo?.mode == null;
   }
 
   private populateLinkLookupFieldId(

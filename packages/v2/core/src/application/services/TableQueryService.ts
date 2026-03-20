@@ -81,33 +81,7 @@ export class TableQueryService {
     context: ExecutionContextPort.IExecutionContext,
     tableId: TableId
   ): Promise<Result<Table, DomainError>> {
-    // Use TableByIdSpec directly since we don't have baseId constraint
-    const spec = TableByIdSpec.create(tableId);
-    const tableResult = await this.tableRepository.findOne(context, spec);
-
-    if (tableResult.isErr()) {
-      if (isNotFoundError(tableResult.error)) {
-        return err(
-          domainError.notFound({
-            code: 'table.not_found',
-            message: `Table not found: ${tableId.toString()}`,
-          })
-        );
-      }
-      return err(tableResult.error);
-    }
-
-    const table = tableResult.value;
-    if (!table) {
-      return err(
-        domainError.notFound({
-          code: 'table.not_found',
-          message: `Table not found: ${tableId.toString()}`,
-        })
-      );
-    }
-
-    return ok(table);
+    return this.getByIdWithState(context, tableId, 'active');
   }
 
   /**
@@ -135,10 +109,60 @@ export class TableQueryService {
     baseId: BaseId,
     tableId: TableId
   ): Promise<Result<Table, DomainError>> {
+    return this.getByIdInBaseWithState(context, baseId, tableId, 'active');
+  }
+
+  async getDeletedByIdInBase(
+    context: ExecutionContextPort.IExecutionContext,
+    baseId: BaseId,
+    tableId: TableId
+  ): Promise<Result<Table, DomainError>> {
+    return this.getByIdInBaseWithState(context, baseId, tableId, 'deleted');
+  }
+
+  private async getByIdWithState(
+    context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId,
+    state: TableRepositoryPort.TableQueryState
+  ): Promise<Result<Table, DomainError>> {
+    const spec = TableByIdSpec.create(tableId);
+    const tableResult = await this.tableRepository.findOne(context, spec, { state });
+
+    if (tableResult.isErr()) {
+      if (isNotFoundError(tableResult.error)) {
+        return err(
+          domainError.notFound({
+            code: 'table.not_found',
+            message: `Table not found: ${tableId.toString()}`,
+          })
+        );
+      }
+      return err(tableResult.error);
+    }
+
+    const table = tableResult.value;
+    if (!table) {
+      return err(
+        domainError.notFound({
+          code: 'table.not_found',
+          message: `Table not found: ${tableId.toString()}`,
+        })
+      );
+    }
+
+    return ok(table);
+  }
+
+  private async getByIdInBaseWithState(
+    context: ExecutionContextPort.IExecutionContext,
+    baseId: BaseId,
+    tableId: TableId,
+    state: TableRepositoryPort.TableQueryState
+  ): Promise<Result<Table, DomainError>> {
     const tableRepository = this.tableRepository;
     return safeTry<Table, DomainError>(async function* () {
       const spec = yield* TableAggregate.specs(baseId).byId(tableId).build();
-      const tableResult = await tableRepository.findOne(context, spec);
+      const tableResult = await tableRepository.findOne(context, spec, { state });
 
       if (tableResult.isErr()) {
         if (isNotFoundError(tableResult.error)) {

@@ -43,6 +43,7 @@ import {
   listTableRecordsOkResponseSchema,
   listTablesOkResponseSchema,
   renameTableOkResponseSchema,
+  restoreTableOkResponseSchema,
   updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
   updateRecordsOkResponseSchema,
@@ -97,6 +98,7 @@ export interface SharedTestContext {
   ) => Promise<ReturnType<typeof parseUpdateFieldResponse>>;
   deleteField: (payload: { tableId: string; fieldId: string }) => Promise<void>;
   deleteTable: (tableId: string, options?: { mode?: 'soft' | 'permanent' }) => Promise<void>;
+  restoreTable: (tableId: string) => Promise<ReturnType<typeof parseRestoreTableResponse>>;
   renameTable: (
     tableId: string,
     name: string
@@ -288,6 +290,14 @@ const parseCreateTablesResponse = (rawBody: unknown) => {
   return parsed.data.data.tables;
 };
 
+const parseRestoreTableResponse = (rawBody: unknown) => {
+  const parsed = restoreTableOkResponseSchema.safeParse(rawBody);
+  if (!parsed.success || !parsed.data.ok) {
+    throw new Error('Failed to parse restore table response');
+  }
+  return parsed.data.data.table;
+};
+
 const parseListTablesResponse = (rawBody: unknown) => {
   const parsed = listTablesOkResponseSchema.safeParse(rawBody);
   if (!parsed.success || !parsed.data.ok) {
@@ -456,6 +466,19 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     if (!parsed.success || !parsed.data.ok) {
       throw new Error('Failed to parse delete table response');
     }
+  };
+
+  const restoreTable = async (tableId: string) => {
+    const response = await fetch(`${baseUrl}/tables/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseId, tableId }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to restore table: ${errorText}`);
+    }
+    return parseRestoreTableResponse(await response.json());
   };
 
   const renameTable = async (tableId: string, name: string) => {
@@ -747,6 +770,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     updateField,
     deleteField,
     deleteTable,
+    restoreTable,
     renameTable,
     listTables,
     createRecord,

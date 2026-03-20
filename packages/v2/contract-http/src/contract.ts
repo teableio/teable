@@ -24,6 +24,7 @@ import {
   pasteCommandInputSchema,
   clearCommandInputSchema,
   renameTableInputSchema,
+  restoreTableInputSchema,
   updateFieldInputSchema,
   updateRecordInputSchema,
   updateRecordsInputSchema,
@@ -63,6 +64,7 @@ import { listTablesOkResponseSchema } from './table/listTables';
 import { pasteOkResponseSchema } from './table/paste';
 import { renameTableOkResponseSchema } from './table/renameTable';
 import { reorderRecordsOkResponseSchema } from './table/reorderRecords';
+import { restoreTableOkResponseSchema } from './table/restoreTable';
 import { submitRecordOkResponseSchema } from './table/submitRecord';
 import { updateFieldOkResponseSchema } from './table/updateField';
 import { updateRecordOkResponseSchema } from './table/updateRecord';
@@ -96,6 +98,7 @@ const TABLES_PASTE_PATH = '/tables/paste';
 const TABLES_CLEAR_PATH = '/tables/clear';
 const TABLES_DELETE_BY_RANGE_PATH = '/tables/deleteByRange';
 const TABLES_RENAME_PATH = '/tables/rename';
+const TABLES_RESTORE_PATH = '/tables/restore';
 const TABLES_UPDATE_FIELD_PATH = '/tables/updateField';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 const TABLES_UPDATE_RECORDS_PATH = '/tables/updateRecords';
@@ -277,6 +280,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(deleteTableInputSchema)
       .output(deleteTableOkResponseSchema),
+    restore: oc
+      .route({
+        method: 'POST',
+        path: TABLES_RESTORE_PATH,
+        successStatus: 200,
+        summary: 'Restore table',
+        tags: ['tables'],
+      })
+      .input(restoreTableInputSchema)
+      .output(restoreTableOkResponseSchema),
     getById: oc
       .route({
         method: 'GET',

@@ -47,6 +47,7 @@ import { LastModifiedTimeField } from './fields/types/LastModifiedTimeField';
 import type { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import type { LinkFieldMeta } from './fields/types/LinkFieldMeta';
 import { LongTextField } from './fields/types/LongTextField';
+import type { LongTextShowAs } from './fields/types/LongTextShowAs';
 import { LookupField } from './fields/types/LookupField';
 import type { LookupOptions } from './fields/types/LookupOptions';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
@@ -151,6 +152,7 @@ export class TableBuilder {
   private tableId: TableId | undefined;
   private baseId: BaseId | undefined;
   private tableName: TableName | undefined;
+  private dbTableName: DbTableName | undefined;
   private readonly fields: Field[] = [];
   private readonly views: View[] = [];
   private readonly errors: DomainError[] = [];
@@ -174,6 +176,11 @@ export class TableBuilder {
 
   withName(name: TableName): TableBuilder {
     this.tableName = name;
+    return this;
+  }
+
+  withDbTableName(dbTableName: DbTableName): TableBuilder {
+    this.dbTableName = dbTableName;
     return this;
   }
 
@@ -227,7 +234,10 @@ export class TableBuilder {
     const idResult = this.ensureTableId();
 
     return idResult.andThen((id) =>
-      DbTableName.rehydrate(`${baseId.toString()}.${id.toString()}`).andThen((dbTableName) => {
+      (this.dbTableName
+        ? ok<DbTableName, DomainError>(this.dbTableName)
+        : DbTableName.rehydrate(`${baseId.toString()}.${id.toString()}`)
+      ).andThen((dbTableName) => {
         const table = this.factory({
           id,
           baseId,
@@ -526,6 +536,7 @@ export class SingleLineTextFieldBuilder {
 export class LongTextFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
+  private showAs: LongTextShowAs | undefined;
   private defaultValue: TextDefaultValue | undefined;
   private notNull: FieldNotNull = FieldNotNull.optional();
   private unique: FieldUnique = FieldUnique.disabled();
@@ -543,6 +554,11 @@ export class LongTextFieldBuilder {
 
   withId(id: FieldId): LongTextFieldBuilder {
     this.id = id;
+    return this;
+  }
+
+  withShowAs(showAs: LongTextShowAs): LongTextFieldBuilder {
+    this.showAs = showAs;
     return this;
   }
 
@@ -574,7 +590,7 @@ export class LongTextFieldBuilder {
     }
 
     const result = resolveFieldId(this.id).andThen((id) =>
-      LongTextField.create({ id, name, defaultValue: this.defaultValue })
+      LongTextField.create({ id, name, showAs: this.showAs, defaultValue: this.defaultValue })
         .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
         .andThen((field) => {
           if (!this.isPrimary) return ok(field);

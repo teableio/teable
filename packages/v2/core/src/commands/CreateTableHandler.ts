@@ -127,9 +127,11 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         }
       );
       const { table: persistedTable, sideEffectEvents } = transactionResult;
-      const hostEvents = table.pullDomainEvents();
-      const recordEvents = persistedTable.pullDomainEvents();
-      const events = [...hostEvents, ...recordEvents, ...sideEffectEvents];
+      const events = [
+        ...table.pullDomainEvents(),
+        ...persistedTable.pullDomainEvents(),
+        ...sideEffectEvents,
+      ];
       yield* await handler.eventBus.publishMany(context, events);
       return ok(CreateTableResult.create(persistedTable, events));
     });

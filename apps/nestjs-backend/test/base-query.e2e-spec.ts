@@ -211,16 +211,20 @@ describe('BaseSqlQuery e2e', () => {
         ],
       });
       expect(res.columns).toHaveLength(2);
-      expect(res.rows).toEqual([
-        {
-          [`${table.fields[2].id}`]: 'Backend Developer',
-          [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
-        },
-        {
-          [`${table.fields[2].id}`]: 'Frontend Developer',
-          [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
-        },
-      ]);
+      const sortByRole = (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        String(a[table.fields[2].id]).localeCompare(String(b[table.fields[2].id]));
+      expect([...res.rows].sort(sortByRole)).toEqual(
+        [
+          {
+            [`${table.fields[2].id}`]: 'Backend Developer',
+            [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
+          },
+          {
+            [`${table.fields[2].id}`]: 'Frontend Developer',
+            [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
+          },
+        ].sort(sortByRole)
+      );
     });
 
     it('groupBy with date', async () => {
@@ -304,7 +308,11 @@ describe('BaseSqlQuery e2e', () => {
         groupBy: [{ column: table.fields[0].id, type: BaseQueryColumnType.Field }],
       });
       expect(res.columns).toHaveLength(1);
-      expect(res.rows).toEqual([{}, { [`${table.fields[0].id}`]: globalThis.testConfig.userName }]);
+      const sortByUser = (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        String(a[table.fields[0].id] ?? '').localeCompare(String(b[table.fields[0].id] ?? ''));
+      expect([...res.rows].sort(sortByUser)).toEqual(
+        [{}, { [`${table.fields[0].id}`]: globalThis.testConfig.userName }].sort(sortByUser)
+      );
     });
 
     it('filters multi-user field with pre-qualified column names', async () => {

@@ -559,6 +559,7 @@ export class RecordInsertBuilder {
           : fkHostTableSplit.tableName;
 
         const selfKeyName = yield* field.selfKeyNameString();
+        const orderColumnName = field.hasOrderColumn() ? yield* field.orderColumnName() : null;
 
         for (const linkItem of linkItems) {
           // Collect lock info for the foreign record to prevent deadlocks
@@ -566,18 +567,41 @@ export class RecordInsertBuilder {
             foreignTableId,
             foreignRecordId: linkItem.id,
           });
-
-          const updateQuery = builder.db
-            .updateTable(foreignTableName)
-            .set({ [selfKeyName]: recordId })
-            .where('__id', '=', linkItem.id);
-          const updateCompiled = updateQuery.compile();
-
-          statements.push({
-            description: `Update foreign record ${linkItem.id} to link back`,
-            compiled: updateCompiled,
-          });
         }
+
+        const orderColumnAlias = 'order_index';
+        const valuesSql = sql.join(
+          linkItems.map((linkItem, index) => {
+            if (orderColumnName) {
+              return sql`(${sql.value(linkItem.id)}, ${sql.value(recordId)}, ${sql.value(
+                index + 1
+              )})`;
+            }
+            return sql`(${sql.value(linkItem.id)}, ${sql.value(recordId)})`;
+          }),
+          sql`, `
+        );
+
+        const valuesTable = orderColumnName
+          ? sql`(values ${valuesSql}) as v(id, record_id, ${sql.raw(orderColumnAlias)})`
+          : sql`(values ${valuesSql}) as v(id, record_id)`;
+
+        const updateSql = orderColumnName
+          ? sql`update ${sql.table(foreignTableName)} as t set ${sql.ref(
+              selfKeyName
+            )} = ${sql.ref('v.record_id')}, ${sql.ref(orderColumnName)} = ${sql`${sql.ref(
+              `v.${orderColumnAlias}`
+            )}::integer`} from ${valuesTable} where ${sql.ref('t.__id')} = ${sql.ref('v.id')}`
+          : sql`update ${sql.table(foreignTableName)} as t set ${sql.ref(
+              selfKeyName
+            )} = ${sql.ref('v.record_id')} from ${valuesTable} where ${sql.ref(
+              't.__id'
+            )} = ${sql.ref('v.id')}`;
+
+        statements.push({
+          description: `Update ${linkItems.length} foreign record(s) to link back`,
+          compiled: updateSql.compile(builder.db),
+        });
       }
       // manyOne/oneOne: FK is set in the main INSERT values, no additional SQL needed
 

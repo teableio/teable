@@ -80,6 +80,31 @@ const noopFieldUndoRedoSnapshotService = {
   },
 } as unknown as FieldUndoRedoSnapshotService;
 
+class TrackingUndoRedoService {
+  recordEntryCalls = 0;
+
+  async recordEntry() {
+    this.recordEntryCalls += 1;
+    return ok(undefined);
+  }
+}
+
+class TrackingFieldUndoRedoSnapshotService {
+  capturedFieldIds: string[] = [];
+
+  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
+    this.capturedFieldIds.push(fieldId.toString());
+    return ok({
+      field: {
+        id: fieldId.toString(),
+        name: 'Undo Snapshot',
+        type: 'singleLineText',
+      },
+      views: [],
+    });
+  }
+}
+
 class InMemoryTableRepository implements ITableRepository {
   tables: Table[] = [];
 
@@ -624,6 +649,120 @@ describe('CreateFieldHandler', () => {
     const cellValueTypeResult = formulaField.cellValueType();
     expect(cellValueTypeResult.isOk()).toBe(true);
     cellValueTypeResult._unsafeUnwrap();
+  });
+
+  it('skips field undo snapshot work when windowId is missing', async () => {
+    const baseId = `bse${'s'.repeat(16)}`;
+    const tableId = `tbl${'t'.repeat(16)}`;
+    const primaryFieldId = `fld${'u'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const undoRedoService = new TrackingUndoRedoService();
+    const snapshotService = new TrackingFieldUndoRedoSnapshotService();
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      undoRedoService as unknown as UndoRedoService,
+      snapshotService as unknown as FieldUndoRedoSnapshotService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        name: 'Total',
+        options: { expression: "'1'" },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    expect(snapshotService.capturedFieldIds).toHaveLength(0);
+    expect(undoRedoService.recordEntryCalls).toBe(0);
+  });
+
+  it('captures field undo snapshot when windowId is present', async () => {
+    const baseId = `bse${'v'.repeat(16)}`;
+    const tableId = `tbl${'w'.repeat(16)}`;
+    const primaryFieldId = `fld${'x'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const undoRedoService = new TrackingUndoRedoService();
+    const snapshotService = new TrackingFieldUndoRedoSnapshotService();
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      undoRedoService as unknown as UndoRedoService,
+      snapshotService as unknown as FieldUndoRedoSnapshotService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        name: 'Total',
+        options: { expression: "'1'" },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      {
+        ...createContext(),
+        windowId: 'win-create-field',
+      },
+      command
+    );
+    expect(result.isOk()).toBe(true);
+    expect(snapshotService.capturedFieldIds).toHaveLength(1);
+    expect(undoRedoService.recordEntryCalls).toBe(1);
   });
 
   it('derives lookup multiplicity from oneMany link in domain layer', async () => {

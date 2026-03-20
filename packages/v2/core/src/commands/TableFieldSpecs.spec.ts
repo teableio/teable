@@ -371,6 +371,23 @@ describe('TableFieldSpecs', () => {
     expect(field.id()).toBeInstanceOf(FieldId);
   });
 
+  it('preserves dbFieldName when creating field from spec', () => {
+    const spec = parseSpec({
+      type: 'singleLineText',
+      name: 'Custom Column',
+      dbFieldName: 'custom_column',
+    })._unsafeUnwrap();
+
+    const field = spec.createField()._unsafeUnwrap();
+
+    expect(
+      field
+        .dbFieldName()
+        .andThen((dbFieldName) => dbFieldName.value())
+        ._unsafeUnwrap()
+    ).toBe('custom_column');
+  });
+
   it('rejects manual select field creation when options exceed configured max', () => {
     const specResult = parseSpec(
       {

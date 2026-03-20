@@ -8,10 +8,9 @@ import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
 import type { RollupField } from '../domain/table/fields/types/RollupField';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
-import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { CreateTableCommand } from './CreateTableCommand';
+import { buildTable, CreateTableCommand } from './CreateTableCommand';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
@@ -28,13 +27,7 @@ const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecut
 });
 
 const buildFromCommand = (command: CreateTableCommand) => {
-  const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
-  if (command.tableId) {
-    builder.withId(command.tableId);
-  }
-  for (const fieldSpec of command.fields) fieldSpec.applyTo(builder);
-  for (const viewSpec of command.views) viewSpec.applyTo(builder);
-  return builder.build();
+  return buildTable(command);
 };
 
 describe('CreateTableCommand', () => {
@@ -83,6 +76,50 @@ describe('CreateTableCommand', () => {
 
     expect(command.records).toHaveLength(1);
     expect(command.records[0]?.fieldValues.get(fieldId)).toBe('Alpha');
+  });
+
+  it('parses dbTableName inputs', () => {
+    const baseId = createBaseId('d')._unsafeUnwrap();
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Db Table Name',
+      dbTableName: `${baseId.toString()}.custom_table`,
+    })._unsafeUnwrap();
+
+    const table = buildFromCommand(command)._unsafeUnwrap();
+    expect(command.dbTableName?.value()._unsafeUnwrap()).toBe(`${baseId.toString()}.custom_table`);
+    expect(
+      table
+        .dbTableName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap()
+    ).toBe(`${baseId.toString()}.custom_table`);
+  });
+
+  it('preserves dbFieldName inputs in the built table', () => {
+    const baseId = createBaseId('f')._unsafeUnwrap();
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Db Field Name',
+      fields: [
+        {
+          type: 'singleLineText',
+          name: 'Title',
+          dbFieldName: 'custom_title',
+          isPrimary: true,
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const table = buildFromCommand(command)._unsafeUnwrap();
+
+    expect(
+      table
+        .getFields()[0]
+        ?.dbFieldName()
+        .andThen((dbFieldName) => dbFieldName.value())
+        ._unsafeUnwrap()
+    ).toBe('custom_title');
   });
 
   it('rejects select options over configured max during table creation', () => {

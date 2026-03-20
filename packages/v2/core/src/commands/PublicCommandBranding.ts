@@ -80,6 +80,10 @@ declare module './RestoreRecordsCommand' {
   interface RestoreRecordsCommand extends IPublicCommand {}
 }
 
+declare module './RestoreTableCommand' {
+  interface RestoreTableCommand extends IPublicCommand {}
+}
+
 declare module './SubmitRecordCommand' {
   interface SubmitRecordCommand extends IPublicCommand {}
 }

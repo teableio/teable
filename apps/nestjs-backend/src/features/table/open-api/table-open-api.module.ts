@@ -11,6 +11,7 @@ import { RecordOpenApiModule } from '../../record/open-api/record-open-api.modul
 import { RecordModule } from '../../record/record.module';
 import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
+import { ViewModule } from '../../view/view.module';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TableModule } from '../table.module';
@@ -32,6 +33,7 @@ import { TableOpenApiService } from './table-open-api.service';
     GraphModule,
     V2Module,
     CanaryModule,
+    ViewModule,
   ],
   controllers: [TableController],
   providers: [

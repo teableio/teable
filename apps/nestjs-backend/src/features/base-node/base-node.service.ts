@@ -146,6 +146,19 @@ export class BaseNodeService {
     return this.canaryService.shouldUseV2WithReason(base.spaceId, 'deleteTable');
   }
 
+  async getCreateTableV2Decision(baseId: string): Promise<IV2Decision | undefined> {
+    const base = await this.prismaService.txClient().base.findUnique({
+      where: { id: baseId, deletedTime: null },
+      select: { spaceId: true },
+    });
+
+    if (!base?.spaceId) {
+      return { useV2: false, reason: 'disabled' };
+    }
+
+    return this.canaryService.shouldUseV2WithReason(base.spaceId, 'createTable');
+  }
+
   private generateDefaultUrl(
     baseId: string,
     resourceType: BaseNodeResourceType,
@@ -480,7 +493,9 @@ export class BaseNodeService {
       }
       case BaseNodeResourceType.Table: {
         const preparedRo = prepareCreateTableRo(ro as ICreateTableRo);
-        const table = await this.tableOpenApiService.createTable(baseId, preparedRo);
+        const table = this.cls.get('useV2')
+          ? await this.tableOpenApiV2Service.createTable(baseId, preparedRo)
+          : await this.tableOpenApiService.createTable(baseId, preparedRo);
 
         return {
           id: table.id,

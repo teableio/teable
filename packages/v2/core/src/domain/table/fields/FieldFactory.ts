@@ -44,6 +44,7 @@ import { LinkField } from './types/LinkField';
 import type { LinkFieldConfig } from './types/LinkFieldConfig';
 import type { LinkFieldMeta } from './types/LinkFieldMeta';
 import { LongTextField } from './types/LongTextField';
+import type { LongTextShowAs } from './types/LongTextShowAs';
 import { LookupField } from './types/LookupField';
 import type { LookupOptions } from './types/LookupOptions';
 import { MultipleSelectField } from './types/MultipleSelectField';
@@ -97,6 +98,7 @@ export const createTextField = createSingleLineTextField;
 export const createLongTextField = (params: {
   id: FieldId;
   name: FieldName;
+  showAs?: LongTextShowAs;
   defaultValue?: TextDefaultValue;
   notNull?: FieldNotNull;
   unique?: FieldUnique;

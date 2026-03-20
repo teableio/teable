@@ -80,6 +80,11 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
+type LinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
+  options: Pick<ILinkFieldOptionsRo, 'relationship' | 'foreignTableId'> &
+    Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;
+};
+
 @Injectable()
 export class FieldSupplementService {
   constructor(
@@ -518,11 +523,31 @@ export class FieldSupplementService {
     });
 
     const optionsRaw = linkFieldRaw?.options || null;
-    const linkFieldOptions: ILinkFieldOptions =
-      (optionsRaw && JSON.parse(optionsRaw as string)) ||
-      batchFieldVos?.find((field) => field.id === linkFieldId)?.options;
+    const batchLinkField = batchFieldVos?.find(
+      (candidate) => candidate.id === linkFieldId && candidate.type === FieldType.Link
+    );
+    const linkFieldOptions: LinkFieldReference['options'] | undefined =
+      (optionsRaw && (JSON.parse(optionsRaw as string) as ILinkFieldOptions)) ||
+      (batchLinkField?.options as ILinkFieldOptions | ILinkFieldOptionsRo | undefined);
 
-    if (!linkFieldOptions || !linkFieldRaw) {
+    const linkFieldReference: LinkFieldReference | undefined =
+      linkFieldRaw && linkFieldOptions
+        ? {
+            name: linkFieldRaw.name,
+            isMultipleCellValue: linkFieldRaw.isMultipleCellValue ?? undefined,
+            options: linkFieldOptions,
+          }
+        : batchLinkField && linkFieldOptions
+          ? {
+              name: batchLinkField.name,
+              isMultipleCellValue:
+                batchLinkField.isMultipleCellValue ??
+                (isMultiValueLink(linkFieldOptions.relationship) || undefined),
+              options: linkFieldOptions,
+            }
+          : undefined;
+
+    if (!linkFieldReference) {
       throw new CustomHttpException(
         `linkFieldId ${linkFieldId} is invalid`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -535,7 +560,7 @@ export class FieldSupplementService {
       );
     }
 
-    if (foreignTableId !== linkFieldOptions.foreignTableId) {
+    if (foreignTableId !== linkFieldReference.options.foreignTableId) {
       throw new CustomHttpException(
         `foreignTableId ${foreignTableId} is invalid`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -568,13 +593,13 @@ export class FieldSupplementService {
     return {
       lookupOptions: {
         ...lookupOptions,
-        relationship: linkFieldOptions.relationship,
-        fkHostTableName: linkFieldOptions.fkHostTableName,
-        selfKeyName: linkFieldOptions.selfKeyName,
-        foreignKeyName: linkFieldOptions.foreignKeyName,
+        relationship: linkFieldReference.options.relationship,
+        fkHostTableName: linkFieldReference.options.fkHostTableName,
+        selfKeyName: linkFieldReference.options.selfKeyName,
+        foreignKeyName: linkFieldReference.options.foreignKeyName,
       },
       lookupFieldRaw,
-      linkFieldRaw,
+      linkField: linkFieldReference,
     };
   }
 
@@ -622,7 +647,7 @@ export class FieldSupplementService {
       return this.prepareConditionalLookupField(fieldRo);
     }
 
-    const { lookupOptions, lookupFieldRaw, linkFieldRaw } = await this.prepareLookupOptions(
+    const { lookupOptions, lookupFieldRaw, linkField } = await this.prepareLookupOptions(
       fieldRo,
       batchFieldVos
     );
@@ -641,7 +666,7 @@ export class FieldSupplementService {
     }
 
     const isMultipleCellValue =
-      linkFieldRaw.isMultipleCellValue || lookupFieldRaw.isMultipleCellValue || false;
+      linkField.isMultipleCellValue || lookupFieldRaw.isMultipleCellValue || false;
 
     const cellValueType = lookupFieldRaw.cellValueType as CellValueType;
 
@@ -654,7 +679,7 @@ export class FieldSupplementService {
 
     return {
       ...fieldRo,
-      name: fieldRo.name ?? `${lookupFieldRaw.name} (from ${linkFieldRaw.name})`,
+      name: fieldRo.name ?? `${lookupFieldRaw.name} (from ${linkField.name})`,
       options,
       lookupOptions,
       isMultipleCellValue,
@@ -844,7 +869,7 @@ export class FieldSupplementService {
   }
 
   private async prepareRollupField(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
-    const { lookupOptions, linkFieldRaw, lookupFieldRaw } = await this.prepareLookupOptions(
+    const { lookupOptions, linkField, lookupFieldRaw } = await this.prepareLookupOptions(
       field,
       batchFieldVos
     );
@@ -867,7 +892,7 @@ export class FieldSupplementService {
       valueType = RollupFieldDto.getParsedValueType(
         options.expression,
         lookupField.cellValueType,
-        lookupField.isMultipleCellValue || linkFieldRaw.isMultipleCellValue || false
+        lookupField.isMultipleCellValue || linkField.isMultipleCellValue || false
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -888,7 +913,7 @@ export class FieldSupplementService {
 
     return {
       ...field,
-      name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkFieldRaw.name})`,
+      name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkField.name})`,
       options: {
         ...options,
         ...(formatting ? { formatting } : {}),

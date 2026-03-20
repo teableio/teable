@@ -173,6 +173,12 @@ export class OverlayTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    this.deletedTableIds.delete(table.id().toString());
+    this.overlayByTableId.set(table.id().toString(), table);
+    return ok(undefined);
+  }
+
   async delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.overlayByTableId.delete(table.id().toString());
     this.deletedTableIds.add(table.id().toString());

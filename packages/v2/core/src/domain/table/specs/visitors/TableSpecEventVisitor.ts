@@ -54,6 +54,7 @@ import type {
 } from '../field-updates';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 import type { TableAddFieldSpec } from '../TableAddFieldSpec';
+import type { TableAddFieldsSpec } from '../TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from '../TableAddSelectOptionsSpec';
 import type { TableByBaseIdSpec } from '../TableByBaseIdSpec';
 import type { TableByIdSpec } from '../TableByIdSpec';
@@ -136,6 +137,28 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
         viewOrders: viewOrdersResult.value,
       })
     );
+
+    return ok(undefined);
+  }
+
+  visitTableAddFields(
+    spec: TableAddFieldsSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    for (const field of spec.fields()) {
+      const viewOrdersResult = this.collectViewOrders(field.id());
+      if (viewOrdersResult.isErr()) {
+        return err<void, DomainError>(viewOrdersResult.error);
+      }
+
+      this.eventsCollected.push(
+        FieldCreated.create({
+          tableId: this.table.id(),
+          baseId: this.table.baseId(),
+          fieldId: field.id(),
+          viewOrders: viewOrdersResult.value,
+        })
+      );
+    }
 
     return ok(undefined);
   }

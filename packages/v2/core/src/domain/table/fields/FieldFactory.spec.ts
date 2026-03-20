@@ -37,6 +37,8 @@ import { FieldColor } from './types/FieldColor';
 import { FormulaExpression } from './types/FormulaExpression';
 import { LinkFieldConfig } from './types/LinkFieldConfig';
 import { LinkRelationship } from './types/LinkRelationship';
+import type { LongTextField } from './types/LongTextField';
+import { LongTextShowAs } from './types/LongTextShowAs';
 import { NumberDefaultValue } from './types/NumberDefaultValue';
 import { NumberFormatting } from './types/NumberFormatting';
 import { NumberShowAs } from './types/NumberShowAs';
@@ -63,6 +65,7 @@ describe('FieldFactory', () => {
     const optionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
 
     const showAsResult = SingleLineTextShowAs.create({ type: 'email' });
+    const longTextShowAsResult = LongTextShowAs.create({ type: 'markdown' });
     const textDefaultResult = TextDefaultValue.create('hello');
     const formattingResult = NumberFormatting.create({
       type: 'currency',
@@ -121,6 +124,7 @@ describe('FieldFactory', () => {
       nameResult,
       optionResult,
       showAsResult,
+      longTextShowAsResult,
       textDefaultResult,
       formattingResult,
       numberShowAsResult,
@@ -150,6 +154,7 @@ describe('FieldFactory', () => {
     nameResult._unsafeUnwrap();
     optionResult._unsafeUnwrap();
     showAsResult._unsafeUnwrap();
+    longTextShowAsResult._unsafeUnwrap();
     textDefaultResult._unsafeUnwrap();
     formattingResult._unsafeUnwrap();
     numberShowAsResult._unsafeUnwrap();
@@ -195,11 +200,15 @@ describe('FieldFactory', () => {
     const longText = createLongTextField({
       id,
       name,
+      showAs: longTextShowAsResult._unsafeUnwrap(),
       defaultValue: textDefaultResult._unsafeUnwrap(),
     });
     longText._unsafeUnwrap();
 
     expect(longText._unsafeUnwrap().type().toString()).toBe('longText');
+    expect((longText._unsafeUnwrap() as LongTextField).showAs()?.toDto()).toEqual({
+      type: 'markdown',
+    });
 
     const number = createNumberField({
       id,

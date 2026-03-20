@@ -15,6 +15,7 @@ import {
 import type { SelectOption } from './fields/types/SelectOption';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
+import { TableAddFieldsSpec } from './specs/TableAddFieldsSpec';
 import { TableAddSelectOptionsSpec } from './specs/TableAddSelectOptionsSpec';
 import { TableDuplicateFieldSpec } from './specs/TableDuplicateFieldSpec';
 import { TableRemoveFieldSpec } from './specs/TableRemoveFieldSpec';
@@ -128,6 +129,60 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
 
     this.addSpec(viewSpecResult.value);
     this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  addFields(
+    fields: ReadonlyArray<Field>,
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
+    }
+  ): TableMutateSpecBuilder {
+    if (fields.length === 0) {
+      return this;
+    }
+
+    let nextTable = this.currentTable;
+    for (const field of fields) {
+      const nextTableResult = nextTable.addField(field, options);
+      if (nextTableResult.isErr()) {
+        this.recordError(nextTableResult.error);
+        return this;
+      }
+      nextTable = nextTableResult.value;
+    }
+
+    const createdFields = fields.map((field) => {
+      const resolvedFieldResult = nextTable.getField((candidate) =>
+        candidate.id().equals(field.id())
+      );
+      if (resolvedFieldResult.isErr()) {
+        this.recordError(resolvedFieldResult.error);
+        return undefined;
+      }
+      return resolvedFieldResult.value;
+    });
+    if (createdFields.some((field) => field == null)) {
+      return this;
+    }
+
+    this.addSpec(
+      TableAddFieldsSpec.create(createdFields as ReadonlyArray<Field>, {
+        domainContext: options?.domainContext,
+      })
+    );
+    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTableWithFieldIds(
+      nextTable,
+      createdFields.map((field) => field!.id())
+    );
+    if (viewSpecResult.isErr()) {
+      this.recordError(viewSpecResult.error);
+      return this;
+    }
+
+    this.addSpec(viewSpecResult.value);
+    this.currentTable = nextTable;
     return this;
   }
 
@@ -396,6 +451,21 @@ export class TableMutator {
     }
   ): TableMutator {
     this.builder.addField(field, options);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  addFields(
+    fields: ReadonlyArray<Field>,
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
+    }
+  ): TableMutator {
+    if (fields.length === 0) {
+      return this;
+    }
+    this.builder.addFields(fields, options);
     this.hasUpdates = true;
     return this;
   }

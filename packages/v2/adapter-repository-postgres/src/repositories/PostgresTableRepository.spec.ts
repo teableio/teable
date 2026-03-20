@@ -28,6 +28,8 @@ import type {
 import {
   ActorId,
   BaseId,
+  DbFieldName,
+  DbTableName,
   FieldId,
   FieldName,
   FieldNotNull,
@@ -477,6 +479,92 @@ describe('PostgresTableRepository (pg)', () => {
 
       const byNameResult = await repo.findOne(context, byNameSpecResult._unsafeUnwrap());
       byNameResult._unsafeUnwrap();
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('preserves explicit db table and field names on insert', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Test Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Projects')._unsafeUnwrap();
+      const customDbTableName = DbTableName.rehydrate(
+        `${baseId.toString()}.custom_projects`
+      )._unsafeUnwrap();
+      const customDbFieldName = DbFieldName.rehydrate('project_label')._unsafeUnwrap();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(tableName)
+        .withDbTableName(customDbTableName);
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      table.getFields()[0]?.setDbFieldName(customDbFieldName)._unsafeUnwrap();
+
+      const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
+      expect(
+        persistedTable
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap()
+      ).toBe(`${baseId.toString()}.custom_projects`);
+      expect(
+        persistedTable
+          .getFields()[0]
+          ?.dbFieldName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap()
+      ).toBe('project_label');
+
+      const tableMetaRow = await db
+        .selectFrom('table_meta')
+        .select(['db_table_name'])
+        .where('id', '=', table.id().toString())
+        .executeTakeFirst();
+      expect(tableMetaRow?.db_table_name).toBe(`${baseId.toString()}.custom_projects`);
+
+      const fieldRows = await db
+        .selectFrom('field')
+        .select(['db_field_name'])
+        .where('table_id', '=', table.id().toString())
+        .where('deleted_time', 'is', null)
+        .execute();
+      expect(fieldRows.map((row) => row.db_field_name)).toEqual(['project_label']);
     } finally {
       await db.destroy();
     }

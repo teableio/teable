@@ -147,11 +147,15 @@ export class TableController {
   }
 
   @Post()
+  @UseV2Feature('createTable')
   @Permissions('table|create')
   async createTable(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableWithDefault
   ): Promise<ITableFullVo> {
+    if (this.cls.get('useV2')) {
+      return await this.tableOpenApiV2Service.createTable(baseId, createTableRo);
+    }
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 

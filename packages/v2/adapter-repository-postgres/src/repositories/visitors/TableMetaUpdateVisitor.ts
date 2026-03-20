@@ -1,6 +1,7 @@
 import {
   AbstractSpecFilterVisitor,
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableAddSelectOptionsSpec,
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
@@ -142,6 +143,20 @@ export class TableMetaUpdateVisitor
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.buildInsertOrReviveFieldStatement(fieldRowResult.value),
     ];
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableAddFields(
+    spec: TableAddFieldsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const statements: TableUpdateBuilder[] = [];
+
+    for (const field of spec.fields()) {
+      const fieldRowResult = this.fieldRowBuilder.buildRowForField(field);
+      if (fieldRowResult.isErr()) return err(fieldRowResult.error);
+      statements.push(this.buildInsertOrReviveFieldStatement(fieldRowResult.value));
+    }
 
     return this.addCond(statements).map(() => statements);
   }

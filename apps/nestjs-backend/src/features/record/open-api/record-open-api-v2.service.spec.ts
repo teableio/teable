@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 
 describe('RecordOpenApiV2Service', () => {
+  const createdTimeIso = '2026-03-19T01:02:03.000Z';
   const getDocIdsByQuery = vi.fn();
   const getSnapshotBulkWithPermission = vi.fn();
   const createContext = vi.fn();
@@ -63,6 +64,51 @@ describe('RecordOpenApiV2Service', () => {
       {} as never,
       {} as never
     );
+  });
+
+  it('should ignore unreadable fields in orderBy and groupBy', () => {
+    const query = {
+      orderBy: [
+        { fieldId: 'fldReadable', order: SortFunc.Asc },
+        { fieldId: 'fldHidden', order: SortFunc.Desc },
+      ],
+      groupBy: [
+        { fieldId: 'fldHidden', order: SortFunc.Asc },
+        { fieldId: 'fldReadable', order: SortFunc.Desc },
+      ],
+    };
+
+    expect(
+      (
+        service as unknown as {
+          sanitizeReadableSortAndGroup: (
+            input: typeof query,
+            enabledFieldIds?: string[]
+          ) => typeof query;
+        }
+      ).sanitizeReadableSortAndGroup(query, ['fldReadable'])
+    ).toEqual({
+      orderBy: [{ fieldId: 'fldReadable', order: SortFunc.Asc }],
+      groupBy: [{ fieldId: 'fldReadable', order: SortFunc.Desc }],
+    });
+  });
+
+  it('should keep orderBy and groupBy unchanged when all fields are readable', () => {
+    const query = {
+      orderBy: [{ fieldId: 'fldReadable', order: SortFunc.Asc }],
+      groupBy: [{ fieldId: 'fldReadable', order: SortFunc.Desc }],
+    };
+
+    expect(
+      (
+        service as unknown as {
+          sanitizeReadableSortAndGroup: (
+            input: typeof query,
+            enabledFieldIds?: string[]
+          ) => typeof query;
+        }
+      ).sanitizeReadableSortAndGroup(query, ['fldReadable'])
+    ).toEqual(query);
   });
 
   it('forwards advanced link filters into the v2 query handler instead of using docIds fallback', async () => {
@@ -119,9 +165,9 @@ describe('RecordOpenApiV2Service', () => {
       {
         data: {
           id: 'rec1111111111111111',
-          createdTime: '2026-03-19T01:02:03.000Z',
+          createdTime: createdTimeIso,
           fields: {
-            createdTime: '2026-03-19T01:02:03.000Z',
+            createdTime: createdTimeIso,
           },
         },
       },
@@ -176,9 +222,9 @@ describe('RecordOpenApiV2Service', () => {
       {
         data: {
           id: 'rec1111111111111111',
-          createdTime: '2026-03-19T01:02:03.000Z',
+          createdTime: createdTimeIso,
           fields: {
-            createdTime: '2026-03-19T01:02:03.000Z',
+            createdTime: createdTimeIso,
           },
         },
       },
@@ -210,9 +256,9 @@ describe('RecordOpenApiV2Service', () => {
     expect(result.records).toEqual([
       {
         id: 'rec1111111111111111',
-        createdTime: '2026-03-19T01:02:03.000Z',
+        createdTime: createdTimeIso,
         fields: {
-          createdTime: '2026-03-19T01:02:03.000Z',
+          createdTime: createdTimeIso,
         },
       },
     ]);

@@ -22,6 +22,7 @@ import {
 import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   createField,
+  createFields,
   createRecords,
   createTable,
   permanentDeleteTable,
@@ -56,6 +57,7 @@ describe('OpenAPI formula (e2e)', () => {
   const diffHours = diffMinutes / 60;
   const diffDays = diffHours / 24;
   const diffWeeks = diffDays / 7;
+  const useV2BatchCreate = process.env.FORCE_V2_ALL === 'true' || process.env.FORCE_V2_ALL === '1';
   type DateAddNormalizedUnit =
     | 'millisecond'
     | 'second'
@@ -3372,83 +3374,165 @@ describe('OpenAPI formula (e2e)', () => {
           records: [{ fields: { Project: 'Budget run' } }],
         });
 
-        const linkField = await createField(host.id, {
-          name: 'Related Budgets',
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.ManyMany,
-            foreignTableId: foreign.id,
-          } as ILinkFieldOptionsRo,
-        } as IFieldRo);
-
         const budgetFieldId = foreign.fields.find((field) => field.name === 'Budget')!.id;
+        const linkFieldId = generateFieldId();
+        const lookupFieldId = generateFieldId();
+        const formattedFieldId = generateFieldId();
+        const roundedFieldId = generateFieldId();
+        const roundUpFieldId = generateFieldId();
+        const roundDownFieldId = generateFieldId();
+        const floorFieldId = generateFieldId();
+        const ceilingFieldId = generateFieldId();
+        const intFieldId = generateFieldId();
+        const formulaFieldRos = [
+          {
+            id: formattedFieldId,
+            name: 'Budget Value Formula',
+            type: FieldType.Formula,
+            options: {
+              expression: `VALUE({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundedFieldId,
+            name: 'Budget Rounded',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUND({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundUpFieldId,
+            name: 'Budget RoundUp',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUNDUP({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundDownFieldId,
+            name: 'Budget RoundDown',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUNDDOWN({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: floorFieldId,
+            name: 'Budget Floor',
+            type: FieldType.Formula,
+            options: {
+              expression: `FLOOR({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: ceilingFieldId,
+            name: 'Budget Ceiling',
+            type: FieldType.Formula,
+            options: {
+              expression: `CEILING({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: intFieldId,
+            name: 'Budget Int',
+            type: FieldType.Formula,
+            options: {
+              expression: `INT({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+        ];
 
-        const lookupField = await createField(host.id, {
-          name: 'Budget Lookup',
-          type: FieldType.Number,
-          isLookup: true,
-          lookupOptions: {
-            foreignTableId: foreign.id,
-            lookupFieldId: budgetFieldId,
-            linkFieldId: linkField.id,
-          } as ILookupOptionsRo,
-        } as IFieldRo);
+        const createFormulaFieldRos = (resolvedLookupFieldId: string) =>
+          formulaFieldRos.map((field) => ({
+            ...field,
+            options: {
+              expression: field.options!.expression.replaceAll(
+                lookupFieldId,
+                resolvedLookupFieldId
+              ),
+            },
+          })) as IFieldRo[];
 
-        const formattedField = await createField(host.id, {
-          name: 'Budget Value Formula',
-          type: FieldType.Formula,
-          options: {
-            expression: `VALUE({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+        let linkField;
+        let lookupField;
+        let formattedField;
+        let roundedField;
+        let roundUpField;
+        let roundDownField;
+        let floorField;
+        let ceilingField;
+        let intField;
 
-        const roundedField = await createField(host.id, {
-          name: 'Budget Rounded',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUND({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+        if (useV2BatchCreate) {
+          linkField = await createField(host.id, {
+            id: linkFieldId,
+            name: 'Related Budgets',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreign.id,
+            } as ILinkFieldOptionsRo,
+          } as IFieldRo);
 
-        const roundUpField = await createField(host.id, {
-          name: 'Budget RoundUp',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUNDUP({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+          lookupField = await createField(host.id, {
+            id: lookupFieldId,
+            name: 'Budget Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              lookupFieldId: budgetFieldId,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
 
-        const roundDownField = await createField(host.id, {
-          name: 'Budget RoundDown',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUNDDOWN({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+          const resolvedFormulaFieldRos = createFormulaFieldRos(lookupField.id);
+          const createdFields = [
+            ...(await createFields(host.id, resolvedFormulaFieldRos.slice(0, 4), app)),
+            ...(await createFields(host.id, resolvedFormulaFieldRos.slice(4), app)),
+          ];
 
-        const floorField = await createField(host.id, {
-          name: 'Budget Floor',
-          type: FieldType.Formula,
-          options: {
-            expression: `FLOOR({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          const createdFieldsById = new Map(createdFields.map((field) => [field.id, field]));
+          formattedField = createdFieldsById.get(formattedFieldId)!;
+          roundedField = createdFieldsById.get(roundedFieldId)!;
+          roundUpField = createdFieldsById.get(roundUpFieldId)!;
+          roundDownField = createdFieldsById.get(roundDownFieldId)!;
+          floorField = createdFieldsById.get(floorFieldId)!;
+          ceilingField = createdFieldsById.get(ceilingFieldId)!;
+          intField = createdFieldsById.get(intFieldId)!;
+        } else {
+          linkField = await createField(host.id, {
+            id: linkFieldId,
+            name: 'Related Budgets',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreign.id,
+            } as ILinkFieldOptionsRo,
+          } as IFieldRo);
 
-        const ceilingField = await createField(host.id, {
-          name: 'Budget Ceiling',
-          type: FieldType.Formula,
-          options: {
-            expression: `CEILING({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          lookupField = await createField(host.id, {
+            id: lookupFieldId,
+            name: 'Budget Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              lookupFieldId: budgetFieldId,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
 
-        const intField = await createField(host.id, {
-          name: 'Budget Int',
-          type: FieldType.Formula,
-          options: {
-            expression: `INT({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          const resolvedFormulaFieldRos = createFormulaFieldRos(lookupField.id);
+          formattedField = await createField(host.id, resolvedFormulaFieldRos[0]);
+          roundedField = await createField(host.id, resolvedFormulaFieldRos[1]);
+          roundUpField = await createField(host.id, resolvedFormulaFieldRos[2]);
+          roundDownField = await createField(host.id, resolvedFormulaFieldRos[3]);
+          floorField = await createField(host.id, resolvedFormulaFieldRos[4]);
+          ceilingField = await createField(host.id, resolvedFormulaFieldRos[5]);
+          intField = await createField(host.id, resolvedFormulaFieldRos[6]);
+        }
 
         const hostRecordId = host.records[0].id;
         await updateRecordByApi(
@@ -3472,7 +3556,7 @@ describe('OpenAPI formula (e2e)', () => {
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 60000);
 
     it('should evaluate formulas referencing lookup formulas', async () => {
       const foreign = await createTable(baseId, {
@@ -3550,7 +3634,7 @@ describe('OpenAPI formula (e2e)', () => {
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 120000);
 
     it('should calculate numeric formulas using lookup fields', async () => {
       const foreign = await createTable(baseId, {

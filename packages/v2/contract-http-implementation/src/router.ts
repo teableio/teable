@@ -43,6 +43,7 @@ import { executeListTablesEndpoint } from './handlers/tables/listTables';
 import { executePasteEndpoint } from './handlers/tables/paste';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
 import { executeReorderRecordsEndpoint } from './handlers/tables/reorderRecords';
+import { executeRestoreTableEndpoint } from './handlers/tables/restoreTable';
 import { executeSubmitRecordEndpoint } from './handlers/tables/submitRecord';
 import { executeUpdateFieldEndpoint } from './handlers/tables/updateField';
 import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
@@ -727,6 +728,34 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
+  const tablesRestore = os.tables.restore.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeRestoreTableEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
   const tablesList = os.tables.list.handler(async ({ input }) => {
     const container = await resolveContainer();
 
@@ -1113,6 +1142,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       explainDeleteField: tablesExplainDeleteField,
       explainDeleteTable: tablesExplainDeleteTable,
       delete: tablesDelete,
+      restore: tablesRestore,
       getById: tablesGetById,
       getRecord: tablesGetRecord,
       importCsv: tablesImportCsv,

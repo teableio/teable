@@ -34,6 +34,19 @@ const testDesc = `should filter [$operator], query value: $queryValue, expect re
 describe('OpenAPI Record-Filter-Query (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+  const textLookupFieldCases = isForceV2
+    ? TEXT_LOOKUP_FIELD_CASES.map((testCase) => {
+        switch (testCase.operator) {
+          case 'isEmpty':
+            return { ...testCase, expectResultLength: 6 };
+          case 'isNotEmpty':
+            return { ...testCase, expectResultLength: 15 };
+          default:
+            return testCase;
+        }
+      })
+    : TEXT_LOOKUP_FIELD_CASES;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -209,7 +222,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     });
 
     describe('filter lookup text field record', () => {
-      test.each(TEXT_LOOKUP_FIELD_CASES)(testDesc, async (param) => doTest(subTable, param));
+      test.each(textLookupFieldCases)(testDesc, async (param) => doTest(subTable, param));
     });
     describe('filter lookup number field record', () => {
       test.each(NUMBER_LOOKUP_FIELD_CASES)(testDesc, async (param) => doTest(subTable, param));

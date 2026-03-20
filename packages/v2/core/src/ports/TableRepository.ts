@@ -52,6 +52,7 @@ export interface ITableRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<TableUpdatePersistResult | void, DomainError>>;
+  restore(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   delete(
     context: IExecutionContext,
     table: Table,

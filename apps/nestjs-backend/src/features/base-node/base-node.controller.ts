@@ -48,6 +48,7 @@ import { BaseNodeAction } from './types';
 @UseGuards(BaseNodePermissionGuard)
 @AllowAnonymous(AllowAnonymousType.RESOURCE)
 export class BaseNodeController {
+  protected static readonly createTableV2Feature = 'createTable';
   protected static readonly deleteTableV2Feature = 'deleteTable';
 
   constructor(
@@ -144,8 +145,11 @@ export class BaseNodeController {
   @EmitControllerEvent(Events.BASE_NODE_CREATE)
   async create(
     @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(createBaseNodeRoSchema)) ro: ICreateBaseNodeRo
+    @Body(new ZodValidationPipe(createBaseNodeRoSchema)) ro: ICreateBaseNodeRo,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res({ passthrough: true }) response: Response
   ): Promise<IBaseNodeVo> {
+    await this.prepareCreateTableCanary(baseId, ro, response, windowId);
     return this.baseNodeService.create(baseId, ro);
   }
 
@@ -238,6 +242,34 @@ export class BaseNodeController {
 
     response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
     response.setHeader(X_TEABLE_V2_FEATURE_HEADER, BaseNodeController.deleteTableV2Feature);
+    response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
+  }
+
+  protected async prepareCreateTableCanary(
+    baseId: string,
+    createRo: ICreateBaseNodeRo,
+    response: Response,
+    windowId?: string
+  ): Promise<void> {
+    if (windowId) {
+      this.cls.set('windowId', windowId);
+    }
+
+    if (createRo.resourceType !== BaseNodeResourceType.Table) {
+      return;
+    }
+
+    const decision = await this.baseNodeService.getCreateTableV2Decision(baseId);
+    if (!decision) {
+      return;
+    }
+
+    this.cls.set('useV2', decision.useV2);
+    this.cls.set('v2Feature', BaseNodeController.createTableV2Feature);
+    this.cls.set('v2Reason', decision.reason);
+
+    response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
+    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, BaseNodeController.createTableV2Feature);
     response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
   }
 

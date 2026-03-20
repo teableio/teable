@@ -32,11 +32,33 @@ export class TableUpdateViewColumnMetaSpec<
     table: Table,
     fieldId: FieldId
   ): Result<TableUpdateViewColumnMetaSpec, DomainError> {
+    return this.fromTableWithFieldIds(table, [fieldId]);
+  }
+
+  static fromTableWithFieldIds(
+    table: Table,
+    fieldIds: ReadonlyArray<FieldId>
+  ): Result<TableUpdateViewColumnMetaSpec, DomainError> {
+    if (fieldIds.length === 0) {
+      return ok(new TableUpdateViewColumnMetaSpec([]));
+    }
+
     const updatesResult = table
       .views()
-      .reduce<
-        Result<ReadonlyArray<TableViewColumnMetaUpdate>, DomainError>
-      >((acc, view) => acc.andThen((updates) => view.columnMeta().map((columnMeta) => [...updates, { viewId: view.id(), fieldId, columnMeta }])), ok([]));
+      .reduce<Result<ReadonlyArray<TableViewColumnMetaUpdate>, DomainError>>(
+        (acc, view) =>
+          acc.andThen((updates) =>
+            view.columnMeta().map((columnMeta) => [
+              ...updates,
+              ...fieldIds.map((fieldId) => ({
+                viewId: view.id(),
+                fieldId,
+                columnMeta,
+              })),
+            ])
+          ),
+        ok([])
+      );
 
     return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
   }

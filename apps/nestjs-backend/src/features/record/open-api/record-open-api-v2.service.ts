@@ -7,13 +7,14 @@ import {
   CellValueType,
   FieldKeyType,
   FieldType,
-  type IDatetimeFormatting,
   TimeFormatting,
   formatDateToString,
   isMeTag,
   parseClipboardText,
+  type IDatetimeFormatting,
+  type IFilter,
+  type IFilterSet,
 } from '@teable/core';
-import type { IFilter, IFilterSet } from '@teable/core';
 import type {
   IUpdateRecordRo,
   IFormSubmitRo,
@@ -61,14 +62,15 @@ import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
+import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
-import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
 import { RecordPermissionService } from '../record-permission.service';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
 
 const internalServerError = 'Internal server error';
+const invalidFilterCode = 'validation.invalid_filter';
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -122,7 +124,7 @@ export class RecordOpenApiV2Service {
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
       this.throwV2Error(
         {
-          code: 'validation.invalid_filter',
+          code: invalidFilterCode,
           message:
             'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
           tags: ['validation'],
@@ -131,6 +133,17 @@ export class RecordOpenApiV2Service {
       );
     }
 
+    const context = await this.createV2ReadContext(tableId, query);
+    const enabledFieldIds = (
+      context as IExecutionContext & {
+        recordReadQuerySource?: { enabledFieldIds?: string[] };
+      }
+    ).recordReadQuerySource?.enabledFieldIds;
+    const effectiveQuery = {
+      ...query,
+      ...this.sanitizeReadableSortAndGroup(query, enabledFieldIds),
+    } satisfies IGetRecordsRo;
+
     const requestedFieldKeyType = query.fieldKeyType ?? FieldKeyType.Name;
     const snapshotProjection = await this.resolveSnapshotProjection(
       tableId,
@@ -138,18 +151,20 @@ export class RecordOpenApiV2Service {
       requestedFieldKeyType
     );
     const normalizedFilter = await this.normalizeFilterForV2(tableId, query.filter);
-    const sortWithGroupFallback = this.mergeGroupByIntoSort(query.groupBy, query.orderBy);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(
+      effectiveQuery.groupBy,
+      effectiveQuery.orderBy
+    );
     const normalizedSort = sortWithGroupFallback?.map((item) => ({
       fieldId: item.fieldId,
       order: item.order,
     }));
-    const normalizedGroupBy = query.groupBy?.map((item) => item.fieldId);
-    const queryExtra = this.shouldLoadQueryExtra(query)
-      ? await this.getQueryExtra(tableId, query)
+    const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
+    const queryExtra = this.shouldLoadQueryExtra(effectiveQuery)
+      ? await this.getQueryExtra(tableId, effectiveQuery)
       : undefined;
 
     const container = await this.v2ContainerService.getContainer();
-    const context = await this.createV2ReadContext(tableId, query);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const pageResult = await this.executeListRecordsEndpoint(
       {
@@ -161,16 +176,20 @@ export class RecordOpenApiV2Service {
         ...(normalizedFilter ? { filter: normalizedFilter } : {}),
         ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
         ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
-        ...(query.search ? { search: query.search } : {}),
-        ...(query.filterLinkCellSelected
-          ? { filterLinkCellSelected: query.filterLinkCellSelected }
+        ...(effectiveQuery.search ? { search: effectiveQuery.search } : {}),
+        ...(effectiveQuery.filterLinkCellSelected
+          ? { filterLinkCellSelected: effectiveQuery.filterLinkCellSelected }
           : {}),
-        ...(query.filterLinkCellCandidate
-          ? { filterLinkCellCandidate: query.filterLinkCellCandidate }
+        ...(effectiveQuery.filterLinkCellCandidate
+          ? { filterLinkCellCandidate: effectiveQuery.filterLinkCellCandidate }
           : {}),
-        ...(query.selectedRecordIds?.length ? { selectedRecordIds: query.selectedRecordIds } : {}),
-        ...(query.viewId ? { viewId: query.viewId } : {}),
-        ...(query.ignoreViewQuery !== undefined ? { ignoreViewQuery: query.ignoreViewQuery } : {}),
+        ...(effectiveQuery.selectedRecordIds?.length
+          ? { selectedRecordIds: effectiveQuery.selectedRecordIds }
+          : {}),
+        ...(effectiveQuery.viewId ? { viewId: effectiveQuery.viewId } : {}),
+        ...(effectiveQuery.ignoreViewQuery !== undefined
+          ? { ignoreViewQuery: effectiveQuery.ignoreViewQuery }
+          : {}),
       },
       context,
       queryBus
@@ -387,6 +406,27 @@ export class RecordOpenApiV2Service {
         enabledFieldIds: readSource.enabledFieldIds,
       },
     } as IExecutionContext;
+  }
+
+  private sanitizeReadableSortAndGroup(
+    query: Pick<IGetRecordsRo, 'orderBy' | 'groupBy'>,
+    enabledFieldIds?: string[]
+  ): Pick<IGetRecordsRo, 'orderBy' | 'groupBy'> {
+    if (!enabledFieldIds?.length) {
+      return {
+        orderBy: query.orderBy,
+        groupBy: query.groupBy,
+      };
+    }
+
+    const enabledFieldIdSet = new Set(enabledFieldIds);
+    const orderBy = query.orderBy?.filter((item) => enabledFieldIdSet.has(item.fieldId));
+    const groupBy = query.groupBy?.filter((item) => enabledFieldIdSet.has(item.fieldId));
+
+    return {
+      orderBy: orderBy?.length ? orderBy : undefined,
+      groupBy: groupBy?.length ? groupBy : undefined,
+    };
   }
 
   private shouldLoadQueryExtra(query: IGetRecordsRo): boolean {
@@ -1591,7 +1631,7 @@ export class RecordOpenApiV2Service {
     if (operator !== 'is' && operator !== 'isWithIn') {
       this.throwV2Error(
         {
-          code: 'validation.invalid_filter',
+          code: invalidFilterCode,
           message: 'dateRange mode only supports is/isWithIn operators',
           tags: ['validation'],
         },
@@ -1618,7 +1658,7 @@ export class RecordOpenApiV2Service {
     if (startTimestamp > endTimestamp) {
       this.throwV2Error(
         {
-          code: 'validation.invalid_filter',
+          code: invalidFilterCode,
           message: 'dateRange exactDate must be less than or equal to exactDateEnd',
           tags: ['validation'],
           details: { fieldId, exactDate, exactDateEnd },

@@ -204,11 +204,12 @@ describe('CreateFieldCommand', () => {
         field: {
           type: 'longText',
           name: 'Notes',
-          options: { defaultValue: 'Details' },
+          options: { showAs: { type: 'markdown' }, defaultValue: 'Details' },
         },
         assert: (field: unknown) => {
           expect(field).toBeInstanceOf(LongTextField);
           const typed = field as LongTextField;
+          expect(typed.showAs()?.toDto()).toEqual({ type: 'markdown' });
           expect(typed.defaultValue()?.toString()).toBe('Details');
         },
       },

@@ -1,9 +1,11 @@
 import type {
   DomainError,
+  Field,
   FieldId,
   ISpecification,
   ITableSpecVisitor,
   TableAddFieldSpec,
+  TableAddFieldsSpec,
   TableAddSelectOptionsSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
@@ -105,7 +107,20 @@ export class DependencyChangeDetectorVisitor implements ITableSpecVisitor<void> 
   }
 
   visitTableAddField(spec: TableAddFieldSpec): Result<void, DomainError> {
-    const field = spec.field();
+    return this.markField(spec.field());
+  }
+
+  visitTableAddFields(spec: TableAddFieldsSpec): Result<void, DomainError> {
+    for (const field of spec.fields()) {
+      const markResult = this.markField(field);
+      if (markResult.isErr()) {
+        return markResult;
+      }
+    }
+    return ok(undefined);
+  }
+
+  private markField(field: Field): Result<void, DomainError> {
     const type = field.type().toString();
     // Only computed fields create dependencies
     const computedTypes = [

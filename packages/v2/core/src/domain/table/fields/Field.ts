@@ -195,8 +195,6 @@ export abstract class Field extends Entity<FieldId> {
 
   setDependencies(dependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
     if (Field.hasSameFieldIds(this.dependenciesValue, dependencies)) return ok(undefined);
-    if (this.dependenciesValue.length > 0)
-      return err(domainError.invariant({ message: 'Field dependencies already set' }));
     this.dependenciesValue = [...dependencies];
     return ok(undefined);
   }
@@ -211,8 +209,6 @@ export abstract class Field extends Entity<FieldId> {
 
   setDependents(dependents: ReadonlyArray<FieldId>): Result<void, DomainError> {
     if (Field.hasSameFieldIds(this.dependentsValue ?? [], dependents)) return ok(undefined);
-    if (this.dependentsValue && this.dependentsValue.length > 0)
-      return err(domainError.invariant({ message: 'Field dependents already set' }));
     this.dependentsValue = [...dependents];
     return ok(undefined);
   }

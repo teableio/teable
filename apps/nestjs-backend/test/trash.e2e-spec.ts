@@ -174,6 +174,18 @@ describe('Trash (e2e)', () => {
 
       expect(restored.status).toEqual(201);
     });
+
+    it('should expose restore-table canary headers when restoring a table trash item', async () => {
+      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
+
+      const trash = (await waitForBaseTrashItems(baseId, 1)).data;
+      const restored = await restoreTrash(trash.trashItems[0].id);
+
+      expect(restored.status).toEqual(201);
+      expect(restored.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(restored.headers['x-teable-v2-feature']).toBe('restoreTable');
+      expect(restored.headers['x-teable-v2-reason']).toBeTruthy();
+    });
   });
 
   describe('Reset trash items for base', () => {

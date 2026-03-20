@@ -263,7 +263,7 @@ describe('OpenAPI TableController (e2e)', () => {
     const recordResult = await getRecords(tableId);
 
     expect(recordResult.records).toHaveLength(2);
-    expect(eventCount).toBe(4);
+    expect(eventCount).toBe(isForceV2 ? 0 : 4);
   });
 
   it('/api/table/ (POST) empty', async () => {

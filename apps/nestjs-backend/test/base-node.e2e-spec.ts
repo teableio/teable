@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Role, ViewType } from '@teable/core';
+import { FieldType, Relationship, Role, ViewType } from '@teable/core';
 import type { IBaseNodeTableResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import {
   axios,
@@ -29,7 +29,7 @@ import {
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp, permanentDeleteBase } from './utils/init-app';
+import { getFields, initApp, permanentDeleteBase } from './utils/init-app';
 
 // Constants for reused strings
 const nonExistentId = 'non-existent-node-id';
@@ -166,6 +166,258 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.data.resourceId).toBeDefined();
 
       nodesToCleanup.push(response.data.id);
+    });
+
+    it('should expose create-table canary headers when creating a table node', async () => {
+      const response = await axios.post(
+        urlBuilder(CREATE_BASE_NODE, { baseId }),
+        {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'Create Via Node Route',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-create-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2-feature']).toBe('createTable');
+      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+
+      nodesToCleanup.push(response.data.id);
+    });
+
+    it('should create all supported table field types through the node canary route', async () => {
+      const foreignNode = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'All Types Foreign',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Revenue', type: FieldType.Number },
+        ],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(foreignNode.data.id);
+
+      const foreignFields = await getFields(foreignNode.data.resourceId);
+      const foreignNameFieldId = foreignFields.find((field) => field.name === 'Name')?.id;
+      const foreignRevenueFieldId = foreignFields.find((field) => field.name === 'Revenue')?.id;
+
+      expect(foreignNameFieldId).toBeTruthy();
+      expect(foreignRevenueFieldId).toBeTruthy();
+      if (!foreignNameFieldId || !foreignRevenueFieldId) return;
+
+      const amountFieldId = 'fldalltypesamount01';
+      const companyLinkFieldId = 'fldalltypeslink0001';
+      const companyLookupFieldId = 'fldalltypeslook0001';
+      const companyRollupFieldId = 'fldalltypesroll0001';
+      const conditionalLookupFieldId = 'fldalltypescdl00001';
+      const conditionalRollupFieldId = 'fldalltypescdr00001';
+
+      const response = await axios.post(
+        urlBuilder(CREATE_BASE_NODE, { baseId }),
+        {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'All Types Via Node Route',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Description', type: FieldType.LongText, options: { defaultValue: 'Details' } },
+            {
+              id: amountFieldId,
+              name: 'Amount',
+              type: FieldType.Number,
+              options: {
+                formatting: { type: 'currency', precision: 2, symbol: '$' },
+                showAs: { type: 'bar', color: 'teal', showValue: true, maxValue: 100 },
+                defaultValue: 10,
+              },
+            },
+            {
+              name: 'Score',
+              type: FieldType.Formula,
+              options: { expression: `{${amountFieldId}} * 2` },
+            },
+            {
+              name: 'Priority',
+              type: FieldType.Rating,
+              options: { max: 5, icon: 'star', color: 'yellowBright' },
+            },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'Todo', color: 'blue' },
+                  { name: 'Doing', color: 'yellow' },
+                  { name: 'Done', color: 'green' },
+                ],
+              },
+            },
+            {
+              name: 'Tags',
+              type: FieldType.MultipleSelect,
+              options: {
+                choices: [
+                  { name: 'Frontend', color: 'purple' },
+                  { name: 'Backend', color: 'orange' },
+                ],
+              },
+            },
+            { name: 'Done', type: FieldType.Checkbox, options: { defaultValue: true } },
+            { name: 'Files', type: FieldType.Attachment },
+            {
+              name: 'Due Date',
+              type: FieldType.Date,
+              options: {
+                formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'UTC' },
+                defaultValue: 'now',
+              },
+            },
+            { name: 'Auto Number', type: FieldType.AutoNumber },
+            { name: 'Created Time', type: FieldType.CreatedTime },
+            { name: 'Last Modified Time', type: FieldType.LastModifiedTime },
+            { name: 'Created By', type: FieldType.CreatedBy },
+            { name: 'Last Modified By', type: FieldType.LastModifiedBy },
+            {
+              name: 'Owner',
+              type: FieldType.User,
+              options: { isMultiple: true, shouldNotify: false, defaultValue: ['me'] },
+            },
+            {
+              name: 'Action',
+              type: FieldType.Button,
+              options: {
+                label: 'Run',
+                color: 'teal',
+                maxCount: 3,
+                resetCount: true,
+                workflow: { id: 'wflaaaaaaaaaaaaaaaa', name: 'Deploy', isActive: true },
+              },
+            },
+            {
+              id: companyLinkFieldId,
+              name: 'Company',
+              type: FieldType.Link,
+              options: {
+                relationship: Relationship.ManyOne,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+              },
+            },
+            {
+              id: companyLookupFieldId,
+              name: 'Company Name',
+              type: FieldType.SingleLineText,
+              isLookup: true,
+              lookupOptions: {
+                linkFieldId: companyLinkFieldId,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+              },
+            },
+            {
+              id: companyRollupFieldId,
+              name: 'Company Revenue Total',
+              type: FieldType.Rollup,
+              options: { expression: 'sum({values})', timeZone: 'UTC' },
+              lookupOptions: {
+                linkFieldId: companyLinkFieldId,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignRevenueFieldId,
+              },
+            },
+            {
+              id: conditionalLookupFieldId,
+              name: 'High Revenue Companies',
+              type: FieldType.SingleLineText,
+              isLookup: true,
+              isConditionalLookup: true,
+              lookupOptions: {
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignRevenueFieldId,
+                      operator: 'isGreater',
+                      value: 100,
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              id: conditionalRollupFieldId,
+              name: 'High Revenue Total',
+              type: FieldType.ConditionalRollup,
+              options: {
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignRevenueFieldId,
+                expression: 'sum({values})',
+                timeZone: 'UTC',
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignRevenueFieldId,
+                      operator: 'isGreater',
+                      value: 100,
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-all-types',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2-feature']).toBe('createTable');
+      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+
+      nodesToCleanup.push(response.data.id);
+
+      const fields = await getFields(response.data.resourceId);
+      const fieldByName = new Map(fields.map((field) => [field.name, field]));
+
+      expect(fieldByName.get('Name')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('Description')?.type).toBe(FieldType.LongText);
+      expect(fieldByName.get('Amount')?.type).toBe(FieldType.Number);
+      expect(fieldByName.get('Score')?.type).toBe(FieldType.Formula);
+      expect(fieldByName.get('Priority')?.type).toBe(FieldType.Rating);
+      expect(fieldByName.get('Status')?.type).toBe(FieldType.SingleSelect);
+      expect(fieldByName.get('Tags')?.type).toBe(FieldType.MultipleSelect);
+      expect(fieldByName.get('Done')?.type).toBe(FieldType.Checkbox);
+      expect(fieldByName.get('Files')?.type).toBe(FieldType.Attachment);
+      expect(fieldByName.get('Due Date')?.type).toBe(FieldType.Date);
+      expect(fieldByName.get('Auto Number')?.type).toBe(FieldType.AutoNumber);
+      expect(fieldByName.get('Created Time')?.type).toBe(FieldType.CreatedTime);
+      expect(fieldByName.get('Last Modified Time')?.type).toBe(FieldType.LastModifiedTime);
+      expect(fieldByName.get('Created By')?.type).toBe(FieldType.CreatedBy);
+      expect(fieldByName.get('Last Modified By')?.type).toBe(FieldType.LastModifiedBy);
+      expect(fieldByName.get('Owner')?.type).toBe(FieldType.User);
+      expect(fieldByName.get('Action')?.type).toBe(FieldType.Button);
+      expect(fieldByName.get('Company')?.type).toBe(FieldType.Link);
+      expect(fieldByName.get('Company Name')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('Company Name')?.isLookup).toBe(true);
+      expect(fieldByName.get('Company Revenue Total')?.type).toBe(FieldType.Rollup);
+      expect(fieldByName.get('High Revenue Companies')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('High Revenue Companies')?.isLookup).toBe(true);
+      expect(fieldByName.get('High Revenue Companies')?.isConditionalLookup).toBe(true);
+      expect(fieldByName.get('High Revenue Total')?.type).toBe(FieldType.ConditionalRollup);
     });
 
     it('should create a dashboard node successfully', async () => {

@@ -73,7 +73,7 @@ const decision = async (axios: AxiosInstance, transactionID: string, cancel?: st
     }
   );
 };
-const testEmail = 'oauth-server@example.com';
+const testEmail = `oauth-server+${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
 describe('OpenAPI OAuthController (e2e)', () => {
   let app: INestApplication;

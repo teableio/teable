@@ -129,6 +129,7 @@ class FakeComputedFieldBackfillService {
   calls: Array<{
     table: Table;
     fields: ReadonlyArray<Field>;
+    skipDistinctFilter?: boolean;
     includeOneManyTwoWay?: boolean;
   }> = [];
 
@@ -141,12 +142,14 @@ class FakeComputedFieldBackfillService {
     input: {
       table: Table;
       fields: ReadonlyArray<Field>;
+      skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
   ) {
     this.calls.push({
       table: input.table,
       fields: input.fields,
+      skipDistinctFilter: input.skipDistinctFilter,
       includeOneManyTwoWay: input.includeOneManyTwoWay,
     });
     return ok(undefined);
@@ -284,6 +287,7 @@ describe('PostgresTableSchemaRepository', () => {
 
     expect(backfillService.calls).toHaveLength(1);
     expect(backfillService.calls[0]?.fields[0]?.id().equals(newFieldId)).toBe(true);
+    expect(backfillService.calls[0]?.skipDistinctFilter).toBe(true);
     expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(false);
   });
 

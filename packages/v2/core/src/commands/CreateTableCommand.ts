@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { DbTableName } from '../domain/table/DbTableName';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { RecordId } from '../domain/table/records/RecordId';
 import { Table } from '../domain/table/Table';
@@ -124,6 +125,7 @@ export class CreateTableCommand {
     readonly baseId: BaseId,
     readonly tableId: TableId | undefined,
     readonly tableName: TableName,
+    readonly dbTableName: DbTableName | undefined,
     readonly fields: ReadonlyArray<ICreateTableFieldSpec>,
     readonly views: ReadonlyArray<ICreateTableViewSpec>,
     readonly records: ReadonlyArray<CreateTableRecordSeed>
@@ -145,24 +147,37 @@ export class CreateTableCommand {
     const tableIdResult: Result<TableId | undefined, DomainError> = parsed.data.tableId
       ? TableId.create(parsed.data.tableId)
       : ok<TableId | undefined, DomainError>(undefined);
+    const dbTableNameResult: Result<DbTableName | undefined, DomainError> = parsed.data.dbTableName
+      ? DbTableName.rehydrate(parsed.data.dbTableName)
+      : ok<DbTableName | undefined, DomainError>(undefined);
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       tableIdResult.andThen((tableId) =>
-        TableName.create(parsed.data.name).andThen((tableName) =>
-          this.parseFields(parsed.data.fields, options)
-            .andThen((fields) =>
-              this.parseViews(parsed.data.views).andThen((views) =>
-                this.parseRecords(parsed.data.records).map((records) => ({
-                  fields,
-                  views,
-                  records,
-                }))
+        dbTableNameResult.andThen((dbTableName) =>
+          TableName.create(parsed.data.name).andThen((tableName) =>
+            this.parseFields(parsed.data.fields, options)
+              .andThen((fields) =>
+                this.parseViews(parsed.data.views).andThen((views) =>
+                  this.parseRecords(parsed.data.records).map((records) => ({
+                    fields,
+                    views,
+                    records,
+                  }))
+                )
               )
-            )
-            .map(
-              ({ fields, views, records }) =>
-                new CreateTableCommand(baseId, tableId, tableName, fields, views, records)
-            )
+              .map(
+                ({ fields, views, records }) =>
+                  new CreateTableCommand(
+                    baseId,
+                    tableId,
+                    tableName,
+                    dbTableName,
+                    fields,
+                    views,
+                    records
+                  )
+              )
+          )
         )
       )
     );
@@ -269,6 +284,9 @@ export function buildTable(
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
   if (command.tableId) {
     builder.withId(command.tableId);
+  }
+  if (command.dbTableName) {
+    builder.withDbTableName(command.dbTableName);
   }
 
   for (const fieldSpec of command.fields) {

@@ -257,6 +257,27 @@ async function syncAutoNumberSequence(db: Kysely<DynamicDB>, tableName: string):
   `.execute(db);
 }
 
+async function tableHasExistingRows(db: Kysely<DynamicDB>, tableName: string): Promise<boolean> {
+  const tableRef = toSqlTableRef(tableName);
+  const result = await sql<{ has_rows: boolean }>`
+    SELECT EXISTS (SELECT 1 FROM ${tableRef} LIMIT 1) AS has_rows
+  `.execute(db);
+  return Boolean(result.rows[0]?.has_rows);
+}
+
+async function analyzeSeededTable(
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  tableWasEmpty: boolean
+): Promise<void> {
+  if (!tableWasEmpty) {
+    return;
+  }
+
+  const tableRef = toSqlTableRef(tableName);
+  await sql`ANALYZE ${tableRef}`.execute(db);
+}
+
 const toBulkUpdateTrackedFields = (
   table: core.Table,
   changedFieldIds: ReadonlyArray<core.FieldId>
@@ -624,6 +645,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorEmail?: string;
         };
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        const tableWasEmpty = !(await tableHasExistingRows(db, tableName));
         // Resolve actor identity outside transaction-scoped connection to avoid
         // marking the current transaction as aborted when optional lookup fails.
         const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
@@ -817,6 +839,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             const batch = allValues.slice(i, i + batchSize);
             await db.insertInto(tableName).values(batch).execute();
           }
+          await analyzeSeededTable(db, tableName, tableWasEmpty);
           if (hasExplicitAutoNumberRestore) {
             await syncAutoNumberSequence(db, tableName);
           }

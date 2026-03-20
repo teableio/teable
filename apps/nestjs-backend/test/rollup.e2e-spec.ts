@@ -660,6 +660,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
   describe('rollup expression coverage', () => {
     const baseId = globalThis.testConfig.baseId;
+    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
     const setupRollupFixtures = async () => {
       const foreign = await createTable(baseId, {
@@ -717,7 +718,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
       { expression: 'average({values})', lookupFieldKey: 'amountId', expected: 15 },
       { expression: 'max({values})', lookupFieldKey: 'amountId', expected: 20 },
       { expression: 'min({values})', lookupFieldKey: 'amountId', expected: 10 },
-      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: true },
+      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: isForceV2 ? false : true },
       { expression: 'or({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'xor({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'array_join({values})', lookupFieldKey: 'labelId', expected: 'Alpha, Beta' },

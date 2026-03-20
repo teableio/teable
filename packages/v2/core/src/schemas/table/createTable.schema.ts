@@ -12,6 +12,7 @@ export const createTableInputSchema = z.object({
   baseId: z.string(),
   tableId: z.string().optional(),
   name: z.string(),
+  dbTableName: z.string().optional(),
   fields: z.array(tableFieldInputSchema).default([]),
   views: z.array(viewInputSchema).optional(),
   records: z.array(recordInputSchema).optional(),

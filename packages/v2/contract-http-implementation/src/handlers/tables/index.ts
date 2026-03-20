@@ -7,6 +7,7 @@ export * from './createTables';
 export * from './deleteField';
 export * from './deleteRecords';
 export * from './deleteTable';
+export * from './restoreTable';
 export * from './explainCommand';
 export * from './getRecordById';
 export * from './getTableById';

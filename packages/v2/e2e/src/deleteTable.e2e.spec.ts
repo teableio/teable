@@ -898,6 +898,68 @@ describe('v2 http deleteTable (e2e)', () => {
     }
   });
 
+  it('restores a soft-deleted table without recreating physical storage', async () => {
+    let tableId: string | undefined;
+
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Table Candidate'),
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        records: [{ fields: { Name: 'Alpha' } }],
+      });
+      tableId = table.id;
+
+      const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id;
+      if (!primaryFieldId) {
+        throw new Error('Missing restore table primary field');
+      }
+
+      const indexesBeforeDelete = await listPhysicalTableIndexes(ctx, table.id);
+      const constraintsBeforeDelete = await listPhysicalTableConstraints(ctx, table.id);
+      expect(await physicalTableExists(ctx, table.id)).toBe(true);
+      expect(await countPhysicalTableRows(ctx, table.id)).toBe(1);
+
+      await ctx.deleteTable(table.id, { mode: 'soft' });
+
+      expect(await physicalTableExists(ctx, table.id)).toBe(true);
+      expect((await getTableMetaDeleteState(ctx, table.id))?.deletedTime).toEqual(expect.any(Date));
+      expect(
+        (await listFieldMetaDeleteStates(ctx, table.id)).every((field) => field.deletedTime)
+      ).toBe(true);
+      expect(
+        (await listViewMetaDeleteStates(ctx, table.id)).every((view) => view.deletedTime)
+      ).toBe(true);
+      await expect(ctx.getTableById(table.id)).rejects.toThrow();
+
+      const beforeRestoreEventCount = ctx.testContainer.eventBus.events().length;
+      const restored = await ctx.restoreTable(table.id);
+      const restoreEvents = ctx.testContainer.eventBus.events().slice(beforeRestoreEventCount);
+
+      expect(restored.id).toBe(table.id);
+      expect(restoreEvents.map(getDomainEventName)).toContain('TableRestored');
+      expect(await physicalTableExists(ctx, table.id)).toBe(true);
+      expect((await getTableMetaDeleteState(ctx, table.id))?.deletedTime).toBeNull();
+      expect(
+        (await listFieldMetaDeleteStates(ctx, table.id)).every((field) => !field.deletedTime)
+      ).toBe(true);
+      expect(
+        (await listViewMetaDeleteStates(ctx, table.id)).every((view) => !view.deletedTime)
+      ).toBe(true);
+      expect(await listPhysicalTableIndexes(ctx, table.id)).toEqual(indexesBeforeDelete);
+      expect(await listPhysicalTableConstraints(ctx, table.id)).toEqual(constraintsBeforeDelete);
+
+      const listedTables = await ctx.listTables();
+      expect(listedTables.some((listedTable) => listedTable.id === table.id)).toBe(true);
+
+      const records = await ctx.listRecords(table.id, { limit: 10 });
+      expect(records).toHaveLength(1);
+      expect(records[0]?.fields[primaryFieldId]).toBe('Alpha');
+    } finally {
+      await safeDeleteTable(tableId);
+    }
+  });
+
   it('explains delete table side effects without mutating real tables', async () => {
     let foreignTableId: string | undefined;
     let hostTableId: string | undefined;

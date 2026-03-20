@@ -39,6 +39,7 @@ vi.mock('@teable/db-main-prisma', () => ({
 }));
 
 let tableControllerClass: new (...args: unknown[]) => {
+  createTable: (baseId: string, createTableRo: unknown) => Promise<unknown>;
   archiveTable: (baseId: string, tableId: string) => Promise<unknown>;
   permanentDeleteTable: (baseId: string, tableId: string) => Promise<unknown>;
 };
@@ -51,10 +52,12 @@ describe('TableController.archiveTable', () => {
 
   const createController = (useV2: boolean) => {
     const tableOpenApiService = {
+      createTable: vi.fn().mockResolvedValue({ id: 'tbl-legacy' }),
       deleteTable: vi.fn(),
       permanentDeleteTables: vi.fn(),
     };
     const tableOpenApiV2Service = {
+      createTable: vi.fn().mockResolvedValue({ id: 'tbl-v2' }),
       deleteTable: vi.fn(),
     };
     const cls = {
@@ -88,6 +91,28 @@ describe('TableController.archiveTable', () => {
 
     expect(tableOpenApiV2Service.deleteTable).toHaveBeenCalledWith('bse1', 'tbl1');
     expect(tableOpenApiService.deleteTable).not.toHaveBeenCalled();
+  });
+
+  it('routes create-table through v2 when useV2 is enabled', async () => {
+    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const createTableRo = { name: 'Projects', fields: [] };
+
+    const result = await controller.createTable('bse1', createTableRo);
+
+    expect(tableOpenApiV2Service.createTable).toHaveBeenCalledWith('bse1', createTableRo);
+    expect(tableOpenApiService.createTable).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'tbl-v2' });
+  });
+
+  it('keeps the legacy create-table path when useV2 is disabled', async () => {
+    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(false);
+    const createTableRo = { name: 'Projects', fields: [] };
+
+    const result = await controller.createTable('bse1', createTableRo);
+
+    expect(tableOpenApiService.createTable).toHaveBeenCalledWith('bse1', createTableRo);
+    expect(tableOpenApiV2Service.createTable).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'tbl-legacy' });
   });
 
   it('keeps the legacy delete-table path when useV2 is disabled', async () => {

@@ -80,6 +80,12 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
+    return ok(undefined);
+  }
+
   async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
     if (index === -1) return err(domainError.notFound({ message: 'Not found' }));

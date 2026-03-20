@@ -79,7 +79,7 @@ export class TableFieldPersistenceBuilder {
 
     const reservedNames = new Set(baseRecordColumnNames);
     const fields = dto.fields.map((field) => {
-      const baseName = convertNameToValidCharacter(field.name, 40);
+      const baseName = field.dbFieldName ?? convertNameToValidCharacter(field.name, 40);
       const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
       reservedNames.add(dbFieldName);
       return { field, dbFieldName };

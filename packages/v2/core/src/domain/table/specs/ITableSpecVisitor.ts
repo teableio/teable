@@ -44,6 +44,7 @@ import type {
   UpdateUserNotificationSpec,
 } from './field-updates';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
+import type { TableAddFieldsSpec } from './TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
 import type { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import type { TableByIdSpec } from './TableByIdSpec';
@@ -67,6 +68,7 @@ import type { TableUpdateViewQueryDefaultsSpec } from './TableUpdateViewQueryDef
 export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   // ============ Existing specs ============
   visitTableAddField(spec: TableAddFieldSpec): Result<TResult, DomainError>;
+  visitTableAddFields(spec: TableAddFieldsSpec): Result<TResult, DomainError>;
   visitTableAddSelectOptions(spec: TableAddSelectOptionsSpec): Result<TResult, DomainError>;
   visitTableDuplicateField(spec: TableDuplicateFieldSpec): Result<TResult, DomainError>;
   visitTableRemoveField(spec: TableRemoveFieldSpec): Result<TResult, DomainError>;

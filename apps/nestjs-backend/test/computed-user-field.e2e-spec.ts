@@ -1,7 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
-import { ActorId, type IComputedUpdateDrainService, v2CoreTokens } from '@teable/v2-core';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -18,6 +17,7 @@ import {
   PrincipalType,
 } from '@teable/openapi';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
+import { ActorId, type IComputedUpdateDrainService, v2CoreTokens } from '@teable/v2-core';
 import type { AxiosInstance } from 'axios';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
@@ -132,7 +132,13 @@ describe('Computed user field (e2e)', () => {
         title: userName,
       });
 
-      expect(records.data.records[1].fields[lastModifiedByField.id]).toBeUndefined();
+      if (isForceV2) {
+        expect(records.data.records[1].fields[lastModifiedByField.id]).toMatchObject({
+          title: userName,
+        });
+      } else {
+        expect(records.data.records[1].fields[lastModifiedByField.id]).toBeUndefined();
+      }
 
       await updateRecord(table1.id, table1.records[1].id, {
         record: {
@@ -185,7 +191,14 @@ describe('Computed user field (e2e)', () => {
 
       expect(records.data.records[0].fields[formulaField.id]).toEqual(userName);
 
-      expect(records.data.records[1].fields[lastModifiedByField.id]).toBeUndefined();
+      if (isForceV2) {
+        expect(records.data.records[1].fields[lastModifiedByField.id]).toMatchObject({
+          title: userName,
+        });
+        expect(records.data.records[1].fields[formulaField.id]).toEqual(userName);
+      } else {
+        expect(records.data.records[1].fields[lastModifiedByField.id]).toBeUndefined();
+      }
 
       await updateRecord(table1.id, table1.records[1].id, {
         record: {
@@ -242,7 +255,16 @@ describe('Computed user field (e2e)', () => {
         records.data.records[0].lastModifiedTime
       );
 
-      expect(records.data.records[1].fields[lastModifiedTimeField.id]).toBeUndefined();
+      if (isForceV2) {
+        expect(records.data.records[1].fields[lastModifiedTimeField.id]).toEqual(
+          records.data.records[1].lastModifiedTime
+        );
+        expect(records.data.records[1].fields[formulaField.id]).toEqual(
+          records.data.records[1].lastModifiedTime
+        );
+      } else {
+        expect(records.data.records[1].fields[lastModifiedTimeField.id]).toBeUndefined();
+      }
 
       await updateRecord(table1.id, table1.records[1].id, {
         record: {
@@ -295,7 +317,14 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
+      if (isForceV2) {
+        expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
+          id: globalThis.testConfig.userId,
+          title: globalThis.testConfig.userName,
+        });
+      } else {
+        expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
+      }
 
       await updateRecord(table1.id, recordId, {
         record: {
@@ -342,7 +371,14 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
+      if (isForceV2) {
+        expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
+          id: globalThis.testConfig.userId,
+          title: globalThis.testConfig.userName,
+        });
+      } else {
+        expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
+      }
 
       await deleteField(table1.id, textField.id);
 

@@ -27,10 +27,12 @@ import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-k
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
+import { CanaryService, type IV2Decision } from '../canary/canary.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SpaceService } from '../space/space.service';
+import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { UserService } from '../user/user.service';
 import { V2ContainerService } from '../v2/v2-container.service';
@@ -49,12 +51,14 @@ export class TrashService {
     protected readonly spaceService: SpaceService,
     protected readonly baseService: BaseService,
     protected readonly tableOpenApiService: TableOpenApiService,
+    protected readonly tableOpenApiV2Service: TableOpenApiV2Service,
     protected readonly fieldOpenApiService: FieldOpenApiService,
     protected readonly recordOpenApiService: RecordOpenApiService,
     protected readonly recordService: RecordService,
     protected readonly viewService: ViewService,
     protected readonly v2ContainerService: V2ContainerService,
     protected readonly v2ExecutionContextFactory: V2ExecutionContextFactory,
+    protected readonly canaryService: CanaryService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex
   ) {}
@@ -652,6 +656,69 @@ export class TrashService {
         });
       });
     await this.tableOpenApiService.restoreTable(baseId, tableId);
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
+  }
+
+  async getRestoreTableV2Decision(
+    trashId: string
+  ): Promise<(IV2Decision & { baseId: string; tableId: string }) | undefined> {
+    if (trashId.startsWith(IdPrefix.Operation)) {
+      return undefined;
+    }
+
+    const trash = await this.prismaService.txClient().trash.findUnique({
+      where: { id: trashId },
+      select: {
+        resourceId: true,
+        resourceType: true,
+        parentId: true,
+      },
+    });
+
+    if (!trash || trash.resourceType !== TrashType.Table) {
+      return undefined;
+    }
+
+    const baseId = trash.parentId;
+    if (!baseId) {
+      return { useV2: false, reason: 'disabled', baseId: '', tableId: trash.resourceId };
+    }
+
+    const base = await this.prismaService.txClient().base.findUnique({
+      where: { id: baseId, deletedTime: null },
+      select: { spaceId: true },
+    });
+
+    if (!base?.spaceId) {
+      return { useV2: false, reason: 'disabled', baseId, tableId: trash.resourceId };
+    }
+
+    const decision = await this.canaryService.shouldUseV2WithReason(base.spaceId, 'restoreTable');
+    return {
+      ...decision,
+      baseId,
+      tableId: trash.resourceId,
+    };
+  }
+
+  async restoreTrashV2(trashId: string) {
+    const decision = await this.getRestoreTableV2Decision(trashId);
+    if (!decision) {
+      throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.trash.notFound',
+        },
+      });
+    }
+
+    await this.assertParentNotTrashed(decision.baseId);
+    await this.restoreTableV2(decision.baseId, decision.tableId);
+  }
+
+  private async restoreTableV2(baseId: string, tableId: string) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(tableId, ['table|create'], accessTokenId, true);
+    await this.tableOpenApiV2Service.restoreTable(baseId, tableId);
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
   }
 

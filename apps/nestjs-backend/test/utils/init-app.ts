@@ -69,6 +69,7 @@ import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { BaseSqlExecutorModule } from '../../src/features/base-sql-executor/base-sql-executor.module';
+import { FieldOpenApiV2Service } from '../../src/features/field/open-api/field-open-api-v2.service';
 import { NextService } from '../../src/features/next/next.service';
 import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
@@ -471,6 +472,20 @@ export async function createField(
     }
     return {} as IFieldVo;
   }
+}
+
+export async function createFields(
+  tableId: string,
+  fieldRos: IFieldRo[],
+  appInstance?: INestApplication
+): Promise<IFieldVo[]> {
+  const normalizedFields = fieldRos.map((field) => ensureConditionalRollupOptions(field));
+  const app = appInstance ?? (await initApp()).app;
+  const fieldOpenApiV2Service = app.get(FieldOpenApiV2Service);
+  const clsService = (fieldOpenApiV2Service as unknown as { cls: ClsService<IClsStore> }).cls;
+  return await runWithTestUser(clsService, async () =>
+    fieldOpenApiV2Service.createFields(tableId, normalizedFields)
+  );
 }
 
 export async function deleteField(tableId: string, fieldId: string) {
