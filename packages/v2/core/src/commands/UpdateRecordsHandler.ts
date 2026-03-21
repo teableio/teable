@@ -34,6 +34,7 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { UpdateRecordsCommand } from './UpdateRecordsCommand';
+import { composeRecordConditionSpecs } from './shared/recordWriteScope';
 
 const BULK_UPDATE_SYNTHETIC_RECORD_ID = RecordId.create(`rec${'0'.repeat(16)}`)._unsafeUnwrap();
 
@@ -84,7 +85,7 @@ export class UpdateRecordsHandler
     const handler = this;
     return safeTry<UpdateRecordsResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
-      const filterSpec = command.recordIds
+      const baseFilterSpec = command.recordIds
         ? RecordByIdsSpec.create(command.recordIds)
         : yield* buildRecordConditionSpec(table, command.filter!);
 
@@ -108,6 +109,9 @@ export class UpdateRecordsHandler
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
+      const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
+      const filterSpec =
+        composeRecordConditionSpecs(baseFilterSpec, pluginRecordSpec) ?? baseFilterSpec;
 
       const transactionResult = yield* await handler.unitOfWork.withTransaction(
         context,

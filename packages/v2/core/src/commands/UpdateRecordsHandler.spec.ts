@@ -12,6 +12,7 @@ import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { flattenAndSpecs } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -329,7 +330,6 @@ describe('UpdateRecordsHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const undoRedoService = new FakeUndoRedoService();
-
     const handler = new UpdateRecordsHandler(
       tableQueryService,
       recordRepository,
@@ -458,7 +458,6 @@ describe('UpdateRecordsHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const undoRedoService = new FakeUndoRedoService();
-
     const handler = new UpdateRecordsHandler(
       tableQueryService,
       recordRepository,
@@ -491,6 +490,69 @@ describe('UpdateRecordsHandler', () => {
     expect(undoRedoService.entries).toHaveLength(1);
   });
 
+  it('composes explicit recordIds with plugin scope', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const recordIdA = `rec${'q'.repeat(16)}`;
+    const scopedSpec = {
+      isSatisfiedBy: () => true,
+      mutate: (candidate: TableRecord) => ok(candidate),
+      accept: () => ok(undefined),
+    } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateManyResult = {
+      totalUpdated: 1,
+      updatedRecordIds: [RecordId.create(recordIdA)._unsafeUnwrap()],
+      updatedRecords: [
+        {
+          recordId: RecordId.create(recordIdA)._unsafeUnwrap(),
+          oldVersion: 1,
+          newVersion: 2,
+          oldFieldValues: { [numberFieldId.toString()]: 10 },
+        },
+      ],
+    };
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    const plugin = {
+      name: 'scoped-update',
+      supports: (operation: RecordWriteOperationKind) =>
+        operation === RecordWriteOperationKind.updateMany,
+      scope: () => ok({ recordSpec: scopedSpec }),
+    };
+
+    const handler = new UpdateRecordsHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([plugin]),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      undoRedoService as unknown as UndoRedoService,
+      unitOfWork
+    );
+
+    const command = UpdateRecordsCommand.create({
+      tableId: tableId.toString(),
+      fields: { [numberFieldId.toString()]: 99 },
+      recordIds: [recordIdA],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    const specs = flattenAndSpecs(recordRepository.lastSpec);
+    expect(specs.some((spec) => spec instanceof RecordByIdsSpec)).toBe(true);
+    expect(specs).toContain(scopedSpec);
+  });
+
   it('returns early when the filter matches no records', async () => {
     const { table, tableId, textFieldId, singleSelectFieldId } = buildTable();
 
@@ -502,7 +564,6 @@ describe('UpdateRecordsHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const undoRedoService = new FakeUndoRedoService();
-
     const handler = new UpdateRecordsHandler(
       tableQueryService,
       recordRepository,

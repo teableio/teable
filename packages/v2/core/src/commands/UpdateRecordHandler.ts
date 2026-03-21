@@ -10,7 +10,7 @@ import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWr
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
-import type { DomainError } from '../domain/shared/DomainError';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordReordered } from '../domain/table/events/RecordReordered';
@@ -18,11 +18,11 @@ import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import { RecordUpdateResult as SingleRecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
-import { TableRecord } from '../domain/table/records/TableRecord';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
+import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
@@ -32,7 +32,19 @@ import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
+import { toTableRecord } from './shared/toTableRecord';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
+const buildScopedUpdateForbiddenError = (tableId: string) =>
+  domainError.forbidden({
+    code: 'record_write_plugin.scope_forbidden',
+    message: 'Record write target includes rows outside the allowed scope.',
+    details: {
+      operation: RecordWriteOperationKind.updateOne,
+      tableId,
+      requestedRecordCount: 1,
+      authorizedRecordCount: 0,
+    },
+  });
 
 export class UpdateRecordResult {
   private constructor(
@@ -93,14 +105,6 @@ export class UpdateRecordHandler
     return safeTry<UpdateRecordResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // 1. Query the current record to get old values
-      const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
-        context,
-        table,
-        command.recordId,
-        { mode: 'stored', includeOrders: true }
-      );
-
       // Resolve field keys using FieldKeyResolverService (supports id/name/dbFieldName)
       // When fieldKeyType='id', keys are returned as-is; table.updateRecord will do intelligent lookup
       const updateRecordSpan = context.tracer?.startSpan('teable.UpdateRecordHandler.updateRecord');
@@ -123,6 +127,21 @@ export class UpdateRecordHandler
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
+      const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
+
+      // Query the current record after plugin guard passes to capture old values and row order.
+      const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
+        context,
+        table,
+        command.recordId,
+        { mode: 'stored', includeOrders: true }
+      );
+      if (pluginRecordSpec) {
+        const currentRecordEntity = yield* toTableRecord(table, currentRecord);
+        if (!pluginRecordSpec.isSatisfiedBy(currentRecordEntity)) {
+          return err(buildScopedUpdateForbiddenError(table.id().toString()));
+        }
+      }
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
         context,

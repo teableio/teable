@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { UndoRedoService } from '../application/services/UndoRedoService';
-import { isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { IDeletedRecordSnapshot } from '../domain/table/events/RecordsDeleted';
 import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
@@ -21,6 +21,8 @@ import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
+import { composeRecordConditionSpecs } from './shared/recordWriteScope';
+import { toTableRecord } from './shared/toTableRecord';
 
 export class DeleteRecordsResult {
   private constructor(
@@ -74,6 +76,7 @@ export class DeleteRecordsHandler
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
+      const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
       const deleteSpec = RecordByIdsSpec.create(command.recordIds);
 
@@ -96,6 +99,34 @@ export class DeleteRecordsHandler
         orders: record.orders,
       }));
 
+      const existingRecordIds = queryResult.records.map((record) => record.id);
+      if (pluginRecordSpec && existingRecordIds.length > 0) {
+        let authorizedRecordCount = 0;
+        for (const readModel of queryResult.records) {
+          const tableRecord = yield* toTableRecord(table, readModel);
+          if (pluginRecordSpec.isSatisfiedBy(tableRecord)) {
+            authorizedRecordCount += 1;
+          }
+        }
+
+        if (authorizedRecordCount !== existingRecordIds.length) {
+          return err(
+            domainError.forbidden({
+              code: 'record_write_plugin.scope_forbidden',
+              message: 'Record write target includes rows outside the allowed scope.',
+              details: {
+                operation: RecordWriteOperationKind.deleteMany,
+                tableId: table.id().toString(),
+                requestedRecordCount: existingRecordIds.length,
+                authorizedRecordCount,
+              },
+            })
+          );
+        }
+      }
+      const scopedDeleteSpec =
+        composeRecordConditionSpecs(deleteSpec, pluginRecordSpec) ?? deleteSpec;
+
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
         const pluginBeforePersist = await pluginExecution.beforePersist(transactionContext);
         if (pluginBeforePersist.isErr()) {
@@ -104,7 +135,7 @@ export class DeleteRecordsHandler
         const deleteResult = await handler.tableRecordRepository.deleteMany(
           transactionContext,
           table,
-          deleteSpec
+          scopedDeleteSpec
         );
 
         if (deleteResult.isErr()) {

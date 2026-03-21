@@ -732,7 +732,12 @@ export class RecordOpenApiV2Service {
   async paste(
     tableId: string,
     pasteRo: IPasteRo,
-    options?: { updateFilter?: IFilterSet | null; windowId?: string }
+    options?: {
+      updateFilter?: IFilterSet | null;
+      windowId?: string;
+      allowFieldExpansion?: boolean;
+      allowRecordExpansion?: boolean;
+    }
   ): Promise<IPasteVo> {
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -781,8 +786,10 @@ export class RecordOpenApiV2Service {
 
         // Get permissions to check for field|create and record|create
         const permissions = this.cls.get('permissions') ?? [];
-        const hasFieldCreatePermission = permissions.includes('field|create');
-        const hasRecordCreatePermission = permissions.includes('record|create');
+        const hasFieldCreatePermission =
+          options?.allowFieldExpansion ?? permissions.includes('field|create');
+        const hasRecordCreatePermission =
+          options?.allowRecordExpansion ?? permissions.includes('record|create');
 
         // Get table size to calculate expansion needs
         const rangeQuery = await this.normalizeRangeQuery(tableId, {

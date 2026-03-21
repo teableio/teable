@@ -25,8 +25,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryOptions,
@@ -229,6 +229,8 @@ class FakeUnitOfWork implements IUnitOfWork {
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: TableRecordReadModel[] = [];
+  responses: ITableRecordQueryResult[] = [];
+  findCalls = 0;
 
   async find(
     _context: IExecutionContext,
@@ -236,6 +238,10 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     _options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    this.findCalls += 1;
+    if (this.responses.length > 0) {
+      return ok(this.responses.shift()!);
+    }
     return ok({ records: this.records, total: this.records.length });
   }
 
@@ -435,5 +441,56 @@ describe('DeleteRecordsHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
+  });
+
+  it('rejects explicit deletions when existing rows fall outside plugin scope', async () => {
+    const { table, tableId } = buildTable();
+    const recordId = `rec${'p'.repeat(16)}`;
+    const scopedSpec = {
+      isSatisfiedBy: () => false,
+      mutate: (candidate: TableRecord) => ok(candidate),
+      accept: () => ok(undefined),
+    } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.responses = [
+      {
+        records: [{ id: recordId, fields: {} }] as TableRecordReadModel[],
+        total: 1,
+      },
+    ];
+    const plugin = {
+      name: 'scoped-delete',
+      supports: (operation: RecordWriteOperationKind) =>
+        operation === RecordWriteOperationKind.deleteMany,
+      scope: () => ok({ recordSpec: scopedSpec }),
+    };
+
+    const handler = new DeleteRecordsHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner([plugin]),
+      new FakeTableRecordRepository(),
+      queryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteRecordsCommand.create({
+      tableId: tableId.toString(),
+      recordIds: [recordId],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'record_write_plugin.scope_forbidden',
+      tags: ['forbidden'],
+    });
+    expect(queryRepository.findCalls).toBe(1);
   });
 });

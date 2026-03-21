@@ -284,12 +284,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   record: TableRecordReadModel | undefined;
   failFindOne: DomainError | undefined;
+  findCalls = 0;
+  findOneCalls = 0;
 
   async find(
     _: IExecutionContext,
     __: Table,
     ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>> {
+    this.findCalls += 1;
     return ok({ records: [], total: 0 });
   }
 
@@ -298,6 +301,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     __: Table,
     ___: RecordId
   ): Promise<Result<TableRecordReadModel, DomainError>> {
+    this.findOneCalls += 1;
     if (this.failFindOne) return err(this.failFindOne);
     if (!this.record) return err(domainError.notFound({ message: 'Record not found' }));
     return ok(this.record);
@@ -473,6 +477,69 @@ describe('UpdateRecordHandler', () => {
     result._unsafeUnwrap();
 
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.updateOne);
+  });
+
+  it('checks plugin scope against the loaded record without an extra query', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const scopedPlugin = {
+      name: 'scoped-update',
+      supports: (operation: RecordWriteOperationKind) =>
+        operation === RecordWriteOperationKind.updateOne,
+      scope: () =>
+        ok({
+          recordSpec: {
+            isSatisfiedBy: () => false,
+            mutate: (candidate: TableRecord) => ok(candidate),
+            accept: () => ok(undefined),
+          } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+        }),
+    };
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([scopedPlugin]),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
+      new FakeEventBus(),
+      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'record_write_plugin.scope_forbidden',
+    });
+    expect(recordQueryRepository.findOneCalls).toBe(1);
+    expect(recordQueryRepository.findCalls).toBe(0);
   });
 
   it('resolves link titles when typecast is enabled', async () => {

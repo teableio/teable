@@ -29,7 +29,7 @@ import type {
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import type { Field } from '../domain/table/fields/Field';
-import { FieldId } from '../domain/table/fields/FieldId';
+import type { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
@@ -42,8 +42,7 @@ import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
-import { TableRecord } from '../domain/table/records/TableRecord';
-import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
+import { type TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -76,6 +75,7 @@ import {
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from './shared/orderBy';
+import { toTableRecord } from './shared/toTableRecord';
 import type { ICreateTableFieldSpec } from './TableFieldSpecs';
 import {
   collectForeignTableReferences,
@@ -703,7 +703,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       // Check if this record is allowed to be updated using in-memory spec evaluation
       let canUpdate = true;
       if (updateFilterSpec) {
-        const tableRecordResult = this.convertReadModelToTableRecord(readModel, table);
+        const tableRecordResult = toTableRecord(table, readModel);
         if (tableRecordResult.isErr()) {
           yield err(tableRecordResult.error);
           return;
@@ -805,43 +805,6 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       fieldValues.set(column.fieldId.toString(), rowData[column.columnIndex] ?? null);
     }
     return fieldValues;
-  }
-
-  /**
-   * Convert a TableRecordReadModel to a TableRecord for in-memory spec evaluation.
-   */
-  private convertReadModelToTableRecord(
-    readModel: TableRecordReadModel,
-    table: Table
-  ): Result<TableRecord, DomainError> {
-    const recordIdResult = RecordId.create(readModel.id);
-    if (recordIdResult.isErr()) {
-      return err(recordIdResult.error);
-    }
-
-    const fieldValues: Array<{ fieldId: FieldId; value: TableRecordCellValue }> = [];
-
-    for (const [fieldIdStr, rawValue] of Object.entries(readModel.fields)) {
-      const fieldIdResult = FieldId.create(fieldIdStr);
-      if (fieldIdResult.isErr()) {
-        // Skip invalid field IDs (shouldn't happen in practice)
-        continue;
-      }
-      const cellValueResult = TableRecordCellValue.create(rawValue);
-      if (cellValueResult.isErr()) {
-        return err(cellValueResult.error);
-      }
-      fieldValues.push({
-        fieldId: fieldIdResult.value,
-        value: cellValueResult.value,
-      });
-    }
-
-    return TableRecord.create({
-      id: recordIdResult.value,
-      tableId: table.id(),
-      fieldValues,
-    });
   }
 
   /**

@@ -14,6 +14,26 @@ import type { IQueryBus, ICommandBus } from '@teable/v2-core' with { 'resolution
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
+const throwOrpcErrorByStatus = (status: number, message: string): never => {
+  if (status === 400) {
+    throw new ORPCError('BAD_REQUEST', { message });
+  }
+
+  if (status === 401) {
+    throw new ORPCError('UNAUTHORIZED', { message });
+  }
+
+  if (status === 403) {
+    throw new ORPCError('FORBIDDEN', { message });
+  }
+
+  if (status === 404) {
+    throw new ORPCError('NOT_FOUND', { message });
+  }
+
+  throw new ORPCError('INTERNAL_SERVER_ERROR', { message });
+};
+
 @Controller('api/v2')
 export class V2Controller {
   constructor(
@@ -33,11 +53,7 @@ export class V2Controller {
 
         if (result.status === 201) return result.body;
 
-        if (result.status === 400) {
-          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
-        }
-
-        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+        throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       getById: implement(v2Contract.tables.getById).handler(async ({ input }) => {
         const container = await this.v2Container.getContainer();
@@ -47,16 +63,7 @@ export class V2Controller {
         const result = await executeGetTableByIdEndpoint(context, input, queryBus);
         if (result.status === 200) return result.body;
 
-        if (result.status === 400) {
-          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
-        }
-
-        if (result.status === 404) {
-          throw new ORPCError('NOT_FOUND', { message: result.body.error });
-        }
-
-        // Placeholder for actual implementation
-        throw new ORPCError('NOT_IMPLEMENTED', { message: 'Not implemented yet' });
+        throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       deleteRecords: implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
         const container = await this.v2Container.getContainer();
@@ -67,15 +74,7 @@ export class V2Controller {
 
         if (result.status === 200) return result.body;
 
-        if (result.status === 400) {
-          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
-        }
-
-        if (result.status === 404) {
-          throw new ORPCError('NOT_FOUND', { message: result.body.error });
-        }
-
-        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+        throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       updateRecords: implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
         const container = await this.v2Container.getContainer();
@@ -86,15 +85,7 @@ export class V2Controller {
 
         if (result.status === 200) return result.body;
 
-        if (result.status === 400) {
-          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
-        }
-
-        if (result.status === 404) {
-          throw new ORPCError('NOT_FOUND', { message: result.body.error });
-        }
-
-        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+        throwOrpcErrorByStatus(result.status, result.body.error);
       }),
     };
   }

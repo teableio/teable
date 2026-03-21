@@ -1,11 +1,14 @@
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { RecordCreateSource } from '../domain/table/events/RecordFieldValuesDTO';
 import type { FieldId } from '../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../domain/table/records/RecordInsertOrder';
+import type { TableRecord } from '../domain/table/records/TableRecord';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { SourceColumnMap } from './import/IImportSource';
@@ -182,6 +185,10 @@ export type RecordWritePluginContextMap = {
 
 export type RecordWritePluginContext = RecordWritePluginContextMap[RecordWriteOperationKind];
 
+export interface RecordWritePluginScope {
+  readonly recordSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+}
+
 export interface IRecordWritePlugin<TPreparedState = unknown> {
   readonly name: string;
   /**
@@ -195,6 +202,11 @@ export interface IRecordWritePlugin<TPreparedState = unknown> {
   supports(operation: RecordWriteOperationKind): boolean;
 
   prepare?(context: RecordWritePluginContext): RecordWritePluginHookResult<TPreparedState>;
+
+  scope?(
+    context: RecordWritePluginContext,
+    preparedState: TPreparedState | undefined
+  ): RecordWritePluginHookResult<RecordWritePluginScope | undefined>;
 
   guard?(
     context: RecordWritePluginContext,

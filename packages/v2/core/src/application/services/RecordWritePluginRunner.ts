@@ -3,6 +3,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
+import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import * as LoggerPort from '../../ports/Logger';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
@@ -10,6 +14,7 @@ import type {
   IRecordWritePlugin,
   RecordWritePluginContext,
   RecordWritePluginEnforce,
+  RecordWritePluginScope,
 } from '../../ports/RecordWritePlugin';
 import { v2CoreTokens } from '../../ports/tokens';
 import {
@@ -23,13 +28,20 @@ import {
 type PreparedPluginEntry = {
   readonly plugin: IRecordWritePlugin<unknown>;
   readonly preparedState: unknown;
+  readonly scope?: RecordWritePluginScope;
 };
 
 type RecordWritePluginContextSanitizer = (
   context: RecordWritePluginContext
 ) => Result<RecordWritePluginContext, DomainError>;
 
-type RecordWritePluginPhase = 'supports' | 'prepare' | 'guard' | 'beforePersist' | 'afterCommit';
+type RecordWritePluginPhase =
+  | 'supports'
+  | 'prepare'
+  | 'scope'
+  | 'guard'
+  | 'beforePersist'
+  | 'afterCommit';
 
 const enforceOrder = (enforce?: RecordWritePluginEnforce): number => {
   if (enforce === 'pre') return 0;
@@ -169,6 +181,20 @@ export class RecordWritePluginExecution {
 
   async guard(): Promise<Result<void, DomainError>> {
     return this.runPhase('guard', this.context);
+  }
+
+  getRecordSpec(): Result<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    DomainError
+  > {
+    const specs = this.preparedPlugins
+      .map((entry) => entry.scope?.recordSpec)
+      .filter(
+        (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
+          spec != null
+      );
+
+    return ok(composeAndSpecsOrUndefined(specs));
   }
 
   async beforePersist(executionContext: IExecutionContext): Promise<Result<void, DomainError>> {
@@ -347,38 +373,69 @@ export class RecordWritePluginRunner {
     plugin: IRecordWritePlugin,
     context: RecordWritePluginContext
   ): Promise<Result<PreparedPluginEntry, DomainError>> {
-    if (!plugin.prepare) {
-      return ok({ plugin, preparedState: undefined });
-    }
-
     const pluginContextResult = sanitizeRecordWritePluginContext(context, this.tableMapper);
     if (pluginContextResult.isErr()) {
       return err(pluginContextResult.error);
     }
 
-    try {
-      const result = await withRecordWritePluginSpan(
-        pluginContextResult.value,
-        plugin.name,
-        'prepare',
-        async (pluginContext) => plugin.prepare!.call(plugin, pluginContext)
-      );
-      if (result.isErr()) {
-        return err(result.error);
-      }
+    const pluginContext = pluginContextResult.value;
 
-      return ok({ plugin, preparedState: result.value });
-    } catch (error) {
-      return err(
-        domainError.fromUnknown(error, {
-          code: 'record_write_plugin.prepare_failed',
-          details: {
-            operation: context.kind,
-            plugin: plugin.name,
-          },
-        })
-      );
+    let preparedState: unknown = undefined;
+
+    if (plugin.prepare) {
+      try {
+        const result = await withRecordWritePluginSpan(
+          pluginContext,
+          plugin.name,
+          'prepare',
+          async (preparedContext) => plugin.prepare!.call(plugin, preparedContext)
+        );
+        if (result.isErr()) {
+          return err(result.error);
+        }
+
+        preparedState = result.value;
+      } catch (error) {
+        return err(
+          domainError.fromUnknown(error, {
+            code: 'record_write_plugin.prepare_failed',
+            details: {
+              operation: context.kind,
+              plugin: plugin.name,
+            },
+          })
+        );
+      }
     }
+
+    let scope: RecordWritePluginScope | undefined;
+    if (plugin.scope) {
+      try {
+        const result = await withRecordWritePluginSpan(
+          pluginContext,
+          plugin.name,
+          'scope',
+          async (scopeContext) => plugin.scope!.call(plugin, scopeContext, preparedState)
+        );
+        if (result.isErr()) {
+          return err(result.error);
+        }
+
+        scope = result.value;
+      } catch (error) {
+        return err(
+          domainError.fromUnknown(error, {
+            code: 'record_write_plugin.scope_failed',
+            details: {
+              operation: context.kind,
+              plugin: plugin.name,
+            },
+          })
+        );
+      }
+    }
+
+    return ok({ plugin, preparedState, scope });
   }
 
   private resolvePlugins(
