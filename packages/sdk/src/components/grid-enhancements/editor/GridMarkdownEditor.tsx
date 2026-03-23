@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import AutoSizeTextarea from 'react-textarea-autosize';
 import { useTranslation } from '../../../context/app/i18n';
 import { ExpandMarkdownEditor, MarkdownLongTextEditor } from '../../editor';
 import { isMarkdownShowAs, normalizeMarkdownValue } from '../../editor/long-text/utils';
@@ -236,7 +237,9 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
         {isMarkdown && (
           <div
             className={
-              isReadonly ? getReadonlyClassName(canExpandReadonly, 'rounded-md text-sm') : undefined
+              isReadonly
+                ? getReadonlyClassName(canExpandReadonly, 'rounded-md px-2 pt-1 text-sm')
+                : undefined
             }
           >
             <MarkdownLongTextEditor
@@ -262,11 +265,12 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
         )}
         {!isMarkdown && !isReadonly && (
           <>
-            <textarea
+            <AutoSizeTextarea
               ref={textareaRef}
               className="w-full resize-none rounded border-none bg-background px-2 pt-1 text-[13px] leading-[1.4rem] focus-visible:outline-none"
               value={editorValue}
-              rows={2}
+              minRows={2}
+              maxRows={5}
               onBlur={() => persistValue(latestValueRef.current)}
               onChange={(e) => {
                 const val = e.target.value;

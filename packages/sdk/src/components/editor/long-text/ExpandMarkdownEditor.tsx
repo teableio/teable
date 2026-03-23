@@ -130,7 +130,7 @@ const ExpandedTextEditorInner = ({
   return (
     <textarea
       ref={textareaRef}
-      className="flex-1 resize-none bg-transparent text-sm outline-none"
+      className="flex-1 resize-none bg-transparent pt-2 text-sm outline-none"
       defaultValue={value}
       onChange={(e) => {
         latestValueRef.current = e.target.value;
