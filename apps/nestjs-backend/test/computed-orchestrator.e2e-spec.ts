@@ -1310,29 +1310,26 @@ IF(
         options: { expression: 'sum({values})' } as any,
       } as any);
 
-      // Establish links: T2 -> both rows in T1
-      await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [
-        { id: t1.records[0].id },
-        { id: t1.records[1].id },
-      ]);
+      // Establish links: T2 -> both rows in T1, and wait for the link-driven rollup update to settle
+      // before capturing the next source-field change.
+      await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [
+          { id: t1.records[0].id },
+          { id: t1.records[1].id },
+        ]);
+      });
 
       // Change one A: 3 -> 4; rollup 10 -> 11
-      const { payloads } = (await createAwaitWithEventV2Compatible(
-        eventEmitterService,
-        Events.TABLE_RECORD_UPDATE,
-        2
-      )(async () => {
+      const { events } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(t1.id, t1.records[0].id, t1A, 4);
-      })) as any;
+      });
 
       // Event payload verification only in v1 mode
       if (!isForceV2) {
-        // Find T2 event
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const changes = t2Event.payload.record.fields as Record<
-          string,
-          { oldValue: unknown; newValue: unknown }
-        >;
+        const t2Event = [...events]
+          .reverse()
+          .find((event) => event.payload.tableId === t2.id && toChangeMap(event)[roll2.id])!;
+        const changes = toChangeMap(t2Event);
         const rollChange = assertChange(changes[roll2.id]);
         expectNoOldValue(rollChange);
         expect(rollChange.newValue).toEqual(11);

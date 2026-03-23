@@ -1,30 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
-import { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
-import { SetUserValueSpec } from '../../records/specs/values/SetUserValueSpec';
 import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
+import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
+import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
+import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
+import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
+import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
+import type { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
+import { SetUserValueSpec } from '../../records/specs/values/SetUserValueSpec';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { ButtonField } from '../types/ButtonField';
+import { CheckboxField } from '../types/CheckboxField';
+import { DateField } from '../types/DateField';
+import { FormulaExpression } from '../types/FormulaExpression';
+import { FormulaField } from '../types/FormulaField';
+import { LinkField } from '../types/LinkField';
+import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { MultipleSelectField } from '../types/MultipleSelectField';
+import { NumberField } from '../types/NumberField';
 import { SelectOption } from '../types/SelectOption';
+import { SingleLineTextField } from '../types/SingleLineTextField';
 import { SingleSelectField } from '../types/SingleSelectField';
 import { UserField } from '../types/UserField';
 import { UserMultiplicity } from '../types/UserMultiplicity';
 import { FieldToSpecVisitor } from './FieldToSpecVisitor';
-import { SingleLineTextField } from '../types/SingleLineTextField';
-import { NumberField } from '../types/NumberField';
-import { CheckboxField } from '../types/CheckboxField';
-import { DateField } from '../types/DateField';
-import { FormulaField } from '../types/FormulaField';
-import { FormulaExpression } from '../types/FormulaExpression';
-import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
-import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
-import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
-import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
-import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
-import { LinkField } from '../types/LinkField';
-import { LinkFieldConfig } from '../types/LinkFieldConfig';
 
 const createFieldId = (seed: string) =>
   FieldId.create(`fld${seed.padEnd(16, '0').slice(0, 16)}`)._unsafeUnwrap();
@@ -416,6 +416,27 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
     });
 
+    it('uses the first lookup array item in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(['2024-01-15T10:30:00.000Z'], true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetDateValueSpec).value.toValue()).toBe(
+        '2024-01-15T10:30:00.000Z'
+      );
+    });
+
+    it('keeps the first valid lookup array item in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(
+        ['2024-01-15T10:30:00.000Z', '2024-01-20T10:30:00.000Z'],
+        true
+      );
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetDateValueSpec).value.toValue()).toBe(
+        '2024-01-15T10:30:00.000Z'
+      );
+    });
+
     it('returns null for invalid date in typecast mode', () => {
       const visitor = FieldToSpecVisitor.create('not-a-date', true);
       const result = field.accept(visitor);
@@ -428,6 +449,12 @@ describe('FieldToSpecVisitor', () => {
       // May reject or return null depending on parseDateValue implementation
       // The important thing is it doesn't throw
       expect(result.isOk() || result.isErr()).toBe(true);
+    });
+
+    it('rejects lookup arrays in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(['2024-01-15T10:30:00.000Z'], false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
     });
   });
 

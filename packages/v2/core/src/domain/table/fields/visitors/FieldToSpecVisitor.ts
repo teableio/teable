@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
+import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import {
   SetAttachmentValueSpec,
   type AttachmentItem,
@@ -19,7 +20,6 @@ import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingle
 import { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec, type UserItem } from '../../records/specs/values/SetUserValueSpec';
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import { CellValue } from '../../records/values/CellValue';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
@@ -70,6 +70,20 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
   static create(value: unknown, typecast: boolean): FieldToSpecVisitor {
     return new FieldToSpecVisitor(value, typecast);
+  }
+
+  private normalizeSingleDateInput(field: DateField): unknown {
+    if (!this.typecast || !Array.isArray(this.value)) {
+      return this.value;
+    }
+
+    for (const candidate of this.value) {
+      if (parseDateValue(field, candidate) !== undefined) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 
   // ============ Text Fields ============
@@ -217,7 +231,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   // ============ Date ============
 
   visitDateField(field: DateField): Result<ICellValueSpec, DomainError> {
-    const parsed = parseDateValue(field, this.value);
+    const parsed = parseDateValue(field, this.normalizeSingleDateInput(field));
     if (parsed === null) {
       return ok(new SetDateValueSpec(field.id(), CellValue.null()));
     }
@@ -547,7 +561,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     );
   }
 
-  visitButtonField(field: ButtonField): Result<ICellValueSpec, DomainError> {
+  visitButtonField(_field: ButtonField): Result<ICellValueSpec, DomainError> {
     // Button fields don't store values - ignore any provided input
     return ok(NoopCellValueSpec.create());
   }

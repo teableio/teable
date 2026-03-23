@@ -509,6 +509,61 @@ export class SelectionService {
     return records;
   }
 
+  private getFirstCopiedDateValue(sourceField: IFieldInstance, cellValue: unknown) {
+    if (Array.isArray(cellValue)) {
+      return cellValue[0];
+    }
+
+    if (typeof cellValue !== 'string' || !sourceField.isMultipleCellValue) {
+      return cellValue;
+    }
+
+    const segments = cellValue
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (segments.length <= 1) {
+      return cellValue;
+    }
+
+    const parserField = createFieldInstanceByVo({
+      ...(pick(
+        sourceField,
+        'id',
+        'dbFieldName',
+        'name',
+        'type',
+        'description',
+        'options',
+        'meta',
+        'aiConfig',
+        'notNull',
+        'unique',
+        'isPrimary',
+        'isPending',
+        'hasError',
+        'cellValueType',
+        'dbFieldType'
+      ) as IFieldVo),
+      isComputed: false,
+      isLookup: false,
+      isConditionalLookup: false,
+      isMultipleCellValue: false,
+    });
+
+    let candidate = '';
+    for (const segment of segments) {
+      candidate = candidate ? `${candidate}, ${segment}` : segment;
+      const parsed = parserField.convertStringToCellValue(candidate);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    return segments[0];
+  }
+
   private cellValueToRecords({
     tableData,
     fields,
@@ -550,9 +605,7 @@ export class SelectionService {
           case FieldType.Date:
             recordField[field.id] =
               sourceField.type === FieldType.Date
-                ? Array.isArray(cellValue)
-                  ? cellValue[0]
-                  : cellValue
+                ? this.getFirstCopiedDateValue(sourceField, cellValue)
                 : sourceField.cellValue2String(cellValue);
             break;
           case FieldType.Link: {

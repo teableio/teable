@@ -962,6 +962,385 @@ describe('OpenAPI SelectionController (e2e)', () => {
     });
   });
 
+  describe('paste lookup date into date field', () => {
+    const itV1Only = isForceV2 ? it.skip : it;
+
+    itV1Only('should paste copied lookup date text into a regular date field', async () => {
+      const dateFormatting = {
+        date: 'YYYY-MM-DD',
+        time: 'None',
+        timeZone: 'UTC',
+      } as const;
+
+      const sourceTable = await createTable(baseId, {
+        name: 'lookup-date-source',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Activity Date',
+            type: FieldType.Date,
+            options: { formatting: dateFormatting },
+          },
+        ],
+        records: [{ fields: { Name: 'Activity 1', 'Activity Date': '2026-02-15T00:00:00.000Z' } }],
+      });
+
+      try {
+        const targetDateField = await createField(table.id, {
+          name: 'Last Activity Date',
+          type: FieldType.Date,
+          options: { formatting: dateFormatting },
+        });
+        table.fields.push(targetDateField);
+
+        const sourceDateFieldId = sourceTable.fields.find(
+          (field) => field.name === 'Activity Date'
+        )!.id;
+        const linkField = await createField(table.id, {
+          name: 'Activities',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: sourceTable.id,
+          },
+        });
+        table.fields.push(linkField);
+
+        const lookupDateField = await createField(table.id, {
+          name: 'Date (from Activities)',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: sourceTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: sourceDateFieldId,
+          },
+          options: {
+            formatting: dateFormatting,
+          },
+        });
+        table.fields.push(lookupDateField);
+
+        await updateRecordByApi(table.id, table.records[0].id, linkField.id, [
+          { id: sourceTable.records[0].id },
+        ]);
+
+        const fields = (await getFields(table.id, { viewId: table.views[0].id })).data;
+        const lookupFieldIndex = fields.findIndex((field) => field.id === lookupDateField.id);
+        const targetDateFieldIndex = fields.findIndex((field) => field.id === targetDateField.id);
+
+        const { content, header } = (
+          await apiCopy(table.id, {
+            viewId: table.views[0].id,
+            ranges: [
+              [lookupFieldIndex, 0],
+              [lookupFieldIndex, 0],
+            ],
+          })
+        ).data;
+
+        await apiPaste(table.id, {
+          viewId: table.views[0].id,
+          content,
+          header,
+          ranges: [
+            [targetDateFieldIndex, 0],
+            [targetDateFieldIndex, 0],
+          ],
+        });
+
+        const record = await getRecord(table.id, table.records[0].id);
+        expect(record.fields[targetDateField.id]).toBe('2026-02-15T00:00:00.000Z');
+      } finally {
+        await permanentDeleteTable(baseId, sourceTable.id);
+      }
+    });
+
+    itV1Only(
+      'should keep the first date when copied lookup text contains multiple dates',
+      async () => {
+        const dateFormatting = {
+          date: 'YYYY-MM-DD',
+          time: 'None',
+          timeZone: 'UTC',
+        } as const;
+
+        const sourceTable = await createTable(baseId, {
+          name: 'lookup-date-source-multiple',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            {
+              name: 'Activity Date',
+              type: FieldType.Date,
+              options: { formatting: dateFormatting },
+            },
+          ],
+          records: [
+            { fields: { Name: 'Activity 1', 'Activity Date': '2026-02-15T00:00:00.000Z' } },
+            { fields: { Name: 'Activity 2', 'Activity Date': '2026-02-20T00:00:00.000Z' } },
+          ],
+        });
+
+        try {
+          const targetDateField = await createField(table.id, {
+            name: 'Last Activity Date',
+            type: FieldType.Date,
+            options: { formatting: dateFormatting },
+          });
+          table.fields.push(targetDateField);
+
+          const sourceDateFieldId = sourceTable.fields.find(
+            (field) => field.name === 'Activity Date'
+          )!.id;
+          const linkField = await createField(table.id, {
+            name: 'Activities',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.OneMany,
+              foreignTableId: sourceTable.id,
+            },
+          });
+          table.fields.push(linkField);
+
+          const lookupDateField = await createField(table.id, {
+            name: 'Date (from Activities)',
+            type: FieldType.Date,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: sourceTable.id,
+              linkFieldId: linkField.id,
+              lookupFieldId: sourceDateFieldId,
+            },
+            options: {
+              formatting: dateFormatting,
+            },
+          });
+          table.fields.push(lookupDateField);
+
+          await updateRecordByApi(table.id, table.records[0].id, linkField.id, [
+            { id: sourceTable.records[0].id },
+            { id: sourceTable.records[1].id },
+          ]);
+
+          const fields = (await getFields(table.id, { viewId: table.views[0].id })).data;
+          const lookupFieldIndex = fields.findIndex((field) => field.id === lookupDateField.id);
+          const targetDateFieldIndex = fields.findIndex((field) => field.id === targetDateField.id);
+
+          const { content, header } = (
+            await apiCopy(table.id, {
+              viewId: table.views[0].id,
+              ranges: [
+                [lookupFieldIndex, 0],
+                [lookupFieldIndex, 0],
+              ],
+            })
+          ).data;
+
+          await apiPaste(table.id, {
+            viewId: table.views[0].id,
+            content,
+            header,
+            ranges: [
+              [targetDateFieldIndex, 0],
+              [targetDateFieldIndex, 0],
+            ],
+          });
+
+          const record = await getRecord(table.id, table.records[0].id);
+          expect(record.fields[targetDateField.id]).toBe('2026-02-15T00:00:00.000Z');
+        } finally {
+          await permanentDeleteTable(baseId, sourceTable.id);
+        }
+      }
+    );
+
+    it('should paste a raw lookup date array into a regular date field in v2', async () => {
+      const dateFormatting = {
+        date: 'YYYY-MM-DD',
+        time: 'None',
+        timeZone: 'UTC',
+      } as const;
+
+      const sourceTable = await createTable(baseId, {
+        name: 'lookup-date-source-v2-single',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Activity Date',
+            type: FieldType.Date,
+            options: { formatting: dateFormatting },
+          },
+        ],
+        records: [{ fields: { Name: 'Activity 1', 'Activity Date': '2026-02-15T00:00:00.000Z' } }],
+      });
+
+      try {
+        const targetDateField = await createField(table.id, {
+          name: 'Last Activity Date',
+          type: FieldType.Date,
+          options: { formatting: dateFormatting },
+        });
+        table.fields.push(targetDateField);
+
+        const sourceDateFieldId = sourceTable.fields.find(
+          (field) => field.name === 'Activity Date'
+        )!.id;
+        const linkField = await createField(table.id, {
+          name: 'Activities',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: sourceTable.id,
+          },
+        });
+        table.fields.push(linkField);
+
+        const lookupDateField = await createField(table.id, {
+          name: 'Date (from Activities)',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: sourceTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: sourceDateFieldId,
+          },
+          options: {
+            formatting: dateFormatting,
+          },
+        });
+        table.fields.push(lookupDateField);
+
+        await updateRecordByApi(table.id, table.records[0].id, linkField.id, [
+          { id: sourceTable.records[0].id },
+        ]);
+
+        const sourceRecord = await getRecord(table.id, table.records[0].id);
+        const lookupValue = sourceRecord.fields[lookupDateField.id];
+        expect(lookupValue).toEqual(['2026-02-15T00:00:00.000Z']);
+
+        const fields = (await getFields(table.id, { viewId: table.views[0].id })).data;
+        const targetDateFieldIndex = fields.findIndex((field) => field.id === targetDateField.id);
+
+        const res = await pasteWithCanary(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            content: [[lookupValue]],
+            header: [lookupDateField],
+            ranges: [
+              [targetDateFieldIndex, 0],
+              [targetDateFieldIndex, 0],
+            ],
+          },
+          true
+        );
+
+        expect(res.status).toBe(200);
+        expect(res.headers['x-teable-v2']).toBe('true');
+
+        const record = await getRecord(table.id, table.records[0].id);
+        expect(record.fields[targetDateField.id]).toBe('2026-02-15T00:00:00.000Z');
+      } finally {
+        await permanentDeleteTable(baseId, sourceTable.id);
+      }
+    });
+
+    it('should keep the first raw lookup date when pasting multiple lookup dates in v2', async () => {
+      const dateFormatting = {
+        date: 'YYYY-MM-DD',
+        time: 'None',
+        timeZone: 'UTC',
+      } as const;
+
+      const sourceTable = await createTable(baseId, {
+        name: 'lookup-date-source-v2-multiple',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Activity Date',
+            type: FieldType.Date,
+            options: { formatting: dateFormatting },
+          },
+        ],
+        records: [
+          { fields: { Name: 'Activity 1', 'Activity Date': '2026-02-15T00:00:00.000Z' } },
+          { fields: { Name: 'Activity 2', 'Activity Date': '2026-02-20T00:00:00.000Z' } },
+        ],
+      });
+
+      try {
+        const targetDateField = await createField(table.id, {
+          name: 'Last Activity Date',
+          type: FieldType.Date,
+          options: { formatting: dateFormatting },
+        });
+        table.fields.push(targetDateField);
+
+        const sourceDateFieldId = sourceTable.fields.find(
+          (field) => field.name === 'Activity Date'
+        )!.id;
+        const linkField = await createField(table.id, {
+          name: 'Activities',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: sourceTable.id,
+          },
+        });
+        table.fields.push(linkField);
+
+        const lookupDateField = await createField(table.id, {
+          name: 'Date (from Activities)',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: sourceTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: sourceDateFieldId,
+          },
+          options: {
+            formatting: dateFormatting,
+          },
+        });
+        table.fields.push(lookupDateField);
+
+        await updateRecordByApi(table.id, table.records[0].id, linkField.id, [
+          { id: sourceTable.records[0].id },
+          { id: sourceTable.records[1].id },
+        ]);
+
+        const sourceRecord = await getRecord(table.id, table.records[0].id);
+        const lookupValue = sourceRecord.fields[lookupDateField.id];
+        expect(lookupValue).toEqual(['2026-02-15T00:00:00.000Z', '2026-02-20T00:00:00.000Z']);
+
+        const fields = (await getFields(table.id, { viewId: table.views[0].id })).data;
+        const targetDateFieldIndex = fields.findIndex((field) => field.id === targetDateField.id);
+
+        const res = await pasteWithCanary(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            content: [[lookupValue]],
+            header: [lookupDateField],
+            ranges: [
+              [targetDateFieldIndex, 0],
+              [targetDateFieldIndex, 0],
+            ],
+          },
+          true
+        );
+
+        expect(res.status).toBe(200);
+        expect(res.headers['x-teable-v2']).toBe('true');
+
+        const record = await getRecord(table.id, table.records[0].id);
+        expect(record.fields[targetDateField.id]).toBe('2026-02-15T00:00:00.000Z');
+      } finally {
+        await permanentDeleteTable(baseId, sourceTable.id);
+      }
+    });
+  });
+
   describe('api/table/:tableId/selection/delete (DELETE)', () => {
     let table: ITableFullVo;
 
