@@ -2,13 +2,19 @@ import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementBuilders';
+import {
+  backfillForeignHostFkColumnFromLinkValueStatement,
+  backfillFkColumnFromLinkValueStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 
 /**
  * Schema rule for creating/dropping a foreign key column (text column for FK value).
@@ -77,16 +83,43 @@ export class FkColumnRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const target = this.getTargetTable(ctx);
-    const columnName = this.columnName;
+    const self = this;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const target = self.getTargetTable(ctx);
+      const columnName = self.columnName;
 
-    const schemaBuilder = target.schema ? ctx.db.schema.withSchema(target.schema) : ctx.db.schema;
+      const schemaBuilder = target.schema ? ctx.db.schema.withSchema(target.schema) : ctx.db.schema;
+      const statements: TableSchemaStatementBuilder[] = [
+        schemaBuilder
+          .alterTable(target.tableName)
+          .addColumn(columnName, 'text', (col) => col.ifNotExists()),
+      ];
 
-    const statement = schemaBuilder
-      .alterTable(target.tableName)
-      .addColumn(columnName, 'text', (col) => col.ifNotExists());
+      const isCurrentContextTarget =
+        (target.schema ?? null) === (ctx.schema ?? null) && target.tableName === ctx.tableName;
 
-    return ok([statement]);
+      if (ctx.field) {
+        const linkValueColumnName = yield* resolveColumnName(ctx.field);
+        if (linkValueColumnName !== columnName) {
+          if (isCurrentContextTarget) {
+            statements.push(
+              backfillFkColumnFromLinkValueStatement(target, linkValueColumnName, columnName)
+            );
+          } else {
+            statements.push(
+              backfillForeignHostFkColumnFromLinkValueStatement({
+                sourceTable: { schema: ctx.schema, tableName: ctx.tableName },
+                sourceLinkValueColumnName: linkValueColumnName,
+                targetTable: target,
+                targetFkColumnName: columnName,
+              })
+            );
+          }
+        }
+      }
+
+      return ok(statements);
+    });
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {

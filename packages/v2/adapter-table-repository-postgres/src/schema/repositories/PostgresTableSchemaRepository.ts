@@ -1,4 +1,3 @@
-import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import type {
   TableId,
   BaseId,
@@ -27,19 +26,18 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
-import type {
-  Kysely,
-  ColumnDefinitionBuilder,
-  CompiledQuery,
-  CreateTableBuilder,
-  Transaction,
-} from 'kysely';
+import type { Kysely, ColumnDefinitionBuilder, CreateTableBuilder, CompiledQuery } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { ComputedUpdatePlanner } from '../../record/computed/ComputedUpdatePlanner';
 import type { FieldDependencyGraph } from '../../record/computed/FieldDependencyGraph';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
+import {
+  executeCompiledQueries,
+  executeTableSchemaStatements,
+  resolvePostgresDbOrTx,
+} from '../../shared/db';
 import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
@@ -157,10 +155,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
           for (const rule of deferredFkRules) {
             const statements = yield* rule.up(ctx);
-            await executeCompiledQueries(
-              db,
-              statements.map((statement) => statement.compile(db))
-            );
+            await executeTableSchemaStatements(db, statements);
           }
         }
       }
@@ -271,10 +266,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const statements = yield* visitor.where();
       if (statements.length > 0) {
         try {
-          await executeCompiledQueries(
-            db,
-            statements.map((statement) => statement.compile(db))
-          );
+          await executeTableSchemaStatements(db, statements);
         } catch (error) {
           if (isUniqueViolation(error)) {
             return err(
@@ -678,14 +670,5 @@ const describeError = (error: unknown): string => {
     return json ?? String(error);
   } catch {
     return String(error);
-  }
-};
-
-const executeCompiledQueries = async <DB>(
-  db: Kysely<DB> | Transaction<DB>,
-  compiled: ReadonlyArray<CompiledQuery>
-): Promise<void> => {
-  for (const statement of compiled) {
-    await db.executeQuery(statement);
   }
 };

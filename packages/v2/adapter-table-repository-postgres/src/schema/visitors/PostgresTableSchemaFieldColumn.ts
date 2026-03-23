@@ -28,7 +28,7 @@ import {
   type UserField,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 export type TableColumnDataType = Parameters<CreateTableBuilder<string, string>['addColumn']>[1];
 
@@ -39,7 +39,17 @@ const fieldIsJson = (field: Field): boolean => {
   return jsonSpecResult.value.isSatisfiedBy(field);
 };
 
-export const resolveColumnName = (field: Field): Result<string, DomainError> => {
+const missingFieldError = (): DomainError =>
+  domainError.invariant({
+    message: 'Schema rule requires a field context but none was provided',
+    code: 'invariant.missing_schema_rule_field',
+  });
+
+export const resolveColumnName = (field?: Field): Result<string, DomainError> => {
+  if (!field) {
+    return err(missingFieldError());
+  }
+
   return safeTry<string, DomainError>(function* () {
     const columnName = yield* field.dbFieldName().andThen((name) => name.value());
     return ok(columnName);
@@ -196,7 +206,11 @@ const columnTypeVisitor = new (class extends AbstractFieldVisitor<TableColumnDat
   }
 })();
 
-export const resolveColumnType = (field: Field): Result<TableColumnDataType, DomainError> => {
+export const resolveColumnType = (field?: Field): Result<TableColumnDataType, DomainError> => {
+  if (!field) {
+    return err(missingFieldError());
+  }
+
   return field.accept(columnTypeVisitor);
 };
 

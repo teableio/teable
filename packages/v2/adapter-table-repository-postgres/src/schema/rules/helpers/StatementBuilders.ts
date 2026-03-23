@@ -10,6 +10,14 @@ export type TableIdentifier = {
   tableName: string;
 };
 
+export const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+export const quoteLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+
+export const quoteTableIdentifier = (target: TableIdentifier): string =>
+  target.schema
+    ? `${quoteIdentifier(target.schema)}.${quoteIdentifier(target.tableName)}`
+    : quoteIdentifier(target.tableName);
+
 /**
  * Builds a qualified table reference for SQL statements.
  */
@@ -134,3 +142,170 @@ export const addGeneratedColumnStatement = (
   sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
     columnName
   )} ${definition}`;
+
+export const backfillFkColumnFromLinkValueStatement = (
+  target: TableIdentifier,
+  linkValueColumnName: string,
+  fkColumnName: string
+): TableSchemaStatementBuilder => {
+  const qualifiedTable = quoteTableIdentifier(target);
+  const linkValueColumn = quoteIdentifier(linkValueColumnName);
+  const fkColumn = quoteIdentifier(fkColumnName);
+  const schemaName = target.schema ?? 'public';
+  const tableName = target.tableName;
+
+  return sql.raw(
+    compressSql(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = ${quoteLiteral(schemaName)}
+            AND table_name = ${quoteLiteral(tableName)}
+            AND column_name = ${quoteLiteral(linkValueColumnName)}
+        ) THEN
+          UPDATE ${qualifiedTable}
+          SET ${fkColumn} = CASE
+            WHEN ${linkValueColumn} IS NULL THEN NULL
+            WHEN jsonb_typeof(${linkValueColumn}) = 'array' THEN NULLIF(${linkValueColumn}->0->>'id', '')
+            ELSE NULLIF(${linkValueColumn}->>'id', '')
+          END
+          WHERE ${linkValueColumn} IS NOT NULL
+            AND ${fkColumn} IS NULL;
+        END IF;
+      END
+      $$;
+    `)
+  );
+};
+
+export const backfillForeignHostFkColumnFromLinkValueStatement = (params: {
+  sourceTable: TableIdentifier;
+  sourceLinkValueColumnName: string;
+  targetTable: TableIdentifier;
+  targetFkColumnName: string;
+}): TableSchemaStatementBuilder => {
+  const sourceTable = quoteTableIdentifier(params.sourceTable);
+  const targetTable = quoteTableIdentifier(params.targetTable);
+  const sourceLinkValueColumn = quoteIdentifier(params.sourceLinkValueColumnName);
+  const targetFkColumn = quoteIdentifier(params.targetFkColumnName);
+  const sourceSchemaName = params.sourceTable.schema ?? 'public';
+  const sourceTableName = params.sourceTable.tableName;
+
+  return sql.raw(
+    compressSql(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = ${quoteLiteral(sourceSchemaName)}
+            AND table_name = ${quoteLiteral(sourceTableName)}
+            AND column_name = ${quoteLiteral(params.sourceLinkValueColumnName)}
+        ) THEN
+          WITH pairs AS (
+            SELECT
+              s."__id" AS self_id,
+              elem.value->>'id' AS foreign_id
+            FROM ${sourceTable} AS s
+            CROSS JOIN LATERAL jsonb_array_elements(
+              CASE
+                WHEN ${sourceLinkValueColumn} IS NULL THEN '[]'::jsonb
+                WHEN jsonb_typeof(${sourceLinkValueColumn}) = 'array' THEN ${sourceLinkValueColumn}
+                WHEN jsonb_typeof(${sourceLinkValueColumn}) = 'null' THEN '[]'::jsonb
+                ELSE jsonb_build_array(${sourceLinkValueColumn})
+              END
+            ) AS elem(value)
+          ),
+          dedup AS (
+            SELECT foreign_id, MIN(self_id) AS self_id
+            FROM pairs
+            WHERE foreign_id IS NOT NULL
+              AND foreign_id <> ''
+            GROUP BY foreign_id
+          )
+          UPDATE ${targetTable} AS t
+          SET ${targetFkColumn} = d.self_id
+          FROM dedup d
+          WHERE t."__id" = d.foreign_id
+            AND t.${targetFkColumn} IS NULL;
+        END IF;
+      END
+      $$;
+    `)
+  );
+};
+
+export const backfillJunctionTableFromLinkValueStatement = (params: {
+  sourceTable: TableIdentifier;
+  sourceLinkValueColumnName: string;
+  junctionTable: TableIdentifier;
+  selfKeyName: string;
+  foreignKeyName: string;
+  orderColumnName?: string;
+}): TableSchemaStatementBuilder => {
+  const sourceTable = quoteTableIdentifier(params.sourceTable);
+  const junctionTable = quoteTableIdentifier(params.junctionTable);
+  const sourceLinkValueColumn = quoteIdentifier(params.sourceLinkValueColumnName);
+  const selfKeyColumn = quoteIdentifier(params.selfKeyName);
+  const foreignKeyColumn = quoteIdentifier(params.foreignKeyName);
+  const orderColumn = params.orderColumnName ? quoteIdentifier(params.orderColumnName) : undefined;
+  const sourceSchemaName = params.sourceTable.schema ?? 'public';
+  const sourceTableName = params.sourceTable.tableName;
+
+  const insertColumns = orderColumn
+    ? `${selfKeyColumn}, ${foreignKeyColumn}, ${orderColumn}`
+    : `${selfKeyColumn}, ${foreignKeyColumn}`;
+  const selectColumns = orderColumn
+    ? `d.self_id, d.foreign_id, d.order_pos::double precision`
+    : `d.self_id, d.foreign_id`;
+
+  return sql.raw(
+    compressSql(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = ${quoteLiteral(sourceSchemaName)}
+            AND table_name = ${quoteLiteral(sourceTableName)}
+            AND column_name = ${quoteLiteral(params.sourceLinkValueColumnName)}
+        ) THEN
+          WITH pairs AS (
+            SELECT
+              s."__id" AS self_id,
+              elem.value->>'id' AS foreign_id,
+              elem.ord AS order_pos
+            FROM ${sourceTable} AS s
+            CROSS JOIN LATERAL jsonb_array_elements(
+              CASE
+                WHEN ${sourceLinkValueColumn} IS NULL THEN '[]'::jsonb
+                WHEN jsonb_typeof(${sourceLinkValueColumn}) = 'array' THEN ${sourceLinkValueColumn}
+                WHEN jsonb_typeof(${sourceLinkValueColumn}) = 'null' THEN '[]'::jsonb
+                ELSE jsonb_build_array(${sourceLinkValueColumn})
+              END
+            ) WITH ORDINALITY AS elem(value, ord)
+          ),
+          dedup AS (
+            SELECT self_id, foreign_id, MIN(order_pos) AS order_pos
+            FROM pairs
+            WHERE foreign_id IS NOT NULL
+              AND foreign_id <> ''
+            GROUP BY self_id, foreign_id
+          )
+          INSERT INTO ${junctionTable} (${insertColumns})
+          SELECT ${selectColumns}
+          FROM dedup d
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM ${junctionTable} j
+            WHERE j.${selfKeyColumn} = d.self_id
+              AND j.${foreignKeyColumn} = d.foreign_id
+          );
+        END IF;
+      END
+      $$;
+    `)
+  );
+};

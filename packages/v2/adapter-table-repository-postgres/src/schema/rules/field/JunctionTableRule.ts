@@ -2,6 +2,7 @@ import type { DomainError, LinkField } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
@@ -11,6 +12,7 @@ import type {
 import {
   createForeignKeyConstraintStatement,
   createIndexStatement,
+  backfillJunctionTableFromLinkValueStatement,
   dropConstraintStatement,
   dropIndexStatement,
   dropTableStatement,
@@ -218,24 +220,70 @@ export class JunctionTableExistsRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const config = this.config;
-    const schemaBuilder = config.junctionTable.schema
-      ? ctx.db.schema.withSchema(config.junctionTable.schema)
-      : ctx.db.schema;
+    const self = this;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const config = self.config;
+      const schemaBuilder = config.junctionTable.schema
+        ? ctx.db.schema.withSchema(config.junctionTable.schema)
+        : ctx.db.schema;
 
-    // Only create table with columns, unique constraint is handled by JunctionTableUniqueConstraintRule
-    let builder = schemaBuilder
-      .createTable(config.junctionTable.tableName)
-      .ifNotExists()
-      .addColumn('__id', 'serial', (col) => col.primaryKey())
-      .addColumn(config.selfKeyName, 'text')
-      .addColumn(config.foreignKeyName, 'text');
+      const statements: TableSchemaStatementBuilder[] = [];
 
-    if (config.orderColumnName) {
-      builder = builder.addColumn(config.orderColumnName, 'double precision');
-    }
+      // Create the table if it is entirely missing.
+      let createTableBuilder = schemaBuilder
+        .createTable(config.junctionTable.tableName)
+        .ifNotExists()
+        .addColumn('__id', 'serial', (col) => col.primaryKey())
+        .addColumn(config.selfKeyName, 'text')
+        .addColumn(config.foreignKeyName, 'text');
 
-    return ok([builder]);
+      if (config.orderColumnName) {
+        createTableBuilder = createTableBuilder.addColumn(
+          config.orderColumnName,
+          'double precision'
+        );
+      }
+      statements.push(createTableBuilder);
+
+      // Also repair partially-created junction tables by adding any missing columns.
+      statements.push(
+        schemaBuilder
+          .alterTable(config.junctionTable.tableName)
+          .addColumn('__id', 'serial', (col) => col.ifNotExists())
+      );
+      statements.push(
+        schemaBuilder
+          .alterTable(config.junctionTable.tableName)
+          .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+      );
+      statements.push(
+        schemaBuilder
+          .alterTable(config.junctionTable.tableName)
+          .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+      );
+
+      if (config.orderColumnName) {
+        statements.push(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+        );
+      }
+
+      const sourceLinkValueColumnName = yield* resolveColumnName(self.field);
+      statements.push(
+        backfillJunctionTableFromLinkValueStatement({
+          sourceTable: config.sourceTable,
+          sourceLinkValueColumnName,
+          junctionTable: config.junctionTable,
+          selfKeyName: config.selfKeyName,
+          foreignKeyName: config.foreignKeyName,
+          orderColumnName: config.orderColumnName,
+        })
+      );
+
+      return ok(statements);
+    });
   }
 
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {

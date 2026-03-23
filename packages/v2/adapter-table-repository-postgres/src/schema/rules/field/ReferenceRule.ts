@@ -24,8 +24,6 @@ export interface ReferenceEntry {
  * This rule verifies that all expected reference entries exist in the reference table.
  */
 export class ReferenceRule implements ISchemaRule {
-  private static readonly counters = new Map<string, number>();
-
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string> = [];
@@ -55,10 +53,7 @@ export class ReferenceRule implements ISchemaRule {
       this.references.length === 0
         ? 'none'
         : this.references.map((ref) => ref.fromFieldId).join(',');
-    const baseId = `reference:${fieldId}:${fromIds}`;
-    const nextCount = (ReferenceRule.counters.get(baseId) ?? 0) + 1;
-    ReferenceRule.counters.set(baseId, nextCount);
-    return `${baseId}:${nextCount}`;
+    return `reference:${fieldId}:${fromIds}`;
   }
 
   private buildDescription(): string {

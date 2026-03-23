@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  createSchemaChecker,
+  PostgresSchemaIntrospector,
+} from '@teable/v2-adapter-table-repository-postgres';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   ActorId,
@@ -22,6 +26,19 @@ type InfoSchemaColumnRow = {
 };
 
 type V1Db = V1TeableDatabase & { columns: InfoSchemaColumnRow };
+
+const collectFinalCheckResults = async (
+  generator: ReturnType<ReturnType<typeof createSchemaChecker>['checkTable']>
+) => {
+  const results = [];
+  for await (const result of generator) {
+    if (result.status === 'pending' || result.status === 'running') {
+      continue;
+    }
+    results.push(result);
+  }
+  return results;
+};
 
 describe('CreateTableHandler (db)', () => {
   beforeEach(async () => {
@@ -126,5 +143,42 @@ describe('CreateTableHandler (db)', () => {
     for (const row of fieldRows) {
       expect(columnNames.has(row.db_field_name)).toBe(true);
     }
+  });
+
+  it('creates a table whose schema checker has no warn or error results', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const createTableResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Schema Checker Clean',
+      fields: createAllFieldTypesFields(),
+    });
+    createTableResult._unsafeUnwrap();
+
+    const execResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createTableResult._unsafeUnwrap()
+    );
+    execResult._unsafeUnwrap();
+
+    const table = execResult._unsafeUnwrap().table;
+    const checker = createSchemaChecker({
+      db,
+      introspector: new PostgresSchemaIntrospector(db),
+      schema: baseId.toString(),
+    });
+
+    const results = await collectFinalCheckResults(checker.checkTable(table));
+
+    expect(
+      results.filter((result) => result.status === 'error' || result.status === 'warn')
+    ).toEqual([]);
   });
 });

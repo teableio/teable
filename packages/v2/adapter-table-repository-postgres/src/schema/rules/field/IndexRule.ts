@@ -32,7 +32,8 @@ export class IndexRule implements ISchemaRule {
   constructor(
     private readonly field: Field,
     private readonly columnName: string,
-    parent: ISchemaRule
+    parent: ISchemaRule,
+    private readonly targetTable?: TableIdentifier
   ) {
     this.id = `index:${field.id().toString()}:${columnName}`;
     this.dependencies = [parent.id];
@@ -44,18 +45,28 @@ export class IndexRule implements ISchemaRule {
   /**
    * Creates an IndexRule for a FK column.
    */
-  static forFkColumn(field: Field, columnName: string, parent: ISchemaRule): IndexRule {
-    return new IndexRule(field, columnName, parent);
+  static forFkColumn(
+    field: Field,
+    columnName: string,
+    parent: ISchemaRule,
+    targetTable?: TableIdentifier
+  ): IndexRule {
+    return new IndexRule(field, columnName, parent, targetTable);
   }
 
   private get indexName(): string {
     return `index_${this.columnName}`;
   }
 
+  private getTargetTable(ctx: SchemaRuleContext): TableIdentifier {
+    return this.targetTable ?? { schema: ctx.schema, tableName: ctx.tableName };
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const indexName = this.indexName;
+    const targetTable = this.getTargetTable(ctx);
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
-      const existsResult = await ctx.introspector.indexExists(ctx.schema, indexName);
+      const existsResult = await ctx.introspector.indexExists(targetTable.schema, indexName);
       const exists = yield* existsResult;
 
       return ok({
@@ -66,12 +77,12 @@ export class IndexRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+    const table = this.getTargetTable(ctx);
     return ok([createIndexStatement(table, this.indexName, this.columnName)]);
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+    const table = this.getTargetTable(ctx);
     return ok([dropIndexStatement(table, this.indexName)]);
   }
 }

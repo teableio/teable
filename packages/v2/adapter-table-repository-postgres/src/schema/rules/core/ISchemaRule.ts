@@ -66,6 +66,12 @@ export interface ISchemaRule {
   readonly required: boolean;
 
   /**
+   * Whether this rule can be auto-repaired by replaying `up()`.
+   * Rules that need human intervention should mark themselves as `manual`.
+   */
+  readonly repairMode?: 'auto' | 'manual';
+
+  /**
    * Validates whether the current database state satisfies this rule.
    * Queries information_schema to check for columns, indexes, constraints, etc.
    *

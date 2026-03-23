@@ -10,16 +10,21 @@ import { PGlite } from '@electric-sql/pglite';
 import type { DomainError, Field, LinkField } from '@teable/v2-core';
 import {
   BaseId,
-  createSingleLineTextField,
   createConditionalLookupFieldPending,
+  createCreatedTimeField,
+  createLinkField,
   createLookupFieldPending,
+  createSingleLineTextField,
   ConditionalLookupOptions,
   DbFieldName,
   DbTableName,
   FieldId,
+  LinkFieldConfig,
+  LinkFieldMeta,
   FieldName,
   FieldNotNull,
   FieldUnique,
+  GeneratedColumnMeta,
   LookupOptions,
   Table,
   TableId,
@@ -35,7 +40,7 @@ import {
   PostgresQueryCompiler,
   sql,
 } from 'kysely';
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -44,11 +49,16 @@ import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
+import { createSchemaRepairer } from '../repairer/SchemaRepairer';
+import type { SchemaRepairResult } from '../repairer/SchemaRepairResult';
+import { SYSTEM_RULE_FIELD_ID } from '../table/SystemTableRules';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';
+import { createFieldSchemaRules } from './FieldSchemaRulesFactory';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
+import { GeneratedColumnMetaRule } from './GeneratedColumnMetaRule';
 import { GeneratedColumnRule } from './GeneratedColumnRule';
 import { IndexRule } from './IndexRule';
 import type { JunctionTableConfig } from './JunctionTableRule';
@@ -191,6 +201,37 @@ const createRealField = (
   return fieldResult;
 };
 
+const createCreatedTimeFieldWithGeneratedMeta = (
+  id: string,
+  name: string,
+  dbFieldName: string,
+  persistedAsGeneratedColumn: boolean
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const metaResult = GeneratedColumnMeta.rehydrate({ persistedAsGeneratedColumn });
+  if (metaResult.isErr()) return err(metaResult.error);
+
+  const fieldResult = createCreatedTimeField({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    meta: metaResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
 const createLookupField = (
   id: string,
   name: string,
@@ -205,6 +246,41 @@ const createLookupField = (
   const lookupOptionsResult = LookupOptions.create({
     linkFieldId: createValidFieldId(`link_${id}`),
     lookupFieldId: createValidFieldId(`lookup_${id}`),
+    foreignTableId: createValidTableId(`table_${id}`),
+  });
+  if (lookupOptionsResult.isErr()) return err(lookupOptionsResult.error);
+
+  const fieldResult = createLookupFieldPending({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    lookupOptions: lookupOptionsResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
+const createSelfLookupField = (
+  id: string,
+  name: string,
+  dbFieldName: string
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const sharedDependencyFieldId = createValidFieldId(`dep_${id}`);
+  const lookupOptionsResult = LookupOptions.create({
+    linkFieldId: sharedDependencyFieldId,
+    lookupFieldId: sharedDependencyFieldId,
     foreignTableId: createValidTableId(`table_${id}`),
   });
   if (lookupOptionsResult.isErr()) return err(lookupOptionsResult.error);
@@ -270,15 +346,78 @@ const createConditionalLookupField = (
   return fieldResult;
 };
 
+const createRealLinkField = (params: {
+  id: string;
+  name: string;
+  dbFieldName: string;
+  relationship: 'manyMany' | 'oneMany' | 'manyOne' | 'oneOne';
+  foreignTableId: string;
+  fkHostTableName: string;
+  selfKeyName: string;
+  foreignKeyName: string;
+  isOneWay?: boolean;
+  hasOrderColumn?: boolean;
+  symmetricFieldId?: string;
+}): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(params.id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(params.name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(params.dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const configResult = LinkFieldConfig.create({
+    relationship: params.relationship,
+    foreignTableId: params.foreignTableId,
+    lookupFieldId: createValidFieldId(`lookup_${params.id}`),
+    fkHostTableName: params.fkHostTableName,
+    selfKeyName: params.selfKeyName,
+    foreignKeyName: params.foreignKeyName,
+    isOneWay: params.isOneWay,
+    symmetricFieldId: params.symmetricFieldId,
+  });
+  if (configResult.isErr()) return err(configResult.error);
+
+  const metaResult = LinkFieldMeta.create({ hasOrderColumn: params.hasOrderColumn ?? false });
+  if (metaResult.isErr()) return err(metaResult.error);
+
+  const fieldResult = createLinkField({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    config: configResult.value,
+    meta: metaResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
 /**
  * Create a mock LinkField for junction table tests.
  */
-const createMockLinkField = (id: string, name: string): LinkField => {
+const createMockLinkField = (
+  id: string,
+  name: string,
+  options: {
+    relationship?: 'manyMany' | 'oneMany' | 'manyOne' | 'oneOne';
+    isOneWay?: boolean;
+    dbFieldName?: string;
+  } = {}
+): LinkField => {
   return {
     id: () => ({ toString: () => createValidFieldId(id) }),
     name: () => ({ toString: () => name }),
-    relationship: () => ({ toString: () => 'manyMany' }),
-    isOneWay: () => false,
+    relationship: () => ({ toString: () => options.relationship ?? 'manyMany' }),
+    isOneWay: () => options.isOneWay ?? false,
+    dbFieldName: () =>
+      ok({
+        value: () => ok(options.dbFieldName ?? 'link_value'),
+      }),
   } as unknown as LinkField;
 };
 
@@ -345,6 +484,11 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     await sql.raw(query).execute(db);
   };
 
+  const createExplicitTestTable = async (tableName: string, columns: string[]) => {
+    const query = `CREATE TABLE ${TEST_SCHEMA}.${tableName} (${columns.join(', ')})`;
+    await sql.raw(query).execute(db);
+  };
+
   const createContext = (tableName: string, field: Field): SchemaRuleContext => ({
     db,
     introspector,
@@ -396,6 +540,19 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     generator: AsyncGenerator<SchemaCheckResult, void, unknown>
   ): Promise<SchemaCheckResult[]> => {
     const results: SchemaCheckResult[] = [];
+    for await (const result of generator) {
+      if (result.status === 'running' || result.status === 'pending') {
+        continue;
+      }
+      results.push(result);
+    }
+    return results;
+  };
+
+  const collectFinalRepairResults = async (
+    generator: AsyncGenerator<SchemaRepairResult, void, unknown>
+  ): Promise<SchemaRepairResult[]> => {
+    const results: SchemaRepairResult[] = [];
     for await (const result of generator) {
       if (result.status === 'running' || result.status === 'pending') {
         continue;
@@ -681,6 +838,43 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await db.executeQuery(stmt.compile(db));
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+    });
+
+    it('should backfill FK values from the persisted link JSON column', async () => {
+      await createTestTable(TABLE_NAME, ['link_value JSONB']);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${TABLE_NAME} (__id, link_value)
+          VALUES
+            ('rec_alpha', '{"id":"rec_target_a","title":"Target A"}'::jsonb),
+            ('rec_beta', '{"id":"rec_target_b","title":"Target B"}'::jsonb),
+            ('rec_empty', NULL)
+        `
+        )
+        .execute(db);
+
+      const fieldResult = createRealField('fkc004', 'Link', 'link_value');
+      const field = fieldResult._unsafeUnwrap();
+
+      const rule = FkColumnRule.forField(field, '__fk_link', 'target_table');
+      const ctx = createContext(TABLE_NAME, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const rows = await sql<{ record_id: string; fk: string | null }>`
+        SELECT __id AS record_id, "__fk_link" AS fk
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(TABLE_NAME)}
+        ORDER BY __id
+      `.execute(db);
+
+      expect(rows.rows).toEqual([
+        { record_id: 'rec_alpha', fk: 'rec_target_a' },
+        { record_id: 'rec_beta', fk: 'rec_target_b' },
+        { record_id: 'rec_empty', fk: null },
+      ]);
     });
   });
 
@@ -1167,6 +1361,73 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     });
   });
 
+  describe('GeneratedColumnMetaRule', () => {
+    const TABLE_NAME = 'test_generated_column_meta_rule';
+
+    it('should return invalid when field meta expects a stored column but db column is generated', async () => {
+      await createTestTable(TABLE_NAME, [
+        '__created_time TIMESTAMPTZ DEFAULT NOW()',
+        'created_time_col TIMESTAMPTZ GENERATED ALWAYS AS (__created_time) STORED',
+      ]);
+
+      const field = createCreatedTimeFieldWithGeneratedMeta(
+        'genm001',
+        'CreatedTime',
+        'created_time_col',
+        false
+      )._unsafeUnwrap();
+
+      const generatedRule = GeneratedColumnRule.forCreatedTime(field);
+      const rule = new GeneratedColumnMetaRule(field, generatedRule, new ColumnExistsRule(field));
+      const ctx = createContext(TABLE_NAME, field);
+
+      const result = await rule.isValid(ctx);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().valid).toBe(false);
+      expect(result._unsafeUnwrap().extra?.[0]).toContain('persistedAsGeneratedColumn is false');
+    });
+
+    it('up then down should switch between stored and generated column states', async () => {
+      await createTestTable(TABLE_NAME, [
+        '__created_time TIMESTAMPTZ DEFAULT NOW()',
+        'created_time_col TIMESTAMPTZ GENERATED ALWAYS AS (__created_time) STORED',
+      ]);
+
+      const field = createCreatedTimeFieldWithGeneratedMeta(
+        'genm002',
+        'CreatedTime',
+        'created_time_col',
+        false
+      )._unsafeUnwrap();
+
+      const generatedRule = GeneratedColumnRule.forCreatedTime(field);
+      const rule = new GeneratedColumnMetaRule(field, generatedRule, new ColumnExistsRule(field));
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      const storedColumnResult = await introspector.getColumn(
+        TEST_SCHEMA,
+        TABLE_NAME,
+        'created_time_col'
+      );
+      expect(storedColumnResult._unsafeUnwrap()?.isGenerated).toBe(false);
+
+      for (const stmt of rule.down(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+      expect((await generatedRule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+  });
+
   describe('JunctionTableExistsRule', () => {
     const SOURCE_TABLE = 'test_junction_source';
     const TARGET_TABLE = 'test_junction_target';
@@ -1276,6 +1537,54 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       const result = await rule.isValid(ctx);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should backfill junction rows from the persisted link JSON column', async () => {
+      await createTestTable(SOURCE_TABLE, ['link_value JSONB']);
+      await createTestTable(TARGET_TABLE);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${SOURCE_TABLE} (__id, link_value)
+          VALUES
+            (
+              'rec_source_1',
+              '[{"id":"rec_foreign_1","title":"Foreign 1"},{"id":"rec_foreign_2","title":"Foreign 2"}]'::jsonb
+            ),
+            (
+              'rec_source_2',
+              '[{"id":"rec_foreign_3","title":"Foreign 3"}]'::jsonb
+            )
+        `
+        )
+        .execute(db);
+
+      const fieldResult = createRealField('jct005', 'Link', 'link_value');
+      const field = fieldResult._unsafeUnwrap();
+
+      const linkField = createMockLinkField('jct005', 'Link', { dbFieldName: 'link_value' });
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const rows = await sql<{
+        self_key: string;
+        foreign_key: string;
+        order_col: number;
+      }>`
+        SELECT self_key, foreign_key, order_col
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(JUNCTION_TABLE)}
+        ORDER BY self_key, order_col
+      `.execute(db);
+
+      expect(rows.rows).toEqual([
+        { self_key: 'rec_source_1', foreign_key: 'rec_foreign_1', order_col: 1 },
+        { self_key: 'rec_source_1', foreign_key: 'rec_foreign_2', order_col: 2 },
+        { self_key: 'rec_source_2', foreign_key: 'rec_foreign_3', order_col: 1 },
+      ]);
     });
   });
 
@@ -1719,6 +2028,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
+
+    it('should deduplicate self-lookup reference rules when link and lookup ids match', () => {
+      const field = createSelfLookupField(
+        'self_lookup001',
+        'SelfLookup',
+        'self_lookup_col'
+      )._unsafeUnwrap();
+      const rulesResult = createFieldSchemaRules(field, {
+        schema: TEST_SCHEMA,
+        tableName: 'self_lookup_table',
+        tableId: 'self_lookup_table',
+      });
+
+      expect(rulesResult.isOk()).toBe(true);
+
+      const referenceRules = rulesResult
+        ._unsafeUnwrap()
+        .filter((rule) => rule instanceof ReferenceRule);
+      expect(referenceRules).toHaveLength(1);
+      expect(referenceRules[0].id).toBe(
+        `reference:${field.id().toString()}:${createValidFieldId('dep_self_lookup001')}`
+      );
+    });
   });
 
   describe('SchemaChecker', () => {
@@ -1762,6 +2094,677 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(results).toHaveLength(1);
       expect(results[0].status).toBe('success');
       expect(results[0].ruleId).toBe(`column:${field.id().toString()}`);
+    });
+
+    it('should report generated-column metadata drift when field meta expects a stored column', async () => {
+      await createTestTable(TABLE_NAME, [
+        '__created_time TIMESTAMPTZ DEFAULT NOW()',
+        'created_time_col TIMESTAMPTZ GENERATED ALWAYS AS (__created_time) STORED',
+      ]);
+
+      const field = createCreatedTimeFieldWithGeneratedMeta(
+        'chk003',
+        'CreatedTime',
+        'created_time_col',
+        false
+      )._unsafeUnwrap();
+      const table = createTableAggregate(TABLE_NAME, field);
+
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkField(table, field.id().toString()));
+
+      expect(
+        results.find((result) => result.ruleId === `generated_meta:${field.id().toString()}`)
+          ?.status
+      ).toBe('error');
+      expect(
+        results.find((result) => result.ruleId === `column:${field.id().toString()}`)?.status
+      ).toBe('success');
+    });
+  });
+
+  describe('SchemaRepairer', () => {
+    it('should report missing system __id uniqueness when checking system rules', async () => {
+      const tableName = 'test_schema_system_rule_check';
+      await createExplicitTestTable(tableName, [
+        '__id TEXT NOT NULL',
+        '__auto_number SERIAL PRIMARY KEY',
+        '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT NOT NULL',
+        '__last_modified_by TEXT',
+        '__version INTEGER NOT NULL',
+        'name_col TEXT',
+      ]);
+
+      const field = createRealField('sys001', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkField(table, SYSTEM_RULE_FIELD_ID));
+      const uniqueRule = results.find((result) => result.ruleId === 'system_unique:__id');
+
+      expect(uniqueRule?.status).toBe('error');
+      expect(uniqueRule?.details?.missing).toContain(
+        'system column "__id" should have UNIQUE index'
+      );
+    });
+
+    it('should error when system __auto_number primary key is missing', async () => {
+      const tableName = 'test_schema_system_primary_key_warn';
+      await createExplicitTestTable(tableName, [
+        '__id TEXT NOT NULL UNIQUE',
+        '__auto_number INTEGER',
+        '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT NOT NULL',
+        '__last_modified_by TEXT',
+        '__version INTEGER NOT NULL',
+        'name_col TEXT',
+      ]);
+
+      const field = createRealField('sys001b', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkField(table, SYSTEM_RULE_FIELD_ID));
+      const primaryKeyRule = results.find(
+        (result) => result.ruleId === 'system_primary_key:__auto_number'
+      );
+
+      expect(primaryKeyRule?.status).toBe('error');
+      expect(primaryKeyRule?.details?.missing).toContain(
+        'system column "__auto_number" should be PRIMARY KEY'
+      );
+    });
+
+    it('should repair system columns when repairing the system rule scope', async () => {
+      const tableName = 'test_schema_system_repair_scope';
+      await createExplicitTestTable(tableName, [
+        '__id TEXT',
+        '__auto_number INTEGER',
+        '__created_time TIMESTAMPTZ',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT',
+        '__last_modified_by TEXT',
+        '__version INTEGER',
+        'name_col TEXT',
+      ]);
+
+      const field = createRealField('sys002', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(table, SYSTEM_RULE_FIELD_ID)
+      );
+
+      expect(
+        repairResults.some(
+          (result) => result.ruleId === 'system_unique:__id' && result.outcome === 'repaired'
+        )
+      ).toBe(true);
+      expect(
+        repairResults.some(
+          (result) =>
+            result.ruleId === 'system_primary_key:__auto_number' && result.outcome === 'repaired'
+        )
+      ).toBe(true);
+
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, SYSTEM_RULE_FIELD_ID)
+      );
+      expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it('should repair a single system rule using the system scope id', async () => {
+      const tableName = 'test_schema_system_rule_repair';
+      await createExplicitTestTable(tableName, [
+        '__id TEXT NOT NULL',
+        '__auto_number SERIAL PRIMARY KEY',
+        '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT NOT NULL',
+        '__last_modified_by TEXT',
+        '__version INTEGER NOT NULL',
+        'title_col TEXT',
+      ]);
+
+      const field = createRealField('sys003', 'Title', 'title_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, SYSTEM_RULE_FIELD_ID, 'system_unique:__id')
+      );
+
+      expect(repairResults.find((result) => result.ruleId === 'system_unique:__id')?.outcome).toBe(
+        'repaired'
+      );
+
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, SYSTEM_RULE_FIELD_ID)
+      );
+      expect(checkResults.find((result) => result.ruleId === 'system_unique:__id')?.status).toBe(
+        'success'
+      );
+    });
+
+    it('should repair a missing column when repairing a table', async () => {
+      const tableName = 'test_schema_repair_table';
+      await createTestTable(tableName);
+
+      const field = createRealField('rpt001', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(repairer.repairTable(table));
+
+      expect(
+        results.find((result) => result.ruleId === `column:${field.id().toString()}`)?.status
+      ).toBe('success');
+      expect(
+        results.find((result) => result.ruleId === `column:${field.id().toString()}`)?.outcome
+      ).toBe('repaired');
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it('should repair a missing column when repairing a field', async () => {
+      const tableName = 'test_schema_repair_field';
+      await createTestTable(tableName);
+
+      const field = createRealField('rpf001', 'Title', 'title_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].status).toBe('success');
+      expect(results[0].outcome).toBe('repaired');
+      expect(results[0].ruleId).toBe(`column:${field.id().toString()}`);
+    });
+
+    it('should repair generated-column metadata drift for stored columns', async () => {
+      const tableName = 'test_schema_repair_generated_meta';
+      await createTestTable(tableName, [
+        '__created_time TIMESTAMPTZ DEFAULT NOW()',
+        'created_time_col TIMESTAMPTZ GENERATED ALWAYS AS (__created_time) STORED',
+      ]);
+
+      const field = createCreatedTimeFieldWithGeneratedMeta(
+        'rpg001',
+        'CreatedTime',
+        'created_time_col',
+        false
+      )._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(
+        results.find((result) => result.ruleId === `generated_meta:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it.each([
+      {
+        label: 'manyOne',
+        relationship: 'manyOne' as const,
+        fieldSeed: 'rplink_many_one',
+        fkColumnName: '__fk_many_one',
+        expectUnique: false,
+      },
+      {
+        label: 'oneOne',
+        relationship: 'oneOne' as const,
+        fieldSeed: 'rplink_one_one',
+        fkColumnName: '__fk_one_one',
+        expectUnique: true,
+      },
+    ])(
+      'should repair a dropped FK column and backfill persisted link values for $label links',
+      async ({ fieldSeed, relationship, fkColumnName, expectUnique }) => {
+        const sourceTableName = createValidTableId(`src_${fieldSeed}`);
+        const targetTableName = createValidTableId(`tgt_${fieldSeed}`);
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `${fkColumnName} TEXT`]);
+
+        await sql
+          .raw(
+            `
+            INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id)
+            VALUES ('rec_target_a'), ('rec_target_b')
+          `
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `
+            INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value, "${fkColumnName}")
+            VALUES
+              ('rec_source_a', '{"id":"rec_target_a","title":"Target A"}'::jsonb, 'rec_target_a'),
+              ('rec_source_b', '{"id":"rec_target_b","title":"Target B"}'::jsonb, 'rec_target_b')
+          `
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: fieldSeed,
+          name: `${relationship} Link`,
+          dbFieldName: 'link_value',
+          relationship,
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${sourceTableName} DROP COLUMN "${fkColumnName}" CASCADE`
+          )
+          .execute(db);
+
+        const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+        const repairResults = await collectFinalRepairResults(
+          repairer.repairField(table, field.id().toString())
+        );
+
+        expect(
+          repairResults.find((result) => result.ruleId === `fk_column:${field.id().toString()}`)
+            ?.outcome
+        ).toBe('repaired');
+
+        const repairedRows = await sql<{ record_id: string; fk_value: string | null }>`
+          SELECT __id AS record_id, ${sql.id(fkColumnName)} AS fk_value
+          FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+          ORDER BY __id
+        `.execute(db);
+
+        expect(repairedRows.rows).toEqual([
+          { record_id: 'rec_source_a', fk_value: 'rec_target_a' },
+          { record_id: 'rec_source_b', fk_value: 'rec_target_b' },
+        ]);
+
+        const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+        const checkResults = await collectFinalResults(
+          checker.checkField(table, field.id().toString())
+        );
+
+        expect(
+          checkResults.find((result) => result.ruleId === `fk_column:${field.id().toString()}`)
+            ?.status
+        ).toBe('success');
+        expect(
+          checkResults.find(
+            (result) => result.ruleId === `fk:${field.id().toString()}:${fkColumnName}`
+          )?.status
+        ).toBe('success');
+
+        const expectedIndexRuleId = expectUnique
+          ? `unique_index:${field.id().toString()}:${fkColumnName}`
+          : `index:${field.id().toString()}:${fkColumnName}`;
+        expect(checkResults.find((result) => result.ruleId === expectedIndexRuleId)?.status).toBe(
+          'success'
+        );
+      }
+    );
+
+    it('should repair the FK host column for two-way oneMany links from the source link JSON copy', async () => {
+      const sourceTableName = createValidTableId('src_one_many_two_way');
+      const targetTableName = createValidTableId('tgt_one_many_two_way');
+      const hostFkColumnName = '__fk_one_many_host';
+
+      await createTestTable(sourceTableName, ['link_value JSONB']);
+      await createTestTable(targetTableName, [`${hostFkColumnName} TEXT`]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+          VALUES
+            ('rec_source_a', '[{"id":"rec_target_a","title":"Target A"},{"id":"rec_target_b","title":"Target B"}]'::jsonb),
+            ('rec_source_b', '[{"id":"rec_target_c","title":"Target C"}]'::jsonb)
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id, "${hostFkColumnName}")
+          VALUES
+            ('rec_target_a', 'rec_source_a'),
+            ('rec_target_b', 'rec_source_a'),
+            ('rec_target_c', 'rec_source_b')
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: 'rplink_one_many_two_way',
+        name: 'OneMany Link',
+        dbFieldName: 'link_value',
+        relationship: 'oneMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: targetTableName,
+        selfKeyName: hostFkColumnName,
+        foreignKeyName: '__id',
+        isOneWay: false,
+        hasOrderColumn: false,
+      })._unsafeUnwrap();
+      const table = createTableAggregate(sourceTableName, field);
+
+      await sql
+        .raw(
+          `ALTER TABLE ${TEST_SCHEMA}.${targetTableName} DROP COLUMN "${hostFkColumnName}" CASCADE`
+        )
+        .execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `fk_column:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const repairedRows = await sql<{ record_id: string; fk_value: string | null }>`
+        SELECT __id AS record_id, ${sql.id(hostFkColumnName)} AS fk_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(targetTableName)}
+        ORDER BY __id
+      `.execute(db);
+
+      expect(repairedRows.rows).toEqual([
+        { record_id: 'rec_target_a', fk_value: 'rec_source_a' },
+        { record_id: 'rec_target_b', fk_value: 'rec_source_a' },
+        { record_id: 'rec_target_c', fk_value: 'rec_source_b' },
+      ]);
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      expect(
+        checkResults.find(
+          (result) => result.ruleId === `fk:${field.id().toString()}:${hostFkColumnName}`
+        )?.status
+      ).toBe('success');
+      expect(
+        checkResults.find(
+          (result) => result.ruleId === `index:${field.id().toString()}:${hostFkColumnName}`
+        )?.status
+      ).toBe('success');
+    });
+
+    it('should repair a dropped junction table and backfill one-way oneMany link rows', async () => {
+      const sourceTableName = createValidTableId('src_one_many_one_way');
+      const targetTableName = createValidTableId('tgt_one_many_one_way');
+      const junctionTableName = 'junction_one_many_one_way';
+      const selfKeyName = '__fk_one_way_self';
+      const foreignKeyName = '__fk_one_way_foreign';
+
+      await createTestTable(sourceTableName, ['link_value JSONB']);
+      await createTestTable(targetTableName);
+      await createExplicitTestTable(junctionTableName, [
+        '__id SERIAL PRIMARY KEY',
+        `${selfKeyName} TEXT`,
+        `${foreignKeyName} TEXT`,
+      ]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+          VALUES
+            ('rec_source_a', '[{"id":"rec_target_a","title":"Target A"},{"id":"rec_target_b","title":"Target B"}]'::jsonb)
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id)
+          VALUES ('rec_target_a'), ('rec_target_b')
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${junctionTableName} (${selfKeyName}, ${foreignKeyName})
+          VALUES ('rec_source_a', 'rec_target_a'), ('rec_source_a', 'rec_target_b')
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: 'rplink_one_many_one_way',
+        name: 'OneWay OneMany Link',
+        dbFieldName: 'link_value',
+        relationship: 'oneMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: junctionTableName,
+        selfKeyName,
+        foreignKeyName,
+        isOneWay: true,
+        hasOrderColumn: false,
+      })._unsafeUnwrap();
+      const table = createTableAggregate(sourceTableName, field);
+
+      await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `junction_table:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const junctionRows = await sql<{ self_id: string; foreign_id: string }>`
+        SELECT ${sql.id(selfKeyName)} AS self_id, ${sql.id(foreignKeyName)} AS foreign_id
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(junctionTableName)}
+        ORDER BY ${sql.id(selfKeyName)}, ${sql.id(foreignKeyName)}
+      `.execute(db);
+
+      expect(junctionRows.rows).toEqual([
+        { self_id: 'rec_source_a', foreign_id: 'rec_target_a' },
+        { self_id: 'rec_source_a', foreign_id: 'rec_target_b' },
+      ]);
+    });
+
+    it('should repair a dropped junction table and backfill manyMany link rows with order', async () => {
+      const sourceTableName = createValidTableId('src_many_many_repair');
+      const targetTableName = createValidTableId('tgt_many_many_repair');
+      const junctionTableName = 'junction_many_many_repair';
+      const selfKeyName = '__fk_many_many_self';
+      const foreignKeyName = '__fk_many_many_foreign';
+
+      await createTestTable(sourceTableName, ['link_value JSONB']);
+      await createTestTable(targetTableName);
+      await createExplicitTestTable(junctionTableName, [
+        '__id SERIAL PRIMARY KEY',
+        `${selfKeyName} TEXT`,
+        `${foreignKeyName} TEXT`,
+        '__order DOUBLE PRECISION',
+      ]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+          VALUES
+            ('rec_source_a', '[{"id":"rec_target_b","title":"Target B"},{"id":"rec_target_a","title":"Target A"}]'::jsonb)
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id)
+          VALUES ('rec_target_a'), ('rec_target_b')
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${junctionTableName} (${selfKeyName}, ${foreignKeyName}, "__order")
+          VALUES ('rec_source_a', 'rec_target_b', 1), ('rec_source_a', 'rec_target_a', 2)
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: 'rplink_many_many',
+        name: 'ManyMany Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: junctionTableName,
+        selfKeyName,
+        foreignKeyName,
+        hasOrderColumn: true,
+      })._unsafeUnwrap();
+      const table = createTableAggregate(sourceTableName, field);
+
+      await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `junction_table:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const junctionRows = await sql<{ self_id: string; foreign_id: string; order_value: number }>`
+        SELECT
+          ${sql.id(selfKeyName)} AS self_id,
+          ${sql.id(foreignKeyName)} AS foreign_id,
+          "__order" AS order_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(junctionTableName)}
+        ORDER BY "__order"
+      `.execute(db);
+
+      expect(junctionRows.rows).toEqual([
+        { self_id: 'rec_source_a', foreign_id: 'rec_target_b', order_value: 1 },
+        { self_id: 'rec_source_a', foreign_id: 'rec_target_a', order_value: 2 },
+      ]);
+    });
+
+    it('should repair a single reference rule using a checker-provided rule id', async () => {
+      const tableName = 'test_schema_repair_rule';
+      await createTestTable(tableName, ['lookup_col TEXT']);
+
+      const field = createLookupField('rpr001', 'Lookup', 'lookup_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      const ruleId = checkResults.find(
+        (result) =>
+          result.ruleId ===
+          `reference:${field.id().toString()}:${createValidFieldId('lookup_rpr001')}`
+      )?.ruleId;
+
+      expect(ruleId).toBeDefined();
+
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId!)
+      );
+
+      expect(repairResults).toHaveLength(1);
+      expect(repairResults[0].status).toBe('success');
+      expect(repairResults[0].outcome).toBe('repaired');
+      expect(repairResults[0].ruleId).toBe(ruleId);
+
+      const repairedCheckResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      const repairedRule = repairedCheckResults.find((result) => result.ruleId === ruleId);
+      expect(repairedRule?.status).toBe('success');
     });
   });
 });

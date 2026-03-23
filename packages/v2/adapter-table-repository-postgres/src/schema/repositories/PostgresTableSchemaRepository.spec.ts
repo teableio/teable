@@ -4,8 +4,10 @@ import {
   BaseId,
   createLinkField,
   createSingleLineTextField,
+  DbTableName,
   FieldId,
   LinkFieldConfig,
+  LinkRelationship,
   FieldName,
   type Field,
   type IExecutionContext,
@@ -27,6 +29,8 @@ import {
 import { ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { createSchemaChecker } from '../rules/checker/SchemaChecker';
+import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntrospector';
 import { PostgresTableSchemaRepository } from './PostgresTableSchemaRepository';
 
 class PGliteDriver {
@@ -217,6 +221,19 @@ class FakeComputedUpdatePlanner {
   }
 }
 
+const collectFinalCheckResults = async (
+  generator: ReturnType<ReturnType<typeof createSchemaChecker>['checkTable']>
+) => {
+  const results = [];
+  for await (const result of generator) {
+    if (result.status === 'pending' || result.status === 'running') {
+      continue;
+    }
+    results.push(result);
+  }
+  return results;
+};
+
 describe('PostgresTableSchemaRepository', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -291,6 +308,44 @@ describe('PostgresTableSchemaRepository', () => {
     expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(false);
   });
 
+  it('creates a table whose schema checker reports no warn or error results', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Schema Clean')._unsafeUnwrap();
+    const fieldName = FieldName.create('Name')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(fieldName).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository([table]);
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      tableRepository as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never
+    );
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+
+    const checker = createSchemaChecker({
+      db,
+      introspector: new PostgresSchemaIntrospector(db),
+      schema: baseId.toString(),
+    });
+
+    const results = await collectFinalCheckResults(checker.checkTable(table));
+
+    expect(
+      results.filter((result) => result.status === 'error' || result.status === 'warn')
+    ).toEqual([]);
+  });
+
   it('passes includeOneManyTwoWay=true when adding two-way oneMany link field', async () => {
     const baseId = BaseId.generate()._unsafeUnwrap();
     const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -341,15 +396,24 @@ describe('PostgresTableSchemaRepository', () => {
     const linkFieldId = FieldId.generate()._unsafeUnwrap();
     const symmetricFieldId = FieldId.generate()._unsafeUnwrap();
     const linkFieldName = FieldName.create('Parent')._unsafeUnwrap();
+    const linkDbConfig = LinkFieldConfig.buildDbConfig({
+      fkHostTableName: DbTableName.rehydrate(
+        `${baseId.toString()}.${foreignTable.id().toString()}`
+      )._unsafeUnwrap(),
+      relationship: LinkRelationship.oneMany(),
+      fieldId: linkFieldId,
+      symmetricFieldId,
+      isOneWay: false,
+    })._unsafeUnwrap();
     const linkConfig = LinkFieldConfig.create({
       relationship: 'oneMany',
       foreignTableId: foreignTable.id().toString(),
       lookupFieldId: foreignPrimaryFieldId.toString(),
       isOneWay: false,
       symmetricFieldId: symmetricFieldId.toString(),
-      fkHostTableName: `junction_${linkFieldId.toString()}_${symmetricFieldId.toString()}`,
-      selfKeyName: `__fk_${symmetricFieldId.toString()}`,
-      foreignKeyName: '__id',
+      fkHostTableName: linkDbConfig.fkHostTableName.value()._unsafeUnwrap(),
+      selfKeyName: linkDbConfig.selfKeyName.value()._unsafeUnwrap(),
+      foreignKeyName: linkDbConfig.foreignKeyName.value()._unsafeUnwrap(),
     })._unsafeUnwrap();
     const newLinkField = createLinkField({
       id: linkFieldId,

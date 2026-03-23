@@ -485,13 +485,98 @@ export class ComputedFieldBackfillService {
         }
 
         const linkField = field as unknown as LinkField;
-        const isTwoWayOneMany =
-          linkField.relationship().toString() === 'oneMany' && !linkField.isOneWay();
+        const relationship = linkField.relationship().toString();
+        const isTwoWayOneMany = relationship === 'oneMany' && !linkField.isOneWay();
+        const usesJunctionTable =
+          relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay());
         const { schema, tableName } = yield* linkField
           .fkHostTableName()
           .split({ defaultSchema: null });
         let resolvedSchema = schema;
         let resolvedTableName = tableName;
+
+        if (usesJunctionTable) {
+          const selfKeyColumn = yield* linkField.selfKeyNameString();
+          const foreignKeyColumn = yield* linkField.foreignKeyNameString();
+          const selfKeyExists = yield* await service.columnExists(
+            context,
+            resolvedSchema,
+            resolvedTableName,
+            selfKeyColumn
+          );
+          const foreignKeyExists = yield* await service.columnExists(
+            context,
+            resolvedSchema,
+            resolvedTableName,
+            foreignKeyColumn
+          );
+          if (!selfKeyExists || !foreignKeyExists) {
+            service.logger.debug('computed:backfillMany:skip_missing_junction_columns', {
+              tableId: input.table.id().toString(),
+              fieldId: field.id().toString(),
+              resolvedSchema,
+              resolvedTableName,
+              selfKeyColumn,
+              foreignKeyColumn,
+            });
+            continue;
+          }
+
+          if (linkField.hasOrderColumn()) {
+            const orderColumn = yield* linkField.orderColumnName();
+            const orderColumnExists = yield* await service.columnExists(
+              context,
+              resolvedSchema,
+              resolvedTableName,
+              orderColumn
+            );
+            if (!orderColumnExists) {
+              service.logger.debug('computed:backfillMany:skip_missing_order_column', {
+                tableId: input.table.id().toString(),
+                fieldId: field.id().toString(),
+                orderColumn,
+              });
+              continue;
+            }
+          }
+
+          fields.push(field);
+          continue;
+        }
+
+        if (relationship === 'manyOne' || relationship === 'oneOne') {
+          const selfKeyColumn = yield* linkField.selfKeyNameString();
+          const foreignKeyColumn = yield* linkField.foreignKeyNameString();
+          const joinColumn =
+            foreignKeyColumn !== '__id'
+              ? foreignKeyColumn
+              : selfKeyColumn !== '__id'
+                ? selfKeyColumn
+                : undefined;
+
+          if (joinColumn) {
+            const joinColumnExists = yield* await service.columnExists(
+              context,
+              resolvedSchema,
+              resolvedTableName,
+              joinColumn
+            );
+            if (!joinColumnExists) {
+              service.logger.debug('computed:backfillMany:skip_missing_link_join_column', {
+                tableId: input.table.id().toString(),
+                fieldId: field.id().toString(),
+                resolvedSchema,
+                resolvedTableName,
+                joinColumn,
+                relationship,
+              });
+              continue;
+            }
+          }
+
+          fields.push(field);
+          continue;
+        }
 
         const selfKeyColumn = yield* linkField.selfKeyNameString();
         if (selfKeyColumn !== '__id') {
@@ -566,6 +651,26 @@ export class ComputedFieldBackfillService {
               tableId: input.table.id().toString(),
               fieldId: field.id().toString(),
               orderColumn,
+            });
+            continue;
+          }
+        }
+
+        if (isTwoWayOneMany) {
+          const foreignKeyColumn = yield* linkField.foreignKeyNameString();
+          const foreignKeyExistsResult = yield* await service.columnExists(
+            context,
+            resolvedSchema,
+            resolvedTableName,
+            foreignKeyColumn
+          );
+          if (!foreignKeyExistsResult) {
+            service.logger.debug('computed:backfillMany:skip_missing_foreign_key_column', {
+              tableId: input.table.id().toString(),
+              fieldId: field.id().toString(),
+              resolvedSchema,
+              resolvedTableName,
+              foreignKeyColumn,
             });
             continue;
           }

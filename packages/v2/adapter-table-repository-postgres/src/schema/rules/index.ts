@@ -38,6 +38,9 @@ export {
   type ReferenceEntry,
 } from './field';
 
+// Table rules
+export { createSystemTableRules, SYSTEM_RULE_FIELD_ID, SYSTEM_RULE_FIELD_NAME } from './table';
+
 // Helpers
 export {
   addGeneratedColumnStatement,
@@ -61,6 +64,20 @@ export {
   type RuleResolutionResult,
 } from './resolver';
 
+// Planner
+export {
+  calculateRuleDepths,
+  createSchemaRulePlanner,
+  getSchemaRulePlanningStageDescription,
+  SchemaRulePlanner,
+  type SchemaRuleFieldPlan,
+  type SchemaRulePlanEntry,
+  type SchemaRulePlanError,
+  type SchemaRulePlannerParams,
+  type SchemaRulePlanningStage,
+  type SchemaRuleTarget,
+} from './planner';
+
 // Checker
 export {
   createSchemaChecker,
@@ -70,3 +87,17 @@ export {
   type SchemaCheckerParams,
   type SchemaCheckStatus,
 } from './checker';
+
+// Repairer
+export {
+  createSchemaRepairer,
+  errorResult,
+  pendingResult,
+  SchemaRepairer,
+  type SchemaRepairDetails,
+  type SchemaRepairOutcome,
+  type SchemaRepairOptions,
+  type SchemaRepairResult,
+  type SchemaRepairStatus,
+  type SchemaRepairerParams,
+} from './repairer';

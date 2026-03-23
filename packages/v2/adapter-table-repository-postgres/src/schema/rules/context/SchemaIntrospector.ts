@@ -9,6 +9,7 @@ export interface ColumnInfo {
   dataType: string;
   isNullable: boolean;
   isGenerated: boolean;
+  columnDefault: string | null;
 }
 
 /**
@@ -79,6 +80,14 @@ export interface SchemaIntrospector {
   ): Promise<Result<IndexInfo | null, DomainError>>;
 
   /**
+   * Gets all indexes defined on the specified table.
+   */
+  getIndexes(
+    schema: string | null,
+    table: string
+  ): Promise<Result<ReadonlyArray<IndexInfo>, DomainError>>;
+
+  /**
    * Checks whether a foreign key constraint exists on the specified table.
    */
   foreignKeyExists(
@@ -109,4 +118,12 @@ export interface SchemaIntrospector {
     table: string,
     constraintName: string
   ): Promise<Result<boolean, DomainError>>;
+
+  /**
+   * Gets table constraints with their participating columns.
+   */
+  getConstraints(
+    schema: string | null,
+    table: string
+  ): Promise<Result<ReadonlyArray<ConstraintInfo>, DomainError>>;
 }

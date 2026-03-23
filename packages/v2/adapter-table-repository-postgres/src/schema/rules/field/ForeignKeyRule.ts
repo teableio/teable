@@ -38,7 +38,8 @@ export class ForeignKeyRule implements ISchemaRule {
     private readonly targetTable: TableIdentifier,
     parent: ISchemaRule,
     private readonly targetTableName: string,
-    private readonly onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
+    private readonly onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
+    private readonly localTable?: TableIdentifier
   ) {
     this.id = `fk:${field.id().toString()}:${columnName}`;
     this.dependencies = [parent.id];
@@ -59,21 +60,35 @@ export class ForeignKeyRule implements ISchemaRule {
     targetTable: TableIdentifier,
     parent: ISchemaRule,
     targetTableName: string,
-    onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
+    onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
+    localTable?: TableIdentifier
   ): ForeignKeyRule {
-    return new ForeignKeyRule(field, columnName, targetTable, parent, targetTableName, onDelete);
+    return new ForeignKeyRule(
+      field,
+      columnName,
+      targetTable,
+      parent,
+      targetTableName,
+      onDelete,
+      localTable
+    );
   }
 
   private get constraintName(): string {
     return `fk_${this.columnName}`;
   }
 
+  private getLocalTable(ctx: SchemaRuleContext): TableIdentifier {
+    return this.localTable ?? { schema: ctx.schema, tableName: ctx.tableName };
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const constraintName = this.constraintName;
+    const localTable = this.getLocalTable(ctx);
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const existsResult = await ctx.introspector.foreignKeyExists(
-        ctx.schema,
-        ctx.tableName,
+        localTable.schema,
+        localTable.tableName,
         constraintName
       );
       const exists = yield* existsResult;
@@ -86,7 +101,7 @@ export class ForeignKeyRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const sourceTable: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+    const sourceTable = this.getLocalTable(ctx);
     return ok([
       createForeignKeyConstraintStatement(
         sourceTable,
@@ -100,7 +115,7 @@ export class ForeignKeyRule implements ISchemaRule {
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+    const table = this.getLocalTable(ctx);
     return ok([dropConstraintStatement(table, this.constraintName)]);
   }
 }

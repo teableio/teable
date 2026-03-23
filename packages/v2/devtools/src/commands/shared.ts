@@ -21,6 +21,11 @@ export const tableIdOption = Options.text('table-id').pipe(Options.withDescripti
 export const fieldIdOption = Options.text('field-id').pipe(Options.withDescription('Field ID'));
 
 /**
+ * Rule ID option
+ */
+export const ruleIdOption = Options.text('rule-id').pipe(Options.withDescription('Rule ID'));
+
+/**
  * Base ID option
  */
 export const baseIdOption = Options.text('base-id').pipe(Options.withDescription('Base ID'));
@@ -58,6 +63,11 @@ export const recordIdOption = Options.text('record-id').pipe(Options.withDescrip
 export const analyzeOption = Options.boolean('analyze').pipe(
   Options.withDefault(false),
   Options.withDescription('Run EXPLAIN ANALYZE for actual execution stats')
+);
+
+export const dryRunOption = Options.boolean('dry-run').pipe(
+  Options.withDefault(false),
+  Options.withDescription('Plan the repair without executing database writes')
 );
 
 /**

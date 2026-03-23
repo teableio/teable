@@ -35,9 +35,54 @@ const createTwoWayOneManyLinkField = () => {
       split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
     }),
     selfKeyNameString: () => ok(`__fk_${SYMMETRIC_FIELD_ID}`),
+    foreignKeyNameString: () => ok(`__fk_${FIELD_ID}`),
     baseId: () => undefined,
     foreignTableId: () => ({ toString: () => FOREIGN_TABLE_ID }),
     orderColumnName: () => ok(`__fk_${SYMMETRIC_FIELD_ID}_order`),
+  };
+};
+
+const createManyOneLinkField = () => {
+  return {
+    id: () => ({ toString: () => FIELD_ID }),
+    type: () => ({
+      toString: () => 'link',
+      equals: () => true,
+    }),
+    computed: () => ({ toBoolean: () => false }),
+    relationship: () => ({ toString: () => 'manyOne' }),
+    isOneWay: () => false,
+    hasOrderColumn: () => false,
+    fkHostTableName: () => ({
+      split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
+    }),
+    selfKeyNameString: () => ok('__id'),
+    foreignKeyNameString: () => ok(`__fk_${FIELD_ID}`),
+    baseId: () => undefined,
+    foreignTableId: () => ({ toString: () => FOREIGN_TABLE_ID }),
+    orderColumnName: () => ok(`__fk_${FIELD_ID}_order`),
+  };
+};
+
+const createSymmetricOneOneLinkField = () => {
+  return {
+    id: () => ({ toString: () => SYMMETRIC_FIELD_ID }),
+    type: () => ({
+      toString: () => 'link',
+      equals: () => true,
+    }),
+    computed: () => ({ toBoolean: () => false }),
+    relationship: () => ({ toString: () => 'oneOne' }),
+    isOneWay: () => false,
+    hasOrderColumn: () => false,
+    fkHostTableName: () => ({
+      split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
+    }),
+    selfKeyNameString: () => ok(`__fk_${FIELD_ID}`),
+    foreignKeyNameString: () => ok('__id'),
+    baseId: () => undefined,
+    foreignTableId: () => ({ toString: () => HOST_TABLE_ID }),
+    orderColumnName: () => ok(`__fk_${FIELD_ID}_order`),
   };
 };
 
@@ -75,6 +120,7 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
 
     columnExists.mockResolvedValueOnce(ok(false));
     columnExists.mockResolvedValueOnce(ok(true));
+    columnExists.mockResolvedValueOnce(ok(true));
 
     const result = await (
       service as unknown as {
@@ -107,6 +153,13 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       FOREIGN_TABLE_DB_NAME,
       `__fk_${SYMMETRIC_FIELD_ID}`
     );
+    expect(columnExists).toHaveBeenNthCalledWith(
+      3,
+      expect.anything(),
+      BASE_ID,
+      FOREIGN_TABLE_DB_NAME,
+      `__fk_${FIELD_ID}`
+    );
   });
 
   it('skips oneMany link when self key is absent on both fkHost and foreign table', async () => {
@@ -135,5 +188,113 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     if (result.isOk()) {
       expect(result.value).toHaveLength(0);
     }
+  });
+
+  it('skips manyOne link when its foreign key column is missing on the host table', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const linkField = createManyOneLinkField();
+    const columnExists = vi.spyOn(service as any, 'columnExists') as any;
+
+    columnExists.mockResolvedValueOnce(ok(false));
+
+    const result = await (
+      service as unknown as {
+        collectBackfillFields: (
+          context: IExecutionContext,
+          input: { table: Table; fields: unknown[]; includeOneManyTwoWay?: boolean }
+        ) => Promise<any>;
+      }
+    ).collectBackfillFields({} as IExecutionContext, {
+      table,
+      fields: [linkField],
+      includeOneManyTwoWay: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(0);
+    }
+    expect(columnExists).toHaveBeenCalledWith(
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      `__fk_${FIELD_ID}`
+    );
+  });
+
+  it('skips symmetric oneOne link when its swapped join column is missing on the fk host', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const linkField = createSymmetricOneOneLinkField();
+    const columnExists = vi.spyOn(service as any, 'columnExists') as any;
+
+    columnExists.mockResolvedValueOnce(ok(false));
+
+    const result = await (
+      service as unknown as {
+        collectBackfillFields: (
+          context: IExecutionContext,
+          input: { table: Table; fields: unknown[]; includeOneManyTwoWay?: boolean }
+        ) => Promise<any>;
+      }
+    ).collectBackfillFields({} as IExecutionContext, {
+      table,
+      fields: [linkField],
+      includeOneManyTwoWay: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(0);
+    }
+    expect(columnExists).toHaveBeenCalledWith(
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      `__fk_${FIELD_ID}`
+    );
+  });
+
+  it('skips two-way oneMany link when its foreign key column is missing on the fk host', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const linkField = createTwoWayOneManyLinkField();
+    const columnExists = vi.spyOn(service as any, 'columnExists') as any;
+
+    columnExists.mockResolvedValueOnce(ok(true));
+    columnExists.mockResolvedValueOnce(ok(false));
+
+    const result = await (
+      service as unknown as {
+        collectBackfillFields: (
+          context: IExecutionContext,
+          input: { table: Table; fields: unknown[]; includeOneManyTwoWay?: boolean }
+        ) => Promise<any>;
+      }
+    ).collectBackfillFields({} as IExecutionContext, {
+      table,
+      fields: [linkField],
+      includeOneManyTwoWay: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(0);
+    }
+    expect(columnExists).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      `__fk_${SYMMETRIC_FIELD_ID}`
+    );
+    expect(columnExists).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      BASE_ID,
+      HOST_TABLE_ID,
+      `__fk_${FIELD_ID}`
+    );
   });
 });

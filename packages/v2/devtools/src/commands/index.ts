@@ -20,7 +20,7 @@ import {
 import { mockGenerate } from './mock';
 import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
-import { schemaTable, schemaField } from './schema';
+import { schemaTable, schemaField, schemaRepair } from './schema';
 import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
   underlyingTables,
@@ -73,7 +73,7 @@ export const records = Command.make('records').pipe(
 // schema subcommand group
 export const schema = Command.make('schema').pipe(
   Command.withDescription('Check database schema (indexes, constraints, columns)'),
-  Command.withSubcommands([schemaTable, schemaField])
+  Command.withSubcommands([schemaTable, schemaField, schemaRepair])
 );
 
 // tables subcommand group

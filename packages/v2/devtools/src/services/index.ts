@@ -6,6 +6,7 @@ export * from './ComputedTaskInspector';
 export * from './MockRecords';
 export * from './Output';
 export * from './SchemaChecker';
+export * from './SchemaRepairer';
 export * from './TableCreator';
 export * from './DotTeaImporter';
 export * from './RecordMutation';

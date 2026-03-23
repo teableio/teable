@@ -1,25 +1,26 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { checkBaseIntegrity, fixBaseIntegrity } from '@teable/openapi';
-import { useBase } from '@teable/sdk/hooks';
+import {
+  checkBaseIntegrity,
+  fixBaseIntegrity,
+  getV2SchemaIntegrityDecision,
+} from '@teable/openapi';
+import { useBase, useTables } from '@teable/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
-import { Loader2, Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
+import { IntegrityV2Dialog } from './IntegrityV2Dialog';
 
-export const IntegrityButton = () => {
-  const base = useBase();
-  const { t } = useTranslation(['table', 'common']);
-  const searchParams = useSearchParams();
-  const tableId = searchParams.get('tableId') ?? '';
-
+const LegacyIntegrityButton = ({ baseId, tableId }: { baseId: string; tableId: string }) => {
+  const { t } = useTranslation(['table']);
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['baseIntegrity', base.id],
-    queryFn: () => checkBaseIntegrity(base.id, tableId).then(({ data }) => data),
+    queryKey: ['baseIntegrity', baseId, tableId],
+    queryFn: () => checkBaseIntegrity(baseId, tableId).then(({ data }) => data),
     enabled: false,
   });
 
   const { mutateAsync: fixIntegrity } = useMutation({
-    mutationFn: () => fixBaseIntegrity(base.id, tableId),
+    mutationFn: () => fixBaseIntegrity(baseId, tableId),
     onSuccess: () => {
       refetch();
     },
@@ -42,12 +43,12 @@ export const IntegrityButton = () => {
           <div className="py-2">
             {data?.hasIssues ? (
               <>
-                {data?.linkFieldIssues?.[0]?.baseName && (
+                {data.linkFieldIssues?.[0]?.baseName ? (
                   <div className="mb-2 font-medium">{data.linkFieldIssues[0].baseName}</div>
-                )}
+                ) : null}
 
-                <div className="max-h-96  max-w-md overflow-y-auto">
-                  {data?.linkFieldIssues?.map((issues, index) => (
+                <div className="max-h-96 max-w-md overflow-y-auto">
+                  {data.linkFieldIssues?.map((issues, index) => (
                     <div key={index} className="mb-2 ml-4 text-sm">
                       {issues.issues.map((issue) => (
                         <div key={issue.type}>
@@ -65,7 +66,7 @@ export const IntegrityButton = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => fixIntegrity()} size="sm" className="mt-2">
+                  <Button size="sm" className="mt-2" onClick={() => fixIntegrity()}>
                     {t('table:table.integrity.fixIssues')}
                   </Button>
                 </div>
@@ -81,4 +82,42 @@ export const IntegrityButton = () => {
       </PopoverContent>
     </Popover>
   );
+};
+
+export const IntegrityButton = () => {
+  const base = useBase();
+  const tables = useTables();
+  const { t } = useTranslation(['table']);
+  const searchParams = useSearchParams();
+  const tableId = searchParams.get('tableId') ?? '';
+  const tableName = tables.find((table) => table.id === tableId)?.name;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['v2SchemaIntegrityDecision', base.id],
+    queryFn: () => getV2SchemaIntegrityDecision(base.id).then(({ data }) => data),
+    enabled: Boolean(base.id),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Button size="xs" variant="outline" disabled>
+        <Loader2 className="mr-2 size-4 animate-spin" />
+        {t('table:table.integrity.check')}
+      </Button>
+    );
+  }
+
+  if (data?.useV2) {
+    return (
+      <IntegrityV2Dialog
+        baseId={base.id}
+        baseName={base.name}
+        tableId={tableId || undefined}
+        tableName={tableName}
+      />
+    );
+  }
+
+  return <LegacyIntegrityButton baseId={base.id} tableId={tableId} />;
 };

@@ -26,8 +26,8 @@ export interface SchemaRuleContext {
   /** Logical table ID (used for references and metadata) */
   readonly tableId: string;
 
-  /** The field this rule applies to */
-  readonly field: Field;
+  /** The field this rule applies to, if the rule is field-scoped */
+  readonly field?: Field;
 
   /** Optional: The full table aggregate, for rules that need table-level info */
   readonly table?: Table;
@@ -50,7 +50,7 @@ export const createSchemaRuleContext = (params: {
   schema: string | null;
   tableName: string;
   tableId: string;
-  field: Field;
+  field?: Field;
   table?: Table;
   mode?: 'delete' | 'update';
 }): SchemaRuleContext => ({

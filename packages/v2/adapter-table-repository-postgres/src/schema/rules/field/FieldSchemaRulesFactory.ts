@@ -31,14 +31,17 @@ import type { Result } from 'neverthrow';
 import type { ISchemaRule } from '../core/ISchemaRule';
 import type { TableIdentifier } from '../helpers/StatementBuilders';
 import { ColumnExistsRule } from './ColumnExistsRule';
+import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
+import { GeneratedColumnMetaRule } from './GeneratedColumnMetaRule';
 import { GeneratedColumnRule } from './GeneratedColumnRule';
 import { IndexRule } from './IndexRule';
 import { JunctionTableExistsRule, type JunctionTableConfig } from './JunctionTableRule';
 import { LinkSymmetricFieldRule } from './LinkSymmetricFieldRule';
 import { LinkValueColumnRule } from './LinkValueColumnRule';
+import { NotNullConstraintRule } from './NotNullConstraintRule';
 import { OrderColumnRule } from './OrderColumnRule';
 import { ReferenceRule } from './ReferenceRule';
 import { UniqueIndexRule } from './UniqueIndexRule';
@@ -61,6 +64,48 @@ export interface FieldSchemaRulesContext {
 export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<ISchemaRule>> {
   constructor(private readonly ctx: FieldSchemaRulesContext) {
     super();
+  }
+
+  private createStoredGeneratedColumnRules(
+    field:
+      | CreatedTimeField
+      | LastModifiedTimeField
+      | CreatedByField
+      | LastModifiedByField
+      | AutoNumberField,
+    generatedRule: GeneratedColumnRule
+  ): ReadonlyArray<ISchemaRule> {
+    const columnRule = new ColumnExistsRule(field);
+    const generatedMetaRule = new GeneratedColumnMetaRule(field, generatedRule, columnRule);
+    const rules: ISchemaRule[] = [columnRule, generatedMetaRule];
+
+    if (columnRule.shouldHaveNotNull()) {
+      rules.push(new NotNullConstraintRule(field, generatedMetaRule));
+    }
+
+    if (columnRule.shouldHaveUnique()) {
+      rules.push(new ColumnUniqueConstraintRule(field, generatedMetaRule));
+    }
+
+    return rules;
+  }
+
+  private createGeneratedColumnAwareRules(
+    field:
+      | CreatedTimeField
+      | LastModifiedTimeField
+      | CreatedByField
+      | LastModifiedByField
+      | AutoNumberField,
+    generatedRule: GeneratedColumnRule
+  ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [generatedRule]
+          : this.createStoredGeneratedColumnRules(field, generatedRule)
+      );
   }
 
   visitSingleLineTextField(
@@ -133,25 +178,16 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return field
-      .isPersistedAsGeneratedColumn()
-      .map((shouldGenerate) =>
-        shouldGenerate
-          ? [GeneratedColumnRule.forCreatedTime(field)]
-          : ColumnExistsRule.createRulesFromField(field)
-      );
+    return this.createGeneratedColumnAwareRules(field, GeneratedColumnRule.forCreatedTime(field));
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return field
-      .isPersistedAsGeneratedColumn()
-      .map((shouldGenerate) =>
-        shouldGenerate
-          ? [GeneratedColumnRule.forLastModifiedTime(field)]
-          : ColumnExistsRule.createRulesFromField(field)
-      );
+    return this.createGeneratedColumnAwareRules(
+      field,
+      GeneratedColumnRule.forLastModifiedTime(field)
+    );
   }
 
   visitUserField(field: UserField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
@@ -159,35 +195,20 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   }
 
   visitCreatedByField(field: CreatedByField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return field
-      .isPersistedAsGeneratedColumn()
-      .map((shouldGenerate) =>
-        shouldGenerate
-          ? [GeneratedColumnRule.forCreatedBy(field)]
-          : ColumnExistsRule.createRulesFromField(field)
-      );
+    return this.createGeneratedColumnAwareRules(field, GeneratedColumnRule.forCreatedBy(field));
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return field
-      .isPersistedAsGeneratedColumn()
-      .map((shouldGenerate) =>
-        shouldGenerate
-          ? [GeneratedColumnRule.forLastModifiedBy(field)]
-          : ColumnExistsRule.createRulesFromField(field)
-      );
+    return this.createGeneratedColumnAwareRules(
+      field,
+      GeneratedColumnRule.forLastModifiedBy(field)
+    );
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return field
-      .isPersistedAsGeneratedColumn()
-      .map((shouldGenerate) =>
-        shouldGenerate
-          ? [GeneratedColumnRule.forAutoNumber(field)]
-          : ColumnExistsRule.createRulesFromField(field)
-      );
+    return this.createGeneratedColumnAwareRules(field, GeneratedColumnRule.forAutoNumber(field));
   }
 
   visitButtonField(field: ButtonField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
@@ -248,54 +269,56 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: junctionTableRuleId }));
         }
       } else {
-        // OneOne or regular OneMany: add FK columns to the host table
-        const isCurrentTableHost =
-          (fkHostTable.schema ?? null) === (ctx.schema ?? null) &&
-          (fkHostTable.tableName === ctx.tableName || fkHostTable.tableName === ctx.tableId);
+        // OneOne or regular OneMany: add FK columns to the host table.
+        const keyName =
+          relationship === 'oneMany'
+            ? yield* field.selfKeyNameString()
+            : yield* field.foreignKeyNameString();
+        const hasOrderColumn = field.hasOrderColumn();
+        const referencedTable = relationship === 'oneMany' ? currentTable : foreignTable;
+        const referencedTableName = relationship === 'oneMany' ? ctx.tableName : foreignTableId;
 
-        if (isCurrentTableHost) {
-          const keyName =
-            relationship === 'oneMany'
-              ? yield* field.selfKeyNameString()
-              : yield* field.foreignKeyNameString();
-          const hasOrderColumn = field.hasOrderColumn();
+        const fkColumnRule = FkColumnRule.forField(
+          field,
+          keyName,
+          referencedTableName,
+          fkHostTable
+        );
+        rules.push(fkColumnRule);
 
-          const fkColumnRule = FkColumnRule.forField(field, keyName, foreignTableId);
-          rules.push(fkColumnRule);
+        const indexRule =
+          relationship === 'oneOne'
+            ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one', fkHostTable)
+            : IndexRule.forFkColumn(field, keyName, fkColumnRule, fkHostTable);
+        rules.push(indexRule);
 
-          const indexRule =
-            relationship === 'oneOne'
-              ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one')
-              : IndexRule.forFkColumn(field, keyName, fkColumnRule);
-          rules.push(indexRule);
+        const onDelete = 'SET NULL';
 
-          const onDelete = 'SET NULL';
+        // FK constraint
+        rules.push(
+          ForeignKeyRule.forField(
+            field,
+            keyName,
+            referencedTable,
+            fkColumnRule,
+            referencedTableName,
+            onDelete,
+            fkHostTable
+          )
+        );
 
-          // FK constraint
-          rules.push(
-            ForeignKeyRule.forField(
-              field,
-              keyName,
-              foreignTable,
-              fkColumnRule,
-              foreignTableId,
-              onDelete
-            )
+        if (hasOrderColumn) {
+          const orderColumnName = yield* field.orderColumnName();
+          const orderRule = OrderColumnRule.forField(
+            field,
+            orderColumnName,
+            fkHostTable,
+            fkColumnRule
           );
+          rules.push(orderRule);
 
-          if (hasOrderColumn) {
-            const orderColumnName = yield* field.orderColumnName();
-            const orderRule = OrderColumnRule.forField(
-              field,
-              orderColumnName,
-              currentTable,
-              fkColumnRule
-            );
-            rules.push(orderRule);
-
-            // Field meta (depends on order column)
-            rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
-          }
+          // Field meta (depends on order column)
+          rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
         }
       }
 
@@ -313,12 +336,17 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
     // Lookup fields are computed fields that need their own column + references
     const linkFieldId = field.linkFieldId().toString();
     const lookupFieldId = field.lookupFieldId().toString();
-
-    return ok([
-      ...ColumnExistsRule.createRulesFromField(field),
+    const referenceRules: ISchemaRule[] = [
       ReferenceRule.single(field, lookupFieldId, { fieldType: 'lookup' }),
-      ReferenceRule.single(field, linkFieldId, { fieldType: 'lookup-link', required: false }),
-    ]);
+    ];
+
+    if (linkFieldId !== lookupFieldId) {
+      referenceRules.push(
+        ReferenceRule.single(field, linkFieldId, { fieldType: 'lookup-link', required: false })
+      );
+    }
+
+    return ok([...ColumnExistsRule.createRulesFromField(field), ...referenceRules]);
   }
 
   visitConditionalRollupField(

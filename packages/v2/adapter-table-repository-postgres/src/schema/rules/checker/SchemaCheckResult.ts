@@ -152,6 +152,8 @@ export const getRuleDescription = (ruleId: string): string => {
       return 'Reference records';
     case 'generated_column':
       return 'Generated column';
+    case 'generated_meta':
+      return 'Generated column state';
     case 'link_value_column':
       return 'Link value column';
     case 'order_column':
@@ -160,6 +162,16 @@ export const getRuleDescription = (ruleId: string): string => {
       return 'Field metadata';
     case 'symmetric_field':
       return 'Symmetric field relationship';
+    case 'system_column':
+      return 'System column';
+    case 'system_not_null':
+      return 'System NOT NULL constraint';
+    case 'system_unique':
+      return 'System UNIQUE index';
+    case 'system_primary_key':
+      return 'System primary key';
+    case 'system_default':
+      return 'System default expression';
     default:
       return ruleId;
   }

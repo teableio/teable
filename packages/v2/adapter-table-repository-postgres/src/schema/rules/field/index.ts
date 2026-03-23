@@ -9,6 +9,7 @@ export {
 } from './FieldSchemaRulesFactory';
 export { FkColumnRule } from './FkColumnRule';
 export { ForeignKeyRule } from './ForeignKeyRule';
+export { GeneratedColumnMetaRule } from './GeneratedColumnMetaRule';
 export { GeneratedColumnRule } from './GeneratedColumnRule';
 export { IndexRule } from './IndexRule';
 export {

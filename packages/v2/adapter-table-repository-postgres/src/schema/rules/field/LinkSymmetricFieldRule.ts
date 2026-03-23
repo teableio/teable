@@ -23,6 +23,7 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string> = [];
   readonly required = true;
+  readonly repairMode = 'manual' as const;
 
   private constructor(
     private readonly field: LinkField,

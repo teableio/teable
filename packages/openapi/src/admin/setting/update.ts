@@ -646,6 +646,7 @@ export const v2FeatureSchema = z.enum([
   'getRecords',
   'createTable',
   'restoreTable',
+  'schemaIntegrity',
   'createRecord',
   'formSubmit',
   'updateRecord',
