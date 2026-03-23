@@ -336,6 +336,123 @@ describe('duplicateField', () => {
     await ctx.deleteTable(table.id);
   });
 
+  it('keeps symmetric field names unique after converting a duplicated one-way link back to two-way', async () => {
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+
+    try {
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `DupLinkNameHost-${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `DupLinkNameForeign-${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      expect(foreignPrimaryFieldId).toBeTruthy();
+      if (!foreignPrimaryFieldId) return;
+
+      const hostTableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Customer',
+          options: {
+            foreignTableId: foreignTable.id,
+            relationship: 'manyMany',
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: false,
+          },
+        },
+      });
+
+      const originalField = hostTableWithLink.fields.find((field) => field.name === 'Customer');
+      expect(originalField).toBeTruthy();
+      if (!originalField) return;
+
+      const originalSymmetricFieldId = (originalField.options as { symmetricFieldId?: string })
+        .symmetricFieldId;
+      expect(originalSymmetricFieldId).toBeTruthy();
+      if (!originalSymmetricFieldId) return;
+
+      const duplicateResponse = await fetch(`${ctx.baseUrl}/tables/duplicateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: hostTable.id,
+          fieldId: originalField.id,
+          includeRecordValues: true,
+          newFieldName: 'Customer Copy',
+        }),
+      });
+
+      expect(duplicateResponse.status).toBe(200);
+      const duplicateRaw = await duplicateResponse.json();
+      const duplicateParsed = duplicateFieldOkResponseSchema.safeParse(duplicateRaw);
+      expect(duplicateParsed.success).toBe(true);
+      expect(duplicateParsed.success && duplicateParsed.data.ok).toBe(true);
+      if (!duplicateParsed.success || !duplicateParsed.data.ok) return;
+
+      const duplicatedFieldId = duplicateParsed.data.data.newFieldId;
+
+      const duplicatedTable = await ctx.getTableById(hostTable.id);
+      const duplicatedField = duplicatedTable.fields.find(
+        (field) => field.id === duplicatedFieldId
+      );
+      expect(duplicatedField?.type).toBe('link');
+      expect((duplicatedField?.options as { isOneWay?: boolean })?.isOneWay).toBe(true);
+
+      const updatedTable = await ctx.updateField({
+        tableId: hostTable.id,
+        fieldId: duplicatedFieldId,
+        field: {
+          options: {
+            foreignTableId: foreignTable.id,
+            relationship: 'manyMany',
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: false,
+          },
+        },
+      });
+
+      const updatedField = updatedTable.fields.find((field) => field.id === duplicatedFieldId);
+      const newSymmetricFieldId = (updatedField?.options as { symmetricFieldId?: string })
+        ?.symmetricFieldId;
+
+      expect(newSymmetricFieldId).toBeTruthy();
+      if (!newSymmetricFieldId) return;
+
+      const foreignTableAfter = await ctx.getTableById(foreignTable.id);
+      const originalSymmetricField = foreignTableAfter.fields.find(
+        (field) => field.id === originalSymmetricFieldId
+      );
+      const newSymmetricField = foreignTableAfter.fields.find(
+        (field) => field.id === newSymmetricFieldId
+      );
+
+      expect(originalSymmetricField?.name).toBeTruthy();
+      expect(newSymmetricField?.name).toBeTruthy();
+      expect(originalSymmetricField?.name).not.toBe(newSymmetricField?.name);
+      expect(new Set([originalSymmetricField?.name, newSymmetricField?.name]).size).toBe(2);
+    } finally {
+      if (hostTableId) {
+        await ctx.deleteTable(hostTableId);
+      }
+      if (foreignTableId) {
+        await ctx.deleteTable(foreignTableId);
+      }
+    }
+  });
+
   it('duplicates all field types with unique dbFieldName', async () => {
     let hostTableId: string | undefined;
     let foreignTableId: string | undefined;

@@ -36,6 +36,7 @@ import {
   initApp,
   createRecords,
   getRecords,
+  convertField,
 } from './utils/init-app';
 
 describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
@@ -597,6 +598,96 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     afterAll(async () => {
       await permanentDeleteTable(baseId, table.id);
       await permanentDeleteTable(baseId, subTable.id);
+    });
+
+    it('keeps symmetric field names unique after converting a duplicated one-way link back to two-way', async () => {
+      let sourceTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
+
+      try {
+        sourceTable = await createTable(baseId, {
+          name: 'dup_link_name_source',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText, isPrimary: true } as IFieldRo],
+        });
+
+        foreignTable = await createTable(baseId, {
+          name: 'dup_link_name_foreign',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText, isPrimary: true } as IFieldRo],
+        });
+
+        const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+        expect(foreignPrimaryFieldId).toBeDefined();
+        if (!foreignPrimaryFieldId) {
+          throw new Error('Missing foreign primary field');
+        }
+
+        const originalField = (
+          await createField(sourceTable.id, {
+            type: FieldType.Link,
+            name: 'Customer',
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: false,
+            },
+          })
+        ).data;
+
+        const originalSymmetricFieldId = (originalField.options as ILinkFieldOptions)
+          .symmetricFieldId;
+        expect(originalSymmetricFieldId).toBeDefined();
+        if (!originalSymmetricFieldId) {
+          throw new Error('Missing original symmetric field');
+        }
+
+        const duplicatedField = (
+          await duplicateField(sourceTable.id, originalField.id, {
+            name: 'Customer Copy',
+          })
+        ).data;
+
+        expect((duplicatedField.options as ILinkFieldOptions).isOneWay).toBe(true);
+        expect((duplicatedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+        const convertedField = await convertField(sourceTable.id, duplicatedField.id, {
+          type: FieldType.Link,
+          name: duplicatedField.name,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: false,
+          },
+        });
+
+        const convertedSymmetricFieldId = (convertedField.options as ILinkFieldOptions)
+          .symmetricFieldId;
+        expect(convertedSymmetricFieldId).toBeDefined();
+        if (!convertedSymmetricFieldId) {
+          throw new Error('Missing converted symmetric field');
+        }
+
+        const foreignFields = (await getFields(foreignTable.id)).data;
+        const originalSymmetricField = foreignFields.find(
+          (field) => field.id === originalSymmetricFieldId
+        );
+        const convertedSymmetricField = foreignFields.find(
+          (field) => field.id === convertedSymmetricFieldId
+        );
+
+        expect(originalSymmetricField?.name).toBeDefined();
+        expect(convertedSymmetricField?.name).toBeDefined();
+        expect(originalSymmetricField?.name).not.toBe(convertedSymmetricField?.name);
+        expect(new Set([originalSymmetricField?.name, convertedSymmetricField?.name]).size).toBe(2);
+      } finally {
+        if (sourceTable) {
+          await permanentDeleteTable(baseId, sourceTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
+        }
+      }
     });
   });
 

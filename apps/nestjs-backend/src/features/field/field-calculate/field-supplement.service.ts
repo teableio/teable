@@ -1906,7 +1906,7 @@ export class FieldSupplementService {
       select: { name: true, baseId: true },
     });
 
-    const fieldName = await this.uniqFieldName(tableId, tableName);
+    const fieldName = await this.uniqFieldName(field.options.foreignTableId, tableName);
 
     // lookup field id is the primary field of the table to which it is linked
     const { id: lookupFieldId } = await prisma.field.findFirstOrThrow({
