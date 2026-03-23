@@ -586,6 +586,7 @@
         "noModelFound": "Aucun modèle trouvé",
         "searchModel": "Rechercher un modèle...",
         "selectModel": "Sélectionner un modèle...",
+        "defaultModel": "{{name}} (Par défaut)",
         "input": "Entrée {{ratio}}",
         "output": "Sortie {{ratio}}",
         "inputOrOutputTip": "Le ratio représente le taux de change entre les crédits et les jetons, par exemple, \"1:1000\" signifie que 1 crédit ≈ 1000 jetons.<br></br>Remarque : chaque utilisation déduira au moins 1 crédit. Même si la consommation réelle est inférieure à 1 crédit, elle sera tout de même facturée comme 1 crédit.",

@@ -623,6 +623,7 @@
         "noModelFound": "No model found.",
         "searchModel": "Search model...",
         "selectModel": "Select model...",
+        "defaultModel": "{{name}} (Default)",
         "moreModels": "More Models",
         "noModelsAvailable": "No models available",
         "input": "Input {{ratio}}",

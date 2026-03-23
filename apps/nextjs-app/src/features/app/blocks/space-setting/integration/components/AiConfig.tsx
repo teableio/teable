@@ -77,6 +77,16 @@ export const AIConfig = (props: IAIConfigProps) => {
     return [...spaceModels, ...gatewayModels, ...instanceModelsFromSetting];
   }, [llmProviders, setting?.aiConfig?.gatewayModels, setting?.aiConfig?.llmProviders]);
 
+  const defaultModelPlaceholder = useMemo(() => {
+    const defaultModelKey = setting?.aiConfig?.chatModel?.lg;
+    if (!defaultModelKey) return t('admin.setting.ai.selectModel');
+    const defaultModel = models.find(
+      (m) => m.modelKey.toLowerCase() === defaultModelKey.toLowerCase()
+    );
+    const name = defaultModel?.label || parseModelKey(defaultModelKey).model;
+    return name ? t('admin.setting.ai.defaultModel', { name }) : t('admin.setting.ai.selectModel');
+  }, [setting?.aiConfig?.chatModel?.lg, models, t]);
+
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
     new Map()
@@ -239,9 +249,9 @@ export const AIConfig = (props: IAIConfigProps) => {
           needGroup={true}
           hideEmbeddingModel
           title={t('admin.setting.ai.modelPreferences')}
-          modelPlaceholder="Default"
+          modelPlaceholder={defaultModelPlaceholder}
           onReset={() => {
-            form.setValue('chatModel', undefined);
+            form.setValue('chatModel', null);
             onSubmit(form.getValues());
           }}
         />

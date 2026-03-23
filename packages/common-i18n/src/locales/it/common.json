@@ -586,6 +586,7 @@
         "noModelFound": "Nessun modello trovato.",
         "searchModel": "Cerca modello...",
         "selectModel": "Seleziona modello...",
+        "defaultModel": "{{name}} (Predefinito)",
         "input": "Input {{ratio}}",
         "output": "Output {{ratio}}",
         "inputOrOutputTip": "Il rapporto rappresenta il tasso di cambio tra crediti e token, ad esempio \"1:1000\" significa che 1 credito ≈ 1000 token.<br></br>Nota: ogni utilizzo dedurrà almeno 1 credito. Anche se il consumo effettivo è inferiore a 1 credito, verrà comunque addebitato come 1 credito.",

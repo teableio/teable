@@ -545,6 +545,7 @@
         "noModelFound": "Model bulunamadı",
         "searchModel": "Model ara...",
         "selectModel": "Model seç...",
+        "defaultModel": "{{name}} (Varsayılan)",
         "input": "Giriş {{ratio}}",
         "output": "Çıkış {{ratio}}",
         "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",

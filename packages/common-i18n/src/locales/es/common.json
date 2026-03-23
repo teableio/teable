@@ -584,6 +584,7 @@
         "noModelFound": "No se encuentra ningún modelo.",
         "searchModel": "Modelo de búsqueda ...",
         "selectModel": "Seleccionar modelo ...",
+        "defaultModel": "{{name}} (Predeterminado)",
         "input": "Aporte {{ratio}}",
         "output": "Producción {{ratio}}",
         "inputOrOutputTip": "La proporción representa la tasa de cambio entre créditos y tokens, por ejemplo, \"1:1000\" significa que 1 crédito ≈ 1000 tokens.<br></br>Nota: Cada uso deducirá al menos 1 crédito. Incluso si el consumo real es menos de 1 crédito, se le cobrará como 1 crédito.",

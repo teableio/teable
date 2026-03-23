@@ -623,6 +623,7 @@
         "noModelFound": "未找到模型",
         "searchModel": "搜索模型...",
         "selectModel": "选择模型...",
+        "defaultModel": "{{name}} (默认)",
         "moreModels": "更多模型",
         "noModelsAvailable": "暂无可用模型",
         "input": "输入 {{ratio}}",

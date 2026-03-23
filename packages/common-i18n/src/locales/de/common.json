@@ -581,6 +581,7 @@
         "noModelFound": "Kein Modell gefunden.",
         "searchModel": "Suche Modell...",
         "selectModel": "Wähle Modell...",
+        "defaultModel": "{{name}} (Standard)",
         "input": "Eingabe {{ratio}}",
         "output": "Ausgabe {{ratio}}",
         "inputOrOutputTip": "Das Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet.",

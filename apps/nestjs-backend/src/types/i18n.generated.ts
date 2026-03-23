@@ -818,6 +818,7 @@ export type I18nTranslations = {
                     "noModelFound": string;
                     "searchModel": string;
                     "selectModel": string;
+                    "defaultModel": string;
                     "input": string;
                     "output": string;
                     "inputOrOutputTip": string;
