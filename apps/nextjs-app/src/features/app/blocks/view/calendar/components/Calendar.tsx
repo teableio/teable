@@ -36,7 +36,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { EventListContainer } from '../components/EventListContainer';
 import { EventMenu } from '../components/EventMenu';
 import { useCalendar, useEventMenuStore } from '../hooks';
-import { getColorByConfig, getDateByTimezone, getEventTitle } from '../util';
+import { getColorByConfig, getDateByTimezone, getEventTitle, getPlainCellText } from '../util';
 
 const ADD_EVENT_BUTTON_CLASS_NAME = 'calendar-add-event-button';
 const MORE_LINK_TEXT_CLASS_NAME = 'calendar-custom-more-link-text';
@@ -236,7 +236,7 @@ export const Calendar = (props: ICalendarProps) => {
         return {
           id: r.id,
           title: getEventTitle(
-            titleField.cellValue2String(title) || t('sdk:common.unnamedRecord'),
+            getPlainCellText(titleField, title) || t('sdk:common.unnamedRecord'),
             start as string,
             startDateField
           ),

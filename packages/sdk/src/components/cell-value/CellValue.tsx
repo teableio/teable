@@ -14,7 +14,7 @@ import type {
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../model';
-import { isMarkdownShowAs, normalizeMarkdownValue } from '../editor/long-text/utils';
+import { isMarkdownShowAs, normalizeMarkdownValue, stripMarkdown } from '../editor/long-text/utils';
 import { CellAttachment } from './cell-attachment';
 import { CellButton } from './cell-button';
 import { CellCheckbox } from './cell-checkbox';
@@ -51,7 +51,11 @@ interface RenderContext {
 type RenderFn = (ctx: RenderContext) => JSX.Element;
 
 const normalizeLongTextPlainPreview = (value: string) =>
-  value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+  value
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const renderLongText: RenderFn = ({ value, className, plainLongText, options }) => {
   const isMarkdown = isMarkdownShowAs(options);
@@ -61,7 +65,8 @@ const renderLongText: RenderFn = ({ value, className, plainLongText, options }) 
   }
   const strValue = typeof value === 'string' ? value : '';
   if (plainLongText) {
-    const plainTextValue = strValue ? normalizeLongTextPlainPreview(strValue) : strValue;
+    const stripped = isMarkdown ? stripMarkdown(strValue) : strValue;
+    const plainTextValue = stripped ? normalizeLongTextPlainPreview(stripped) : stripped;
     return <CellText value={plainTextValue} className={className} ellipsis />;
   }
   return <CellText value={strValue} className={className} />;

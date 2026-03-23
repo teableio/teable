@@ -144,13 +144,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     initialSearchRef.current = '';
 
     requestAnimationFrame(() => {
-      if (isEditing) {
-        editorRef.current?.focus?.();
-        return;
-      }
       // Don't steal focus from dialogs/modals/sheets
       if (document.activeElement?.closest('[role="dialog"]')) return;
-      defaultFocusRef.current?.focus?.();
+      (editorRef.current || defaultFocusRef.current)?.focus?.();
     });
   }, [cellType, activeCell, selection, isEditing]);
 
@@ -285,17 +281,18 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         return null;
     }
   }, [
-    rect,
-    theme,
     readonly,
     enableReadonlyCustomEditor,
-    cellType,
     cellContent,
+    cellType,
+    onChange,
     columnIndex,
     realRowIndex,
+    rect,
+    theme,
     editorStyle,
     isEditing,
-    onChange,
+    isScrolling,
     setEditing,
   ]);
 

@@ -24,7 +24,7 @@ import type { IButtonClickStatusHook } from '../../../hooks';
 import { useFields, useTablePermission, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
-import { isMarkdownShowAs } from '../../editor/long-text/utils';
+import { isMarkdownShowAs, stripMarkdown } from '../../editor/long-text/utils';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
 import type { IGridTheme } from '../../grid/configs';
 import { GRID_DEFAULT } from '../../grid/configs';
@@ -40,35 +40,6 @@ import {
   expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
-
-const stripMarkdown = (text: string): string => {
-  return (
-    text
-      // Remove code blocks
-      .replace(/```[\s\S]*?```/g, (match) => match.replace(/```\w*\n?/g, '').trim())
-      // Remove inline code
-      .replace(/`([^`]+)`/g, '$1')
-      // Remove images
-      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-      // Remove links, keep text
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Remove headings
-      .replace(/^#{1,6}\s+/gm, '')
-      // Remove bold/italic
-      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-      .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
-      // Remove strikethrough
-      .replace(/~~([^~]+)~~/g, '$1')
-      // Remove blockquotes
-      .replace(/^>\s+/gm, '')
-      // Remove horizontal rules
-      .replace(/^[-*_]{3,}\s*$/gm, '')
-      // Remove unordered list markers
-      .replace(/^\s*[-*+]\s+/gm, '')
-      // Remove ordered list markers
-      .replace(/^\s*\d+\.\s+/gm, '')
-  );
-};
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 

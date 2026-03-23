@@ -37,6 +37,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     isScrolling,
     setEditing,
     readonlyExpandable,
+    initialSearch,
   } = props;
   const { t } = useTranslation();
   const { cellLineColorActived } = theme;
@@ -44,6 +45,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
   const isReadonly = Boolean(cell.readonly);
   const canExpandReadonly = Boolean(isReadonly && readonlyExpandable);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const fallbackFocusRef = useRef<HTMLInputElement>(null);
   const [editorValue, setEditorValue] = useState(() => normalizeMarkdownValue(cell.data));
   const latestValueRef = useRef(editorValue);
 
@@ -62,6 +64,10 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
 
   useImperativeHandle(ref, () => ({
     focus: () => {
+      if (!isEditing) {
+        fallbackFocusRef.current?.focus?.();
+        return;
+      }
       const target = wrapperRef.current?.querySelector<HTMLElement>(
         '.milkdown-editor-wrap [contenteditable="true"]'
       );
@@ -75,6 +81,10 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
       range.collapse(false);
       selection.removeAllRanges();
       selection.addRange(range);
+
+      if (initialSearch) {
+        document.execCommand('insertText', false, initialSearch);
+      }
 
       requestAnimationFrame(() => {
         const scrollContainer = wrapperRef.current?.querySelector('.milkdown-editor-wrap');
@@ -96,6 +106,10 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
       });
     },
     setValue: (value?: string | null) => {
+      // When entering edit mode via keyboard (value=null), keep existing content.
+      // Milkdown's useEditor re-creates the editor on value change (async),
+      // clearing would cause timing issues with focus and character insertion.
+      if (value === null || value === undefined) return;
       const next = normalizeMarkdownValue(value);
       latestValueRef.current = next;
       setEditorValue(next);
@@ -139,6 +153,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
         >
           <ExpandMarkdownEditor
             value={editorValue}
+            field={field}
             readonly={isReadonly}
             title={field.name}
             onExpandOpen={() => setEditing?.(false)}
@@ -157,6 +172,8 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
       )}
       <div
         ref={wrapperRef}
+        role="textbox"
+        tabIndex={-1}
         style={{
           ...style,
           ...attachStyle,
@@ -164,6 +181,13 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
           border: `2px solid ${cellLineColorActived}`,
         }}
         className="relative rounded-md bg-background"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            persistValue(latestValueRef.current);
+            setEditing?.(false);
+          }
+        }}
       >
         <div
           className={
@@ -185,6 +209,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
           />
         </div>
       </div>
+      <input className="absolute size-0 opacity-0" ref={fallbackFocusRef} />
     </>
   );
 };

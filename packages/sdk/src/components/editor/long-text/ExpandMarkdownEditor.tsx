@@ -1,13 +1,18 @@
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
-import { LongText, Maximize2 } from '@teable/icons';
-import { Dialog, DialogContent } from '@teable/ui-lib';
+import { FieldType, type ILongTextFieldOptions } from '@teable/core';
+import { DraggableHandle, Loader2, LongText, Maximize2 } from '@teable/icons';
+import { Popover, PopoverContent, PopoverTrigger, Switch, Label } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Field } from '../../../model';
 import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
 import { normalizeMarkdownValue } from './utils';
 
+type EditorMode = 'markdown' | 'text';
+
 interface IExpandMarkdownEditorProps {
   value: string | null;
+  field?: Field;
   onChange?: (value: string | null) => void;
   readonly?: boolean;
   title?: string;
@@ -67,9 +72,7 @@ const ExpandedEditorInner = ({
       });
     };
 
-    // Delay focus until after the dialog entrance animation (duration-200) completes,
-    // otherwise toolbar/tooltip positions are based on intermediate animation coordinates.
-    const timer = window.setTimeout(() => focusEditorToEnd(), 250);
+    const timer = window.setTimeout(() => focusEditorToEnd(), 100);
     return () => {
       clearTimeout(timer);
       if (retryTimer != null) {
@@ -95,72 +98,228 @@ const ExpandedEditorInner = ({
   );
 };
 
+const ExpandedTextEditorInner = ({
+  value,
+  onChange,
+  open,
+}: {
+  value: string;
+  onChange?: (value: string | null) => void;
+  open: boolean;
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const latestValueRef = useRef(value);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.selectionStart = el.selectionEnd = el.value.length;
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  const handleBlur = useCallback(() => {
+    const trimmed = latestValueRef.current.trim();
+    onChange?.(trimmed || null);
+  }, [onChange]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className="flex-1 resize-none bg-transparent text-sm outline-none"
+      defaultValue={value}
+      onChange={(e) => {
+        latestValueRef.current = e.target.value;
+      }}
+      onBlur={handleBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          (document.activeElement as HTMLElement)?.blur();
+        }
+      }}
+    />
+  );
+};
+
+const useDrag = (open: boolean) => {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const draggingRef = useRef(false);
+  const startRef = useRef({ x: 0, y: 0 });
+  const offsetRef = useRef({ x: 0, y: 0 });
+
+  // Reset offset when popover reopens
+  useEffect(() => {
+    if (open) {
+      setOffset({ x: 0, y: 0 });
+      offsetRef.current = { x: 0, y: 0 };
+    }
+  }, [open]);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    draggingRef.current = true;
+    startRef.current = { x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    const next = {
+      x: e.clientX - startRef.current.x,
+      y: e.clientY - startRef.current.y,
+    };
+    offsetRef.current = next;
+    setOffset(next);
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    draggingRef.current = false;
+  }, []);
+
+  return { offset, onPointerDown, onPointerMove, onPointerUp };
+};
+
 export const ExpandMarkdownEditor = ({
   value,
+  field,
   onChange,
   readonly,
   title,
   onExpandOpen,
 }: IExpandMarkdownEditorProps) => {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<EditorMode>('markdown');
+  const [converting, setConverting] = useState(false);
+  const { offset, onPointerDown, onPointerMove, onPointerUp } = useDrag(open);
 
   const handleOpenChange = (isOpen: boolean) => {
+    if (converting) return;
     setOpen(isOpen);
+    if (!isOpen) {
+      setMode('markdown');
+    }
+  };
+
+  const handleModeChange = async (checked: boolean) => {
+    const nextMode: EditorMode = checked ? 'markdown' : 'text';
+    if (!field) {
+      setMode(nextMode);
+      return;
+    }
+    setConverting(true);
+    try {
+      await field.convert({
+        type: FieldType.LongText,
+        options: (nextMode === 'markdown'
+          ? { showAs: { type: 'markdown' } }
+          : {}) as ILongTextFieldOptions,
+      });
+      setMode(nextMode);
+    } finally {
+      setConverting(false);
+    }
   };
 
   const normalized = normalizeMarkdownValue(value);
 
-  return (
-    <>
-      <button
-        type="button"
-        className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border/40 hover:bg-muted hover:text-foreground"
-        onClick={() => {
-          (document.activeElement as HTMLElement)?.blur();
-          onExpandOpen?.();
-          setOpen(true);
-        }}
-        title="Expand editor"
-      >
-        <Maximize2 className="size-3.5" />
-      </button>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent
-          className="click-outside-ignore flex h-[80vh] max-w-3xl flex-col"
-          overlayClassName="click-outside-ignore"
-          onKeyDown={(e) => e.stopPropagation()}
-          onCopy={(e) => e.stopPropagation()}
-          onPaste={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDownOutside={(e) => {
-            const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
-            if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
-              e.preventDefault();
-            }
-          }}
-          onFocusOutside={(e) => {
-            const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
-            if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <LongText className="size-4" />
-            <span>{title}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs">Markdown</span>
-          </div>
-          {readonly ? (
-            <div className="min-h-0 flex-1 overflow-auto text-sm">
-              <MarkdownReadonly value={normalized} />
-            </div>
+  const renderEditor = () => {
+    if (readonly) {
+      return (
+        <div className="min-h-0 flex-1 overflow-auto text-sm">
+          {mode === 'markdown' ? (
+            <MarkdownReadonly value={normalized} />
           ) : (
-            <MilkdownProvider>
-              <ExpandedEditorInner value={normalized} onChange={onChange} open={open} />
-            </MilkdownProvider>
+            <pre className="whitespace-pre-wrap break-words font-sans">{normalized}</pre>
           )}
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      );
+    }
+
+    if (mode === 'text') {
+      return <ExpandedTextEditorInner value={normalized} onChange={onChange} open={open} />;
+    }
+
+    return (
+      <MilkdownProvider>
+        <ExpandedEditorInner value={normalized} onChange={onChange} open={open} />
+      </MilkdownProvider>
+    );
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border/40 hover:bg-muted hover:text-foreground"
+          onClick={() => {
+            (document.activeElement as HTMLElement)?.blur();
+            onExpandOpen?.();
+            setOpen(true);
+          }}
+          title="Expand editor"
+        >
+          <Maximize2 className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="start"
+        className="click-outside-ignore flex h-[400px] w-[560px] flex-col p-3"
+        style={{ translate: `${offset.x}px ${offset.y}px` }}
+        onKeyDown={(e) => e.stopPropagation()}
+        onCopy={(e) => e.stopPropagation()}
+        onPaste={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDownOutside={(e) => {
+          const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
+          if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
+            e.preventDefault();
+          }
+        }}
+        onFocusOutside={(e) => {
+          const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
+          if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
+            e.preventDefault();
+          }
+        }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div
+          className="flex cursor-grab items-center gap-1.5 text-sm text-muted-foreground active:cursor-grabbing"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          <DraggableHandle className="size-4 shrink-0 opacity-50" />
+          <LongText className="size-4 shrink-0" />
+          <span className="truncate">{title}</span>
+          <span className="ml-auto" />
+          <div
+            className="flex cursor-default items-center gap-1.5"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {converting && <Loader2 className="size-3.5 animate-spin" />}
+            <Label
+              htmlFor="expand-md-switch"
+              className="cursor-pointer text-xs font-normal text-muted-foreground"
+            >
+              Markdown
+            </Label>
+            <Switch
+              id="expand-md-switch"
+              size="sm"
+              checked={mode === 'markdown'}
+              disabled={converting}
+              onCheckedChange={handleModeChange}
+            />
+          </div>
+        </div>
+        {renderEditor()}
+      </PopoverContent>
+    </Popover>
   );
 };

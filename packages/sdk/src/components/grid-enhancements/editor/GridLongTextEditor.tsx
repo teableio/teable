@@ -24,7 +24,7 @@ const GridLongTextEditorBase: ForwardRefRenderFunction<
 
   return (
     <>
-      {!isScrolling && !isReadonly && (
+      {!isScrolling && !isReadonly && isEditing && (
         <div
           className="pointer-events-auto absolute right-1 top-1 z-10"
           style={{ marginRight: -2, marginTop: -2 }}

@@ -5,6 +5,7 @@ import {
   prosePluginsCtx,
   rootCtx,
 } from '@milkdown/core';
+import { clipboard } from '@milkdown/plugin-clipboard';
 import { history } from '@milkdown/plugin-history';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { commonmark } from '@milkdown/preset-commonmark';
@@ -12,9 +13,11 @@ import { gfm } from '@milkdown/preset-gfm';
 import type { MutableRefObject } from 'react';
 import { exitCodeBlockPlugin } from './milkdown-exit-code-plugin';
 import { createLinkClickPlugin } from './milkdown-link-click-plugin';
+import { createMarkdownPastePlugin } from './milkdown-markdown-paste-plugin';
 import { noImagePastePlugin } from './milkdown-no-image-plugin';
 import { createSelectionToolbarPlugin } from './milkdown-selection-toolbar-plugin';
 import { createFloatingToolbarPlugin } from './milkdown-toolbar-plugin';
+import { sanitizeMarkdownBreaks } from './utils';
 
 export interface IMilkdownEditorOptions {
   value: string;
@@ -45,8 +48,9 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
       });
     } else {
       ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-        latestValueRef && (latestValueRef.current = markdown);
-        onMarkdownUpdated?.(markdown);
+        const clean = sanitizeMarkdownBreaks(markdown);
+        latestValueRef && (latestValueRef.current = clean);
+        onMarkdownUpdated?.(clean);
       });
     }
 
@@ -57,6 +61,7 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
       ...(readonly
         ? []
         : [
+            createMarkdownPastePlugin(ctx),
             noImagePastePlugin,
             createFloatingToolbarPlugin(),
             createSelectionToolbarPlugin(
@@ -68,7 +73,7 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
 
   editor.use(commonmark).use(gfm);
   if (!readonly) {
-    editor.use(history).use(listener);
+    editor.use(clipboard).use(history).use(listener);
   }
 
   return editor;

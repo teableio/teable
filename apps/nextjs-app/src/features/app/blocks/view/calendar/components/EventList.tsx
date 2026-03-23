@@ -6,7 +6,7 @@ import { Skeleton } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useCalendar } from '../hooks';
-import { getEventTitle } from '../util';
+import { getEventTitle, getPlainCellText } from '../util';
 
 interface IEventListProps {
   query?: IQueryBaseRo;
@@ -35,7 +35,7 @@ export const EventList = (props: IEventListProps) => {
         const title = record.fields[titleField.id];
         const start = record.fields[startDateField.id];
         const displayTitle = getEventTitle(
-          titleField.cellValue2String(title) || t('sdk:common.unnamedRecord'),
+          getPlainCellText(titleField, title) || t('sdk:common.unnamedRecord'),
           start as string,
           startDateField
         );

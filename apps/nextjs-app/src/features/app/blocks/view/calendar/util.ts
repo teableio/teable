@@ -1,7 +1,7 @@
 import type { IColorConfig } from '@teable/core';
 import { ColorConfigType, TimeFormatting } from '@teable/core';
-import { getColorPairs } from '@teable/sdk/components';
-import type { DateField, Record, SingleSelectField } from '@teable/sdk/model';
+import { getColorPairs, isMarkdownShowAs, stripMarkdown } from '@teable/sdk/components';
+import type { DateField, IFieldInstance, Record, SingleSelectField } from '@teable/sdk/model';
 import { set } from 'date-fns';
 import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { DEFAULT_COLOR } from './components/CalendarConfig';
@@ -23,6 +23,11 @@ export const getColorByConfig = (
     return getColorPairs(DEFAULT_COLOR);
   }
   return getColorPairs(color ?? DEFAULT_COLOR);
+};
+
+export const getPlainCellText = (field: IFieldInstance, cellValue: unknown): string => {
+  const str = field.cellValue2String(cellValue);
+  return isMarkdownShowAs(field.options) ? stripMarkdown(str) : str;
 };
 
 export const getEventTitle = (title: string, startDate: string | null, dateField: DateField) => {
