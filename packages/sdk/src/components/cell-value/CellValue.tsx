@@ -110,12 +110,13 @@ const renderSelect: RenderFn = ({ value, className, ellipsis, itemClassName, opt
   />
 );
 
-const renderUser: RenderFn = ({ value, className, itemClassName, formatImageUrl }) => (
+const renderUser: RenderFn = ({ value, className, itemClassName, formatImageUrl, ellipsis }) => (
   <CellUser
     value={value as IUserCellValue | IUserCellValue[]}
     className={className}
     itemClassName={itemClassName}
     formatImageUrl={formatImageUrl}
+    ellipsis={ellipsis}
   />
 );
 
@@ -208,11 +209,12 @@ const renderFormulaLike: RenderFn = ({ value, className, ellipsis, options, fiel
   );
 };
 
-const renderLink: RenderFn = ({ value, className, itemClassName }) => (
+const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis }) => (
   <CellLink
     value={value as ILinkCellValue | ILinkCellValue[]}
     className={className}
     itemClassName={itemClassName}
+    ellipsis={ellipsis}
   />
 );
 

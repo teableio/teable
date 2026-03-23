@@ -74,6 +74,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         accessorKey: 'createdTime',
         header: t('expandRecord.recordHistory.createdTime'),
         size: 128,
+        minSize: 128,
         cell: ({ row }) => {
           const createdTime = row.getValue<string>('createdTime');
           const createdDate = dayjs(createdTime);
@@ -89,6 +90,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         accessorKey: 'createdBy',
         header: t('expandRecord.recordHistory.createdBy'),
         size: 120,
+        minSize: 120,
         cell: ({ row }) => {
           const createdBy = row.getValue<string>('createdBy');
           const user = userMap[createdBy];
@@ -121,6 +123,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         accessorKey: 'field',
         header: t('noun.field'),
         size: 116,
+        minSize: 116,
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const { name: fieldName, type: fieldType } = after.meta;
@@ -149,7 +152,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(before.meta.type);
           const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
-            <div className="group relative w-full">
+            <div className="group relative w-full min-w-0">
               {cellValue != null ? (
                 <Fragment>
                   <div className="line-clamp-6">
@@ -178,11 +181,12 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'arrow',
         header: '',
-        size: 40,
+        size: 24,
+        minSize: 24,
         cell: () => {
           return (
-            <div className="flex w-full justify-center">
-              <ArrowRight className="text-muted-foreground" />
+            <div className="-mx-4 flex w-[calc(100%+2rem)] justify-center">
+              <ArrowRight className="text-muted-foreground size-4 shrink-0" />
             </div>
           );
         },
@@ -199,7 +203,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(after.meta.type);
           const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
-            <div className="group relative w-full">
+            <div className="group relative w-full min-w-0">
               {cellValue != null ? (
                 <Fragment>
                   <div className="line-clamp-6">
@@ -264,7 +268,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
     <InfiniteTable
       rows={allRows}
       columns={columns}
-      className="sm:overflow-x-hidden"
+      className="sm:overflow-x-hidden [&_table]:table-fixed [&_tr]:min-w-0"
       fetchNextPage={fetchNextPageInner}
     />
   );
