@@ -91,8 +91,11 @@ const normalizeForKey = (value: any): any => {
   return value;
 };
 
+const makeQueryScopeKey = (collection: string, queryParams: unknown) =>
+  `${collection}|${JSON.stringify(normalizeForKey(queryParams))}`;
+
 const makeQueryKey = (collection: string, queryParams: unknown, refreshToken = 0) =>
-  `${collection}|${JSON.stringify(normalizeForKey(queryParams))}|refresh:${refreshToken}`;
+  `${makeQueryScopeKey(collection, queryParams)}|refresh:${refreshToken}`;
 
 const acquireQuery = <T>(
   collection: string,
@@ -124,9 +127,12 @@ const releaseQuery = (key?: string, cb?: () => void) => {
   cb?.();
 };
 
-const getRecordCollectionTableId = (collection: string): string | undefined => {
+const getSchemaRefreshCollectionTableId = (collection: string): string | undefined => {
   const [prefix, tableId] = collection.split('_');
-  if (prefix !== IdPrefix.Record || !tableId) {
+  if (
+    (prefix !== IdPrefix.Record && prefix !== IdPrefix.Field && prefix !== IdPrefix.View) ||
+    !tableId
+  ) {
     return undefined;
   }
   return tableId;
@@ -201,10 +207,12 @@ export function useInstances<T, R extends { id: string }>({
   initData,
 }: IUseInstancesProps<T, R>): IInstanceState<R> {
   const { connection, connected } = useConnection();
-  const recordCollectionTableId = getRecordCollectionTableId(collection);
+  const schemaRefreshCollectionTableId = getSchemaRefreshCollectionTableId(collection);
   const [query, setQuery] = useState<Query<T>>();
   const [schemaRefreshToken, setSchemaRefreshToken] = useState(0);
   const currentKeyRef = useRef<string>();
+  const currentScopeKeyRef = useRef<string>();
+  const shouldClearInstancesOnQueryCleanupRef = useRef(true);
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
       instanceReducer(state, action, factory),
@@ -218,12 +226,12 @@ export function useInstances<T, R extends { id: string }>({
   const lastConnectionRef = useRef<typeof connection>();
 
   useEffect(() => {
-    if (!connection || !recordCollectionTableId) {
+    if (!connection || !schemaRefreshCollectionTableId) {
       return;
     }
 
     const presence: Presence = connection.getPresence(
-      getActionTriggerChannel(recordCollectionTableId)
+      getActionTriggerChannel(schemaRefreshCollectionTableId)
     );
     if (!presence.subscribed) {
       presence.subscribe((error) => {
@@ -234,7 +242,7 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const receiveListener = (_id: string, batch: unknown) => {
-      if (!isSchemaRefreshAction(recordCollectionTableId, batch)) {
+      if (!isSchemaRefreshAction(schemaRefreshCollectionTableId, batch)) {
         return;
       }
       setSchemaRefreshToken((current) => current + 1);
@@ -249,7 +257,7 @@ export function useInstances<T, R extends { id: string }>({
         presence.destroy();
       }
     };
-  }, [connection, recordCollectionTableId]);
+  }, [connection, schemaRefreshCollectionTableId]);
 
   const handleReady = useCallback((query: Query<T>) => {
     console.log(
@@ -315,12 +323,15 @@ export function useInstances<T, R extends { id: string }>({
 
   useEffect(() => {
     if (!collection || !connection) {
+      shouldClearInstancesOnQueryCleanupRef.current = true;
+      currentScopeKeyRef.current = undefined;
       setQuery(undefined);
       return;
     }
 
     // Compute normalized key and short-circuit if unchanged and connection didn't change
     const nextKey = makeQueryKey(collection, queryParams, schemaRefreshToken);
+    const nextScopeKey = makeQueryScopeKey(collection, queryParams);
     const connectionChanged = lastConnectionRef.current !== connection;
     if (!connectionChanged && currentKeyRef.current === nextKey && preQueryRef.current) {
       // Ensure state holds the existing query instance without re-acquiring
@@ -329,12 +340,16 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const previousKey = currentKeyRef.current;
+    const previousScopeKey = currentScopeKeyRef.current;
+    shouldClearInstancesOnQueryCleanupRef.current =
+      connectionChanged || previousScopeKey !== nextScopeKey;
     if (previousKey && (connectionChanged || previousKey !== nextKey)) {
       releaseQuery(previousKey, () => opListeners.current.clear());
     }
 
     const { key, query } = acquireQuery<T>(collection, connection, queryParams, schemaRefreshToken);
     currentKeyRef.current = key;
+    currentScopeKeyRef.current = nextScopeKey;
     preQueryRef.current = query as Query<T>;
     lastConnectionRef.current = connection;
     setQuery(query as Query<T>);
@@ -349,8 +364,10 @@ export function useInstances<T, R extends { id: string }>({
       if (!hasQuery) {
         return;
       }
-      // for easy component refresh clean data when switch & loading
-      dispatch({ type: 'clear' });
+      // Preserve current instances during same-scope schema refreshes so grids do not flash blank.
+      if (shouldClearInstancesOnQueryCleanupRef.current) {
+        dispatch({ type: 'clear' });
+      }
       // release cached query on unmount or when switching queries
       releaseQuery(keyAtMount, () => listeners.clear());
     };

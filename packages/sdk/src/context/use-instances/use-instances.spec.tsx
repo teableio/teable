@@ -349,6 +349,166 @@ describe('useInstances hook', () => {
     expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('recreates field queries on schema-driven setField presence with fieldIds', () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'fld_tblSchemaRefresh07',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh07',
+            field: {
+              id: 'fldSchemaRefresh07',
+            },
+            fieldIds: ['fldSchemaRefresh07'],
+          },
+        },
+      ]);
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves field instances during schema refresh until the replacement query is ready', async () => {
+    const presenceController = createMockPresence();
+    const staleDoc = createMockDoc({
+      data: { id: 'fldOld', name: 'Old Field' },
+      collection: 'fld_tblSchemaRefresh09',
+      id: 'fldOld',
+    });
+    const freshDoc = createMockDoc({
+      data: { id: 'fldNew', name: 'New Field' },
+      collection: 'fld_tblSchemaRefresh09',
+      id: 'fldNew',
+    });
+    const queryListeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const createQuery = (results: any[], ready: boolean) =>
+      ({
+        collection: 'fld_tblSchemaRefresh09',
+        query: {},
+        results,
+        ready,
+        sent: true,
+        on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+          const listeners = queryListeners.get(event) ?? [];
+          listeners.push(cb);
+          queryListeners.set(event, listeners);
+        }),
+        once: vi.fn(),
+        removeAllListeners: vi.fn(),
+        removeListener: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+          const listeners = queryListeners.get(event) ?? [];
+          queryListeners.set(
+            event,
+            listeners.filter((listener) => listener !== cb)
+          );
+        }),
+        destroy: vi.fn((cb?: () => void) => cb?.()),
+      }) as unknown as Query<any>;
+
+    const queries = [createQuery([staleDoc], true), createQuery([freshDoc], false)];
+    const createSubscribeQuery = vi.fn(() => queries.shift() as Query<any>);
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => presenceController.presence),
+    } as any;
+
+    const { result } = renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'fld_tblSchemaRefresh09',
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(result.current.instances[0]?.doc).toBe(staleDoc);
+
+    await act(async () => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh09',
+            field: {
+              id: 'fldSchemaRefresh09',
+            },
+            fieldIds: ['fldSchemaRefresh09'],
+          },
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+    expect(result.current.instances[0]?.doc).toBe(staleDoc);
+
+    act(() => {
+      const readyListeners = queryListeners.get('ready') ?? [];
+      readyListeners.forEach((listener) => listener());
+    });
+
+    expect(result.current.instances[0]?.doc).toBe(freshDoc);
+  });
+
+  it('recreates view queries on schema-driven setField presence with fieldIds', () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'viw_tblSchemaRefresh08',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh08',
+            field: {
+              id: 'fldSchemaRefresh08',
+            },
+            fieldIds: ['fldSchemaRefresh08'],
+          },
+        },
+      ]);
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+  });
+
   it('recreates record queries on schema-driven setField presence with updatedProperties', () => {
     const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
       createMockConnection({

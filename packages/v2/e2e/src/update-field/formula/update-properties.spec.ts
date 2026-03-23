@@ -6,6 +6,8 @@
  * - Formatting affects display only
  * - Type conversions FROM formula not supported
  */
+import { duplicateFieldOkResponseSchema } from '@teable/v2-contract-http';
+import { NumberFormattingType } from '@teable/v2-core';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
@@ -678,6 +680,146 @@ describe('update-field: formula property updates', () => {
       if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
     }
   });
+
+  test.each([
+    {
+      label: 'currency',
+      formatting: { type: NumberFormattingType.Currency, precision: 2, symbol: 'USD' },
+    },
+    {
+      label: 'percent',
+      formatting: { type: NumberFormattingType.Percent, precision: 2 },
+    },
+  ])(
+    '[V1 PARITY] should preserve duplicated SUM formula values when switching formatting to $label',
+    async ({ formatting }) => {
+      let tableId: string | undefined;
+      try {
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: `v2-formula-duplicate-sum-format-${Date.now()}`,
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        });
+        tableId = table.id;
+        const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id;
+        if (!primaryFieldId) throw new Error('Primary field not found');
+
+        const withNum1 = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId,
+          field: { type: 'number', name: 'num1' },
+        });
+        const num1Field = withNum1.fields.find((f) => f.name === 'num1');
+        if (!num1Field) throw new Error('num1 field not found');
+
+        const withNum2 = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId,
+          field: { type: 'number', name: 'num2' },
+        });
+        const num2Field = withNum2.fields.find((f) => f.name === 'num2');
+        if (!num2Field) throw new Error('num2 field not found');
+
+        const expression = `SUM({${num1Field.id}}, {${num2Field.id}})`;
+        const withFormula = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId,
+          field: {
+            type: 'formula',
+            name: 'SUM Number',
+            options: {
+              expression,
+              formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+            },
+          },
+        });
+        const formulaField = withFormula.fields.find((f) => f.name === 'SUM Number');
+        if (!formulaField) throw new Error('Formula field not found');
+
+        const createdRecords = await ctx.createRecords(tableId, [
+          { fields: { [primaryFieldId]: 'r1', [num1Field.id]: 1, [num2Field.id]: 1 } },
+          { fields: { [primaryFieldId]: 'r2', [num1Field.id]: 2, [num2Field.id]: 3 } },
+          { fields: { [primaryFieldId]: 'r3', [num1Field.id]: 5, [num2Field.id]: 15 } },
+        ]);
+        await ctx.drainOutbox();
+
+        const sourceRecords = await ctx.listRecords(tableId);
+        expect(
+          createdRecords.map(
+            (record) => sourceRecords.find((item) => item.id === record.id)?.fields[formulaField.id]
+          )
+        ).toEqual([2, 5, 20]);
+
+        const duplicateResponse = await fetch(`${ctx.baseUrl}/tables/duplicateField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId,
+            fieldId: formulaField.id,
+            includeRecordValues: true,
+            newFieldName: 'SUM Number Copy',
+          }),
+        });
+
+        expect(duplicateResponse.status).toBe(200);
+        const duplicateRaw = await duplicateResponse.json();
+        const duplicateParsed = duplicateFieldOkResponseSchema.safeParse(duplicateRaw);
+        expect(duplicateParsed.success).toBe(true);
+        if (!duplicateParsed.success || !duplicateParsed.data.ok) {
+          throw new Error('Failed to duplicate formula field');
+        }
+        const duplicatedFieldId = duplicateParsed.data.data.newFieldId;
+        await ctx.drainOutbox();
+
+        const beforeFormattingUpdate = await ctx.listRecords(tableId);
+        expect(
+          createdRecords.map(
+            (record) =>
+              beforeFormattingUpdate.find((item) => item.id === record.id)?.fields[
+                duplicatedFieldId
+              ]
+          )
+        ).toEqual([2, 5, 20]);
+
+        const updatedTable = await ctx.updateField({
+          tableId,
+          fieldId: duplicatedFieldId,
+          field: {
+            type: 'formula',
+            options: {
+              formatting,
+            },
+          },
+        });
+        await ctx.drainOutbox();
+
+        const updatedField = updatedTable.fields.find((f) => f.id === duplicatedFieldId);
+        const updatedOptions = updatedField?.options as
+          | {
+              expression?: string;
+              formatting?: { type?: string; precision?: number; symbol?: string };
+            }
+          | undefined;
+        expect(updatedOptions?.expression).toBe(expression);
+        expect(updatedOptions?.formatting).toMatchObject(formatting);
+
+        const recordsAfterFormattingUpdate = await ctx.listRecords(tableId);
+        expect(
+          createdRecords.map(
+            (record) =>
+              recordsAfterFormattingUpdate.find((item) => item.id === record.id)?.fields[
+                duplicatedFieldId
+              ]
+          )
+        ).toEqual([2, 5, 20]);
+      } finally {
+        if (tableId) {
+          await ctx.deleteTable(tableId).catch(() => undefined);
+        }
+      }
+    }
+  );
 
   test('should update dateTime formatting', async () => {
     let tableId: string | undefined;
