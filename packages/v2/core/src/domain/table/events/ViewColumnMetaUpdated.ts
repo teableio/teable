@@ -14,7 +14,9 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     tableId: TableId,
     baseId: BaseId,
     readonly viewId: ViewId,
-    readonly fieldId: FieldId
+    readonly fieldId: FieldId,
+    readonly oldVersion?: number,
+    readonly newVersion?: number
   ) {
     super(tableId, baseId);
   }
@@ -24,7 +26,16 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     baseId: BaseId;
     viewId: ViewId;
     fieldId: FieldId;
+    oldVersion?: number;
+    newVersion?: number;
   }): ViewColumnMetaUpdated {
-    return new ViewColumnMetaUpdated(params.tableId, params.baseId, params.viewId, params.fieldId);
+    return new ViewColumnMetaUpdated(
+      params.tableId,
+      params.baseId,
+      params.viewId,
+      params.fieldId,
+      params.oldVersion,
+      params.newVersion
+    );
   }
 }

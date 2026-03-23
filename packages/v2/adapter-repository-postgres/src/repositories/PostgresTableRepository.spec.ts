@@ -54,7 +54,9 @@ import {
   TableName,
   TableByNameSpec,
   TableUpdateFieldNameSpec,
+  TableUpdateViewColumnMetaSpec,
   TableSortKey,
+  ViewColumnMeta,
   createSingleSelectField,
   v2CoreTokens,
   domainError,
@@ -1985,6 +1987,102 @@ describe('PostgresTableRepository (pg)', () => {
 
       expect(row?.name).toBe('Title v3');
       expect(row?.version).toBe(3);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('increments view version on view column meta updates', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'View Version Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'View Version Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('View Version Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+
+      const inserted = (await repo.insert(context, table))._unsafeUnwrap();
+      const view = inserted.views()[0];
+      expect(view).toBeDefined();
+      if (!view) return;
+
+      const fieldId = inserted.primaryFieldId();
+      const fieldKey = fieldId.toString();
+      const currentMeta = view.columnMeta()._unsafeUnwrap().toDto();
+      const nextMeta = ViewColumnMeta.create({
+        ...currentMeta,
+        [fieldKey]: {
+          ...(currentMeta[fieldKey] ?? {}),
+          width: 320,
+        },
+      })._unsafeUnwrap();
+
+      const persistResult = (
+        await repo.updateOne(
+          context,
+          inserted,
+          TableUpdateViewColumnMetaSpec.create([
+            {
+              viewId: view.id(),
+              fieldId,
+              columnMeta: nextMeta,
+            },
+          ])
+        )
+      )._unsafeUnwrap();
+
+      expect(persistResult).toEqual({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 1,
+            newVersion: 2,
+          },
+        ],
+      });
+
+      const row = await db
+        .selectFrom('view')
+        .select(['version', 'column_meta'])
+        .where('id', '=', view.id().toString())
+        .executeTakeFirst();
+
+      expect(row?.version).toBe(2);
+      expect(row?.column_meta).toContain('"width":320');
     } finally {
       await db.destroy();
     }

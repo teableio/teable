@@ -7,12 +7,15 @@ import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
+import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
+import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
@@ -210,6 +213,65 @@ describe('TableUpdateFlow', () => {
 
     expect(result.isOk()).toBe(true);
     expect(order).toEqual(['schema-update', 'after-persist', 'deferred-task']);
+  });
+
+  it('attaches persisted view versions to view column meta events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: table.views()[0]!.id().toString(),
+            oldVersion: 3,
+            newVersion: 4,
+          },
+        ],
+      });
+
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const view = table.views()[0]!;
+    const fieldId = table.primaryFieldId();
+    const fieldKey = fieldId.toString();
+    const currentMeta = view.columnMeta()._unsafeUnwrap().toDto();
+    const nextMeta = ViewColumnMeta.create({
+      ...currentMeta,
+      [fieldKey]: {
+        ...(currentMeta[fieldKey] ?? {}),
+        hidden: true,
+      },
+    })._unsafeUnwrap();
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) =>
+        mutator.applySpecs([
+          TableUpdateViewColumnMetaSpec.create([
+            {
+              viewId: view.id(),
+              fieldId,
+              columnMeta: nextMeta,
+            },
+          ]),
+        ])
+      )
+    );
+
+    const payload = result._unsafeUnwrap();
+    const viewEvent = payload.events.find(
+      (event): event is ViewColumnMetaUpdated => event instanceof ViewColumnMetaUpdated
+    );
+
+    expect(viewEvent).toBeDefined();
+    expect(viewEvent?.oldVersion).toBe(3);
+    expect(viewEvent?.newVersion).toBe(4);
+    expect(eventBus.published.some((event) => event instanceof ViewColumnMetaUpdated)).toBe(true);
   });
 
   it('lets deferred tasks observe the latest table state in the transaction scope', async () => {

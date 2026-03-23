@@ -20,11 +20,15 @@ import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { LookupField } from '../domain/table/fields/types/LookupField';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
+import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { Table } from '../domain/table/Table';
 import { TABLE_FIELD_LIMIT_ERROR_CODE } from '../domain/table/TableFieldLimit';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
+import { ViewName } from '../domain/table/views/ViewName';
+import { ViewColumnMetaUpdated } from '../domain/table/events/ViewColumnMetaUpdated';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
@@ -174,11 +178,15 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 }
 
 class FakeEventBus implements IEventBus {
+  published: IDomainEvent[] = [];
+
   async publish(_context: IExecutionContext, _event: IDomainEvent) {
+    this.published.push(_event);
     return ok(undefined);
   }
 
   async publishMany(_context: IExecutionContext, _events: ReadonlyArray<IDomainEvent>) {
+    this.published.push(..._events);
     return ok(undefined);
   }
 }
@@ -237,6 +245,106 @@ const addTextFields = (table: Table, count: number, prefix: string): Table => {
 };
 
 describe('CreateFieldHandler', () => {
+  it('publishes view column meta events when create field changes grid visibility metadata', async () => {
+    const baseId = `bse${'r'.repeat(16)}`;
+    const tableId = `tbl${'s'.repeat(16)}`;
+    const primaryFieldId = `fld${'t'.repeat(16)}`;
+    const notesFieldId = `fld${'u'.repeat(16)}`;
+    const newFieldId = `fld${'v'.repeat(16)}`;
+
+    const builder = Table.builder()
+      .withId(TableId.create(tableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('Create Field Visibility Events')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(primaryFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(notesFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('Notes')._unsafeUnwrap())
+      .done();
+    builder.view().grid().withName(ViewName.create('View A')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View B')._unsafeUnwrap()).done();
+
+    const initialTable = builder.build()._unsafeUnwrap();
+    const viewA = initialTable.views().find((view) => view.name().toString() === 'View A');
+    const viewB = initialTable.views().find((view) => view.name().toString() === 'View B');
+    expect(viewA).toBeTruthy();
+    expect(viewB).toBeTruthy();
+    if (!viewA || !viewB) return;
+
+    const viewAMeta = viewA.columnMeta()._unsafeUnwrap().toDto();
+    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: viewA.id(),
+        fieldId: FieldId.create(notesFieldId)._unsafeUnwrap(),
+        columnMeta: ViewColumnMeta.create({
+          ...viewAMeta,
+          [notesFieldId]: {
+            ...(viewAMeta[notesFieldId] ?? {}),
+            hidden: false,
+          },
+        })._unsafeUnwrap(),
+      },
+    ])
+      .mutate(initialTable)
+      ._unsafeUnwrap();
+
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(configuredTable);
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        id: newFieldId,
+        type: 'singleLineText',
+        name: 'Created From View B',
+      },
+      order: {
+        viewId: viewB.id().toString(),
+        orderIndex: 2.5,
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    const viewEvents = eventBus.published.filter(
+      (event): event is ViewColumnMetaUpdated => event instanceof ViewColumnMetaUpdated
+    );
+
+    expect(viewEvents.length).toBeGreaterThan(0);
+    expect(viewEvents.some((event) => event.viewId.equals(viewA.id()))).toBe(true);
+    expect(viewEvents.some((event) => event.viewId.equals(viewB.id()))).toBe(true);
+  });
+
   it('supports all link relationships and self references', async () => {
     const baseId = `bse${'a'.repeat(16)}`;
     const hostTableId = `tbl${'b'.repeat(16)}`;

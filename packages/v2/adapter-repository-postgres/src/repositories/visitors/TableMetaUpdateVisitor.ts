@@ -112,7 +112,9 @@ export class TableMetaUpdateVisitor
 {
   private readonly fieldRowBuilder: TableFieldPersistenceBuilder;
   private readonly fieldVersionIncrement: RawBuilder<number> = sql<number>`coalesce(version, 0) + 1`;
+  private readonly viewVersionIncrement: RawBuilder<number> = sql<number>`coalesce(version, 0) + 1`;
   private readonly fieldVersionTouches: string[] = [];
+  private readonly viewVersionTouches: string[] = [];
 
   constructor(private readonly params: TableMetaUpdateVisitorParams) {
     super();
@@ -126,6 +128,10 @@ export class TableMetaUpdateVisitor
 
   fieldVersionTouchOrder(): ReadonlyArray<string> {
     return [...this.fieldVersionTouches];
+  }
+
+  viewVersionTouchOrder(): ReadonlyArray<string> {
+    return [...this.viewVersionTouches];
   }
 
   visitTableByBaseId(_: TableByBaseIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
@@ -231,11 +237,16 @@ export class TableMetaUpdateVisitor
     spec: TableUpdateViewColumnMetaSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     const updates = spec.updates();
+    for (const update of updates) {
+      this.trackViewVersionTouch(update.viewId.toString());
+    }
+
     const statements: ReadonlyArray<TableUpdateBuilder> = updates.map((update) =>
       this.params.db
         .updateTable('view')
         .set({
           column_meta: JSON.stringify(update.columnMeta.toDto()),
+          version: this.viewVersionIncrement,
           last_modified_time: this.params.now,
           last_modified_by: this.params.actorId,
         })
@@ -249,6 +260,10 @@ export class TableMetaUpdateVisitor
   visitTableUpdateViewQueryDefaults(
     spec: TableUpdateViewQueryDefaultsSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    for (const update of spec.updates()) {
+      this.trackViewVersionTouch(update.viewId.toString());
+    }
+
     const statements: ReadonlyArray<TableUpdateBuilder> = spec
       .updates()
       .map((update: TableViewQueryDefaultsUpdate) => {
@@ -270,6 +285,7 @@ export class TableMetaUpdateVisitor
                 : this.stringifyLegacyFilter(this.mapRecordFilterToLegacy(query.filter)),
             sort: sortPayload ? JSON.stringify(sortPayload) : null,
             group: query.group ? JSON.stringify(query.group) : null,
+            version: this.viewVersionIncrement,
             last_modified_time: this.params.now,
             last_modified_by: this.params.actorId,
           })
@@ -958,5 +974,9 @@ export class TableMetaUpdateVisitor
 
   private trackFieldVersionTouch(fieldId: FieldId): void {
     this.fieldVersionTouches.push(fieldId.toString());
+  }
+
+  private trackViewVersionTouch(viewId: string): void {
+    this.viewVersionTouches.push(viewId);
   }
 }

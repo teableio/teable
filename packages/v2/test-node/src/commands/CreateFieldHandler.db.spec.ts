@@ -499,6 +499,113 @@ describe('CreateFieldHandler (db)', () => {
     expect(updatedViewMetaDb).toEqual(updatedViewMeta);
   });
 
+  it('defaults new field to hidden in grid views with explicit visibility config', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const titleFieldId = FieldId.mustGenerate().toString();
+    const notesFieldId = FieldId.mustGenerate().toString();
+    const newFieldId = FieldId.mustGenerate().toString();
+
+    const createTableResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Hidden View Stability',
+      fields: [
+        { type: 'singleLineText', id: titleFieldId, name: 'Name', isPrimary: true },
+        { type: 'singleLineText', id: notesFieldId, name: 'Notes' },
+      ],
+      views: [
+        { type: 'grid', name: 'View A' },
+        { type: 'grid', name: 'View B' },
+      ],
+    });
+    createTableResult._unsafeUnwrap();
+
+    const createdTable = (
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        context,
+        createTableResult._unsafeUnwrap()
+      )
+    )._unsafeUnwrap().table;
+
+    const viewA = createdTable.views().find((view) => view.name().toString() === 'View A');
+    const viewB = createdTable.views().find((view) => view.name().toString() === 'View B');
+    expect(viewA).toBeTruthy();
+    expect(viewB).toBeTruthy();
+    if (!viewA || !viewB) return;
+
+    const viewARow = await db
+      .selectFrom('view')
+      .select(['column_meta'])
+      .where('id', '=', viewA.id().toString())
+      .executeTakeFirst();
+    expect(viewARow).toBeTruthy();
+    if (!viewARow) return;
+
+    const viewAMeta = JSON.parse(viewARow.column_meta ?? '{}') as Record<
+      string,
+      { order?: number; hidden?: boolean }
+    >;
+    viewAMeta[notesFieldId] = {
+      ...(viewAMeta[notesFieldId] ?? {}),
+      hidden: false,
+    };
+
+    await db
+      .updateTable('view')
+      .set({ column_meta: JSON.stringify(viewAMeta) })
+      .where('id', '=', viewA.id().toString())
+      .execute();
+
+    const createFieldResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: createdTable.id().toString(),
+      field: {
+        id: newFieldId,
+        type: 'singleLineText',
+        name: 'Extra',
+      },
+    });
+    createFieldResult._unsafeUnwrap();
+
+    const updatedTable = (
+      await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+        context,
+        createFieldResult._unsafeUnwrap()
+      )
+    )._unsafeUnwrap().table;
+
+    const updatedViewA = updatedTable.getView(viewA.id())._unsafeUnwrap();
+    const updatedViewB = updatedTable.getView(viewB.id())._unsafeUnwrap();
+    const updatedViewAMeta = updatedViewA.columnMeta()._unsafeUnwrap().toDto();
+    const updatedViewBMeta = updatedViewB.columnMeta()._unsafeUnwrap().toDto();
+
+    expect(updatedViewAMeta[newFieldId]?.hidden).toBe(true);
+    expect(updatedViewAMeta[notesFieldId]?.hidden).toBe(false);
+    expect(updatedViewBMeta[newFieldId]?.hidden).toBeUndefined();
+
+    const persistedRows = await db
+      .selectFrom('view')
+      .select(['id', 'column_meta'])
+      .where('id', 'in', [viewA.id().toString(), viewB.id().toString()])
+      .execute();
+    const persistedMetaByViewId = new Map(
+      persistedRows.map((row) => [
+        row.id,
+        JSON.parse(row.column_meta ?? '{}') as Record<string, { hidden?: boolean }>,
+      ])
+    );
+
+    expect(persistedMetaByViewId.get(viewA.id().toString())?.[newFieldId]?.hidden).toBe(true);
+    expect(persistedMetaByViewId.get(viewA.id().toString())?.[notesFieldId]?.hidden).toBe(false);
+    expect(persistedMetaByViewId.get(viewB.id().toString())?.[newFieldId]?.hidden).toBeUndefined();
+  });
+
   it('persists and rehydrates aiConfig on field create', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

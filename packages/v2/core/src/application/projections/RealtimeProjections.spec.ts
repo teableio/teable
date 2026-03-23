@@ -526,13 +526,33 @@ describe('Realtime projections', () => {
       tableId: table.id(),
       viewId,
       fieldId: table.primaryFieldId(),
+      oldVersion: 7,
+      newVersion: 8,
     });
 
     const result = await projection.handle(createContext(), event);
     result._unsafeUnwrap();
 
-    expect(engine.ensures).toHaveLength(1);
-    expect(engine.changes).toHaveLength(1);
+    expect(engine.ensures).toHaveLength(2);
+    expect(engine.ensures[0]?.docId.toString()).toBe(
+      `tbl_${table.baseId().toString()}/${table.id().toString()}`
+    );
+    expect(engine.ensures[1]?.docId.toString()).toBe(
+      `viw_${table.id().toString()}/${viewId.toString()}`
+    );
+    expect(engine.changes).toHaveLength(2);
+    expect(engine.changes[0]?.docId.toString()).toBe(
+      `tbl_${table.baseId().toString()}/${table.id().toString()}`
+    );
+    expect(engine.changes[1]?.docId.toString()).toBe(
+      `viw_${table.id().toString()}/${viewId.toString()}`
+    );
+    expect(engine.changes[1]?.change).toEqual({
+      type: 'set',
+      path: ['columnMeta'],
+      value: buildTableDto(table).views[0]?.columnMeta,
+    });
+    expect(engine.changes[1]?.options).toEqual({ version: 7 });
   });
 
   it('ignores missing views', async () => {

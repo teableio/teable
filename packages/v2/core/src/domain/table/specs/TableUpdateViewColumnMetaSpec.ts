@@ -35,6 +35,44 @@ export class TableUpdateViewColumnMetaSpec<
     return this.fromTableWithFieldIds(table, [fieldId]);
   }
 
+  static forFieldPlacement(params: {
+    table: Table;
+    fieldId: FieldId;
+    targetViewId: ViewId;
+    order: number;
+  }): Result<TableUpdateViewColumnMetaSpec, DomainError> {
+    const { table, fieldId, targetViewId, order } = params;
+
+    return this.fromTableWithFieldId(table, fieldId).andThen((spec) => {
+      const fieldKey = fieldId.toString();
+      const updatesResult = spec.updates().reduce<Result<TableViewColumnMetaUpdate[], DomainError>>(
+        (acc, update) =>
+          acc.andThen((updates) => {
+            if (!update.viewId.equals(targetViewId)) {
+              return ok([...updates, update]);
+            }
+
+            return ViewColumnMeta.create({
+              ...update.columnMeta.toDto(),
+              [fieldKey]: {
+                ...(update.columnMeta.toDto()[fieldKey] ?? {}),
+                order,
+              },
+            }).map((columnMeta) => [
+              ...updates,
+              {
+                ...update,
+                columnMeta,
+              },
+            ]);
+          }),
+        ok([])
+      );
+
+      return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
+    });
+  }
+
   static fromTableWithFieldIds(
     table: Table,
     fieldIds: ReadonlyArray<FieldId>

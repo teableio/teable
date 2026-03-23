@@ -24,7 +24,6 @@ import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMeta
 import { TableEventGeneratingSpecVisitor } from './specs/visitors/TableEventGeneratingSpecVisitor';
 import type { Table } from './Table';
 import type { TableName } from './TableName';
-import { ViewColumnMeta } from './views/ViewColumnMeta';
 import type { ViewId } from './views/ViewId';
 
 class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableMutateSpecBuilder> {
@@ -60,7 +59,11 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
       };
     }
   ): TableMutateSpecBuilder {
-    const nextTableResult = this.currentTable.addField(field, options);
+    const nextTableResult = this.currentTable.addField(field, {
+      foreignTables: options?.foreignTables,
+      domainContext: options?.domainContext,
+      targetViewId: options?.viewOrder?.viewId,
+    });
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
@@ -82,45 +85,15 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     );
     const viewSpecResult = (() => {
       if (!options?.viewOrder) {
-        return TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
-          nextTableResult.value,
-          field.id()
-        );
+        return TableUpdateViewColumnMetaSpec.fromTableWithFieldId(nextTable, field.id());
       }
 
-      const viewResult = nextTableResult.value.getView(options.viewOrder.viewId);
-      if (viewResult.isErr()) {
-        return err(viewResult.error);
-      }
-
-      const columnMetaResult = viewResult.value.columnMeta();
-      if (columnMetaResult.isErr()) {
-        return err(columnMetaResult.error);
-      }
-
-      const fieldId = field.id();
-      const fieldIdStr = fieldId.toString();
-      const currentMeta = columnMetaResult.value.toDto();
-      const nextMetaResult = ViewColumnMeta.create({
-        ...currentMeta,
-        [fieldIdStr]: {
-          ...(currentMeta[fieldIdStr] ?? {}),
-          order: options.viewOrder.order,
-        },
+      return TableUpdateViewColumnMetaSpec.forFieldPlacement({
+        table: nextTable,
+        fieldId: field.id(),
+        targetViewId: options.viewOrder.viewId,
+        order: options.viewOrder.order,
       });
-      if (nextMetaResult.isErr()) {
-        return err(nextMetaResult.error);
-      }
-
-      return ok(
-        TableUpdateViewColumnMetaSpec.create([
-          {
-            viewId: options.viewOrder.viewId,
-            fieldId,
-            columnMeta: nextMetaResult.value,
-          },
-        ])
-      );
     })();
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
@@ -293,6 +266,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
 
     const nextTableResult = this.currentTable.addField(newField, {
       foreignTables: options?.foreignTables,
+      targetViewId: options?.targetViewId,
     });
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);

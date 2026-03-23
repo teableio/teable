@@ -68,7 +68,7 @@ import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
 import type { View } from './views/View';
-import { ViewColumnMeta } from './views/ViewColumnMeta';
+import { ViewColumnMeta, type ViewColumnMetaEntry } from './views/ViewColumnMeta';
 import type { ViewId } from './views/ViewId';
 import { CloneViewVisitor } from './views/visitors/CloneViewVisitor';
 
@@ -714,6 +714,7 @@ export class Table extends AggregateRoot<TableId> {
     options?: {
       foreignTables?: ReadonlyArray<Table>;
       domainContext?: IDomainContext;
+      targetViewId?: ViewId;
     }
   ): Result<Table, DomainError> {
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
@@ -748,7 +749,9 @@ export class Table extends AggregateRoot<TableId> {
     if (validationResult.isErr()) return err(validationResult.error);
 
     const nextFields = [...this.fieldsValue, field];
-    const nextViewsResult = this.cloneViewsWithField(nextFields, field);
+    const nextViewsResult = this.cloneViewsWithField(nextFields, field, {
+      targetViewId: options?.targetViewId,
+    });
     if (nextViewsResult.isErr()) return err(nextViewsResult.error);
 
     const props: ITableBuildProps = {
@@ -1129,7 +1132,10 @@ export class Table extends AggregateRoot<TableId> {
 
   private cloneViewsWithField(
     fields: ReadonlyArray<Field>,
-    newField: Field
+    newField: Field,
+    options?: {
+      targetViewId?: ViewId;
+    }
   ): Result<ReadonlyArray<View>, DomainError> {
     const defaultMetaByType = new Map<string, ViewColumnMeta>();
     const newFieldKey = newField.id().toString();
@@ -1161,9 +1167,16 @@ export class Table extends AggregateRoot<TableId> {
         ? Math.max(...currentEntries.map((entry) => entry.order ?? -1))
         : -1;
 
+      const nextEntry = this.buildAddedFieldColumnMetaEntry({
+        view,
+        currentMeta,
+        defaultEntry,
+        targetViewId: options?.targetViewId,
+      });
+
       const nextMeta = {
         ...currentMeta,
-        [newFieldKey]: { ...defaultEntry, order: maxOrder + 1 },
+        [newFieldKey]: { ...nextEntry, order: maxOrder + 1 },
       };
 
       const nextMetaResult = ViewColumnMeta.create(nextMeta);
@@ -1225,5 +1238,34 @@ export class Table extends AggregateRoot<TableId> {
       (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
       ok([])
     );
+  }
+
+  private buildAddedFieldColumnMetaEntry(params: {
+    view: View;
+    currentMeta: Record<string, ViewColumnMetaEntry>;
+    defaultEntry: ViewColumnMetaEntry;
+    targetViewId?: ViewId;
+  }): ViewColumnMetaEntry {
+    const { view, currentMeta, defaultEntry, targetViewId } = params;
+
+    if (targetViewId && view.id().equals(targetViewId)) {
+      return { ...defaultEntry };
+    }
+
+    if (view.type().toString() !== 'grid') {
+      return { ...defaultEntry };
+    }
+
+    const hasExplicitHiddenVisibilityConfig = Object.values(currentMeta).some((entry) =>
+      Object.prototype.hasOwnProperty.call(entry, 'hidden')
+    );
+    if (!hasExplicitHiddenVisibilityConfig) {
+      return { ...defaultEntry };
+    }
+
+    return {
+      ...defaultEntry,
+      hidden: true,
+    };
   }
 }

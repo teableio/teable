@@ -20,8 +20,15 @@ export type FieldVersionChange = {
   newVersion: number;
 };
 
+export type ViewVersionChange = {
+  viewId: string;
+  oldVersion: number;
+  newVersion: number;
+};
+
 export type TableUpdatePersistResult = {
   fieldVersionChanges?: ReadonlyArray<FieldVersionChange>;
+  viewVersionChanges?: ReadonlyArray<ViewVersionChange>;
 };
 
 export type TableDeleteMode = 'soft' | 'permanent';

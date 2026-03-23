@@ -813,24 +813,47 @@ export class PostgresTableRepository implements core.ITableRepository {
       );
 
       const fieldVersionTouchOrder = updateVisitor.fieldVersionTouchOrder();
-      if (fieldVersionTouchOrder.length === 0) {
+      const viewVersionTouchOrder = updateVisitor.viewVersionTouchOrder();
+      if (fieldVersionTouchOrder.length === 0 && viewVersionTouchOrder.length === 0) {
         return ok(undefined);
       }
 
-      const fieldVersionsResult = await this.loadFieldVersionsByIds(
-        db,
-        tableId,
-        fieldVersionTouchOrder
-      );
-      if (fieldVersionsResult.isErr()) {
-        return err(fieldVersionsResult.error);
+      let fieldVersionChanges: ReadonlyArray<core.FieldVersionChange> | undefined;
+      if (fieldVersionTouchOrder.length > 0) {
+        const fieldVersionsResult = await this.loadFieldVersionsByIds(
+          db,
+          tableId,
+          fieldVersionTouchOrder
+        );
+        if (fieldVersionsResult.isErr()) {
+          return err(fieldVersionsResult.error);
+        }
+        fieldVersionChanges = this.buildFieldVersionChanges(
+          fieldVersionTouchOrder,
+          fieldVersionsResult.value
+        );
       }
-      const fieldVersionChanges = this.buildFieldVersionChanges(
-        fieldVersionTouchOrder,
-        fieldVersionsResult.value
-      );
 
-      return ok({ fieldVersionChanges });
+      let viewVersionChanges: ReadonlyArray<core.ViewVersionChange> | undefined;
+      if (viewVersionTouchOrder.length > 0) {
+        const viewVersionsResult = await this.loadViewVersionsByIds(
+          db,
+          tableId,
+          viewVersionTouchOrder
+        );
+        if (viewVersionsResult.isErr()) {
+          return err(viewVersionsResult.error);
+        }
+        viewVersionChanges = this.buildViewVersionChanges(
+          viewVersionTouchOrder,
+          viewVersionsResult.value
+        );
+      }
+
+      return ok({
+        ...(fieldVersionChanges ? { fieldVersionChanges } : {}),
+        ...(viewVersionChanges ? { viewVersionChanges } : {}),
+      });
     } catch (error) {
       return err(
         domainError.infrastructure({ message: `Failed to update table: ${describeError(error)}` })
@@ -872,6 +895,41 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
   }
 
+  private async loadViewVersionsByIds(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    tableId: string,
+    viewIds: ReadonlyArray<string>
+  ): Promise<Result<ReadonlyMap<string, number>, DomainError>> {
+    const uniqueViewIds = [...new Set(viewIds)];
+    if (uniqueViewIds.length === 0) {
+      return ok(new Map());
+    }
+
+    try {
+      const rows = await db
+        .selectFrom('view')
+        .select(['id', 'version'])
+        .where('table_id', '=', tableId)
+        .where('deleted_time', 'is', null)
+        .where('id', 'in', uniqueViewIds)
+        .execute();
+
+      const versions = new Map(rows.map((row) => [row.id, Number(row.version ?? 0)]));
+      for (const viewId of uniqueViewIds) {
+        if (!versions.has(viewId)) {
+          return err(domainError.notFound({ message: `View not found: ${viewId}` }));
+        }
+      }
+      return ok(versions);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to load view versions: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
   private buildFieldVersionChanges(
     fieldVersionTouchOrder: ReadonlyArray<string>,
     finalVersionByFieldId: ReadonlyMap<string, number>
@@ -891,6 +949,31 @@ export class PostgresTableRepository implements core.ITableRepository {
       const oldVersion = Math.max(finalVersion - totalCount + currentIndex, 0);
       return {
         fieldId,
+        oldVersion,
+        newVersion: oldVersion + 1,
+      };
+    });
+  }
+
+  private buildViewVersionChanges(
+    viewVersionTouchOrder: ReadonlyArray<string>,
+    finalVersionByViewId: ReadonlyMap<string, number>
+  ): ReadonlyArray<core.ViewVersionChange> {
+    const countByViewId = new Map<string, number>();
+    for (const viewId of viewVersionTouchOrder) {
+      countByViewId.set(viewId, (countByViewId.get(viewId) ?? 0) + 1);
+    }
+
+    const indexByViewId = new Map<string, number>();
+    return viewVersionTouchOrder.map((viewId) => {
+      const totalCount = countByViewId.get(viewId) ?? 0;
+      const finalVersion = finalVersionByViewId.get(viewId) ?? 0;
+      const currentIndex = indexByViewId.get(viewId) ?? 0;
+      indexByViewId.set(viewId, currentIndex + 1);
+
+      const oldVersion = Math.max(finalVersion - totalCount + currentIndex, 0);
+      return {
+        viewId,
         oldVersion,
         newVersion: oldVersion + 1,
       };

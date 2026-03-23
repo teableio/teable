@@ -9,6 +9,7 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
 import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
+import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
@@ -174,7 +175,10 @@ export class TableUpdateFlow {
         return err(transactionResult.error);
       }
 
-      const normalizedEvents = handler.attachFieldEventVersions(events, tableUpdatePersistResult);
+      const normalizedEvents = handler.attachPersistedEventVersions(
+        events,
+        tableUpdatePersistResult
+      );
 
       if (publishEvents) {
         // Publish events directly; projections fetch data themselves
@@ -189,39 +193,43 @@ export class TableUpdateFlow {
     });
   }
 
-  private attachFieldEventVersions(
+  private attachPersistedEventVersions(
     events: ReadonlyArray<IDomainEvent>,
     persistResult: TableRepositoryPort.TableUpdatePersistResult | void
   ): ReadonlyArray<IDomainEvent> {
     const fieldVersionChanges = persistResult?.fieldVersionChanges;
-    if (!events.length || !fieldVersionChanges?.length) {
+    const viewVersionChanges = persistResult?.viewVersionChanges;
+    if (!events.length || (!fieldVersionChanges?.length && !viewVersionChanges?.length)) {
       return events;
     }
 
     const queueByFieldId = new Map<string, Array<TableRepositoryPort.FieldVersionChange>>();
-    for (const change of fieldVersionChanges) {
+    for (const change of fieldVersionChanges ?? []) {
       const queue = queueByFieldId.get(change.fieldId) ?? [];
       queue.push(change);
       queueByFieldId.set(change.fieldId, queue);
     }
 
+    const queueByViewId = new Map<string, Array<TableRepositoryPort.ViewVersionChange>>();
+    for (const change of viewVersionChanges ?? []) {
+      const queue = queueByViewId.get(change.viewId) ?? [];
+      queue.push(change);
+      queueByViewId.set(change.viewId, queue);
+    }
+
     return events.map((event) => {
-      if (!(event instanceof FieldUpdated) && !(event instanceof FieldOptionsAdded)) {
-        return event;
-      }
-
-      if (event.oldVersion != null && event.newVersion != null) {
-        return event;
-      }
-
-      const fieldId = event.fieldId.toString();
-      const queue = queueByFieldId.get(fieldId);
-      const versionChange = queue?.shift();
-      if (!versionChange) {
-        return event;
-      }
-
       if (event instanceof FieldUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+
+        const fieldId = event.fieldId.toString();
+        const queue = queueByFieldId.get(fieldId);
+        const versionChange = queue?.shift();
+        if (!versionChange) {
+          return event;
+        }
+
         return FieldUpdated.create({
           tableId: event.tableId,
           baseId: event.baseId,
@@ -234,14 +242,51 @@ export class TableUpdateFlow {
         });
       }
 
-      return FieldOptionsAdded.create({
-        tableId: event.tableId,
-        baseId: event.baseId,
-        fieldId: event.fieldId,
-        options: event.options,
-        oldVersion: versionChange.oldVersion,
-        newVersion: versionChange.newVersion,
-      });
+      if (event instanceof FieldOptionsAdded) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+
+        const fieldId = event.fieldId.toString();
+        const queue = queueByFieldId.get(fieldId);
+        const versionChange = queue?.shift();
+        if (!versionChange) {
+          return event;
+        }
+
+        return FieldOptionsAdded.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          fieldId: event.fieldId,
+          options: event.options,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      if (event instanceof ViewColumnMetaUpdated) {
+        if (event.oldVersion != null && event.newVersion != null) {
+          return event;
+        }
+
+        const viewId = event.viewId.toString();
+        const queue = queueByViewId.get(viewId);
+        const versionChange = queue?.shift();
+        if (!versionChange) {
+          return event;
+        }
+
+        return ViewColumnMetaUpdated.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          fieldId: event.fieldId,
+          oldVersion: versionChange.oldVersion,
+          newVersion: versionChange.newVersion,
+        });
+      }
+
+      return event;
     });
   }
 

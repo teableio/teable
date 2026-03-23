@@ -189,6 +189,95 @@ describe('v2 http createField (e2e)', () => {
     expect(JSON.parse(row?.ai_config ?? 'null')).toEqual(aiConfig);
   });
 
+  it('keeps hidden grid view visibility stable when another view adds a field', async () => {
+    const titleFieldId = createFieldId();
+    const notesFieldId = createFieldId();
+    const newFieldId = createFieldId();
+
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Hidden View Stability E2E',
+      fields: [
+        { type: 'singleLineText', id: titleFieldId, name: 'Name', isPrimary: true },
+        { type: 'singleLineText', id: notesFieldId, name: 'Notes' },
+      ],
+      views: [
+        { type: 'grid', name: 'View A' },
+        { type: 'grid', name: 'View B' },
+      ],
+    });
+
+    try {
+      const viewA = table.views.find((view) => view.name === 'View A');
+      const viewB = table.views.find((view) => view.name === 'View B');
+      expect(viewA).toBeTruthy();
+      expect(viewB).toBeTruthy();
+      if (!viewA || !viewB) return;
+
+      const viewAMeta = { ...(viewA.columnMeta as Record<string, { hidden?: boolean }>) };
+      viewAMeta[notesFieldId] = {
+        ...(viewAMeta[notesFieldId] ?? {}),
+        hidden: false,
+      };
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({ column_meta: JSON.stringify(viewAMeta) })
+        .where('id', '=', viewA.id)
+        .execute();
+
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            id: newFieldId,
+            type: 'singleLineText',
+            name: 'Extra',
+          },
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const rawBody = await response.json();
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const responseTable = parsed.data.data.table;
+      const responseViewA = responseTable.views.find((view) => view.id === viewA.id);
+      const responseViewB = responseTable.views.find((view) => view.id === viewB.id);
+      const responseViewAMeta = responseViewA?.columnMeta as
+        | Record<string, { hidden?: boolean }>
+        | undefined;
+      const responseViewBMeta = responseViewB?.columnMeta as
+        | Record<string, { hidden?: boolean }>
+        | undefined;
+
+      expect(responseViewAMeta?.[newFieldId]?.hidden).toBe(true);
+      expect(responseViewAMeta?.[notesFieldId]?.hidden).toBe(false);
+      expect(responseViewBMeta?.[newFieldId]?.hidden).toBeUndefined();
+
+      const fetchedTable = await getTableById(table.id);
+      const fetchedViewA = fetchedTable.views.find((view) => view.id === viewA.id);
+      const fetchedViewB = fetchedTable.views.find((view) => view.id === viewB.id);
+      const fetchedViewAMeta = fetchedViewA?.columnMeta as
+        | Record<string, { hidden?: boolean }>
+        | undefined;
+      const fetchedViewBMeta = fetchedViewB?.columnMeta as
+        | Record<string, { hidden?: boolean }>
+        | undefined;
+
+      expect(fetchedViewAMeta?.[newFieldId]?.hidden).toBe(true);
+      expect(fetchedViewAMeta?.[notesFieldId]?.hidden).toBe(false);
+      expect(fetchedViewBMeta?.[newFieldId]?.hidden).toBeUndefined();
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
+
   it('creates search index for new searchable field when table search indexing is enabled', async () => {
     const trgmAvailable = await sql<{ available: boolean }>`
       SELECT EXISTS (

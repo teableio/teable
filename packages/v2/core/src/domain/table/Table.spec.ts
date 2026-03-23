@@ -26,9 +26,11 @@ import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
 import { TableUpdateFieldNameSpec } from './specs/TableUpdateFieldNameSpec';
+import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMetaSpec';
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { GridView } from './views/types/GridView';
 import { ViewId } from './views/ViewId';
 import { ViewName } from './views/ViewName';
@@ -385,6 +387,132 @@ describe('Table', () => {
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
+  });
+
+  it('hides newly added field in non-target grid views with explicit visibility config', () => {
+    const newFieldId = createFieldId('i')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('i')._unsafeUnwrap())
+      .withName(TableName.create('Hidden View Stability')._unsafeUnwrap());
+
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View A')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View B')._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const notesField = table.getFields().find((field) => field.name().toString() === 'Notes');
+    const hiddenView = table.views()[0];
+    const defaultView = table.views()[1];
+
+    expect(notesField).toBeTruthy();
+    expect(hiddenView).toBeTruthy();
+    expect(defaultView).toBeTruthy();
+    if (!notesField || !hiddenView || !defaultView) return;
+
+    const hiddenViewMeta = hiddenView.columnMeta()._unsafeUnwrap().toDto();
+    const hiddenFieldKey = notesField.id().toString();
+    const configuredHiddenMeta = ViewColumnMeta.create({
+      ...hiddenViewMeta,
+      [hiddenFieldKey]: {
+        ...(hiddenViewMeta[hiddenFieldKey] ?? {}),
+        hidden: false,
+      },
+    })._unsafeUnwrap();
+
+    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: hiddenView.id(),
+        fieldId: notesField.id(),
+        columnMeta: configuredHiddenMeta,
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    const newField = SingleLineTextField.create({
+      id: newFieldId,
+      name: FieldName.create('Extra')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const updatedTable = configuredTable
+      .update((mutator) => mutator.addField(newField))
+      ._unsafeUnwrap().table;
+
+    const hiddenEntry = updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+    const defaultEntry = updatedTable.views()[1]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+
+    expect(hiddenEntry?.hidden).toBe(true);
+    expect(
+      updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[hiddenFieldKey]?.hidden
+    ).toBe(false);
+    expect(defaultEntry?.hidden).toBeUndefined();
+  });
+
+  it('shows newly inserted field in the target grid view even when that view hides other fields', () => {
+    const newFieldId = createFieldId('j')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('j')._unsafeUnwrap())
+      .withName(TableName.create('Insert View Visibility')._unsafeUnwrap());
+
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View A')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View B')._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const notesField = table.getFields().find((field) => field.name().toString() === 'Notes');
+    const targetView = table.views()[0];
+
+    expect(notesField).toBeTruthy();
+    expect(targetView).toBeTruthy();
+    if (!notesField || !targetView) return;
+
+    const targetViewMeta = targetView.columnMeta()._unsafeUnwrap().toDto();
+    const configuredTargetMeta = ViewColumnMeta.create({
+      ...targetViewMeta,
+      [notesField.id().toString()]: {
+        ...(targetViewMeta[notesField.id().toString()] ?? {}),
+        hidden: true,
+      },
+    })._unsafeUnwrap();
+
+    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: targetView.id(),
+        fieldId: notesField.id(),
+        columnMeta: configuredTargetMeta,
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    const newField = SingleLineTextField.create({
+      id: newFieldId,
+      name: FieldName.create('Inserted')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const updatedTable = configuredTable
+      .update((mutator) =>
+        mutator.addField(newField, {
+          viewOrder: {
+            viewId: targetView.id(),
+            order: 1.5,
+          },
+        })
+      )
+      ._unsafeUnwrap().table;
+
+    const targetEntry = updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+
+    expect(targetEntry?.hidden).toBeUndefined();
+    expect(targetEntry?.order).toBe(1.5);
   });
 
   it('rejects adding a field with duplicate dbFieldName', () => {

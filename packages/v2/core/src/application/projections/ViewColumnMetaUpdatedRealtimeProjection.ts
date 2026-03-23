@@ -15,6 +15,7 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
 
 const tableCollectionPrefix = 'tbl';
+const viewCollectionPrefix = 'viw';
 
 @ProjectionHandler(ViewColumnMetaUpdated)
 @injectable()
@@ -56,12 +57,35 @@ export class ViewColumnMetaUpdatedRealtimeProjection
       // Ensure table document exists first (for tables created before realtime was enabled)
       yield* (await realtimeEngine.ensure(context, docId, snapshot)).safeUnwrap();
 
-      // Apply incremental change to update view columnMeta
-      return realtimeEngine.applyChange(context, docId, {
-        type: 'set',
-        path: ['views', viewIndex, 'columnMeta'],
-        value: viewDto.columnMeta,
-      });
+      // Keep the table snapshot in sync for table-level consumers.
+      yield* (
+        await realtimeEngine.applyChange(context, docId, {
+          type: 'set',
+          path: ['views', viewIndex, 'columnMeta'],
+          value: viewDto.columnMeta,
+        })
+      ).safeUnwrap();
+
+      // Keep the standalone view document in sync for ShareDB/SDK view subscriptions.
+      const viewCollection = `${viewCollectionPrefix}_${event.tableId.toString()}`;
+      const viewDocId = yield* RealtimeDocId.fromParts(
+        viewCollection,
+        event.viewId.toString()
+      ).safeUnwrap();
+      yield* (await realtimeEngine.ensure(context, viewDocId, viewDto)).safeUnwrap();
+
+      return realtimeEngine.applyChange(
+        context,
+        viewDocId,
+        {
+          type: 'set',
+          path: ['columnMeta'],
+          value: viewDto.columnMeta,
+        },
+        {
+          version: event.oldVersion,
+        }
+      );
     });
   }
 }

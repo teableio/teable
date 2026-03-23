@@ -291,6 +291,7 @@ const deleteShareDbBackendDoc = async (params: {
 describe('v2 realtime sharedb (e2e)', () => {
   let server: Server | undefined;
   let shareDbRuntime: ShareDbRuntime | undefined;
+  let testContainer: Awaited<ReturnType<typeof createV2NodeTestContainer>> | undefined;
   let baseUrl: string;
   let shareDbUrl: string;
   let dispose: (() => Promise<void>) | undefined;
@@ -315,7 +316,7 @@ describe('v2 realtime sharedb (e2e)', () => {
     shareDbRuntime = runtime;
     shareDbUrl = `ws://127.0.0.1:${runtime.port}/socket`;
 
-    const testContainer = await createV2NodeTestContainer();
+    testContainer = await createV2NodeTestContainer();
     registerRealtime(testContainer.container, runtime);
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
@@ -432,6 +433,129 @@ describe('v2 realtime sharedb (e2e)', () => {
     expect(snapshot.id).toBe(fieldId);
     expect(snapshot.name).toBe('Status');
     expect(snapshot.type).toBe('singleLineText');
+  });
+
+  it('updates subscribed view docs when another view creates a hidden-by-default field', async () => {
+    if (!testContainer) {
+      throw new Error('Missing test container');
+    }
+
+    const notesFieldId = createFieldId();
+    const newFieldId = createFieldId();
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime View Visibility',
+        fields: [
+          { type: 'singleLineText', name: 'Name' },
+          { type: 'singleLineText', id: notesFieldId, name: 'Notes' },
+        ],
+        views: [
+          { type: 'grid', name: 'View A' },
+          { type: 'grid', name: 'View B' },
+        ],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const table = createTableParsed.data.data.table;
+    const viewA = table.views.find((view) => view.name === 'View A');
+    const viewB = table.views.find((view) => view.name === 'View B');
+    expect(viewA).toBeTruthy();
+    expect(viewB).toBeTruthy();
+    if (!viewA || !viewB) return;
+
+    const viewAMeta = {
+      ...(viewA.columnMeta as Record<string, { order?: number; hidden?: boolean }>),
+    };
+    viewAMeta[notesFieldId] = {
+      ...(viewAMeta[notesFieldId] ?? {}),
+      hidden: false,
+    };
+
+    await testContainer.db
+      .updateTable('view')
+      .set({ column_meta: JSON.stringify(viewAMeta) })
+      .where('id', '=', viewA.id)
+      .execute();
+
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const doc = connection.get(`viw_${table.id}`, viewA.id) as Doc<
+      ITablePersistenceDTO['views'][number]
+    >;
+
+    try {
+      const subscribeError = await new Promise<Error | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(new Error('ShareDB view doc subscribe timed out'));
+        }, 5000);
+
+        doc.subscribe((error) => {
+          clearTimeout(timeout);
+          if (error) {
+            resolve(new Error(error.message));
+            return;
+          }
+          resolve(undefined);
+        });
+      });
+
+      expect(subscribeError).toBeUndefined();
+      if (subscribeError) return;
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'singleLineText',
+            id: newFieldId,
+            name: 'Created From View B',
+          },
+          order: {
+            viewId: viewB.id,
+            orderIndex: 2.5,
+          },
+        }),
+      });
+
+      expect(createFieldResponse.status).toBe(200);
+      const createFieldRaw = await createFieldResponse.json();
+      const createFieldParsed = createFieldOkResponseSchema.safeParse(createFieldRaw);
+      expect(createFieldParsed.success).toBe(true);
+      if (!createFieldParsed.success || !createFieldParsed.data.ok) return;
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('ShareDB view doc did not receive updated columnMeta'));
+        }, 5000);
+
+        const interval = setInterval(() => {
+          if (doc.data?.columnMeta?.[newFieldId]?.hidden === true) {
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+          }
+        }, 50);
+      });
+
+      expect(doc.data?.columnMeta?.[newFieldId]?.hidden).toBe(true);
+      expect(doc.data?.columnMeta?.[notesFieldId]?.hidden).toBe(false);
+    } finally {
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
   });
 
   it('publishes field updates to ShareDB over websocket', async () => {
