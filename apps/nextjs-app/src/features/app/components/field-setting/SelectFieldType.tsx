@@ -120,7 +120,11 @@ const fieldTypeItem = (
       {description ? (
         <Tooltip delayDuration={50}>
           <TooltipTrigger asChild>{content}</TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8} className="max-w-56 text-xs leading-snug">
+          <TooltipContent
+            side="right"
+            sideOffset={8}
+            className="pointer-events-none max-w-56 text-xs leading-snug"
+          >
             {disabled && disabledReason ? disabledReason : description}
           </TooltipContent>
         </Tooltip>
@@ -288,7 +292,7 @@ export const SelectFieldType = (props: {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className={cn('w-[400px] p-0', 'select-field-type')}>
-        <TooltipProvider delayDuration={200}>
+        <TooltipProvider delayDuration={200} disableHoverableContent>
           <Command
             filter={(value, search) => {
               if (!search) return 1;
