@@ -33,7 +33,6 @@ import {
   GridAttachmentEditor,
   GridDateEditor,
   GridLinkEditor,
-  GridLongTextEditor,
   GridMarkdownEditor,
   GridNumberEditor,
   GridSelectEditor,
@@ -263,26 +262,24 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.LongText: {
             const rawDisplayData = field.cellValue2String(cellValue);
             const isMarkdown = isMarkdownShowAs(field.options);
+            const isLookupField = Boolean(field.isLookup);
             return {
               ...baseCellProps,
               type: CellType.Text,
               data: (cellValue as string) || '',
               displayData: isMarkdown ? stripMarkdown(rawDisplayData) : rawDisplayData,
               isWrap: true,
-              readonlyCustomEditor: Boolean(field.isLookup),
-              customEditor: isMarkdown
-                ? (props, editorRef) => (
-                    <GridMarkdownEditor
-                      ref={editorRef}
-                      field={field}
-                      record={record}
-                      readonlyExpandable={Boolean(field.isLookup)}
-                      {...props}
-                    />
-                  )
-                : (props, editorRef) => (
-                    <GridLongTextEditor ref={editorRef} field={field} record={record} {...props} />
-                  ),
+              readonly: readonly || isLookupField,
+              readonlyCustomEditor: isLookupField,
+              customEditor: (props, editorRef) => (
+                <GridMarkdownEditor
+                  ref={editorRef}
+                  field={field}
+                  record={record}
+                  readonlyExpandable={Boolean(field.isLookup)}
+                  {...props}
+                />
+              ),
             };
           }
           case FieldType.Date:

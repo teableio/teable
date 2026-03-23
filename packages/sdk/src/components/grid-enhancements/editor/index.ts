@@ -1,5 +1,4 @@
 export * from './GridDateEditor';
-export * from './GridLongTextEditor';
 export * from './GridMarkdownEditor';
 export * from './GridSelectEditor';
 export * from './GridLinkEditor';

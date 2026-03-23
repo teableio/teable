@@ -16,6 +16,7 @@ interface IExpandMarkdownEditorProps {
   onChange?: (value: string | null) => void;
   readonly?: boolean;
   title?: string;
+  initialMode?: EditorMode;
   onExpandOpen?: () => void;
 }
 
@@ -187,10 +188,11 @@ export const ExpandMarkdownEditor = ({
   onChange,
   readonly,
   title,
+  initialMode = 'markdown',
   onExpandOpen,
 }: IExpandMarkdownEditorProps) => {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<EditorMode>('markdown');
+  const [mode, setMode] = useState<EditorMode>(initialMode);
   const [converting, setConverting] = useState(false);
   const { offset, onPointerDown, onPointerMove, onPointerUp } = useDrag(open);
 
@@ -198,7 +200,7 @@ export const ExpandMarkdownEditor = ({
     if (converting) return;
     setOpen(isOpen);
     if (!isOpen) {
-      setMode('markdown');
+      setMode(initialMode);
     }
   };
 
@@ -214,7 +216,7 @@ export const ExpandMarkdownEditor = ({
         type: FieldType.LongText,
         options: (nextMode === 'markdown'
           ? { showAs: { type: 'markdown' } }
-          : {}) as ILongTextFieldOptions,
+          : { showAs: null }) as ILongTextFieldOptions,
       });
       setMode(nextMode);
     } finally {
@@ -255,7 +257,6 @@ export const ExpandMarkdownEditor = ({
           type="button"
           className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border/40 hover:bg-muted hover:text-foreground"
           onClick={() => {
-            (document.activeElement as HTMLElement)?.blur();
             onExpandOpen?.();
             setOpen(true);
           }}
@@ -280,10 +281,7 @@ export const ExpandMarkdownEditor = ({
           }
         }}
         onFocusOutside={(e) => {
-          const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
-          if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
-            e.preventDefault();
-          }
+          e.preventDefault();
         }}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -298,25 +296,27 @@ export const ExpandMarkdownEditor = ({
           <LongText className="size-4 shrink-0" />
           <span className="truncate">{title}</span>
           <span className="ml-auto" />
-          <div
-            className="flex cursor-default items-center gap-1.5"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {converting && <Loader2 className="size-3.5 animate-spin" />}
-            <Label
-              htmlFor="expand-md-switch"
-              className="cursor-pointer text-xs font-normal text-muted-foreground"
+          {!readonly && (
+            <div
+              className="flex cursor-default items-center gap-1.5"
+              onPointerDown={(e) => e.stopPropagation()}
             >
-              Markdown
-            </Label>
-            <Switch
-              id="expand-md-switch"
-              size="sm"
-              checked={mode === 'markdown'}
-              disabled={converting}
-              onCheckedChange={handleModeChange}
-            />
-          </div>
+              {converting && <Loader2 className="size-3.5 animate-spin" />}
+              <Label
+                htmlFor="expand-md-switch"
+                className="cursor-pointer text-xs font-normal text-muted-foreground"
+              >
+                Markdown
+              </Label>
+              <Switch
+                id="expand-md-switch"
+                size="sm"
+                checked={mode === 'markdown'}
+                disabled={converting}
+                onCheckedChange={handleModeChange}
+              />
+            </div>
+          )}
         </div>
         {renderEditor()}
       </PopoverContent>

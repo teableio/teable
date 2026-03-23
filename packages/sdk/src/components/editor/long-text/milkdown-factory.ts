@@ -47,11 +47,21 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
         attributes: { class: 'milkdown-readonly' },
       });
     } else {
-      ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-        const clean = sanitizeMarkdownBreaks(markdown);
-        latestValueRef && (latestValueRef.current = clean);
-        onMarkdownUpdated?.(clean);
-      });
+      ctx
+        .get(listenerCtx)
+        .markdownUpdated((_ctx, markdown) => {
+          const clean = sanitizeMarkdownBreaks(markdown);
+          latestValueRef && (latestValueRef.current = clean);
+          onMarkdownUpdated?.(clean);
+        })
+        .destroy((_ctx) => {
+          // Clear listeners so that the debounced markdownUpdated handler
+          // (200ms delay inside the listener plugin) becomes a no-op after
+          // the editor view is destroyed, preventing "Context editorView not found".
+          const mgr = _ctx.get(listenerCtx).listeners;
+          mgr.markdownUpdated.length = 0;
+          mgr.updated.length = 0;
+        });
     }
 
     ctx.update(prosePluginsCtx, (plugins) => [
