@@ -1,6 +1,8 @@
 import { Controller, Post, Req, UnauthorizedException } from '@nestjs/common';
 import type { IUserMeVo } from '@teable/openapi';
-import type { Request } from 'express';
+import { Request } from 'express';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
 import { splitAccessToken } from '../../access-token/access-token.encryptor';
 import { AccessTokenService } from '../../access-token/access-token.service';
 import { UserModel } from '../../model/user';
@@ -15,7 +17,8 @@ import { pickUserMe } from '../utils';
 export class AutoLoginController {
   constructor(
     private readonly userModel: UserModel,
-    private readonly accessTokenService: AccessTokenService
+    private readonly accessTokenService: AccessTokenService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Public()
@@ -84,7 +87,13 @@ export class AutoLoginController {
         req.login(userMe, (err) => (err ? reject(err) : resolve()));
       });
 
-      return userMe;
+      // 获取用户的 organization 信息（从 CLS 中获取，如果存在）
+      const organization = this.cls.get('organization');
+
+      return {
+        ...userMe,
+        organization: organization || undefined,
+      };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

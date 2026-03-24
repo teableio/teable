@@ -20,6 +20,7 @@ import { CollaboratorModule } from './features/collaborator/collaborator.module'
 import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
+import { ExternalOAuth2Module } from './features/external-oauth2/external-oauth2.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
@@ -96,6 +97,7 @@ export const appModules = {
     PluginChartModule,
     ObservabilityModule,
     BuiltinAssetsInitModule,
+    ExternalOAuth2Module,
   ],
   providers: [InitBootstrapProvider],
 };

@@ -38,15 +38,12 @@ const AutoLoginPage = () => {
           const userLang = userData?.lang;
 
           // 如果用户有设置语言，则设置 cookie 并切换 i18n 语言
-          if (userLang) {
-            // 设置 NEXT_LOCALE cookie
-            document.cookie = `NEXT_LOCALE=${userLang}; max-age=31536000; path=/`;
-            // 切换 i18n 语言
-            i18n.changeLanguage(userLang);
-          } else {
-            // 如果用户没有设置语言，清除 cookie（使用浏览器默认语言）
-            document.cookie = `NEXT_LOCALE=; max-age=0; path=/`;
-          }
+          // 如果用户没有设置语言，默认使用中文（zh）
+          const finalLang = userLang || 'zh';
+          // 设置 NEXT_LOCALE cookie
+          document.cookie = `NEXT_LOCALE=${finalLang}; max-age=31536000; path=/`;
+          // 切换 i18n 语言
+          i18n.changeLanguage(finalLang);
 
           // 登录成功，跳转到指定页面
           const redirectPath = typeof redirect === 'string' ? redirect : '/space';

@@ -1,5 +1,5 @@
 import { Controller, Delete, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
-import { HttpErrorCode } from '@teable/core';
+import { HttpErrorCode, isAnonymous } from '@teable/core';
 import {
   deleteUserSchemaRo,
   IDeleteUserSchema,
@@ -43,6 +43,21 @@ export class AuthController {
     return {
       ...request.user,
       organization: this.cls.get('organization'),
+    };
+  }
+
+  /**
+   * GET /api/auth/me
+   * Frontend-friendly login status endpoint.
+   */
+  @AllowAnonymous(AllowAnonymousType.USER)
+  @Get('/me')
+  async authMe(@Req() request: Express.Request) {
+    const user = request.user as Partial<IUserMeVo> | undefined;
+    const authenticated = Boolean(user?.id) && !isAnonymous(user?.id as any);
+    return {
+      authenticated,
+      user: authenticated ? user : undefined,
     };
   }
 
