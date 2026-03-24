@@ -5,6 +5,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldKeyType, FieldType, Relationship, RowHeightLevel, ViewType } from '@teable/core';
 import type { ICreateTableRo } from '@teable/openapi';
 import {
+  BaseNodeResourceType,
+  getBaseNodeTree,
   updateTableDescription,
   updateTableIcon,
   updateTableName,
@@ -31,6 +33,8 @@ import {
   getRecords,
   getTable,
   initApp,
+  createBase,
+  permanentDeleteBase,
   updateRecord,
 } from './utils/init-app';
 
@@ -142,7 +146,10 @@ describe('OpenAPI TableController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await permanentDeleteTable(baseId, tableId);
+    if (tableId) {
+      await permanentDeleteTable(baseId, tableId);
+      tableId = '';
+    }
   });
 
   async function processV2Outbox(times = 1): Promise<void> {
@@ -272,6 +279,40 @@ describe('OpenAPI TableController (e2e)', () => {
     tableId = result.id;
     const recordResult = await getRecords(tableId);
     expect(recordResult.records).toHaveLength(3);
+  });
+
+  it('should invalidate base-node tree cache after table creation', async () => {
+    const isolatedBase = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: `base-node-cache-${Date.now()}`,
+    });
+
+    try {
+      const initialTree = await getBaseNodeTree(isolatedBase.id).then((res) => res.data);
+      const initialTableNodeIds = new Set(
+        initialTree.nodes
+          .filter((node) => node.resourceType === BaseNodeResourceType.Table)
+          .map((node) => node.resourceId)
+      );
+
+      const createdTable = await createTable(isolatedBase.id, {
+        name: 'cache invalidation table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: [],
+      });
+
+      const refreshedTree = await getBaseNodeTree(isolatedBase.id).then((res) => res.data);
+      const createdNode = refreshedTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table && node.resourceId === createdTable.id
+      );
+
+      expect(initialTableNodeIds.has(createdTable.id)).toBe(false);
+      expect(createdNode).toBeDefined();
+    } finally {
+      await permanentDeleteBase(isolatedBase.id);
+    }
   });
 
   it('should refresh table lastModifyTime when add a record', async () => {

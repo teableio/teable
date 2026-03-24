@@ -6,6 +6,7 @@ import { ShareDbModule } from '../../share-db/share-db.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
 import { ViewModule } from '../view/view.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
+import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2Controller } from './v2.controller';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
@@ -98,6 +99,7 @@ const toErrorMessage = (body: unknown): string => {
     V2ContainerService,
     V2ExecutionContextFactory,
     V2ActionTriggerService,
+    V2BaseNodeCompatService,
     V2UserRenamePropagationService,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,
