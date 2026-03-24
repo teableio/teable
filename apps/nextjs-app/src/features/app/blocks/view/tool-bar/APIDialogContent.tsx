@@ -338,9 +338,17 @@ const TokenSection = ({
 };
 
 // Advanced Query Builder Panel Component
-const AdvancedQueryPanel = ({ tableId, baseId }: { tableId: string; baseId: string }) => {
+const AdvancedQueryPanel = ({
+  tableId,
+  baseId,
+  initialViewId,
+}: {
+  tableId: string;
+  baseId: string;
+  initialViewId?: string;
+}) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const [viewId, setViewId] = useState<string>();
+  const [viewId, setViewId] = useState<string | undefined>(initialViewId);
   const [filter, setFilter] = useState<IFilterSet | null>(null);
   const [fieldKeyType, setFieldKeyType] = useState<FieldKeyType>(FieldKeyType.Name);
   const [cellFormat, setCellFormat] = useState<CellFormat>(CellFormat.Json);
@@ -470,9 +478,9 @@ export interface APIDialogContentProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
+export const APIDialogContent = ({ onOpenChange: _onOpenChange }: APIDialogContentProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
+  const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const [copied, setCopied] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const [generatedToken, setGeneratedToken] = useState<CreateAccessTokenVo | null>(null);
@@ -646,7 +654,7 @@ export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
 
       <TabsContent value="advanced" className="mt-0 min-h-0 flex-1 overflow-auto">
         <ScrollArea className="h-full">
-          <AdvancedQueryPanel tableId={tableId} baseId={baseId} />
+          <AdvancedQueryPanel tableId={tableId} baseId={baseId} initialViewId={viewId} />
         </ScrollArea>
       </TabsContent>
     </Tabs>

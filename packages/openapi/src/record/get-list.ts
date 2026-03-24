@@ -21,7 +21,7 @@ export const queryBaseSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().meta({
     example: 'viwXXXXXXX',
     description:
-      'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
+      "Set the view you want to fetch. When provided, records will follow that view's filter and sort settings. When omitted, the API queries the table without applying a view.",
   }),
   ignoreViewQuery: z
     .string()
