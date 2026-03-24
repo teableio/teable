@@ -219,7 +219,8 @@ export function pricingToCredits(
     totalUsd += parseFloat(pricing.image) * usage.images;
   }
   if (pricing.webSearch && usage.webSearches) {
-    totalUsd += parseFloat(pricing.webSearch) * usage.webSearches;
+    // pricing.webSearch is USD per 1,000 searches
+    totalUsd += (parseFloat(pricing.webSearch) * usage.webSearches) / 1000;
   }
 
   return totalUsd / USD_PER_CREDIT;

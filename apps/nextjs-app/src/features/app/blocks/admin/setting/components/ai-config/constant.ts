@@ -75,7 +75,7 @@ export const LLM_PROVIDERS = [
     value: LLMProviderType.ANTHROPIC,
     label: 'Anthropic',
     baseUrlPlaceholder: 'https://api.anthropic.com/v1',
-    modelsPlaceholder: 'claude-sonnet-4-6,claude-opus-4-6,claude-sonnet-4-6',
+    modelsPlaceholder: 'claude-sonnet-4-6,claude-opus-4-6',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.ANTHROPIC],
   },
   {

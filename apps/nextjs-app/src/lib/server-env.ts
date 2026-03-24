@@ -39,6 +39,7 @@ export interface IServerEnv {
   signupVerificationSendMailCodeRate?: number;
   availableIntegrationProviders?: string[];
   enableCanaryFeature?: boolean;
+  enableSandboxAgent?: boolean;
   task?: {
     maxTaskRows?: number;
   };

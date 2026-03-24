@@ -662,7 +662,6 @@ export class AiService {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     const gatewayModels = aiConfig?.gatewayModels ?? [];
     const localModel = gatewayModels.find((m) => m.id === modelId);
-
     if (localModel?.pricing) {
       // Normalize handles both camelCase (admin UI) and snake_case (legacy stored data)
       const pricing = normalizeGatewayPricing(localModel.pricing);
@@ -697,7 +696,14 @@ export class AiService {
    */
   private async getGatewayApiModel(modelId: string): Promise<IGatewayApiModel | undefined> {
     const models = await this.fetchGatewayModelsFromApi();
-    return models.find((m) => m.id === modelId);
+    return models.find((m) => {
+      const modelIdParts = modelId.split('/');
+      const normalizedModelId = modelIdParts[modelIdParts.length - 1]
+        .replaceAll('.', '')
+        .replaceAll('-', '');
+      const normalizedGatewayModelId = m.id.replaceAll('.', '').replaceAll('-', '').split('/')?.[1];
+      return normalizedGatewayModelId?.toLowerCase() === normalizedModelId?.toLowerCase();
+    });
   }
 
   /**

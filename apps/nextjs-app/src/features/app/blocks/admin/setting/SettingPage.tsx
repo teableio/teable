@@ -22,6 +22,7 @@ import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
+
 import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
 import { WaitlistManage } from './components/waitlist/WaitlistManage';
 import { scrollToTarget } from './utils';

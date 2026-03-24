@@ -1619,6 +1619,9 @@ export type I18nTranslations = {
         "chat": {
             "serverError": string;
             "serverErrorHint": string;
+            "sandboxBusy": string;
+            "sandboxCapacityFull": string;
+            "sandboxTransient": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -4691,6 +4694,8 @@ export type I18nTranslations = {
                     "stageAnalyze": string;
                     "stageImport": string;
                 };
+                "retrying": string;
+                "queuing": string;
             };
             "tools": {
                 "getTeableApi": string;
@@ -5049,6 +5054,79 @@ export type I18nTranslations = {
                 "regenerate": string;
                 "refresh": string;
                 "regenerating": string;
+            };
+            "agent": {
+                "askUserQuestion": {
+                    "label": string;
+                    "confirm": string;
+                    "otherPlaceholder": string;
+                    "otherSend": string;
+                    "addCustomPlaceholder": string;
+                };
+                "completion": {
+                    "completed": string;
+                    "tools": string;
+                    "toolsWithErrors": string;
+                    "hasErrors": string;
+                };
+                "taskProgress": {
+                    "title": string;
+                    "noTasks": string;
+                    "operationFailed": string;
+                    "collapse": string;
+                    "showMore": string;
+                };
+                "tool": {
+                    "executing": string;
+                    "executionFailed": string;
+                    "stoppedByUser": string;
+                    "executionDenied": string;
+                    "moreLines": string;
+                    "copy": string;
+                    "copied": string;
+                    "copyNewContent": string;
+                    "showAllLines": string;
+                    "collapse": string;
+                    "linesHidden": string;
+                };
+                "subtask": {
+                    "working": string;
+                    "workingOn": string;
+                    "completed": string;
+                };
+                "skill": {
+                    "running": string;
+                    "runningName": string;
+                };
+                "plan": {
+                    "entering": string;
+                    "exiting": string;
+                };
+                "worktree": {
+                    "creating": string;
+                    "creatingName": string;
+                    "exiting": string;
+                };
+                "cron": {
+                    "scheduling": string;
+                    "removing": string;
+                    "listing": string;
+                };
+                "step": string;
+                "runDetails": {
+                    "working": string;
+                    "summary": string;
+                    "moreActions": string;
+                    "collapseActions": string;
+                };
+            };
+            "queue": {
+                "nQueued": string;
+                "edit": string;
+                "forceSend": string;
+                "removeFromQueue": string;
+                "queueFull": string;
+                "messageQueued": string;
             };
         };
         "download": {

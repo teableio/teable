@@ -1366,7 +1366,10 @@
   },
   "chat": {
     "serverError": "Server error occurred",
-    "serverErrorHint": "Please start a new conversation and try again."
+    "serverErrorHint": "Please start a new conversation and try again.",
+    "sandboxBusy": "Agent is busy in another conversation. Please wait.",
+    "sandboxCapacityFull": "Too many conversations running at the same time. Please wait for one to finish.",
+    "sandboxTransient": "Cuppy is getting ready. Please try again in a moment."
   },
   "system": {
     "notFound": {

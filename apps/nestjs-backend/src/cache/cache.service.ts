@@ -11,6 +11,7 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   constructor(private readonly cacheManager: Keyv<any>) {}
   private readonly logger = new Logger(CacheService.name);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getKeyv(): Keyv<any> {
     return this.cacheManager;
   }

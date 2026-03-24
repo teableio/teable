@@ -1032,6 +1032,71 @@
     "shareNodeTab": "分享节点"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "问题",
+        "confirm": "确认 ({{count}})",
+        "otherPlaceholder": "或输入自定义回答…",
+        "otherSend": "发送",
+        "addCustomPlaceholder": "添加自定义选项…"
+      },
+      "completion": {
+        "completed": "已完成",
+        "tools": "{{count}} 个工具",
+        "toolsWithErrors": "{{count}} 个工具 ({{errors}} 个错误)",
+        "hasErrors": "有错误"
+      },
+      "taskProgress": {
+        "title": "任务进度",
+        "noTasks": "暂无任务",
+        "operationFailed": "任务操作失败",
+        "collapse": "收起",
+        "showMore": "展开更多 ({{count}})"
+      },
+      "tool": {
+        "executing": "执行中…",
+        "executionFailed": "工具执行失败",
+        "stoppedByUser": "已被用户停止",
+        "executionDenied": "工具执行被拒绝",
+        "moreLines": "… 还有 {{count}} 行",
+        "copy": "复制",
+        "copied": "已复制!",
+        "copyNewContent": "复制新内容",
+        "showAllLines": "显示全部 {{count}} 行",
+        "collapse": "收起",
+        "linesHidden": "隐藏了 {{count}} 行 - 点击展开"
+      },
+      "subtask": {
+        "working": "处理子任务",
+        "workingOn": "处理子任务: {{description}}",
+        "completed": "子任务已完成"
+      },
+      "skill": {
+        "running": "运行技能",
+        "runningName": "运行技能: {{name}}"
+      },
+      "plan": {
+        "entering": "进入计划模式",
+        "exiting": "退出计划模式"
+      },
+      "worktree": {
+        "creating": "创建工作树",
+        "creatingName": "创建工作树: {{name}}",
+        "exiting": "退出工作树"
+      },
+      "cron": {
+        "scheduling": "调度任务",
+        "removing": "移除定时任务",
+        "listing": "定时任务列表"
+      },
+      "step": "步骤 {{number}}",
+      "runDetails": {
+        "working": "执行中…",
+        "summary": "{{actions}} 个操作已完成",
+        "moreActions": "… 还有 {{count}} 个操作",
+        "collapseActions": "收起"
+      }
+    },
     "tool": {
       "getTableFields": "获取表格字段",
       "getTablesMeta": "获取表格元数据",
@@ -1044,6 +1109,8 @@
       "args": "参数",
       "result": "结果",
       "thinking": "思考中...",
+      "retrying": "重试中 ({{attempt}}/{{maxRetries}})...",
+      "queuing": "排队中...",
       "toBeConfirmed": "待确认",
       "errorMessage": "错误信息",
       "confirm": "确认",
@@ -1518,6 +1585,14 @@
       "regenerate": "重新生成",
       "refresh": "刷新",
       "regenerating": "正在重新生成..."
+    },
+    "queue": {
+      "nQueued": "{{count}} 条排队中",
+      "edit": "编辑",
+      "forceSend": "中断并立即发送",
+      "removeFromQueue": "移除",
+      "queueFull": "队列已满（最多 10 条消息）",
+      "messageQueued": "消息已加入队列"
     }
   },
   "upload": {

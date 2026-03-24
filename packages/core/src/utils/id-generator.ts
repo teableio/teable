@@ -69,6 +69,8 @@ export enum IdPrefix {
   Query = 'qry',
 
   App = 'app',
+
+  AiProxyToken = 'apt',
 }
 
 export enum RandomType {
@@ -274,6 +276,18 @@ export function generateQueryId() {
 
 export function generateAppId() {
   return IdPrefix.App + getRandomString(16);
+}
+
+export function generateAiProxyTokenId() {
+  return IdPrefix.AiProxyToken + getRandomString(24);
+}
+
+/**
+ * Generate a cryptographically random signing secret for AI Proxy Token JWTs.
+ * 48 chars of base62 ≈ 285 bits of entropy — sufficient for HMAC-SHA256.
+ */
+export function generateAiProxyTokenSign() {
+  return getRandomString(48);
 }
 
 export function generateLogId() {

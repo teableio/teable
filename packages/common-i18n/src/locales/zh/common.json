@@ -1366,7 +1366,10 @@
   },
   "chat": {
     "serverError": "服务端发生错误",
-    "serverErrorHint": "请新建对话重试"
+    "serverErrorHint": "请新建对话重试",
+    "sandboxBusy": "Cuppy 正在另一个对话中执行，请稍候。",
+    "sandboxCapacityFull": "同时运行的对话数已达上限，请等待一个对话完成。",
+    "sandboxTransient": "Cuppy 正在准备中，请稍后重试。"
   },
   "system": {
     "notFound": {

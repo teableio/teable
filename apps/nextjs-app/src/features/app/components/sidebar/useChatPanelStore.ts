@@ -22,27 +22,48 @@ import { persist } from 'zustand/middleware';
  */
 interface IChatPanelState {
   status: 'open' | 'close' | 'expanded';
+  chatMode: 'general' | 'agent' | 'cuppyclaw';
   close: () => void;
   open: () => void;
   expand: () => void;
   toggleVisible: () => void;
   toggleExpanded: () => void;
+  setChatMode: (mode: 'general' | 'agent' | 'cuppyclaw') => void;
+  openAgent: () => void;
+  openCuppyClaw: () => void;
 }
 
 export const useChatPanelStore = create<IChatPanelState>()(
   persist(
     (set) => ({
       status: 'open',
-      close: () => set({ status: 'close' }),
+      chatMode: 'general' as const,
+      close: () =>
+        set((state) => ({
+          status: 'close',
+          chatMode: state.chatMode === 'cuppyclaw' ? 'general' : state.chatMode,
+        })),
       open: () => set({ status: 'open' }),
       expand: () => set({ status: 'expanded' }),
       toggleVisible: () =>
-        set((state) => ({ status: state.status !== 'close' ? 'close' : 'open' })),
+        set((state) => ({
+          status: state.status !== 'close' ? 'close' : 'open',
+          chatMode:
+            state.status !== 'close' && state.chatMode === 'cuppyclaw' ? 'general' : state.chatMode,
+        })),
       toggleExpanded: () =>
         set((state) => ({ status: state.status === 'expanded' ? 'open' : 'expanded' })),
+      setChatMode: (mode: 'general' | 'agent' | 'cuppyclaw') => set({ chatMode: mode }),
+      openAgent: () => set({ status: 'open', chatMode: 'agent' }),
+      openCuppyClaw: () => set({ status: 'open', chatMode: 'cuppyclaw' }),
     }),
     {
       name: LocalStorageKeys.ChatPanel,
+      // Never persist cuppyclaw mode — it must be entered explicitly via sidebar button
+      partialize: (state) => ({
+        status: state.status,
+        chatMode: state.chatMode === 'cuppyclaw' ? 'general' : state.chatMode,
+      }),
     }
   )
 );

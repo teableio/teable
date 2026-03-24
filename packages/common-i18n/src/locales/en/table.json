@@ -1030,6 +1030,71 @@
     "shareNodeTab": "Share node"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Question",
+        "confirm": "Confirm ({{count}})",
+        "otherPlaceholder": "Or type your answer…",
+        "otherSend": "Send",
+        "addCustomPlaceholder": "Add custom option…"
+      },
+      "completion": {
+        "completed": "Completed",
+        "tools": "{{count}} tools",
+        "toolsWithErrors": "{{count}} tools ({{errors}} error(s))",
+        "hasErrors": "errors"
+      },
+      "taskProgress": {
+        "title": "Task Progress",
+        "noTasks": "No tasks",
+        "operationFailed": "Task operation failed",
+        "collapse": "Collapse",
+        "showMore": "Show more ({{count}})"
+      },
+      "tool": {
+        "executing": "Executing…",
+        "executionFailed": "Tool execution failed",
+        "stoppedByUser": "Stopped by user",
+        "executionDenied": "Tool execution was denied",
+        "moreLines": "… +{{count}} more lines",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "copyNewContent": "Copy new content",
+        "showAllLines": "Show all {{count}} lines",
+        "collapse": "Collapse",
+        "linesHidden": "{{count}} lines hidden - click to expand"
+      },
+      "subtask": {
+        "working": "Working on subtask",
+        "workingOn": "Working on subtask: {{description}}",
+        "completed": "Subtask completed"
+      },
+      "skill": {
+        "running": "Running skill",
+        "runningName": "Running skill: {{name}}"
+      },
+      "plan": {
+        "entering": "Entering plan mode",
+        "exiting": "Exiting plan mode"
+      },
+      "worktree": {
+        "creating": "Creating worktree",
+        "creatingName": "Creating worktree: {{name}}",
+        "exiting": "Exiting worktree"
+      },
+      "cron": {
+        "scheduling": "Scheduling task",
+        "removing": "Removing scheduled task",
+        "listing": "Scheduled tasks"
+      },
+      "step": "Step {{number}}",
+      "runDetails": {
+        "working": "Working...",
+        "summary": "{{actions}} actions completed",
+        "moreActions": "... +{{count}} more actions",
+        "collapseActions": "Collapse"
+      }
+    },
     "tool": {
       "getTableFields": "Get table fields",
       "getTablesMeta": "Get tables meta",
@@ -1042,6 +1107,8 @@
       "args": "Arguments",
       "result": "Result",
       "thinking": "Thinking...",
+      "retrying": "Retrying ({{attempt}}/{{maxRetries}})...",
+      "queuing": "Queuing...",
       "toBeConfirmed": "To be confirmed",
       "errorMessage": "Error message",
       "confirm": "Confirm",
@@ -1517,6 +1584,14 @@
       "regenerate": "Regenerate",
       "refresh": "Refresh",
       "regenerating": "Regenerating..."
+    },
+    "queue": {
+      "nQueued": "{{count}} Queued",
+      "edit": "Edit",
+      "forceSend": "Stop & send now",
+      "removeFromQueue": "Remove",
+      "queueFull": "Queue is full (max 10 messages)",
+      "messageQueued": "Message queued"
     }
   },
   "upload": {
