@@ -22,6 +22,34 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   constructor(private readonly knex: Knex) {}
 
+  private buildDistinctFlattenedJsonArray(baseAggregate: string): string {
+    return `(SELECT jsonb_agg(to_jsonb(v.val))
+      FROM (
+        SELECT DISTINCT val
+        FROM (
+          SELECT leaf #>> '{}' AS val
+          FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb)) AS row_elem(elem)
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(row_elem.elem) = 'array' THEN row_elem.elem
+              ELSE jsonb_build_array(row_elem.elem)
+            END
+          ) AS leaf_elem(leaf)
+        ) AS flattened
+        WHERE val IS NOT NULL AND val <> ''
+        ORDER BY val
+      ) AS v)`;
+  }
+
+  private normalizeSingleValueJsonArray(expr: string): string {
+    return `(CASE
+      WHEN ${expr} IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(to_jsonb(${expr})) = 'array' THEN to_jsonb(${expr})
+      WHEN jsonb_typeof(to_jsonb(${expr})) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array(to_jsonb(${expr}))
+    END)`;
+  }
+
   toText(expr: string): string {
     return `(${expr})::TEXT`;
   }
@@ -504,6 +532,12 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
           : `STRING_AGG(${fieldExpression}::text, ', ')`;
       case 'array_unique':
+        if (flattenNestedArray) {
+          const baseAggregate = orderByField
+            ? `jsonb_agg(to_jsonb(${fieldExpression}) ORDER BY ${orderByField}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`
+            : `jsonb_agg(to_jsonb(${fieldExpression})) FILTER (WHERE ${fieldExpression} IS NOT NULL)`;
+          return this.buildDistinctFlattenedJsonArray(baseAggregate);
+        }
         return `json_agg(DISTINCT ${fieldExpression})`;
       case 'array_compact': {
         const buildAggregate = (expr: string) =>
@@ -572,6 +606,15 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'xor':
         return `(COALESCE((${fieldExpression})::boolean, false))`;
       case 'array_unique':
+        if (
+          requiresJsonArray &&
+          (options.targetField.isMultipleCellValue || options.targetField.isConditionalLookup)
+        ) {
+          return this.normalizeSingleValueJsonArray(fieldExpression);
+        }
+        return !requiresJsonArray
+          ? `${fieldExpression}`
+          : `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::jsonb ELSE jsonb_build_array(${fieldExpression}) END)`;
       case 'array_compact':
         if (!requiresJsonArray) {
           return `${fieldExpression}`;

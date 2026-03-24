@@ -1829,6 +1829,26 @@ describe('ComputedTableRecordQueryBuilder', () => {
                     ) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk_0" on true"
       `);
     });
+
+    test('rollup array_unique flattens multi-value field entries before deduplication', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } =
+        createMultiValueRollupTable('array_unique({values})');
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('jsonb_agg(to_jsonb(v.val))');
+      expect(sql).toContain('SELECT DISTINCT val');
+      expect(sql).toContain('jsonb_array_elements(COALESCE(jsonb_agg("f"."col_tags"');
+      expect(sql).toContain('FILTER (WHERE "f"."col_tags" IS NOT NULL)');
+    });
+
     test('returns NULL rollup when rollup foreign table mismatches link foreign table', () => {
       const db = createTestDb();
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();

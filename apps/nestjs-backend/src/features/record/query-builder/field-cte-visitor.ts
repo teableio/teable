@@ -294,10 +294,14 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     rowPresenceExpr?: string
   ): string {
     const functionName = parseRollupFunctionName(expression);
+    const shouldFlattenNestedArray =
+      functionName === 'array_unique' &&
+      ((targetField?.isMultipleCellValue ?? false) || (targetField?.isConditionalLookup ?? false));
     return this.dialect.rollupAggregate(functionName, fieldExpression, {
       targetField,
       orderByField,
       rowPresenceExpr,
+      flattenNestedArray: shouldFlattenNestedArray,
     });
   }
 
@@ -1259,7 +1263,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   ): string {
     const fn = parseRollupFunctionName(rollupExpression);
     const shouldFlattenNestedArray =
-      fn === 'array_compact' &&
+      (fn === 'array_compact' || fn === 'array_unique') &&
       ((targetField?.isMultipleCellValue ?? false) || (targetField?.isConditionalLookup ?? false));
     return this.dialect.rollupAggregate(fn, fieldExpression, {
       targetField,

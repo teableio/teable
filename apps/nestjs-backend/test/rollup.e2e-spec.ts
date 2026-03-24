@@ -658,6 +658,74 @@ describe('OpenAPI Rollup field (e2e)', () => {
     }
   });
 
+  it('flattens and deduplicates multiple select values with array_unique when rolling up', async () => {
+    const projects = await createTable(baseId, {
+      name: 'rollup_multiselect_projects_unique',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+        {
+          name: 'Tags',
+          type: FieldType.MultipleSelect,
+          options: {
+            choices: [
+              { name: 'A', color: Colors.Yellow },
+              { name: 'B', color: Colors.Orange },
+              { name: 'C', color: Colors.Green },
+            ],
+          },
+        } as IFieldRo,
+      ],
+      records: [
+        { fields: { Name: 'P1', Tags: ['A', 'B'] } },
+        { fields: { Name: 'P2', Tags: ['B'] } },
+        { fields: { Name: 'P3', Tags: ['B', 'C'] } },
+      ],
+    });
+
+    const departments = await createTable(baseId, {
+      name: 'rollup_multiselect_departments_unique',
+      fields: [{ name: 'Dept', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Dept: 'Ops' } }],
+    });
+
+    try {
+      const projectLink = await createField(departments.id, {
+        name: 'Projects',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: projects.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(departments.id, departments.records[0].id, projectLink.id, [
+        { id: projects.records[0].id },
+        { id: projects.records[1].id },
+        { id: projects.records[2].id },
+      ]);
+
+      const tagsField = getFieldByName(projects.fields, 'Tags');
+      const rollup = await createField(departments.id, {
+        name: 'project_tags_unique',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'array_unique({values})',
+        },
+        lookupOptions: {
+          foreignTableId: projects.id,
+          linkFieldId: projectLink.id,
+          lookupFieldId: tagsField.id,
+        },
+      } as IFieldRo);
+
+      const record = await getRecord(departments.id, departments.records[0].id);
+      expect(record.fields[rollup.id]).toEqual(['A', 'B', 'C']);
+    } finally {
+      await permanentDeleteTable(baseId, departments.id);
+      await permanentDeleteTable(baseId, projects.id);
+    }
+  });
+
   describe('rollup expression coverage', () => {
     const baseId = globalThis.testConfig.baseId;
     const isForceV2 = process.env.FORCE_V2_ALL === 'true';

@@ -183,6 +183,26 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'concatenate':
         return `GROUP_CONCAT(${fieldExpression}, ', ')`;
       case 'array_unique':
+        if (opts.flattenNestedArray) {
+          return `(WITH outer_values AS (
+              SELECT value
+              FROM json_each(COALESCE(json_group_array(${fieldExpression}), json('[]')))
+            ),
+            flattened AS (
+              SELECT inner_elem.value AS value
+              FROM outer_values
+              JOIN json_each(
+                CASE
+                  WHEN json_valid(outer_values.value) AND json_type(outer_values.value) = 'array'
+                    THEN outer_values.value
+                  ELSE json_array(outer_values.value)
+                END
+              ) AS inner_elem
+            )
+            SELECT json_group_array(DISTINCT value)
+            FROM flattened
+            WHERE value IS NOT NULL AND CAST(value AS TEXT) <> '')`;
+        }
         return `json_group_array(DISTINCT ${fieldExpression})`;
       case 'array_compact':
         return `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL AND CAST(${fieldExpression} AS TEXT) <> '' THEN ${fieldExpression} END)`;
@@ -215,6 +235,19 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'xor':
         return `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
       case 'array_unique':
+        if (
+          requiresJsonArray &&
+          (options.targetField.isMultipleCellValue || options.targetField.isConditionalLookup)
+        ) {
+          return `(CASE
+            WHEN ${fieldExpression} IS NULL THEN json('[]')
+            WHEN json_valid(${fieldExpression}) AND json_type(${fieldExpression}) = 'array' THEN ${fieldExpression}
+            ELSE json_array(${fieldExpression})
+          END)`;
+        }
+        return !requiresJsonArray
+          ? `${fieldExpression}`
+          : `(CASE WHEN ${fieldExpression} IS NULL THEN json('[]') ELSE json_array(${fieldExpression}) END)`;
       case 'array_compact':
         if (!requiresJsonArray) {
           return `${fieldExpression}`;

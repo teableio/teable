@@ -1422,6 +1422,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 : sql`jsonb_agg(to_jsonb(${colRef})) FILTER (WHERE ${colRef} IS NOT NULL)`;
               return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
             }
+            if (isMultipleValue) {
+              const baseAggregate = orderByExpr
+                ? sql`jsonb_agg(${colRef} ORDER BY ${orderByExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
+                : sql`jsonb_agg(${colRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
+            }
             return ok(sql`json_agg(DISTINCT ${colRef})`);
           }
           case 'array_compact({values})': {
