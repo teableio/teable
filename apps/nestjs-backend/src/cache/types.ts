@@ -35,6 +35,7 @@ export interface ICacheStore {
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `oauth:token-rate:${string}:${string}`]: number;
   [key: `automation:email:rate:${string}:${number}`]: number;
+  [key: `automation:email-att:${string}`]: string[];
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {

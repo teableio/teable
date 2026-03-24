@@ -33,7 +33,7 @@ import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
 import { InjectStorageAdapter } from './plugins/storage';
-import { getExtensionPreview } from './utils';
+import { getExtensionPreview, getSafeUploadContentType } from './utils';
 @Injectable()
 export class AttachmentsService {
   private logger = new Logger(AttachmentsService.name);
@@ -281,55 +281,6 @@ export class AttachmentsService {
     return await this.notifyToAttachmentItem(token, filename);
   }
 
-  async uploadFromLocalFile(filePath: string, filename: string): Promise<IAttachmentItem> {
-    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
-    const stat = await fs.promises.stat(filePath);
-    const contentLength = stat.size;
-
-    if (contentLength > MAX_FILE_SIZE) {
-      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
-      throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${maxSize} MB`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
-            context: {
-              maxSize: `${maxSize}MB`,
-            },
-          },
-        }
-      );
-    }
-
-    const contentType = mimeTypes.lookup(filename) || 'application/octet-stream';
-    const { token, url } = await this.signature({
-      type: UploadType.Table,
-      contentLength,
-      contentType,
-      internal: true,
-    });
-
-    try {
-      await this.uploadStreamToStorage(
-        url,
-        fs.createReadStream(filePath),
-        contentType,
-        contentLength
-      );
-      return await this.notifyToAttachmentItem(token, filename);
-    } finally {
-      await fs.promises.unlink(filePath);
-      // Clean up temp subdirectory (created by email attachment saver)
-      const dir = dirname(filePath);
-      try {
-        await fs.promises.rmdir(dir);
-      } catch {
-        /* directory not empty or already removed */
-      }
-    }
-  }
-
   async uploadFromUrl(
     fileUrl: string,
     uploadType: UploadType = UploadType.Table
@@ -394,7 +345,10 @@ export class AttachmentsService {
       const headResponse = await axios.head(fileUrl);
       contentLength =
         headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
-      contentType = mimeTypes.lookup(fileUrl) || headResponse.headers['content-type'];
+      contentType =
+        mimeTypes.lookup(fileUrl) ||
+        headResponse.headers['content-type'] ||
+        'application/octet-stream';
       this.logger.log(
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
       );
@@ -460,7 +414,7 @@ export class AttachmentsService {
     try {
       await axios.put(url, stream, {
         headers: {
-          'Content-Type': contentType,
+          'Content-Type': getSafeUploadContentType(contentType),
           'Content-Length': contentLength,
         },
       });
@@ -473,7 +427,12 @@ export class AttachmentsService {
   private getFilenameFromUrl(url: string): string {
     const urlParts = new URL(url);
     const pathParts = urlParts.pathname.split('/');
-    return pathParts[pathParts.length - 1] || 'downloaded_file';
+    const rawFilename = pathParts[pathParts.length - 1] || 'downloaded_file';
+    try {
+      return decodeURIComponent(rawFilename);
+    } catch {
+      return rawFilename;
+    }
   }
 
   private async downloadFile(

@@ -18,6 +18,7 @@ import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { second } from '../../../utils/second';
+import { isBodyParserFallback } from '../utils';
 import StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
 
@@ -132,7 +133,7 @@ export class LocalStorage implements StorageAdapter {
         },
       });
     }
-    if (mimetype && mimetype !== contentType) {
+    if (mimetype && !isBodyParserFallback(mimetype, contentType) && mimetype !== contentType) {
       throw new CustomHttpException(
         `Not allow upload ${mimetype} file`,
         HttpErrorCode.VALIDATION_ERROR,
