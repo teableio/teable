@@ -14,6 +14,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe method extraction approach.
+- `duplicate.ts` - Role: method function; Purpose: duplicate a table aggregate by remapping internal
+  ids/references while preserving external-table semantics.
 - `rename.ts` - Role: method function; Purpose: rename table and emit TableRenamed event.
 - `validateFormSubmission.ts` - Role: method function; Purpose: validate form-submit constraints (view
   type, visible fields, required fields).

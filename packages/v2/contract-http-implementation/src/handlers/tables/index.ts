@@ -25,3 +25,4 @@ export * from './updateRecords';
 export * from './reorderRecords';
 export * from './duplicateRecord';
 export * from './duplicateField';
+export * from './duplicateTable';

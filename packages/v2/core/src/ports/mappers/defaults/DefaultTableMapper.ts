@@ -259,10 +259,12 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     notNull?: boolean;
     unique?: boolean;
     isComputed?: boolean;
+    hasError?: boolean;
   } {
     const notNull = field.notNull().toBoolean();
     const unique = field.unique().toBoolean();
     const isComputed = field.computed().toBoolean();
+    const hasError = field.hasError().isError();
     const dbFieldTypeResult = field.dbFieldType().andThen((type) => type.value());
     const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
 
@@ -276,6 +278,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       ...(notNull ? { notNull } : {}),
       unique,
       ...(isComputed ? { isComputed } : {}),
+      ...(hasError ? { hasError } : {}),
     };
   }
 
@@ -585,9 +588,36 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     });
   }
 
+  private mapLinkFieldOptions(field: LinkField): ILinkFieldOptionsDTO {
+    const config = field.config();
+    return {
+      ...(config.baseId() ? { baseId: config.baseId()!.toString() } : {}),
+      relationship: config.relationship().toString(),
+      foreignTableId: config.foreignTableId().toString(),
+      lookupFieldId: config.lookupFieldId().toString(),
+      ...(config.isOneWay() ? { isOneWay: true } : {}),
+      ...(config.symmetricFieldId()
+        ? { symmetricFieldId: config.symmetricFieldId()!.toString() }
+        : {}),
+      ...(config.filterByViewId() === null
+        ? { filterByViewId: null }
+        : config.filterByViewId()
+          ? { filterByViewId: config.filterByViewId()!.toString() }
+          : {}),
+      ...(config.visibleFieldIds() === null
+        ? { visibleFieldIds: null }
+        : config.visibleFieldIds()
+          ? { visibleFieldIds: config.visibleFieldIds()!.map((id) => id.toString()) }
+          : {}),
+      ...(config.filter() !== undefined ? { filter: config.filter() } : {}),
+    };
+  }
+
   visitLinkField(field: LinkField): Result<ITableFieldPersistenceDTO, DomainError> {
-    const optionsResult = field.configDto();
-    if (optionsResult.isErr()) return err(optionsResult.error);
+    const optionsResult = field.configDto().orElse(() => ok(this.mapLinkFieldOptions(field)));
+    if (optionsResult.isErr()) {
+      return err(optionsResult.error);
+    }
     const meta = field.metaDto();
     const base = {
       ...this.baseField(field),
@@ -814,6 +844,7 @@ class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO>
         type,
         columnMeta: columnMeta.toDto(),
         query: queryDefaults.toDto(),
+        ...(view.options() !== undefined ? { options: view.options() } : {}),
       }))
     );
   }
@@ -1354,6 +1385,7 @@ export class DefaultTableMapper implements ITableMapper {
               .setColumnMeta(columnMeta)
               .andThen(() => ViewQueryDefaults.rehydrate(dto.query ?? {}))
               .andThen((queryDefaults) => view.setQueryDefaults(queryDefaults))
+              .andThen(() => view.setOptions(dto.options))
               .map(() => view)
           )
         );

@@ -431,6 +431,10 @@ export const tableDtoSchema = z.object({
 
 export type ITableDto = z.infer<typeof tableDtoSchema>;
 
+const isLinkField = (field: Field): field is LinkField =>
+  typeof (field as Partial<LinkField>).config === 'function' &&
+  typeof (field as Partial<LinkField>).metaDto === 'function';
+
 class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   constructor(private readonly primaryFieldId: FieldId) {}
 
@@ -792,25 +796,28 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   }
 
   visitLinkField(field: LinkField): Result<IFieldDto, DomainError> {
-    return field.configDto().map((options) => {
-      // Strip symmetricFieldId from API responses for oneWay links —
-      // it's an internal implementation detail not relevant to consumers.
-      if (options.isOneWay) {
-        const { symmetricFieldId: _, ...rest } = options;
+    return field
+      .configDto()
+      .orElse(() => ok(this.mapPublicLinkOptions(field)))
+      .map((options) => {
+        // Strip symmetricFieldId from API responses for oneWay links —
+        // it's an internal implementation detail not relevant to consumers.
+        if (options.isOneWay) {
+          const { symmetricFieldId: _, ...rest } = options;
+          return {
+            ...this.baseField(field),
+            type: 'link' as const,
+            options: rest,
+            meta: field.metaDto(),
+          };
+        }
         return {
           ...this.baseField(field),
           type: 'link' as const,
-          options: rest,
+          options,
           meta: field.metaDto(),
         };
-      }
-      return {
-        ...this.baseField(field),
-        type: 'link' as const,
-        options,
-        meta: field.metaDto(),
-      };
-    });
+      });
   }
 
   visitLookupField(field: LookupField): Result<IFieldDto, DomainError> {
@@ -838,7 +845,11 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     }
 
     // Lookup fields delegate to the inner field's visitor, adding isLookup and lookupOptions
-    const innerResult = field.innerField().andThen((inner) => inner.accept(this));
+    const innerResult = field
+      .innerField()
+      .andThen((inner) =>
+        isLinkField(inner) ? ok(this.mapLookupInnerLinkField(inner)) : inner.accept(this)
+      );
     if (innerResult.isErr()) return innerResult;
 
     const innerDto = innerResult.value;
@@ -864,7 +875,11 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       });
     }
 
-    const innerResult = field.innerField().andThen((inner) => inner.accept(this));
+    const innerResult = field
+      .innerField()
+      .andThen((inner) =>
+        isLinkField(inner) ? ok(this.mapLookupInnerLinkField(inner)) : inner.accept(this)
+      );
     if (innerResult.isErr()) return innerResult;
 
     const innerDto = innerResult.value;
@@ -874,6 +889,39 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       isLookup: true,
       conditionalLookupOptions,
     });
+  }
+
+  private mapLookupInnerLinkField(field: LinkField): Extract<IFieldDto, { type: 'link' }> {
+    return {
+      ...this.baseField(field),
+      type: 'link',
+      options: this.mapPublicLinkOptions(field),
+    };
+  }
+
+  private mapPublicLinkOptions(field: LinkField): Extract<IFieldDto, { type: 'link' }>['options'] {
+    const config = field.config();
+    return {
+      ...(config.baseId() ? { baseId: config.baseId()!.toString() } : {}),
+      relationship: config.relationship().toString(),
+      foreignTableId: config.foreignTableId().toString(),
+      lookupFieldId: config.lookupFieldId().toString(),
+      ...(config.isOneWay() ? { isOneWay: true } : {}),
+      ...(config.symmetricFieldId()
+        ? { symmetricFieldId: config.symmetricFieldId()!.toString() }
+        : {}),
+      ...(config.filterByViewId() === null
+        ? { filterByViewId: null }
+        : config.filterByViewId()
+          ? { filterByViewId: config.filterByViewId()!.toString() }
+          : {}),
+      ...(config.visibleFieldIds() === null
+        ? { visibleFieldIds: null }
+        : config.visibleFieldIds()
+          ? { visibleFieldIds: config.visibleFieldIds()!.map((id) => id.toString()) }
+          : {}),
+      ...(config.filter() !== undefined ? { filter: config.filter() } : {}),
+    };
   }
 }
 

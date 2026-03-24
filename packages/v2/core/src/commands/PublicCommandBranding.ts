@@ -52,6 +52,10 @@ declare module './DuplicateRecordCommand' {
   interface DuplicateRecordCommand extends IPublicCommand {}
 }
 
+declare module './DuplicateTableCommand' {
+  interface DuplicateTableCommand extends IPublicCommand {}
+}
+
 declare module './ImportCsvCommand' {
   interface ImportCsvCommand extends IPublicCommand {}
 }

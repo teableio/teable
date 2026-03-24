@@ -14,6 +14,7 @@ import {
   deleteTableInputSchema,
   duplicateFieldInputSchema,
   duplicateRecordInputSchema,
+  duplicateTableInputSchema,
   getRecordByIdInputSchema,
   getTableByIdInputSchema,
   importCsvInputSchema,
@@ -45,6 +46,7 @@ import { deleteRecordsOkResponseSchema } from './table/deleteRecords';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
 import { duplicateFieldOkResponseSchema } from './table/duplicateField';
 import { duplicateRecordOkResponseSchema } from './table/duplicateRecord';
+import { duplicateTableOkResponseSchema } from './table/duplicateTable';
 import {
   explainCreateFieldInputSchema,
   explainCreateRecordInputSchema,
@@ -105,6 +107,7 @@ const TABLES_UPDATE_RECORDS_PATH = '/tables/updateRecords';
 const TABLES_REORDER_RECORDS_PATH = '/tables/reorderRecords';
 const TABLES_DUPLICATE_FIELD_PATH = '/tables/duplicateField';
 const TABLES_DUPLICATE_RECORD_PATH = '/tables/duplicateRecord';
+const TABLES_DUPLICATE_TABLE_PATH = '/tables/duplicateTable';
 
 export const v2Contract: AnyContractRouter = {
   bases: {
@@ -400,6 +403,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(duplicateRecordInputSchema)
       .output(duplicateRecordOkResponseSchema),
+    duplicateTable: oc
+      .route({
+        method: 'POST',
+        path: TABLES_DUPLICATE_TABLE_PATH,
+        successStatus: 201,
+        summary: 'Duplicate table',
+        tags: ['tables'],
+      })
+      .input(duplicateTableInputSchema)
+      .output(duplicateTableOkResponseSchema),
     paste: oc
       .route({
         method: 'POST',

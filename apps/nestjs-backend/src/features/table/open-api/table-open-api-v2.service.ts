@@ -1,10 +1,18 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CellFormat, FieldKeyType, FieldType } from '@teable/core';
-import type { IFieldRo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
-import type { ICreateTableWithDefault, ITableFullVo, ITableVo } from '@teable/openapi';
+import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type {
+  ICreateTableWithDefault,
+  IDuplicateTableRo,
+  IDuplicateTableVo,
+  ITableFullVo,
+  ITableVo,
+} from '@teable/openapi';
 import {
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
+  executeDuplicateTableEndpoint,
   executeRestoreTableEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
@@ -31,6 +39,7 @@ export class TableOpenApiV2Service {
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewService: ViewService,
     private readonly recordService: RecordService,
+    private readonly prismaService: PrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -131,6 +140,48 @@ export class TableOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
+  async duplicateTable(
+    baseId: string,
+    tableId: string,
+    duplicateTableRo: IDuplicateTableRo
+  ): Promise<IDuplicateTableVo> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext();
+    const result = await executeDuplicateTableEndpoint(
+      context,
+      {
+        baseId,
+        tableId,
+        name: duplicateTableRo.name,
+        includeRecords: duplicateTableRo.includeRecords,
+      },
+      commandBus
+    );
+
+    if (result.status === 201 && result.body.ok) {
+      await this.syncLegacyDuplicateViews(
+        tableId,
+        result.body.data.table.id,
+        result.body.data.fieldIdMap,
+        result.body.data.viewIdMap
+      );
+      return await this.buildLegacyDuplicateTableResponse(
+        baseId,
+        tableId,
+        result.body.data.table.id,
+        result.body.data.fieldIdMap,
+        result.body.data.viewIdMap
+      );
+    }
+
+    if (!result.body.ok) {
+      this.throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
   private async buildLegacyCreateTableResponse(
     baseId: string,
     createTableRo: ICreateTableWithDefault,
@@ -148,6 +199,26 @@ export class TableOpenApiV2Service {
       fields,
       views,
       records,
+    };
+  }
+
+  private async buildLegacyDuplicateTableResponse(
+    baseId: string,
+    sourceTableId: string,
+    tableId: string,
+    fieldMap: Record<string, string>,
+    viewMap: Record<string, string>
+  ): Promise<IDuplicateTableVo> {
+    const table = await this.tableService.getTableMeta(baseId, tableId);
+    const fields = await this.buildLegacyDuplicateFieldResponse(sourceTableId, tableId, fieldMap);
+    const views = await this.viewService.getViews(tableId);
+
+    return {
+      ...table,
+      fields,
+      views,
+      fieldMap,
+      viewMap,
     };
   }
 
@@ -189,6 +260,147 @@ export class TableOpenApiV2Service {
     return recordIds
       .map((recordId) => recordById.get(recordId))
       .filter((record): record is IRecord => record != null);
+  }
+
+  private async buildLegacyDuplicateFieldResponse(
+    sourceTableId: string,
+    duplicatedTableId: string,
+    fieldMap: Record<string, string>
+  ): Promise<IFieldVo[]> {
+    const [sourceFields, duplicatedFields] = await Promise.all([
+      this.fieldOpenApiService.getFields(sourceTableId, {
+        filterHidden: false,
+      }),
+      this.fieldOpenApiService.getFields(duplicatedTableId, {
+        filterHidden: false,
+      }),
+    ]);
+
+    const sourceFieldIdByDuplicatedId = new Map(
+      Object.entries(fieldMap).map(([sourceFieldId, duplicatedFieldId]) => [
+        duplicatedFieldId,
+        sourceFieldId,
+      ])
+    );
+    const sourceFieldById = new Map(sourceFields.map((field) => [field.id, field] as const));
+
+    return duplicatedFields.map((field) => {
+      const sourceFieldId = sourceFieldIdByDuplicatedId.get(field.id);
+      if (!sourceFieldId) {
+        return field;
+      }
+
+      const sourceField = sourceFieldById.get(sourceFieldId);
+      if (!sourceField) {
+        return field;
+      }
+
+      return {
+        ...field,
+        ...(sourceField.dbFieldName ? { dbFieldName: sourceField.dbFieldName } : {}),
+        ...(sourceField.dbFieldType ? { dbFieldType: sourceField.dbFieldType } : {}),
+      };
+    });
+  }
+
+  private async syncLegacyDuplicateViews(
+    sourceTableId: string,
+    duplicatedTableId: string,
+    fieldMap: Record<string, string>,
+    viewMap: Record<string, string>
+  ): Promise<void> {
+    const sourceViews = await this.prismaService.view.findMany({
+      where: {
+        tableId: sourceTableId,
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+        filter: true,
+        sort: true,
+        group: true,
+        options: true,
+        columnMeta: true,
+        enableShare: true,
+      },
+    });
+
+    if (!sourceViews.length) {
+      return;
+    }
+
+    const replacements = new Map<string, string>([
+      ...Object.entries(fieldMap),
+      ...Object.entries(viewMap),
+      [sourceTableId, duplicatedTableId],
+    ]);
+
+    await Promise.all(
+      sourceViews.map(async (sourceView) => {
+        const duplicatedViewId = viewMap[sourceView.id];
+        if (!duplicatedViewId) {
+          return;
+        }
+
+        await this.prismaService.view.update({
+          where: {
+            id: duplicatedViewId,
+          },
+          data: {
+            filter: this.remapLegacyJsonString(sourceView.filter, replacements),
+            sort: this.remapLegacyJsonString(sourceView.sort, replacements),
+            group: this.remapLegacyJsonString(sourceView.group, replacements),
+            options: this.remapLegacyJsonString(sourceView.options, replacements),
+            columnMeta: this.remapLegacyJsonString(sourceView.columnMeta, replacements),
+            enableShare: sourceView.enableShare ?? null,
+          },
+        });
+      })
+    );
+  }
+
+  private remapLegacyJsonString(value: string, replacements: ReadonlyMap<string, string>): string;
+  private remapLegacyJsonString(
+    value: string | null,
+    replacements: ReadonlyMap<string, string>
+  ): string | null;
+  private remapLegacyJsonString(
+    value: string | null,
+    replacements: ReadonlyMap<string, string>
+  ): string | null {
+    if (!value) {
+      return value;
+    }
+
+    return JSON.stringify(this.remapLegacyStructuredValue(JSON.parse(value), replacements));
+  }
+
+  private remapLegacyStructuredValue(
+    value: unknown,
+    replacements: ReadonlyMap<string, string>
+  ): unknown {
+    if (typeof value === 'string') {
+      return replacements.get(value) ?? value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.remapLegacyStructuredValue(entry, replacements));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+        (acc, [key, entryValue]) => {
+          acc[replacements.get(key) ?? key] = this.remapLegacyStructuredValue(
+            entryValue,
+            replacements
+          );
+          return acc;
+        },
+        {}
+      );
+    }
+
+    return value;
   }
 
   private async normalizeLegacyCreateTableRo(

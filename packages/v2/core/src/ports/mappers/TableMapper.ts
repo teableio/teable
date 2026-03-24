@@ -326,6 +326,7 @@ export type ITableViewPersistenceDTOBase = {
   name: string;
   columnMeta: ViewColumnMetaValue;
   query?: ViewQueryDefaultsDTO;
+  options?: unknown;
 };
 
 export type ITableViewPersistenceDTO =

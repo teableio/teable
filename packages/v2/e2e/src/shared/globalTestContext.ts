@@ -38,6 +38,7 @@ import {
   deleteFieldOkResponseSchema,
   deleteRecordsOkResponseSchema,
   deleteTableOkResponseSchema,
+  duplicateTableOkResponseSchema,
   duplicateRecordOkResponseSchema,
   getTableByIdOkResponseSchema,
   listTableRecordsOkResponseSchema,
@@ -58,6 +59,7 @@ import type {
   ICreateTableCommandInput,
   ICreateFieldCommandInput,
   ICreateTablesCommandInput,
+  IDuplicateTableCommandInput,
   IPasteCommandInput,
   IImportCsvCommandInput,
   IImportRecordsCommandInput,
@@ -131,6 +133,9 @@ export interface SharedTestContext {
     tableId: string,
     recordId: string
   ) => Promise<ReturnType<typeof parseDuplicateRecordResponse>>;
+  duplicateTable: (
+    payload: IDuplicateTableCommandInput
+  ) => Promise<ReturnType<typeof parseDuplicateTableResponse>>;
   deleteRecord: (tableId: string, recordId: string) => Promise<void>;
   deleteRecords: (tableId: string, recordIds: string[]) => Promise<void>;
   listRecords: (
@@ -248,6 +253,14 @@ const parseDuplicateRecordResponse = (rawBody: unknown) => {
     throw new Error('Failed to parse duplicate record response');
   }
   return parsed.data.data.record;
+};
+
+const parseDuplicateTableResponse = (rawBody: unknown) => {
+  const parsed = duplicateTableOkResponseSchema.safeParse(rawBody);
+  if (!parsed.success || !parsed.data.ok) {
+    throw new Error('Failed to parse duplicate table response');
+  }
+  return parsed.data.data;
 };
 
 const parseListRecordsResponse = (rawBody: unknown) => {
@@ -591,6 +604,19 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     return parseDuplicateRecordResponse(await response.json());
   };
 
+  const duplicateTable = async (payload: IDuplicateTableCommandInput) => {
+    const response = await fetch(`${baseUrl}/tables/duplicateTable`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to duplicate table: ${errorText}`);
+    }
+    return parseDuplicateTableResponse(await response.json());
+  };
+
   const deleteRecord = async (tableId: string, recordId: string) => {
     const response = await fetch(`${baseUrl}/tables/deleteRecords`, {
       method: 'DELETE',
@@ -778,6 +804,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     updateRecord,
     updateRecords,
     duplicateRecord,
+    duplicateTable,
     deleteRecord,
     deleteRecords,
     listRecords,

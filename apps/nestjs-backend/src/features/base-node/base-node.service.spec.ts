@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { BaseNodeResourceType } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { GlobalModule } from '../../global/global.module';
 import { BaseNodeModule } from './base-node.module';
@@ -9,6 +10,24 @@ import { buildBatchUpdateSql } from './helper';
 describe('BaseNodeService', () => {
   let service: BaseNodeService;
   let knex: Knex;
+  const baseId = 'bse1';
+  const tableId = 'tbl1';
+  const tableName = 'Projects Copy';
+  const tableIcon = '📋';
+
+  type IDuplicateResourceInvoker = {
+    duplicateResource: (
+      baseId: string,
+      type: BaseNodeResourceType,
+      id: string,
+      duplicateRo: { name: string; includeRecords: boolean }
+    ) => Promise<{
+      id: string;
+      name: string;
+      icon?: string;
+      defaultViewId?: string;
+    }>;
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -129,6 +148,96 @@ describe('BaseNodeService', () => {
         `where "id" in ('bnod001', 'bnod002', 'bnod003')`;
 
       expect(result).toBe(expectedSql);
+    });
+  });
+
+  describe('duplicateResource', () => {
+    const createDuplicateRoutingService = (useV2: boolean) => {
+      const tableOpenApiV2Service = {
+        duplicateTable: vi.fn().mockResolvedValue({
+          id: 'tbl-v2-copy',
+          name: tableName,
+          icon: tableIcon,
+          defaultViewId: 'viwV2',
+        }),
+      };
+      const tableDuplicateService = {
+        duplicateTable: vi.fn().mockResolvedValue({
+          id: 'tbl-v1-copy',
+          name: tableName,
+          icon: tableIcon,
+          defaultViewId: 'viwLegacy',
+        }),
+      };
+      const routingService = new BaseNodeService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {
+          get: vi.fn((key: string) => (key === 'useV2' ? useV2 : undefined)),
+          set: vi.fn(),
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        tableOpenApiV2Service as never,
+        tableDuplicateService as never,
+        {} as never
+      );
+
+      return {
+        routingService,
+        tableOpenApiV2Service,
+        tableDuplicateService,
+      };
+    };
+
+    it('routes table duplication through v2 when useV2 is enabled', async () => {
+      const { routingService, tableOpenApiV2Service, tableDuplicateService } =
+        createDuplicateRoutingService(true);
+      const duplicateRo = { name: tableName, includeRecords: true };
+
+      const result = await (
+        routingService as unknown as IDuplicateResourceInvoker
+      ).duplicateResource(baseId, BaseNodeResourceType.Table, tableId, duplicateRo);
+
+      expect(tableOpenApiV2Service.duplicateTable).toHaveBeenCalledWith(
+        baseId,
+        tableId,
+        duplicateRo
+      );
+      expect(tableDuplicateService.duplicateTable).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        id: 'tbl-v2-copy',
+        name: tableName,
+        icon: tableIcon,
+        defaultViewId: 'viwV2',
+      });
+    });
+
+    it('keeps the legacy duplicate path when useV2 is disabled', async () => {
+      const { routingService, tableOpenApiV2Service, tableDuplicateService } =
+        createDuplicateRoutingService(false);
+      const duplicateRo = { name: tableName, includeRecords: false };
+
+      const result = await (
+        routingService as unknown as IDuplicateResourceInvoker
+      ).duplicateResource(baseId, BaseNodeResourceType.Table, tableId, duplicateRo);
+
+      expect(tableDuplicateService.duplicateTable).toHaveBeenCalledWith(
+        baseId,
+        tableId,
+        duplicateRo
+      );
+      expect(tableOpenApiV2Service.duplicateTable).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        id: 'tbl-v1-copy',
+        name: tableName,
+        icon: tableIcon,
+        defaultViewId: 'viwLegacy',
+      });
     });
   });
 });

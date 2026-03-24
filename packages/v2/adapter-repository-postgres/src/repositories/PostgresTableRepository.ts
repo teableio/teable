@@ -107,6 +107,9 @@ export class PostgresTableRepository implements core.ITableRepository {
       const dtoResult = this.tableMapper.toDTO(tableToPersist);
       if (dtoResult.isErr()) return err(dtoResult.error);
       const dto = dtoResult.value;
+      const serializedViewQueryById = new Map(
+        dto.views.map((view) => [view.id, this.serializeViewQuery(view)] as const)
+      );
 
       const fieldRowBuilder = new TableFieldPersistenceBuilder({
         table: tableToPersist,
@@ -132,15 +135,17 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       const fieldRows: ReadonlyArray<TableFieldRow> = fieldValuesResult.value;
       const viewRows = dto.views.map((v, i) => ({
+        ...(serializedViewQueryById.get(v.id) ?? {
+          filter: null,
+          sort: null,
+          group: null,
+        }),
         id: v.id,
         name: v.name,
         description: null,
         table_id: dto.id,
         type: v.type,
-        sort: null,
-        filter: null,
-        group: null,
-        options: null,
+        options: v.options === undefined ? null : JSON.stringify(v.options),
         order: i + 1,
         version: 1,
         column_meta: JSON.stringify(v.columnMeta),
@@ -434,6 +439,9 @@ export class PostgresTableRepository implements core.ITableRepository {
         const tableDbMeta = tableDbMetaResult;
         const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMeta.fields);
         if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
+        const serializedViewQueryById = new Map(
+          dto.views.map((view) => [view.id, this.serializeViewQuery(view)] as const)
+        );
 
         tableDbMetaById.set(table.id().toString(), tableDbMeta);
         tableMetaRows.push({
@@ -456,15 +464,17 @@ export class PostgresTableRepository implements core.ITableRepository {
         fieldRows.push(...(fieldValuesResult.value as FieldRow[]));
         viewRows.push(
           ...dto.views.map((view, index) => ({
+            ...(serializedViewQueryById.get(view.id) ?? {
+              filter: null,
+              sort: null,
+              group: null,
+            }),
             id: view.id,
             name: view.name,
             description: null,
             table_id: dto.id,
             type: view.type,
-            sort: null,
-            filter: null,
-            group: null,
-            options: null,
+            options: view.options === undefined ? null : JSON.stringify(view.options),
             order: index + 1,
             version: 1,
             column_meta: JSON.stringify(view.columnMeta),
@@ -608,7 +618,7 @@ export class PostgresTableRepository implements core.ITableRepository {
             (() => {
               let query = eb
                 .selectFrom('view')
-                .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
+                .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
               if (effectiveState === 'active') {
@@ -719,7 +729,7 @@ export class PostgresTableRepository implements core.ITableRepository {
             (() => {
               let query = eb
                 .selectFrom('view')
-                .select(['id', 'name', 'type', 'column_meta', 'sort', 'filter', 'group'])
+                .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
               if (effectiveState === 'active') {
@@ -1166,6 +1176,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           id: string;
           name: string;
           type: string;
+          options: string | null;
           column_meta: string | null;
           sort: string | null;
           filter: string | null;
@@ -1591,6 +1602,25 @@ export class PostgresTableRepository implements core.ITableRepository {
     return this.mapV1FilterToV2(parsed);
   }
 
+  private serializeViewQuery(view: core.ITableViewPersistenceDTO): {
+    filter: string | null;
+    sort: string | null;
+    group: string | null;
+  } {
+    const query = view.query;
+    const filter = query?.filter == null ? null : JSON.stringify(query.filter);
+    const sort =
+      !query?.sort?.length && query?.manualSort === undefined
+        ? null
+        : JSON.stringify({
+            ...(query?.sort ? { sortObjs: query.sort } : { sortObjs: [] }),
+            ...(query?.manualSort !== undefined ? { manualSort: query.manualSort } : {}),
+          });
+    const group = query?.group?.length ? JSON.stringify(query.group) : null;
+
+    return { filter, sort, group };
+  }
+
   private parseViewSort(raw: string | null): {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     manualSort?: boolean;
@@ -1905,6 +1935,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     id: string;
     name: string;
     type: string;
+    options: string | null;
     column_meta: string | null;
     sort: string | null;
     filter: string | null;
@@ -1923,19 +1954,20 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(group ? { group } : {}),
       ...(sortResult.manualSort !== undefined ? { manualSort: sortResult.manualSort } : {}),
     };
+    const options = row.options === null ? undefined : this.parseJsonValue(row.options);
 
     if (row.type === 'grid')
-      return ok({ id: row.id, name: row.name, type: 'grid', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'grid', columnMeta, query, options });
     if (row.type === 'kanban')
-      return ok({ id: row.id, name: row.name, type: 'kanban', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'kanban', columnMeta, query, options });
     if (row.type === 'gallery')
-      return ok({ id: row.id, name: row.name, type: 'gallery', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'gallery', columnMeta, query, options });
     if (row.type === 'calendar')
-      return ok({ id: row.id, name: row.name, type: 'calendar', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'calendar', columnMeta, query, options });
     if (row.type === 'form')
-      return ok({ id: row.id, name: row.name, type: 'form', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'form', columnMeta, query, options });
     if (row.type === 'plugin')
-      return ok({ id: row.id, name: row.name, type: 'plugin', columnMeta, query });
+      return ok({ id: row.id, name: row.name, type: 'plugin', columnMeta, query, options });
     return err(domainError.validation({ message: 'Unsupported view type' }));
   }
 

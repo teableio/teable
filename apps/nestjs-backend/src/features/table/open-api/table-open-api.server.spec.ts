@@ -40,6 +40,7 @@ vi.mock('@teable/db-main-prisma', () => ({
 
 let tableControllerClass: new (...args: unknown[]) => {
   createTable: (baseId: string, createTableRo: unknown) => Promise<unknown>;
+  duplicateTable: (baseId: string, tableId: string, duplicateTableRo: unknown) => Promise<unknown>;
   archiveTable: (baseId: string, tableId: string) => Promise<unknown>;
   permanentDeleteTable: (baseId: string, tableId: string) => Promise<unknown>;
 };
@@ -53,11 +54,13 @@ describe('TableController.archiveTable', () => {
   const createController = (useV2: boolean) => {
     const tableOpenApiService = {
       createTable: vi.fn().mockResolvedValue({ id: 'tbl-legacy' }),
+      duplicateTable: vi.fn().mockResolvedValue({ id: 'tbl-legacy-duplicate' }),
       deleteTable: vi.fn(),
       permanentDeleteTables: vi.fn(),
     };
     const tableOpenApiV2Service = {
       createTable: vi.fn().mockResolvedValue({ id: 'tbl-v2' }),
+      duplicateTable: vi.fn().mockResolvedValue({ id: 'tbl-v2-duplicate' }),
       deleteTable: vi.fn(),
     };
     const cls = {
@@ -122,6 +125,36 @@ describe('TableController.archiveTable', () => {
 
     expect(tableOpenApiService.deleteTable).toHaveBeenCalledWith('bse1', 'tbl1');
     expect(tableOpenApiV2Service.deleteTable).not.toHaveBeenCalled();
+  });
+
+  it('routes duplicate-table through v2 when useV2 is enabled', async () => {
+    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const duplicateTableRo = { name: 'Projects Copy', includeRecords: true };
+
+    const result = await controller.duplicateTable('bse1', 'tbl1', duplicateTableRo);
+
+    expect(tableOpenApiV2Service.duplicateTable).toHaveBeenCalledWith(
+      'bse1',
+      'tbl1',
+      duplicateTableRo
+    );
+    expect(tableOpenApiService.duplicateTable).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'tbl-v2-duplicate' });
+  });
+
+  it('keeps the legacy duplicate-table path when useV2 is disabled', async () => {
+    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(false);
+    const duplicateTableRo = { name: 'Projects Copy', includeRecords: false };
+
+    const result = await controller.duplicateTable('bse1', 'tbl1', duplicateTableRo);
+
+    expect(tableOpenApiService.duplicateTable).toHaveBeenCalledWith(
+      'bse1',
+      'tbl1',
+      duplicateTableRo
+    );
+    expect(tableOpenApiV2Service.duplicateTable).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'tbl-legacy-duplicate' });
   });
 
   it('routes permanent delete through v2 when useV2 is enabled', async () => {

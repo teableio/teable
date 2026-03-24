@@ -43,7 +43,7 @@ export type TableFieldRow = {
   is_lookup: boolean | null;
   is_conditional_lookup: boolean | null;
   is_pending: null;
-  has_error: null;
+  has_error: boolean | null;
   lookup_linked_field_id: string | null;
   lookup_options: string | null;
   table_id: string;
@@ -280,7 +280,7 @@ export class TableFieldPersistenceBuilder {
       is_lookup: isLookup,
       is_conditional_lookup: isConditionalLookup,
       is_pending: null,
-      has_error: null,
+      has_error: typeof params.fieldDto.hasError === 'boolean' ? params.fieldDto.hasError : null,
       lookup_linked_field_id: lookupLinkedFieldId,
       lookup_options: lookupOptions,
       table_id: table.id().toString(),

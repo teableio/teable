@@ -20,6 +20,7 @@ import type {
   IBaseNodePresenceDeletePayload,
   IBaseNodePresenceUpdatePayload,
   IBaseNodeTableResourceMeta,
+  V2Feature,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -124,7 +125,11 @@ export class BaseNodeService {
     };
   }
 
-  async getDeleteTableV2Decision(baseId: string, nodeId: string): Promise<IV2Decision | undefined> {
+  async getTableV2Decision(
+    baseId: string,
+    nodeId: string,
+    feature: V2Feature
+  ): Promise<IV2Decision | undefined> {
     const node = await this.prismaService.baseNode.findFirst({
       where: { baseId, id: nodeId },
       select: { resourceType: true },
@@ -143,7 +148,11 @@ export class BaseNodeService {
       return { useV2: false, reason: 'disabled' };
     }
 
-    return this.canaryService.shouldUseV2WithReason(base.spaceId, 'deleteTable');
+    return this.canaryService.shouldUseV2WithReason(base.spaceId, feature);
+  }
+
+  async getDeleteTableV2Decision(baseId: string, nodeId: string): Promise<IV2Decision | undefined> {
+    return this.getTableV2Decision(baseId, nodeId, 'deleteTable');
   }
 
   async getCreateTableV2Decision(baseId: string): Promise<IV2Decision | undefined> {
@@ -621,11 +630,17 @@ export class BaseNodeService {
   ): Promise<IBaseNodeResourceMetaWithId> {
     switch (type) {
       case BaseNodeResourceType.Table: {
-        const table = await this.tableDuplicateService.duplicateTable(
-          baseId,
-          id,
-          duplicateRo as IDuplicateTableRo
-        );
+        const table = this.cls.get('useV2')
+          ? await this.tableOpenApiV2Service.duplicateTable(
+              baseId,
+              id,
+              duplicateRo as IDuplicateTableRo
+            )
+          : await this.tableDuplicateService.duplicateTable(
+              baseId,
+              id,
+              duplicateRo as IDuplicateTableRo
+            );
 
         return {
           id: table.id,

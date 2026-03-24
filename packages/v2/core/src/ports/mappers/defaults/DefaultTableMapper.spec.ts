@@ -264,6 +264,24 @@ const buildTable = () => {
     view.setQueryDefaults(ViewQueryDefaults.empty())._unsafeUnwrap();
   });
 
+  views[0]?.setOptions({ rowHeight: 'tall' })._unsafeUnwrap();
+  views[1]?.setOptions({ stackFieldId: titleId.toString() })._unsafeUnwrap();
+  views[2]?.setOptions({ coverFieldId: filesId.toString() })._unsafeUnwrap();
+  views[3]
+    ?.setOptions({
+      startDateFieldId: dueId.toString(),
+      endDateFieldId: dueId.toString(),
+    })
+    ._unsafeUnwrap();
+  views[4]?.setOptions({ submitText: 'Send' })._unsafeUnwrap();
+  views[5]
+    ?.setOptions({
+      pluginId: 'plg-sheet',
+      pluginInstallId: 'pli-sheet',
+      pluginLogo: 'logos/sheet.png',
+    })
+    ._unsafeUnwrap();
+
   return Table.rehydrate({
     id: tableId,
     baseId,
@@ -332,6 +350,8 @@ describe('DefaultTableMapper', () => {
     expect(mapped.name().equals(table.name())).toBe(true);
     expect(mapped.getFields().length).toBe(table.getFields().length);
     expect(mapped.views().length).toBe(table.views().length);
+    expect(mapped.views()[0]?.options()).toEqual(table.views()[0]?.options());
+    expect(mapped.views()[5]?.options()).toEqual(table.views()[5]?.options());
     mapped.dbTableName()._unsafeUnwrap();
 
     const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
@@ -645,5 +665,95 @@ describe('DefaultTableMapper', () => {
 
     expect(lookupField).toBeInstanceOf(LookupField);
     expect((lookupField as LookupField).isPending()).toBe(true);
+  });
+
+  it('maps link fields without db config when persisting duplicate-style tables', () => {
+    const dto = {
+      id: `tbl${'q'.repeat(16)}`,
+      baseId: `bse${'q'.repeat(16)}`,
+      name: 'Legacy Link Lookup Source',
+      dbTableName: `bse${'q'.repeat(16)}.tbl${'q'.repeat(16)}`,
+      primaryFieldId: `fld${'q'.repeat(16)}`,
+      fields: [
+        {
+          id: `fld${'q'.repeat(16)}`,
+          name: 'Name',
+          type: 'singleLineText' as const,
+        },
+        {
+          id: `fld${'r'.repeat(16)}`,
+          name: 'Vendor',
+          type: 'link' as const,
+          options: {
+            relationship: 'manyMany' as const,
+            foreignTableId: `tbl${'s'.repeat(16)}`,
+            lookupFieldId: `fld${'q'.repeat(16)}`,
+          },
+        },
+        {
+          id: `fld${'t'.repeat(16)}`,
+          name: 'Vendor Link Lookup',
+          type: 'link' as const,
+          isLookup: true,
+          isComputed: true,
+          isMultipleCellValue: true,
+          options: {
+            relationship: 'manyMany' as const,
+            foreignTableId: `tbl${'u'.repeat(16)}`,
+            lookupFieldId: `fld${'v'.repeat(16)}`,
+          },
+          lookupOptions: {
+            linkFieldId: `fld${'r'.repeat(16)}`,
+            foreignTableId: `tbl${'s'.repeat(16)}`,
+            lookupFieldId: `fld${'w'.repeat(16)}`,
+            relationship: 'manyMany' as const,
+          },
+        },
+      ],
+      views: [
+        {
+          id: `viw${'q'.repeat(16)}`,
+          type: 'grid' as const,
+          name: 'Grid',
+          columnMeta: {
+            [`fld${'q'.repeat(16)}`]: { order: 0 },
+            [`fld${'r'.repeat(16)}`]: { order: 1 },
+            [`fld${'t'.repeat(16)}`]: { order: 2 },
+          },
+        },
+      ],
+    } as Parameters<DefaultTableMapper['toDomain']>[0];
+
+    const mapper = new DefaultTableMapper();
+    const table = mapper.toDomain(dto)._unsafeUnwrap();
+    const persisted = mapper.toDTO(table)._unsafeUnwrap();
+
+    const linkField = persisted.fields.find((field) => field.id === `fld${'r'.repeat(16)}`);
+    const lookupField = persisted.fields.find((field) => field.id === `fld${'t'.repeat(16)}`);
+
+    expect(linkField).toMatchObject({
+      id: `fld${'r'.repeat(16)}`,
+      type: 'link',
+      options: {
+        relationship: 'manyMany',
+        foreignTableId: `tbl${'s'.repeat(16)}`,
+        lookupFieldId: `fld${'q'.repeat(16)}`,
+      },
+    });
+    expect(lookupField).toMatchObject({
+      id: `fld${'t'.repeat(16)}`,
+      type: 'link',
+      isLookup: true,
+      lookupOptions: {
+        linkFieldId: `fld${'r'.repeat(16)}`,
+        foreignTableId: `tbl${'s'.repeat(16)}`,
+        lookupFieldId: `fld${'w'.repeat(16)}`,
+      },
+      options: {
+        relationship: 'manyMany',
+        foreignTableId: `tbl${'u'.repeat(16)}`,
+        lookupFieldId: `fld${'v'.repeat(16)}`,
+      },
+    });
   });
 });

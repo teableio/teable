@@ -101,6 +101,8 @@ export * from './commands/RedoCommand';
 export * from './commands/RedoHandler';
 export * from './commands/DuplicateRecordCommand';
 export * from './commands/DuplicateRecordHandler';
+export * from './commands/DuplicateTableCommand';
+export * from './commands/DuplicateTableHandler';
 export * from './commands/DuplicateFieldCommand';
 export * from './commands/DuplicateFieldHandler';
 export * from './commands/PasteCommand';

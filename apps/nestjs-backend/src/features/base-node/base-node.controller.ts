@@ -24,6 +24,7 @@ import {
   type IBaseNodeTreeVo,
   type IBaseNodeVo,
   type IDeleteBaseNodeVo,
+  type V2Feature,
 } from '@teable/openapi';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -35,6 +36,7 @@ import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-ano
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
+import type { IV2Decision } from '../canary/canary.service';
 import {
   X_TEABLE_V2_FEATURE_HEADER,
   X_TEABLE_V2_HEADER,
@@ -49,6 +51,7 @@ import { BaseNodeAction } from './types';
 @AllowAnonymous(AllowAnonymousType.RESOURCE)
 export class BaseNodeController {
   protected static readonly createTableV2Feature = 'createTable';
+  protected static readonly duplicateTableV2Feature = 'duplicateTable';
   protected static readonly deleteTableV2Feature = 'deleteTable';
 
   constructor(
@@ -160,8 +163,11 @@ export class BaseNodeController {
   async duplicate(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
-    @Body(new ZodValidationPipe(duplicateBaseNodeRoSchema)) ro: IDuplicateBaseNodeRo
+    @Body(new ZodValidationPipe(duplicateBaseNodeRoSchema)) ro: IDuplicateBaseNodeRo,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res({ passthrough: true }) response: Response
   ): Promise<IBaseNodeVo> {
+    await this.prepareDuplicateTableCanary(baseId, nodeId, response, windowId);
     return this.baseNodeService.duplicate(baseId, nodeId, ro);
   }
 
@@ -222,27 +228,28 @@ export class BaseNodeController {
     response: Response,
     windowId?: string
   ): Promise<void> {
-    if (windowId) {
-      this.cls.set('windowId', windowId);
-    }
+    await this.prepareTableNodeCanary(
+      baseId,
+      nodeId,
+      response,
+      BaseNodeController.deleteTableV2Feature,
+      windowId
+    );
+  }
 
-    const node = await this.baseNodeService.getNode(baseId, nodeId);
-    if (node.resourceType !== BaseNodeResourceType.Table) {
-      return;
-    }
-
-    const decision = await this.baseNodeService.getDeleteTableV2Decision(baseId, nodeId);
-    if (!decision) {
-      return;
-    }
-
-    this.cls.set('useV2', decision.useV2);
-    this.cls.set('v2Feature', BaseNodeController.deleteTableV2Feature);
-    this.cls.set('v2Reason', decision.reason);
-
-    response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
-    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, BaseNodeController.deleteTableV2Feature);
-    response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
+  protected async prepareDuplicateTableCanary(
+    baseId: string,
+    nodeId: string,
+    response: Response,
+    windowId?: string
+  ): Promise<void> {
+    await this.prepareTableNodeCanary(
+      baseId,
+      nodeId,
+      response,
+      BaseNodeController.duplicateTableV2Feature,
+      windowId
+    );
   }
 
   protected async prepareCreateTableCanary(
@@ -264,12 +271,40 @@ export class BaseNodeController {
       return;
     }
 
+    this.applyV2Decision(response, BaseNodeController.createTableV2Feature, decision);
+  }
+
+  protected async prepareTableNodeCanary(
+    baseId: string,
+    nodeId: string,
+    response: Response,
+    feature: V2Feature,
+    windowId?: string
+  ): Promise<void> {
+    if (windowId) {
+      this.cls.set('windowId', windowId);
+    }
+
+    const node = await this.baseNodeService.getNode(baseId, nodeId);
+    if (node.resourceType !== BaseNodeResourceType.Table) {
+      return;
+    }
+
+    const decision = await this.baseNodeService.getTableV2Decision(baseId, nodeId, feature);
+    if (!decision) {
+      return;
+    }
+
+    this.applyV2Decision(response, feature, decision);
+  }
+
+  protected applyV2Decision(response: Response, feature: V2Feature, decision: IV2Decision) {
     this.cls.set('useV2', decision.useV2);
-    this.cls.set('v2Feature', BaseNodeController.createTableV2Feature);
+    this.cls.set('v2Feature', feature);
     this.cls.set('v2Reason', decision.reason);
 
     response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
-    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, BaseNodeController.createTableV2Feature);
+    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, feature);
     response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
   }
 

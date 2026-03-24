@@ -43,6 +43,11 @@ import {
   type GetOrderedVisibleFieldIdsOptions,
 } from './methods/getOrderedVisibleFieldIds';
 import {
+  duplicate as duplicateMethod,
+  type DuplicateMethodParams as TableDuplicateParams,
+  type DuplicateMethodResult as TableDuplicateResult,
+} from './methods/duplicate';
+import {
   createRecord as createRecordMethod,
   createRecords as createRecordsMethod,
   createRecordsStream as createRecordsStreamMethod,
@@ -166,6 +171,10 @@ export class Table extends AggregateRoot<TableId> {
 
   clone(mapper: ITableMapper): Result<Table, DomainError> {
     return mapper.toDTO(this).andThen((dto) => mapper.toDomain(dto));
+  }
+
+  duplicate(params: TableDuplicateParams): Result<TableDuplicateResult, DomainError> {
+    return duplicateMethod.call(this, params);
   }
 
   setDbTableName(dbTableName: DbTableName): Result<void, DomainError> {

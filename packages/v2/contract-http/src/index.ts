@@ -29,6 +29,7 @@ export * from './table/updateRecords';
 export * from './table/reorderRecords';
 export * from './table/duplicateRecord';
 export * from './table/duplicateField';
+export * from './table/duplicateTable';
 export * from './table/paste';
 export * from './table/clear';
 export * from './table/deleteByRange';

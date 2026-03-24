@@ -2,6 +2,7 @@ import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
+import type { ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
 import { FieldDeleted } from './events/FieldDeleted';
@@ -1703,5 +1704,255 @@ describe('Table.createRecordsStream', () => {
       fields: () => { get: (id: unknown) => { toValue: () => unknown } | undefined };
     };
     expect(record.fields().get(numberFieldIdObj)?.toValue()).toBeNull();
+  });
+
+  it('duplicates table by remapping internal refs, column meta keys, and stripping external side effects', () => {
+    const baseId = createBaseId('m')._unsafeUnwrap();
+    const sourceTableId = createTableId('m')._unsafeUnwrap();
+    const duplicatedTableId = createTableId('n')._unsafeUnwrap();
+    const externalTableId = createTableId('x')._unsafeUnwrap();
+
+    const primaryFieldId = createFieldId('a')._unsafeUnwrap();
+    const externalLinkFieldId = createFieldId('b')._unsafeUnwrap();
+    const selfLinkFieldId = createFieldId('c')._unsafeUnwrap();
+    const selfLinkBackFieldId = createFieldId('d')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('e')._unsafeUnwrap();
+    const buttonFieldId = createFieldId('f')._unsafeUnwrap();
+    const externalLookupFieldId = createFieldId('y')._unsafeUnwrap();
+
+    const defaultViewId = createViewId('a')._unsafeUnwrap();
+
+    const sourceDto: ITablePersistenceDTO = {
+      id: sourceTableId.toString(),
+      baseId: baseId.toString(),
+      name: 'Source Orders',
+      dbTableName: `${baseId.toString()}.${sourceTableId.toString()}`,
+      primaryFieldId: primaryFieldId.toString(),
+      fields: [
+        {
+          id: primaryFieldId.toString(),
+          name: 'Name',
+          type: 'singleLineText',
+          dbFieldName: '__name',
+        },
+        {
+          id: externalLinkFieldId.toString(),
+          name: 'Vendor',
+          type: 'link',
+          dbFieldName: '__vendor',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: externalTableId.toString(),
+            lookupFieldId: externalLookupFieldId.toString(),
+            isOneWay: false,
+            symmetricFieldId: createFieldId('z')._unsafeUnwrap().toString(),
+            fkHostTableName: `${baseId.toString()}.__external_vendor`,
+            selfKeyName: '__fk_external_source',
+            foreignKeyName: '__fk_external_target',
+          },
+        },
+        {
+          id: selfLinkFieldId.toString(),
+          name: 'Related',
+          type: 'link',
+          dbFieldName: '__related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: sourceTableId.toString(),
+            lookupFieldId: primaryFieldId.toString(),
+            isOneWay: false,
+            symmetricFieldId: selfLinkBackFieldId.toString(),
+            fkHostTableName: `${baseId.toString()}.__self_related`,
+            selfKeyName: '__fk_self_left',
+            foreignKeyName: '__fk_self_right',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: primaryFieldId.toString(),
+                  operator: 'isNotEmpty',
+                },
+              ],
+            },
+          },
+        },
+        {
+          id: selfLinkBackFieldId.toString(),
+          name: 'Related (linked)',
+          type: 'link',
+          dbFieldName: '__related_back',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: sourceTableId.toString(),
+            lookupFieldId: primaryFieldId.toString(),
+            isOneWay: false,
+            symmetricFieldId: selfLinkFieldId.toString(),
+            fkHostTableName: `${baseId.toString()}.__self_related`,
+            selfKeyName: '__fk_self_right',
+            foreignKeyName: '__fk_self_left',
+          },
+        },
+        {
+          id: lookupFieldId.toString(),
+          name: 'Related Name',
+          type: 'singleLineText',
+          isLookup: true,
+          isComputed: true,
+          lookupOptions: {
+            linkFieldId: selfLinkFieldId.toString(),
+            foreignTableId: sourceTableId.toString(),
+            lookupFieldId: primaryFieldId.toString(),
+            relationship: 'manyMany',
+          },
+        },
+        {
+          id: buttonFieldId.toString(),
+          name: 'Run',
+          type: 'button',
+          options: {
+            label: 'Run',
+            color: 'teal',
+            workflow: {
+              id: 'wfl_duplicate_source',
+              name: 'Duplicate Flow',
+              isActive: true,
+            },
+          },
+        },
+      ],
+      views: [
+        {
+          id: defaultViewId.toString(),
+          type: 'grid',
+          name: 'Grid',
+          columnMeta: {
+            [primaryFieldId.toString()]: { order: 0, visible: true },
+            [selfLinkFieldId.toString()]: { order: 1, width: 220 },
+            [lookupFieldId.toString()]: { order: 2, hidden: true },
+          },
+          query: {
+            filter: {
+              conjunction: 'and',
+              items: [
+                {
+                  fieldId: selfLinkFieldId.toString(),
+                  operator: 'isNotEmpty',
+                },
+              ],
+            },
+            sort: [{ fieldId: lookupFieldId.toString(), order: 'desc' }],
+            group: [{ fieldId: primaryFieldId.toString(), order: 'asc' }],
+          },
+        },
+      ],
+    };
+
+    const sourceTable = tableMapper.toDomain(sourceDto)._unsafeUnwrap();
+    const duplicated = sourceTable
+      .duplicate({
+        mapper: tableMapper,
+        newId: duplicatedTableId,
+        newName: TableName.create('Source Orders Copy')._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+    const duplicatedDto = tableMapper.toDTO(duplicated.table)._unsafeUnwrap();
+
+    const duplicatedPrimaryFieldId = duplicated.fieldIdMap.get(primaryFieldId.toString());
+    const duplicatedExternalLinkFieldId = duplicated.fieldIdMap.get(externalLinkFieldId.toString());
+    const duplicatedSelfLinkFieldId = duplicated.fieldIdMap.get(selfLinkFieldId.toString());
+    const duplicatedSelfLinkBackFieldId = duplicated.fieldIdMap.get(selfLinkBackFieldId.toString());
+    const duplicatedLookupFieldId = duplicated.fieldIdMap.get(lookupFieldId.toString());
+    const duplicatedButtonFieldId = duplicated.fieldIdMap.get(buttonFieldId.toString());
+    const duplicatedViewId = duplicated.viewIdMap.get(defaultViewId.toString());
+
+    expect(duplicatedDto.id).toBe(duplicatedTableId.toString());
+    expect(duplicatedDto.name).toBe('Source Orders Copy');
+    expect(duplicatedDto.primaryFieldId).toBe(duplicatedPrimaryFieldId);
+    expect(duplicatedDto.dbTableName).toBeUndefined();
+
+    const duplicatedExternalLinkField = duplicatedDto.fields.find(
+      (field) => field.id === duplicatedExternalLinkFieldId
+    );
+    expect(duplicatedExternalLinkField?.type).toBe('link');
+    if (duplicatedExternalLinkField?.type === 'link') {
+      expect(duplicatedExternalLinkField.options.foreignTableId).toBe(externalTableId.toString());
+      expect(duplicatedExternalLinkField.options.lookupFieldId).toBe(
+        externalLookupFieldId.toString()
+      );
+      expect(duplicatedExternalLinkField.options.isOneWay).toBe(true);
+      expect(duplicatedExternalLinkField.options.symmetricFieldId).toBeUndefined();
+    }
+
+    const duplicatedSelfLinkField = duplicatedDto.fields.find(
+      (field) => field.id === duplicatedSelfLinkFieldId
+    );
+    const duplicatedSelfLinkBackField = duplicatedDto.fields.find(
+      (field) => field.id === duplicatedSelfLinkBackFieldId
+    );
+    expect(duplicatedSelfLinkField?.type).toBe('link');
+    expect(duplicatedSelfLinkBackField?.type).toBe('link');
+    if (duplicatedSelfLinkField?.type === 'link' && duplicatedSelfLinkBackField?.type === 'link') {
+      expect(duplicatedSelfLinkField.options.foreignTableId).toBe(duplicatedTableId.toString());
+      expect(duplicatedSelfLinkField.options.lookupFieldId).toBe(duplicatedPrimaryFieldId);
+      expect(duplicatedSelfLinkField.options.symmetricFieldId).toBe(duplicatedSelfLinkBackFieldId);
+      expect(duplicatedSelfLinkField.options.isOneWay ?? false).toBe(false);
+
+      expect(duplicatedSelfLinkBackField.options.foreignTableId).toBe(duplicatedTableId.toString());
+      expect(duplicatedSelfLinkBackField.options.lookupFieldId).toBe(duplicatedPrimaryFieldId);
+      expect(duplicatedSelfLinkBackField.options.symmetricFieldId).toBe(duplicatedSelfLinkFieldId);
+      expect(duplicatedSelfLinkBackField.options.isOneWay ?? false).toBe(false);
+      expect(duplicatedSelfLinkField.options.fkHostTableName).toBe(
+        duplicatedSelfLinkBackField.options.fkHostTableName
+      );
+    }
+
+    const duplicatedLookupField = duplicatedDto.fields.find(
+      (field) => field.id === duplicatedLookupFieldId
+    );
+    expect(duplicatedLookupField?.isLookup).toBe(true);
+    expect(duplicatedLookupField?.lookupOptions).toEqual({
+      linkFieldId: duplicatedSelfLinkFieldId,
+      foreignTableId: duplicatedTableId.toString(),
+      lookupFieldId: duplicatedPrimaryFieldId,
+      relationship: 'manyMany',
+    });
+
+    const duplicatedButtonField = duplicatedDto.fields.find(
+      (field) => field.id === duplicatedButtonFieldId
+    );
+    expect(duplicatedButtonField?.type).toBe('button');
+    if (duplicatedButtonField?.type === 'button') {
+      expect(duplicatedButtonField.options?.workflow).toBeUndefined();
+    }
+
+    expect(duplicatedDto.views).toHaveLength(1);
+    expect(duplicatedDto.views[0]?.id).toBe(duplicatedViewId);
+    expect(Object.keys(duplicatedDto.views[0]!.columnMeta)).toEqual(
+      expect.arrayContaining([
+        duplicatedPrimaryFieldId!,
+        duplicatedSelfLinkFieldId!,
+        duplicatedLookupFieldId!,
+      ])
+    );
+    expect(Object.keys(duplicatedDto.views[0]!.columnMeta)).not.toContain(
+      primaryFieldId.toString()
+    );
+    expect(duplicatedDto.views[0]?.query).toMatchObject({
+      filter: {
+        conjunction: 'and',
+        items: [
+          {
+            fieldId: duplicatedSelfLinkFieldId,
+            operator: 'isNotEmpty',
+          },
+        ],
+      },
+      sort: [{ fieldId: duplicatedLookupFieldId, order: 'desc' }],
+      group: [{ fieldId: duplicatedPrimaryFieldId, order: 'asc' }],
+    });
+
+    const events = duplicated.table.pullDomainEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toBeInstanceOf(TableCreated);
   });
 });

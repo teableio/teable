@@ -39,6 +39,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldValidation.ts` - Role: helper; Purpose: decide notNull/unique support by field type.
 - `DeleteTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deletion.
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
+- `DuplicateTableCommand.ts` - Role: command DTO + schema; Purpose: validate table duplication inputs.
+- `DuplicateTableHandler.ts` - Role: command handler; Purpose: duplicate table structure/records via
+  aggregate remapping and existing repositories.
 - `ImportCsvCommand.ts` - Role: command DTO + schema; Purpose: validate CSV import inputs.
 - `ImportCsvHandler.ts` - Role: command handler; Purpose: import CSV and create records.
 - `ImportDotTeaStructureCommand.ts` - Role: command DTO + schema; Purpose: validate dottea structure imports.

@@ -18,6 +18,7 @@ import type { IViewVisitor } from './visitors/IViewVisitor';
 export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDeleted {
   private columnMetaValue: ViewColumnMeta | undefined;
   private queryDefaultsValue: ViewQueryDefaults | undefined;
+  private optionsValue: unknown;
 
   protected constructor(
     id: ViewId,
@@ -47,6 +48,10 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
     return ok(this.queryDefaultsValue);
   }
 
+  options(): unknown | undefined {
+    return this.optionsValue;
+  }
+
   setColumnMeta(columnMeta: ViewColumnMeta): Result<void, DomainError> {
     if (this.columnMetaValue) {
       if (this.columnMetaValue.equals(columnMeta)) return ok(undefined);
@@ -62,6 +67,19 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
       return err(domainError.invariant({ message: 'ViewQueryDefaults already set' }));
     }
     this.queryDefaultsValue = queryDefaults;
+    return ok(undefined);
+  }
+
+  setOptions(options: unknown): Result<void, DomainError> {
+    if (options === undefined) return ok(undefined);
+
+    const nextSerialized = JSON.stringify(options);
+    if (this.optionsValue !== undefined) {
+      if (JSON.stringify(this.optionsValue) === nextSerialized) return ok(undefined);
+      return err(domainError.invariant({ message: 'ViewOptions already set' }));
+    }
+
+    this.optionsValue = options;
     return ok(undefined);
   }
 

@@ -1315,12 +1315,16 @@ describe('PostgresTableRepository (pg)', () => {
       const tableNameResult = TableName.create('Column Meta Table');
       const titleNameResult = FieldName.create('Title');
       const primaryNameResult = FieldName.create('Amount');
+      const attachmentNameResult = FieldName.create('Files');
+      const dateNameResult = FieldName.create('Due');
       const formulaNameResult = FieldName.create('Score');
       const buttonNameResult = FieldName.create('Action');
       [
         tableNameResult,
         titleNameResult,
         primaryNameResult,
+        attachmentNameResult,
+        dateNameResult,
         formulaNameResult,
         buttonNameResult,
       ].forEach((r) => r._unsafeUnwrap());
@@ -1347,6 +1351,8 @@ describe('PostgresTableRepository (pg)', () => {
         .withName(primaryNameResult._unsafeUnwrap())
         .primary()
         .done();
+      builder.field().attachment().withName(attachmentNameResult._unsafeUnwrap()).done();
+      builder.field().date().withName(dateNameResult._unsafeUnwrap()).done();
       builder
         .field()
         .formula()
@@ -1366,6 +1372,45 @@ describe('PostgresTableRepository (pg)', () => {
       tableResult._unsafeUnwrap();
 
       const table = tableResult._unsafeUnwrap();
+      const primaryFieldId = table.primaryFieldId().toString();
+      const titleFieldId = table
+        .getFields()
+        .find((field) => field.name().toString() === 'Title')
+        ?.id()
+        .toString();
+      const attachmentFieldId = table
+        .getFields()
+        .find((field) => field.name().toString() === 'Files')
+        ?.id()
+        .toString();
+      const dateFieldId = table
+        .getFields()
+        .find((field) => field.name().toString() === 'Due')
+        ?.id()
+        .toString();
+
+      table.views()[0]?.setOptions({ rowHeight: 'tall' })._unsafeUnwrap();
+      if (titleFieldId) {
+        table.views()[1]?.setOptions({ stackFieldId: titleFieldId })._unsafeUnwrap();
+      }
+      if (attachmentFieldId) {
+        table.views()[2]?.setOptions({ coverFieldId: attachmentFieldId })._unsafeUnwrap();
+      }
+      if (dateFieldId) {
+        table
+          .views()[3]
+          ?.setOptions({ startDateFieldId: dateFieldId, endDateFieldId: dateFieldId })
+          ._unsafeUnwrap();
+      }
+      table.views()[4]?.setOptions({ submitText: 'Send' })._unsafeUnwrap();
+      table
+        .views()[5]
+        ?.setOptions({
+          pluginId: 'plg-sheet',
+          pluginInstallId: 'pli-sheet',
+          pluginLogo: 'logos/sheet.png',
+        })
+        ._unsafeUnwrap();
 
       const resolveResult = resolveFormulaFields(table);
       resolveResult._unsafeUnwrap();
@@ -1375,7 +1420,7 @@ describe('PostgresTableRepository (pg)', () => {
 
       const viewRows = await db
         .selectFrom('view')
-        .select(['type', 'column_meta'])
+        .select(['type', 'column_meta', 'options'])
         .where('table_id', '=', table.id().toString())
         .where('deleted_time', 'is', null)
         .execute();
@@ -1383,7 +1428,6 @@ describe('PostgresTableRepository (pg)', () => {
       expect(viewRows).toHaveLength(6);
 
       const fieldIds = table.getFields().map((field) => field.id().toString());
-      const primaryFieldId = table.primaryFieldId().toString();
       const expectedOrder = [
         primaryFieldId,
         ...fieldIds.filter((fieldId) => fieldId !== primaryFieldId),
@@ -1395,6 +1439,11 @@ describe('PostgresTableRepository (pg)', () => {
 
       const columnMetaByType = new Map(
         viewRows.map((row) => [row.type, JSON.parse(row.column_meta)] as const)
+      );
+      const optionsByType = new Map(
+        viewRows.map(
+          (row) => [row.type, row.options ? JSON.parse(row.options) : undefined] as const
+        )
       );
 
       for (const [type, columnMeta] of columnMetaByType.entries()) {
@@ -1418,6 +1467,20 @@ describe('PostgresTableRepository (pg)', () => {
       ['kanban', 'gallery', 'calendar'].forEach((type) => {
         const columnMeta = columnMetaByType.get(type);
         expect(columnMeta?.[primaryFieldId]?.visible).toBe(true);
+      });
+
+      expect(optionsByType.get('grid')).toEqual({ rowHeight: 'tall' });
+      expect(optionsByType.get('kanban')).toEqual({ stackFieldId: titleFieldId });
+      expect(optionsByType.get('gallery')).toEqual({ coverFieldId: attachmentFieldId });
+      expect(optionsByType.get('calendar')).toEqual({
+        startDateFieldId: dateFieldId,
+        endDateFieldId: dateFieldId,
+      });
+      expect(optionsByType.get('form')).toEqual({ submitText: 'Send' });
+      expect(optionsByType.get('plugin')).toEqual({
+        pluginId: 'plg-sheet',
+        pluginInstallId: 'pli-sheet',
+        pluginLogo: 'logos/sheet.png',
       });
     } finally {
       await db.destroy();

@@ -159,6 +159,7 @@ export class TableController {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 
+  @UseV2Feature('duplicateTable')
   @Permissions('table|create')
   @Permissions('table|read')
   @Post(':tableId/duplicate')
@@ -168,6 +169,9 @@ export class TableController {
     @Body(new ZodValidationPipe(duplicateTableRoSchema), TablePipe)
     duplicateTableRo: IDuplicateTableRo
   ): Promise<IDuplicateTableVo> {
+    if (this.cls.get('useV2')) {
+      return await this.tableOpenApiV2Service.duplicateTable(baseId, tableId, duplicateTableRo);
+    }
     return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
   }
 

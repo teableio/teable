@@ -25,6 +25,7 @@ import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
 import { executeDuplicateFieldEndpoint } from './handlers/tables/duplicateField';
 import { executeDuplicateRecordEndpoint } from './handlers/tables/duplicateRecord';
+import { executeDuplicateTableEndpoint } from './handlers/tables/duplicateTable';
 import {
   executeExplainCreateFieldEndpoint,
   executeExplainCreateRecordEndpoint,
@@ -236,6 +237,34 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     const result = await executeCreateFieldEndpoint(executionContext, input, commandBus);
 
     if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesDuplicateTable = os.tables.duplicateTable.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDuplicateTableEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 201) return result.body;
 
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
@@ -1122,6 +1151,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     tables: {
       create: tablesCreate,
       createTables: tablesCreateTables,
+      duplicateTable: tablesDuplicateTable,
       createField: tablesCreateField,
       updateField: tablesUpdateField,
       explainCreateField: tablesExplainCreateField,

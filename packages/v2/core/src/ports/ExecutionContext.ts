@@ -15,6 +15,11 @@ export interface IExecutionContext {
   requestId?: string;
   windowId?: string;
   undoRedo?: { mode: 'undo' | 'redo' | 'normal' };
+  duplicateTable?: {
+    sourceTableId: string;
+    duplicatedTableId?: string;
+    includeRecords: boolean;
+  };
   config?: {
     selectFieldOptions?: IDomainContextConfig['selectFieldOptions'];
     tableFields?: IDomainContextConfig['tableFields'];

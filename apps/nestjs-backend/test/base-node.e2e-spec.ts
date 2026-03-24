@@ -1009,6 +1009,37 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(duplicate.data.resourceMeta?.name).toBe('Duplicated Table');
     });
 
+    it('should expose duplicate-table canary headers when duplicating a table node', async () => {
+      const original = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Original Table Via Node Route',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(original.data.id);
+
+      const response = await axios.post(
+        urlBuilder(DUPLICATE_BASE_NODE, { baseId, nodeId: original.data.id }),
+        {
+          name: 'Duplicated Table Via Node Route',
+          includeRecords: false,
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-duplicate-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2-feature']).toBe('duplicateTable');
+      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+
+      nodesToCleanup.push(response.data.id);
+      expect(response.data.resourceMeta?.name).toBe('Duplicated Table Via Node Route');
+    });
+
     it('should duplicate dashboard successfully', async () => {
       const original = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Dashboard,

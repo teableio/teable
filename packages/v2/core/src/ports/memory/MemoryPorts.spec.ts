@@ -339,6 +339,60 @@ describe('AsyncMemoryEventBus', () => {
     expect(errors[0]?.error).toBe('fail');
   });
 
+  it('captures execution context state when events are enqueued', async () => {
+    class SnapshotEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let handledContext: IExecutionContext | undefined;
+
+    @EventHandler(SnapshotEvent)
+    class SnapshotEventHandler implements IEventHandler<SnapshotEvent> {
+      async handle(
+        context: IExecutionContext,
+        _event: SnapshotEvent
+      ): ReturnType<IEventHandler<SnapshotEvent>['handle']> {
+        handledContext = context;
+        return ok(undefined);
+      }
+    }
+    expect(SnapshotEventHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const duplicateTable = {
+      sourceTableId: 'tblSource',
+      duplicatedTableId: 'tblDuplicated',
+      includeRecords: true,
+    };
+    const context: IExecutionContext = {
+      ...createContext(),
+      duplicateTable,
+    };
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+
+    await bus.publishMany(context, [new SnapshotEvent()]);
+
+    duplicateTable.includeRecords = false;
+    context.duplicateTable = {
+      sourceTableId: 'tblOther',
+      duplicatedTableId: 'tblOtherDuplicate',
+      includeRecords: false,
+    };
+
+    await tasks.shift()?.();
+
+    expect(handledContext?.duplicateTable).toEqual({
+      sourceTableId: 'tblSource',
+      duplicatedTableId: 'tblDuplicated',
+      includeRecords: true,
+    });
+  });
+
   it('dispatches consecutive projection handlers concurrently', async () => {
     class ProjectionEvent implements IDomainEvent {
       readonly name = DomainEventName.tableCreated();

@@ -172,12 +172,13 @@ export class AsyncMemoryEventBus implements IEventBus {
   }
 
   private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): number {
+    const contextSnapshot = snapshotExecutionContext(context);
     let targetSeq = this.processedSeq;
     for (const event of events) {
       const seq = this.nextSeq;
       this.nextSeq += 1;
       targetSeq = seq;
-      this.queue.push({ context, event, seq });
+      this.queue.push({ context: contextSnapshot, event, seq });
     }
     if (!this.draining) {
       this.draining = true;
@@ -314,3 +315,18 @@ export class AsyncMemoryEventBus implements IEventBus {
     });
   }
 }
+
+const snapshotExecutionContext = (context: IExecutionContext): IExecutionContext => ({
+  ...context,
+  undoRedo: context.undoRedo ? { ...context.undoRedo } : undefined,
+  duplicateTable: context.duplicateTable ? { ...context.duplicateTable } : undefined,
+  config: context.config
+    ? {
+        ...context.config,
+        selectFieldOptions: context.config.selectFieldOptions
+          ? { ...context.config.selectFieldOptions }
+          : undefined,
+        tableFields: context.config.tableFields ? { ...context.config.tableFields } : undefined,
+      }
+    : undefined,
+});
