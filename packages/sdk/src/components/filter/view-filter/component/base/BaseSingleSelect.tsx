@@ -13,9 +13,10 @@ import {
 } from '@teable/ui-lib';
 import { debounce } from 'lodash';
 import { Check, ChevronDown } from 'lucide-react';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { IOption, IBaseSelect } from './types';
+import { scrollListByWheel } from './wheel-scroll-list';
 
 function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   props: IBaseSelect<V, O>
@@ -44,6 +45,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     groupHeading,
   } = props;
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const label = useMemo(() => {
     return options.find((option) => option.value === value)?.label || defaultLabel;
@@ -139,7 +141,11 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn('p-1', popoverClassName)}>
+      <PopoverContent
+        align="start"
+        className={cn('p-1', popoverClassName)}
+        onWheelCapture={(event) => scrollListByWheel(event, listRef.current)}
+      >
         <Command filter={onSearch ? undefined : commandFilter} shouldFilter={!onSearch}>
           {search ? (
             <CommandInput
@@ -151,7 +157,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
             />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
-          <CommandList className="mt-1">
+          <CommandList ref={listRef} className="mt-1">
             {groupHeading ? (
               <CommandGroup heading={groupHeading}>{renderOptions()}</CommandGroup>
             ) : (
