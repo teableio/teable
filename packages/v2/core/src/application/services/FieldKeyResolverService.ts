@@ -15,6 +15,18 @@ import type { Table } from '../../domain/table/Table';
  * - After resolution, only field IDs are used in domain/repository layers
  */
 export class FieldKeyResolverService {
+  private static buildFieldNotFoundError(
+    fieldKeyType: FieldKeyType,
+    fieldKey: string,
+    availableFieldKeys: ReadonlyArray<string>
+  ): DomainError {
+    return domainError.notFound({
+      code: 'field.key_not_found',
+      message: `Field "${fieldKey}" does not exist in this table`,
+      details: { fieldKeyType, fieldKey, availableFieldKeys },
+    });
+  }
+
   /**
    * Resolve field keys in a record's fields object to field IDs
    *
@@ -37,17 +49,13 @@ export class FieldKeyResolverService {
 
     const resolvedFields: Record<string, unknown> = {};
     const fieldMap = this.buildFieldMap(table, fieldKeyType);
+    const availableFieldKeys = Array.from(fieldMap.keys());
 
     for (const [key, value] of Object.entries(normalizedFields)) {
       const fieldId = fieldMap.get(key);
 
       if (!fieldId) {
-        return err(
-          domainError.notFound({
-            message: `Field not found: ${key}`,
-            details: { fieldKeyType, fieldKey: key },
-          })
-        );
+        return err(this.buildFieldNotFoundError(fieldKeyType, key, availableFieldKeys));
       }
 
       resolvedFields[fieldId] = value;
@@ -113,15 +121,11 @@ export class FieldKeyResolverService {
     }
 
     const fieldMap = this.buildFieldMap(table, fieldKeyType);
+    const availableFieldKeys = Array.from(fieldMap.keys());
     const fieldId = fieldMap.get(fieldKey);
 
     if (!fieldId) {
-      return err(
-        domainError.notFound({
-          message: `Field not found: ${fieldKey}`,
-          details: { fieldKeyType, fieldKey },
-        })
-      );
+      return err(this.buildFieldNotFoundError(fieldKeyType, fieldKey, availableFieldKeys));
     }
 
     return ok(fieldId);
