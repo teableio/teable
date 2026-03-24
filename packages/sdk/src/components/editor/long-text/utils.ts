@@ -18,7 +18,13 @@ export const normalizeMarkdownValue = (value: unknown): string => {
 };
 
 export const stripMarkdown = (text: string): string => {
-  return removeMd(text).replace(/\n+/g, ' ').trim();
+  // Preserve URLs from empty-label links [](url) and autolinks <url> before stripping
+  const normalized = text
+    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, label, url) =>
+      label.trim() ? `[${label}](${url})` : url
+    )
+    .replace(/<(https?:\/\/[^>]+)>/g, '$1');
+  return removeMd(normalized).replace(/\n+/g, ' ').trim();
 };
 
 /**

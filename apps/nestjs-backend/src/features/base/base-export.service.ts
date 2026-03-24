@@ -205,13 +205,16 @@ export class BaseExportService {
     // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
     // If uploadFileStream is called after finalize(), large files will hang in append
     // Note: This occupies sockets, recommend setting BACKEND_STORAGE_S3_UPLOAD_QUEUE_SIZE=1 to control upload concurrency to 1
+    const exportFileName = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
     const uploadPromise = this.storageAdapter.uploadFileStream(
       bucket,
       `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
       passThrough,
       {
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'application/zip',
+        'Content-Type': 'application/octet-stream',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
       }
     );
 
@@ -229,14 +232,13 @@ export class BaseExportService {
       archive.finalize();
       const uploadResult = await uploadPromise;
       const { path } = uploadResult;
-      const name = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
       const previewUrl = await this.storageAdapter.getPreviewUrl(
         StorageAdapter.getBucket(UploadType.ExportBase),
         path,
         second(this.storageConfig.tokenExpireIn),
         {
           // eslint-disable-next-line
-          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
         }
       );
       const message: ILocalization<I18nPath> = {
@@ -244,7 +246,7 @@ export class BaseExportService {
         context: {
           baseName,
           previewUrl,
-          name,
+          name: exportFileName,
         },
       };
       this.notifyExportResult(baseId, message, previewUrl);

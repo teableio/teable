@@ -46,15 +46,11 @@
 .milkdown-editor-wrap .ProseMirror h1,
 .milkdown-readonly-preview h1 {
   font-size: 2em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid hsl(var(--border));
 }
 
 .milkdown-editor-wrap .ProseMirror h2,
 .milkdown-readonly-preview h2 {
   font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid hsl(var(--border));
 }
 
 .milkdown-editor-wrap .ProseMirror h3,
@@ -230,7 +226,7 @@
 .milkdown-editor-wrap .ProseMirror a,
 .milkdown-readonly-preview a {
   color: hsl(var(--primary));
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 .milkdown-editor-wrap .ProseMirror a:hover,
