@@ -44,9 +44,10 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "16.1.1",
-    "@next/env": "16.1.1",
-    "@playwright/test": "1.57.0",
+    "@next/bundle-analyzer": "14.2.14",
+    "@next/env": "14.2.14",
+    "@next/eslint-plugin-next": "14.2.14",
+    "@playwright/test": "1.42.1",
     "@size-limit/file": "11.1.2",
     "@svgr/webpack": "8.1.0",
     "@testing-library/dom": "9.3.4",
