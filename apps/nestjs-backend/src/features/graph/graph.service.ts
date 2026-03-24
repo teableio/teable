@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, IConvertFieldRo } from '@teable/core';
 import { FieldType, Relationship, isLinkLookupOptions } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   IGraphEdge,
   IGraphNode,
@@ -45,6 +45,12 @@ interface ITinyTable {
   id: string;
   name: string;
   dbTableName: string;
+}
+
+interface IAffectedCountQuery {
+  fieldId: string;
+  fieldName: string;
+  query: string;
 }
 
 @Injectable()
@@ -455,45 +461,127 @@ export class GraphService {
     fieldMap: IFieldMap,
     fieldId2DbTableName: Record<string, string>
   ): Promise<number> {
-    const queries = fieldIds.map((fieldId) => {
-      const field = fieldMap[fieldId];
-      const lookupOptions = field.lookupOptions;
-
-      if (field.id !== hostFieldId) {
-        if (field.type === FieldType.Link) {
-          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } =
-            field.options as ILinkFieldOptions;
-          const query =
-            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
-              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
-
-          return query.toQuery();
-        }
-
-        if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
-          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = lookupOptions;
-          const query =
-            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
-              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
-
-          return query.toQuery();
-        }
-      }
-
-      const dbTableName = fieldId2DbTableName[fieldId];
-      return this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    });
-    // console.log('queries', queries);
+    const queries = fieldIds
+      .map((fieldId) =>
+        this.buildAffectedCountQuery(hostFieldId, fieldId, fieldMap, fieldId2DbTableName)
+      )
+      .filter((query): query is IAffectedCountQuery => query != null);
 
     let total = 0;
-    for (const query of queries) {
-      const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
-      // console.log('count', count);
-      total += Number(count);
+    for (const { fieldId, fieldName, query } of queries) {
+      try {
+        const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+        total += Number(count);
+      } catch (error) {
+        if (this.shouldSkipAffectedCountError(error)) {
+          this.logger.warn(
+            `Skip affected cell count for field=${fieldId} name="${fieldName}" due to broken storage: ${
+              error.meta?.message || error.message
+            }`
+          );
+          continue;
+        }
+        throw error;
+      }
     }
     return total;
+  }
+
+  private buildAffectedCountQuery(
+    hostFieldId: string,
+    fieldId: string,
+    fieldMap: IFieldMap,
+    fieldId2DbTableName: Record<string, string>
+  ): IAffectedCountQuery | null {
+    const field = fieldMap[fieldId];
+
+    if (!field) {
+      this.logger.warn(`Skip affected cell count for missing field metadata: ${fieldId}`);
+      return null;
+    }
+
+    const lookupOptions = field.lookupOptions;
+
+    if (field.id !== hostFieldId) {
+      if (field.type === FieldType.Link) {
+        return this.buildLinkAffectedCountQuery(
+          field.id,
+          field.name,
+          field.options as ILinkFieldOptions
+        );
+      }
+
+      if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
+        return this.buildLinkAffectedCountQuery(field.id, field.name, lookupOptions);
+      }
+    }
+
+    const dbTableName = fieldId2DbTableName[fieldId];
+    if (!dbTableName) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${field.name}" because db table name is missing`
+      );
+      return null;
+    }
+
+    return {
+      fieldId,
+      fieldName: field.name,
+      query: this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery(),
+    };
+  }
+
+  private buildLinkAffectedCountQuery(
+    fieldId: string,
+    fieldName: string,
+    options: Pick<
+      ILinkFieldOptions,
+      'relationship' | 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'
+    >
+  ): IAffectedCountQuery | null {
+    const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+    if (!fkHostTableName || !foreignKeyName) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${fieldName}" because link storage metadata is incomplete`
+      );
+      return null;
+    }
+
+    if (
+      relationship !== Relationship.OneOne &&
+      relationship !== Relationship.ManyOne &&
+      !selfKeyName
+    ) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${fieldName}" because link key metadata is incomplete`
+      );
+      return null;
+    }
+
+    const query =
+      relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+        ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
+        : this.knex.countDistinct(selfKeyName as string, { as: 'count' }).from(fkHostTableName);
+
+    return {
+      fieldId,
+      fieldName,
+      query: query.toQuery(),
+    };
+  }
+
+  private shouldSkipAffectedCountError(
+    error: unknown
+  ): error is Prisma.PrismaClientKnownRequestError & {
+    meta?: { code?: string; message?: string };
+  } {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2010') {
+      return false;
+    }
+
+    const storageErrorCode = (error.meta as { code?: string } | undefined)?.code;
+    return storageErrorCode === '42703' || storageErrorCode === '42P01';
   }
 
   @Timing()

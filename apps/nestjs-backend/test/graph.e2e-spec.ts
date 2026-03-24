@@ -1,6 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Relationship, type IFieldRo, FieldKeyType } from '@teable/core';
+import {
+  FieldType,
+  Relationship,
+  type IFieldRo,
+  type ILinkFieldOptions,
+  FieldKeyType,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable/openapi';
@@ -389,6 +395,88 @@ describe('OpenAPI Graph (e2e)', () => {
         where: { id: staleReferenceId },
       });
       await permanentDeleteTable(baseId, tempTable.id);
+    }
+  });
+
+  it('should ignore broken link key metadata when planning single select conversion', async () => {
+    const hostField = table1.fields[0];
+    const linkField = await createField(table2.id, {
+      name: 'broken key link',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table1.id,
+      },
+    });
+    const originalOptions = linkField.options as ILinkFieldOptions;
+
+    try {
+      const { selfKeyName: _selfKeyName, ...brokenOptions } = originalOptions;
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(brokenOptions),
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, hostField.id, {
+        type: FieldType.SingleSelect,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(table1.records.length);
+      expect(plan.graph?.nodes).toHaveLength(2);
+      expect(plan.graph?.edges).toHaveLength(1);
+      expect(plan.graph?.combos).toHaveLength(2);
+    } finally {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(originalOptions),
+        },
+      });
+    }
+  });
+
+  it('should ignore missing junction storage when planning single select conversion', async () => {
+    const hostField = table1.fields[0];
+    const linkField = await createField(table2.id, {
+      name: 'broken storage link',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table1.id,
+      },
+    });
+    const originalOptions = linkField.options as ILinkFieldOptions;
+
+    try {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify({
+            ...originalOptions,
+            fkHostTableName: `${originalOptions.fkHostTableName}_missing`,
+          }),
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, hostField.id, {
+        type: FieldType.SingleSelect,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(table1.records.length);
+      expect(plan.graph?.nodes).toHaveLength(2);
+      expect(plan.graph?.edges).toHaveLength(1);
+      expect(plan.graph?.combos).toHaveLength(2);
+    } finally {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(originalOptions),
+        },
+      });
     }
   });
 });
