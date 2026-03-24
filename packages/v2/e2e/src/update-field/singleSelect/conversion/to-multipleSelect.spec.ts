@@ -4,12 +4,11 @@ import { getSharedTestContext, type SharedTestContext } from '../../../shared/gl
 
 type SelectFieldLike = {
   options?: {
-    choices?: Array<{ name: string }>;
+    choices?: Array<{ id: string; name: string; color: string }>;
   };
 };
 
-const getChoiceNames = (field?: SelectFieldLike) =>
-  (field?.options?.choices ?? []).map((c) => c.name).sort();
+const getChoices = (field?: SelectFieldLike) => field?.options?.choices ?? [];
 
 describe('update-field: singleSelect → multipleSelect conversion', () => {
   let ctx: SharedTestContext;
@@ -41,12 +40,12 @@ describe('update-field: singleSelect → multipleSelect conversion', () => {
     await ctx.deleteTable(tableId).catch(() => undefined);
   });
 
-  test('should wrap single values in arrays and preserve options', async () => {
+  test('should preserve all select option metadata when only one choice is used', async () => {
     const fieldId = createFieldId();
     const choices = [
-      { name: 'Red', color: 'redBright' as const },
-      { name: 'Green', color: 'greenBright' as const },
-      { name: 'Blue', color: 'blueBright' as const },
+      { id: 'choRed00000000001', name: 'Red', color: 'redBright' as const },
+      { id: 'choGreen000000001', name: 'Green', color: 'greenBright' as const },
+      { id: 'choUnused00000001', name: 'Unused', color: 'grayBright' as const },
     ];
     await ctx.createField({
       baseId: ctx.baseId,
@@ -59,10 +58,9 @@ describe('update-field: singleSelect → multipleSelect conversion', () => {
       },
     });
     const r1 = await ctx.createRecord(tableId, { [fieldId]: 'Red' });
-    const r2 = await ctx.createRecord(tableId, { [fieldId]: 'Green' });
-    const r3 = await ctx.createRecord(tableId, { [fieldId]: 'Blue' });
+    const r2 = await ctx.createRecord(tableId, { [primaryFieldId]: 'No Select Value' });
 
-    await ctx.updateField({
+    const updatedTable = await ctx.updateField({
       tableId,
       fieldId,
       field: { type: 'multipleSelect' },
@@ -70,17 +68,21 @@ describe('update-field: singleSelect → multipleSelect conversion', () => {
 
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual(['Red']);
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toEqual(['Green']);
-    expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toEqual(['Blue']);
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId) as
+      | SelectFieldLike
+      | undefined;
+    expect(getChoices(updatedField)).toEqual(choices);
 
     const refreshedTable = await ctx.getTableById(tableId);
     const refreshedField = refreshedTable.fields.find((f) => f.id === fieldId) as
       | SelectFieldLike
       | undefined;
-    expect(getChoiceNames(refreshedField)).toEqual(['Blue', 'Green', 'Red']);
+    expect(getChoices(refreshedField)).toEqual(choices);
 
     await ctx.deleteField({ tableId, fieldId });
-    await ctx.deleteRecords(tableId, [r1.id, r2.id, r3.id]);
+    await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
   test('should keep null values as null', async () => {

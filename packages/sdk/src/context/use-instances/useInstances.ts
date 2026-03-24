@@ -1,4 +1,7 @@
-import { IdPrefix, getActionTriggerChannel } from '@teable/core';
+import { FieldKeyType, IdPrefix, type IRecord, getActionTriggerChannel } from '@teable/core';
+import type { IGetRecordsRo } from '@teable/openapi';
+import { getRecords } from '@teable/openapi';
+import { isEqual } from 'lodash';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
 import type { Presence } from 'sharedb/lib/sharedb';
@@ -141,6 +144,74 @@ const getSchemaRefreshCollectionTableId = (collection: string): string | undefin
 const hasSchemaRefreshFieldIds = (fieldIds: unknown): boolean =>
   Array.isArray(fieldIds) && fieldIds.length > 0;
 
+const isRecordCollection = (collection: string) => collection.startsWith(`${IdPrefix.Record}_`);
+
+const notifyProjectedRecordDocUpdate = <T>(
+  doc: Doc<T>,
+  dispatch: (action: IInstanceAction<T>) => void
+) => {
+  const opBatchListenerCount = doc.listenerCount?.('op batch') ?? 0;
+
+  if (opBatchListenerCount > 0 && typeof (doc as Doc<T> & { emit?: unknown }).emit === 'function') {
+    (doc as Doc<T> & { emit: (event: string, payload: unknown[], source?: boolean) => void }).emit(
+      'op batch',
+      [],
+      false
+    );
+  }
+
+  dispatch({ type: 'update', doc });
+};
+
+const collectActionPayloadFieldIds = (
+  payload: ActionTriggerPayload | undefined,
+  fieldIds: Set<string>
+) => {
+  if (!payload) {
+    return;
+  }
+
+  if (Array.isArray(payload.fieldIds)) {
+    payload.fieldIds.forEach((fieldId) => {
+      if (typeof fieldId === 'string' && fieldId.length > 0) {
+        fieldIds.add(fieldId);
+      }
+    });
+  }
+
+  const field = payload.field;
+  if (field instanceof Object && typeof (field as ActionTriggerFieldPayload).id === 'string') {
+    fieldIds.add((field as ActionTriggerFieldPayload).id as string);
+  }
+};
+
+const getSchemaRefreshRecordFieldIds = (tableId: string, batch: unknown): string[] | undefined => {
+  if (!Array.isArray(batch)) {
+    return undefined;
+  }
+
+  const fieldIds = new Set<string>();
+
+  for (const item of batch) {
+    if (!(item instanceof Object)) {
+      return undefined;
+    }
+
+    const action = item as ActionTrigger;
+    if (action.actionKey !== 'setField') {
+      return undefined;
+    }
+
+    if (action.payload?.tableId !== tableId) {
+      return undefined;
+    }
+
+    collectActionPayloadFieldIds(action.payload, fieldIds);
+  }
+
+  return fieldIds.size ? Array.from(fieldIds) : undefined;
+};
+
 const isSchemaRefreshFieldPayload = (field: unknown): boolean => {
   if (!(field instanceof Object)) {
     return false;
@@ -212,7 +283,6 @@ export function useInstances<T, R extends { id: string }>({
   const [schemaRefreshToken, setSchemaRefreshToken] = useState(0);
   const currentKeyRef = useRef<string>();
   const currentScopeKeyRef = useRef<string>();
-  const shouldClearInstancesOnQueryCleanupRef = useRef(true);
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
       instanceReducer(state, action, factory),
@@ -224,9 +294,87 @@ export function useInstances<T, R extends { id: string }>({
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
+  const projectedRefreshSeqRef = useRef(0);
+
+  const refreshProjectedRecordFields = useCallback(
+    async (fieldIds: string[]) => {
+      if (!schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
+        return false;
+      }
+
+      const currentDocs = (preQueryRef.current?.results ?? []) as Doc<IRecord>[];
+      const currentDocIds = currentDocs.map((doc) => doc.id);
+      const refreshSeq = ++projectedRefreshSeqRef.current;
+
+      const { type: _type, ...restQueryParams } = (queryParams ?? {}) as Record<string, unknown>;
+
+      try {
+        const { data } = await getRecords(schemaRefreshCollectionTableId, {
+          ...(restQueryParams as IGetRecordsRo),
+          fieldKeyType: FieldKeyType.Id,
+          projection: fieldIds,
+        });
+
+        if (refreshSeq !== projectedRefreshSeqRef.current) {
+          return true;
+        }
+
+        const fetchedRecords = data.records ?? [];
+        const fetchedRecordIds = fetchedRecords.map((record) => record.id);
+
+        if (
+          currentDocIds.length !== fetchedRecordIds.length ||
+          currentDocIds.some((id, index) => id !== fetchedRecordIds[index])
+        ) {
+          return false;
+        }
+
+        const fetchedRecordMap = new Map(fetchedRecords.map((record) => [record.id, record]));
+        const changedDocs: Doc<T>[] = [];
+
+        currentDocs.forEach((doc) => {
+          const fetchedRecord = fetchedRecordMap.get(doc.id);
+          if (!fetchedRecord) {
+            return;
+          }
+
+          let changed = false;
+          const docFields = doc.data.fields ?? {};
+          const nextFields = fetchedRecord.fields ?? {};
+
+          fieldIds.forEach((fieldId) => {
+            const currentValue = docFields[fieldId];
+            const nextValue = nextFields[fieldId];
+
+            if (isEqual(currentValue, nextValue)) {
+              return;
+            }
+
+            changed = true;
+            doc.data.fields ??= {};
+            if (nextValue === undefined) {
+              delete doc.data.fields[fieldId];
+            } else {
+              doc.data.fields[fieldId] = nextValue;
+            }
+          });
+
+          if (changed) {
+            changedDocs.push(doc as unknown as Doc<T>);
+          }
+        });
+
+        changedDocs.forEach((doc) => notifyProjectedRecordDocUpdate(doc, dispatch));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [collection, queryParams, schemaRefreshCollectionTableId]
+  );
 
   useEffect(() => {
-    if (!connection || !schemaRefreshCollectionTableId) {
+    if (!connection || !schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
       return;
     }
 
@@ -245,6 +393,17 @@ export function useInstances<T, R extends { id: string }>({
       if (!isSchemaRefreshAction(schemaRefreshCollectionTableId, batch)) {
         return;
       }
+
+      const fieldIds = getSchemaRefreshRecordFieldIds(schemaRefreshCollectionTableId, batch);
+      if (fieldIds?.length) {
+        void refreshProjectedRecordFields(fieldIds).then((handled) => {
+          if (!handled) {
+            setSchemaRefreshToken((current) => current + 1);
+          }
+        });
+        return;
+      }
+
       setSchemaRefreshToken((current) => current + 1);
     };
 
@@ -257,7 +416,7 @@ export function useInstances<T, R extends { id: string }>({
         presence.destroy();
       }
     };
-  }, [connection, schemaRefreshCollectionTableId]);
+  }, [collection, connection, refreshProjectedRecordFields, schemaRefreshCollectionTableId]);
 
   const handleReady = useCallback((query: Query<T>) => {
     console.log(
@@ -322,56 +481,92 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   useEffect(() => {
+    let canceled = false;
+
     if (!collection || !connection) {
-      shouldClearInstancesOnQueryCleanupRef.current = true;
+      const previousKey = currentKeyRef.current;
+      currentKeyRef.current = undefined;
       currentScopeKeyRef.current = undefined;
+      preQueryRef.current = undefined;
+      lastConnectionRef.current = connection;
+      dispatch({ type: 'clear' });
       setQuery(undefined);
-      return;
+      if (previousKey) {
+        releaseQuery(previousKey, () => opListeners.current.clear());
+      }
+      return () => {
+        canceled = true;
+      };
     }
 
     // Compute normalized key and short-circuit if unchanged and connection didn't change
     const nextKey = makeQueryKey(collection, queryParams, schemaRefreshToken);
     const nextScopeKey = makeQueryScopeKey(collection, queryParams);
     const connectionChanged = lastConnectionRef.current !== connection;
+
+    const acquireNextQuery = () => {
+      if (canceled || !collection || !connection) {
+        return;
+      }
+
+      const { key, query } = acquireQuery<T>(
+        collection,
+        connection,
+        queryParams,
+        schemaRefreshToken
+      );
+      currentKeyRef.current = key;
+      currentScopeKeyRef.current = nextScopeKey;
+      preQueryRef.current = query as Query<T>;
+      lastConnectionRef.current = connection;
+      setQuery(query as Query<T>);
+    };
+
     if (!connectionChanged && currentKeyRef.current === nextKey && preQueryRef.current) {
       // Ensure state holds the existing query instance without re-acquiring
       setQuery((prev) => prev ?? (preQueryRef.current as Query<T>));
-      return;
+      return () => {
+        canceled = true;
+      };
     }
 
     const previousKey = currentKeyRef.current;
     const previousScopeKey = currentScopeKeyRef.current;
-    shouldClearInstancesOnQueryCleanupRef.current =
-      connectionChanged || previousScopeKey !== nextScopeKey;
-    if (previousKey && (connectionChanged || previousKey !== nextKey)) {
-      releaseQuery(previousKey, () => opListeners.current.clear());
+    const shouldClearInstances = connectionChanged || previousScopeKey !== nextScopeKey;
+    currentKeyRef.current = undefined;
+    currentScopeKeyRef.current = undefined;
+    preQueryRef.current = undefined;
+
+    if (shouldClearInstances) {
+      dispatch({ type: 'clear' });
+      setQuery(undefined);
     }
 
-    const { key, query } = acquireQuery<T>(collection, connection, queryParams, schemaRefreshToken);
-    currentKeyRef.current = key;
-    currentScopeKeyRef.current = nextScopeKey;
-    preQueryRef.current = query as Query<T>;
-    lastConnectionRef.current = connection;
-    setQuery(query as Query<T>);
+    if (previousKey && (connectionChanged || previousKey !== nextKey)) {
+      releaseQuery(previousKey, () => {
+        opListeners.current.clear();
+        acquireNextQuery();
+      });
+    } else {
+      acquireNextQuery();
+    }
+
+    return () => {
+      canceled = true;
+    };
   }, [connection, collection, queryParams, schemaRefreshToken]);
 
   useEffect(() => {
     const listeners = opListeners.current;
-    const keyAtMount = currentKeyRef.current;
-    const hasQuery = Boolean(query);
     return () => {
-      // forbid clear query when query is not set but currentKeyRef.current is set
-      if (!hasQuery) {
+      const currentKey = currentKeyRef.current;
+      if (!currentKey) {
         return;
       }
-      // Preserve current instances during same-scope schema refreshes so grids do not flash blank.
-      if (shouldClearInstancesOnQueryCleanupRef.current) {
-        dispatch({ type: 'clear' });
-      }
-      // release cached query on unmount or when switching queries
-      releaseQuery(keyAtMount, () => listeners.clear());
+      dispatch({ type: 'clear' });
+      releaseQuery(currentKey, () => listeners.clear());
     };
-  }, [query]);
+  }, []);
 
   useEffect(() => {
     if (!query) {

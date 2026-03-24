@@ -15,6 +15,32 @@ export class Record extends RecordCore {
     value?: string;
   };
 
+  private normalizeCellValue(fieldId: string) {
+    const cellValue = this.fields[fieldId];
+    const field = this.fieldMap?.[fieldId];
+
+    if (!field) {
+      return cellValue;
+    }
+
+    if (cellValue == null) {
+      return cellValue;
+    }
+
+    const validated = field.validateCellValue(cellValue);
+    if (validated?.success) {
+      return validated.data;
+    }
+
+    try {
+      const repaired = field.repair(cellValue);
+      const repairedValidated = field.validateCellValue(repaired);
+      return repairedValidated?.success ? repairedValidated.data : repaired;
+    } catch {
+      return cellValue;
+    }
+  }
+
   constructor(
     protected doc: Doc<IRecord>,
     protected fieldMap: { [fieldId: string]: IFieldInstance }
@@ -33,10 +59,18 @@ export class Record extends RecordCore {
         return undefined;
       }
       this._title = {
-        value: primaryField.cellValue2String(this.fields[primaryFieldId]),
+        value: primaryField.cellValue2String(this.normalizeCellValue(primaryFieldId)),
       };
     }
     return this._title.value;
+  }
+
+  override getCellValue(fieldId: string): unknown {
+    return this.normalizeCellValue(fieldId);
+  }
+
+  override getCellValueAsString(fieldId: string) {
+    return this.fieldMap[fieldId].cellValue2String(this.normalizeCellValue(fieldId));
   }
 
   static isLocked(permissions: Record['permissions'], fieldId: string) {

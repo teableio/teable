@@ -38,6 +38,11 @@ export class SingleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
+    if (Array.isArray(value)) {
+      const firstValidValue = value.find((item): item is string => typeof item === 'string');
+      return firstValidValue == null ? null : this.convertStringToCellValue(firstValidValue);
+    }
+
     if (typeof value === 'string') {
       return this.convertStringToCellValue(value);
     }

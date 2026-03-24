@@ -10,8 +10,13 @@ import { CellValueType } from '../domain/table/fields/types/CellValueType';
 import { ConditionalLookupOptions } from '../domain/table/fields/types/ConditionalLookupOptions';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
+import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
+import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
+import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
+import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
@@ -35,6 +40,8 @@ const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecut
     },
   },
 });
+const createSelectOption = (id: string, name: string, color: string) =>
+  SelectOption.create({ id, name, color })._unsafeUnwrap();
 
 describe('TableFieldUpdateSpecs', () => {
   it('stabilizes missing dbFieldName with field id during type conversion', () => {
@@ -231,6 +238,132 @@ describe('TableFieldUpdateSpecs', () => {
     expect(newField.type().toString()).toBe('singleSelect');
     expect(newField).toBeInstanceOf(SingleSelectField);
     expect((newField as SingleSelectField).selectOptions()).toHaveLength(2);
+  });
+
+  it('preserves select option metadata when converting singleSelect to multipleSelect', () => {
+    const baseId = createBaseId('m');
+    const tableId = createTableId('m');
+    const targetFieldId = createFieldId('n');
+    const optionOpen = createSelectOption('optOpen0000000001', 'Open', 'blueBright');
+    const optionClosed = createSelectOption('optClosed00000001', 'Closed', 'redBright');
+    const optionUnused = createSelectOption('optUnused00000001', 'Unused', 'grayBright');
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Select Conversion')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('o'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleSelect()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([optionOpen, optionClosed, optionUnused])
+      .withDefaultValue(SelectDefaultValue.create('Open')._unsafeUnwrap())
+      .withPreventAutoNewOptions(SelectAutoNewOptions.create(true)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const currentField = table
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      { type: 'multipleSelect' },
+      { hostTable: table }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const newField = typeSpec.newField();
+    expect(newField).toBeInstanceOf(MultipleSelectField);
+    expect(
+      (newField as MultipleSelectField).selectOptions().map((option) => option.toDto())
+    ).toEqual([optionOpen, optionClosed, optionUnused].map((option) => option.toDto()));
+    expect((newField as MultipleSelectField).defaultValue()?.toDto()).toEqual(['Open']);
+    expect((newField as MultipleSelectField).preventAutoNewOptions().toBoolean()).toBe(true);
+  });
+
+  it('preserves select option metadata when converting multipleSelect to singleSelect', () => {
+    const baseId = createBaseId('u');
+    const tableId = createTableId('u');
+    const targetFieldId = createFieldId('v');
+    const optionOpen = createSelectOption('optOpen0000000002', 'Open', 'blueBright');
+    const optionClosed = createSelectOption('optClosed00000002', 'Closed', 'redBright');
+    const optionUnused = createSelectOption('optUnused00000002', 'Unused', 'grayBright');
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Multi Select Conversion')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('w'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .multipleSelect()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Tags')._unsafeUnwrap())
+      .withOptions([optionOpen, optionClosed, optionUnused])
+      .withDefaultValue(SelectDefaultValue.create(['Closed'])._unsafeUnwrap())
+      .withPreventAutoNewOptions(SelectAutoNewOptions.create(true)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const currentField = table
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      { type: 'singleSelect' },
+      { hostTable: table }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const newField = typeSpec.newField();
+    expect(newField).toBeInstanceOf(SingleSelectField);
+    expect((newField as SingleSelectField).selectOptions().map((option) => option.toDto())).toEqual(
+      [optionOpen, optionClosed, optionUnused].map((option) => option.toDto())
+    );
+    expect((newField as SingleSelectField).defaultValue()?.toDto()).toBe('Closed');
+    expect((newField as SingleSelectField).preventAutoNewOptions().toBoolean()).toBe(true);
   });
 
   it('derives rollup resultType for type conversion when cellValueType is omitted', () => {
@@ -1244,7 +1377,9 @@ describe('TableFieldUpdateSpecs', () => {
     }
 
     expect(newFieldResult.value.type().toString()).toBe('link');
-    expect((newFieldResult.value as any).lookupFieldId().equals(foreignPrimaryFieldId)).toBe(true);
+    expect((newFieldResult.value as LinkField).lookupFieldId().equals(foreignPrimaryFieldId)).toBe(
+      true
+    );
   });
 
   it.each([

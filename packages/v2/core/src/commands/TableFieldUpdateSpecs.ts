@@ -42,6 +42,7 @@ import { LastModifiedTimeField } from '../domain/table/fields/types/LastModified
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LongTextField } from '../domain/table/fields/types/LongTextField';
+import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { LookupField } from '../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
@@ -60,7 +61,6 @@ import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNew
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
-import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
@@ -69,6 +69,7 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserField } from '../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
+import { FieldOptionsDtoVisitor } from '../domain/table/fields/visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { ForeignTable } from '../domain/table/ForeignTable';
@@ -291,6 +292,31 @@ const ensureDbFieldName = (
   return DbFieldName.rehydrate(candidate).andThen((dbFieldName) =>
     field.setDbFieldName(dbFieldName)
   );
+};
+
+const isSelectField = (field: Field): field is SingleSelectField | MultipleSelectField =>
+  field instanceof SingleSelectField || field instanceof MultipleSelectField;
+
+const normalizeSelectTypeConversionOptions = (
+  targetType: string,
+  rawOptions: Record<string, unknown>
+): Record<string, unknown> => {
+  const options = { ...rawOptions };
+  const defaultValue = options.defaultValue;
+
+  if (targetType === 'singleSelect' && Array.isArray(defaultValue)) {
+    if (defaultValue.length > 0) {
+      options.defaultValue = defaultValue[0];
+    } else {
+      delete options.defaultValue;
+    }
+  }
+
+  if (targetType === 'multipleSelect' && typeof defaultValue === 'string') {
+    options.defaultValue = [defaultValue];
+  }
+
+  return options;
 };
 
 // ============ UpdateSingleLineTextFieldSpec ============
@@ -3478,6 +3504,24 @@ const parseTypeConversion = (
       }
     }
     createFieldInput.options = linkOptions;
+  }
+
+  if (
+    isSelectField(currentField) &&
+    (input.type === 'singleSelect' || input.type === 'multipleSelect') &&
+    (input.options == null || (typeof input.options === 'object' && !Array.isArray(input.options)))
+  ) {
+    const currentOptionsResult = currentField.accept(new FieldOptionsDtoVisitor());
+    if (currentOptionsResult.isErr()) {
+      return err(currentOptionsResult.error);
+    }
+
+    const mergedOptions = {
+      ...(currentOptionsResult.value as Record<string, unknown>),
+      ...((input.options as Record<string, unknown> | undefined) ?? {}),
+    };
+
+    createFieldInput.options = normalizeSelectTypeConversionOptions(input.type, mergedOptions);
   }
 
   const deriveLookupMultiplicityForTypeConversion = (): Result<

@@ -89,7 +89,9 @@ describe('SingleSelectFieldCore', () => {
   it('should repair invalid value', () => {
     const cellValue = 'Option 1';
     expect(field.repair(cellValue)).toEqual(cellValue);
+    expect(field.repair([cellValue])).toEqual(cellValue);
     expect(field.repair('xxxx')).toEqual(null);
+    expect(field.repair(['xxxx'])).toEqual(null);
     expect(lookupField.repair(cellValue)).toEqual(null);
     expect(lookupField.repair('xxxx')).toEqual(null);
   });
