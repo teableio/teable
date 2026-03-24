@@ -1,8 +1,8 @@
-import { CellValueType, FieldType, SortFunc, TimeFormatting } from '@teable/core';
+import { CellValueType, FieldKeyType, FieldType, SortFunc, TimeFormatting } from '@teable/core';
 import {
-  FieldKeyType,
   ListTableRecordsQuery,
   ListTableRecordsResult,
+  UpdateRecordsResult,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,8 +17,12 @@ describe('RecordOpenApiV2Service', () => {
   const getReadQuerySource = vi.fn();
   const getFieldsByQuery = vi.fn();
   const execute = vi.fn();
+  const commandExecute = vi.fn();
   const resolve = vi.fn();
   const getContainer = vi.fn();
+  const clsGet = vi.fn();
+  const cacheDel = vi.fn();
+  const cacheSetDetail = vi.fn();
 
   let service: RecordOpenApiV2Service;
 
@@ -29,12 +33,28 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.queryBus) {
         return { execute };
       }
+      if (token === v2CoreTokens.commandBus) {
+        return { execute: commandExecute };
+      }
       return undefined;
     });
     getContainer.mockResolvedValue({ resolve });
     createContext.mockResolvedValue({});
+    clsGet.mockImplementation((key: string) => {
+      if (key === 'user.id') {
+        return `usr${'h'.repeat(16)}`;
+      }
+      if (key === 'windowId') {
+        return `win${'i'.repeat(16)}`;
+      }
+      return undefined;
+    });
     getReadQuerySource.mockResolvedValue(undefined);
     getFieldsByQuery.mockResolvedValue([]);
+    commandExecute.mockResolvedValue({
+      isErr: () => false,
+      value: UpdateRecordsResult.create(2, []),
+    });
     execute.mockResolvedValue({
       isErr: () => false,
       value: ListTableRecordsResult.create(
@@ -51,14 +71,13 @@ describe('RecordOpenApiV2Service', () => {
       { data: { id: 'rec1111111111111111', fields: {} } },
       { data: { id: 'rec2222222222222222', fields: {} } },
     ]);
-
     service = new RecordOpenApiV2Service(
       { getContainer } as never,
       { createContext } as never,
       { getDocIdsByQuery, getSnapshotBulkWithPermission } as never,
       {} as never,
-      {} as never,
-      { get: vi.fn() } as never,
+      { get: clsGet } as never,
+      { del: cacheDel, setDetail: cacheSetDetail } as never,
       { getFieldsByQuery } as never,
       { getReadQuerySource } as never,
       {} as never,
@@ -261,6 +280,95 @@ describe('RecordOpenApiV2Service', () => {
           createdTime: createdTimeIso,
         },
       },
+    ]);
+  });
+
+  it('routes explicit batch field updates through native v2 updateRecords', async () => {
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      { data: { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } } },
+      { data: { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } } },
+    ]);
+
+    const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+        { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+      ],
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].records).toHaveLength(2);
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
+      'rec1111111111111111'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[1]?.fieldValues.get('fldStatus')).toBe(
+      'Open'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].order).toBeUndefined();
+    expect(result).toEqual([
+      { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+      { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+    ]);
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('passes batch order through native v2 updateRecords', async () => {
+    await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+        { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+      ],
+      order: {
+        viewId: `viw${'c'.repeat(16)}`,
+        anchorId: 'rec1111111111111111',
+        position: 'after',
+      },
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].order?.viewId.toString()).toBe(`viw${'c'.repeat(16)}`);
+    expect(commandExecute.mock.calls[0]?.[1].order?.position).toBe('after');
+  });
+
+  it('merges duplicate record updates before calling native v2 updateRecords', async () => {
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      { data: { id: 'rec1111111111111111', fields: { fldStatus: 'Done', fldNote: 'latest' } } },
+    ]);
+
+    const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { fldStatus: 'Open', fldNote: 'first' } },
+        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+        { id: 'rec1111111111111111', fields: { fldNote: 'latest' } },
+      ],
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].records).toHaveLength(1);
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
+      'rec1111111111111111'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get('fldStatus')).toBe(
+      'Done'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get('fldNote')).toBe(
+      'latest'
+    );
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledWith(
+      `tbl${'c'.repeat(16)}`,
+      ['rec1111111111111111'],
+      undefined,
+      FieldKeyType.Id,
+      undefined,
+      true
+    );
+    expect(result).toEqual([
+      { id: 'rec1111111111111111', fields: { fldStatus: 'Done', fldNote: 'latest' } },
     ]);
   });
 });

@@ -224,6 +224,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         executionContext: context,
         table,
         payload: {
+          variant: 'selector',
           fieldValues: clearedFieldValues,
           fieldKeyType: FieldKeyType.Id,
           typecast: false,

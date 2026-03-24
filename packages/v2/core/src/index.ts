@@ -41,6 +41,8 @@ export * from './application/services/RecordMutationSpecResolverService';
 export * from './application/services/RecordWriteSideEffectService';
 export * from './application/services/RecordWriteUndoRedoPlanService';
 export * from './application/services/RecordCreationService';
+export * from './application/services/RecordBulkUpdateService';
+export * from './application/services/RecordReorderService';
 export * from './application/services/SpecResolver';
 export * from './application/services/UserValueResolverService';
 export * from './application/services/TableCreationService';

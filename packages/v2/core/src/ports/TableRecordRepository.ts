@@ -146,6 +146,11 @@ export interface UpdateManyStreamOptions {
 export interface UpdateManyStreamResult {
   /** Total number of records updated */
   totalUpdated: number;
+  /** Main statement versions captured for each updated row. */
+  updatedRecords?: ReadonlyArray<{
+    recordId: RecordId;
+    newVersion: number;
+  }>;
 }
 
 export interface UpdateManyStreamBatch {

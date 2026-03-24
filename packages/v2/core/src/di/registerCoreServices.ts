@@ -12,8 +12,10 @@ import { FieldUpdateSideEffectService } from '../application/services/FieldUpdat
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordReorderService } from '../application/services/RecordReorderService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -265,6 +267,18 @@ export const registerV2CoreServices = (
   // RecordWriteSideEffectService - table side effects on record writes
   if (!container.isRegistered(v2CoreTokens.recordWriteSideEffectService)) {
     container.register(v2CoreTokens.recordWriteSideEffectService, RecordWriteSideEffectService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordBulkUpdateService)) {
+    container.register(v2CoreTokens.recordBulkUpdateService, RecordBulkUpdateService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordReorderService)) {
+    container.register(v2CoreTokens.recordReorderService, RecordReorderService, {
       lifecycle,
     });
   }

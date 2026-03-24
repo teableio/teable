@@ -20,6 +20,11 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableDeletionSideEffectService.ts` - Role: application service; Purpose: dispatch explicit
   `OnTeableTableDeleted` reactions in other tables before deleting a table, including link-to-text
   conversion and dependent metadata cleanup.
+- `RecordBulkUpdateService.ts` - Role: application service; Purpose: prepare and execute selector
+  or explicit-record batch updates, letting the domain model build specs/results while the service
+  coordinates repository persistence, events, and undo/redo.
+- `RecordReorderService.ts` - Role: application service; Purpose: apply batched row-order updates
+  and build reorder events plus undo/redo payloads for callers that need native v2 reorder flows.
 - `TableQueryService.ts` - Role: application service; Purpose: common table lookup operations
   (getById, getByIdInBase, exists) used across CommandHandlers and QueryHandlers.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate + persist + publish).

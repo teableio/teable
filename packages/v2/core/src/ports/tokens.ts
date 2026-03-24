@@ -21,6 +21,8 @@ export const v2CoreTokens = {
   recordWriteSideEffectService: Symbol('v2.core.recordWriteSideEffectService'),
   recordWriteUndoRedoPlanService: Symbol('v2.core.recordWriteUndoRedoPlanService'),
   recordCreationService: Symbol('v2.core.recordCreationService'),
+  recordBulkUpdateService: Symbol('v2.core.recordBulkUpdateService'),
+  recordReorderService: Symbol('v2.core.recordReorderService'),
   recordOrderCalculator: Symbol('v2.core.recordOrderCalculator'),
   attachmentLookupService: Symbol('v2.core.attachmentLookupService'),
   attachmentValueResolverService: Symbol('v2.core.attachmentValueResolverService'),

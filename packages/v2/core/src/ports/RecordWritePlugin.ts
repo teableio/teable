@@ -95,13 +95,29 @@ export type RecordWriteUpdateOnePayload = {
   readonly typecast: boolean;
 };
 
-export type RecordWriteUpdateManyPayload = {
-  readonly fieldValues: RecordWriteFieldValues;
+type RecordWriteUpdateManyPayloadBase = {
   readonly fieldKeyType: FieldKeyType;
   readonly typecast: boolean;
   readonly recordIds?: ReadonlyArray<RecordId>;
   readonly recordCount?: number;
 };
+
+export type RecordWriteUpdateManySelectorPayload = RecordWriteUpdateManyPayloadBase & {
+  readonly variant: 'selector';
+  readonly fieldValues: RecordWriteFieldValues;
+};
+
+export type RecordWriteUpdateManyExplicitPayload = RecordWriteUpdateManyPayloadBase & {
+  readonly variant: 'explicit';
+  readonly recordUpdates: ReadonlyArray<{
+    readonly recordId: RecordId;
+    readonly fieldValues: RecordWriteFieldValues;
+  }>;
+};
+
+export type RecordWriteUpdateManyPayload =
+  | RecordWriteUpdateManySelectorPayload
+  | RecordWriteUpdateManyExplicitPayload;
 
 export type RecordWriteDeleteManyPayload = {
   readonly recordIds: ReadonlyArray<RecordId>;

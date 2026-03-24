@@ -191,15 +191,29 @@ export type UndoRedoCommandDataByType = {
   Batch: UndoRedoBatchCommandData;
 };
 
+const normalizeUpdateRecordFields = (fields: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(fields).map(([fieldId, value]) => [fieldId, value === undefined ? null : value])
+  );
+
 export const createUndoRedoCommand = <TType extends UndoRedoCommandType>(
   type: TType,
   payload: UndoRedoCommandPayloadByType[TType]
-): UndoRedoCommandDataByType[TType] =>
-  ({
+): UndoRedoCommandDataByType[TType] => {
+  const normalizedPayload =
+    type === 'UpdateRecord'
+      ? ({
+          ...(payload as UndoRedoUpdateRecordPayload),
+          fields: normalizeUpdateRecordFields((payload as UndoRedoUpdateRecordPayload).fields),
+        } as UndoRedoCommandPayloadByType[TType])
+      : payload;
+
+  return {
     type,
     version: undoRedoCommandVersions[type],
-    payload,
-  }) as UndoRedoCommandDataByType[TType];
+    payload: normalizedPayload,
+  } as UndoRedoCommandDataByType[TType];
+};
 
 export const isSupportedUndoRedoCommandVersion = (command: UndoRedoCommandData): boolean =>
   command.version === undoRedoCommandVersions[command.type];

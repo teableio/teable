@@ -4,14 +4,14 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
-import type { FieldId } from '../fields/FieldId';
+import { FieldId } from '../fields/FieldId';
 import {
   normalizeCellDisplayValue,
   normalizeCellDisplayValues,
 } from '../fields/visitors/normalizeCellDisplayValue';
 import type { Table } from '../Table';
 import type { TableId } from '../TableId';
-import type { RecordId } from './RecordId';
+import { RecordId } from './RecordId';
 import { RecordConditionSpecBuilder } from './specs/RecordConditionSpecBuilder';
 import {
   TableRecordCellValue,
@@ -37,6 +37,39 @@ export class TableRecord extends Entity<RecordId> {
     return TableRecordFields.create(params.fieldValues).map(
       (fields) => new TableRecord(params.id, params.tableId, fields)
     );
+  }
+
+  static fromRawFieldValues(params: {
+    id: string;
+    tableId: TableId;
+    fields: Record<string, unknown>;
+  }): Result<TableRecord, DomainError> {
+    return RecordId.create(params.id).andThen((recordId) => {
+      const fieldValues: TableRecordFieldValue[] = [];
+
+      for (const [fieldIdText, rawValue] of Object.entries(params.fields)) {
+        const fieldIdResult = FieldId.create(fieldIdText);
+        if (fieldIdResult.isErr()) {
+          continue;
+        }
+
+        const cellValueResult = TableRecordCellValue.create(rawValue);
+        if (cellValueResult.isErr()) {
+          return err(cellValueResult.error);
+        }
+
+        fieldValues.push({
+          fieldId: fieldIdResult.value,
+          value: cellValueResult.value,
+        });
+      }
+
+      return TableRecord.create({
+        id: recordId,
+        tableId: params.tableId,
+        fieldValues,
+      });
+    });
   }
 
   tableId(): TableId {

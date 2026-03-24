@@ -147,13 +147,7 @@ export class RecordOpenApiController {
   ): Promise<IRecord> {
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
-      return this.recordOpenApiV2Service.updateRecord(
-        tableId,
-        recordId,
-        updateRecordRo,
-        windowId,
-        isAiInternal
-      );
+      return this.recordOpenApiV2Service.updateRecord(tableId, recordId, updateRecordRo);
     }
 
     return await this.recordOpenApiService.updateRecord(
@@ -211,12 +205,7 @@ export class RecordOpenApiController {
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord[]> {
     if (this.cls.get('useV2')) {
-      return await this.recordOpenApiV2Service.updateRecords(
-        tableId,
-        updateRecordsRo,
-        windowId,
-        isAiInternal
-      );
+      return await this.recordOpenApiV2Service.updateRecords(tableId, updateRecordsRo);
     }
 
     return (

@@ -12,7 +12,9 @@ import type { CompiledSqlStatement, LinkedRecordLockInfo } from '../insert';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
 import {
-  collectLinkedRecordLocksForUpdate,
+  buildExtraSeedRecordsFromLinkChanges,
+  buildLinkedRecordLocksFromLinkChanges,
+  collectLinkChanges,
   type RecordUpdateBuilderContext,
   type RecordUpdateSeedGroup,
 } from './RecordUpdateBuilder';
@@ -89,6 +91,23 @@ interface RecordMutationData {
   additionalStatements: CompiledSqlStatement[];
   changedFieldIds: FieldId[];
 }
+
+const mergeCollectedLinkChanges = (
+  target: CollectedLinkChanges,
+  incoming: CollectedLinkChanges
+): void => {
+  target.linkChanges.push(...incoming.linkChanges);
+  target.relationChangeFieldIds.push(...incoming.relationChangeFieldIds);
+
+  for (const [tableKey, group] of incoming.affectedForeignRecords) {
+    const existing = target.affectedForeignRecords.get(tableKey) ?? {
+      tableId: group.tableId,
+      recordIds: [],
+    };
+    existing.recordIds.push(...group.recordIds);
+    target.affectedForeignRecords.set(tableKey, existing);
+  }
+};
 
 /**
  * Builds batch UPDATE data for multiple records using mutation specifications.
@@ -170,6 +189,7 @@ export class BatchRecordUpdateBuilder {
       const allAdditionalStatements: CompiledSqlStatement[] = [];
       const allChangedFieldIds = new Set<string>();
       const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
+      const allLinkChanges = createEmptyCollectedLinkChanges();
       const recordUpdateValues = new Map<string, Map<string, unknown>>();
 
       const lastModifiedByDbFieldNames = new Set<string>();
@@ -239,17 +259,20 @@ export class BatchRecordUpdateBuilder {
           allChangedFieldIds.add(fieldId.toString());
         }
 
-        const linkedRecordLocksResult = await collectLinkedRecordLocksForUpdate({
+        const linkChangesResult = await collectLinkChanges({
           db: builder.db,
           table,
           tableName,
           recordId: recordIdStr,
           mutateSpec: update.mutateSpec,
         });
-        if (linkedRecordLocksResult.isErr()) {
-          return err(linkedRecordLocksResult.error);
+        if (linkChangesResult.isErr()) {
+          return err(linkChangesResult.error);
         }
-        allLinkedRecordLocks.push(...linkedRecordLocksResult.value);
+        mergeCollectedLinkChanges(allLinkChanges, linkChangesResult.value.linkChanges);
+        allLinkedRecordLocks.push(
+          ...buildLinkedRecordLocksFromLinkChanges(linkChangesResult.value.linkChanges)
+        );
 
         recordMutations.push({
           recordId: recordIdStr,
@@ -272,18 +295,28 @@ export class BatchRecordUpdateBuilder {
       });
 
       const valueFieldIds: FieldId[] = [];
-      const linkFieldIds: FieldId[] = [];
+      const linkFieldIdsMap = new Map<string, FieldId>();
       for (const fieldId of allFieldIds) {
         const fieldResult = table.getField((candidate) => candidate.id().equals(fieldId));
         if (fieldResult.isOk()) {
           const field = fieldResult.value;
           if (field.type().toString() === 'link') {
-            linkFieldIds.push(fieldId);
+            continue;
           } else {
             valueFieldIds.push(fieldId);
           }
         }
       }
+
+      for (const fieldId of allLinkChanges.relationChangeFieldIds) {
+        linkFieldIdsMap.set(fieldId.toString(), fieldId);
+      }
+
+      const extraSeedRecordsResult = buildExtraSeedRecordsFromLinkChanges(allLinkChanges);
+      if (extraSeedRecordsResult.isErr()) {
+        return err(extraSeedRecordsResult.error);
+      }
+      const linkFieldIds = [...linkFieldIdsMap.values()];
 
       // Step 4: Deduplicate and sort locks
       const linkedRecordLocks = builder.deduplicateLinkedRecordLocks(allLinkedRecordLocks);
@@ -294,8 +327,8 @@ export class BatchRecordUpdateBuilder {
           valueFieldIds,
           linkFieldIds,
         },
-        extraSeedRecords: [],
-        linkChanges: createEmptyCollectedLinkChanges(),
+        extraSeedRecords: extraSeedRecordsResult.value,
+        linkChanges: allLinkChanges,
         valueFieldIds,
         linkedRecordLocks,
       };

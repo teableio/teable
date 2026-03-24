@@ -134,7 +134,7 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
       }
     }
 
-    return ok({ totalUpdated });
+    return ok({ totalUpdated, updatedRecords: [] });
   }
 
   async deleteMany(

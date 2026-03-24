@@ -308,7 +308,7 @@ type CollectLinkChangesResult = {
   exclusivityConstraints: LinkExclusivityConstraint[];
 };
 
-const collectLinkChanges = async (params: {
+export const collectLinkChanges = async (params: {
   db: Kysely<DynamicDB>;
   table: Table;
   tableName: string;
@@ -381,7 +381,7 @@ const collectLinkChanges = async (params: {
   }
 };
 
-const buildExtraSeedRecordsFromLinkChanges = (
+export const buildExtraSeedRecordsFromLinkChanges = (
   collected: CollectedLinkChanges
 ): Result<RecordUpdateSeedGroup[], DomainError> => {
   const extraSeedMap = new Map<string, { tableId: TableId; recordIds: Map<string, RecordId> }>();
@@ -531,7 +531,7 @@ const loadExistingLinkRecordIds = async (
  * Build linked record locks from collected link changes.
  * These locks prevent deadlocks when multiple transactions update the same foreign records.
  */
-const buildLinkedRecordLocksFromLinkChanges = (
+export const buildLinkedRecordLocksFromLinkChanges = (
   collected: CollectedLinkChanges
 ): LinkedRecordLockInfo[] => {
   const locks: LinkedRecordLockInfo[] = [];

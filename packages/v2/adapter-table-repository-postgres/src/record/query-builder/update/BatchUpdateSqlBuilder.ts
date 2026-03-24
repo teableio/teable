@@ -164,6 +164,7 @@ export function buildBatchUpdateSql(
 UPDATE ${escapedTableName}
 SET ${setClauses.join(', ')}
 WHERE "__id" = ANY(ARRAY[${idList}])
+RETURNING "__id" AS "record_id", "__version" AS "new_version"
       `.trim();
 
       const query = sql.raw(updateSql);
@@ -248,6 +249,7 @@ FROM (VALUES
   ${valueRows.join(',\n  ')}
 ) AS v(${columnAliases})
 WHERE t.__id = v.__id
+RETURNING t.__id AS record_id, t.__version AS new_version
     `.trim();
 
     // Compile using kysely's sql tag for proper parameter handling

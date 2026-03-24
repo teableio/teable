@@ -105,6 +105,22 @@ const buildRecordIds = () => ({
 });
 
 describe('UndoRedoService', () => {
+  it('normalizes undefined update values to null in stored undo commands', async () => {
+    const command = createUndoRedoCommand('UpdateRecord', {
+      tableId: `tbl${'z'.repeat(16)}`,
+      recordId: `rec${'y'.repeat(16)}`,
+      fields: { fld1: undefined, fld2: 'value' },
+      fieldKeyType: 'id',
+      typecast: false,
+    });
+
+    if (command.type !== 'UpdateRecord') {
+      throw new Error('Expected UpdateRecord command');
+    }
+
+    expect(command.payload.fields).toEqual({ fld1: null, fld2: 'value' });
+  });
+
   it('records update entries and skips when in undo/redo mode', async () => {
     const store = new MemoryUndoRedoStore();
     const bus = new FakeCommandBus();

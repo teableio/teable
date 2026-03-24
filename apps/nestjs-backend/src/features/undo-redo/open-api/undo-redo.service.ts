@@ -3,10 +3,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
 import { RedoCommand, RedoResult, UndoCommand, UndoResult, v2CoreTokens } from '@teable/v2-core';
 import type { ICommandBus } from '@teable/v2-core';
+import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../../cache/cache.service';
+import type { ICacheStore } from '../../../cache/types';
+import type { IClsStore } from '../../../types/cls';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
+import { buildUndoRedoEnginePreferenceKey } from './undo-redo-engine-preference';
 
 export const X_TEABLE_UNDO_REDO_ENGINE_HEADER = 'x-teable-undo-redo-engine';
 
@@ -23,16 +28,86 @@ export class UndoRedoService {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly cacheService: CacheService<ICacheStore>,
     private readonly undoRedoStackService: UndoRedoStackService,
     private readonly undoRedoOperationService: UndoRedoOperationService
   ) {}
 
   async undo(tableId: string, windowId: string): Promise<UndoRedoResponse<IUndoVo>> {
+    const preferredEngine = await this.getPreferredEngine(tableId, windowId);
+    if (preferredEngine === 'v1') {
+      const v1Result = await this.executeV1Undo(tableId, windowId);
+      if (v1Result.body.status !== 'empty') {
+        return v1Result;
+      }
+
+      const v2Result = await this.executeV2UndoRedo(tableId, windowId, 'undo');
+      if (v2Result) {
+        return v2Result;
+      }
+
+      return v1Result;
+    }
+
     const v2Result = await this.executeV2UndoRedo(tableId, windowId, 'undo');
     if (v2Result) {
       return v2Result;
     }
 
+    return this.executeV1Undo(tableId, windowId);
+  }
+
+  async redo(tableId: string, windowId: string): Promise<UndoRedoResponse<IRedoVo>> {
+    const preferredEngine = await this.getPreferredEngine(tableId, windowId);
+    if (preferredEngine === 'v1') {
+      const v1Result = await this.executeV1Redo(tableId, windowId);
+      if (v1Result.body.status !== 'empty') {
+        return v1Result;
+      }
+
+      const v2Result = await this.executeV2UndoRedo(tableId, windowId, 'redo');
+      if (v2Result) {
+        return v2Result;
+      }
+
+      return v1Result;
+    }
+
+    const v2Result = await this.executeV2UndoRedo(tableId, windowId, 'redo');
+    if (v2Result) {
+      return v2Result;
+    }
+
+    return this.executeV1Redo(tableId, windowId);
+  }
+
+  private getPreferenceKey(
+    tableId: string,
+    windowId: string
+  ): ReturnType<typeof buildUndoRedoEnginePreferenceKey> | null {
+    const userId = this.cls.get('user.id');
+    if (!userId || !windowId) {
+      return null;
+    }
+    return buildUndoRedoEnginePreferenceKey(userId, tableId, windowId);
+  }
+
+  private async getPreferredEngine(
+    tableId: string,
+    windowId: string
+  ): Promise<UndoRedoEngine | undefined> {
+    const key = this.getPreferenceKey(tableId, windowId);
+    if (!key) {
+      return undefined;
+    }
+    return this.cacheService.get(key);
+  }
+
+  private async executeV1Undo(
+    tableId: string,
+    windowId: string
+  ): Promise<UndoRedoResponse<IUndoVo>> {
     const { operation, push } = await this.undoRedoStackService.popUndo(tableId, windowId);
 
     if (!operation) {
@@ -76,12 +151,10 @@ export class UndoRedoService {
     };
   }
 
-  async redo(tableId: string, windowId: string): Promise<UndoRedoResponse<IRedoVo>> {
-    const v2Result = await this.executeV2UndoRedo(tableId, windowId, 'redo');
-    if (v2Result) {
-      return v2Result;
-    }
-
+  private async executeV1Redo(
+    tableId: string,
+    windowId: string
+  ): Promise<UndoRedoResponse<IRedoVo>> {
     const { operation, push } = await this.undoRedoStackService.popRedo(tableId, windowId);
     if (!operation) {
       return {

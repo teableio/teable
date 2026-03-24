@@ -1215,7 +1215,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               context,
               table,
               updatedRecordIds,
-              changedFieldIds,
+              {
+                valueFieldIds: changedFieldIds,
+                linkFieldIds: [],
+              },
+              [],
               beforeImageRecords
             );
             if (computedResult.isErr()) {
@@ -1261,8 +1265,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         let totalUpdated = 0;
         let batchIndex = 0;
-        const allRecordIds: core.RecordId[] = [];
-        const allChangedFieldIds = new Map<string, core.FieldId>();
+        const affectedRecordIds = new Map<string, core.RecordId>();
+        const updatedRecords: Array<
+          NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]
+        > = [];
+        const allValueFieldIds = new Map<string, core.FieldId>();
+        const allLinkFieldIds = new Map<string, core.FieldId>();
+        const extraSeedMap = new Map<
+          string,
+          { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+        >();
         const normalizeBatch = (
           batch: core.UpdateManyStreamBatchInput
         ): { batchTable: core.Table; updates: ReadonlyArray<core.RecordUpdateResult> } =>
@@ -1272,14 +1284,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const processBatch = async (
           batchResult: Result<core.UpdateManyStreamBatchInput, core.DomainError>
-        ): Promise<Result<void, DomainError>> => {
+        ): Promise<
+          Result<
+            ReadonlyArray<NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]>,
+            DomainError
+          >
+        > => {
           if (batchResult.isErr()) {
             return err(batchResult.error);
           }
 
           const { batchTable, updates: batch } = normalizeBatch(batchResult.value);
           if (batch.length === 0) {
-            return ok(undefined);
+            return ok([]);
           }
 
           // Convert batch to BatchRecordUpdateInput format
@@ -1327,7 +1344,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               return err(updateSqlResult.error);
             }
 
-            await db.executeQuery(updateSqlResult.value);
+            const queryResult = await db.executeQuery(updateSqlResult.value);
+            const batchUpdatedRecords: Array<
+              NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]
+            > = [];
+            for (const row of queryResult.rows as ReadonlyArray<Record<string, unknown>>) {
+              const rawId = row.record_id;
+              if (typeof rawId !== 'string') {
+                continue;
+              }
+              const recordIdResult = core.RecordId.create(rawId);
+              if (recordIdResult.isErr()) {
+                continue;
+              }
+
+              const rawVersion = Number(row.new_version);
+              batchUpdatedRecords.push({
+                recordId: recordIdResult.value,
+                newVersion: Number.isFinite(rawVersion) ? rawVersion : 0,
+              });
+            }
 
             // Acquire advisory locks for linked records (deduplicated, single query)
             const baseId = batchTable.baseId().toString();
@@ -1338,26 +1374,36 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               await db.executeQuery(stmt.compiled);
             }
 
-            // Track aggregated data for computed updates
+            // Computed propagation must follow the submitted write set, not adapter-returned metadata rows.
             for (const update of updates) {
-              allRecordIds.push(update.recordId);
+              affectedRecordIds.set(update.recordId.toString(), update.recordId);
             }
-            // Collect both value and link field IDs for computed field triggering
+            // Preserve the same computed impact semantics as single-record updates.
             for (const fieldId of impact.valueFieldIds) {
-              allChangedFieldIds.set(fieldId.toString(), fieldId);
+              allValueFieldIds.set(fieldId.toString(), fieldId);
             }
             for (const fieldId of impact.impactHint.linkFieldIds) {
-              allChangedFieldIds.set(fieldId.toString(), fieldId);
+              allLinkFieldIds.set(fieldId.toString(), fieldId);
+            }
+            for (const seedGroup of impact.extraSeedRecords) {
+              const mergeResult = mergeExtraSeedRecords(
+                extraSeedMap,
+                seedGroup.tableId,
+                seedGroup.recordIds.map((recordId) => recordId.toString())
+              );
+              if (mergeResult.isErr()) {
+                return err(mergeResult.error);
+              }
             }
 
-            totalUpdated += batch.length;
+            totalUpdated += batchUpdatedRecords.length;
             options?.onBatchUpdated?.({
               batchIndex,
-              updatedCount: batch.length,
+              updatedCount: batchUpdatedRecords.length,
               totalUpdated,
             });
             batchIndex++;
-            return ok(undefined);
+            return ok(batchUpdatedRecords);
           } catch (error) {
             return err(wrapDatabaseError(error, 'update', { tableName }, context.$t));
           }
@@ -1371,6 +1417,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             if (result.isErr()) {
               return err(result.error);
             }
+            updatedRecords.push(...result.value);
           }
         } else {
           for (const batchResult of batches as Iterable<
@@ -1380,6 +1427,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             if (result.isErr()) {
               return err(result.error);
             }
+            updatedRecords.push(...result.value);
           }
         }
 
@@ -1388,8 +1436,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           const computedResult = await this.runComputedUpdateManyByIds(
             context,
             table,
-            allRecordIds,
-            [...allChangedFieldIds.values()]
+            [...affectedRecordIds.values()],
+            {
+              valueFieldIds: [...allValueFieldIds.values()],
+              linkFieldIds: [...allLinkFieldIds.values()],
+            },
+            finalizeExtraSeedRecords(extraSeedMap)
           );
           if (computedResult.isErr()) {
             return err(computedResult.error);
@@ -1397,7 +1449,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(db, table.id().toString(), actorId);
         }
 
-        return ok({ totalUpdated });
+        return ok({ totalUpdated, updatedRecords });
       }.bind(this)
     );
   }
@@ -1410,28 +1462,31 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     recordIds: ReadonlyArray<core.RecordId>,
-    changedFieldIds: ReadonlyArray<core.FieldId>,
+    impact: UpdateImpactHint | undefined,
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
     beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
   ): Promise<Result<void, DomainError>> {
+    const changedFieldIds = impact ? [...impact.valueFieldIds, ...impact.linkFieldIds] : [];
     const expandedChangedFieldIds = this.expandComputedSeedFieldIds(table, changedFieldIds);
     if (recordIds.length === 0 || expandedChangedFieldIds.length === 0) {
       return ok(undefined);
     }
+    const normalizedImpact = this.normalizeImpactHint(impact);
 
     // Always plan first — if no steps, skip entirely (both sync and async)
     const planInput = {
       baseId: table.baseId(),
       seedTableId: table.id(),
       seedRecordIds: [...recordIds],
-      extraSeedRecords: [],
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
       beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: [...expandedChangedFieldIds],
       changeType: 'update' as const,
       cyclePolicy: 'skip' as const,
-      impact: {
-        valueFieldIds: expandedChangedFieldIds,
-        linkFieldIds: [] as core.FieldId[],
-      },
+      impact: normalizedImpact,
       table,
     };
 
@@ -1476,11 +1531,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       baseId: table.baseId(),
       seedTableId: table.id(),
       seedRecordIds: [...recordIds],
-      extraSeedRecords: [],
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
       beforeImageRecords: [...beforeImageRecords],
       changedFieldIds: [...expandedChangedFieldIds],
       changeType: 'update',
       cyclePolicy: 'skip',
+      impact: normalizedImpact,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
     });

@@ -38,6 +38,7 @@ import {
   executePasteEndpoint,
   executeClearEndpoint,
   executeUpdateRecordEndpoint,
+  executeUpdateRecordsEndpoint,
   executeDuplicateRecordEndpoint,
   executeReorderRecordsEndpoint,
   executeListTableRecordsEndpoint,
@@ -56,18 +57,23 @@ import type {
   RecordFilterValue,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../../cache/cache.service';
+import type { ICacheStore } from '../../../cache/types';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
+import {
+  buildUndoRedoEnginePreferenceKey,
+  UNDO_REDO_ENGINE_PREFERENCE_TTL_SECONDS,
+} from '../../undo-redo/open-api/undo-redo-engine-preference';
 import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { RecordPermissionService } from '../record-permission.service';
 import { RecordService } from '../record.service';
-import { RecordOpenApiService } from './record-open-api.service';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -94,9 +100,9 @@ export class RecordOpenApiV2Service {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly recordService: RecordService,
-    private readonly recordOpenApiService: RecordOpenApiService,
     private readonly tableService: TableService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly cacheService: CacheService<ICacheStore>,
     private readonly fieldService: FieldService,
     private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
@@ -118,6 +124,70 @@ export class RecordOpenApiV2Service {
       domainTags: error.tags,
       details: error.details,
     });
+  }
+
+  private getUndoRedoEnginePreferenceKey(
+    tableId: string
+  ): ReturnType<typeof buildUndoRedoEnginePreferenceKey> | null {
+    const userId = this.cls.get('user.id');
+    const windowId = this.cls.get('windowId');
+
+    if (!userId || !windowId) {
+      return null;
+    }
+
+    return buildUndoRedoEnginePreferenceKey(userId, tableId, windowId);
+  }
+
+  private async preferLegacyUndoEngine(tableId: string): Promise<void> {
+    const key = this.getUndoRedoEnginePreferenceKey(tableId);
+    if (!key) {
+      return;
+    }
+
+    await this.cacheService.setDetail(key, 'v1', UNDO_REDO_ENGINE_PREFERENCE_TTL_SECONDS);
+  }
+
+  private async clearUndoRedoEnginePreference(tableId: string): Promise<void> {
+    const key = this.getUndoRedoEnginePreferenceKey(tableId);
+    if (!key) {
+      return;
+    }
+
+    await this.cacheService.del(key);
+  }
+
+  private mergeDuplicateRecordUpdates(
+    records: NonNullable<IUpdateRecordsRo['records']>
+  ): NonNullable<IUpdateRecordsRo['records']> {
+    const mergedById = new Map<string, NonNullable<IUpdateRecordsRo['records']>[number]>();
+    const order: string[] = [];
+
+    for (const record of records) {
+      const existing = mergedById.get(record.id);
+      if (!existing) {
+        order.push(record.id);
+        mergedById.set(record.id, {
+          id: record.id,
+          fields: { ...record.fields },
+        });
+        continue;
+      }
+
+      mergedById.set(record.id, {
+        id: record.id,
+        fields: {
+          ...existing.fields,
+          ...record.fields,
+        },
+      });
+    }
+
+    return order
+      .map((recordId) => mergedById.get(recordId))
+      .filter((record): record is NonNullable<IUpdateRecordsRo['records']>[number] =>
+        Boolean(record)
+      );
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
@@ -460,9 +530,7 @@ export class RecordOpenApiV2Service {
   async updateRecord(
     tableId: string,
     recordId: string,
-    updateRecordRo: IUpdateRecordRo,
-    windowId?: string,
-    isAiInternal?: string
+    updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     const order = updateRecordRo.order;
     const hasOrder = Boolean(order);
@@ -503,6 +571,8 @@ export class RecordOpenApiV2Service {
         }
         throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
       }
+
+      await this.clearUndoRedoEnginePreference(tableId);
     }
 
     if (!hasFields && hasOrder && order) {
@@ -525,6 +595,8 @@ export class RecordOpenApiV2Service {
         }
         throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
       }
+
+      await this.clearUndoRedoEnginePreference(tableId);
     }
 
     if (hasFields || hasOrder) {
@@ -546,60 +618,36 @@ export class RecordOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  async updateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo,
-    windowId?: string,
-    isAiInternal?: string
-  ): Promise<IRecord[]> {
-    const order = updateRecordsRo.order;
-    const records = updateRecordsRo.records ?? [];
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
+    const rawRecords = updateRecordsRo.records ?? [];
+    const records = this.mergeDuplicateRecordUpdates(rawRecords);
     const recordIds = records.map((record) => record.id);
-    const hasOrder = Boolean(order);
-    const hasFields = records.some(
-      (record) => record.fields && Object.keys(record.fields).length > 0
-    );
-
-    if (!hasOrder || hasFields) {
-      return (
-        await this.recordOpenApiService.updateRecords(
-          tableId,
-          updateRecordsRo,
-          windowId,
-          isAiInternal
-        )
-      ).records;
+    if (recordIds.length === 0) {
+      return [];
     }
 
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
-
-    if (hasOrder && order) {
-      const reorderResult = await executeReorderRecordsEndpoint(
-        context,
-        {
-          tableId,
-          recordIds,
-          order: {
-            viewId: order.viewId,
-            anchorId: order.anchorId,
-            position: order.position,
-          },
-        },
-        commandBus
-      );
-      if (!(reorderResult.status === 200 && reorderResult.body.ok)) {
-        if (!reorderResult.body.ok) {
-          this.throwV2Error(reorderResult.body.error, reorderResult.status);
-        }
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    const updateResult = await executeUpdateRecordsEndpoint(
+      context,
+      {
+        tableId,
+        records,
+        typecast: updateRecordsRo.typecast ?? false,
+        fieldKeyType: updateRecordsRo.fieldKeyType ?? FieldKeyType.Name,
+        ...(updateRecordsRo.order ? { order: updateRecordsRo.order } : {}),
+      },
+      commandBus
+    );
+    if (!(updateResult.status === 200 && updateResult.body.ok)) {
+      if (!updateResult.body.ok) {
+        this.throwV2Error(updateResult.body.error, updateResult.status);
       }
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    if (recordIds.length === 0) {
-      return [];
-    }
+    await this.clearUndoRedoEnginePreference(tableId);
 
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
@@ -651,6 +699,8 @@ export class RecordOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       const recordIds = result.body.data.records.map((record) => record.id);
       if (recordIds.length === 0) {
         return { records: [] };
@@ -705,6 +755,8 @@ export class RecordOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       const recordId = result.body.data.record.id;
       const snapshots = await this.recordService.getSnapshotBulkWithPermission(
         tableId,
@@ -865,6 +917,7 @@ export class RecordOpenApiV2Service {
           fallbackRanges = await this.selectionService.paste(tableId, pasteRo, {
             windowId,
           });
+          await this.preferLegacyUndoEngine(tableId);
           return;
         }
 
@@ -953,6 +1006,8 @@ export class RecordOpenApiV2Service {
     const result = await executePasteEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       // V2 returns { updatedCount, createdCount, createdRecordIds }
       // V1 expects { ranges: [[startCol, startRow], [endCol, endRow]] }
       // Use truncatedRows (content size) for range calculation, not operation count,
@@ -1090,6 +1145,8 @@ export class RecordOpenApiV2Service {
     const result = await executeClearEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       // V1 clear returns null
       return null;
     }
@@ -1214,6 +1271,8 @@ export class RecordOpenApiV2Service {
     const result = await executeDeleteByRangeEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       // V2's DeleteByRangeHandler captures snapshots and emits RecordsDeleted event.
       // Undo/redo is handled directly by v2 command replay.
       return { ids: [...result.body.data.deletedRecordIds] };
@@ -1253,6 +1312,8 @@ export class RecordOpenApiV2Service {
     const result = await executeDeleteRecordsEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       // Return records that were deleted (V1 format)
       return {
         records: recordSnapshots.map((snapshot) => snapshot.data as IRecord),
@@ -1784,6 +1845,8 @@ export class RecordOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
       const duplicatedRecordId = result.body.data.record.id;
 
       // Use V1 to get the full record with proper field key mapping

@@ -649,6 +649,236 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     vi.useRealTimers();
   });
 
+  it('uses submitted update ids for updateManyStream computed planning even when RETURNING rows are incomplete', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'z'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateManyStreamTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const updateResultA = table
+      .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap();
+    const updateResultB = table
+      .updateRecord(recordIdB, new Map([[NAME_FIELD_ID, 'Bob']]))
+      ._unsafeUnwrap();
+
+    const capturedPlanInputs: Array<Record<string, unknown>> = [];
+    const computedUpdatePlanner = {
+      plan: async () =>
+        ok({
+          baseId: table.baseId(),
+          seedTableId: table.id(),
+          seedRecordIds: [],
+          extraSeedRecords: [],
+          steps: [],
+          edges: [],
+          estimatedComplexity: 0,
+          changeType: 'update' as const,
+        }),
+      planStage: async (input: Record<string, unknown>) => {
+        capturedPlanInputs.push(input);
+        return ok({
+          baseId: table.baseId(),
+          seedTableId: table.id(),
+          seedRecordIds: input.seedRecordIds as RecordId[],
+          extraSeedRecords: [],
+          beforeImageRecords: [],
+          changedFieldIds: input.changedFieldIds as FieldId[],
+          steps: [],
+          edges: [],
+          estimatedComplexity: 0,
+          changeType: 'update' as const,
+        });
+      },
+      resolveBeforeImageRequirements: async () =>
+        ok({
+          needsBeforeImage: false,
+          requiredFieldIds: [],
+        }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (
+        compiledQuery.sql.includes(`UPDATE ${tableName} AS t`) &&
+        compiledQuery.sql.includes('RETURNING')
+      ) {
+        return [
+          {
+            record_id: recordIdA.toString(),
+            new_version: 2,
+          },
+        ];
+      }
+      return [];
+    });
+    const repo = createRepository(db, table, computedUpdatePlanner);
+
+    function* batches() {
+      yield ok([updateResultA, updateResultB]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updatedRecords).toEqual([
+      {
+        recordId: recordIdA,
+        newVersion: 2,
+      },
+    ]);
+    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordIdA, recordIdB]);
+
+    vi.useRealTimers();
+  });
+
+  it('includes foreign extra seed records for updateManyStream link relation changes', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const linkedRecordId = RecordId.create(LINKED_RECORD_A)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'oneOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      symmetricFieldId: symmetricFieldId.toString(),
+      isOneWay: false,
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('BatchUpdateExtraSeedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Partner')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    hydrateLinkField({ table, fieldId: linkFieldId, baseId, tableId });
+
+    const updateRecordResult = table.updateRecord(
+      recordId,
+      new Map<string, unknown>([[LINK_FIELD_ID, { id: LINKED_RECORD_A }]])
+    );
+    expect(updateRecordResult.isOk()).toBe(true);
+
+    const capturedPlanInputs: Array<Record<string, unknown>> = [];
+    const computedUpdatePlanner = {
+      ...createNoopComputedPlanner(table),
+      planStage: async (input: Record<string, unknown>) => {
+        capturedPlanInputs.push(input);
+        return ok({
+          baseId: table.baseId(),
+          seedTableId: table.id(),
+          seedRecordIds: input.seedRecordIds as RecordId[],
+          extraSeedRecords: input.extraSeedRecords as Array<{
+            tableId: TableId;
+            recordIds: RecordId[];
+          }>,
+          beforeImageRecords: [],
+          changedFieldIds: input.changedFieldIds as FieldId[],
+          steps: [],
+          edges: [],
+          estimatedComplexity: 0,
+          changeType: 'update' as const,
+        });
+      },
+      resolveBeforeImageRequirements: async () =>
+        ok({
+          needsBeforeImage: false,
+          requiredFieldIds: [],
+        }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (
+        compiledQuery.sql.includes(`UPDATE ${tableName} AS t`) &&
+        compiledQuery.sql.includes('RETURNING')
+      ) {
+        return [
+          {
+            record_id: recordId.toString(),
+            new_version: 2,
+          },
+        ];
+      }
+      return [];
+    });
+    const repo = createRepository(db, table, computedUpdatePlanner);
+
+    function* batches() {
+      yield ok([updateRecordResult._unsafeUnwrap()]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordId]);
+    expect(capturedPlanInputs[0]?.extraSeedRecords).toEqual([
+      {
+        tableId: foreignTableId,
+        recordIds: [linkedRecordId],
+      },
+    ]);
+    expect(capturedPlanInputs[0]?.impact).toEqual({
+      valueFieldIds: [linkFieldId],
+      linkFieldIds: [linkFieldId],
+    });
+
+    vi.useRealTimers();
+  });
+
   it('generates link update SQL for manyMany links', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
