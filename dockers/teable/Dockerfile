@@ -75,7 +75,7 @@ RUN set -ex; \
         pnpm nuke:node_modules; \
         chmod +x ./scripts/post-build-cleanup.mjs; \
         zx ./scripts/post-build-cleanup.mjs; \
-        pnpm install --prod --prefer-offline --frozen-lockfile; \
+        pnpm -F '!@teable/eslint-config-bases' --config.dedupe-peer-dependents=false install --prod --prefer-offline --frozen-lockfile; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 RUN set -ex; \
