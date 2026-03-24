@@ -886,6 +886,45 @@ export class FieldDuplicateService {
     }
   }
 
+  async bootstrapPrimaryDependencyFields(
+    fields: IFieldWithTableIdJson[],
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    for (const field of fields) {
+      if (!field.isPrimary || !field.aiConfig || field.isLookup) continue;
+
+      const {
+        targetTableId,
+        type,
+        dbFieldName,
+        name,
+        options,
+        id,
+        notNull,
+        unique,
+        description,
+        order,
+      } = field;
+
+      const newField = await this.fieldOpenApiService.createField(targetTableId, {
+        type,
+        dbFieldName,
+        description,
+        options,
+        name,
+      });
+
+      await this.replenishmentConstraint(newField.id, targetTableId, order, {
+        notNull,
+        unique,
+        dbFieldName: newField.dbFieldName,
+        isPrimary: true,
+      });
+
+      sourceToTargetFieldMap[id] = newField.id;
+    }
+  }
+
   async duplicateSingleDependField(
     sourceTableId: string,
     targetTableId: string,
@@ -907,6 +946,15 @@ export class FieldDuplicateService {
     if (shouldConvertErroredComputed) {
       // During base import, persist errored computed fields as plain text so users keep the data.
       await this.duplicateErroredComputedFieldAsText(targetTableId, field, sourceToTargetFieldMap);
+      return;
+    }
+
+    if (isAiConfig && sourceToTargetFieldMap[field.id]) {
+      await this.repairFieldAiConfig(
+        sourceToTargetFieldMap[field.id],
+        field as unknown as IFieldInstance,
+        sourceToTargetFieldMap
+      );
       return;
     }
 
@@ -1391,6 +1439,25 @@ export class FieldDuplicateService {
     }
   }
 
+  private mapAiConfigForDuplicate(
+    aiConfig: NonNullable<IFieldVo['aiConfig']>,
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    const mappedAiConfig: IFieldVo['aiConfig'] = { ...aiConfig };
+
+    if ('sourceFieldId' in mappedAiConfig) {
+      mappedAiConfig.sourceFieldId = sourceToTargetFieldMap[mappedAiConfig.sourceFieldId as string];
+    }
+
+    if ('prompt' in mappedAiConfig) {
+      Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
+        mappedAiConfig.prompt = mappedAiConfig.prompt.replaceAll(key, value);
+      });
+    }
+
+    return mappedAiConfig;
+  }
+
   private async duplicateFieldAiConfig(
     targetTableId: string,
     fieldInstance: IFieldInstance,
@@ -1400,18 +1467,7 @@ export class FieldDuplicateService {
 
     const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
       fieldInstance;
-
-    const aiConfig: IFieldVo['aiConfig'] = { ...fieldInstance.aiConfig };
-
-    if ('sourceFieldId' in aiConfig) {
-      aiConfig.sourceFieldId = sourceToTargetFieldMap[aiConfig.sourceFieldId as string];
-    }
-
-    if ('prompt' in aiConfig) {
-      Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
-        aiConfig.prompt = aiConfig.prompt.replaceAll(key, value);
-      });
-    }
+    const aiConfig = this.mapAiConfigForDuplicate(fieldInstance.aiConfig, sourceToTargetFieldMap);
 
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
       type,
@@ -1429,6 +1485,25 @@ export class FieldDuplicateService {
       isPrimary,
     });
     sourceToTargetFieldMap[id] = newField.id;
+  }
+
+  private async repairFieldAiConfig(
+    targetFieldId: string,
+    fieldInstance: IFieldInstance,
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    if (!fieldInstance.aiConfig) return;
+
+    const aiConfig = this.mapAiConfigForDuplicate(fieldInstance.aiConfig, sourceToTargetFieldMap);
+
+    await this.prismaService.txClient().field.update({
+      where: {
+        id: targetFieldId,
+      },
+      data: {
+        aiConfig: JSON.stringify(aiConfig),
+      },
+    });
   }
 
   // field could not set constraint when create

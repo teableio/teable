@@ -493,6 +493,10 @@ export class BaseImportService {
           .includes(id)
     );
 
+    const primaryDependencyFields = dependencyFields.filter(({ isPrimary, aiConfig, isLookup }) =>
+      Boolean(isPrimary && aiConfig && !isLookup)
+    );
+
     // helper: emit per-table progress with field names
     const emitFieldProgress = (
       phase: string,
@@ -521,6 +525,15 @@ export class BaseImportService {
 
     // main fix formula dbField type
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
+
+    // Some valid primary fields are deferred to dependency creation, for example
+    // AI-config primaries. Bootstrap them before two-way link creation so
+    // generateSymmetricField can always resolve the current table primary.
+    emitFieldProgress('creating_primary_dependency_fields', primaryDependencyFields);
+    await this.fieldDuplicateService.bootstrapPrimaryDependencyFields(
+      primaryDependencyFields,
+      fieldMap
+    );
 
     emitFieldProgress('creating_link_fields', linkFields);
     await this.fieldDuplicateService.createLinkFields(linkFields, tableIdMap, fieldMap, fkMap);
