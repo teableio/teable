@@ -1,11 +1,12 @@
-import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
+import type { Editor } from '@milkdown/core';
+import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
 import type { ICellEditor } from '../type';
 import { ExpandMarkdownEditor } from './ExpandMarkdownEditor';
 import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
-import { normalizeMarkdownValue } from './utils';
+import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
 interface IMarkdownEditorInnerProps {
   value: string;
@@ -14,6 +15,7 @@ interface IMarkdownEditorInnerProps {
   gridMode?: boolean;
   onChange?: (value: string | null) => void;
   onValueChange?: (value: string) => void;
+  onEditorReady?: (getEditor: () => Editor) => void;
 }
 
 const MarkdownEditorInner = ({
@@ -23,6 +25,7 @@ const MarkdownEditorInner = ({
   gridMode,
   onChange,
   onValueChange,
+  onEditorReady,
 }: IMarkdownEditorInnerProps) => {
   const latestValueRef = useRef(value);
   const onValueChangeRef = useRef(onValueChange);
@@ -50,10 +53,25 @@ const MarkdownEditorInner = ({
     [value, gridMode, handleMarkdownUpdated]
   );
 
+  const [loading, getEditor] = useInstance();
+
+  useEffect(() => {
+    if (!loading) {
+      onEditorReady?.(getEditor as () => Editor);
+    }
+  }, [loading, getEditor, onEditorReady]);
+
   const handleBlur = useCallback(() => {
+    if (!loading) {
+      const markdown = getEditorMarkdown(getEditor());
+      if (markdown !== undefined) {
+        latestValueRef.current = markdown;
+        onValueChangeRef.current?.(markdown);
+      }
+    }
     const trimmed = latestValueRef.current.trim();
     onChange?.(trimmed || null);
-  }, [onChange]);
+  }, [onChange, loading, getEditor]);
 
   return (
     <div className="relative">
@@ -79,6 +97,7 @@ type IMarkdownLongTextEditor = ICellEditor<string | null> & {
   hideExpand?: boolean;
   gridMode?: boolean;
   onValueChange?: (value: string) => void;
+  onEditorReady?: (getEditor: () => Editor) => void;
 };
 
 export const MarkdownLongTextEditor = ({
@@ -89,6 +108,7 @@ export const MarkdownLongTextEditor = ({
   hideExpand,
   gridMode,
   onValueChange,
+  onEditorReady,
 }: IMarkdownLongTextEditor) => {
   const normalized = normalizeMarkdownValue(value);
 
@@ -105,6 +125,7 @@ export const MarkdownLongTextEditor = ({
         gridMode={gridMode}
         onChange={onChange}
         onValueChange={onValueChange}
+        onEditorReady={onEditorReady}
       />
     </MilkdownProvider>
   );

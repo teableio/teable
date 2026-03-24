@@ -1,3 +1,4 @@
+import type { Editor } from '@milkdown/core';
 import type { ForwardRefRenderFunction } from 'react';
 import {
   forwardRef,
@@ -11,31 +12,17 @@ import {
 import AutoSizeTextarea from 'react-textarea-autosize';
 import { useTranslation } from '../../../context/app/i18n';
 import { ExpandMarkdownEditor, MarkdownLongTextEditor } from '../../editor';
-import { isMarkdownShowAs, normalizeMarkdownValue } from '../../editor/long-text/utils';
+import {
+  getEditorMarkdown,
+  isMarkdownShowAs,
+  normalizeMarkdownValue,
+} from '../../editor/long-text/utils';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IWrapperEditorProps } from './type';
 
 const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
-
-const scrollCaretIntoView = (container: Element, selection: Selection) => {
-  if (!selection.rangeCount) return;
-  const caretRect = selection.getRangeAt(0).getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-
-  if (caretRect.bottom > containerRect.bottom) {
-    container.scrollTop += caretRect.bottom - containerRect.bottom;
-  } else if (caretRect.top < containerRect.top) {
-    container.scrollTop -= containerRect.top - caretRect.top;
-  }
-
-  if (caretRect.right > containerRect.right) {
-    container.scrollLeft += caretRect.right - containerRect.right;
-  } else if (caretRect.left < containerRect.left) {
-    container.scrollLeft -= containerRect.left - caretRect.left;
-  }
-};
 
 const focusMarkdownEditor = (wrapperEl: HTMLDivElement, initialSearch: string | undefined) => {
   const target = wrapperEl.querySelector<HTMLElement>(
@@ -55,13 +42,6 @@ const focusMarkdownEditor = (wrapperEl: HTMLDivElement, initialSearch: string | 
   if (initialSearch) {
     document.execCommand('insertText', false, initialSearch);
   }
-
-  requestAnimationFrame(() => {
-    const scrollContainer = wrapperEl.querySelector('.milkdown-editor-wrap');
-    if (scrollContainer) {
-      scrollCaretIntoView(scrollContainer, selection);
-    }
-  });
 };
 
 const focusTextarea = (el: HTMLTextAreaElement, initialSearch: string | undefined) => {
@@ -105,6 +85,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fallbackFocusRef = useRef<HTMLInputElement>(null);
+  const milkdownGetEditorRef = useRef<(() => Editor) | null>(null);
   const [editorValue, setEditorValue] = useState(() => normalizeMarkdownValue(cell.data));
   const latestValueRef = useRef(editorValue);
   const lastSavedRef = useRef<string | null>(null);
@@ -145,6 +126,12 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     },
     saveValue: () => {
       if (isReadonly) return;
+      if (isMarkdown && milkdownGetEditorRef.current) {
+        const markdown = getEditorMarkdown(milkdownGetEditorRef.current());
+        if (markdown !== undefined) {
+          latestValueRef.current = markdown;
+        }
+      }
       persistValue(latestValueRef.current);
     },
   }));
@@ -169,6 +156,10 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
 
   const handleEditorValueChange = useCallback((value: string) => {
     latestValueRef.current = value;
+  }, []);
+
+  const handleEditorReady = useCallback((getEditor: () => Editor) => {
+    milkdownGetEditorRef.current = getEditor;
   }, []);
 
   const handleKeyDown = useCallback(
@@ -211,6 +202,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
           style={{ marginRight: -2, marginTop: -2 }}
         >
           <ExpandMarkdownEditor
+            key={record.id}
             value={editorValue}
             field={field}
             readonly={isReadonly}
@@ -250,6 +242,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
               gridMode={!isReadonly}
               onChange={isReadonly ? undefined : saveValue}
               onValueChange={handleEditorValueChange}
+              onEditorReady={isReadonly ? undefined : handleEditorReady}
             />
           </div>
         )}

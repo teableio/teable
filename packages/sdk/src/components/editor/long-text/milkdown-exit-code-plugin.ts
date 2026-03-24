@@ -45,7 +45,7 @@ export const exitCodeBlockPlugin = new Plugin({
         tr.setSelection(TextSelection.near(resolved));
       }
 
-      view.dispatch(tr);
+      view.dispatch(tr.scrollIntoView());
       return true;
     },
   },

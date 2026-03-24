@@ -16,31 +16,86 @@
 }
 
 /* Shared prose styles for both milkdown editor and react-markdown readonly preview */
+/* Modeled after GitHub markdown (github-markdown.css) */
+
 .milkdown-editor-wrap .ProseMirror p,
 .milkdown-readonly-preview p {
-  @apply my-0 leading-6;
+  margin-top: 0;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.milkdown-editor-wrap .ProseMirror h1,
+.milkdown-editor-wrap .ProseMirror h2,
+.milkdown-editor-wrap .ProseMirror h3,
+.milkdown-editor-wrap .ProseMirror h4,
+.milkdown-editor-wrap .ProseMirror h5,
+.milkdown-editor-wrap .ProseMirror h6,
+.milkdown-readonly-preview h1,
+.milkdown-readonly-preview h2,
+.milkdown-readonly-preview h3,
+.milkdown-readonly-preview h4,
+.milkdown-readonly-preview h5,
+.milkdown-readonly-preview h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .milkdown-editor-wrap .ProseMirror h1,
 .milkdown-readonly-preview h1 {
-  @apply text-xl font-bold mb-3;
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .milkdown-editor-wrap .ProseMirror h2,
 .milkdown-readonly-preview h2 {
-  @apply text-lg font-bold mb-2;
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .milkdown-editor-wrap .ProseMirror h3,
 .milkdown-readonly-preview h3 {
-  @apply text-base font-semibold mb-2;
+  font-size: 1.25em;
+}
+
+.milkdown-editor-wrap .ProseMirror h4,
+.milkdown-readonly-preview h4 {
+  font-size: 1em;
+}
+
+.milkdown-editor-wrap .ProseMirror h5,
+.milkdown-readonly-preview h5 {
+  font-size: 0.875em;
+}
+
+.milkdown-editor-wrap .ProseMirror h6,
+.milkdown-readonly-preview h6 {
+  font-size: 0.85em;
+  color: hsl(var(--muted-foreground));
+}
+
+.milkdown-editor-wrap .ProseMirror > *:first-child,
+.milkdown-readonly-preview > *:first-child {
+  margin-top: 0 !important;
+}
+
+.milkdown-editor-wrap .ProseMirror > *:last-child,
+.milkdown-readonly-preview > *:last-child {
+  margin-bottom: 0 !important;
 }
 
 .milkdown-editor-wrap .ProseMirror ul,
 .milkdown-editor-wrap .ProseMirror ol,
 .milkdown-readonly-preview ul,
 .milkdown-readonly-preview ol {
-  @apply pl-5 my-1;
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
+  list-style: revert;
 }
 
 .milkdown-editor-wrap .ProseMirror ul,
@@ -53,61 +108,184 @@
   list-style-type: decimal;
 }
 
+.milkdown-editor-wrap .ProseMirror ol ol,
+.milkdown-editor-wrap .ProseMirror ul ol,
+.milkdown-readonly-preview ol ol,
+.milkdown-readonly-preview ul ol {
+  list-style-type: lower-roman;
+}
+
+.milkdown-editor-wrap .ProseMirror ul ul ol,
+.milkdown-editor-wrap .ProseMirror ul ol ol,
+.milkdown-editor-wrap .ProseMirror ol ul ol,
+.milkdown-editor-wrap .ProseMirror ol ol ol,
+.milkdown-readonly-preview ul ul ol,
+.milkdown-readonly-preview ul ol ol,
+.milkdown-readonly-preview ol ul ol,
+.milkdown-readonly-preview ol ol ol {
+  list-style-type: lower-alpha;
+}
+
+.milkdown-editor-wrap .ProseMirror ul ul,
+.milkdown-editor-wrap .ProseMirror ul ol,
+.milkdown-editor-wrap .ProseMirror ol ol,
+.milkdown-editor-wrap .ProseMirror ol ul,
+.milkdown-readonly-preview ul ul,
+.milkdown-readonly-preview ul ol,
+.milkdown-readonly-preview ol ol,
+.milkdown-readonly-preview ol ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 .milkdown-editor-wrap .ProseMirror li,
 .milkdown-readonly-preview li {
-  @apply my-0.5;
+  /* No extra margin — GitHub uses li+li 0.25em */
+}
+
+.milkdown-editor-wrap .ProseMirror li + li,
+.milkdown-readonly-preview li + li {
+  margin-top: 0.25em;
+}
+
+.milkdown-editor-wrap .ProseMirror li > p,
+.milkdown-readonly-preview li > p {
+  margin-top: 16px;
 }
 
 .milkdown-editor-wrap .ProseMirror blockquote,
 .milkdown-readonly-preview blockquote {
-  @apply border-l-2 border-muted-foreground/30 pl-3 my-1 text-muted-foreground;
+  margin: 0 0 16px;
+  padding: 0 1em;
+  color: hsl(var(--muted-foreground));
+  border-left: 0.25em solid hsl(var(--border));
+}
+
+.milkdown-editor-wrap .ProseMirror blockquote > :first-child,
+.milkdown-readonly-preview blockquote > :first-child {
+  margin-top: 0;
+}
+
+.milkdown-editor-wrap .ProseMirror blockquote > :last-child,
+.milkdown-readonly-preview blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 .milkdown-editor-wrap .ProseMirror code,
 .milkdown-readonly-preview code {
-  @apply bg-muted px-1 py-0.5 rounded text-[0.85em] font-mono;
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  white-space: break-spaces;
+  background-color: hsl(var(--muted));
+  border-radius: 6px;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
 }
 
 .milkdown-editor-wrap .ProseMirror pre,
 .milkdown-readonly-preview pre {
-  @apply bg-muted p-3 rounded-md my-1 overflow-x-auto;
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+  border-radius: 6px;
+  margin-top: 0;
+  margin-bottom: 16px;
 }
 
 .milkdown-editor-wrap .ProseMirror pre code,
 .milkdown-readonly-preview pre code {
-  @apply bg-transparent p-0;
+  display: inline;
+  max-width: initial;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: transparent;
+  border: 0;
+  font-size: 100%;
+  white-space: pre;
 }
 
 .milkdown-editor-wrap .ProseMirror hr,
 .milkdown-readonly-preview hr {
-  @apply border-border my-2;
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: hsl(var(--border));
+  border: 0;
+  border-radius: 2px;
 }
 
 .milkdown-editor-wrap .ProseMirror a,
 .milkdown-readonly-preview a {
-  @apply text-primary underline underline-offset-2;
+  color: hsl(var(--primary));
+  text-decoration: none;
+}
+
+.milkdown-editor-wrap .ProseMirror a:hover,
+.milkdown-readonly-preview a:hover {
+  text-decoration: underline;
+}
+
+.milkdown-editor-wrap .ProseMirror b,
+.milkdown-editor-wrap .ProseMirror strong,
+.milkdown-readonly-preview b,
+.milkdown-readonly-preview strong {
+  font-weight: 600;
 }
 
 .milkdown-editor-wrap .ProseMirror table,
 .milkdown-readonly-preview table {
-  @apply border-collapse w-full my-1;
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 0;
+  margin-bottom: 16px;
 }
 
 .milkdown-editor-wrap .ProseMirror th,
 .milkdown-editor-wrap .ProseMirror td,
 .milkdown-readonly-preview th,
 .milkdown-readonly-preview td {
-  @apply border border-border p-1.5 text-left;
+  padding: 6px 13px;
+  border: 1px solid hsl(var(--border));
 }
 
 .milkdown-editor-wrap .ProseMirror th,
 .milkdown-readonly-preview th {
-  @apply bg-muted font-medium;
+  font-weight: 600;
+}
+
+.milkdown-editor-wrap .ProseMirror tr,
+.milkdown-readonly-preview tr {
+  background-color: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border));
+}
+
+.milkdown-editor-wrap .ProseMirror tr:nth-child(2n),
+.milkdown-readonly-preview tr:nth-child(2n) {
+  background-color: hsl(var(--muted));
 }
 
 .milkdown-editor-wrap .ProseMirror img,
 .milkdown-readonly-preview img {
-  @apply max-w-full rounded;
+  max-width: 100%;
+  box-sizing: content-box;
+  border-style: none;
 }
 
 /* Task list styles (milkdown-specific DOM structure) */

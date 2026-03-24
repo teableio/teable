@@ -1,3 +1,5 @@
+import type { Editor } from '@milkdown/core';
+import { editorViewCtx, serializerCtx } from '@milkdown/core';
 import removeMd from 'remove-markdown';
 
 export const isMarkdownShowAs = (options: unknown): boolean =>
@@ -17,6 +19,23 @@ export const normalizeMarkdownValue = (value: unknown): string => {
 
 export const stripMarkdown = (text: string): string => {
   return removeMd(text).replace(/\n+/g, ' ').trim();
+};
+
+/**
+ * Synchronously read current markdown from a milkdown editor instance,
+ * bypassing the debounced listener. Returns `undefined` if the editor
+ * is not ready.
+ */
+export const getEditorMarkdown = (editor: Editor): string | undefined => {
+  try {
+    return editor.action((ctx) => {
+      const serializer = ctx.get(serializerCtx);
+      const view = ctx.get(editorViewCtx);
+      return sanitizeMarkdownBreaks(serializer(view.state.doc));
+    });
+  } catch {
+    return undefined;
+  }
 };
 
 /**

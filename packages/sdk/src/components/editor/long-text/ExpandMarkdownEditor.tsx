@@ -1,4 +1,4 @@
-import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
+import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
 import { FieldType, type ILongTextFieldOptions } from '@teable/core';
 import { DraggableHandle, Loader2, LongText, Maximize2 } from '@teable/icons';
 import { Popover, PopoverContent, PopoverTrigger, Switch, Label } from '@teable/ui-lib';
@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Field } from '../../../model';
 import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
-import { normalizeMarkdownValue } from './utils';
+import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
 type EditorMode = 'markdown' | 'text';
 
@@ -34,10 +34,18 @@ const ExpandedEditorInner = ({
 
   useEditor((root) => createMilkdownEditor(root, { value, latestValueRef }), []);
 
+  const [loading, getEditor] = useInstance();
+
   const handleBlur = useCallback(() => {
+    if (!loading) {
+      const markdown = getEditorMarkdown(getEditor());
+      if (markdown !== undefined) {
+        latestValueRef.current = markdown;
+      }
+    }
     const trimmed = latestValueRef.current.trim();
     onChange?.(trimmed || null);
-  }, [onChange]);
+  }, [onChange, loading, getEditor]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,17 +68,6 @@ const ExpandedEditorInner = ({
       range.collapse(false);
       selection.removeAllRanges();
       selection.addRange(range);
-
-      // Scroll the cursor into view
-      requestAnimationFrame(() => {
-        const scrollContainer = wrapperRef.current;
-        if (!scrollContainer || !selection.rangeCount) return;
-        const caretRect = selection.getRangeAt(0).getBoundingClientRect();
-        const containerRect = scrollContainer.getBoundingClientRect();
-        if (caretRect.bottom > containerRect.bottom) {
-          scrollContainer.scrollTop += caretRect.bottom - containerRect.bottom;
-        }
-      });
     };
 
     const timer = window.setTimeout(() => focusEditorToEnd(), 100);
@@ -118,6 +115,7 @@ const ExpandedTextEditorInner = ({
       if (!el) return;
       el.focus();
       el.selectionStart = el.selectionEnd = el.value.length;
+      el.scrollTop = 0;
     }, 100);
     return () => clearTimeout(timer);
   }, [open]);
