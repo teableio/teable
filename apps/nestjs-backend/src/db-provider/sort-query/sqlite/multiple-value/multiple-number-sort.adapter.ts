@@ -3,22 +3,37 @@ import type { Knex } from 'knex';
 import { SortFunctionSqlite } from '../sort-query.function';
 
 export class MultipleNumberSortAdapter extends SortFunctionSqlite {
+  private buildRoundedFirstElementExpr(precision: number) {
+    return this.knex.raw(
+      `
+      ROUND(CAST(json_extract(${this.columnName}, '$[0]') AS REAL), ?)
+      `,
+      [precision]
+    );
+  }
+
+  private buildRoundedArrayExpr(precision: number) {
+    return this.knex.raw(
+      `
+      (
+        SELECT json_group_array(ROUND(CAST(elem.value AS REAL), ?))
+        FROM json_each(${this.columnName}) as elem
+      )
+      `,
+      [precision]
+    );
+  }
+
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     if (!this.columnName) {
       return builderClient;
     }
     const { options } = this.field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    const orderByColumn = this.knex.raw(
-      `
-      (
-        SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(${this.columnName}) as elem
-      ) ASC NULLS FIRST
-      `,
-      [precision]
-    );
-    builderClient.orderByRaw(orderByColumn);
+    const firstElementExpr = this.buildRoundedFirstElementExpr(precision).toQuery();
+    const arrayExpr = this.buildRoundedArrayExpr(precision).toQuery();
+    builderClient.orderByRaw(`${firstElementExpr} ASC NULLS FIRST`);
+    builderClient.orderByRaw(`${arrayExpr} ASC NULLS FIRST`);
     return builderClient;
   }
 
@@ -28,16 +43,10 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
     }
     const { options } = this.field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    const orderByColumn = this.knex.raw(
-      `
-      (
-        SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(${this.columnName}) as elem
-      ) DESC NULLS LAST
-      `,
-      [precision]
-    );
-    builderClient.orderByRaw(orderByColumn);
+    const firstElementExpr = this.buildRoundedFirstElementExpr(precision).toQuery();
+    const arrayExpr = this.buildRoundedArrayExpr(precision).toQuery();
+    builderClient.orderByRaw(`${firstElementExpr} DESC NULLS LAST`);
+    builderClient.orderByRaw(`${arrayExpr} DESC NULLS LAST`);
     return builderClient;
   }
 
@@ -47,17 +56,9 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
     }
     const { options } = this.field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    return this.knex
-      .raw(
-        `
-      (
-        SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(${this.columnName}) as elem
-      ) ASC NULLS FIRST
-      `,
-        [precision]
-      )
-      .toQuery();
+    const firstElementExpr = this.buildRoundedFirstElementExpr(precision).toQuery();
+    const arrayExpr = this.buildRoundedArrayExpr(precision).toQuery();
+    return `${firstElementExpr} ASC NULLS FIRST, ${arrayExpr} ASC NULLS FIRST`;
   }
 
   getDescSQL() {
@@ -66,16 +67,8 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
     }
     const { options } = this.field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    return this.knex
-      .raw(
-        `
-      (
-        SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(${this.columnName}) as elem
-      ) DESC NULLS LAST
-      `,
-        [precision]
-      )
-      .toQuery();
+    const firstElementExpr = this.buildRoundedFirstElementExpr(precision).toQuery();
+    const arrayExpr = this.buildRoundedArrayExpr(precision).toQuery();
+    return `${firstElementExpr} DESC NULLS LAST, ${arrayExpr} DESC NULLS LAST`;
   }
 }

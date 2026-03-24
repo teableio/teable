@@ -112,11 +112,20 @@ describe('v2 http conditional lookup (e2e)', () => {
     return parsed.data.data.table;
   };
 
-  const listRecords = async (tableId: string) => {
-    const response = await fetch(
-      `${ctx.baseUrl}/tables/listRecords?baseId=${ctx.baseId}&tableId=${tableId}`,
-      { method: 'GET' }
-    );
+  const listRecords = async (
+    tableId: string,
+    options?: {
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    }
+  ) => {
+    const params = new URLSearchParams({ baseId: ctx.baseId, tableId });
+    if (options?.sort) {
+      params.set('sort', JSON.stringify(options.sort));
+    }
+
+    const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
+      method: 'GET',
+    });
     const rawBody = await response.json();
     if (response.status !== 200) {
       throw new Error(`ListRecords failed: ${JSON.stringify(rawBody)}`);
@@ -1252,6 +1261,109 @@ describe('v2 http conditional lookup (e2e)', () => {
       const activeRecord = hostRecords[0];
 
       expect(activeRecord.fields[lookupFieldId]).toEqual([30, 20]);
+    });
+
+    it('should sort host records by conditional lookup number values', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignScoreFieldId = createFieldId();
+
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_RecordSort_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'number', id: foreignScoreFieldId, name: 'Score' },
+        ],
+        records: [
+          {
+            fields: {
+              [foreignNameFieldId]: 'Row-5',
+              [foreignStatusFieldId]: 'S5',
+              [foreignScoreFieldId]: 5,
+            },
+          },
+          {
+            fields: {
+              [foreignNameFieldId]: 'Row-20',
+              [foreignStatusFieldId]: 'S20',
+              [foreignScoreFieldId]: 20,
+            },
+          },
+          {
+            fields: {
+              [foreignNameFieldId]: 'Row-30',
+              [foreignStatusFieldId]: 'S30',
+              [foreignScoreFieldId]: 30,
+            },
+          },
+        ],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostStatusFilterFieldId = createFieldId();
+
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_RecordSort_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name' },
+          { type: 'singleLineText', id: hostStatusFilterFieldId, name: 'StatusFilter' },
+        ],
+        records: [
+          { fields: { [hostNameFieldId]: 'Host-30', [hostStatusFilterFieldId]: 'S30' } },
+          { fields: { [hostNameFieldId]: 'Host-5', [hostStatusFilterFieldId]: 'S5' } },
+          { fields: { [hostNameFieldId]: 'Host-20', [hostStatusFilterFieldId]: 'S20' } },
+        ],
+      });
+
+      const lookupFieldId = createFieldId();
+
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matched Scores',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignScoreFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignStatusFieldId,
+                  operator: 'is',
+                  value: hostStatusFilterFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await drainOutbox();
+
+      const ascRecords = await listRecords(host.id, {
+        sort: [{ fieldId: lookupFieldId, order: 'asc' }],
+      });
+      expect(ascRecords.map((record) => record.fields[lookupFieldId])).toEqual([[5], [20], [30]]);
+      expect(ascRecords.map((record) => record.fields[hostNameFieldId])).toEqual([
+        'Host-5',
+        'Host-20',
+        'Host-30',
+      ]);
+
+      const descRecords = await listRecords(host.id, {
+        sort: [{ fieldId: lookupFieldId, order: 'desc' }],
+      });
+      expect(descRecords.map((record) => record.fields[lookupFieldId])).toEqual([[30], [20], [5]]);
+      expect(descRecords.map((record) => record.fields[hostNameFieldId])).toEqual([
+        'Host-30',
+        'Host-20',
+        'Host-5',
+      ]);
     });
   });
 

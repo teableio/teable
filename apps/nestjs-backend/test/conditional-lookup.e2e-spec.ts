@@ -514,6 +514,107 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, items.id);
       await permanentDeleteTable(baseId, colors.id);
     });
+
+    it('sorts records by formula-based conditional lookup values', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_RecordSort_Foreign',
+        fields: [
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Revenue', type: FieldType.Number } as IFieldRo,
+          { name: 'Quantity', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Status: 'Active', Revenue: 40, Quantity: 2 } },
+          { fields: { Status: 'Closed', Revenue: 25, Quantity: 5 } },
+          { fields: { Status: 'Draft', Revenue: 90, Quantity: 3 } },
+        ],
+      });
+
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+      const revenueId = foreign.fields.find((f) => f.name === 'Revenue')!.id;
+      const quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'ConditionalLookup_RecordSort_Host',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status Filter', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Active Host', 'Status Filter': 'Active' } },
+          { fields: { Label: 'Closed Host', 'Status Filter': 'Closed' } },
+          { fields: { Label: 'Draft Host', 'Status Filter': 'Draft' } },
+        ],
+      });
+
+      const labelId = host.fields.find((f) => f.name === 'Label')!.id;
+      const statusFilterId = host.fields.find((f) => f.name === 'Status Filter')!.id;
+
+      try {
+        const foreignFormula = await createField(foreign.id, {
+          name: 'Unit Price',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${revenueId}} / {${quantityId}}`,
+            formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+          },
+        } as IFieldRo);
+
+        const lookupField = await createField(host.id, {
+          name: 'Conditional Formula Price',
+          type: FieldType.Formula,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: {
+            expression: `{${revenueId}} / {${quantityId}}`,
+            formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+          },
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignFormula.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterId },
+                },
+              ],
+            },
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const ascRecords = (
+          await getRecords(host.id, {
+            fieldKeyType: FieldKeyType.Id,
+            orderBy: [{ fieldId: lookupField.id, order: SortFunc.Asc }],
+          })
+        ).records;
+
+        expect(ascRecords.map((record) => record.fields[labelId])).toEqual([
+          'Closed Host',
+          'Active Host',
+          'Draft Host',
+        ]);
+
+        const descRecords = (
+          await getRecords(host.id, {
+            fieldKeyType: FieldKeyType.Id,
+            orderBy: [{ fieldId: lookupField.id, order: SortFunc.Desc }],
+          })
+        ).records;
+
+        expect(descRecords.map((record) => record.fields[labelId])).toEqual([
+          'Draft Host',
+          'Active Host',
+          'Closed Host',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, host.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
   });
 
   describe('filter scenarios', () => {
