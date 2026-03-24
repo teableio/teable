@@ -10,7 +10,14 @@ import {
   DEFAULT_MAX_SEARCH_FIELD_COUNT,
 } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
-import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
+import {
+  useBaseId,
+  useFields,
+  useRowCount,
+  useSearch,
+  useTableId,
+  useTablePermission,
+} from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import {
   cn,
@@ -69,6 +76,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const [noPrompt, setNoPrompt] = useState(false);
   const baseId = useBaseId();
   const queryClient = useQueryClient();
+  const permission = useTablePermission();
+  const hasTableUpdatePermission = Boolean(permission['table|update']);
 
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -373,6 +382,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
           }}
           onChange={(e) => {
             if (
+              hasTableUpdatePermission &&
               shouldTips &&
               rowCount &&
               rowCount > RecommendedIndexRow &&
@@ -384,9 +394,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
               setAlertVisible(true);
               return;
             }
-            if (searchAbnormalIndex.length) {
+            if (hasTableUpdatePermission && searchAbnormalIndex.length) {
               setAlertVisible(true);
-              return;
             }
             setInputValue(e.target.value);
             if (e.target.value === '') {
@@ -424,7 +433,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
         </div>
       </div>
 
-      <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
+      <AlertDialog open={hasTableUpdatePermission && alertVisible} onOpenChange={setAlertVisible}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
