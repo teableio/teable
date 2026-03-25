@@ -329,6 +329,10 @@ export const createFieldRoSchema = baseFieldRoSchema
         'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. It is sometimes useful to specify an id at creation time',
       example: 'fldxxxxxxxxxxxxxxxx',
     }),
+    viewId: z.string().startsWith(IdPrefix.View).optional().meta({
+      description:
+        'The id of the current view where the field is being created. Used to prevent auto-hiding the new field in this view.',
+    }),
     order: z
       .object({
         viewId: z.string().meta({

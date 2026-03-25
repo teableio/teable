@@ -165,10 +165,6 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
-  async restore() {
-    return ok(undefined);
-  }
-
   async delete() {
     return ok(undefined);
   }

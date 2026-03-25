@@ -211,7 +211,10 @@ export const FieldSetting = (props: IFieldSetting) => {
     let result: IFieldVo | undefined;
     try {
       if (operator === FieldOperator.Add) {
-        result = await createNewField(field);
+        result = await createNewField({
+          ...field,
+          viewId: view?.id,
+        });
       }
 
       if (operator === FieldOperator.Insert) {

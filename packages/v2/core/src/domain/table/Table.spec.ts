@@ -516,6 +516,89 @@ describe('Table', () => {
     expect(targetEntry?.order).toBe(1.5);
   });
 
+  it('keeps newly added field visible in the target view without explicit ordering', () => {
+    const newFieldId = createFieldId('k')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('k')._unsafeUnwrap())
+      .withName(TableName.create('Add Without Order')._unsafeUnwrap());
+
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View A')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('View B')._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const notesField = table.getFields().find((field) => field.name().toString() === 'Notes');
+    const targetView = table.views()[0];
+    const otherView = table.views()[1];
+
+    expect(notesField).toBeTruthy();
+    expect(targetView).toBeTruthy();
+    expect(otherView).toBeTruthy();
+    if (!notesField || !targetView || !otherView) return;
+
+    // Configure both views with explicit hidden visibility config
+    const targetViewMeta = targetView.columnMeta()._unsafeUnwrap().toDto();
+    const otherViewMeta = otherView.columnMeta()._unsafeUnwrap().toDto();
+
+    const configuredTargetMeta = ViewColumnMeta.create({
+      ...targetViewMeta,
+      [notesField.id().toString()]: {
+        ...(targetViewMeta[notesField.id().toString()] ?? {}),
+        hidden: true,
+      },
+    })._unsafeUnwrap();
+
+    const configuredOtherMeta = ViewColumnMeta.create({
+      ...otherViewMeta,
+      [notesField.id().toString()]: {
+        ...(otherViewMeta[notesField.id().toString()] ?? {}),
+        hidden: false,
+      },
+    })._unsafeUnwrap();
+
+    const configuredTable = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: targetView.id(),
+        fieldId: notesField.id(),
+        columnMeta: configuredTargetMeta,
+      },
+      {
+        viewId: otherView.id(),
+        fieldId: notesField.id(),
+        columnMeta: configuredOtherMeta,
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    const newField = SingleLineTextField.create({
+      id: newFieldId,
+      name: FieldName.create('Added')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    // Add field with targetViewId but without viewOrder (simulates Add operator)
+    const updatedTable = configuredTable
+      .update((mutator) =>
+        mutator.addField(newField, {
+          targetViewId: targetView.id(),
+        })
+      )
+      ._unsafeUnwrap().table;
+
+    const targetEntry = updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+    const otherEntry = updatedTable.views()[1]?.columnMeta()._unsafeUnwrap().toDto()[
+      newField.id().toString()
+    ];
+
+    // The new field should NOT be hidden in the target view (current view)
+    expect(targetEntry?.hidden).toBeUndefined();
+    // The new field SHOULD be hidden in the other view that has explicit hidden config
+    expect(otherEntry?.hidden).toBe(true);
+  });
+
   it('rejects adding a field with duplicate dbFieldName', () => {
     const baseIdResult = createBaseId('d');
     const tableNameResult = TableName.create('Duplicate DbFieldName');
@@ -1837,7 +1920,6 @@ describe('Table.createRecordsStream', () => {
                 {
                   fieldId: selfLinkFieldId.toString(),
                   operator: 'isNotEmpty',
-                  value: null,
                 },
               ],
             },

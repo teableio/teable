@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FieldOrderBy, TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
+import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
 import {
   mergeOrderBy,
   mergeOrderByWithViewRowTieBreaker,
@@ -131,11 +131,11 @@ describe('orderBy helpers', () => {
 
   it('deduplicates repeated fields and keeps auto number as the fallback when sorting exists', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
-    const sortBy: ReadonlyArray<TableRecordOrderBy> = [
+    const sortBy = [
       ...resolveOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap()!,
       { column: `__row_${viewId}`, direction: 'asc' } as const,
     ];
-    const merged = mergeOrderBy(groupBy, sortBy as ReadonlyArray<FieldOrderBy>, viewId);
+    const merged = mergeOrderBy(groupBy, sortBy, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
       [
         {

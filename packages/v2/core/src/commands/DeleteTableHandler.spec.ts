@@ -99,10 +99,6 @@ class FakeTableRepository implements ITableRepository {
     return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
-  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
   async delete(
     _: IExecutionContext,
     table: Table,
