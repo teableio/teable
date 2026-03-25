@@ -153,7 +153,7 @@ describe('SelectQueryPostgres FROMNOW/TONOW', () => {
 });
 
 describe('SelectQueryPostgres workday', () => {
-  it('uses interval multiplication for dynamic day-count expressions', () => {
+  it('generates CTE-based workday SQL that skips weekends and holidays', () => {
     const query = new SelectQueryPostgres();
     query.setContext({ timeZone: 'Asia/Shanghai' } as unknown as never);
     query.setCallMetadata([
@@ -162,7 +162,9 @@ describe('SelectQueryPostgres workday', () => {
     ] as unknown as never);
 
     const sql = query.workday('"t"."Date"', '"t"."Number"');
-    expect(sql).toContain(`INTERVAL '1 day' * ("t"."Number")::double precision`);
-    expect(sql).not.toContain(" days'");
+    expect(sql).toContain('WITH params AS');
+    expect(sql).toContain('generate_series');
+    expect(sql).toContain('EXTRACT(DOW FROM c.candidate_date)');
+    expect(sql).toContain(`("t"."Number")::double precision`);
   });
 });
