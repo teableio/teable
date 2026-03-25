@@ -42,5 +42,15 @@ module.exports = {
         '@typescript-eslint/consistent-type-imports': 'off',
       },
     },
+    {
+      // Relax rules for test files — these are not production code
+      files: ['test/**', 'src/**/*.spec.ts', 'src/**/*.e2e-spec.ts'],
+      rules: {
+        '@typescript-eslint/naming-convention': 'off',
+        'sonarjs/no-duplicate-string': 'off',
+        'sonarjs/no-identical-functions': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
   ],
 };

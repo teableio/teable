@@ -6,9 +6,9 @@ import { FieldDeleted, ProjectionHandler, ok } from '@teable/v2-core';
 import type { DomainError, IEventHandler, IExecutionContext, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { ViewService } from '../view/view.service';
+import { V2ContainerService } from './v2-container.service';
 import { V2_FIELD_DELETE_COMPAT_CONTEXT_KEY } from './v2-field-delete-compat.constants';
 import type { IV2FieldDeleteCompatContext } from './v2-field-delete-compat.constants';
-import { V2ContainerService } from './v2-container.service';
 import type { IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const getFieldDeleteCompatContext = (

@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
-import { RedoCommand, RedoResult, UndoCommand, UndoResult, v2CoreTokens } from '@teable/v2-core';
-import type { ICommandBus } from '@teable/v2-core';
+import { RedoCommand, UndoCommand, v2CoreTokens } from '@teable/v2-core';
+import type { ICommandBus, RedoResult, UndoResult } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
@@ -15,11 +15,11 @@ import { buildUndoRedoEnginePreferenceKey } from './undo-redo-engine-preference'
 
 export const X_TEABLE_UNDO_REDO_ENGINE_HEADER = 'x-teable-undo-redo-engine';
 
-export type UndoRedoEngine = 'v1' | 'v2';
+export type IUndoRedoEngine = 'v1' | 'v2';
 
-type UndoRedoResponse<T extends IUndoVo | IRedoVo> = {
+type IUndoRedoResponse<T extends IUndoVo | IRedoVo> = {
   body: T;
-  engine: UndoRedoEngine;
+  engine: IUndoRedoEngine;
 };
 
 @Injectable()
@@ -34,7 +34,7 @@ export class UndoRedoService {
     private readonly undoRedoOperationService: UndoRedoOperationService
   ) {}
 
-  async undo(tableId: string, windowId: string): Promise<UndoRedoResponse<IUndoVo>> {
+  async undo(tableId: string, windowId: string): Promise<IUndoRedoResponse<IUndoVo>> {
     const preferredEngine = await this.getPreferredEngine(tableId, windowId);
     if (preferredEngine === 'v1') {
       const v1Result = await this.executeV1Undo(tableId, windowId);
@@ -58,7 +58,7 @@ export class UndoRedoService {
     return this.executeV1Undo(tableId, windowId);
   }
 
-  async redo(tableId: string, windowId: string): Promise<UndoRedoResponse<IRedoVo>> {
+  async redo(tableId: string, windowId: string): Promise<IUndoRedoResponse<IRedoVo>> {
     const preferredEngine = await this.getPreferredEngine(tableId, windowId);
     if (preferredEngine === 'v1') {
       const v1Result = await this.executeV1Redo(tableId, windowId);
@@ -96,7 +96,7 @@ export class UndoRedoService {
   private async getPreferredEngine(
     tableId: string,
     windowId: string
-  ): Promise<UndoRedoEngine | undefined> {
+  ): Promise<IUndoRedoEngine | undefined> {
     const key = this.getPreferenceKey(tableId, windowId);
     if (!key) {
       return undefined;
@@ -107,7 +107,7 @@ export class UndoRedoService {
   private async executeV1Undo(
     tableId: string,
     windowId: string
-  ): Promise<UndoRedoResponse<IUndoVo>> {
+  ): Promise<IUndoRedoResponse<IUndoVo>> {
     const { operation, push } = await this.undoRedoStackService.popUndo(tableId, windowId);
 
     if (!operation) {
@@ -154,7 +154,7 @@ export class UndoRedoService {
   private async executeV1Redo(
     tableId: string,
     windowId: string
-  ): Promise<UndoRedoResponse<IRedoVo>> {
+  ): Promise<IUndoRedoResponse<IRedoVo>> {
     const { operation, push } = await this.undoRedoStackService.popRedo(tableId, windowId);
     if (!operation) {
       return {
@@ -201,7 +201,7 @@ export class UndoRedoService {
     tableId: string,
     windowId: string,
     mode: 'undo' | 'redo'
-  ): Promise<UndoRedoResponse<IUndoVo | IRedoVo> | undefined> {
+  ): Promise<IUndoRedoResponse<IUndoVo | IRedoVo> | undefined> {
     try {
       const container = await this.v2ContainerService.getContainer();
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

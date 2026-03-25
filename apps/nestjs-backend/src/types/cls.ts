@@ -7,7 +7,7 @@ import type { IPerformanceCacheStore } from '../performance-cache';
 import type { IRawOpMap } from '../share-db/interface';
 import type { IDataLoaderCache } from './data-loader';
 
-export type V2Reason =
+export type IV2Reason =
   | 'env_force_v2_all'
   | 'config_force_v2_all'
   | 'header_override'
@@ -74,7 +74,7 @@ export interface IClsStore extends ClsStore {
   clearCacheKeys?: (keyof IPerformanceCacheStore)[];
   canaryHeader?: string; // x-canary header value for canary release override
   useV2?: boolean; // Flag to indicate if V2 implementation should be used (set by V2FeatureGuard)
-  v2Reason?: V2Reason; // Reason why V2 was enabled or disabled
+  v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking
   skipFieldComputation?: boolean; // Skip computed field evaluation during bulk structure creation (import/duplicate)
