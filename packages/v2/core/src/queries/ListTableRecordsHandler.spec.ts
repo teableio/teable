@@ -217,6 +217,7 @@ describe('ListTableRecordsHandler', () => {
         err(domainError.notFound({ message: 'Not found' })),
       updateOne: async (_context, _table, _spec) =>
         err(domainError.notFound({ message: 'Not found' })),
+      restore: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
       delete: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
     };
 

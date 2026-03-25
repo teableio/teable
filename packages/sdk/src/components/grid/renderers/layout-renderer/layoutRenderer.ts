@@ -1856,6 +1856,9 @@ export const drawColumnStatistics = (
     groupHeaderBgTertiary,
     groupHeaderBgSecondary,
     groupHeaderBgPrimary,
+    columnStatisticBgHoveredPrimary,
+    columnStatisticBgHoveredSecondary,
+    columnStatisticBgHoveredTertiary,
   } = theme;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const y = containerHeight + 0.5;
@@ -1891,6 +1894,11 @@ export const drawColumnStatistics = (
       const bgList = [groupHeaderBgTertiary, groupHeaderBgSecondary, groupHeaderBgPrimary].slice(
         -groupColumns.length
       );
+      const hoverBgList = [
+        columnStatisticBgHoveredTertiary,
+        columnStatisticBgHoveredSecondary,
+        columnStatisticBgHoveredPrimary,
+      ].slice(-groupColumns.length);
 
       for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
         const linearRow = getLinearRow(rowIndex);
@@ -1923,6 +1931,7 @@ export const drawColumnStatistics = (
             text,
             defaultLabel: statisticLabel?.label,
             bgColor: isFirstColumn && text ? bgList[depth] : undefined,
+            hoverBgColor: hoverBgList[depth],
             isHovered:
               isColumnHovered && rowIndex === hoverRowIndex && type === RegionType.GroupStatistic,
             theme,
@@ -1967,8 +1976,9 @@ export const drawStatisticCell = (
     theme,
     defaultLabel,
     bgColor,
+    hoverBgColor,
   } = props;
-  const { rowHeaderTextColor, columnStatisticBgHovered, fontSizeXS } = theme;
+  const { rowHeaderTextColor, columnStatisticBgHoveredPrimary, fontSizeXS } = theme;
 
   if (text || isHovered || showAlways || bgColor) {
     drawRect(ctx, {
@@ -1976,7 +1986,7 @@ export const drawStatisticCell = (
       y,
       width,
       height,
-      fill: isHovered ? columnStatisticBgHovered : bgColor,
+      fill: isHovered ? hoverBgColor ?? columnStatisticBgHoveredPrimary : bgColor,
     });
   }
 

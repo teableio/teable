@@ -89,6 +89,7 @@ describe('ListTablesHandler', () => {
       find: async () => err(domainError.unexpected({ message: 'repository error' })),
       updateOne: async (_context, _table, _mutateSpec) =>
         err(domainError.unexpected({ message: 'nope' })),
+      restore: async () => err(domainError.unexpected({ message: 'nope' })),
       delete: async () => err(domainError.unexpected({ message: 'nope' })),
     };
 
