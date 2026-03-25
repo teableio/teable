@@ -3,6 +3,7 @@ import { v2CoreTokens } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { toErrorLogFields } from '../errorLog';
 import type { ComputedUpdateWorker } from './ComputedUpdateWorker';
 
 /**
@@ -186,7 +187,7 @@ export class ComputedUpdatePollingService {
     if (result.isErr()) {
       this.logger.warn('computed:polling:runOnce_error', {
         workerId: this.config.workerId,
-        error: result.error.message,
+        ...toErrorLogFields(result.error),
       });
       return 0;
     }
@@ -213,7 +214,7 @@ export class ComputedUpdatePollingService {
         this.consecutiveErrors++;
         this.logger.warn('computed:polling:poll_error', {
           workerId: this.config.workerId,
-          error: result.error.message,
+          ...toErrorLogFields(result.error),
           consecutiveErrors: this.consecutiveErrors,
         });
 
@@ -256,7 +257,7 @@ export class ComputedUpdatePollingService {
       this.consecutiveErrors++;
       this.logger.error('computed:polling:unexpected_error', {
         workerId: this.config.workerId,
-        error: error instanceof Error ? error.message : String(error),
+        ...toErrorLogFields(error),
         consecutiveErrors: this.consecutiveErrors,
       });
     }

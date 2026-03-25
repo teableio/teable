@@ -54,6 +54,7 @@ import {
   toRunLogContext,
   toRunSpanAttributes,
 } from './ComputedUpdateRun';
+import { toErrorLogFields } from './errorLog';
 import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
@@ -436,10 +437,12 @@ export class ComputedFieldUpdater {
     }
 
     const collectChanges = options?.collectChanges ?? false;
+    let currentPhase: 'prepare_dirty_state' | 'execute_prepared_steps' = 'prepare_dirty_state';
 
     const runWork = async () =>
       safeTry<ComputedUpdateResult, DomainError>(
         async function* (this: ComputedFieldUpdater) {
+          currentPhase = 'prepare_dirty_state';
           const prepared = yield* await this.prepareDirtyState(effectivePlan, context);
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
           mainSpan?.setAttribute('computed.affectedTableCount', prepared.dirtyStats.length);
@@ -463,6 +466,7 @@ export class ComputedFieldUpdater {
             propagationStats: prepared.propagationStats,
           });
 
+          currentPhase = 'execute_prepared_steps';
           const stepsResult = yield* await this.executePreparedSteps(
             effectivePlan,
             context,
@@ -485,10 +489,23 @@ export class ComputedFieldUpdater {
       );
 
     try {
-      if (mainSpan && context.tracer) {
-        return await context.tracer.withSpan(mainSpan, runWork);
+      const result =
+        mainSpan && context.tracer
+          ? await context.tracer.withSpan(mainSpan, runWork)
+          : await runWork();
+
+      if (result.isErr()) {
+        runLogger.error('computed:run:failed', {
+          phase: currentPhase,
+          durationMs: Date.now() - runStartTime,
+          totalSteps: resolvedRun.totalSteps,
+          completedStepsBefore: resolvedRun.completedStepsBefore,
+          pendingSteps: Math.max(resolvedRun.totalSteps - resolvedRun.completedStepsBefore, 0),
+          ...toErrorLogFields(result.error),
+        });
       }
-      return await runWork();
+
+      return result;
     } finally {
       mainSpan?.end();
     }

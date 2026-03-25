@@ -12,9 +12,8 @@ export class ExportMetricsService {
     description: 'Export task duration in milliseconds',
     unit: 'ms',
     advice: {
-      explicitBucketBoundaries: [
-        1000, 2000, 5000, 10000, 20000, 30000, 60000, 120000, 180000, 300000,
-      ],
+      // 5s=small, 30s=medium, 60s=large, 180s=huge, 300s=timeout
+      explicitBucketBoundaries: [5000, 30000, 60000, 180000, 300000],
     },
   });
   private readonly exportErrors = this.meter.createCounter('data.export.errors', {

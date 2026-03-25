@@ -1,7 +1,7 @@
-import type { ITableActionKey } from '@teable/core';
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
+import type { ITableActionKey } from '../TableActionKey';
 import type { TableId } from '../TableId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 

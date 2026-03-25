@@ -1,4 +1,3 @@
-import type { ITableActionKey } from '@teable/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
@@ -39,14 +38,14 @@ import {
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
 import {
-  getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
-  type GetOrderedVisibleFieldIdsOptions,
-} from './methods/getOrderedVisibleFieldIds';
-import {
   duplicate as duplicateMethod,
   type DuplicateMethodParams as TableDuplicateParams,
   type DuplicateMethodResult as TableDuplicateResult,
 } from './methods/duplicate';
+import {
+  getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
+  type GetOrderedVisibleFieldIdsOptions,
+} from './methods/getOrderedVisibleFieldIds';
 import {
   createRecord as createRecordMethod,
   createRecords as createRecordsMethod,
@@ -67,6 +66,7 @@ import type { TableRecord } from './records/TableRecord';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
+import type { ITableActionKey } from './TableActionKey';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
 import type { TableId } from './TableId';

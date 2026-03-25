@@ -39,7 +39,7 @@ export const ShareBaseDialog = (props: IShareBaseDialogProps) => {
             </Button>
           )}
         </DialogTrigger>
-        <DialogContent className="max-h-[90vh] max-w-full overflow-y-auto rounded-xl px-7 md:w-[480px]">
+        <DialogContent className="max-h-[90vh] max-w-full overflow-y-auto rounded-xl px-7 pb-3 md:w-[480px]">
           <ShareBaseContent
             baseId={base.id}
             baseName={base.name}

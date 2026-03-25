@@ -22,7 +22,7 @@ export class RealtimeMetricsService {
     description: 'ShareDB operation duration in milliseconds',
     unit: 'ms',
     advice: {
-      explicitBucketBoundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+      explicitBucketBoundaries: [5, 25, 100, 250, 500],
     },
   });
   private readonly operationsErrors = this.meter.createCounter('realtime.operations.errors', {

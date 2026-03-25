@@ -5,6 +5,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { authConfig } from '@/features/i18n/auth.config';
+import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
 
 export const providersAll = [
   {
@@ -30,7 +31,8 @@ export const SocialAuth = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const { socialAuthProviders, passwordLoginDisabled } = useEnv();
   const router = useRouter();
-  const redirect = router.query.redirect as string;
+  const rawRedirect = router.query.redirect as string;
+  const redirect = rawRedirect && isValidRedirectPath(rawRedirect) ? rawRedirect : '';
 
   const providers = useMemo(
     () => providersAll.filter((provider) => socialAuthProviders?.includes(provider.id)),

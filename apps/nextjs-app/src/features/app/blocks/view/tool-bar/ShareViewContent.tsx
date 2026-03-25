@@ -90,7 +90,10 @@ const EmbedConfigPopover = ({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="flex w-full items-center justify-between px-0 py-1">
+        <Button
+          variant="ghost"
+          className="-mx-2 flex w-[calc(100%+16px)] items-center justify-between px-2 py-1"
+        >
           <Label className="cursor-pointer text-sm font-normal">
             {t('table:baseShare.embedConfig')}
           </Label>
@@ -98,7 +101,7 @@ const EmbedConfigPopover = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent side="right" align="start" className="w-80">
-        <div className="mb-3 rounded-md bg-muted p-3">
+        <div className="mb-3 rounded-md border bg-muted p-3">
           <code className="break-all text-xs">{embedHtml}</code>
         </div>
 
@@ -117,7 +120,7 @@ const EmbedConfigPopover = ({
               <DialogHeader>
                 <DialogTitle>{t('table:toolbar.others.share.embedPreview')}</DialogTitle>
               </DialogHeader>
-              <div className="h-[500px]">
+              <div className="h-[500px] overflow-hidden rounded-lg border">
                 <iframe
                   src={getEmbedUrl(shareUrl)}
                   title="embed view"
@@ -154,10 +157,10 @@ const EmbedConfigPopover = ({
             </div>
           )}
 
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-2">
             <Label className="text-xs">{t('common:settings.setting.theme')}</Label>
             <RadioGroup
-              className="flex gap-2"
+              className="flex h-5 gap-2"
               defaultValue={shareTheme}
               onValueChange={(e) => setShareTheme(e)}
             >
@@ -277,26 +280,17 @@ export const ShareViewContent: React.FC = () => {
       {enableShare ? (
         <>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground">{t('table:baseShare.linkHolderLabel')}</span>
-            </div>
             <div className="flex items-center gap-2">
-              <Input
-                className="min-w-0 flex-1"
-                size="lg"
-                id="share-link"
-                value={shareUrl}
-                readOnly
-              />
+              <Input className="min-w-0 flex-1" id="share-link" value={shareUrl} readOnly />
               <CopyButton
                 text={shareUrl as string}
                 variant="outline"
-                size="icon"
+                size="icon-sm"
                 className="shrink-0"
               />
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0">
+                  <Button variant="outline" size="icon-sm" className="shrink-0">
                     <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
@@ -309,7 +303,7 @@ export const ShareViewContent: React.FC = () => {
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline"
-                      size="icon"
+                      size="icon-sm"
                       className="shrink-0"
                       onClick={() => view.setRefreshLink()}
                     >

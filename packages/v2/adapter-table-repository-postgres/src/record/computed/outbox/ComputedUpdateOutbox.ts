@@ -19,6 +19,7 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
+import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
@@ -81,6 +82,12 @@ type SeedRow = {
   record_id: string;
 };
 
+type RunInTransactionOptions = {
+  logger?: ILogger;
+  operation?: string;
+  logContext?: Record<string, unknown>;
+};
+
 /**
  * Persist computed update tasks for background processing (outbox pattern).
  *
@@ -119,96 +126,109 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
-        await acquireOutboxAdvisoryLock(
-          trx,
-          buildOutboxLockKey({
+      return runInTransaction<{ taskId: string; merged: boolean }>(
+        db,
+        context,
+        async (trx) => {
+          await acquireOutboxAdvisoryLock(
+            trx,
+            buildOutboxLockKey({
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              planHash: task.planHash,
+              changeType: task.changeType,
+            })
+          );
+          const existing = await trx
+            .selectFrom(OUTBOX_TABLE)
+            .selectAll()
+            .where('base_id', '=', task.baseId)
+            .where('seed_table_id', '=', task.seedTableId)
+            .where('plan_hash', '=', task.planHash)
+            .where('change_type', '=', task.changeType)
+            .where('status', '=', DEFAULT_STATUS)
+            .forUpdate()
+            .executeTakeFirst();
+
+          if (!existing) {
+            const taskId = await this.insertOutbox(trx, task, now);
+            return ok({ taskId, merged: false });
+          }
+
+          const taskId = String(existing.id);
+          const incomingSeedGroups = buildSeedGroupsFromTask(task);
+          const existingSeedGroups = await this.loadSeedGroups(trx, existing);
+          const mergedSeedGroups = mergeSeedGroups(existingSeedGroups, incomingSeedGroups);
+          const mergedDirtyStats = mergeDirtyStats(
+            parseDirtyStats(existing.dirty_stats),
+            task.dirtyStats
+          );
+          const mergedBeforeImageRecords = mergeBeforeImageRecordDtos(
+            parseBeforeImageRecordDtos(existing.dirty_stats),
+            task.beforeImageRecords
+          );
+          const mergedOriginRunIds = mergeOriginRunIds(
+            parseStringArray(existing.origin_run_ids),
+            task.originRunIds
+          );
+          const existingRunId = existing.run_id ? String(existing.run_id) : null;
+          const mergedRunId = existingRunId ?? task.runId;
+
+          const seedInlineLimit = this.config.seedInlineLimit;
+          const mergedSeedCount = countSeedRecords(mergedSeedGroups);
+          const useSeedTable = mergedSeedCount > seedInlineLimit;
+
+          if (useSeedTable) {
+            await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
+          } else {
+            await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+          }
+
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
+              dirty_stats: toJsonValue({
+                dirtyStats: mergedDirtyStats,
+                beforeImageRecords: mergedBeforeImageRecords,
+              }),
+              run_id: mergedRunId,
+              origin_run_ids: mergedOriginRunIds,
+              run_total_steps: Math.max(Number(existing.run_total_steps ?? 0), task.runTotalSteps),
+              run_completed_steps_before: Math.max(
+                Number(existing.run_completed_steps_before ?? 0),
+                task.runCompletedStepsBefore
+              ),
+              estimated_complexity: Math.max(
+                Number(existing.estimated_complexity ?? 0),
+                task.estimatedComplexity
+              ),
+              sync_max_level: Math.max(Number(existing.sync_max_level ?? 0), task.syncMaxLevel),
+              next_run_at: now,
+              updated_at: now,
+            })
+            .where('id', '=', taskId)
+            .execute();
+
+          this.logger.debug('computed:outbox:merged', {
+            taskId,
+            seedCount: mergedSeedCount,
+            runId: mergedRunId,
+            originRunIds: mergedOriginRunIds,
+          });
+
+          return ok({ taskId, merged: true });
+        },
+        {
+          logger: this.logger,
+          operation: 'enqueue_or_merge',
+          logContext: {
             baseId: task.baseId,
             seedTableId: task.seedTableId,
-            planHash: task.planHash,
             changeType: task.changeType,
-          })
-        );
-        const existing = await trx
-          .selectFrom(OUTBOX_TABLE)
-          .selectAll()
-          .where('base_id', '=', task.baseId)
-          .where('seed_table_id', '=', task.seedTableId)
-          .where('plan_hash', '=', task.planHash)
-          .where('change_type', '=', task.changeType)
-          .where('status', '=', DEFAULT_STATUS)
-          .forUpdate()
-          .executeTakeFirst();
-
-        if (!existing) {
-          const taskId = await this.insertOutbox(trx, task, now);
-          return ok({ taskId, merged: false });
+          },
         }
-
-        const taskId = String(existing.id);
-        const incomingSeedGroups = buildSeedGroupsFromTask(task);
-        const existingSeedGroups = await this.loadSeedGroups(trx, existing);
-        const mergedSeedGroups = mergeSeedGroups(existingSeedGroups, incomingSeedGroups);
-        const mergedDirtyStats = mergeDirtyStats(
-          parseDirtyStats(existing.dirty_stats),
-          task.dirtyStats
-        );
-        const mergedBeforeImageRecords = mergeBeforeImageRecordDtos(
-          parseBeforeImageRecordDtos(existing.dirty_stats),
-          task.beforeImageRecords
-        );
-        const mergedOriginRunIds = mergeOriginRunIds(
-          parseStringArray(existing.origin_run_ids),
-          task.originRunIds
-        );
-        const existingRunId = existing.run_id ? String(existing.run_id) : null;
-        const mergedRunId = existingRunId ?? task.runId;
-
-        const seedInlineLimit = this.config.seedInlineLimit;
-        const mergedSeedCount = countSeedRecords(mergedSeedGroups);
-        const useSeedTable = mergedSeedCount > seedInlineLimit;
-
-        if (useSeedTable) {
-          await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
-        } else {
-          await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-        }
-
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
-            dirty_stats: toJsonValue({
-              dirtyStats: mergedDirtyStats,
-              beforeImageRecords: mergedBeforeImageRecords,
-            }),
-            run_id: mergedRunId,
-            origin_run_ids: mergedOriginRunIds,
-            run_total_steps: Math.max(Number(existing.run_total_steps ?? 0), task.runTotalSteps),
-            run_completed_steps_before: Math.max(
-              Number(existing.run_completed_steps_before ?? 0),
-              task.runCompletedStepsBefore
-            ),
-            estimated_complexity: Math.max(
-              Number(existing.estimated_complexity ?? 0),
-              task.estimatedComplexity
-            ),
-            sync_max_level: Math.max(Number(existing.sync_max_level ?? 0), task.syncMaxLevel),
-            next_run_at: now,
-            updated_at: now,
-          })
-          .where('id', '=', taskId)
-          .execute();
-
-        this.logger.debug('computed:outbox:merged', {
-          taskId,
-          seedCount: mergedSeedCount,
-          runId: mergedRunId,
-          originRunIds: mergedOriginRunIds,
-        });
-
-        return ok({ taskId, merged: true });
-      });
+      );
     };
 
     try {
@@ -237,55 +257,68 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
-        await acquireOutboxAdvisoryLock(
-          trx,
-          buildOutboxLockKey({
+      return runInTransaction<{ taskId: string; merged: boolean }>(
+        db,
+        context,
+        async (trx) => {
+          await acquireOutboxAdvisoryLock(
+            trx,
+            buildOutboxLockKey({
+              baseId: task.baseId,
+              seedTableId: task.tableId,
+              planHash: task.planHash,
+              changeType: FIELD_BACKFILL_CHANGE_TYPE,
+            })
+          );
+          // Check for existing pending backfill task for same table/fields
+          const existing = await trx
+            .selectFrom(OUTBOX_TABLE)
+            .selectAll()
+            .where('base_id', '=', task.baseId)
+            .where('seed_table_id', '=', task.tableId)
+            .where('plan_hash', '=', task.planHash)
+            .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
+            .where('status', '=', DEFAULT_STATUS)
+            .forUpdate()
+            .executeTakeFirst();
+
+          if (!existing) {
+            const taskId = await this.insertFieldBackfill(trx, task, now);
+            return ok({ taskId, merged: false });
+          }
+
+          // Merge field IDs with existing task
+          const taskId = String(existing.id);
+          const existingFieldIds = parseStringArray(existing.affected_field_ids);
+          const mergedFieldIds = [...new Set([...existingFieldIds, ...task.fieldIds])];
+
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              affected_field_ids: mergedFieldIds,
+              next_run_at: now,
+              updated_at: now,
+            })
+            .where('id', '=', taskId)
+            .execute();
+
+          this.logger.debug('computed:outbox:field_backfill_merged', {
+            taskId,
+            fieldIds: mergedFieldIds,
+          });
+
+          return ok({ taskId, merged: true });
+        },
+        {
+          logger: this.logger,
+          operation: 'enqueue_field_backfill',
+          logContext: {
             baseId: task.baseId,
-            seedTableId: task.tableId,
-            planHash: task.planHash,
+            tableId: task.tableId,
             changeType: FIELD_BACKFILL_CHANGE_TYPE,
-          })
-        );
-        // Check for existing pending backfill task for same table/fields
-        const existing = await trx
-          .selectFrom(OUTBOX_TABLE)
-          .selectAll()
-          .where('base_id', '=', task.baseId)
-          .where('seed_table_id', '=', task.tableId)
-          .where('plan_hash', '=', task.planHash)
-          .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
-          .where('status', '=', DEFAULT_STATUS)
-          .forUpdate()
-          .executeTakeFirst();
-
-        if (!existing) {
-          const taskId = await this.insertFieldBackfill(trx, task, now);
-          return ok({ taskId, merged: false });
+          },
         }
-
-        // Merge field IDs with existing task
-        const taskId = String(existing.id);
-        const existingFieldIds = parseStringArray(existing.affected_field_ids);
-        const mergedFieldIds = [...new Set([...existingFieldIds, ...task.fieldIds])];
-
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            affected_field_ids: mergedFieldIds,
-            next_run_at: now,
-            updated_at: now,
-          })
-          .where('id', '=', taskId)
-          .execute();
-
-        this.logger.debug('computed:outbox:field_backfill_merged', {
-          taskId,
-          fieldIds: mergedFieldIds,
-        });
-
-        return ok({ taskId, merged: true });
-      });
+      );
     };
 
     try {
@@ -315,76 +348,89 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
-        await acquireOutboxAdvisoryLock(
-          trx,
-          buildOutboxLockKey({
+      return runInTransaction<{ taskId: string; merged: boolean }>(
+        db,
+        context,
+        async (trx) => {
+          await acquireOutboxAdvisoryLock(
+            trx,
+            buildOutboxLockKey({
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              planHash: task.planHash,
+              changeType: SEED_CHANGE_TYPE,
+            })
+          );
+          // Check for existing pending seed task for same base/table/changeType
+          const existing = await trx
+            .selectFrom(OUTBOX_TABLE)
+            .selectAll()
+            .where('base_id', '=', task.baseId)
+            .where('seed_table_id', '=', task.seedTableId)
+            .where('plan_hash', '=', task.planHash)
+            .where('change_type', '=', SEED_CHANGE_TYPE)
+            .where('status', '=', DEFAULT_STATUS)
+            .forUpdate()
+            .executeTakeFirst();
+
+          if (!existing) {
+            const taskId = await this.insertSeedTask(trx, task, now);
+            return ok({ taskId, merged: false });
+          }
+
+          // Merge with existing task
+          const taskId = String(existing.id);
+
+          // Parse existing payload from row
+          const existingPayload = parseSeedPayloadFromRow(existing);
+          const mergedPayload = mergeSeedPayloads(existingPayload, task);
+
+          // Check if we need to use seed table for overflow
+          const mergedSeedGroups = buildSeedGroupsFromSeedPayload(mergedPayload);
+          const mergedSeedCount = countSeedRecords(mergedSeedGroups);
+          const useSeedTable = mergedSeedCount > this.config.seedInlineLimit;
+
+          if (useSeedTable) {
+            await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
+          } else {
+            await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+          }
+
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
+              affected_field_ids: mergedPayload.changedFieldIds,
+              // Store seed meta in dirty_stats column (repurposed for seed tasks)
+              dirty_stats: toJsonValue({
+                changeType: mergedPayload.changeType,
+                impact: mergedPayload.impact ?? null,
+                beforeImageRecords: mergedPayload.beforeImageRecords,
+              }),
+              next_run_at: now,
+              updated_at: now,
+            })
+            .where('id', '=', taskId)
+            .execute();
+
+          this.logger.debug('computed:outbox:seed_merged', {
+            taskId,
+            seedCount: mergedSeedCount,
+            changedFieldIds: mergedPayload.changedFieldIds,
+          });
+
+          return ok({ taskId, merged: true });
+        },
+        {
+          logger: this.logger,
+          operation: 'enqueue_seed',
+          logContext: {
             baseId: task.baseId,
             seedTableId: task.seedTableId,
-            planHash: task.planHash,
             changeType: SEED_CHANGE_TYPE,
-          })
-        );
-        // Check for existing pending seed task for same base/table/changeType
-        const existing = await trx
-          .selectFrom(OUTBOX_TABLE)
-          .selectAll()
-          .where('base_id', '=', task.baseId)
-          .where('seed_table_id', '=', task.seedTableId)
-          .where('plan_hash', '=', task.planHash)
-          .where('change_type', '=', SEED_CHANGE_TYPE)
-          .where('status', '=', DEFAULT_STATUS)
-          .forUpdate()
-          .executeTakeFirst();
-
-        if (!existing) {
-          const taskId = await this.insertSeedTask(trx, task, now);
-          return ok({ taskId, merged: false });
+          },
         }
-
-        // Merge with existing task
-        const taskId = String(existing.id);
-
-        // Parse existing payload from row
-        const existingPayload = parseSeedPayloadFromRow(existing);
-        const mergedPayload = mergeSeedPayloads(existingPayload, task);
-
-        // Check if we need to use seed table for overflow
-        const mergedSeedGroups = buildSeedGroupsFromSeedPayload(mergedPayload);
-        const mergedSeedCount = countSeedRecords(mergedSeedGroups);
-        const useSeedTable = mergedSeedCount > this.config.seedInlineLimit;
-
-        if (useSeedTable) {
-          await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
-        } else {
-          await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-        }
-
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
-            affected_field_ids: mergedPayload.changedFieldIds,
-            // Store seed meta in dirty_stats column (repurposed for seed tasks)
-            dirty_stats: toJsonValue({
-              changeType: mergedPayload.changeType,
-              impact: mergedPayload.impact ?? null,
-              beforeImageRecords: mergedPayload.beforeImageRecords,
-            }),
-            next_run_at: now,
-            updated_at: now,
-          })
-          .where('id', '=', taskId)
-          .execute();
-
-        this.logger.debug('computed:outbox:seed_merged', {
-          taskId,
-          seedCount: mergedSeedCount,
-          changedFieldIds: mergedPayload.changedFieldIds,
-        });
-
-        return ok({ taskId, merged: true });
-      });
+      );
     };
 
     try {
@@ -413,90 +459,99 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction(db, context, async (trx) => {
-        const staleRows =
-          reclaimLimit > 0
-            ? await trx
-                .selectFrom(OUTBOX_TABLE)
-                .selectAll()
-                .where('status', '=', 'processing')
-                .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
-                .orderBy('locked_at', 'asc')
-                .orderBy('created_at', 'asc')
-                .limit(reclaimLimit)
-                .forUpdate()
-                .skipLocked()
-                .execute()
-            : [];
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          const staleRows =
+            reclaimLimit > 0
+              ? await trx
+                  .selectFrom(OUTBOX_TABLE)
+                  .selectAll()
+                  .where('status', '=', 'processing')
+                  .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
+                  .orderBy('locked_at', 'asc')
+                  .orderBy('created_at', 'asc')
+                  .limit(reclaimLimit)
+                  .forUpdate()
+                  .skipLocked()
+                  .execute()
+              : [];
 
-        const remaining = Math.max(params.limit - staleRows.length, 0);
-        const pendingRows =
-          remaining > 0
-            ? await trx
-                .selectFrom(OUTBOX_TABLE)
-                .selectAll()
-                .where('status', '=', DEFAULT_STATUS)
-                .where('next_run_at', '<=', now)
-                .orderBy('next_run_at', 'asc')
-                .orderBy('created_at', 'asc')
-                .limit(remaining)
-                .forUpdate()
-                .skipLocked()
-                .execute()
-            : [];
+          const remaining = Math.max(params.limit - staleRows.length, 0);
+          const pendingRows =
+            remaining > 0
+              ? await trx
+                  .selectFrom(OUTBOX_TABLE)
+                  .selectAll()
+                  .where('status', '=', DEFAULT_STATUS)
+                  .where('next_run_at', '<=', now)
+                  .orderBy('next_run_at', 'asc')
+                  .orderBy('created_at', 'asc')
+                  .limit(remaining)
+                  .forUpdate()
+                  .skipLocked()
+                  .execute()
+              : [];
 
-        const rows = [...staleRows, ...pendingRows];
+          const rows = [...staleRows, ...pendingRows];
 
-        if (rows.length === 0) return ok([]);
+          if (rows.length === 0) return ok([]);
 
-        const ids = rows.map((row) => String(row.id));
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            status: 'processing',
-            locked_at: now,
-            locked_by: claimOwner,
-            updated_at: now,
-          })
-          .where('id', 'in', ids)
-          .execute();
-
-        const seedMap = await this.loadSeedRecords(trx, rows);
-        const tasks = rows.map((row) =>
-          toAnyOutboxItem(
-            {
-              ...row,
+          const ids = rows.map((row) => String(row.id));
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
               status: 'processing',
               locked_at: now,
               locked_by: claimOwner,
               updated_at: now,
-            },
-            seedMap.get(String(row.id)) ?? []
-          )
-        );
+            })
+            .where('id', 'in', ids)
+            .execute();
 
-        this.logger.debug('computed:outbox:claimed', {
-          workerId: params.workerId,
-          leaseOwner: claimOwner,
-          claimedCount: rows.length,
-          pendingCount: pendingRows.length,
-          reclaimedCount: staleRows.length,
-          taskIds: ids,
-        });
+          const seedMap = await this.loadSeedRecords(trx, rows);
+          const tasks = rows.map((row) =>
+            toAnyOutboxItem(
+              {
+                ...row,
+                status: 'processing',
+                locked_at: now,
+                locked_by: claimOwner,
+                updated_at: now,
+              },
+              seedMap.get(String(row.id)) ?? []
+            )
+          );
 
-        if (staleRows.length > 0) {
-          this.logger.warn('computed:outbox:stale_processing_reclaimed', {
+          this.logger.debug('computed:outbox:claimed', {
             workerId: params.workerId,
             leaseOwner: claimOwner,
+            claimedCount: rows.length,
+            pendingCount: pendingRows.length,
             reclaimedCount: staleRows.length,
-            processingLeaseMs: this.config.processingLeaseMs,
-            reclaimBefore,
-            taskIds: staleRows.map((row) => String(row.id)),
+            taskIds: ids,
           });
-        }
 
-        return ok(tasks);
-      });
+          if (staleRows.length > 0) {
+            this.logger.warn('computed:outbox:stale_processing_reclaimed', {
+              workerId: params.workerId,
+              leaseOwner: claimOwner,
+              reclaimedCount: staleRows.length,
+              processingLeaseMs: this.config.processingLeaseMs,
+              reclaimBefore,
+              taskIds: staleRows.map((row) => String(row.id)),
+            });
+          }
+
+          return ok(tasks);
+        },
+        {
+          logger: this.logger,
+          operation: 'claim_batch',
+          logContext: { workerId: params.workerId, limit: params.limit },
+        }
+      );
     };
 
     try {
@@ -526,48 +581,57 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         ? [DEFAULT_STATUS, 'processing']
         : [DEFAULT_STATUS];
 
-      return runInTransaction(db, context, async (trx) => {
-        const row = await trx
-          .selectFrom(OUTBOX_TABLE)
-          .selectAll()
-          .where('id', '=', params.taskId)
-          .where('status', 'in', retryableStatuses)
-          .forUpdate()
-          .executeTakeFirst();
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          const row = await trx
+            .selectFrom(OUTBOX_TABLE)
+            .selectAll()
+            .where('id', '=', params.taskId)
+            .where('status', 'in', retryableStatuses)
+            .forUpdate()
+            .executeTakeFirst();
 
-        if (!row) return ok(null);
+          if (!row) return ok(null);
 
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              status: 'processing',
+              locked_at: now,
+              locked_by: claimOwner,
+              updated_at: now,
+            })
+            .where('id', '=', params.taskId)
+            .execute();
+
+          const seedMap = await this.loadSeedRecords(trx, [row]);
+          const claimedRow = {
+            ...row,
             status: 'processing',
             locked_at: now,
             locked_by: claimOwner,
             updated_at: now,
-          })
-          .where('id', '=', params.taskId)
-          .execute();
+          };
 
-        const seedMap = await this.loadSeedRecords(trx, [row]);
-        const claimedRow = {
-          ...row,
-          status: 'processing',
-          locked_at: now,
-          locked_by: claimOwner,
-          updated_at: now,
-        };
+          if (String(row.status) === 'processing') {
+            this.logger.warn('computed:outbox:processing_taken_over', {
+              taskId: params.taskId,
+              workerId: params.workerId,
+              previousLeaseOwner: row.locked_by ? String(row.locked_by) : null,
+              newLeaseOwner: claimOwner,
+            });
+          }
 
-        if (String(row.status) === 'processing') {
-          this.logger.warn('computed:outbox:processing_taken_over', {
-            taskId: params.taskId,
-            workerId: params.workerId,
-            previousLeaseOwner: row.locked_by ? String(row.locked_by) : null,
-            newLeaseOwner: claimOwner,
-          });
+          return ok(toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []));
+        },
+        {
+          logger: this.logger,
+          operation: 'claim_by_id',
+          logContext: { workerId: params.workerId, taskId: params.taskId },
         }
-
-        return ok(toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []));
-      });
+      );
     };
 
     try {
@@ -595,21 +659,30 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     const executeRenew = async (): Promise<Result<ReadonlyArray<string>, DomainError>> => {
       const now = params.now ?? new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
-      return runInTransaction(db, context, async (trx) => {
-        const renewed = await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            locked_at: now,
-            updated_at: now,
-          })
-          .where('id', 'in', taskIds)
-          .where('status', '=', 'processing')
-          .where('locked_by', '=', params.leaseOwner)
-          .returning('id')
-          .execute();
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          const renewed = await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              locked_at: now,
+              updated_at: now,
+            })
+            .where('id', 'in', taskIds)
+            .where('status', '=', 'processing')
+            .where('locked_by', '=', params.leaseOwner)
+            .returning('id')
+            .execute();
 
-        return ok(renewed.map((row) => String(row.id)));
-      });
+          return ok(renewed.map((row) => String(row.id)));
+        },
+        {
+          logger: this.logger,
+          operation: 'renew_lease',
+          logContext: { taskIds, leaseOwner: params.leaseOwner },
+        }
+      );
     };
 
     try {
@@ -634,30 +707,39 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeMarkDone = async (): Promise<Result<boolean, DomainError>> => {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
-      return runInTransaction(db, context, async (trx) => {
-        const deleted = leaseOwner
-          ? await trx
-              .deleteFrom(OUTBOX_TABLE)
-              .where('id', '=', taskId)
-              .where('status', '=', 'processing')
-              .where('locked_by', '=', leaseOwner)
-              .returning('id')
-              .execute()
-          : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returning('id').execute();
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          const deleted = leaseOwner
+            ? await trx
+                .deleteFrom(OUTBOX_TABLE)
+                .where('id', '=', taskId)
+                .where('status', '=', 'processing')
+                .where('locked_by', '=', leaseOwner)
+                .returning('id')
+                .execute()
+            : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returning('id').execute();
 
-        if (deleted.length === 0) {
-          if (leaseOwner) {
-            this.logger.warn('computed:outbox:markDone_skipped_owner_mismatch', {
-              taskId,
-              leaseOwner,
-            });
+          if (deleted.length === 0) {
+            if (leaseOwner) {
+              this.logger.warn('computed:outbox:markDone_skipped_owner_mismatch', {
+                taskId,
+                leaseOwner,
+              });
+            }
+            return ok(false);
           }
-          return ok(false);
-        }
 
-        await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-        return ok(true);
-      });
+          await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+          return ok(true);
+        },
+        {
+          logger: this.logger,
+          operation: 'mark_done',
+          logContext: { taskId, leaseOwner },
+        }
+      );
     };
 
     try {
@@ -687,76 +769,85 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const nextAttempts = task.attempts + 1;
       const leaseOwner = task.lockedBy ?? null;
 
-      return runInTransaction(db, context, async (trx) => {
-        if (leaseOwner) {
-          const ownedRow = await trx
-            .selectFrom(OUTBOX_TABLE)
-            .select(['id'])
-            .where('id', '=', task.id)
-            .where('status', '=', 'processing')
-            .where('locked_by', '=', leaseOwner)
-            .forUpdate()
-            .executeTakeFirst();
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          if (leaseOwner) {
+            const ownedRow = await trx
+              .selectFrom(OUTBOX_TABLE)
+              .select(['id'])
+              .where('id', '=', task.id)
+              .where('status', '=', 'processing')
+              .where('locked_by', '=', leaseOwner)
+              .forUpdate()
+              .executeTakeFirst();
 
-          if (!ownedRow) {
-            this.logger.warn('computed:outbox:markFailed_skipped_owner_mismatch', {
-              taskId: task.id,
-              leaseOwner,
-            });
-            return ok(false);
+            if (!ownedRow) {
+              this.logger.warn('computed:outbox:markFailed_skipped_owner_mismatch', {
+                taskId: task.id,
+                leaseOwner,
+              });
+              return ok(false);
+            }
           }
-        }
 
-        if (nextAttempts >= task.maxAttempts) {
-          const isBackfill = isFieldBackfillItem(task);
-          const isSeed = isSeedItem(task);
+          if (nextAttempts >= task.maxAttempts) {
+            const isBackfill = isFieldBackfillItem(task);
+            const isSeed = isSeedItem(task);
 
-          // Build dead letter values based on task type
-          const deadLetterValues = buildDeadLetterValues(task, {
-            isBackfill,
-            isSeed,
-            nextAttempts,
-            error,
-            now,
+            // Build dead letter values based on task type
+            const deadLetterValues = buildDeadLetterValues(task, {
+              isBackfill,
+              isSeed,
+              nextAttempts,
+              error,
+              now,
+            });
+
+            await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
+
+            await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
+            await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
+
+            this.logger.warn('computed:outbox:dead_letter', { taskId: task.id, error });
+            return ok(true);
+          }
+
+          const delay = Math.min(
+            this.config.baseBackoffMs * 2 ** (nextAttempts - 1),
+            this.config.maxBackoffMs
+          );
+          const nextRunAt = new Date(now.getTime() + delay);
+
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              status: DEFAULT_STATUS,
+              attempts: nextAttempts,
+              next_run_at: nextRunAt,
+              last_error: error,
+              locked_at: null,
+              locked_by: null,
+              updated_at: now,
+            })
+            .where('id', '=', task.id)
+            .execute();
+
+          this.logger.warn('computed:outbox:retry_scheduled', {
+            taskId: task.id,
+            attempts: nextAttempts,
+            nextRunAt,
           });
 
-          await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
-
-          await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
-          await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
-
-          this.logger.warn('computed:outbox:dead_letter', { taskId: task.id, error });
           return ok(true);
+        },
+        {
+          logger: this.logger,
+          operation: 'mark_failed',
+          logContext: { taskId: task.id, leaseOwner, attempts: task.attempts },
         }
-
-        const delay = Math.min(
-          this.config.baseBackoffMs * 2 ** (nextAttempts - 1),
-          this.config.maxBackoffMs
-        );
-        const nextRunAt = new Date(now.getTime() + delay);
-
-        await trx
-          .updateTable(OUTBOX_TABLE)
-          .set({
-            status: DEFAULT_STATUS,
-            attempts: nextAttempts,
-            next_run_at: nextRunAt,
-            last_error: error,
-            locked_at: null,
-            locked_by: null,
-            updated_at: now,
-          })
-          .where('id', '=', task.id)
-          .execute();
-
-        this.logger.warn('computed:outbox:retry_scheduled', {
-          taskId: task.id,
-          attempts: nextAttempts,
-          nextRunAt,
-        });
-
-        return ok(true);
-      });
+      );
     };
 
     try {
@@ -1293,7 +1384,8 @@ const OUTBOX_TX_MAX_RETRIES = 10;
 const runInTransaction = async <T>(
   db: Kysely<DynamicDB>,
   context: IExecutionContext | undefined,
-  fn: (trx: Kysely<DynamicDB> | Transaction<DynamicDB>) => Promise<Result<T, DomainError>>
+  fn: (trx: Kysely<DynamicDB> | Transaction<DynamicDB>) => Promise<Result<T, DomainError>>,
+  options?: RunInTransactionOptions
 ): Promise<Result<T, DomainError>> => {
   const hasTransaction = Boolean(getPostgresTransaction(context));
   let attempt = 0;
@@ -1314,16 +1406,21 @@ const runInTransaction = async <T>(
       });
     } catch (error) {
       if (error instanceof OutboxAbort) return err(error.error);
-      if (
-        !hasTransaction &&
-        isRetryableTransactionError(error) &&
-        attempt < OUTBOX_TX_MAX_RETRIES
-      ) {
+      const retryable =
+        !hasTransaction && isRetryableTransactionError(error) && attempt < OUTBOX_TX_MAX_RETRIES;
+      if (retryable) {
         const delayMs = backoffMs(attempt);
         attempt += 1;
         await sleep(delayMs);
         continue;
       }
+      options?.logger?.error('computed:outbox:transaction_unexpected_error', {
+        operation: options?.operation,
+        hasTransaction,
+        attempt,
+        ...options?.logContext,
+        ...toErrorLogFields(error),
+      });
       lastUnexpectedError = error;
       break;
     }

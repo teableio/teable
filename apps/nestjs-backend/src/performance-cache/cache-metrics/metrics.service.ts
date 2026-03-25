@@ -15,7 +15,8 @@ export class CacheMetricsService {
     description: 'Performance cache get time in milliseconds',
     unit: 'ms',
     advice: {
-      explicitBucketBoundaries: [1, 2, 5, 10, 25, 50, 75, 100],
+      // 1ms=hot, 5ms=warm, 25ms=cold, 50ms=slow, 100ms=miss-like
+      explicitBucketBoundaries: [1, 5, 25, 50, 100],
     },
   });
   private readonly cacheHitRate = this.meter.createGauge('performance.cache.hit.rate', {

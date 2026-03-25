@@ -289,12 +289,36 @@ const ignorePaths = [
   '/health',
 ];
 
-// Drop old semconv HTTP metrics — new semconv (http.*.request.duration) is used in all dashboards;
-// the old names (http.server.duration, http.client.duration) are pure duplicates with high cardinality.
-const dropAggregation = { type: AggregationType.DROP } as const;
+// ─────────────────────────────────────────────────────────────────────────────
+// Metric views — control auto-instrumented metrics we can't change at source.
+//
+// SigNoz charges per metric sample.  Each histogram with N bucket boundaries
+// generates (N + 4) time-series per unique label combination.
+// With ~200 HTTP routes × 14 default buckets × pods → billions of samples/month.
+// ─────────────────────────────────────────────────────────────────────────────
+const drop = { type: AggregationType.DROP } as const;
+const buckets = (boundaries: number[]) =>
+  ({ type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM, boundaries }) as const;
+
 const metricViews = [
-  { instrumentName: 'http.server.duration', aggregation: dropAggregation },
-  { instrumentName: 'http.client.duration', aggregation: dropAggregation },
+  // Drop old semconv duplicates (replaced by http.*.request.duration)
+  { instrumentName: 'http.server.duration', aggregation: drop },
+  { instrumentName: 'http.client.duration', aggregation: drop },
+
+  // Reduce high-cardinality auto-instrumented histograms from 14 → 5~6 buckets
+  // 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow
+  {
+    instrumentName: 'db.client.operation.duration',
+    aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
+  },
+  // 50ms=fast, 250ms=normal, 1s=slow, 5s=very-slow, 30s=timeout
+  { instrumentName: 'http.client.request.duration', aggregation: buckets([0.05, 0.25, 1, 5, 30]) },
+
+  // 10ms=static, 50ms=fast-api, 250ms=normal, 1s=slow, 5s=very-slow, 10s=timeout
+  {
+    instrumentName: 'http.server.request.duration',
+    aggregation: buckets([0.01, 0.05, 0.25, 1, 5, 10]),
+  },
 ];
 
 const otelSDK = new opentelemetry.NodeSDK({

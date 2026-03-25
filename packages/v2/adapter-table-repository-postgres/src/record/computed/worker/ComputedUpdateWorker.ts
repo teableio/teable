@@ -41,6 +41,7 @@ import {
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
+import { toErrorLogFields } from '../errorLog';
 import type {
   AnyOutboxItem,
   ComputedUpdateOutboxConfig,
@@ -411,14 +412,35 @@ export class ComputedUpdateWorker {
       computedOriginRunIds: computedTask.originRunIds,
       computedTaskId: computedTask.id,
     };
+    let failurePhase:
+      | 'deserialize_plan'
+      | 'collect_seed_field_ids'
+      | 'collect_seed_table_ids'
+      | 'acquire_locks'
+      | 'execute_plan'
+      | 'publish_events'
+      | 'collect_dirty_seed_groups'
+      | 'plan_next_stage'
+      | 'enqueue_next_stage'
+      | 'mark_done' = 'deserialize_plan';
+    const logTaskFailure = (error: unknown) => {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        phase: failurePhase,
+        stageDepth: computedTask.stageDepth ?? 0,
+        stepCount: computedTask.steps.length,
+        edgeCount: computedTask.edges.length,
+        seedRecordCount: computedTask.seedRecordIds.length,
+        extraSeedGroupCount: computedTask.extraSeedRecords.length,
+        affectedFieldCount: computedTask.affectedFieldIds.length,
+        ...toErrorLogFields(error),
+        ...runLogContext,
+      });
+    };
     const payload = toPayload(computedTask);
     const planResult = deserializeComputedUpdatePlan(payload);
     if (planResult.isErr()) {
-      this.logger.error('computed:outbox:task_failed', {
-        taskId: computedTask.id,
-        error: planResult.error.message,
-        ...runLogContext,
-      });
+      logTaskFailure(planResult.error);
       await this.handleTaskFailure(computedTask, planResult.error.message, context);
       return err(planResult.error);
     }
@@ -430,24 +452,18 @@ export class ComputedUpdateWorker {
     const runId = computedTask.runId?.length ? computedTask.runId : undefined;
     const originRunIds = computedTask.originRunIds?.length ? computedTask.originRunIds : undefined;
 
+    failurePhase = 'collect_seed_field_ids';
     const stageFieldIdsResult = collectSeedFieldIds(computedTask);
     if (stageFieldIdsResult.isErr()) {
-      this.logger.error('computed:outbox:task_failed', {
-        taskId: computedTask.id,
-        error: stageFieldIdsResult.error.message,
-        ...runLogContext,
-      });
+      logTaskFailure(stageFieldIdsResult.error);
       await this.handleTaskFailure(computedTask, stageFieldIdsResult.error.message, context);
       return err(stageFieldIdsResult.error);
     }
 
+    failurePhase = 'collect_seed_table_ids';
     const stageTableIdsResult = collectSeedTableIds(computedTask);
     if (stageTableIdsResult.isErr()) {
-      this.logger.error('computed:outbox:task_failed', {
-        taskId: computedTask.id,
-        error: stageTableIdsResult.error.message,
-        ...runLogContext,
-      });
+      logTaskFailure(stageTableIdsResult.error);
       await this.handleTaskFailure(computedTask, stageTableIdsResult.error.message, context);
       return err(stageTableIdsResult.error);
     }
@@ -462,11 +478,13 @@ export class ComputedUpdateWorker {
         taskId: computedTask.id,
       });
 
+      failurePhase = 'acquire_locks';
       const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
         logContext: runLogContext,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
+      failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(planResult.value, txContext, run, {
         collectChanges: true,
       });
@@ -477,6 +495,7 @@ export class ComputedUpdateWorker {
         planResult.value.baseId
       );
       if (events.length > 0) {
+        failurePhase = 'publish_events';
         const publishResult = await this.eventBus.publishMany(txContext, events);
         if (publishResult.isErr()) {
           this.logger.warn('computed:worker:events_publish_failed', {
@@ -494,12 +513,14 @@ export class ComputedUpdateWorker {
       }
 
       const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
+      failurePhase = 'collect_dirty_seed_groups';
       const seedGroupsResult = await this.updater.collectDirtySeedGroups(
         txContext,
         stageTableIdsResult.value
       );
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
 
+      failurePhase = 'plan_next_stage';
       const nextPlanResult = await this.planNextStage(
         planResult.value,
         txContext,
@@ -536,11 +557,13 @@ export class ComputedUpdateWorker {
             stageDepth: currentStageDepth + 1,
           });
 
+          failurePhase = 'enqueue_next_stage';
           const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
           if (enqueueResult.isErr()) return err(enqueueResult.error);
         }
       }
 
+      failurePhase = 'mark_done';
       const doneResult = await this.outbox.markDone(computedTask, txContext);
       if (doneResult.isErr()) return err(doneResult.error);
       if (!doneResult.value) return ok(false);
@@ -548,11 +571,7 @@ export class ComputedUpdateWorker {
       return ok(true);
     });
     if (executeResult.isErr()) {
-      this.logger.error('computed:outbox:task_failed', {
-        taskId: computedTask.id,
-        error: executeResult.error.message,
-        ...runLogContext,
-      });
+      logTaskFailure(executeResult.error);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context);
       return err(executeResult.error);
     }
@@ -743,6 +762,33 @@ export class ComputedUpdateWorker {
       computedTaskId: task.id,
       taskType: 'seed',
     };
+    let failurePhase:
+      | 'deserialize_seed_payload'
+      | 'load_seed_table'
+      | 'plan_seed'
+      | 'acquire_locks'
+      | 'execute_plan'
+      | 'publish_events'
+      | 'collect_dirty_seed_groups'
+      | 'plan_next_stage'
+      | 'enqueue_next_stage'
+      | 'mark_done' = 'deserialize_seed_payload';
+    const logSeedFailure = (
+      error: unknown,
+      logType:
+        | 'computed:worker:seed_failed'
+        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed'
+    ) => {
+      this.logger.error(logType, {
+        taskId: task.id,
+        phase: failurePhase,
+        seedTableId: task.seedTableId,
+        seedRecordCount: task.seedRecordIds.length,
+        changedFieldCount: task.changedFieldIds.length,
+        ...toErrorLogFields(error),
+        ...runLogContext,
+      });
+    };
 
     this.logger.debug('computed:worker:seed_start', {
       taskId: task.id,
@@ -755,11 +801,7 @@ export class ComputedUpdateWorker {
     // Deserialize seed payload to domain objects
     const seedPayloadResult = deserializeSeedPayload(task);
     if (seedPayloadResult.isErr()) {
-      this.logger.error('computed:worker:seed_failed', {
-        taskId: task.id,
-        error: seedPayloadResult.error.message,
-        ...runLogContext,
-      });
+      logSeedFailure(seedPayloadResult.error);
       await this.handleTaskFailure(task, seedPayloadResult.error.message, context);
       return err(seedPayloadResult.error);
     }
@@ -767,14 +809,11 @@ export class ComputedUpdateWorker {
     const seedData = seedPayloadResult.value;
 
     // Load table with fields
+    failurePhase = 'load_seed_table';
     const tableSpec = TableByIdSpec.create(seedData.seedTableId);
     const tableResult = await this.tableRepository.findOne(context, tableSpec);
     if (tableResult.isErr()) {
-      this.logger.error('computed:worker:seed_failed', {
-        taskId: task.id,
-        error: tableResult.error.message,
-        ...runLogContext,
-      });
+      logSeedFailure(tableResult.error);
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
@@ -782,16 +821,13 @@ export class ComputedUpdateWorker {
     const table = tableResult.value;
     if (!table) {
       const message = `Table not found: ${task.seedTableId}`;
-      this.logger.error('computed:worker:seed_failed', {
-        taskId: task.id,
-        error: message,
-        ...runLogContext,
-      });
+      logSeedFailure(message);
       await this.handleTaskFailure(task, message, context);
       return err(domainError.notFound({ code: 'table.not_found', message }));
     }
 
     // Compute the full plan from seed data
+    failurePhase = 'plan_seed';
     const planResult = await this.planner.plan(
       {
         table,
@@ -809,11 +845,7 @@ export class ComputedUpdateWorker {
       context
     );
     if (planResult.isErr()) {
-      this.logger.error('computed:worker:seed_plan_failed', {
-        taskId: task.id,
-        error: planResult.error.message,
-        ...runLogContext,
-      });
+      logSeedFailure(planResult.error, 'computed:worker:seed_plan_failed');
       await this.handleTaskFailure(task, planResult.error.message, context);
       return err(planResult.error);
     }
@@ -844,11 +876,13 @@ export class ComputedUpdateWorker {
         taskId: task.id,
       });
 
+      failurePhase = 'acquire_locks';
       const lockResult = await this.updater.acquireLocks(plan, txContext, {
         logContext: runLogContext,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
+      failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(plan, txContext, run, {
         collectChanges: true,
       });
@@ -857,6 +891,7 @@ export class ComputedUpdateWorker {
       // Publish events for computed updates
       const events = buildComputedUpdateEvents(stageResult.value.changesByStep, plan.baseId);
       if (events.length > 0) {
+        failurePhase = 'publish_events';
         const publishResult = await this.eventBus.publishMany(txContext, events);
         if (publishResult.isErr()) {
           this.logger.warn('computed:worker:seed_events_publish_failed', {
@@ -875,6 +910,7 @@ export class ComputedUpdateWorker {
 
       // Collect seed groups for next stage
       const stageTableIds = plan.steps.map((step) => step.tableId);
+      failurePhase = 'collect_dirty_seed_groups';
       const seedGroupsResult = await this.updater.collectDirtySeedGroups(txContext, stageTableIds);
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
 
@@ -888,6 +924,7 @@ export class ComputedUpdateWorker {
         return ok(true);
       }
       const stageFieldIds = plan.steps.flatMap((step) => step.fieldIds);
+      failurePhase = 'plan_next_stage';
       const nextPlanResult = await this.planNextStage(
         plan,
         txContext,
@@ -914,11 +951,13 @@ export class ComputedUpdateWorker {
           stageDepth: 1,
         });
 
+        failurePhase = 'enqueue_next_stage';
         const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
         if (enqueueResult.isErr()) return err(enqueueResult.error);
       }
 
       // Mark seed task as done
+      failurePhase = 'mark_done';
       const doneResult = await this.outbox.markDone(task, txContext);
       if (doneResult.isErr()) return err(doneResult.error);
       if (!doneResult.value) return ok(false);
@@ -927,11 +966,7 @@ export class ComputedUpdateWorker {
     });
 
     if (executeResult.isErr()) {
-      this.logger.error('computed:worker:seed_failed', {
-        taskId: task.id,
-        error: executeResult.error.message,
-        ...runLogContext,
-      });
+      logSeedFailure(executeResult.error);
       await this.handleTaskFailure(task, executeResult.error.message, context);
       return err(executeResult.error);
     }

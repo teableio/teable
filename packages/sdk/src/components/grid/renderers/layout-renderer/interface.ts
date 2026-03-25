@@ -98,6 +98,7 @@ export interface ICacheDrawerProps {
 export interface IGroupStatisticDrawerProps extends IRectangle {
   theme: IGridTheme;
   bgColor?: string;
+  hoverBgColor?: string;
   isHovered: boolean;
   text?: string;
   textOffsetY?: number;
