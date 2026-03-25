@@ -150,6 +150,10 @@ class InMemoryTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

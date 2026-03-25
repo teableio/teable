@@ -34,7 +34,9 @@ const darkTheme = {
   columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
   // Column Statistic
-  columnStatisticBgHovered: colors.zinc[800],
+  columnStatisticBgHoveredPrimary: '#262729',
+  columnStatisticBgHoveredSecondary: '#2C2C2E',
+  columnStatisticBgHoveredTertiary: '#323233',
 
   // Row Header
   rowHeaderTextColor: colors.zinc[200],

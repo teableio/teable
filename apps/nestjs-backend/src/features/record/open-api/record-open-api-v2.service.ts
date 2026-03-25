@@ -1511,9 +1511,22 @@ export class RecordOpenApiV2Service {
         const isCheckboxField =
           fieldMeta?.type === FieldType.Checkbox ||
           fieldMeta?.cellValueType === CellValueType.Boolean;
-        if (operator === 'is' && isCheckboxField) {
-          value = false;
+        if (isCheckboxField) {
+          if (operator === 'is') {
+            value = false;
+          } else if (operator === 'isNot') {
+            value = true;
+          } else {
+            return null;
+          }
         } else {
+          // For non-checkbox fields, is/isNot with null means isEmpty/isNotEmpty
+          if (operator === 'is') {
+            return { fieldId: node.fieldId, operator: 'isEmpty', value: null };
+          }
+          if (operator === 'isNot') {
+            return { fieldId: node.fieldId, operator: 'isNotEmpty', value: null };
+          }
           return null;
         }
       }
@@ -1662,12 +1675,11 @@ export class RecordOpenApiV2Service {
     }
 
     if (rawValue == null) {
-      if (operator === 'is') {
-        return {
-          fieldId: filter.fieldId,
-          operator,
-          value: null,
-        };
+      // V1 uses {operator: "is", value: null} for "field is empty"
+      // and {operator: "isNot", value: null} for "field is not empty"
+      // Preserve the filter as-is; v2 core handles is/isNot with null value
+      if (operator === 'is' || operator === 'isNot') {
+        return { fieldId: filter.fieldId, operator, value: null };
       }
       return null;
     }
@@ -1810,7 +1822,9 @@ export class RecordOpenApiV2Service {
     }
 
     if (value == null) {
-      if (operator === 'is') return filter;
+      if (operator === 'is' || operator === 'isNot') {
+        return { fieldId: filter.fieldId, operator, value: null };
+      }
       return null;
     }
     return filter;

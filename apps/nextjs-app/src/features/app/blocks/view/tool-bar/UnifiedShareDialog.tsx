@@ -106,7 +106,7 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
                 <TabsTrigger value="view">{t('table:baseShare.shareViewTab')}</TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="table" className="mt-0 max-h-[60vh] overflow-y-auto px-6 pb-6">
+            <TabsContent value="table" className="mt-0 max-h-[60vh] overflow-y-auto px-6 pb-1">
               <NodeShareContent
                 baseId={baseId}
                 nodeId={currentNode.nodeId}
@@ -114,12 +114,12 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
                 hideHeader
               />
             </TabsContent>
-            <TabsContent value="view" className="mt-0 max-h-[60vh] overflow-y-auto px-6 pb-6">
+            <TabsContent value="view" className="mt-0 max-h-[60vh] overflow-y-auto px-6 pb-1">
               <ShareViewContent />
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="max-h-[60vh] overflow-y-auto px-6 pb-6">
+          <div className="max-h-[60vh] overflow-y-auto px-6 pb-1">
             <NodeShareContent
               baseId={baseId}
               nodeId={currentNode.nodeId}

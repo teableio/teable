@@ -10,6 +10,7 @@ import { useBrand } from '@/features/app/hooks/useBrand';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
+import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
@@ -29,14 +30,16 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const disallowSignUp = useDisallowSignUp();
   const hasInvitationRedirect = useMemo(() => {
     try {
-      const url = new URL(redirect, window.location.origin);
+      const base =
+        typeof window !== 'undefined' ? window.location.origin : 'http://placeholder.local';
+      const url = new URL(redirect, base);
       return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
     } catch {
       return false;
     }
   }, [redirect]);
   const onSuccess = useCallback(() => {
-    if (redirect) {
+    if (redirect && isValidRedirectPath(redirect)) {
       router.push(redirect);
     } else {
       router.push({
