@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
@@ -89,6 +89,7 @@ describe('ListTablesHandler', () => {
       find: async () => err(domainError.unexpected({ message: 'repository error' })),
       updateOne: async (_context, _table, _mutateSpec) =>
         err(domainError.unexpected({ message: 'nope' })),
+      restore: async () => ok(undefined),
       delete: async () => err(domainError.unexpected({ message: 'nope' })),
     };
 

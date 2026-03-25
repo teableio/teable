@@ -20,11 +20,8 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import {
   flattenUndoRedoCommands,
@@ -32,47 +29,12 @@ import {
   type UndoRedoDeleteFieldCommandData,
 } from '../ports/UndoRedoStore';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { CreateFieldsCommand } from './CreateFieldsCommand';
 import { CreateFieldsHandler } from './CreateFieldsHandler';
 
-const createContext = (windowId?: string): IExecutionContext => ({
-  actorId: ActorId.create('system')._unsafeUnwrap(),
-  ...(windowId ? { windowId } : {}),
-});
-
-class InMemoryTableRepository implements ITableRepository {
-  tables: Table[] = [];
-
-  async insert(_context: IExecutionContext, table: Table) {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) {
-      return err(domainError.notFound({ message: 'Not found' }));
-    }
-    return ok(match);
-  }
-
-  async find(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
+class TestTableRepository extends FakeTableRepository {
+  override async updateOne(
     _context: IExecutionContext,
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
@@ -84,15 +46,12 @@ class InMemoryTableRepository implements ITableRepository {
     this.tables[index] = table;
     return ok(undefined);
   }
-
-  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
 }
+
+const createContext = (windowId?: string): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+  ...(windowId ? { windowId } : {}),
+});
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   lastMutateSpec: ISpecification<Table, ITableSpecVisitor> | undefined;
@@ -206,7 +165,7 @@ describe('CreateFieldsHandler', () => {
     const formulaAId = `fld${'q'.repeat(16)}`;
     const formulaBId = `fld${'r'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const tableSchemaRepository = new FakeTableSchemaRepository();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -322,7 +281,7 @@ describe('CreateFieldsHandler', () => {
     const linkFieldId = `fld${'f'.repeat(16)}`;
     const lookupFieldId = `fld${'g'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       new FakeTableSchemaRepository(),
@@ -419,7 +378,7 @@ describe('CreateFieldsHandler', () => {
     const numberFieldId = `fld${'k'.repeat(16)}`;
     const formulaFieldId = `fld${'l'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       new FakeTableSchemaRepository(),

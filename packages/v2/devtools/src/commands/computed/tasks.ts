@@ -2,11 +2,12 @@ import { Command, Options } from '@effect/cli';
 import type { Option } from 'effect';
 import { Effect } from 'effect';
 import { CliError } from '../../errors/CliError';
-import { Output } from '../../services/Output';
 import {
   ComputedTaskInspector,
   type ComputedTaskStatus,
 } from '../../services/ComputedTaskInspector';
+import { Output } from '../../services/Output';
+import { asCsvTable, writeTableCsv } from '../../utils';
 import {
   baseIdsOption,
   csvPathOption,
@@ -21,7 +22,6 @@ import {
   updatedFromOption,
   updatedToOption,
 } from '../shared';
-import { asCsvTable, writeTableCsv } from '../../utils';
 
 const statusesOption = Options.text('statuses').pipe(
   Options.withDescription('Comma-separated statuses: pending,processing,dead'),

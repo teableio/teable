@@ -27,9 +27,9 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldHandler } from './DeleteFieldHandler';
 import {
@@ -106,33 +106,10 @@ const buildTable = () => {
   };
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   updated: Table[] = [];
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
-  }
-
-  async find(
+  override async find(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
@@ -140,16 +117,12 @@ class FakeTableRepository implements ITableRepository {
     return ok(this.tables);
   }
 
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     table: Table,
     __: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     this.updated.push(table);
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -248,7 +221,7 @@ const buildEvent = (): IDomainEvent => ({
 describe('DeleteFieldHandler', () => {
   it('deletes a field and runs side effects', async () => {
     const { table, baseId, tableId, secondaryFieldId } = buildTable();
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const schemaRepository = new FakeTableSchemaRepository();
@@ -297,7 +270,7 @@ describe('DeleteFieldHandler', () => {
 
   it('returns not found when field is missing', async () => {
     const { table, baseId, tableId } = buildTable();
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const handler = new DeleteFieldHandler(
@@ -386,7 +359,7 @@ describe('DeleteFieldHandler', () => {
       .addField(hostLinkField, { foreignTables: [sourceTable] })
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(sourceTable, hostTable);
 
     const snapshotService = new FakeFieldUndoRedoSnapshotService();
@@ -436,7 +409,7 @@ describe('DeleteFieldHandler', () => {
 
   it('skips plugins that do not support delete', async () => {
     const { table, baseId, tableId, secondaryFieldId } = buildTable();
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const tableUpdateFlow = new TableUpdateFlow(

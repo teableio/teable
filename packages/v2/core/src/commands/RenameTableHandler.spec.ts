@@ -14,13 +14,11 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
 
@@ -40,42 +38,11 @@ const buildTable = (baseIdSeed: string, name: string): Table => {
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   updated: Table[] = [];
   failUpdate: DomainError | undefined;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const found = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!found) return err(domainError.notFound({ message: 'Not found' }));
-    return ok(found);
-  }
-
-  async find(
-    _: IExecutionContext,
-    __: ISpecification<Table, ITableSpecVisitor>,
-    ___?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok([]);
-  }
-
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     targetTable: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
@@ -91,10 +58,6 @@ class FakeTableRepository implements ITableRepository {
       return updatedTable;
     });
     if (!updated) return err(domainError.notFound({ message: 'Not found' }));
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -161,7 +124,7 @@ class FakeUnitOfWork implements IUnitOfWork {
 describe('RenameTableHandler', () => {
   it('renames tables and publishes events', async () => {
     const table = buildTable('a', 'Old Name');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
@@ -185,7 +148,7 @@ describe('RenameTableHandler', () => {
 
   it('returns not found when table is missing', async () => {
     const table = buildTable('b', 'Missing');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     const handler = new RenameTableHandler(
       new TableUpdateFlow(
         repo,

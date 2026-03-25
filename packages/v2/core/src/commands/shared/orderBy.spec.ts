@@ -75,7 +75,7 @@ describe('orderBy helpers', () => {
   it('merges group + sort and appends auto number as the stable tie-breaker', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
-    const merged = mergeOrderBy(groupBy, sortBy, viewId);
+    const merged = mergeOrderBy(groupBy, sortBy as any, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
       [
         {
@@ -131,11 +131,11 @@ describe('orderBy helpers', () => {
 
   it('deduplicates repeated fields and keeps auto number as the fallback when sorting exists', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
-    const sortBy = [
+    const sortBy: TableRecordOrderBy[] = [
       ...resolveOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap()!,
       { column: `__row_${viewId}`, direction: 'asc' } as const,
     ];
-    const merged = mergeOrderBy(groupBy, sortBy, viewId);
+    const merged = mergeOrderBy(groupBy, sortBy as any, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
       [
         {

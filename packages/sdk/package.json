@@ -27,6 +27,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
+    "./model": {
+      "@teable/source": "./src/model/index.ts",
+      "types": "./dist/model/index.d.ts",
+      "import": "./dist/model/index.js",
+      "require": "./dist/model/index.js"
+    },
     "./ui.config": {
       "import": "./ui.config.cjs",
       "require": "./ui.config.cjs",

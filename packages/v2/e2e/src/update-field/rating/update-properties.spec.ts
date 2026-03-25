@@ -1,6 +1,6 @@
 import type { IFieldDto } from '@teable/v2-contract-http';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { RatingIcon } from '@teable/v2-core';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
 type RatingFieldDto = IFieldDto & {

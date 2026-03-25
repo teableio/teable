@@ -28,6 +28,7 @@ module.exports = {
         'no-console': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-empty-function': 'off',
+        'require-yield': 'off',
       },
     },
   ],

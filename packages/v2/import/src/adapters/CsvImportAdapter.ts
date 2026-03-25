@@ -1,7 +1,3 @@
-import Papa from 'papaparse';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -10,6 +6,9 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import Papa from 'papaparse';
 
 /**
  * CSV Import Adapter

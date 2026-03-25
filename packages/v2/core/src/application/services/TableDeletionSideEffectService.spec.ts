@@ -29,9 +29,9 @@ import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
-import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
+import { FakeTableRepository } from '../../testkit';
 import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
 import { FieldUpdateSideEffectService } from './FieldUpdateSideEffectService';
 import { LinkFieldUpdateSideEffectService } from './LinkFieldUpdateSideEffectService';
@@ -200,15 +200,21 @@ const createHostTable = (
   return builtHost;
 };
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly tablesById: Map<string, Table>) {}
+class TestTableRepository extends FakeTableRepository {
+  private readonly tablesById: Map<string, Table>;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
+  constructor(tablesById: Map<string, Table>) {
+    super();
+    this.tablesById = tablesById;
+    this.tables = [...tablesById.values()];
+  }
+
+  override async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tablesById.set(table.id().toString(), table);
     return ok(table);
   }
 
-  async insertMany(
+  override async insertMany(
     _: IExecutionContext,
     tables: ReadonlyArray<Table>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
@@ -216,7 +222,7 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async findOne(
+  override async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
@@ -225,7 +231,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(table);
   }
 
-  async find(
+  override async find(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     __?: IFindOptions<TableSortKey>
@@ -233,7 +239,7 @@ class FakeTableRepository implements ITableRepository {
     return ok([...this.tablesById.values()].filter((candidate) => spec.isSatisfiedBy(candidate)));
   }
 
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     table: Table,
     __: ISpecification<Table, ITableSpecVisitor>
@@ -242,7 +248,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  override async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.tablesById.delete(table.id().toString());
     return ok(undefined);
   }
@@ -312,7 +318,7 @@ describe('TableDeletionSideEffectService', () => {
   it('converts incoming links to text and marks all foreign-table dependents errored', async () => {
     const deletedTable = createDeletedTable();
     const hostTable = createHostTable(deletedTable);
-    const tableRepository = new FakeTableRepository(
+    const tableRepository = new TestTableRepository(
       new Map([
         [deletedTable.id().toString(), deletedTable],
         [hostTable.id().toString(), hostTable],
@@ -366,7 +372,7 @@ describe('TableDeletionSideEffectService', () => {
   it('keeps hook-bearing link conversion isolated and batches the remaining delete-table reactions', async () => {
     const deletedTable = createDeletedTable();
     const hostTable = createHostTable(deletedTable);
-    const tableRepository = new FakeTableRepository(
+    const tableRepository = new TestTableRepository(
       new Map([
         [deletedTable.id().toString(), deletedTable],
         [hostTable.id().toString(), hostTable],
@@ -403,7 +409,7 @@ describe('TableDeletionSideEffectService', () => {
       baseId: otherBaseId,
       crossBase: true,
     });
-    const tableRepository = new FakeTableRepository(
+    const tableRepository = new TestTableRepository(
       new Map([
         [deletedTable.id().toString(), deletedTable],
         [hostTable.id().toString(), hostTable],

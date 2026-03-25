@@ -2,8 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordReorderService } from '../application/services/RecordReorderService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -30,12 +30,10 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
-import { NoopLogger } from '../ports/defaults/NoopLogger';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type {
@@ -46,16 +44,16 @@ import type {
   UpdateManyResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { UpdateRecordsCommand } from './UpdateRecordsCommand';
-import { UpdateRecordsHandler } from './UpdateRecordsHandler';
+import { FakeTableRepository } from '../testkit';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordsCommand } from './UpdateRecordsCommand';
+import { UpdateRecordsHandler } from './UpdateRecordsHandler';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -63,7 +61,7 @@ const createContext = (): IExecutionContext => {
 };
 
 const createTableUpdateFlow = (
-  tableRepository: FakeTableRepository,
+  tableRepository: TestTableRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
@@ -112,54 +110,15 @@ const buildTable = () => {
   };
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   updated: Table[] = [];
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     this.updated.push(table);
-    return ok(undefined);
-  }
-
-  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -409,7 +368,7 @@ class FakeUndoRedoService {
 }
 
 const createHandler = (
-  tableRepository: FakeTableRepository,
+  tableRepository: TestTableRepository,
   recordRepository: FakeTableRecordRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork,
@@ -446,7 +405,7 @@ describe('UpdateRecordsHandler', () => {
     const recordIdA = `rec${'a'.repeat(16)}`;
     const recordIdB = `rec${'b'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();
@@ -521,7 +480,7 @@ describe('UpdateRecordsHandler', () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordId = `rec${'z'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();
@@ -574,7 +533,7 @@ describe('UpdateRecordsHandler', () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordIdA = `rec${'c'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();
@@ -630,7 +589,7 @@ describe('UpdateRecordsHandler', () => {
       accept: () => ok(undefined),
     } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();
@@ -686,7 +645,7 @@ describe('UpdateRecordsHandler', () => {
     const recordIdA = `rec${'m'.repeat(16)}`;
     const recordIdB = `rec${'n'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     const queryRepository = new FakeTableRecordQueryRepository();
@@ -781,7 +740,7 @@ describe('UpdateRecordsHandler', () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordId = `rec${'w'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     recordRepository.updateManyStreamVersions.set(recordId, 17);
@@ -833,7 +792,7 @@ describe('UpdateRecordsHandler', () => {
     const existingRecordId = `rec${'h'.repeat(16)}`;
     const missingRecordId = `rec${'i'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     const queryRepository = new FakeTableRecordQueryRepository();
@@ -897,7 +856,7 @@ describe('UpdateRecordsHandler', () => {
       accept: () => ok(undefined),
     } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     const queryRepository = new FakeTableRecordQueryRepository();
@@ -970,7 +929,7 @@ describe('UpdateRecordsHandler', () => {
     const recordIdB = `rec${'p'.repeat(16)}`;
     const viewId = `viw${'q'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     const queryRepository = new FakeTableRecordQueryRepository();
@@ -1036,7 +995,7 @@ describe('UpdateRecordsHandler', () => {
     const { table, tableId, singleSelectFieldId } = buildTable();
     const recordId = `rec${'r'.repeat(16)}`;
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
     const queryRepository = new FakeTableRecordQueryRepository();
@@ -1085,7 +1044,7 @@ describe('UpdateRecordsHandler', () => {
   it('returns early when the filter matches no records', async () => {
     const { table, tableId, textFieldId, singleSelectFieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const recordRepository = new FakeTableRecordRepository();

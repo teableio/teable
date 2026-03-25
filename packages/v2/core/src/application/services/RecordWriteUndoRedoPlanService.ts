@@ -3,9 +3,9 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import { Table } from '../../domain/table/Table';
-import { IExecutionContext } from '../../ports/ExecutionContext';
+import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
+import type { Table } from '../../domain/table/Table';
+import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';

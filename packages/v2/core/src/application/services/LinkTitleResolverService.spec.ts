@@ -17,7 +17,7 @@ import { TableName } from '../../domain/table/TableName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type { ITableRepository } from '../../ports/TableRepository';
+import { FakeTableRepository } from '../../testkit';
 import { LinkTitleResolverService } from './LinkTitleResolverService';
 
 const createContext = (): IExecutionContext => {
@@ -49,31 +49,18 @@ const buildNumberTable = (baseSeed: string, tableSeed: string) => {
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly table: Table) {}
-
-  async insert() {
-    return ok(this.table);
+class TestTableRepository extends FakeTableRepository {
+  constructor(table: Table) {
+    super();
+    this.tables = [table];
   }
 
-  async insertMany() {
-    return ok([this.table]);
+  override async findOne() {
+    return ok(this.tables[0]);
   }
 
-  async findOne() {
-    return ok(this.table);
-  }
-
-  async find() {
-    return ok([this.table]);
-  }
-
-  async updateOne() {
-    return ok(undefined);
-  }
-
-  async delete() {
-    return ok(undefined);
+  override async find() {
+    return ok([this.tables[0]]);
   }
 }
 
@@ -102,7 +89,7 @@ describe('LinkTitleResolverService', () => {
     const spec = SetLinkValueByTitleSpec.create(fieldId, foreignTableId, ['Alpha']);
 
     const service = new LinkTitleResolverService(
-      new FakeTableRepository(buildTextTable('a', 'c')),
+      new TestTableRepository(buildTextTable('a', 'c')),
       new FakeRecordQueryRepository([])
     );
 
@@ -128,7 +115,7 @@ describe('LinkTitleResolverService', () => {
     ];
 
     const service = new LinkTitleResolverService(
-      new FakeTableRepository(table),
+      new TestTableRepository(table),
       new FakeRecordQueryRepository(records)
     );
 
@@ -154,7 +141,7 @@ describe('LinkTitleResolverService', () => {
     ];
 
     const service = new LinkTitleResolverService(
-      new FakeTableRepository(table),
+      new TestTableRepository(table),
       new FakeRecordQueryRepository(records)
     );
 
@@ -182,7 +169,7 @@ describe('LinkTitleResolverService', () => {
     ];
 
     const service = new LinkTitleResolverService(
-      new FakeTableRepository(table),
+      new TestTableRepository(table),
       new FakeRecordQueryRepository(records)
     );
 

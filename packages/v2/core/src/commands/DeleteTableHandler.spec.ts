@@ -28,6 +28,7 @@ import type {
 } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { DeleteTableCommand } from './DeleteTableCommand';
 import { DeleteTableHandler } from './DeleteTableHandler';
 
@@ -47,27 +48,13 @@ const buildTable = (baseIdSeed: string): Table => {
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   deleted: Table[] = [];
   deleteModes: Array<'soft' | 'permanent'> = [];
   deletedTableIds = new Set<string>();
   failDelete: DomainError | undefined;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
+  override async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     options?: Pick<TableFindOptions, 'state'>
@@ -83,7 +70,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(found);
   }
 
-  async find(
+  override async find(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
@@ -91,7 +78,7 @@ class FakeTableRepository implements ITableRepository {
     return ok([]);
   }
 
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
@@ -99,7 +86,7 @@ class FakeTableRepository implements ITableRepository {
     return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
-  async delete(
+  override async delete(
     _: IExecutionContext,
     table: Table,
     options?: TableDeleteOptions
@@ -229,7 +216,7 @@ class FakeUnitOfWork implements IUnitOfWork {
 describe('DeleteTableHandler', () => {
   it('soft deletes tables without dropping schema and publishes TableTrashed', async () => {
     const table = buildTable('a');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
@@ -265,7 +252,7 @@ describe('DeleteTableHandler', () => {
 
   it('publishes side-effect post-persist events without returning them in the response payload', async () => {
     const table = buildTable('s');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
@@ -305,7 +292,7 @@ describe('DeleteTableHandler', () => {
 
   it('permanently deletes tables and publishes TableDeleted', async () => {
     const table = buildTable('p');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
@@ -335,7 +322,7 @@ describe('DeleteTableHandler', () => {
 
   it('permanently deletes an already trashed table without rerunning side effects', async () => {
     const table = buildTable('q');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     repo.deletedTableIds.add(table.id().toString());
     const schemaRepo = new FakeTableSchemaRepository();
@@ -367,7 +354,7 @@ describe('DeleteTableHandler', () => {
 
   it('returns not found when table is missing', async () => {
     const table = buildTable('b');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     const handler = new DeleteTableHandler(
       repo,
       new FakeTableSchemaRepository(),
@@ -390,7 +377,7 @@ describe('DeleteTableHandler', () => {
 
   it('returns errors from repositories and event bus', async () => {
     const table = buildTable('c');
-    const repo = new FakeTableRepository();
+    const repo = new TestTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const sideEffectService = new FakeTableDeletionSideEffectService();

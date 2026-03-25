@@ -24,8 +24,8 @@ import type {
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type { ITableRepository } from '../../ports/TableRepository';
 import type { UserLookupRecord, IUserLookupService } from '../../ports/UserLookupService';
+import { FakeTableRepository } from '../../testkit';
 import { AttachmentValueResolverService } from './AttachmentValueResolverService';
 import { LinkTitleResolverService } from './LinkTitleResolverService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
@@ -67,31 +67,18 @@ class FakeUserLookupService implements IUserLookupService {
   }
 }
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly table: Table) {}
-
-  async insert() {
-    return ok(this.table);
+class TestTableRepository extends FakeTableRepository {
+  constructor(table: Table) {
+    super();
+    this.tables = [table];
   }
 
-  async insertMany() {
-    return ok([this.table]);
+  override async findOne() {
+    return ok(this.tables[0]);
   }
 
-  async findOne() {
-    return ok(this.table);
-  }
-
-  async find() {
-    return ok([this.table]);
-  }
-
-  async updateOne() {
-    return ok(undefined);
-  }
-
-  async delete() {
-    return ok(undefined);
+  override async find() {
+    return ok([this.tables[0]]);
   }
 }
 
@@ -138,7 +125,7 @@ describe('RecordMutationSpecResolverService', () => {
 
     const service = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(
-        new FakeTableRepository(buildTable()),
+        new TestTableRepository(buildTable()),
         new FakeRecordQueryRepository()
       ),
       new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
@@ -156,7 +143,7 @@ describe('RecordMutationSpecResolverService', () => {
 
     const service = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(
-        new FakeTableRepository(buildTable()),
+        new TestTableRepository(buildTable()),
         new FakeRecordQueryRepository()
       ),
       new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
@@ -174,7 +161,7 @@ describe('RecordMutationSpecResolverService', () => {
 
     const service = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(
-        new FakeTableRepository(buildTable()),
+        new TestTableRepository(buildTable()),
         new FakeRecordQueryRepository()
       ),
       new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
@@ -222,7 +209,7 @@ describe('RecordMutationSpecResolverService', () => {
 
     const service = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(
-        new FakeTableRepository(buildTable()),
+        new TestTableRepository(buildTable()),
         new FakeRecordQueryRepository()
       ),
       new AttachmentValueResolverService(attachmentLookup),
@@ -274,7 +261,7 @@ describe('RecordMutationSpecResolverService', () => {
 
     const service = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(
-        new FakeTableRepository(buildTable()),
+        new TestTableRepository(buildTable()),
         new FakeRecordQueryRepository()
       ),
       new AttachmentValueResolverService(new FakeAttachmentLookupService([])),

@@ -56,7 +56,8 @@ const hasPgDefault = (
 ): value is typeof import('pg') & {
   default: PgDefaultExport;
 } => {
-  return 'default' in value && !!value.default && 'Pool' in value.default;
+  const v = value as Record<string, unknown>;
+  return 'default' in v && !!v.default && typeof v.default === 'object' && 'Pool' in v.default;
 };
 
 type PgPoolOptions = {

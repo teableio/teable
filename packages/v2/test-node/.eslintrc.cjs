@@ -22,6 +22,16 @@ module.exports = {
     // Apply prettier and disable incompatible rules
     '@teable/eslint-config-bases/prettier-plugin',
   ],
-  rules: {},
-  overrides: [],
+  rules: {
+    '@typescript-eslint/naming-convention': 'off',
+  },
+  overrides: [
+    {
+      files: ['src/**/*.spec.ts', 'src/**/*.db.spec.ts'],
+      rules: {
+        'sonarjs/no-duplicate-string': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+  ],
 };

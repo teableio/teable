@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../../../base/BaseId';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
-import { LinkField } from '../../../fields/types/LinkField';
+import type { LinkField } from '../../../fields/types/LinkField';
 import { LinkFieldConfig } from '../../../fields/types/LinkFieldConfig';
 import { LinkFieldMeta } from '../../../fields/types/LinkFieldMeta';
 import { Table } from '../../../Table';

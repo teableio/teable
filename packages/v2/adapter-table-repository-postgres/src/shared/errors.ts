@@ -1,10 +1,10 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import {
   domainError,
   isDomainError,
   type DomainError,
   type IExecutionContext,
 } from '@teable/v2-core';
-import { tableI18nKeys } from '@teable/i18n-keys';
 
 export const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;

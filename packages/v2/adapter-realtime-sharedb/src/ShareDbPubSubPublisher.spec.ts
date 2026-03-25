@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { PubSub } from 'sharedb';
+import { describe, expect, it } from 'vitest';
 
 import { ShareDbPubSubPublisher } from './ShareDbPubSubPublisher';
 

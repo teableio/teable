@@ -1,7 +1,7 @@
-import type { IExecutionContext } from './ExecutionContext';
-import type { ICommandBus, IInternalCommandBus } from './CommandBus';
 import type { CreateBaseCommand } from '../commands/CreateBaseCommand';
 import type { PropagateUserRenameCommand } from '../commands/PropagateUserRenameCommand';
+import type { ICommandBus, IInternalCommandBus } from './CommandBus';
+import type { IExecutionContext } from './ExecutionContext';
 
 declare const context: IExecutionContext;
 declare const publicBus: ICommandBus;

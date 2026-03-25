@@ -17,8 +17,8 @@ import {
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
-import { beforeEach, describe, expect, it } from 'vitest';
 import type { Result } from 'neverthrow';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer, setV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 

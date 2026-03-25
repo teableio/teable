@@ -1,24 +1,28 @@
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import * as FieldUpdateSpecs from '..';
 import { BaseId } from '../../../../base/BaseId';
 import { domainError } from '../../../../shared/DomainError';
 import { DbFieldName } from '../../../fields/DbFieldName';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
+import { ButtonLabel } from '../../../fields/types/ButtonLabel';
+import { ButtonMaxCount } from '../../../fields/types/ButtonMaxCount';
+import { ButtonWorkflow } from '../../../fields/types/ButtonWorkflow';
 import { CellValueMultiplicity } from '../../../fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../../fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../../../fields/types/CheckboxDefaultValue';
 import { DateDefaultValue } from '../../../fields/types/DateDefaultValue';
 import { FieldColor } from '../../../fields/types/FieldColor';
 import { FormulaExpression } from '../../../fields/types/FormulaExpression';
+import { NumberDefaultValue } from '../../../fields/types/NumberDefaultValue';
+import { NumberFormatting, NumberFormattingType } from '../../../fields/types/NumberFormatting';
 import {
   MultiNumberDisplayType,
   NumberShowAs,
   SingleNumberDisplayType,
 } from '../../../fields/types/NumberShowAs';
-import { NumberDefaultValue } from '../../../fields/types/NumberDefaultValue';
-import { NumberFormatting, NumberFormattingType } from '../../../fields/types/NumberFormatting';
 import { RatingColor } from '../../../fields/types/RatingColor';
 import { RatingIcon } from '../../../fields/types/RatingIcon';
 import { RatingMax } from '../../../fields/types/RatingMax';
@@ -27,15 +31,11 @@ import { SelectDefaultValue } from '../../../fields/types/SelectDefaultValue';
 import { SelectOption } from '../../../fields/types/SelectOption';
 import { TextDefaultValue } from '../../../fields/types/TextDefaultValue';
 import { TimeZone } from '../../../fields/types/TimeZone';
-import { ButtonLabel } from '../../../fields/types/ButtonLabel';
-import { ButtonMaxCount } from '../../../fields/types/ButtonMaxCount';
-import { ButtonWorkflow } from '../../../fields/types/ButtonWorkflow';
 import { UserDefaultValue } from '../../../fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../../../fields/types/UserMultiplicity';
 import { UserNotification } from '../../../fields/types/UserNotification';
 import { Table } from '../../../Table';
 import { TableName } from '../../../TableName';
-import * as FieldUpdateSpecs from '..';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();

@@ -18,8 +18,8 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { RestoreTableCommand } from './RestoreTableCommand';
 import { RestoreTableHandler } from './RestoreTableHandler';
 
@@ -39,26 +39,12 @@ const buildTable = (baseIdSeed: string): Table => {
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   deletedTableIds = new Set<string>();
   restored: Table[] = [];
   failRestore: DomainError | undefined;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
+  override async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     options?: { state?: 'active' | 'deleted' | 'all' }
@@ -74,7 +60,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(found);
   }
 
-  async find(
+  override async find(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
@@ -82,11 +68,11 @@ class FakeTableRepository implements ITableRepository {
     return ok([]);
   }
 
-  async updateOne(): Promise<Result<void, DomainError>> {
+  override async updateOne(): Promise<Result<void, DomainError>> {
     return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
-  async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  override async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     if (this.failRestore) return err(this.failRestore);
     if (!this.deletedTableIds.has(table.id().toString())) {
       return err(domainError.notFound({ message: 'Not found' }));
@@ -96,7 +82,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+  override async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.deletedTableIds.add(table.id().toString());
     return ok(undefined);
   }
@@ -134,7 +120,7 @@ describe('RestoreTableHandler', () => {
   it('restores deleted tables and publishes TableRestored', async () => {
     const table = buildTable('a');
     table.pullDomainEvents();
-    const repository = new FakeTableRepository();
+    const repository = new TestTableRepository();
     repository.tables.push(table);
     repository.deletedTableIds.add(table.id().toString());
     const tableQueryService = new TableQueryService(repository);
@@ -158,7 +144,7 @@ describe('RestoreTableHandler', () => {
   it('returns not found when the table is not soft deleted', async () => {
     const table = buildTable('b');
     table.pullDomainEvents();
-    const repository = new FakeTableRepository();
+    const repository = new TestTableRepository();
     repository.tables.push(table);
     const tableQueryService = new TableQueryService(repository);
     const handler = new RestoreTableHandler(
@@ -180,7 +166,7 @@ describe('RestoreTableHandler', () => {
   it('propagates restore persistence errors', async () => {
     const table = buildTable('c');
     table.pullDomainEvents();
-    const repository = new FakeTableRepository();
+    const repository = new TestTableRepository();
     repository.tables.push(table);
     repository.deletedTableIds.add(table.id().toString());
     repository.failRestore = domainError.infrastructure({ message: 'restore failed' });

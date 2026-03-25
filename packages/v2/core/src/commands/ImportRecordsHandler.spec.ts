@@ -17,11 +17,9 @@ import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateRes
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type {
@@ -32,16 +30,16 @@ import type {
 import type { IImportSourceAdapter } from '../ports/import/IImportSourceAdapter';
 import type { IImportSourceRegistry } from '../ports/import/IImportSourceRegistry';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
   InsertManyStreamOptions,
   ITableRecordRepository,
   RecordMutationResult,
+  UpdateManyResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { ImportRecordsCommand } from './ImportRecordsCommand';
 import { ImportRecordsHandler } from './ImportRecordsHandler';
 import {
@@ -119,49 +117,10 @@ class FakeImportSourceRegistry implements IImportSourceRegistry {
   }
 }
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly tables: Table[]) {}
-
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(tables);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const table = this.tables.find((candidate) => spec.isSatisfiedBy(candidate));
-    if (!table) {
-      return err(domainError.notFound({ message: 'Table not found' }));
-    }
-    return ok(table);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+class TestTableRepository extends FakeTableRepository {
+  constructor(tables: Table[]) {
+    super();
+    this.tables = tables;
   }
 }
 
@@ -226,7 +185,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     ____: ICellValueSpec
-  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
+  ): Promise<Result<UpdateManyResult, DomainError>> {
     return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 
@@ -287,7 +246,7 @@ describe('ImportRecordsHandler', () => {
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
-      new FakeTableRepository([table]),
+      new TestTableRepository([table]),
       tableRecordRepository,
       {
         needsResolution: async () => ok(false),
@@ -351,7 +310,7 @@ describe('ImportRecordsHandler', () => {
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
-      new FakeTableRepository([table]),
+      new TestTableRepository([table]),
       tableRecordRepository,
       {
         needsResolution: async () => ok(false),

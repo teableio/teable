@@ -18,7 +18,7 @@ export default defineConfig({
     react({
       devTarget: 'es2022',
     }),
-    tsconfigPaths(),
+    tsconfigPaths({ projects: ['./tsconfig.test.json'] }),
     svgr({
       // svgr options: https://react-svgr.com/docs/options/
       svgrOptions: {},

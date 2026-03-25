@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
@@ -73,6 +73,7 @@ describe('GetTableByIdHandler', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      restore: async () => ok(undefined),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 

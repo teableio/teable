@@ -23,6 +23,10 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/naming-convention': 'off',
+    'no-empty': 'off',
+    '@typescript-eslint/no-empty-function': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+    'import/export': 'off',
   },
   overrides: [],
 };

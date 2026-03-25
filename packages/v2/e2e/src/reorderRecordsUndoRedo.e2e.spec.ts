@@ -6,6 +6,7 @@ import {
   UndoCommand,
   v2CoreTokens,
 } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -13,7 +14,6 @@ import {
   TEST_USER,
   type SharedTestContext,
 } from './shared/globalTestContext';
-import { sql } from 'kysely';
 
 const WINDOW_ID = 'e2e-reorder-window';
 

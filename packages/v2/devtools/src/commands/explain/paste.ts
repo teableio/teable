@@ -1,6 +1,6 @@
 import { Command, Options } from '@effect/cli';
-import { Effect, Option } from 'effect';
 import type { PasteSort, RangeType, RecordFilter, SourceFieldMeta } from '@teable/v2-core';
+import { Effect, Option } from 'effect';
 import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';
@@ -125,14 +125,15 @@ const handler = (args: {
       .explainPaste({
         tableId: args.tableId,
         viewId: args.viewId,
-        ranges,
-        content,
+        ranges: ranges as [number, number][],
+        content: content as string | unknown[][],
         type,
         filter,
         updateFilter,
-        sourceFields,
-        projection,
-        sort,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sourceFields: sourceFields as any,
+        projection: projection as string[] | undefined,
+        sort: sort as PasteSort[] | undefined,
         typecast: args.typecast,
         analyze: args.analyze,
       })

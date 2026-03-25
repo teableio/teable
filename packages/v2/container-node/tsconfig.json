@@ -30,7 +30,19 @@
     },
     "types": ["vitest/globals", "node"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../adapter-table-repository-postgres/src/**/*.spec.ts",
+    "../adapter-table-repository-postgres/src/**/__tests__/**",
+    "../adapter-repository-postgres/src/**/*.spec.ts",
+    "../adapter-record-repository-postgres/src/**/*.spec.ts",
+    "../adapter-db-postgres-pg/src/**/*.spec.ts",
+    "../adapter-csv-parser-papaparse/src/**/*.spec.ts"
+  ],
   "include": [
     "src",
     "../adapter-table-repository-postgres/src",

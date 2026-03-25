@@ -1,8 +1,10 @@
 import type { DependencyContainer } from '@teable/v2-di';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
-import type { ComputedUpdatePollingConfig } from './ComputedUpdatePollingService';
-import { ComputedUpdatePollingService } from './ComputedUpdatePollingService';
+import type {
+  ComputedUpdatePollingConfig,
+  ComputedUpdatePollingService,
+} from './ComputedUpdatePollingService';
 
 export const startComputedUpdatePollingIfEnabled = (
   container: DependencyContainer

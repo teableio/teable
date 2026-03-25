@@ -12,8 +12,8 @@ import { TableName } from '../../domain/table/TableName';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { MemoryTableRepository } from '../../ports/memory/MemoryTableRepository';
-import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
+import type { ITableRepository } from '../../ports/TableRepository';
 import { GetRecordByIdHandler } from '../GetRecordByIdHandler';
 import { GetRecordByIdQuery } from '../GetRecordByIdQuery';
 
@@ -106,6 +106,7 @@ describe('GetRecordByIdHandler', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      restore: async () => ok(undefined),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 

@@ -170,8 +170,8 @@ describe('CreateTableHandler (db)', () => {
 
     const table = execResult._unsafeUnwrap().table;
     const checker = createSchemaChecker({
-      db,
-      introspector: new PostgresSchemaIntrospector(db),
+      db: db as unknown as Kysely<V1TeableDatabase>,
+      introspector: new PostgresSchemaIntrospector(db as unknown as Kysely<V1TeableDatabase>),
       schema: baseId.toString(),
     });
 

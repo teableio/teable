@@ -10,8 +10,10 @@ import {
   type AttachmentItem,
 } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
-import { IAttachmentLookupService } from '../../ports/AttachmentLookupService';
-import type { AttachmentLookupRecord } from '../../ports/AttachmentLookupService';
+import type {
+  AttachmentLookupRecord,
+  IAttachmentLookupService,
+} from '../../ports/AttachmentLookupService';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { ICellValueSpecResolver } from './SpecResolver';

@@ -20,7 +20,11 @@ import { TableName } from '../domain/table/TableName';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { CloneViewVisitor } from '../domain/table/views/visitors/CloneViewVisitor';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { RecordWriteOperationKind, type IRecordWritePlugin } from '../ports/RecordWritePlugin';
+import {
+  RecordWriteOperationKind,
+  type IRecordWritePlugin,
+  type RecordWritePluginContext,
+} from '../ports/RecordWritePlugin';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
@@ -129,7 +133,7 @@ const createRunnerBackedRecordCreationService = (
           recordCount: 1 as const,
         },
         isTransactionBound: false,
-      });
+      } as RecordWritePluginContext);
       if (executionResult.isErr()) return err(executionResult.error);
 
       const execution = executionResult.value;

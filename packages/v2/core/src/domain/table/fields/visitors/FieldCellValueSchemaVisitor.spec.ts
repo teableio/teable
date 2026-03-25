@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { DateField } from '../types/DateField';
 import { MultipleSelectField } from '../types/MultipleSelectField';
 import { SelectOption } from '../types/SelectOption';
 import { SingleSelectField } from '../types/SingleSelectField';
-import { DateField } from '../types/DateField';
 import { FieldCellValueSchemaVisitor } from './FieldCellValueSchemaVisitor';
 
 const createFieldId = (seed: string) =>

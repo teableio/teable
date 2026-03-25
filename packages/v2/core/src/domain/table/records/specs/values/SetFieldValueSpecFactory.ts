@@ -7,9 +7,9 @@ import type { Field } from '../../../fields/Field';
 import { FieldType } from '../../../fields/FieldType';
 import { FieldCellValueSchemaVisitor } from '../../../fields/visitors/FieldCellValueSchemaVisitor';
 import { SetFieldValueSpecFactoryVisitor } from '../../../fields/visitors/SetFieldValueSpecFactoryVisitor';
+import { ClearFieldValueSpec } from './ClearFieldValueSpec';
 import type { ICellValueSpec } from './ICellValueSpecVisitor';
 import { NoopCellValueSpec } from './NoopCellValueSpec';
-import { ClearFieldValueSpec } from './ClearFieldValueSpec';
 
 /**
  * Factory for creating SetValueSpec instances.

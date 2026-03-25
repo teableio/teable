@@ -119,11 +119,13 @@ describe('undo-redo/updateField (db)', () => {
         .toString()
     ).toBe('number');
     let updatedRows = await Promise.all(
-      records.map((record) => fetchRowById(harness.db, updatedTable, record.record.id().toString()))
+      records.map((record) =>
+        fetchRowById(harness!.db, updatedTable, record.record.id().toString())
+      )
     );
     expect(updatedRows.map((row) => row?.[scoreDbName])).toEqual([42, 7, 100]);
 
-    await harness.undo(table.id().toString());
+    await harness!.undo(table.id().toString());
     expect(harness.probe.names()).toEqual([
       'UndoCommand',
       'ReplayFieldTypeConversionCommand',
@@ -139,11 +141,13 @@ describe('undo-redo/updateField (db)', () => {
         .toString()
     ).toBe('singleLineText');
     updatedRows = await Promise.all(
-      records.map((record) => fetchRowById(harness.db, updatedTable, record.record.id().toString()))
+      records.map((record) =>
+        fetchRowById(harness!.db, updatedTable, record.record.id().toString())
+      )
     );
     expect(updatedRows.map((row) => row?.[scoreDbName])).toEqual(['42', '7', '100']);
 
-    await harness.redo(table.id().toString());
+    await harness!.redo(table.id().toString());
     expect(harness.probe.names()).toEqual([
       'RedoCommand',
       'ReplayFieldTypeConversionCommand',
@@ -159,7 +163,9 @@ describe('undo-redo/updateField (db)', () => {
         .toString()
     ).toBe('number');
     updatedRows = await Promise.all(
-      records.map((record) => fetchRowById(harness.db, updatedTable, record.record.id().toString()))
+      records.map((record) =>
+        fetchRowById(harness!.db, updatedTable, record.record.id().toString())
+      )
     );
     expect(updatedRows.map((row) => row?.[scoreDbName])).toEqual([42, 7, 100]);
   });

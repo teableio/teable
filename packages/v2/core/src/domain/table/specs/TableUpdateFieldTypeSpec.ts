@@ -3,9 +3,9 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
+import type { Field } from '../fields/Field';
 import { LinkField } from '../fields/types/LinkField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
-import type { Field } from '../fields/Field';
 import type { Table } from '../Table';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 

@@ -28,7 +28,7 @@ import type { TableId } from '../domain/table/TableId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import { type ITableMapper } from '../ports/mappers/TableMapper';
-import { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';

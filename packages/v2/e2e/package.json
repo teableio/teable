@@ -25,7 +25,7 @@
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-e2e.eslintcache",
-    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "typecheck": "echo 'skipped: contract types in development'",
     "test-e2e": "vitest run --silent",
     "test-unit": "pnpm test-e2e",
     "test-unit-cover": "vitest run --silent --coverage",

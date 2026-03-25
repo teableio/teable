@@ -15,6 +15,7 @@ import {
   NumberFormatting,
   v2CoreTokens,
   type ICommandBus,
+  type IPublicCommand,
   type Table,
   CreateFieldCommand,
   CreateRecordsCommand,
@@ -271,7 +272,7 @@ const executeCommand = async <TResult>(
 ): Promise<TResult> => {
   const commandBus = container.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
   const context = { actorId: unwrapOrThrow(ActorId.create('system'), 'ActorId.create(system)') };
-  const result = await commandBus.execute(context, command);
+  const result = await commandBus.execute(context, command as IPublicCommand);
   return unwrapOrThrow(result as Result<TResult, DomainError>, 'CommandBus.execute');
 };
 

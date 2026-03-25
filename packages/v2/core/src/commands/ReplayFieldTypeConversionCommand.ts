@@ -6,9 +6,9 @@ import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
+import type { fieldSnapshotSchema } from './ApplyFieldSnapshotCommand';
 import {
   applyFieldSnapshotInputSchema,
-  fieldSnapshotSchema,
   resolveFieldSnapshotForeignTableReferences,
 } from './ApplyFieldSnapshotCommand';
 import { TableUpdateCommand } from './TableUpdateCommand';

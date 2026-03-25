@@ -24,6 +24,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/naming-convention': 'off',
     '@typescript-eslint/no-this-alias': 'off',
+    '@typescript-eslint/consistent-type-imports': 'off',
     'no-console': 'error',
   },
   overrides: [
@@ -31,6 +32,13 @@ module.exports = {
       files: ['src/specification/**/*.ts'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+    {
+      files: ['src/**/*.spec.ts', 'src/testkit/**'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-empty-function': 'off',
       },
     },
   ],

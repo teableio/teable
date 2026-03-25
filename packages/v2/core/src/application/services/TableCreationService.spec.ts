@@ -11,8 +11,8 @@ import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
+import { FakeTableRepository } from '../../testkit';
 import { TableCreationService } from './TableCreationService';
 
 const createContext = (): IExecutionContext => {
@@ -32,33 +32,25 @@ const buildTable = (baseSeed: string, tableSeed: string) => {
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
+class TestTableRepository extends FakeTableRepository {
   inserted: Table[] = [];
 
-  async insert(_context: IExecutionContext, table: Table) {
+  override async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
     return ok(table);
   }
 
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+  override async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
     this.inserted.push(...tables);
     return ok([...tables]);
   }
 
-  async findOne() {
+  override async findOne() {
     return err(domainError.notFound({ message: 'not found' }));
   }
 
-  async find() {
+  override async find() {
     return err(domainError.notFound({ message: 'not found' }));
-  }
-
-  async updateOne() {
-    return ok(undefined);
-  }
-
-  async delete() {
-    return ok(undefined);
   }
 }
 
@@ -103,7 +95,7 @@ class FakeFieldCreationSideEffectService {
 
 describe('TableCreationService', () => {
   it('returns empty results when no tables', async () => {
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const sideEffectService = new FakeFieldCreationSideEffectService();
     const service = new TableCreationService(
@@ -138,7 +130,7 @@ describe('TableCreationService', () => {
       [],
     ];
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const sideEffectService = new FakeFieldCreationSideEffectService();
     const service = new TableCreationService(

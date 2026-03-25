@@ -4,10 +4,10 @@ import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
-import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import { recordFilterSchema } from '../queries/RecordFilterDto';
 import { TableId } from '../domain/table/TableId';
+import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
+import { recordFilterSchema } from '../queries/RecordFilterDto';
 import { tableFieldInputSchema } from '../schemas/field';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';

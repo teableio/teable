@@ -468,8 +468,12 @@ describe('CreateTableHandler', () => {
         return this.fail();
       }
 
-      async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {
-        return this.fail();
+      async update(
+        _: IExecutionContext,
+        __: Table,
+        ___: ISpecification<Table, ITableSpecVisitor>
+      ): Promise<Result<Table, DomainError>> {
+        return this.fail() as unknown as Result<Table, DomainError>;
       }
 
       async delete(_: IExecutionContext, __: Table) {

@@ -28,13 +28,13 @@ import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue'
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
-import { Table } from '../domain/table/Table';
-import { TableId } from '../domain/table/TableId';
-import { TableName } from '../domain/table/TableName';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
 import { buildUpdateFieldSpecs, parseUpdateFieldSpec } from './TableFieldUpdateSpecs';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
@@ -622,7 +622,7 @@ const sameTypeCases: SameTypeCase[] = [
           .withLabel(BUTTON_LABEL_RUN)
           .withColor(BUTTON_COLOR_TEAL)
           .withMaxCount(BUTTON_MAX_THREE)
-          .withWorkflow(BUTTON_WORKFLOW)
+          .withWorkflow(BUTTON_WORKFLOW!)
           .done();
       });
       setStableDbFieldName(currentField, 'stable_button_column');

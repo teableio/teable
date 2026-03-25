@@ -54,6 +54,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
     tableRepository,
     eventBus,
     baseId: baseIdResult.value,
+    processOutbox: () => Promise.resolve(0),
     dispose: () => Promise.resolve(),
   };
 };

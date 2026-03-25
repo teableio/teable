@@ -7,12 +7,12 @@ import type {
 } from '../../../ports/mappers/TableMapper';
 import type { DomainError } from '../../shared/DomainError';
 import { TableCreated } from '../events/TableCreated';
+import { FieldId } from '../fields/FieldId';
 import { LinkField } from '../fields/types/LinkField';
 import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import type { Table } from '../Table';
 import { TableId } from '../TableId';
 import type { TableName } from '../TableName';
-import { FieldId } from '../fields/FieldId';
 import { ViewId } from '../views/ViewId';
 
 export type DuplicateMethodParams = {

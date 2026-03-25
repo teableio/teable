@@ -18,7 +18,7 @@ import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
-import { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';

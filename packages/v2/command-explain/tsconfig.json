@@ -38,7 +38,10 @@
     "./dist",
     "./coverage",
     "../core/src/**/*.spec.ts",
-    "../adapter-record-repository-postgres/src/**/*.spec.ts"
+    "../adapter-record-repository-postgres/src/**/*.spec.ts",
+    "../adapter-table-repository-postgres/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/*.spec.ts",
+    "../formula-sql-pg/src/testkit/**"
   ],
   "include": [
     "src",

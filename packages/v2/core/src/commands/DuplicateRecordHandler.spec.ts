@@ -23,11 +23,9 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
   ITableRecordQueryRepository,
@@ -36,9 +34,9 @@ import type {
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRecordRepository } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
 import { DuplicateRecordHandler } from './DuplicateRecordHandler';
 import {
@@ -61,60 +59,6 @@ const createTableUpdateFlow = (
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
-
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
-  updated: Table[] = [];
-  lastContext: IExecutionContext | undefined;
-  failFind: DomainError | undefined;
-
-  async insert(_context: IExecutionContext, table: Table) {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    this.lastContext = context;
-    if (this.failFind) return err(this.failFind);
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
-  }
-
-  async find(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    if (this.failFind) return err(this.failFind);
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _context: IExecutionContext,
-    _table: Table,
-    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    const index = this.tables.findIndex((entry) => entry.id().equals(_table.id()));
-    if (index >= 0) {
-      this.tables[index] = _table;
-    }
-    this.updated.push(_table);
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-}
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {

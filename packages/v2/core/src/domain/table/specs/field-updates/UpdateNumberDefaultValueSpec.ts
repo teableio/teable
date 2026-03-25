@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../../fields/FieldId';
-import { NumberField } from '../../fields/types/NumberField';
 import type { NumberDefaultValue } from '../../fields/types/NumberDefaultValue';
+import { NumberField } from '../../fields/types/NumberField';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 

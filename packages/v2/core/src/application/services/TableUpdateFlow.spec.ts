@@ -14,15 +14,13 @@ import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpd
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
-import type { TableSortKey } from '../../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
-import type { IFindOptions } from '../../ports/RepositoryQuery';
-import type { ITableRepository, TableUpdatePersistResult } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 
+import { FakeTableRepository } from '../../testkit';
 import { TableUpdateFlow } from './TableUpdateFlow';
 import {
   resolveLatestTableInTransactionScope,
@@ -48,46 +46,6 @@ const buildTable = () => {
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
 };
-
-class FakeTableRepository implements ITableRepository {
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    __: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    return err(domainError.notFound({ message: 'not found' }));
-  }
-
-  async find(
-    _: IExecutionContext,
-    __: ISpecification<Table, ITableSpecVisitor>,
-    ___?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok([]);
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-}
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

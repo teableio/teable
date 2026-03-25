@@ -33,5 +33,11 @@ module.exports = {
         'import/no-unresolved': 'off',
       },
     },
+    {
+      files: ['src/**/*.spec.ts'],
+      rules: {
+        'sonarjs/no-duplicate-string': 'off',
+      },
+    },
   ],
 };
