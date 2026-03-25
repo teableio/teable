@@ -53,6 +53,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     options?: {
       foreignTables?: ReadonlyArray<Table>;
       domainContext?: IDomainContext;
+      targetViewId?: ViewId;
       viewOrder?: {
         viewId: ViewId;
         order: number;
@@ -62,7 +63,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     const nextTableResult = this.currentTable.addField(field, {
       foreignTables: options?.foreignTables,
       domainContext: options?.domainContext,
-      targetViewId: options?.viewOrder?.viewId,
+      targetViewId: options?.viewOrder?.viewId ?? options?.targetViewId,
     });
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
@@ -418,6 +419,7 @@ export class TableMutator {
     field: Field,
     options?: {
       foreignTables?: ReadonlyArray<Table>;
+      targetViewId?: ViewId;
       viewOrder?: {
         viewId: ViewId;
         order: number;

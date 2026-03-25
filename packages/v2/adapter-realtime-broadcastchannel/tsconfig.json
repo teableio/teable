@@ -6,7 +6,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "target": "esnext",
     "lib": ["esnext", "dom"],
     "esModuleInterop": true,
