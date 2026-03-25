@@ -8,6 +8,7 @@ import type {
 } from 'next';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { providersAll } from '@/features/auth/components/SocialAuth';
+import { isValidRedirectPath } from './isValidRedirectPath';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GetServerSideProps<
@@ -30,7 +31,8 @@ export default function ensureLogin<P extends { [key: string]: any }>(
       // User is logged in, redirect to home page if on login page
       if (!isAnonymous(user?.id) && isLoginPage) {
         const redirect = context.query.redirect;
-        let destination = typeof redirect === 'string' ? redirect : '/space';
+        let destination =
+          typeof redirect === 'string' && isValidRedirectPath(redirect) ? redirect : '/space';
 
         const via = context.query.via;
         if (typeof via === 'string' && via) {
@@ -95,7 +97,8 @@ export default function ensureLogin<P extends { [key: string]: any }>(
 
 // Redirect to social auth if password login is disabled and only one provider is available
 function redirectSocialAuth(req: GetServerSidePropsContext['req']) {
-  const redirect = new URLSearchParams(req?.url?.split('?')[1] ?? '').get('redirect');
+  const rawRedirect = new URLSearchParams(req?.url?.split('?')[1] ?? '').get('redirect');
+  const redirect = rawRedirect && isValidRedirectPath(rawRedirect) ? rawRedirect : null;
   const envProviders = process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [];
   const envPasswordLoginDisabled = process.env.PASSWORD_LOGIN_DISABLED === 'true';
   if (envPasswordLoginDisabled && envProviders.length === 1) {
