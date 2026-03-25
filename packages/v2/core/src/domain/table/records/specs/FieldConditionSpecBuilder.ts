@@ -9,6 +9,7 @@ import type { ConditionalLookupField } from '../../fields/types/ConditionalLooku
 import type { LookupField } from '../../fields/types/LookupField';
 import type { SingleLineTextField } from '../../fields/types/SingleLineTextField';
 import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisitor';
+import { CellValueType } from '../../fields/types/CellValueType';
 import { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import { ButtonConditionSpec } from './ButtonConditionSpec';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
@@ -41,6 +42,7 @@ import type { RecordConditionSpec } from './RecordConditionSpec';
 import {
   isRecordConditionFieldReferenceValue,
   isRecordConditionLiteralListValue,
+  RecordConditionLiteralValue,
   type RecordConditionValue,
 } from './RecordConditionValues';
 import { RollupConditionSpec } from './RollupConditionSpec';
@@ -95,6 +97,30 @@ export class FieldConditionSpecBuilder {
       // Keep effectiveFieldType as conditionalLookup for spec routing.
       // If inner field is not yet resolved (e.g. during field creation),
       // fall back to the outer field for operator validation.
+    }
+
+    // V1 compatibility: is/isNot with null value means "field is empty/not empty"
+    // Normalize before operator validation since is/isNot+null is not natively valid in v2
+    if (!input.value && (input.operator === 'is' || input.operator === 'isNot')) {
+      const cellType = valueTypeResult.value.cellValueType;
+      if (cellType.equals(CellValueType.boolean())) {
+        // Checkbox: is+null → is+false (unchecked), isNot+null → is+true (checked)
+        input = {
+          ...input,
+          operator: 'is',
+          value:
+            input.operator === 'is'
+              ? RecordConditionLiteralValue.create(false)._unsafeUnwrap()
+              : RecordConditionLiteralValue.create(true)._unsafeUnwrap(),
+        };
+      } else {
+        // Other fields: is+null → isEmpty, isNot+null → isNotEmpty
+        input = {
+          ...input,
+          operator: input.operator === 'is' ? 'isEmpty' : 'isNotEmpty',
+          value: undefined,
+        };
+      }
     }
 
     const validOperators = getValidRecordConditionOperators(operatorField, valueTypeResult.value);

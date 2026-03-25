@@ -1318,7 +1318,7 @@ const splitSeedGroups = (
 
   for (const group of groups) {
     if (group.tableId === seedTableId) {
-      seedRecordIds.push(...group.recordIds);
+      for (const id of group.recordIds) seedRecordIds.push(id);
     } else {
       extraSeedRecords.push(group);
     }

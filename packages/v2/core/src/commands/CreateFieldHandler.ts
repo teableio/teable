@@ -143,6 +143,14 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
             domainContext,
           };
           if (!command.order) {
+            const currentViewId = command.viewId;
+            if (currentViewId) {
+              return ViewId.create(currentViewId).andThen((viewId) =>
+                table.update((mutator) =>
+                  mutator.addField(field, { ...addFieldOptions, targetViewId: viewId })
+                )
+              );
+            }
             return table.update((mutator) => mutator.addField(field, addFieldOptions));
           }
 

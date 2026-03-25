@@ -1023,10 +1023,11 @@ describe('LinkField', () => {
         .done();
       foreignBuilder
         .field()
-        .singleSelect()
-        .withOptions([
-          SelectOption.create({ id: 'cho_status', name: 'x', color: 'green' })._unsafeUnwrap(),
-        ])
+        .singleSelect({
+          options: [
+            SelectOption.create({ id: 'cho_status', name: 'x', color: 'green' })._unsafeUnwrap(),
+          ],
+        })
         .withId(foreignStatusFieldId)
         .withName(FieldName.create('Status')._unsafeUnwrap())
         .done();

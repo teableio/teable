@@ -324,8 +324,10 @@ export const mergeSeedPayloads = (
   existing: ComputedUpdateSeedPayload,
   incoming: ComputedUpdateSeedPayload
 ): ComputedUpdateSeedPayload => {
-  // Merge seedRecordIds (dedupe)
-  const mergedSeedRecordIds = [...new Set([...existing.seedRecordIds, ...incoming.seedRecordIds])];
+  // Merge seedRecordIds (dedupe) — avoid spread to prevent stack overflow with large arrays
+  const seedSet = new Set(existing.seedRecordIds);
+  for (const id of incoming.seedRecordIds) seedSet.add(id);
+  const mergedSeedRecordIds = Array.from(seedSet);
 
   // Merge changedFieldIds (dedupe)
   const mergedChangedFieldIds = [
@@ -334,16 +336,23 @@ export const mergeSeedPayloads = (
 
   // Merge extraSeedRecords by tableId
   const extraByTable = new Map<string, Set<string>>();
-  for (const group of [...existing.extraSeedRecords, ...incoming.extraSeedRecords]) {
-    const existing = extraByTable.get(group.tableId) ?? new Set();
+  for (const group of existing.extraSeedRecords) {
+    const prev = extraByTable.get(group.tableId) ?? new Set();
     for (const recordId of group.recordIds) {
-      existing.add(recordId);
+      prev.add(recordId);
     }
-    extraByTable.set(group.tableId, existing);
+    extraByTable.set(group.tableId, prev);
+  }
+  for (const group of incoming.extraSeedRecords) {
+    const prev = extraByTable.get(group.tableId) ?? new Set();
+    for (const recordId of group.recordIds) {
+      prev.add(recordId);
+    }
+    extraByTable.set(group.tableId, prev);
   }
   const mergedExtraSeedRecords: ComputedUpdateSeedGroupDto[] = [];
   for (const [tableId, recordIds] of extraByTable) {
-    mergedExtraSeedRecords.push({ tableId, recordIds: [...recordIds] });
+    mergedExtraSeedRecords.push({ tableId, recordIds: Array.from(recordIds) });
   }
 
   const mergedBeforeImageRecords = mergeBeforeImageRecordDtos(

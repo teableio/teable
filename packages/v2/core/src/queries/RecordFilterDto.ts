@@ -104,10 +104,14 @@ export const recordFilterConditionSchema = z.preprocess(
       }
 
       if (val.value === null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Operator '${val.operator}' does not allow null value`,
-        });
+        // Allow is/isNot with null for V1 compatibility:
+        // V1 uses {operator: "is", value: null} for "field is empty"
+        if (val.operator !== 'is' && val.operator !== 'isNot') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Operator '${val.operator}' does not allow null value`,
+          });
+        }
         return;
       }
 

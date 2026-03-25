@@ -18,9 +18,9 @@ import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { second } from '../../../utils/second';
-import { isBodyParserFallback } from '../utils';
 import StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
+import { isBodyParserFallback } from './utils';
 
 interface ITokenEncryptor {
   expiresDate: number;
