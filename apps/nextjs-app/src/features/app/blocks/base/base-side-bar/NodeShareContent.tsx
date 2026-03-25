@@ -90,7 +90,10 @@ const EmbedConfigPopover = ({ shareUrl }: { shareUrl: string }) => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="flex w-full items-center justify-between px-0 py-1">
+        <Button
+          variant="ghost"
+          className="-mx-2 flex w-[calc(100%+16px)] items-center justify-between px-2 py-1"
+        >
           <Label className="cursor-pointer text-sm font-normal">
             {t('table:baseShare.embedConfig')}
           </Label>
@@ -99,7 +102,7 @@ const EmbedConfigPopover = ({ shareUrl }: { shareUrl: string }) => {
       </PopoverTrigger>
       <PopoverContent side="right" align="start" className="w-80">
         {/* iframe code preview */}
-        <div className="mb-3 rounded-md bg-muted p-3">
+        <div className="mb-3 rounded-md border bg-muted p-3">
           <code className="break-all text-xs">{embedHtml}</code>
         </div>
 
@@ -119,7 +122,7 @@ const EmbedConfigPopover = ({ shareUrl }: { shareUrl: string }) => {
               <DialogHeader>
                 <DialogTitle>{t('table:toolbar.others.share.embedPreview')}</DialogTitle>
               </DialogHeader>
-              <div className="h-[500px]">
+              <div className="h-[500px] overflow-hidden rounded-md border">
                 <iframe
                   src={getEmbedUrl(shareUrl)}
                   title="embed preview"
@@ -400,15 +403,15 @@ export const NodeShareContent = ({
       {isShareEnabled && share && (
         <>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 text-sm">
+            <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{t('table:baseShare.linkHolderLabel')}</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
+                  <button className="inline-flex items-center gap-0.5 text-blue-500 hover:text-blue-600">
                     {share.allowSave
                       ? t('table:baseShare.linkHolderCanCopyAndSave')
                       : t('table:baseShare.linkHolderCanView')}
-                    <ChevronDown className="size-3.5" />
+                    <ChevronDown className="size-4" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -417,9 +420,9 @@ export const NodeShareContent = ({
                     onClick={() => handleUpdateSetting({ allowSave: false })}
                   >
                     {!share.allowSave ? (
-                      <Check className="mr-1.5 size-4" />
+                      <Check className="mr-2 size-4" />
                     ) : (
-                      <span className="mr-1.5 size-4" />
+                      <span className="mr-2 size-4" />
                     )}
                     {t('table:baseShare.linkHolderCanView')}
                   </DropdownMenuItem>
@@ -428,9 +431,9 @@ export const NodeShareContent = ({
                     onClick={() => handleUpdateSetting({ allowSave: true })}
                   >
                     {share.allowSave ? (
-                      <Check className="mr-1.5 size-4" />
+                      <Check className="mr-2 size-4" />
                     ) : (
-                      <span className="mr-1.5 size-4" />
+                      <span className="mr-2 size-4" />
                     )}
                     {t('table:baseShare.linkHolderCanCopyAndSave')}
                   </DropdownMenuItem>
@@ -438,11 +441,11 @@ export const NodeShareContent = ({
               </DropdownMenu>
             </div>
             <div className="flex items-center gap-2">
-              <Input className="min-w-0 flex-1" size="lg" value={shareUrl} readOnly />
-              <CopyButton text={shareUrl} variant="outline" size="icon" className="shrink-0" />
+              <Input className="min-w-0 flex-1" value={shareUrl} readOnly />
+              <CopyButton text={shareUrl} variant="outline" size="icon-sm" className="shrink-0" />
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0">
+                  <Button variant="outline" size="icon-sm" className="shrink-0">
                     <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
@@ -455,7 +458,7 @@ export const NodeShareContent = ({
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline"
-                      size="icon"
+                      size="icon-sm"
                       className="shrink-0"
                       onClick={() => refreshShare()}
                       disabled={isRefreshLoading}
@@ -507,7 +510,7 @@ export const NodeShareContent = ({
                   size="xs"
                   onClick={() => setShowPasswordDialog(true)}
                 >
-                  <Edit className="size-3" />
+                  <Edit className="size-4" />
                 </Button>
               )}
             </div>

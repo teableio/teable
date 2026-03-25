@@ -22,7 +22,7 @@ export const ShareBasePopover = (props: IShareBasePopoverProps) => {
     <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="h-auto w-[480px] max-w-[100vw] rounded-xl border p-6 shadow-lg"
+        className="h-auto w-[480px] max-w-[100vw] rounded-xl border p-6 pb-3 shadow-lg"
         align="end"
       >
         <ShareBaseContent
