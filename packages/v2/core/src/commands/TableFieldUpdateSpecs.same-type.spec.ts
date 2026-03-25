@@ -71,7 +71,7 @@ const BUTTON_WORKFLOW = ButtonWorkflow.create({
   id: 'wfl12345678901234',
   name: 'Deploy',
   isActive: true,
-})._unsafeUnwrap();
+})._unsafeUnwrap()!;
 const BUTTON_COLOR_TEAL = FieldColor.from('teal');
 const FORMULA_NUMBER_FORMATTING = NumberFormatting.create({
   type: 'decimal',
@@ -675,7 +675,7 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
 
     const specNames = specsResult.value.map((spec) => spec.constructor.name).sort();
     expect(specNames).toEqual([...expectedSpecNames].sort());
-    assertSpecs?.(specsResult.value);
+    assertSpecs?.([...specsResult.value]);
   });
 
   it('adds dbFieldName, description, and aiConfig specs when field metadata changes', () => {
