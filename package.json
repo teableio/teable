@@ -45,7 +45,7 @@
     "g:test-e2e-cover": "pnpm -r test-e2e-cover",
     "g:test-unit": "pnpm -r --parallel test-unit",
     "g:test-unit-cover": "pnpm -r --parallel test-unit-cover",
-    "g:typecheck": "pnpm -r --parallel typecheck",
+    "g:typecheck": "pnpm -r --workspace-concurrency=8 typecheck",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",

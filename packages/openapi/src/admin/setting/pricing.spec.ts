@@ -140,7 +140,8 @@ describe('pricing', () => {
         outputTokens: 500,
         webSearches: 2,
       });
-      const expectedUsd = 1000 * 0.0000001 + 500 * 0.0000004 + 2 * 35;
+      // webSearch is USD per 1,000 searches
+      const expectedUsd = 1000 * 0.0000001 + 500 * 0.0000004 + (2 * 35) / 1000;
       expect(credits).toBeCloseTo(expectedUsd / USD_PER_CREDIT);
     });
 
@@ -399,7 +400,8 @@ describe('pricing', () => {
         outputTokens: 1000,
         webSearches: 1,
       });
-      const usd = 5000 * 0.0000001 + 1000 * 0.0000004 + 1 * 35;
+      // webSearch is USD per 1,000 searches
+      const usd = 5000 * 0.0000001 + 1000 * 0.0000004 + (1 * 35) / 1000;
       expect(credits).toBeCloseTo(usd / USD_PER_CREDIT);
     });
   });
