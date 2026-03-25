@@ -3,8 +3,6 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableQueryService } from '../application/services/TableQueryService';
-import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -18,10 +16,10 @@ import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellV
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import type {
   ITableRecordQueryOptions,
   ITableRecordQueryRepository,
@@ -37,9 +35,9 @@ import type {
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
 
@@ -156,18 +154,20 @@ const createSourceTable = (): Table => {
   return tableMapper.toDomain(dto)._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   insertedTables: Table[] = [];
 
-  async insert(_context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
+  override async insert(
+    _context: IExecutionContext,
+    table: Table
+  ): Promise<Result<Table, DomainError>> {
     const persisted = table.clone(tableMapper)._unsafeUnwrap();
     this.tables.push(persisted);
     this.insertedTables.push(persisted);
     return ok(persisted);
   }
 
-  async insertMany(
+  override async insertMany(
     _context: IExecutionContext,
     tables: ReadonlyArray<Table>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
@@ -177,7 +177,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(persisted);
   }
 
-  async findOne(
+  override async findOne(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: { state?: 'active' | 'deleted' | 'all' }
@@ -187,30 +187,6 @@ class FakeTableRepository implements ITableRepository {
       return err(domainError.notFound({ message: 'Table not found' }));
     }
     return ok(match);
-  }
-
-  async find(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _context: IExecutionContext,
-    _table: Table,
-    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
   }
 }
 
@@ -398,7 +374,7 @@ const getFieldValue = (record: TableRecord, fieldId: string): unknown => {
 describe('DuplicateTableHandler', () => {
   it('duplicates records while remapping self links, preserving external links, and restoring row orders', async () => {
     const sourceTable = createSourceTable();
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(sourceTable);
     const tableQueryService = new TableQueryService(tableRepository);
     const tableSchemaRepository = new FakeTableSchemaRepository();

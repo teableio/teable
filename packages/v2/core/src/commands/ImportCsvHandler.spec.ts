@@ -13,11 +13,9 @@ import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellV
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { ICsvParser, CsvParseResult, CsvSource } from '../ports/CsvParser';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordRepository,
   BatchRecordMutationResult,
@@ -25,9 +23,9 @@ import type {
   RecordMutationResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { ImportCsvCommand } from './ImportCsvCommand';
 import { ImportCsvHandler } from './ImportCsvHandler';
 
@@ -53,58 +51,6 @@ class FakeCsvParser implements ICsvParser {
 
   async parseAsync(_source: CsvSource): Promise<Result<CsvParseResult, DomainError>> {
     return this.asyncResult ?? this.syncResult;
-  }
-}
-
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
-
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match)
-      return err({
-        code: 'not_found',
-        message: 'Table not found',
-        tags: ['not-found'],
-        toString: () => 'Table not found',
-      });
-    return ok(match);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
   }
 }
 

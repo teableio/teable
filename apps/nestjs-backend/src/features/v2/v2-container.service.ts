@@ -1,20 +1,20 @@
 import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import { v2CoreTokens } from '@teable/v2-core';
+import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
+import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import { PinoLogger } from 'nestjs-pino';
-import { ShareDbService } from '../../share-db/share-db.service';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { ShareDbService } from '../../share-db/share-db.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';

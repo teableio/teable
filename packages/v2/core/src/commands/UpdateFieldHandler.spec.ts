@@ -23,15 +23,14 @@ import { Table } from '../domain/table/Table';
 import { TABLE_FIELD_LIMIT_ERROR_CODE } from '../domain/table/TableFieldLimit';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository, TableUpdatePersistResult } from '../ports/TableRepository';
+import type { TableUpdatePersistResult } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import {
   createFieldOperationPluginRunner,
   createTrackedFieldOperationPlugin,
@@ -126,41 +125,10 @@ const addTextFields = (table: Table, count: number, prefix: string): Table => {
   return currentTable;
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   nextUpdateResult: TableUpdatePersistResult | void = undefined;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
@@ -170,10 +138,6 @@ class FakeTableRepository implements ITableRepository {
       this.tables[index] = table;
     }
     return ok(this.nextUpdateResult);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
   }
 }
 
@@ -235,7 +199,7 @@ describe('UpdateFieldHandler', () => {
   it('does not publish record update events after type conversion', async () => {
     const { table, tableId, fieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const eventBus = new FakeEventBus();
@@ -284,7 +248,7 @@ describe('UpdateFieldHandler', () => {
   it('returns an explicit no-op validation error for normal update commands', async () => {
     const { table, tableId, fieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const eventBus = new FakeEventBus();
@@ -335,7 +299,7 @@ describe('UpdateFieldHandler', () => {
   it('allows no-op update commands when explicitly marked as replay-safe', async () => {
     const { table, tableId, fieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
 
     const eventBus = new FakeEventBus();
@@ -388,7 +352,7 @@ describe('UpdateFieldHandler', () => {
   it('injects sequential field versions into FieldUpdated events from table update flow', async () => {
     const { table, tableId, fieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     tableRepository.nextUpdateResult = {
       fieldVersionChanges: [
@@ -464,7 +428,7 @@ describe('UpdateFieldHandler', () => {
       ._unsafeUnwrap().table;
     const fieldId = targetField.id();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(tableWithTargetField);
 
     const capturedUniqueStates: boolean[] = [];
@@ -580,7 +544,7 @@ describe('UpdateFieldHandler', () => {
       'Foreign Extra'
     );
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(hostTable, foreignTable);
 
     const handler = new UpdateFieldHandler(
@@ -690,7 +654,7 @@ describe('UpdateFieldHandler', () => {
       .build()
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(hostTable, foreignTable);
     const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);
 
@@ -749,7 +713,7 @@ describe('UpdateFieldHandler', () => {
   it('skips plugins that do not support update', async () => {
     const { table, tableId, fieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const eventBus = new FakeEventBus();
     const { plugin, calls } = createTrackedFieldOperationPlugin([FieldOperationKind.create]);

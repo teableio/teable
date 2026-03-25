@@ -25,8 +25,8 @@ import {
   DateFormattingPreset,
   TimeFormatting,
   TimeZone,
+  type Field,
 } from '@teable/v2-core';
-import type { Field } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
 import {

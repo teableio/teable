@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
+import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import {
   SetAttachmentValueSpec,
   type AttachmentItem,
@@ -17,7 +18,6 @@ import { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpe
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
 import { SetUserValueSpec, type UserItem } from '../../records/specs/values/SetUserValueSpec';
-import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec';
 import { CellValue } from '../../records/values/CellValue';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';

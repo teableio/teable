@@ -11,11 +11,11 @@ import type {
   RecordUpdateDTO,
 } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
-import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
@@ -29,14 +29,14 @@ import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
 } from '../../ports/RecordWritePlugin';
+import type {
+  ITableRecordQueryResult,
+  ITableRecordQueryRepository,
+} from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../../ports/TableRecordQueryRepository';
-import type {
-  ITableRecordRepository,
   UpdateManyStreamBatchInput,
+  ITableRecordRepository,
 } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import {
@@ -48,9 +48,10 @@ import type { IUnitOfWork } from '../../ports/UnitOfWork';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
-import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
-import { RecordWritePluginExecution, RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
+import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
+import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import {
   RecordWriteUndoRedoPlanService,
@@ -624,7 +625,7 @@ export class RecordBulkUpdateService {
         typecast
       );
 
-      let tableEvents: ReadonlyArray<IDomainEvent> = [];
+      const tableEvents: ReadonlyArray<IDomainEvent> = [];
 
       return ok({
         tableForWrite: sideEffectResult.table,

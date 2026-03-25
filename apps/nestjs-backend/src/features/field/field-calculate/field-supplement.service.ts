@@ -80,7 +80,7 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
-type LinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
+type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
   options: Pick<ILinkFieldOptionsRo, 'relationship' | 'foreignTableId'> &
     Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;
 };
@@ -526,11 +526,11 @@ export class FieldSupplementService {
     const batchLinkField = batchFieldVos?.find(
       (candidate) => candidate.id === linkFieldId && candidate.type === FieldType.Link
     );
-    const linkFieldOptions: LinkFieldReference['options'] | undefined =
+    const linkFieldOptions: ILinkFieldReference['options'] | undefined =
       (optionsRaw && (JSON.parse(optionsRaw as string) as ILinkFieldOptions)) ||
       (batchLinkField?.options as ILinkFieldOptions | ILinkFieldOptionsRo | undefined);
 
-    const linkFieldReference: LinkFieldReference | undefined =
+    const linkFieldReference: ILinkFieldReference | undefined =
       linkFieldRaw && linkFieldOptions
         ? {
             name: linkFieldRaw.name,

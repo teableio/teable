@@ -25,6 +25,13 @@
       "@teable/v2-di": ["../di/src"]
     }
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "src/**/*.spec.ts"
+  ],
   "include": ["src", "../adapter-db-postgres-shared/src", "../core/src", "../di/src"]
 }

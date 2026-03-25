@@ -52,7 +52,8 @@
     "../formula-sql-pg/src/**/*.test.ts",
     "../formula-sql-pg/src/**/__tests__/**",
     "../formula-sql-pg/src/testkit/**",
-    "../../formula/src/**/*.spec.ts"
+    "../../formula/src/**/*.spec.ts",
+    "../adapter-db-postgres-pg/src/**/*.spec.ts"
   ],
   "include": [
     "src",

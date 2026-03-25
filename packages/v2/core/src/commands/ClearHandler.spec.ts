@@ -18,14 +18,11 @@ import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateRes
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
@@ -38,8 +35,8 @@ import type {
   UpdateManyStreamResult,
   ITableRecordRepository,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { ClearCommand } from './ClearCommand';
 import { ClearHandler } from './ClearHandler';
 import {
@@ -116,58 +113,6 @@ const buildProjectionTable = () => {
   const table = builder.build()._unsafeUnwrap();
   return { table, tableId, firstFieldId, secondFieldId };
 };
-
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
-
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match)
-      return err({
-        code: 'not_found',
-        message: 'Table not found',
-        tags: ['not-found'],
-        toString: () => 'Table not found',
-      });
-    return ok(match);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-}
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   updatedRecords: TableRecord[] = [];

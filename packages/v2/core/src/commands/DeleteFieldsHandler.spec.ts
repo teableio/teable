@@ -21,13 +21,13 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { ICommandBus } from '../ports/CommandBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   flattenUndoRedoCommands,
 } from '../ports/UndoRedoStore';
-import { DeleteFieldCommand } from './DeleteFieldCommand';
+import { FakeTableRepository } from '../testkit';
+import type { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldResult } from './DeleteFieldHandler';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
 import { DeleteFieldsHandler } from './DeleteFieldsHandler';
@@ -43,7 +43,6 @@ const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`).
 const buildEvent = (name = 'Field deleted'): IDomainEvent => ({
   name: DomainEventName.fieldDeleted(),
   occurredAt: OccurredAt.now(),
-  payload: { name },
 });
 
 const buildTable = (baseId: BaseId, tableId: TableId, fieldIds: readonly FieldId[]) => {
@@ -72,45 +71,25 @@ const buildTable = (baseId: BaseId, tableId: TableId, fieldIds: readonly FieldId
   return builder.build()._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly table: Table) {}
-
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    return ok(table);
+class TestTableRepository extends FakeTableRepository {
+  constructor(table: Table) {
+    super();
+    this.tables = [table];
   }
 
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok([...tables]);
-  }
-
-  async findOne(
+  override async findOne(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
-    return ok(this.table);
+    return ok(this.tables[0]);
   }
 
-  async find(
+  override async find(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok([this.table]);
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+    return ok([this.tables[0]]);
   }
 }
 
@@ -232,7 +211,7 @@ describe('DeleteFieldsHandler', () => {
     ];
 
     const commandBus = new FakeCommandBus(nestedResults);
-    const tableRepository = new FakeTableRepository(initialTable);
+    const tableRepository = new TestTableRepository(initialTable);
     const snapshotService = new FakeFieldUndoRedoSnapshotService();
     const undoRedoService = new FakeUndoRedoService();
     const handler = new DeleteFieldsHandler(
@@ -277,7 +256,7 @@ describe('DeleteFieldsHandler', () => {
     expect(
       undoLeaves
         .filter((leaf) => leaf.type === 'ApplyFieldSnapshot')
-        .map((leaf) => leaf.payload.snapshot.field.id)
+        .map((leaf) => (leaf.payload as any).snapshot.field.id)
     ).toEqual([
       targetFieldA.toString(),
       targetFieldB.toString(),
@@ -287,7 +266,7 @@ describe('DeleteFieldsHandler', () => {
 
     const redoLeaves = flattenUndoRedoCommands(entry.entry.redoCommand as any);
     expect(redoLeaves.map((leaf) => leaf.type)).toEqual(['DeleteField', 'DeleteField']);
-    expect(redoLeaves.map((leaf) => leaf.payload.fieldId)).toEqual([
+    expect(redoLeaves.map((leaf) => (leaf.payload as any).fieldId)).toEqual([
       targetFieldA.toString(),
       targetFieldB.toString(),
     ]);
@@ -303,7 +282,7 @@ describe('DeleteFieldsHandler', () => {
     const commandBus = new FakeCommandBus([
       err(domainError.validation({ message: 'nested delete failed' })),
     ]);
-    const tableRepository = new FakeTableRepository(initialTable);
+    const tableRepository = new TestTableRepository(initialTable);
     const snapshotService = new FakeFieldUndoRedoSnapshotService();
     const undoRedoService = new FakeUndoRedoService();
     const handler = new DeleteFieldsHandler(

@@ -6,20 +6,20 @@ import { z } from 'zod';
 import { hasCode, domainError, type DomainError } from '../../domain/shared/DomainError';
 import { DbFieldName } from '../../domain/table/fields/DbFieldName';
 import type { Field } from '../../domain/table/fields/Field';
-import type { FieldId } from '../../domain/table/fields/FieldId';
-import type { Table } from '../../domain/table/Table';
+import { FieldId } from '../../domain/table/fields/FieldId';
+import { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type {
   ITableFieldPersistenceDTO,
-  ITableMapper,
   ITableViewPersistenceDTO,
+  ITableMapper,
 } from '../../ports/mappers/TableMapper';
-import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
-import type { UndoRedoFieldSnapshot } from '../../ports/UndoRedoStore';
+import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import { v2CoreTokens } from '../../ports/tokens';
-import { tableFieldInputSchema } from '../../schemas/field';
 import { TraceSpan } from '../../ports/TraceSpan';
+import type { UndoRedoFieldSnapshot } from '../../ports/UndoRedoStore';
+import { tableFieldInputSchema } from '../../schemas/field';
 
 const stripUndefinedDeep = (value: unknown): unknown => {
   if (Array.isArray(value)) {

@@ -173,6 +173,7 @@ export class OverlayTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  // eslint-disable-next-line sonarjs/no-identical-functions
   async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.deletedTableIds.delete(table.id().toString());
     this.overlayByTableId.set(table.id().toString(), table);

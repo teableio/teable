@@ -13,9 +13,8 @@ import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisit
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
-import { createUndoRedoCommand } from '../UndoRedoStore';
-
 import { RealtimeDocId } from '../RealtimeDocId';
+import { createUndoRedoCommand } from '../UndoRedoStore';
 
 import { NoopEventBus } from './NoopEventBus';
 import { NoopLogger } from './NoopLogger';

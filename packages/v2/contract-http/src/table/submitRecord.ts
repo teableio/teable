@@ -1,8 +1,6 @@
 import type { CreateRecordResult, DomainError, ISubmitRecordCommandInput } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
-import type { ICreateRecordResponseDataDto } from './createRecord';
-import { createRecordResponseDataSchema, mapCreateRecordResultToDto } from './createRecord';
 import {
   apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
@@ -11,6 +9,8 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import type { ICreateRecordResponseDataDto } from './createRecord';
+import { createRecordResponseDataSchema, mapCreateRecordResultToDto } from './createRecord';
 
 export type ISubmitRecordRequestDto = ISubmitRecordCommandInput;
 

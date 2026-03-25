@@ -1,14 +1,14 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import { describe, expect, it } from 'vitest';
 
-import { tableI18nKeys } from '@teable/i18n-keys';
-import { ActorId } from '../domain/shared/ActorId';
 import { BaseId } from '../domain/base/BaseId';
+import { ActorId } from '../domain/shared/ActorId';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
 import { Table } from '../domain/table/Table';
-import { TableName } from '../domain/table/TableName';
 import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import {
   collectForeignTableReferences,

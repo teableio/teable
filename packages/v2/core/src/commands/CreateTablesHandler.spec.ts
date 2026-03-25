@@ -33,9 +33,9 @@ import type {
   InsertManyStreamResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { CreateTablesCommand } from './CreateTablesCommand';
 import { CreateTablesHandler } from './CreateTablesHandler';
 
@@ -68,22 +68,22 @@ const buildTable = (params: {
     ._unsafeUnwrap();
 };
 
-class FakeTableRepository implements ITableRepository {
+class TestTableRepository extends FakeTableRepository {
   inserted: Table[] = [];
   updated: Table[] = [];
   failFind: DomainError | undefined;
 
-  async insert(_context: IExecutionContext, table: Table) {
+  override async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
     return ok(table);
   }
 
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+  override async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
     this.inserted.push(...tables);
     return ok([...tables]);
   }
 
-  async findOne(
+  override async findOne(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
@@ -93,7 +93,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(match);
   }
 
-  async find(
+  override async find(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
@@ -102,7 +102,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(this.inserted.filter((table) => spec.isSatisfiedBy(table)));
   }
 
-  async updateOne(
+  override async updateOne(
     _context: IExecutionContext,
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
@@ -111,10 +111,6 @@ class FakeTableRepository implements ITableRepository {
     if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     this.inserted[index] = table;
     this.updated.push(table);
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -285,7 +281,7 @@ describe('CreateTablesHandler', () => {
       ],
     });
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
@@ -347,7 +343,7 @@ describe('CreateTablesHandler', () => {
       ],
     });
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
@@ -421,7 +417,7 @@ describe('CreateTablesHandler', () => {
       ],
     });
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
@@ -507,7 +503,7 @@ describe('CreateTablesHandler', () => {
       ],
     });
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.inserted.push(
       buildTable({
         baseId: foreignBaseId,

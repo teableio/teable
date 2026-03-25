@@ -1,8 +1,8 @@
 import { Command, Options } from '@effect/cli';
 import type { Option } from 'effect';
 import { Effect } from 'effect';
-import { Output } from '../../services/Output';
 import { ComputedTaskInspector } from '../../services/ComputedTaskInspector';
+import { Output } from '../../services/Output';
 import { asCsvTable, writeTableCsv } from '../../utils';
 import {
   baseIdsOption,

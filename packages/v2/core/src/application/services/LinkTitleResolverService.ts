@@ -22,8 +22,8 @@ import {
 import type { SetLongTextValueSpec } from '../../domain/table/records/specs/values/SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from '../../domain/table/records/specs/values/SetMultipleSelectValueSpec';
 import type { SetNumberValueSpec } from '../../domain/table/records/specs/values/SetNumberValueSpec';
-import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetRatingValueSpec } from '../../domain/table/records/specs/values/SetRatingValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetSingleLineTextValueSpec } from '../../domain/table/records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../domain/table/records/specs/values/SetSingleSelectValueSpec';
 import type { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';

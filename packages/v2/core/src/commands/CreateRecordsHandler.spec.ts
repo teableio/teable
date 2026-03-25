@@ -39,9 +39,9 @@ import type {
   ITableRecordRepository,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
 import { CreateRecordsHandler } from './CreateRecordsHandler';
 import {
@@ -64,7 +64,7 @@ const noopRecordWriteUndoRedoPlanService = {
 } as unknown as RecordWriteUndoRedoPlanService;
 
 const createTableUpdateFlow = (
-  tableRepository: FakeTableRepository,
+  tableRepository: TestTableRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
@@ -93,34 +93,21 @@ const createHandler = (
     unitOfWork
   );
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   updated: Table[] = [];
   lastContext: IExecutionContext | undefined;
   failFind: DomainError | undefined;
 
-  async insert(_context: IExecutionContext, table: Table) {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
+  override async findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     this.lastContext = context;
     if (this.failFind) return err(this.failFind);
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
+    return super.findOne(context, spec);
   }
 
-  async find(
+  override async find(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
@@ -129,7 +116,7 @@ class FakeTableRepository implements ITableRepository {
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
   }
 
-  async updateOne(
+  override async updateOne(
     _context: IExecutionContext,
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
@@ -139,10 +126,6 @@ class FakeTableRepository implements ITableRepository {
       this.tables[index] = table;
     }
     this.updated.push(table);
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -460,7 +443,7 @@ describe('CreateRecordsHandler', () => {
   it('creates multiple records and persists them', async () => {
     const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -518,7 +501,7 @@ describe('CreateRecordsHandler', () => {
   it('skips plugins that do not support createMany', async () => {
     const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -564,7 +547,7 @@ describe('CreateRecordsHandler', () => {
   it('creates a single record via records array', async () => {
     const { table, textFieldId } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -602,7 +585,7 @@ describe('CreateRecordsHandler', () => {
   it('creates records with empty fields', async () => {
     const { table } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -632,7 +615,7 @@ describe('CreateRecordsHandler', () => {
   });
 
   it('returns error when table not found', async () => {
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
     const eventBus = new FakeEventBus();
@@ -660,7 +643,7 @@ describe('CreateRecordsHandler', () => {
   });
 
   it('returns error when repository find fails', async () => {
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.failFind = domainError.unexpected({ message: 'Find failed' });
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -691,7 +674,7 @@ describe('CreateRecordsHandler', () => {
   it('returns error when insertMany fails', async () => {
     const { table } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -726,7 +709,7 @@ describe('CreateRecordsHandler', () => {
   it('returns error when field validation fails for any record', async () => {
     const { table, numberFieldId } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -762,7 +745,7 @@ describe('CreateRecordsHandler', () => {
   it('returns all created records in result', async () => {
     const { table, textFieldId } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -801,7 +784,7 @@ describe('CreateRecordsHandler', () => {
   it('generates unique IDs for each record', async () => {
     const { table } = createTestTable(baseId, tableId);
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
@@ -835,7 +818,7 @@ describe('CreateRecordsHandler', () => {
     it('rolls back when insertMany fails', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -891,7 +874,7 @@ describe('CreateRecordsHandler', () => {
     it('does not roll back when transaction succeeds', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -930,7 +913,7 @@ describe('CreateRecordsHandler', () => {
     it('returns fieldKeyMapping using fieldId when input uses fieldId', async () => {
       const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -971,7 +954,7 @@ describe('CreateRecordsHandler', () => {
     it('returns fieldKeyMapping using fieldName when input uses fieldName', async () => {
       const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1013,7 +996,7 @@ describe('CreateRecordsHandler', () => {
     it('returns fieldKeyMapping with mixed keys', async () => {
       const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1055,7 +1038,7 @@ describe('CreateRecordsHandler', () => {
     it('returns error when field key is not found', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1095,7 +1078,7 @@ describe('CreateRecordsHandler', () => {
     it('invokes resolver when resolution is needed (typecast true)', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1140,7 +1123,7 @@ describe('CreateRecordsHandler', () => {
         tableId
       );
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1197,7 +1180,7 @@ describe('CreateRecordsHandler', () => {
     it('invokes resolver when resolution is needed (typecast false)', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1239,7 +1222,7 @@ describe('CreateRecordsHandler', () => {
     it('does not invoke link title resolver when needsResolution is false', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
@@ -1281,7 +1264,7 @@ describe('CreateRecordsHandler', () => {
     it('resolves each record spec separately when multiple records need resolution', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();

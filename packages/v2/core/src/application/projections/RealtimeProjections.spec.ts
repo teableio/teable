@@ -18,8 +18,8 @@ import { TableCreated } from '../../domain/table/events/TableCreated';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
@@ -29,12 +29,12 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
+import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
 import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
-import type { ITableRepository } from '../../ports/TableRepository';
+import { FakeTableRepository } from '../../testkit';
 import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection';
 import { FieldDeletedRealtimeProjection } from './FieldDeletedRealtimeProjection';
 import { FieldOptionsAddedRealtimeProjection } from './FieldOptionsAddedRealtimeProjection';
@@ -142,31 +142,18 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   }
 }
 
-class FakeTableRepository implements ITableRepository {
-  constructor(private readonly table: Table) {}
-
-  async insert() {
-    return ok(this.table);
+class TestTableRepository extends FakeTableRepository {
+  constructor(table: Table) {
+    super();
+    this.tables = [table];
   }
 
-  async insertMany() {
-    return ok([this.table]);
+  override async findOne() {
+    return ok(this.tables[0]);
   }
 
-  async findOne() {
-    return ok(this.table);
-  }
-
-  async find() {
-    return ok([this.table]);
-  }
-
-  async updateOne() {
-    return ok(undefined);
-  }
-
-  async delete() {
-    return ok(undefined);
+  override async find() {
+    return ok([this.tables[0]]);
   }
 }
 
@@ -438,7 +425,7 @@ describe('Realtime projections', () => {
   it('projects table creation and field snapshots', async () => {
     const table = buildTable('q', 'r', 's');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new TableCreatedRealtimeProjection(repository, mapper, engine);
 
@@ -459,7 +446,7 @@ describe('Realtime projections', () => {
   it('projects field creation when snapshot is available', async () => {
     const table = buildTable('t', 'u', 'v');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
 
@@ -478,7 +465,7 @@ describe('Realtime projections', () => {
   it('fails when field snapshot is missing', async () => {
     const table = buildTable('w', 'x', 'y');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [],
@@ -517,7 +504,7 @@ describe('Realtime projections', () => {
     const table = buildTable('c', 'd', 'e');
     const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'a'.repeat(16)}`)._unsafeUnwrap();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
 
@@ -558,7 +545,7 @@ describe('Realtime projections', () => {
   it('ignores missing views', async () => {
     const table = buildTable('f', 'g', 'h');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
 
@@ -589,7 +576,7 @@ describe('Realtime projections', () => {
     const table = builder.build()._unsafeUnwrap();
 
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((t) => ({
       ...buildTableDto(t),
       fields: [
@@ -644,7 +631,7 @@ describe('Realtime projections', () => {
   it('handles missing field gracefully for field options added', async () => {
     const table = buildTable('r', 's', 't');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((t) => ({
       ...buildTableDto(t),
       fields: [], // No fields in snapshot
@@ -671,7 +658,7 @@ describe('Realtime projections', () => {
     const table = buildTable('2', '3', '4');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -707,7 +694,7 @@ describe('Realtime projections', () => {
     const table = buildTable('f', 'g', 'h');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -743,7 +730,7 @@ describe('Realtime projections', () => {
     const table = buildTable('2', '3', '4');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -780,7 +767,7 @@ describe('Realtime projections', () => {
     const table = buildTable('7', '8', '9');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -832,7 +819,7 @@ describe('Realtime projections', () => {
     const table = buildTable('9', 'a', 'b');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -944,7 +931,7 @@ describe('Realtime projections', () => {
     builder.view().defaultGrid().done();
     const table = builder.build()._unsafeUnwrap();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new DefaultTableMapper();
     const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
 
@@ -1009,7 +996,7 @@ describe('Realtime projections', () => {
     const table = buildTable('1', '2', '3');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [
@@ -1075,7 +1062,7 @@ describe('Realtime projections', () => {
   it('skips field updated projection when field is missing in snapshot', async () => {
     const table = buildTable('5', '6', '7');
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [],
@@ -1209,7 +1196,7 @@ describe('Realtime projections', () => {
     const table = buildTable('8', '9', 'a');
     const fieldId = table.primaryFieldId();
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
+    const repository = new TestTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => ({
       ...buildTableDto(candidate),
       fields: [

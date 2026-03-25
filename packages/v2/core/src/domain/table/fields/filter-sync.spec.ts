@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { RecordFilter } from '../../../queries/RecordFilterDto';
+import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
+import { TableId } from '../TableId';
 import { DbFieldName } from './DbFieldName';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
@@ -19,10 +23,6 @@ import { ConditionalLookupOptions } from './types/ConditionalLookupOptions';
 import { SelectOption } from './types/SelectOption';
 import { SingleLineTextField } from './types/SingleLineTextField';
 import { SingleSelectField } from './types/SingleSelectField';
-import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
-import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
-import { TableId } from '../TableId';
-import type { RecordFilter } from '../../../queries/RecordFilterDto';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();

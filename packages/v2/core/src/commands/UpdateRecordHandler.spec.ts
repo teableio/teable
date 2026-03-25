@@ -38,11 +38,9 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -51,16 +49,16 @@ import type {
   RecordMutationResult,
   BatchRecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { UpdateRecordCommand } from './UpdateRecordCommand';
-import { UpdateRecordHandler } from './UpdateRecordHandler';
+import { FakeTableRepository } from '../testkit';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordCommand } from './UpdateRecordCommand';
+import { UpdateRecordHandler } from './UpdateRecordHandler';
 
 const createContext = (config?: IExecutionContext['config']): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -68,7 +66,7 @@ const createContext = (config?: IExecutionContext['config']): IExecutionContext 
 };
 
 const createTableUpdateFlow = (
-  tableRepository: FakeTableRepository,
+  tableRepository: TestTableRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
@@ -137,41 +135,10 @@ const buildTable = () => {
   };
 };
 
-class FakeTableRepository implements ITableRepository {
-  tables: Table[] = [];
+class TestTableRepository extends FakeTableRepository {
   updated: Table[] = [];
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    tables: ReadonlyArray<Table>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Table not found' }));
-    return ok(match);
-  }
-
-  async find(
-    _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
+  override async updateOne(
     _: IExecutionContext,
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
@@ -181,10 +148,6 @@ class FakeTableRepository implements ITableRepository {
       this.tables[index] = table;
     }
     this.updated.push(table);
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -384,7 +347,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -436,7 +399,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -485,7 +448,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -548,7 +511,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -597,7 +560,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -674,7 +637,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -731,7 +694,7 @@ describe('UpdateRecordHandler', () => {
   it('returns error when record query fails', async () => {
     const { table, tableId, textFieldId } = buildTable();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -769,7 +732,7 @@ describe('UpdateRecordHandler', () => {
       .createRecord(new Map([[textFieldId.toString(), 'Title']]))
       ._unsafeUnwrap();
 
-    const tableRepository = new FakeTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
 
@@ -856,7 +819,7 @@ describe('UpdateRecordHandler', () => {
         )
         ._unsafeUnwrap();
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
 
@@ -914,7 +877,7 @@ describe('UpdateRecordHandler', () => {
         )
         ._unsafeUnwrap();
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
 
@@ -968,7 +931,7 @@ describe('UpdateRecordHandler', () => {
         .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
         ._unsafeUnwrap();
 
-      const tableRepository = new FakeTableRepository();
+      const tableRepository = new TestTableRepository();
       tableRepository.tables.push(table);
       const tableQueryService = new TableQueryService(tableRepository);
 

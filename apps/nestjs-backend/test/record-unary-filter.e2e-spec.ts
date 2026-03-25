@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { Colors, FieldKeyType, FieldType } from '@teable/core';
+import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { createTable, getRecords, initApp, permanentDeleteTable } from './utils/init-app';
 
 describe('Record unary filter operators (e2e)', () => {

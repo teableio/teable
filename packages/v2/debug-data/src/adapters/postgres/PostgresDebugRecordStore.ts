@@ -5,9 +5,9 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 
+import { v2DebugDataTokens } from '../../di/tokens';
 import type { IDebugMetaStore } from '../../ports/DebugMetaStore';
 import type { IDebugRecordStore } from '../../ports/DebugRecordStore';
-import { v2DebugDataTokens } from '../../di/tokens';
 import type {
   DebugRawRecord,
   DebugRawRecordQueryOptions,

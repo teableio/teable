@@ -1,6 +1,3 @@
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -8,6 +5,8 @@ import {
   type IImportSourceRegistry,
   type ImportSourceType,
 } from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 /**
  * Default adapter registry implementation

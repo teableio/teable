@@ -13,6 +13,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { ViewColumnMetaUpdated } from '../domain/table/events/ViewColumnMetaUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
@@ -25,17 +26,14 @@ import { Table } from '../domain/table/Table';
 import { TABLE_FIELD_LIMIT_ERROR_CODE } from '../domain/table/TableFieldLimit';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { ViewName } from '../domain/table/views/ViewName';
-import { ViewColumnMetaUpdated } from '../domain/table/events/ViewColumnMetaUpdated';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
-import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { FakeTableRepository } from '../testkit';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { CreateFieldHandler } from './CreateFieldHandler';
 import {
@@ -43,6 +41,19 @@ import {
   createTrackedFieldOperationPlugin,
   expectFieldOperationPluginToBeSkipped,
 } from './fieldOperationPluginRunnerTestUtils';
+
+class TestTableRepository extends FakeTableRepository {
+  override async updateOne(
+    _context: IExecutionContext,
+    table: Table,
+    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
+    this.tables[index] = table;
+    return ok(undefined);
+  }
+}
 
 const createContext = (options?: {
   maxFieldsPerTable?: number;
@@ -106,52 +117,6 @@ class TrackingFieldUndoRedoSnapshotService {
       },
       views: [],
     });
-  }
-}
-
-class InMemoryTableRepository implements ITableRepository {
-  tables: Table[] = [];
-
-  async insert(_context: IExecutionContext, table: Table) {
-    this.tables.push(table);
-    return ok(table);
-  }
-
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
-    this.tables.push(...tables);
-    return ok([...tables]);
-  }
-
-  async findOne(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.notFound({ message: 'Not found' }));
-    return ok(match);
-  }
-
-  async find(
-    _context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
-
-  async updateOne(
-    _context: IExecutionContext,
-    table: Table,
-    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
-    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
-    this.tables[index] = table;
-    return ok(undefined);
-  }
-
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
-    return ok(undefined);
   }
 }
 
@@ -296,7 +261,7 @@ describe('CreateFieldHandler', () => {
       .mutate(initialTable)
       ._unsafeUnwrap();
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     tableRepository.tables.push(configuredTable);
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
@@ -352,7 +317,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'d'.repeat(16)}`;
     const foreignPrimaryId = `fld${'e'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -449,7 +414,7 @@ describe('CreateFieldHandler', () => {
     const tableId = `tbl${'l'.repeat(16)}`;
     const primaryFieldId = `fld${'m'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -520,7 +485,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'q'.repeat(16)}`;
     const foreignPrimaryId = `fld${'r'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -612,7 +577,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'v'.repeat(16)}`;
     const foreignPrimaryId = `fld${'w'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -688,7 +653,7 @@ describe('CreateFieldHandler', () => {
     const tableId = `tbl${'b'.repeat(16)}`;
     const numberFieldId = `fld${'c'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -764,7 +729,7 @@ describe('CreateFieldHandler', () => {
     const tableId = `tbl${'t'.repeat(16)}`;
     const primaryFieldId = `fld${'u'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -818,7 +783,7 @@ describe('CreateFieldHandler', () => {
     const tableId = `tbl${'w'.repeat(16)}`;
     const primaryFieldId = `fld${'x'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -880,7 +845,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'d'.repeat(16)}`;
     const foreignPrimaryId = `fld${'e'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -981,7 +946,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'i'.repeat(16)}`;
     const foreignPrimaryId = `fld${'j'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -1084,7 +1049,7 @@ describe('CreateFieldHandler', () => {
     const hostPrimaryId = `fld${'e'.repeat(16)}`;
     const foreignPrimaryId = `fld${'f'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -1161,7 +1126,7 @@ describe('CreateFieldHandler', () => {
     const tableId = `tbl${'h'.repeat(16)}`;
     const primaryFieldId = `fld${'i'.repeat(16)}`;
 
-    const tableRepository = new InMemoryTableRepository();
+    const tableRepository = new TestTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();

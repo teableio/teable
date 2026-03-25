@@ -2,8 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { UndoRedoService } from '../application/services/UndoRedoService';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { RecordReordered } from '../domain/table/events/RecordReordered';

@@ -1,7 +1,6 @@
-import { describe, expect, it } from 'vitest';
-
 import { DefaultTableMapper } from '@teable/v2-core';
 import type { ITablePersistenceDTO } from '@teable/v2-core';
+import { describe, expect, it } from 'vitest';
 
 import { mapTableToDto } from './dto';
 

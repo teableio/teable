@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { beforeAll, describe, expect, test } from 'vitest';
 import { sql } from 'kysely';
+import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
 let fieldIdCounter = 0;

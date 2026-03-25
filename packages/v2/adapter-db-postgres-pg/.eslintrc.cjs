@@ -25,5 +25,12 @@ module.exports = {
   rules: {
     '@typescript-eslint/consistent-type-imports': 'off',
   },
-  overrides: [],
+  overrides: [
+    {
+      files: ['src/**/*.spec.ts'],
+      rules: {
+        'import/no-unresolved': 'off',
+      },
+    },
+  ],
 };

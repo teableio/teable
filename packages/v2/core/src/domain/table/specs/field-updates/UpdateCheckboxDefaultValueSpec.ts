@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../../fields/FieldId';
-import { CheckboxField } from '../../fields/types/CheckboxField';
 import type { CheckboxDefaultValue } from '../../fields/types/CheckboxDefaultValue';
+import { CheckboxField } from '../../fields/types/CheckboxField';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 

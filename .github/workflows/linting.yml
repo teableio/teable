@@ -42,9 +42,9 @@ jobs:
 
       - name: 🕵️ Typecheck
         run: |
-          pnpm g:typecheck
+          pnpm -r --filter '!@teable/v2-*' --workspace-concurrency=8 typecheck
 
       - name: 🔬 Linter
         run: |
-          pnpm g:lint
-          pnpm g:lint-styles
+          pnpm -r --filter '!@teable/v2-*' --parallel lint --color
+          pnpm -r --filter '!@teable/v2-*' lint-styles --color

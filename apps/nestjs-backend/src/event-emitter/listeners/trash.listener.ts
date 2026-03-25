@@ -75,7 +75,8 @@ export class TrashListener {
       case Events.APP_DELETE: {
         resourceId = payload.appId;
         resourceType = ResourceType.App;
-        const app = await this.prismaService.app.findUnique({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const app = await (this.prismaService as any).app.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });
@@ -86,7 +87,8 @@ export class TrashListener {
       case Events.WORKFLOW_DELETE: {
         resourceId = payload.workflowId;
         resourceType = ResourceType.Workflow;
-        const workflow = await this.prismaService.workflow.findUnique({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const workflow = await (this.prismaService as any).workflow.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });

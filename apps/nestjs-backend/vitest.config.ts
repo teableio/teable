@@ -20,7 +20,7 @@ export default defineConfig({
         target: 'es2022',
       },
     }),
-    tsconfigPaths(),
+    tsconfigPaths({ projects: ['./tsconfig.test.json'] }),
   ],
   cacheDir: '../../.cache/vitest/nestjs-backend/unit',
   test: {

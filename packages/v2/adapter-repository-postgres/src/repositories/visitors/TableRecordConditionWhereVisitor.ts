@@ -1503,6 +1503,26 @@ export class TableRecordConditionWhereVisitor
     );
   }
 
+  visitIncomingLinkSelected(
+    _spec: core.IncomingLinkSelectedSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    return err(
+      core.domainError.notImplemented({
+        message: 'visitIncomingLinkSelected is not implemented in adapter-repository-postgres',
+      })
+    );
+  }
+
+  visitIncomingLinkCandidate(
+    _spec: core.IncomingLinkCandidateSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    return err(
+      core.domainError.notImplemented({
+        message: 'visitIncomingLinkCandidate is not implemented in adapter-repository-postgres',
+      })
+    );
+  }
+
   private applyIsWithin(
     field: core.Field,
     value: core.RecordConditionValue | undefined

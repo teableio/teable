@@ -25,6 +25,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/consistent-type-imports': 'off',
     '@typescript-eslint/naming-convention': 'off',
+    'sonarjs/cognitive-complexity': ['error', 35],
   },
   overrides: [],
 };
