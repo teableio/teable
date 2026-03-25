@@ -4090,4 +4090,417 @@ describe('v2 http paste (e2e)', () => {
       expect(echo?.fields[isNoneOfNameFieldId]).toBe('Echo');
     });
   });
+
+  /**
+   * Regression tests for T2387: paste offset with singleSelect groupBy + filter + sort.
+   *
+   * Production scenario: a cake-order table grouped by delivery store (singleSelect),
+   * sorted by delivery time, and filtered by date. Paste was landing on the wrong row
+   * because the range offset did not account for the grouped+sorted order.
+   */
+  describe('paste with singleSelect groupBy + filter + sort (T2387)', () => {
+    let t2387TableId: string;
+    let t2387ViewId: string;
+    let t2387NameFieldId: string;
+    let t2387StoreFieldId: string;
+    let t2387TimeFieldId: string;
+    let t2387StatusFieldId: string;
+
+    let recA1Id: string; // StoreA, time "08:00"
+    let recA2Id: string; // StoreA, time "10:00"
+    let recA3Id: string; // StoreA, time "14:00"
+    let recB1Id: string; // StoreB, time "09:00"
+    let recB2Id: string; // StoreB, time "11:00"
+    let _recB3Id: string; // StoreB, time "15:00" — used only for setup
+    let recC1Id: string; // StoreC, time "12:00"
+    let recFilteredOutId: string; // StoreA, status "cancelled" (filtered out)
+
+    beforeAll(async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Paste GroupBy Select T2387',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Store',
+            type: 'singleSelect',
+            options: {
+              choices: [
+                { name: 'StoreA', color: 'blueLight1' },
+                { name: 'StoreB', color: 'greenLight1' },
+                { name: 'StoreC', color: 'redLight1' },
+              ],
+            },
+          },
+          { name: 'Time', type: 'singleLineText' },
+          {
+            name: 'Status',
+            type: 'singleSelect',
+            options: {
+              choices: [
+                { name: 'active', color: 'greenLight1' },
+                { name: 'cancelled', color: 'redLight1' },
+              ],
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      t2387TableId = table.id;
+      t2387ViewId = table.views[0].id;
+      t2387NameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      t2387StoreFieldId = table.fields.find((f) => f.name === 'Store')?.id ?? '';
+      t2387TimeFieldId = table.fields.find((f) => f.name === 'Time')?.id ?? '';
+      t2387StatusFieldId = table.fields.find((f) => f.name === 'Status')?.id ?? '';
+
+      // Create records in non-grouped order to stress the offset calculation.
+      // Insertion order: B1, A1, C1, A2, B2, A3, B3, filtered-out
+      recB1Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'B1-Order',
+          [t2387StoreFieldId]: 'StoreB',
+          [t2387TimeFieldId]: '09:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recA1Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'A1-Order',
+          [t2387StoreFieldId]: 'StoreA',
+          [t2387TimeFieldId]: '08:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recC1Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'C1-Order',
+          [t2387StoreFieldId]: 'StoreC',
+          [t2387TimeFieldId]: '12:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recA2Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'A2-Order',
+          [t2387StoreFieldId]: 'StoreA',
+          [t2387TimeFieldId]: '10:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recB2Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'B2-Order',
+          [t2387StoreFieldId]: 'StoreB',
+          [t2387TimeFieldId]: '11:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recA3Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'A3-Order',
+          [t2387StoreFieldId]: 'StoreA',
+          [t2387TimeFieldId]: '14:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      _recB3Id = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'B3-Order',
+          [t2387StoreFieldId]: 'StoreB',
+          [t2387TimeFieldId]: '15:00',
+          [t2387StatusFieldId]: 'active',
+        })
+      ).id;
+      recFilteredOutId = (
+        await ctx.createRecord(t2387TableId, {
+          [t2387NameFieldId]: 'Cancelled-A',
+          [t2387StoreFieldId]: 'StoreA',
+          [t2387TimeFieldId]: '07:00',
+          [t2387StatusFieldId]: 'cancelled',
+        })
+      ).id;
+
+      // Set view defaults: group by Store asc, sort by Time asc,
+      // filter Status = active (excludes the cancelled record).
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          group: JSON.stringify([{ fieldId: t2387StoreFieldId, order: 'asc' }]),
+          sort: JSON.stringify({
+            sortObjs: [{ fieldId: t2387TimeFieldId, order: 'asc' }],
+          }),
+          filter: JSON.stringify({
+            conjunction: 'and',
+            filterSet: [{ fieldId: t2387StatusFieldId, operator: 'is', value: 'active' }],
+          }),
+        })
+        .where('id', '=', t2387ViewId)
+        .execute();
+    }, 30000);
+
+    /**
+     * With groupBy Store asc + sort Time asc + filter Status=active, the visible order is:
+     *
+     *   Row 0: A1-Order (StoreA, 08:00)
+     *   Row 1: A2-Order (StoreA, 10:00)
+     *   Row 2: A3-Order (StoreA, 14:00)
+     *   Row 3: B1-Order (StoreB, 09:00)
+     *   Row 4: B2-Order (StoreB, 11:00)
+     *   Row 5: B3-Order (StoreB, 15:00)
+     *   Row 6: C1-Order (StoreC, 12:00)
+     *
+     *   "Cancelled-A" is filtered out.
+     */
+
+    it('should paste to row 0 — first row of first group (StoreA)', async () => {
+      const result = await ctx.paste({
+        tableId: t2387TableId,
+        viewId: t2387ViewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['Pasted-Row0']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recA1Id)?.fields[t2387NameFieldId]).toBe('Pasted-Row0');
+
+      // Reset
+      await ctx.updateRecord(t2387TableId, recA1Id, { [t2387NameFieldId]: 'A1-Order' });
+    });
+
+    it('should paste to row 3 — first row of second group (StoreB)', async () => {
+      const result = await ctx.paste({
+        tableId: t2387TableId,
+        viewId: t2387ViewId,
+        ranges: [
+          [0, 3],
+          [0, 3],
+        ],
+        content: [['Pasted-Row3']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recB1Id)?.fields[t2387NameFieldId]).toBe('Pasted-Row3');
+
+      // Reset
+      await ctx.updateRecord(t2387TableId, recB1Id, { [t2387NameFieldId]: 'B1-Order' });
+    });
+
+    it('should paste to row 6 — sole row of third group (StoreC)', async () => {
+      const result = await ctx.paste({
+        tableId: t2387TableId,
+        viewId: t2387ViewId,
+        ranges: [
+          [0, 6],
+          [0, 6],
+        ],
+        content: [['Pasted-Row6']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recC1Id)?.fields[t2387NameFieldId]).toBe('Pasted-Row6');
+
+      // Reset
+      await ctx.updateRecord(t2387TableId, recC1Id, { [t2387NameFieldId]: 'C1-Order' });
+    });
+
+    it('should paste multi-row across group boundary (StoreA→StoreB)', async () => {
+      // Paste 3 rows starting at row 2 (last of StoreA) → rows 2, 3, 4
+      const result = await ctx.paste({
+        tableId: t2387TableId,
+        viewId: t2387ViewId,
+        ranges: [
+          [0, 2],
+          [0, 4],
+        ],
+        content: [['Cross-A3'], ['Cross-B1'], ['Cross-B2']],
+      });
+
+      expect(result.updatedCount).toBe(3);
+
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recA3Id)?.fields[t2387NameFieldId]).toBe('Cross-A3');
+      expect(records.find((r) => r.id === recB1Id)?.fields[t2387NameFieldId]).toBe('Cross-B1');
+      expect(records.find((r) => r.id === recB2Id)?.fields[t2387NameFieldId]).toBe('Cross-B2');
+
+      // Other records should be unchanged
+      expect(records.find((r) => r.id === recA1Id)?.fields[t2387NameFieldId]).toBe('A1-Order');
+      expect(records.find((r) => r.id === recA2Id)?.fields[t2387NameFieldId]).toBe('A2-Order');
+
+      // Reset
+      await ctx.updateRecord(t2387TableId, recA3Id, { [t2387NameFieldId]: 'A3-Order' });
+      await ctx.updateRecord(t2387TableId, recB1Id, { [t2387NameFieldId]: 'B1-Order' });
+      await ctx.updateRecord(t2387TableId, recB2Id, { [t2387NameFieldId]: 'B2-Order' });
+    });
+
+    it('should not affect the filtered-out cancelled record', async () => {
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recFilteredOutId)?.fields[t2387NameFieldId]).toBe(
+        'Cancelled-A'
+      );
+    });
+
+    it('should paste multi-row at end of last group + create new records', async () => {
+      // Paste 2 rows starting at row 6 (last row) — 1 update + 1 create
+      const result = await ctx.paste({
+        tableId: t2387TableId,
+        viewId: t2387ViewId,
+        ranges: [
+          [0, 6],
+          [0, 7],
+        ],
+        content: [['Updated-C1'], ['NewRecord']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(1);
+
+      const records = await ctx.listRecords(t2387TableId);
+      expect(records.find((r) => r.id === recC1Id)?.fields[t2387NameFieldId]).toBe('Updated-C1');
+      expect(records.find((r) => r.fields[t2387NameFieldId] === 'NewRecord')).toBeDefined();
+
+      // Reset C1
+      await ctx.updateRecord(t2387TableId, recC1Id, { [t2387NameFieldId]: 'C1-Order' });
+    });
+  });
+
+  /**
+   * Regression test: paste with singleSelect groupBy desc order.
+   * Ensures the group ordering direction is respected in offset calculation.
+   */
+  describe('paste with groupBy desc + sort desc (reversed order)', () => {
+    let descTableId: string;
+    let descViewId: string;
+    let descNameFieldId: string;
+    let descCategoryFieldId: string;
+    let descScoreFieldId: string;
+    let descRecX1Id: string;
+    let _descRecX2Id: string;
+    let descRecY1Id: string;
+    let _descRecY2Id: string;
+
+    beforeAll(async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Paste GroupBy Desc Table',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Category',
+            type: 'singleSelect',
+            options: {
+              choices: [
+                { name: 'X', color: 'blueLight1' },
+                { name: 'Y', color: 'greenLight1' },
+              ],
+            },
+          },
+          { name: 'Score', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      descTableId = table.id;
+      descViewId = table.views[0].id;
+      descNameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      descCategoryFieldId = table.fields.find((f) => f.name === 'Category')?.id ?? '';
+      descScoreFieldId = table.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+      descRecX1Id = (
+        await ctx.createRecord(descTableId, {
+          [descNameFieldId]: 'X1',
+          [descCategoryFieldId]: 'X',
+          [descScoreFieldId]: 100,
+        })
+      ).id;
+      _descRecX2Id = (
+        await ctx.createRecord(descTableId, {
+          [descNameFieldId]: 'X2',
+          [descCategoryFieldId]: 'X',
+          [descScoreFieldId]: 50,
+        })
+      ).id;
+      descRecY1Id = (
+        await ctx.createRecord(descTableId, {
+          [descNameFieldId]: 'Y1',
+          [descCategoryFieldId]: 'Y',
+          [descScoreFieldId]: 200,
+        })
+      ).id;
+      _descRecY2Id = (
+        await ctx.createRecord(descTableId, {
+          [descNameFieldId]: 'Y2',
+          [descCategoryFieldId]: 'Y',
+          [descScoreFieldId]: 10,
+        })
+      ).id;
+
+      // Group by Category DESC → Y first, then X. Sort by Score DESC.
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          group: JSON.stringify([{ fieldId: descCategoryFieldId, order: 'desc' }]),
+          sort: JSON.stringify({
+            sortObjs: [{ fieldId: descScoreFieldId, order: 'desc' }],
+          }),
+        })
+        .where('id', '=', descViewId)
+        .execute();
+    }, 30000);
+
+    /**
+     * Visible order with groupBy Category desc + sort Score desc:
+     *   Row 0: Y1 (Y, 200)
+     *   Row 1: Y2 (Y, 10)
+     *   Row 2: X1 (X, 100)
+     *   Row 3: X2 (X, 50)
+     */
+
+    it('should paste to row 0 — first row of desc-first group (Y)', async () => {
+      const result = await ctx.paste({
+        tableId: descTableId,
+        viewId: descViewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['Pasted-Y1']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(descTableId);
+      expect(records.find((r) => r.id === descRecY1Id)?.fields[descNameFieldId]).toBe('Pasted-Y1');
+
+      await ctx.updateRecord(descTableId, descRecY1Id, { [descNameFieldId]: 'Y1' });
+    });
+
+    it('should paste to row 2 — first row of desc-second group (X)', async () => {
+      const result = await ctx.paste({
+        tableId: descTableId,
+        viewId: descViewId,
+        ranges: [
+          [0, 2],
+          [0, 2],
+        ],
+        content: [['Pasted-X1']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(descTableId);
+      expect(records.find((r) => r.id === descRecX1Id)?.fields[descNameFieldId]).toBe('Pasted-X1');
+
+      await ctx.updateRecord(descTableId, descRecX1Id, { [descNameFieldId]: 'X1' });
+    });
+  });
 });

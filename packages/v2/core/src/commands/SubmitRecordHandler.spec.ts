@@ -117,7 +117,7 @@ const createRunnerBackedRecordCreationService = (
   const service = {
     create: async (context: IExecutionContext, input: IRecordCreationInput) => {
       const executionResult = await runner.prepare({
-        kind: input.operationKind as 'submit',
+        kind: input.operationKind,
         executionContext: context,
         table: input.table,
         payload: {

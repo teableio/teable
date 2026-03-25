@@ -28,12 +28,21 @@ describe('RecordFilterDto', () => {
     });
     expect(invalidEmpty.success).toBe(false);
 
-    const invalidNull = recordFilterConditionSchema.safeParse({
+    // is/isNot with null is allowed for V1 compatibility
+    const isWithNull = recordFilterConditionSchema.safeParse({
       fieldId: 'fld123',
       operator: 'is',
       value: null,
     });
-    expect(invalidNull.success).toBe(false);
+    expect(isWithNull.success).toBe(true);
+
+    // Other operators with null are still invalid
+    const containsWithNull = recordFilterConditionSchema.safeParse({
+      fieldId: 'fld123',
+      operator: 'contains',
+      value: null,
+    });
+    expect(containsWithNull.success).toBe(false);
 
     const invalidArray = recordFilterConditionSchema.safeParse({
       fieldId: 'fld123',
