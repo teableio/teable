@@ -33,7 +33,8 @@ import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
 import { InjectStorageAdapter } from './plugins/storage';
-import { getExtensionPreview, getSafeUploadContentType } from './utils';
+import { getSafeUploadContentType } from './plugins/utils';
+import { getExtensionPreview } from './utils';
 @Injectable()
 export class AttachmentsService {
   private logger = new Logger(AttachmentsService.name);

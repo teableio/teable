@@ -14,6 +14,7 @@ export const createFieldInputSchema = z.object({
   baseId: z.string(),
   tableId: z.string(),
   field: tableFieldInputSchema,
+  viewId: z.string().optional(),
   order: z
     .object({
       viewId: z.string(),
@@ -29,6 +30,7 @@ export class CreateFieldCommand extends TableUpdateCommand {
     readonly baseId: BaseId,
     readonly tableId: TableId,
     readonly field: z.output<typeof tableFieldInputSchema>,
+    readonly viewId?: string,
     readonly order?: {
       viewId: string;
       orderIndex: number;
@@ -57,7 +59,8 @@ export class CreateFieldCommand extends TableUpdateCommand {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
-        (tableId) => new CreateFieldCommand(baseId, tableId, parsed.data.field, parsed.data.order)
+        (tableId) =>
+          new CreateFieldCommand(baseId, tableId, parsed.data.field, parsed.data.viewId, parsed.data.order)
       )
     );
   }

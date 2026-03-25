@@ -106,7 +106,6 @@ describe('GetRecordByIdHandler', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
-      restore: async () => err(domainError.unexpected({ message: 'restore failed' })),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 

@@ -1271,6 +1271,10 @@ export class FieldOpenApiV2Service {
       context
     );
     const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
+    const legacyViewId =
+      fieldRo && typeof fieldRo === 'object' && 'viewId' in fieldRo
+        ? (fieldRo.viewId as string | undefined)
+        : undefined;
     const legacyOrder =
       fieldRo && typeof fieldRo === 'object' && 'order' in fieldRo
         ? (fieldRo.order as
@@ -1291,6 +1295,7 @@ export class FieldOpenApiV2Service {
       baseId: table.baseId().toString(),
       tableId,
       field: v2Field,
+      ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
       ...(normalizedOrder ? { order: normalizedOrder } : {}),
     });
 
