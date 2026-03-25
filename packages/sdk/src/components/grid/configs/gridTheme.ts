@@ -40,7 +40,9 @@ export interface IGridTheme {
   columnHeaderNameColor: string;
   columnResizeHandlerBg: string;
   columnDraggingPlaceholderBg: string;
-  columnStatisticBgHovered: string;
+  columnStatisticBgHoveredPrimary: string;
+  columnStatisticBgHoveredSecondary: string;
+  columnStatisticBgHoveredTertiary: string;
   rowHeaderTextColor: string;
   appendRowBg: string;
   appendRowBgHovered: string;
@@ -100,6 +102,11 @@ export const gridTheme: IGridTheme = {
   groupHeaderBgSecondary: '#F4F4F5',
   groupHeaderBgTertiary: '#EAEAEB',
 
+  // Column Statistic
+  columnStatisticBgHoveredPrimary: '#F2F2F2',
+  columnStatisticBgHoveredSecondary: '#EDECEC',
+  columnStatisticBgHoveredTertiary: '#E3E2E2',
+
   // Column Header
   columnHeaderBg: colors.zinc[50],
   columnHeaderBgHovered: colors.zinc[100],
@@ -108,8 +115,6 @@ export const gridTheme: IGridTheme = {
   columnResizeHandlerBg: colors.blue[500],
   columnDraggingPlaceholderBg: hexToRGBA(colors.black, 0.2),
 
-  // Column Statistic
-  columnStatisticBgHovered: hexToRGBA(colors.zinc[200], 0.7),
   // Row Header
   rowHeaderTextColor: colors.zinc[500],
 
