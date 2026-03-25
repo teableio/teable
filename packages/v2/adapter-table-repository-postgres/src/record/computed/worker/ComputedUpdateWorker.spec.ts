@@ -159,7 +159,7 @@ describe('ComputedUpdateWorker', () => {
         execute: vi
           .fn()
           .mockResolvedValue(err(domainError.infrastructure({ message: 'Test error' }))),
-        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
       });
 
       const planner = {
@@ -203,7 +203,7 @@ describe('ComputedUpdateWorker', () => {
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
-        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
       });
 
       const planner = {
@@ -251,7 +251,7 @@ describe('ComputedUpdateWorker', () => {
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
-        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
       });
 
       const planner = {
@@ -312,12 +312,15 @@ describe('ComputedUpdateWorker', () => {
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(
-          ok([
-            {
-              tableId: TableId.create(TABLE_ID)._unsafeUnwrap(),
-              recordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
-            },
-          ])
+          ok({
+            groups: [
+              {
+                tableId: TableId.create(TABLE_ID)._unsafeUnwrap(),
+                recordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+              },
+            ],
+            seedAllTableIds: [],
+          })
         ),
       });
 
@@ -482,7 +485,9 @@ describe('ComputedUpdateWorker', () => {
             await new Promise((resolve) => setTimeout(resolve, 3500));
             return ok({ changesByStep: [] });
           }),
-          collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+          collectDirtySeedGroups: vi
+            .fn()
+            .mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
         });
 
         const planner = {
@@ -538,7 +543,7 @@ describe('ComputedUpdateWorker', () => {
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
-        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
       });
 
       const planner = {
@@ -585,7 +590,7 @@ describe('ComputedUpdateWorker', () => {
 
       const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
-        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
       });
 
       const planner = {

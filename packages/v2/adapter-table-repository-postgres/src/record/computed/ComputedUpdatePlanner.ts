@@ -174,6 +174,11 @@ export type ComputedUpdatePlan = {
    */
   sameTableBatches: ReadonlyArray<SameTableBatch>;
   cycleInfo?: ComputedUpdateCycleInfo;
+  /**
+   * Table IDs where ALL records should be seeded as dirty.
+   * Used to avoid storing/loading individual record IDs when the full table is dirty.
+   */
+  seedAllTableIds?: ReadonlyArray<TableId>;
 };
 
 type UpdateImpact = {

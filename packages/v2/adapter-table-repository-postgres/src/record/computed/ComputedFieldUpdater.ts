@@ -643,13 +643,31 @@ export class ComputedFieldUpdater {
               return seedAllDirtyRecordsForTable(db, seedTable);
             }
 
-            const seedResult = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
-            if (seedResult.isErr()) return seedResult;
+            // Seed "all records" tables via efficient SQL (skip individual record IDs)
+            for (const tableId of plan.seedAllTableIds ?? []) {
+              const table = tableById.get(tableId.toString());
+              if (!table) {
+                return err(
+                  domainError.notFound({
+                    message: `Missing table for seed-all dirty seeding: ${tableId.toString()}`,
+                  })
+                );
+              }
+              const result = await seedAllDirtyRecordsForTable(db, table);
+              if (result.isErr()) return result;
+            }
+
+            // Seed individual records for remaining tables
+            if (plan.seedRecordIds.length > 0) {
+              const seedResult = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
+              if (seedResult.isErr()) return seedResult;
+            }
             return seedExtraDirtyRecords(db, plan.extraSeedRecords);
           },
           {
             seedCount: plan.seedRecordIds.length,
             extraSeedCount: plan.extraSeedRecords.length,
+            seedAllTableCount: plan.seedAllTableIds?.length ?? 0,
           }
         );
         yield* await runWithSpan(
@@ -1433,47 +1451,82 @@ export class ComputedFieldUpdater {
   async collectDirtySeedGroups(
     context: IExecutionContext,
     tableIds: ReadonlyArray<TableId>
-  ): Promise<Result<ComputedSeedGroup[], DomainError>> {
+  ): Promise<Result<{ groups: ComputedSeedGroup[]; seedAllTableIds: TableId[] }, DomainError>> {
     const uniqueTableIds = [...new Set(tableIds.map((id) => id.toString()))];
-    if (uniqueTableIds.length === 0) return ok([]);
+    if (uniqueTableIds.length === 0) return ok({ groups: [], seedAllTableIds: [] });
 
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
     try {
-      const rows = await db
-        .selectFrom(DIRTY_TABLE)
-        .select([
-          sql.ref(DIRTY_TABLE_ID_COL).as('tableId'),
-          sql.ref(DIRTY_RECORD_ID_COL).as('recordId'),
-        ])
-        .where(DIRTY_TABLE_ID_COL, 'in', uniqueTableIds)
-        .execute();
-
       const tableIdMap = new Map<string, TableId>();
       for (const tableId of tableIds) {
         tableIdMap.set(tableId.toString(), tableId);
       }
 
-      const groups = new Map<string, { tableId: TableId; recordIds: RecordId[] }>();
-      for (const row of rows) {
-        const tableIdValue = String(row.tableId);
-        const recordIdValue = String(row.recordId);
-        const tableIdResult = tableIdMap.has(tableIdValue)
-          ? ok(tableIdMap.get(tableIdValue)!)
-          : TableId.create(tableIdValue);
-        if (tableIdResult.isErr()) return err(tableIdResult.error);
+      // Count dirty records per table to identify "seed all" tables
+      const counts = await db
+        .selectFrom(DIRTY_TABLE)
+        .select([
+          sql.ref(DIRTY_TABLE_ID_COL).as('tableId'),
+          sql<number>`count(${sql.ref(DIRTY_RECORD_ID_COL)})`.as('cnt'),
+        ])
+        .where(DIRTY_TABLE_ID_COL, 'in', uniqueTableIds)
+        .groupBy(DIRTY_TABLE_ID_COL)
+        .execute();
 
-        const recordIdResult = RecordId.create(recordIdValue);
-        if (recordIdResult.isErr()) return err(recordIdResult.error);
+      const SEED_ALL_THRESHOLD = 5000;
+      const seedAllTableIds: TableId[] = [];
+      const normalTableIds: string[] = [];
 
-        const entry = groups.get(tableIdValue) ?? {
-          tableId: tableIdResult.value,
-          recordIds: [],
-        };
-        entry.recordIds.push(recordIdResult.value);
-        groups.set(tableIdValue, entry);
+      for (const row of counts) {
+        const tableIdStr = String(row.tableId);
+        const count = Number(row.cnt);
+        if (count >= SEED_ALL_THRESHOLD) {
+          const existing = tableIdMap.get(tableIdStr);
+          if (existing) {
+            seedAllTableIds.push(existing);
+          } else {
+            const result = TableId.create(tableIdStr);
+            if (result.isErr()) return err(result.error);
+            seedAllTableIds.push(result.value);
+          }
+        } else {
+          normalTableIds.push(tableIdStr);
+        }
       }
 
-      return ok([...groups.values()]);
+      // Only fetch individual IDs for tables below the threshold
+      const groups = new Map<string, { tableId: TableId; recordIds: RecordId[] }>();
+      if (normalTableIds.length > 0) {
+        const rows = await db
+          .selectFrom(DIRTY_TABLE)
+          .select([
+            sql.ref(DIRTY_TABLE_ID_COL).as('tableId'),
+            sql.ref(DIRTY_RECORD_ID_COL).as('recordId'),
+          ])
+          .where(DIRTY_TABLE_ID_COL, 'in', normalTableIds)
+          .execute();
+
+        for (const row of rows) {
+          const tableIdValue = String(row.tableId);
+          const recordIdValue = String(row.recordId);
+          const tableIdResult = tableIdMap.has(tableIdValue)
+            ? ok(tableIdMap.get(tableIdValue)!)
+            : TableId.create(tableIdValue);
+          if (tableIdResult.isErr()) return err(tableIdResult.error);
+
+          const recordIdResult = RecordId.create(recordIdValue);
+          if (recordIdResult.isErr()) return err(recordIdResult.error);
+
+          const entry = groups.get(tableIdValue) ?? {
+            tableId: tableIdResult.value,
+            recordIds: [],
+          };
+          entry.recordIds.push(recordIdResult.value);
+          groups.set(tableIdValue, entry);
+        }
+      }
+
+      return ok({ groups: [...groups.values()], seedAllTableIds });
     } catch (error) {
       return err(
         domainError.infrastructure({

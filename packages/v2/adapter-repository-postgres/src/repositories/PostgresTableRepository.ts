@@ -1769,6 +1769,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
 
     if (rawValue == null) {
+      // Preserve is/isNot with null — domain layer handles the conversion
+      if (operator === 'is' || operator === 'isNot') {
+        return { fieldId: filter.fieldId, operator, value: null };
+      }
       return null;
     }
 
@@ -1881,7 +1885,12 @@ export class PostgresTableRepository implements core.ITableRepository {
       return filter;
     }
 
-    if (value == null) return null;
+    if (value == null) {
+      if (operator === 'is' || operator === 'isNot') {
+        return { fieldId: filter.fieldId, operator, value: null };
+      }
+      return null;
+    }
     return filter;
   }
 

@@ -354,16 +354,23 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
 
       const nextSeedFieldIds = collectStepFieldIds(currentPlan);
       const tableIds = collectStepTableIds(currentPlan);
-      const seedGroups = await updater.collectDirtySeedGroups(context, tableIds);
-      if (seedGroups.isErr()) return err(seedGroups.error);
+      const seedGroupsResult = await updater.collectDirtySeedGroups(context, tableIds);
+      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+
+      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
 
       const nextPlanResult = await this.planNextStage(
         currentPlan,
         context,
         nextSeedFieldIds,
-        seedGroups.value
+        seedGroups
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+      // Carry seedAllTableIds through to next plan
+      if (seedAllTableIds.length > 0 && nextPlanResult.isOk()) {
+        nextPlanResult.value.seedAllTableIds = seedAllTableIds;
+      }
 
       // Filter out already-updated fields from the next plan's steps
       const filteredSteps = nextPlanResult.value.steps

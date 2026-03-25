@@ -520,12 +520,15 @@ export class ComputedUpdateWorker {
       );
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
 
+      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+
       failurePhase = 'plan_next_stage';
       const nextPlanResult = await this.planNextStage(
         planResult.value,
         txContext,
         stageFieldIdsResult.value,
-        seedGroupsResult.value
+        seedGroups,
+        seedAllTableIds
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
@@ -544,7 +547,7 @@ export class ComputedUpdateWorker {
             Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
           const nextTask = buildOutboxTaskInput({
             plan: nextPlanResult.value,
-            dirtyStats: seedGroupsResult.value.map((group) => ({
+            dirtyStats: seedGroups.map((group) => ({
               tableId: group.tableId.toString(),
               recordCount: group.recordIds.length,
             })),
@@ -914,6 +917,8 @@ export class ComputedUpdateWorker {
       const seedGroupsResult = await this.updater.collectDirtySeedGroups(txContext, stageTableIds);
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
 
+      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+
       // Plan next stage if needed
       // If there are no cross-record propagation edges, the plan is purely same-record
       // (e.g. same-table formula chains) and should not enqueue follow-up stages.
@@ -929,7 +934,8 @@ export class ComputedUpdateWorker {
         plan,
         txContext,
         stageFieldIds,
-        seedGroupsResult.value
+        seedGroups,
+        seedAllTableIds
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
@@ -938,7 +944,7 @@ export class ComputedUpdateWorker {
       if (nextPlanResult.value.steps.length > 0) {
         const nextTask = buildOutboxTaskInput({
           plan: nextPlanResult.value,
-          dirtyStats: seedGroupsResult.value.map((group) => ({
+          dirtyStats: seedGroups.map((group) => ({
             tableId: group.tableId.toString(),
             recordCount: group.recordIds.length,
           })),
@@ -985,21 +991,24 @@ export class ComputedUpdateWorker {
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
     seedFieldIds: ReadonlyArray<FieldId>,
-    seedGroups: ReadonlyArray<ComputedSeedGroup>
+    seedGroups: ReadonlyArray<ComputedSeedGroup>,
+    seedAllTableIds?: ReadonlyArray<TableId>
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
-    if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
+    if (seedFieldIds.length === 0 && (!seedAllTableIds || seedAllTableIds.length === 0))
+      return ok({ ...plan, steps: [], edges: [] });
 
     const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
-    if (!seedSplit) return ok({ ...plan, steps: [], edges: [] });
+    if (!seedSplit && (!seedAllTableIds || seedAllTableIds.length === 0))
+      return ok({ ...plan, steps: [], edges: [] });
 
     const startTime = Date.now();
     const result = await this.planner.planStage(
       {
         baseId: plan.baseId,
-        seedTableId: seedSplit.seedTableId,
-        seedRecordIds: seedSplit.seedRecordIds,
-        extraSeedRecords: seedSplit.extraSeedRecords,
+        seedTableId: seedSplit?.seedTableId ?? plan.seedTableId,
+        seedRecordIds: seedSplit?.seedRecordIds ?? [],
+        extraSeedRecords: seedSplit?.extraSeedRecords ?? [],
         beforeImageRecords: [],
         changedFieldIds: seedFieldIds,
         // After the initial insert/delete is processed, subsequent stages should behave like
@@ -1023,10 +1032,16 @@ export class ComputedUpdateWorker {
         inputSeedFieldIds: seedFieldIds.length,
         inputSeedGroups: seedGroups.length,
         inputSeedRecords: seedGroups.reduce((acc, g) => acc + g.recordIds.length, 0),
+        inputSeedAllTableIds: seedAllTableIds?.length ?? 0,
         outputSteps: result.value.steps.length,
         outputEdges: result.value.edges.length,
-        seedTableId: seedSplit.seedTableId.toString(),
+        seedTableId: (seedSplit?.seedTableId ?? plan.seedTableId).toString(),
       });
+    }
+
+    // Carry seedAllTableIds through to the next plan
+    if (result.isOk() && seedAllTableIds && seedAllTableIds.length > 0) {
+      return ok({ ...result.value, seedAllTableIds });
     }
 
     return result;
@@ -1043,6 +1058,7 @@ const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload 
   edges: task.edges,
   estimatedComplexity: task.estimatedComplexity,
   changeType: task.changeType,
+  seedAllTableIds: task.seedAllTableIds,
 });
 
 const collectSeedFieldIds = (

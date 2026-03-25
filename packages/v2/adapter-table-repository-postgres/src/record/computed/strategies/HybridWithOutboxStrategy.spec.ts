@@ -184,7 +184,7 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
-    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
 
@@ -239,7 +239,7 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
-    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
 
     const strategy = new HybridWithOutboxStrategy(
@@ -296,7 +296,7 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
-    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
 
@@ -355,7 +355,7 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
-    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
     runOnce.mockResolvedValue(ok(0));

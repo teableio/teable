@@ -156,8 +156,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           }
 
           const taskId = String(existing.id);
-          const incomingSeedGroups = buildSeedGroupsFromTask(task);
-          const existingSeedGroups = await this.loadSeedGroups(trx, existing);
+          const seedAllTableIds = mergeSeedAllTableIds(
+            parseSeedAllTableIds(existing.dirty_stats),
+            task.seedAllTableIds
+          );
+          const seedAllSet = new Set(seedAllTableIds ?? []);
+          const incomingSeedGroups = buildSeedGroupsFromTask(task).filter(
+            (g) => !seedAllSet.has(g.tableId)
+          );
+          const existingSeedGroups = (await this.loadSeedGroups(trx, existing)).filter(
+            (g) => !seedAllSet.has(g.tableId)
+          );
           const mergedSeedGroups = mergeSeedGroups(existingSeedGroups, incomingSeedGroups);
           const mergedDirtyStats = mergeDirtyStats(
             parseDirtyStats(existing.dirty_stats),
@@ -191,6 +200,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               dirty_stats: toJsonValue({
                 dirtyStats: mergedDirtyStats,
                 beforeImageRecords: mergedBeforeImageRecords,
+                seedAllTableIds:
+                  seedAllTableIds && seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
               }),
               run_id: mergedRunId,
               origin_run_ids: mergedOriginRunIds,
@@ -865,7 +876,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     task: ComputedUpdateOutboxTaskInput,
     now: Date
   ): Promise<string> {
-    const seedGroups = buildSeedGroupsFromTask(task);
+    const seedAllTableIds = task.seedAllTableIds ?? [];
+    const seedAllSet = new Set(seedAllTableIds);
+    const seedGroups = buildSeedGroupsFromTask(task).filter((g) => !seedAllSet.has(g.tableId));
     const seedCount = countSeedRecords(seedGroups);
     const useSeedTable = seedCount > this.config.seedInlineLimit;
 
@@ -891,6 +904,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         dirty_stats: toJsonValue({
           dirtyStats: task.dirtyStats,
           beforeImageRecords: task.beforeImageRecords,
+          seedAllTableIds: seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
         }),
         run_id: task.runId,
         origin_run_ids: task.originRunIds,
@@ -1148,6 +1162,7 @@ const toOutboxItem = (
     changeType: String(row.change_type) as ComputedUpdateOutboxItem['changeType'],
     planHash: String(row.plan_hash),
     dirtyStats: parseDirtyStats(row.dirty_stats),
+    seedAllTableIds: parseSeedAllTableIds(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     originRunIds: parseStringArray(row.origin_run_ids),
     runTotalSteps: Number(row.run_total_steps ?? 0),
@@ -1247,6 +1262,14 @@ const parseBeforeImageRecordDtos = (
     );
 };
 
+const parseSeedAllTableIds = (value: unknown): string[] | undefined => {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed) || parsed == null || typeof parsed !== 'object') return undefined;
+  const raw = (parsed as { seedAllTableIds?: unknown }).seedAllTableIds;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter((item): item is string => typeof item === 'string');
+};
+
 const parseSeedGroups = (value: unknown, seedTableId: string): SeedGroup[] => {
   const parsed = parseJsonValue(value);
   if (!Array.isArray(parsed)) return [];
@@ -1318,7 +1341,7 @@ const splitSeedGroups = (
 
   for (const group of groups) {
     if (group.tableId === seedTableId) {
-      seedRecordIds.push(...group.recordIds);
+      for (const id of group.recordIds) seedRecordIds.push(id);
     } else {
       extraSeedRecords.push(group);
     }
@@ -1334,6 +1357,17 @@ const buildSeedGroupsFromTask = (task: ComputedUpdateOutboxTaskInput): SeedGroup
   };
 
   return mergeSeedGroups([baseGroup], task.extraSeedRecords ?? []);
+};
+
+const mergeSeedAllTableIds = (
+  existing: string[] | undefined,
+  incoming: string[] | undefined
+): string[] | undefined => {
+  if (!existing?.length && !incoming?.length) return undefined;
+  const set = new Set<string>();
+  for (const id of existing ?? []) set.add(id);
+  for (const id of incoming ?? []) set.add(id);
+  return Array.from(set);
 };
 
 const flattenSeedGroups = (groups: SeedGroup[]): SeedRecord[] => {

@@ -100,6 +100,8 @@ export type ComputedUpdateOutboxPayload = {
   runCompletedStepsBefore?: number;
   /** Stage depth for limiting cascading updates */
   stageDepth?: number;
+  /** Table IDs where ALL records should be seeded as dirty (avoids storing individual record IDs) */
+  seedAllTableIds?: string[];
 };
 
 export type ComputedUpdateRunMeta = {
@@ -143,6 +145,7 @@ export const serializeComputedUpdatePlan = (
     edges: plan.edges.map(serializeEdge),
     estimatedComplexity: plan.estimatedComplexity,
     changeType: plan.changeType,
+    seedAllTableIds: plan.seedAllTableIds?.map((id) => id.toString()),
   };
 };
 
@@ -353,6 +356,11 @@ export const deserializeComputedUpdatePlan = (
     // Note: sameTableBatches are derived from steps at planning time,
     // so we don't serialize/deserialize them. They will be empty for outbox tasks.
     sameTableBatches: [],
+    seedAllTableIds: payload.seedAllTableIds?.reduce<TableId[]>((acc, id) => {
+      const result = TableId.create(id);
+      if (result.isOk()) acc.push(result.value);
+      return acc;
+    }, []),
   });
 };
 

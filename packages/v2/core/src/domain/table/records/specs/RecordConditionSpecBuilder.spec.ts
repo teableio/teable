@@ -544,8 +544,15 @@ describe('FieldConditionSpecBuilder', () => {
       'Invalid record condition operator for field'
     );
 
-    const missingValue = FieldConditionSpecBuilder.create(fields.textField).create({
+    // is without value on text field gets normalized to isEmpty (V1 compat)
+    const isWithoutValue = FieldConditionSpecBuilder.create(fields.textField).create({
       operator: 'is',
+    });
+    expect(isWithoutValue.isOk()).toBe(true);
+
+    // contains without value should still fail
+    const missingValue = FieldConditionSpecBuilder.create(fields.textField).create({
+      operator: 'contains',
     });
     expect(missingValue._unsafeUnwrapErr().message).toContain('Record condition requires a value');
 
