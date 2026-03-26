@@ -51,7 +51,9 @@ describe('update-field: singleSelect → user conversion', () => {
     if (!tableId) return;
     try {
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   });
 
   test('should clear non-matching values', async () => {

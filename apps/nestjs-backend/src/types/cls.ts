@@ -7,6 +7,7 @@ import type { IPerformanceCacheStore } from '../performance-cache';
 import type { IRawOpMap } from '../share-db/interface';
 import type { IDataLoaderCache } from './data-loader';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type V2Reason =
   | 'env_force_v2_all'
   | 'config_force_v2_all'

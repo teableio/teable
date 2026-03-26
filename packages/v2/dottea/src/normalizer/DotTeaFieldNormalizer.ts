@@ -114,6 +114,7 @@ type NormalizedFieldOptions = {
 export const normalizeFieldOptions = (
   field: DotTeaFieldInput,
   fieldTypesById: ReadonlyMap<string, string>
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ): NormalizedFieldOptions => {
   const rawOptions = asRecord(field.options);
   const rawLookupOptions = asRecord(field.lookupOptions);

@@ -56,6 +56,7 @@ describe('TableUpdateFieldNameSpec', () => {
 
     const spec = TableUpdateFieldNameSpec.create(fieldId, prevName, nextName);
     const visitor = { visitTableUpdateFieldName: () => ok(undefined) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     spec.accept(visitor as any)._unsafeUnwrap();
   });
 });
@@ -82,6 +83,7 @@ describe('TableUpdateFieldDescriptionSpec', () => {
     const fieldId = createFieldId('9');
     const spec = TableUpdateFieldDescriptionSpec.create(fieldId, null, 'desc');
     const visitor = { visitTableUpdateFieldDescription: () => ok(undefined) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     spec.accept(visitor as any)._unsafeUnwrap();
   });
 });
@@ -150,6 +152,7 @@ describe('TableUpdateFieldTypeSpec', () => {
 
     const spec = TableUpdateFieldTypeSpec.create(textField, numberField);
     const visitor = { visitTableUpdateFieldType: () => ok(undefined) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     spec.accept(visitor as any)._unsafeUnwrap();
   });
 });

@@ -8,8 +8,8 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
 import { TableId } from '../domain/table/TableId';
-import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
+import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
 /** Default page size for records */
 export const DEFAULT_RECORDS_LIMIT = 100;

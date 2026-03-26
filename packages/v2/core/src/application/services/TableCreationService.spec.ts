@@ -60,6 +60,10 @@ class FakeTableRepository implements ITableRepository {
   async delete() {
     return ok(undefined);
   }
+
+  async restore() {
+    return ok(undefined);
+  }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {

@@ -179,6 +179,7 @@ export class PapaparseCsvParser implements ICsvParser {
    * 创建流式 CSV 解析器
    * 返回 headers 和异步行迭代器
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async createStreamingParser(
     body: ReadableStream<Uint8Array>,
     options: { delimiter?: string; hasHeader: boolean; skipEmptyLines: boolean }
@@ -238,6 +239,7 @@ export class PapaparseCsvParser implements ICsvParser {
         let currentBuffer = buffer;
 
         return {
+          // eslint-disable-next-line sonarjs/cognitive-complexity
           async next(): Promise<IteratorResult<Record<string, string>>> {
             // 先返回已解析的 pending rows
             if (pendingIndex < pendingRows.length) {

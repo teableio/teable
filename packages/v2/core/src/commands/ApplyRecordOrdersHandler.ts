@@ -1,3 +1,4 @@
+import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -16,9 +17,8 @@ import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import { inject, injectable } from '@teable/v2-di';
-import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ApplyRecordOrdersCommand } from './ApplyRecordOrdersCommand';
+import { CommandHandler, type ICommandHandler } from './CommandHandler';
 
 export class ApplyRecordOrdersResult {
   private constructor(readonly updatedRecordIds: ReadonlyArray<string>) {}

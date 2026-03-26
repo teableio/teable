@@ -23,6 +23,8 @@ import {
   type UndoRedoDbHarness,
 } from '../../shared/undoRedoDbTestKit';
 
+const IN_PROGRESS = 'In Progress';
+
 describe('undo-redo/paste (db)', () => {
   let harness: UndoRedoDbHarness | undefined;
 
@@ -75,6 +77,7 @@ describe('undo-redo/paste (db)', () => {
           [1, 2],
         ],
         content: [
+          // eslint-disable-next-line sonarjs/no-duplicate-string
           ['Paste Row 0', 100],
           ['Paste Row 1', 200],
           ['Paste Row 2', 300],
@@ -156,7 +159,7 @@ describe('undo-redo/paste (db)', () => {
           [2, 1],
         ],
         content: [
-          ['Paste Row 0', 'In Progress', 'Tag A, Tag Z'],
+          ['Paste Row 0', IN_PROGRESS, 'Tag A, Tag Z'],
           ['Paste Row 1', 'Open', 'Tag A'],
         ],
       })._unsafeUnwrap()
@@ -177,7 +180,7 @@ describe('undo-redo/paste (db)', () => {
     expect(entry?.redoCommand.type).toBe('Batch');
 
     let loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
 
     await harness.undo(table.id().toString());
@@ -202,7 +205,7 @@ describe('undo-redo/paste (db)', () => {
       harness.probe.names().filter((name) => name === 'ApplyFieldSnapshotCommand')
     ).toHaveLength(2);
     loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
   });
 });

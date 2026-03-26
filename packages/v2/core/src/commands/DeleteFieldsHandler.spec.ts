@@ -26,8 +26,10 @@ import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   flattenUndoRedoCommands,
+  type UndoRedoApplyFieldSnapshotCommandData,
+  type UndoRedoDeleteFieldCommandData,
 } from '../ports/UndoRedoStore';
-import { DeleteFieldCommand } from './DeleteFieldCommand';
+import type { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldResult } from './DeleteFieldHandler';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
 import { DeleteFieldsHandler } from './DeleteFieldsHandler';
@@ -40,10 +42,9 @@ const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._u
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 
-const buildEvent = (name = 'Field deleted'): IDomainEvent => ({
+const buildEvent = (_name = 'Field deleted'): IDomainEvent => ({
   name: DomainEventName.fieldDeleted(),
   occurredAt: OccurredAt.now(),
-  payload: { name },
 });
 
 const buildTable = (baseId: BaseId, tableId: TableId, fieldIds: readonly FieldId[]) => {
@@ -106,6 +107,10 @@ class FakeTableRepository implements ITableRepository {
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
@@ -273,10 +278,14 @@ describe('DeleteFieldsHandler', () => {
     const entry = undoRedoService.entries[0];
     expect(entry.tableId.equals(latestTable.id())).toBe(true);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const undoLeaves = flattenUndoRedoCommands(entry.entry.undoCommand as any);
     expect(
       undoLeaves
-        .filter((leaf) => leaf.type === 'ApplyFieldSnapshot')
+        .filter(
+          (leaf): leaf is UndoRedoApplyFieldSnapshotCommandData =>
+            leaf.type === 'ApplyFieldSnapshot'
+        )
         .map((leaf) => leaf.payload.snapshot.field.id)
     ).toEqual([
       targetFieldA.toString(),
@@ -285,12 +294,12 @@ describe('DeleteFieldsHandler', () => {
       relatedFieldY.toString(),
     ]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const redoLeaves = flattenUndoRedoCommands(entry.entry.redoCommand as any);
     expect(redoLeaves.map((leaf) => leaf.type)).toEqual(['DeleteField', 'DeleteField']);
-    expect(redoLeaves.map((leaf) => leaf.payload.fieldId)).toEqual([
-      targetFieldA.toString(),
-      targetFieldB.toString(),
-    ]);
+    expect(
+      redoLeaves.map((leaf) => (leaf as UndoRedoDeleteFieldCommandData).payload.fieldId)
+    ).toEqual([targetFieldA.toString(), targetFieldB.toString()]);
   });
 
   it('returns the nested delete error and skips undo/redo recording', async () => {

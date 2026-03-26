@@ -11,46 +11,43 @@ import type {
   RecordUpdateDTO,
 } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
-import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
-import type { IEventBus } from '../../ports/EventBus';
+import * as EventBusPort from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ILogger } from '../../ports/Logger';
+import * as LoggerPort from '../../ports/Logger';
 import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
 } from '../../ports/RecordWritePlugin';
+import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import type { ITableRecordQueryResult } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../../ports/TableRecordQueryRepository';
-import type {
-  ITableRecordRepository,
-  UpdateManyStreamBatchInput,
-} from '../../ports/TableRecordRepository';
+import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
+import type { UpdateManyStreamBatchInput } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   type UndoRedoCommandLeafData,
 } from '../../ports/UndoRedoStore';
-import type { IUnitOfWork } from '../../ports/UnitOfWork';
+import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
-import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
-import { RecordWritePluginExecution, RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
+import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
+import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import {
   RecordWriteUndoRedoPlanService,
@@ -154,9 +151,9 @@ const composeRecordConditionSpecs = (
 export class RecordBulkUpdateService {
   constructor(
     @inject(v2CoreTokens.tableRecordRepository)
-    private readonly tableRecordRepository: ITableRecordRepository,
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
-    private readonly tableRecordQueryRepository: ITableRecordQueryRepository,
+    private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordReorderService)
@@ -170,13 +167,13 @@ export class RecordBulkUpdateService {
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus,
+    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger,
+    private readonly logger: LoggerPort.ILogger,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
   async update(
@@ -624,7 +621,7 @@ export class RecordBulkUpdateService {
         typecast
       );
 
-      let tableEvents: ReadonlyArray<IDomainEvent> = [];
+      const tableEvents: ReadonlyArray<IDomainEvent> = [];
 
       return ok({
         tableForWrite: sideEffectResult.table,

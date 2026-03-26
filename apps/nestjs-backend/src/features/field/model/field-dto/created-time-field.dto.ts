@@ -20,7 +20,7 @@ export class CreatedTimeFieldDto extends CreatedTimeFieldCore implements FieldBa
         return input.toISOString();
       }
       if (typeof input === 'string') {
-        const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(input);
+        const hasTimezone = /z|[+-]\d{2}:\d{2}$/i.test(input);
         const parsed = new Date(hasTimezone ? input : `${input}Z`);
         if (!Number.isNaN(parsed.getTime())) {
           return parsed.toISOString();

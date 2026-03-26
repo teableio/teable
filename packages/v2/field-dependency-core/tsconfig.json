@@ -5,6 +5,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "target": "esnext",
     "lib": ["esnext"],
     "esModuleInterop": true,

@@ -14,13 +14,13 @@ import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { RecordWriteOperationKind, type RecordWriteFieldValues } from '../ports/RecordWritePlugin';
 import type {
   IImportParseResult,
   IImportProgress,
   SourceColumnMap,
 } from '../ports/import/IImportSource';
 import * as IImportSourceRegistryPort from '../ports/import/IImportSourceRegistry';
+import { RecordWriteOperationKind, type RecordWriteFieldValues } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -171,10 +171,8 @@ export class ImportRecordsHandler
 
       // 6. Stream insert via insertManyStream
       // Use deferComputedUpdates to avoid blocking the response while computed fields update
-      let insertResult: TableRecordRepositoryPort.InsertManyStreamResult;
-      insertResult = yield* await handler.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) => {
+      const insertResult: TableRecordRepositoryPort.InsertManyStreamResult =
+        yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
           const recordBatches = handler.createRecordBatchesStream(
             transactionContext,
             state,
@@ -201,8 +199,7 @@ export class ImportRecordsHandler
               },
             }
           );
-        }
-      );
+        });
 
       // 8. Publish all collected events
       if (state.events.length > 0) {

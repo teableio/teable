@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../base/BaseId';
-import { Table } from '../Table';
-import { TableId } from '../TableId';
-import { TableName } from '../TableName';
 import { FieldId } from '../fields/FieldId';
 import { FieldName } from '../fields/FieldName';
 import { SingleLineTextField } from '../fields/types/SingleLineTextField';
+import { Table } from '../Table';
+import { TableId } from '../TableId';
+import { TableName } from '../TableName';
 import { GridView } from './types/GridView';
 import { ViewColumnMeta } from './ViewColumnMeta';
 import { ViewId } from './ViewId';

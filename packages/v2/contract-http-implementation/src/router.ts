@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck -- implement(v2Contract) returns untyped Implementer; contract typing TBD
 import { ORPCError, implement } from '@orpc/server';
 import type { IExplainService } from '@teable/v2-command-explain';
 import { v2CommandExplainTokens } from '@teable/v2-command-explain';

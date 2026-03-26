@@ -1,6 +1,6 @@
 import { Command, Options } from '@effect/cli';
-import { Effect, Option } from 'effect';
 import type { PasteSort, RangeType, RecordFilter, SourceFieldMeta } from '@teable/v2-core';
+import { Effect, Option } from 'effect';
 import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';
@@ -125,14 +125,14 @@ const handler = (args: {
       .explainPaste({
         tableId: args.tableId,
         viewId: args.viewId,
-        ranges,
-        content,
+        ranges: ranges ? [...ranges.map((r) => [...r] as [number, number])] : ranges,
+        content: content as string | unknown[][],
         type,
         filter,
         updateFilter,
-        sourceFields,
-        projection,
-        sort,
+        sourceFields: sourceFields ? [...sourceFields] : sourceFields,
+        projection: projection ? [...projection] : projection,
+        sort: sort ? [...sort] : sort,
         typecast: args.typecast,
         analyze: args.analyze,
       })

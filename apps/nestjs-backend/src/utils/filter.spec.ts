@@ -12,6 +12,8 @@ const createField = (partial: Partial<IFieldInstance>): IFieldInstance =>
   }) as IFieldInstance;
 
 describe('generateFilterItem', () => {
+  const testValue = 'Supplier A';
+
   it('uses isNotExactly for multi-value singleSelect fields', () => {
     const field = createField({
       type: FieldType.SingleSelect,
@@ -19,10 +21,10 @@ describe('generateFilterItem', () => {
       isMultipleCellValue: true,
     });
 
-    const result = generateFilterItem(field, ['Supplier A']);
+    const result = generateFilterItem(field, [testValue]);
 
     expect(result.operator).toBe(isNotExactly.value);
-    expect(result.value).toEqual(['Supplier A']);
+    expect(result.value).toEqual([testValue]);
   });
 
   it('keeps isNot for single-value singleSelect fields', () => {
@@ -32,9 +34,9 @@ describe('generateFilterItem', () => {
       isMultipleCellValue: false,
     });
 
-    const result = generateFilterItem(field, 'Supplier A');
+    const result = generateFilterItem(field, testValue);
 
     expect(result.operator).toBe(isNot.value);
-    expect(result.value).toBe('Supplier A');
+    expect(result.value).toBe(testValue);
   });
 });

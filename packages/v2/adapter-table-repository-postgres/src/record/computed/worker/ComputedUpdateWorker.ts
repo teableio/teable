@@ -25,13 +25,14 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
-import type {
-  ComputedSeedGroup,
-  ComputedUpdatePlan,
-  ComputedUpdatePlanner,
+import {
+  splitSeedGroupsForPlan,
+  type ComputedSeedGroup,
+  type ComputedUpdatePlan,
+  type ComputedUpdatePlanner,
 } from '../ComputedUpdatePlanner';
-import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxPayload,
@@ -41,7 +42,6 @@ import {
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
-import { toErrorLogFields } from '../errorLog';
 import type {
   AnyOutboxItem,
   ComputedUpdateOutboxConfig,

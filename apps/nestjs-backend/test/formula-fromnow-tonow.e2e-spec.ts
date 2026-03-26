@@ -14,6 +14,7 @@ const toNumber = (value: unknown): number => {
   return parsed;
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const FLOAT_COMPARISON_TOLERANCE = 1e-9;
 
 describe('Formula FROMNOW / TONOW (e2e)', () => {

@@ -1,14 +1,19 @@
-import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
+import {
+  CommandHandler,
+  domainError,
+  type DomainError,
+  type ICommandHandler,
+  type IExecutionContext,
+} from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, type Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-import type { ComputedUpdateWorker } from './worker/ComputedUpdateWorker';
-import { CommandHandler, type ICommandHandler } from '@teable/v2-core';
 import {
   RunComputedTaskByIdCommand,
   type RunComputedTaskByIdResult,
 } from './RunComputedTaskByIdCommand';
+import type { ComputedUpdateWorker } from './worker/ComputedUpdateWorker';
 
 @CommandHandler(RunComputedTaskByIdCommand)
 @injectable()

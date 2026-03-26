@@ -3,6 +3,7 @@ import type { ILogger, LogContext } from '@teable/v2-core';
 /**
  * A captured log entry from SpyLogger.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface CapturedLogEntry {
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
@@ -14,6 +15,7 @@ export interface CapturedLogEntry {
  * The context logged by ComputedFieldUpdater.execute() for computed:plan.
  * @see ComputedFieldUpdater.ts:169-191
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ComputedPlanLogEntry {
   baseId: string;
   seedTableId: string;

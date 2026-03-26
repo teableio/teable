@@ -141,6 +141,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'content-type': 'application/json',
         },
         body: JSON.stringify({
@@ -192,6 +193,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'content-type': 'application/json',
         },
         body: JSON.stringify({
@@ -257,6 +259,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'content-type': 'application/json',
         },
         body: JSON.stringify({
@@ -336,6 +339,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'content-type': 'application/json',
         },
         body: JSON.stringify({
@@ -411,6 +415,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'content-type': 'application/json',
         },
         body: JSON.stringify({

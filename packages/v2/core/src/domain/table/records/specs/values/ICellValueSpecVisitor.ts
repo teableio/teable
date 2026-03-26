@@ -16,11 +16,11 @@ import type { SetLongTextValueSpec } from './SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from './SetMultipleSelectValueSpec';
 import type { SetNumberValueSpec } from './SetNumberValueSpec';
 import type { SetRatingValueSpec } from './SetRatingValueSpec';
+import type { SetRowOrderValueSpec } from './SetRowOrderValueSpec';
 import type { SetSingleLineTextValueSpec } from './SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from './SetSingleSelectValueSpec';
 import type { SetUserValueByIdentifierSpec } from './SetUserValueByIdentifierSpec';
 import type { SetUserValueSpec } from './SetUserValueSpec';
-import type { SetRowOrderValueSpec } from './SetRowOrderValueSpec';
 
 /**
  * Base interface for cell value mutation specifications.

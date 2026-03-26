@@ -22,6 +22,8 @@ import {
   type UndoRedoDbHarness,
 } from '../../shared/undoRedoDbTestKit';
 
+const IN_PROGRESS = 'In Progress';
+
 describe('undo-redo/createRecord (db)', () => {
   let harness: UndoRedoDbHarness | undefined;
 
@@ -35,6 +37,7 @@ describe('undo-redo/createRecord (db)', () => {
   });
 
   it('replays delete on undo and restore on redo', async () => {
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     if (!harness) throw new Error('Missing harness');
 
     const table = await createBasicTable(harness, 'Undo Create Record');
@@ -100,7 +103,7 @@ describe('undo-redo/createRecord (db)', () => {
         typecast: true,
         fields: {
           [titleField.id().toString()]: 'Auto Options',
-          [statusField.id().toString()]: 'In Progress',
+          [statusField.id().toString()]: IN_PROGRESS,
           [tagsField.id().toString()]: ['Tag A', 'Tag Z'],
         },
       })._unsafeUnwrap()
@@ -118,14 +121,14 @@ describe('undo-redo/createRecord (db)', () => {
     expect(entry?.redoCommand.type).toBe('Batch');
 
     let loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
     let createdRow = await fetchRowById(
       harness.db,
       loadedTable,
       createResult.record.id().toString()
     );
-    expect(createdRow?.[statusDbName]).toBe('In Progress');
+    expect(createdRow?.[statusDbName]).toBe(IN_PROGRESS);
     expect(createdRow?.[tagsDbName]).toEqual(['Tag A', 'Tag Z']);
 
     await harness.undo(table.id().toString());
@@ -154,10 +157,10 @@ describe('undo-redo/createRecord (db)', () => {
       'RestoreRecordsCommand',
     ]);
     loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
     createdRow = await fetchRowById(harness.db, loadedTable, createResult.record.id().toString());
-    expect(createdRow?.[statusDbName]).toBe('In Progress');
+    expect(createdRow?.[statusDbName]).toBe(IN_PROGRESS);
     expect(createdRow?.[tagsDbName]).toEqual(['Tag A', 'Tag Z']);
   });
 

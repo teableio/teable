@@ -31,8 +31,8 @@ import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMeta
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
-import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { GridView } from './views/types/GridView';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { ViewId } from './views/ViewId';
 import { ViewName } from './views/ViewName';
 

@@ -24,6 +24,7 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/consistent-type-imports': 'off',
+    'import/no-unresolved': ['error', { ignore: ['vitest'] }],
   },
   overrides: [],
 };

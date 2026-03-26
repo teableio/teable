@@ -51,7 +51,9 @@ describe('update-field: multipleSelect → user conversion', () => {
     if (!tableId) return;
     try {
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   });
 
   test('should convert non-null values to null', async () => {

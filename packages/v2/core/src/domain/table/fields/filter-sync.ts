@@ -1,18 +1,18 @@
-import type { ISpecification } from '../../shared/specification/ISpecification';
-import type { Table } from '../Table';
-import type { ITableSpecVisitor } from '../specs/ITableSpecVisitor';
-import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
-import { UpdateMultipleSelectOptionsSpec } from '../specs/field-updates/UpdateMultipleSelectOptionsSpec';
-import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
-import type { Field } from './Field';
-import type { FieldId } from './FieldId';
-import { FieldCondition } from './types/FieldCondition';
 import type {
   RecordFilter,
   RecordFilterCondition,
   RecordFilterNode,
   RecordFilterValue,
 } from '../../../queries/RecordFilterDto';
+import type { ISpecification } from '../../shared/specification/ISpecification';
+import { UpdateMultipleSelectOptionsSpec } from '../specs/field-updates/UpdateMultipleSelectOptionsSpec';
+import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import type { ITableSpecVisitor } from '../specs/ITableSpecVisitor';
+import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
+import type { Table } from '../Table';
+import type { Field } from './Field';
+import type { FieldId } from './FieldId';
+import { FieldCondition } from './types/FieldCondition';
 
 type FilterGroup = {
   conjunction: 'and' | 'or';

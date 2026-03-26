@@ -16,24 +16,26 @@ type WorkdayDiffCase = {
   sqlMustContain: ReadonlyArray<string>;
 };
 
+const SQL_EXTRACT_DOW = 'EXTRACT(DOW';
+
 const workdayDiffCases: ReadonlyArray<WorkdayDiffCase> = [
   {
     id: 'WeekdayOnly',
     expression: 'WORKDAY_DIFF("2026-02-23", "2026-02-27")',
     expected: '4',
-    sqlMustContain: ['generate_series', 'EXTRACT(DOW'],
+    sqlMustContain: ['generate_series', SQL_EXTRACT_DOW],
   },
   {
     id: 'CrossWeekend',
     expression: 'WORKDAY_DIFF("2026-02-23", "2026-03-02")',
     expected: '5',
-    sqlMustContain: ['generate_series', 'EXTRACT(DOW'],
+    sqlMustContain: ['generate_series', SQL_EXTRACT_DOW],
   },
   {
     id: 'WeekendOnly',
     expression: 'WORKDAY_DIFF("2026-02-28", "2026-03-01")',
     expected: '0',
-    sqlMustContain: ['generate_series', 'EXTRACT(DOW'],
+    sqlMustContain: ['generate_series', SQL_EXTRACT_DOW],
   },
   {
     id: 'HolidayExclusion',

@@ -25,6 +25,7 @@ import { SingleSelectField } from '../../fields/types/SingleSelectField';
 import { UserField } from '../../fields/types/UserField';
 import { UserMultiplicity } from '../../fields/types/UserMultiplicity';
 import { TableId } from '../../TableId';
+import { RecordId } from '../RecordId';
 import { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import { ButtonConditionSpec } from './ButtonConditionSpec';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
@@ -51,7 +52,6 @@ import {
 } from './RecordConditionOperators';
 import { RecordConditionLiteralValue } from './RecordConditionValues';
 import { RollupConditionSpec } from './RollupConditionSpec';
-import { RecordId } from '../RecordId';
 import { SingleLineTextConditionSpec } from './SingleLineTextConditionSpec';
 import { SingleSelectConditionSpec } from './SingleSelectConditionSpec';
 import { UserConditionSpec } from './UserConditionSpec';

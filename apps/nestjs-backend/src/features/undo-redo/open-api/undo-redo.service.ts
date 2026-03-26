@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
-import { RedoCommand, RedoResult, UndoCommand, UndoResult, v2CoreTokens } from '@teable/v2-core';
-import type { ICommandBus } from '@teable/v2-core';
+import { RedoCommand, UndoCommand, v2CoreTokens } from '@teable/v2-core';
+import type { ICommandBus, RedoResult, UndoResult } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
@@ -15,8 +15,10 @@ import { buildUndoRedoEnginePreferenceKey } from './undo-redo-engine-preference'
 
 export const X_TEABLE_UNDO_REDO_ENGINE_HEADER = 'x-teable-undo-redo-engine';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type UndoRedoEngine = 'v1' | 'v2';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type UndoRedoResponse<T extends IUndoVo | IRedoVo> = {
   body: T;
   engine: UndoRedoEngine;

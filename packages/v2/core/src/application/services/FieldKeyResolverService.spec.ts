@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
-import { FieldName } from '../../domain/table/fields/FieldName';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
+import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';

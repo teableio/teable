@@ -2,9 +2,9 @@ import { inject, injectable } from '@teable/v2-di';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
-import type { IUserRenamePropagationService } from '../ports/UserRenamePropagationService';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import type * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
+import * as UserRenamePropagationServicePort from '../ports/UserRenamePropagationService';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { PropagateUserRenameCommand } from './PropagateUserRenameCommand';
 
@@ -15,11 +15,11 @@ export class PropagateUserRenameHandler
 {
   constructor(
     @inject(v2CoreTokens.userRenamePropagationService)
-    private readonly userRenamePropagationService: IUserRenamePropagationService
+    private readonly userRenamePropagationService: UserRenamePropagationServicePort.IUserRenamePropagationService
   ) {}
 
   handle(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     command: PropagateUserRenameCommand
   ): Promise<Result<void, DomainError>> {
     return this.userRenamePropagationService.propagateUserRename(context, {

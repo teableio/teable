@@ -1,13 +1,12 @@
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-import type { Expression, SqlBool } from 'kysely';
-
 import type {
   DomainError,
   ISpecification,
   ITableRecordConditionSpecVisitor,
   TableRecord,
 } from '@teable/v2-core';
+import type { Expression, SqlBool } from 'kysely';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 import {
   TableRecordConditionWhereVisitor,

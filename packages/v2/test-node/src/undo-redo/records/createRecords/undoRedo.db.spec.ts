@@ -19,6 +19,8 @@ import {
   type UndoRedoDbHarness,
 } from '../../shared/undoRedoDbTestKit';
 
+const IN_PROGRESS = 'In Progress';
+
 describe('undo-redo/createRecords (db)', () => {
   let harness: UndoRedoDbHarness | undefined;
 
@@ -104,7 +106,7 @@ describe('undo-redo/createRecords (db)', () => {
           {
             fields: {
               [titleField.id().toString()]: 'Alpha',
-              [statusField.id().toString()]: 'In Progress',
+              [statusField.id().toString()]: IN_PROGRESS,
               [tagsField.id().toString()]: ['Tag A', 'Tag Z'],
             },
           },
@@ -134,7 +136,7 @@ describe('undo-redo/createRecords (db)', () => {
     expect(entry?.redoCommand.type).toBe('Batch');
 
     let loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
 
     await harness.undo(table.id().toString());
@@ -161,7 +163,7 @@ describe('undo-redo/createRecords (db)', () => {
       'RestoreRecordsCommand',
     ]);
     loadedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);
+    expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', IN_PROGRESS]);
     expect(getSelectOptionNames(loadedTable, 'Tags')).toEqual(['Tag A', 'Tag Z']);
     expect((await listRows(harness.db, loadedTable)).map((row) => row.__id)).toEqual(createdIds);
   });

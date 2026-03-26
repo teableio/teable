@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
 import type { Field } from '@teable/v2-core';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   buildFormulaSnapshotContext,

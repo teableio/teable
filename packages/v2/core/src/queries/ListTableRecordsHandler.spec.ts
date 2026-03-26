@@ -119,7 +119,9 @@ describe('ListTableRecordsHandler', () => {
         return ok({ records, total: 1 });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -149,7 +151,9 @@ describe('ListTableRecordsHandler', () => {
         return ok({ records: [], total: 0 });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -182,7 +186,9 @@ describe('ListTableRecordsHandler', () => {
         return ok({ records: [], total: 0 });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -218,12 +224,15 @@ describe('ListTableRecordsHandler', () => {
       updateOne: async (_context, _table, _spec) =>
         err(domainError.notFound({ message: 'Not found' })),
       delete: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
+      restore: async () => ok(undefined),
     };
 
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => ok({ records: [], total: 0 }),
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -242,7 +251,9 @@ describe('ListTableRecordsHandler', () => {
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => ok({ records: [], total: 0 }),
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -266,7 +277,9 @@ describe('ListTableRecordsHandler', () => {
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => err(domainError.unexpected({ message: 'query failed' })),
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -294,7 +307,9 @@ describe('ListTableRecordsHandler', () => {
         return ok({ records: [], total: 0 });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -352,7 +367,9 @@ describe('ListTableRecordsHandler', () => {
           },
         });
       },
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -397,7 +414,9 @@ describe('ListTableRecordsHandler', () => {
         return ok({ records: [], total: 0 });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
-      async *findStream() {},
+      async *findStream() {
+        /* noop */
+      },
     };
 
     const queryResult = ListTableRecordsQuery.create({

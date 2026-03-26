@@ -1,6 +1,6 @@
 import type { IFieldDto } from '@teable/v2-contract-http';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { RatingIcon } from '@teable/v2-core';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
 type RatingFieldDto = IFieldDto & {
@@ -63,7 +63,9 @@ describe('update-field: rating property updates', () => {
 
   afterAll(async () => {
     if (tableId) {
-      await ctx.deleteTable(tableId).catch(() => {});
+      await ctx.deleteTable(tableId).catch(() => {
+        /* noop */
+      });
     }
   });
 
@@ -272,7 +274,9 @@ describe('update-field: rating conversions', () => {
 
   afterAll(async () => {
     if (tableId) {
-      await ctx.deleteTable(tableId).catch(() => {});
+      await ctx.deleteTable(tableId).catch(() => {
+        /* noop */
+      });
     }
   });
 

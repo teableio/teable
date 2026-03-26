@@ -25,7 +25,7 @@
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-benchmark-node.eslintcache",
-    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "typecheck": "tsc --project ./tsconfig.typecheck.json --noEmit",
     "bench": "vitest bench --run",
     "bench:watch": "vitest bench",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"

@@ -4,11 +4,11 @@ import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
+import { RecordId } from '../domain/table/records/RecordId';
 import {
   RecordInsertOrder,
   recordInsertOrderSchema,
 } from '../domain/table/records/RecordInsertOrder';
-import { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
 import type { RecordFieldValues } from './CreateRecordCommand';
 

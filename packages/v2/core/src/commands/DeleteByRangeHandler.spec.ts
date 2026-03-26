@@ -15,9 +15,9 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -25,8 +25,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryOptions,
@@ -129,6 +129,10 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }

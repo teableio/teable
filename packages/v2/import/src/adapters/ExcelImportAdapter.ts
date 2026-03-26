@@ -1,7 +1,3 @@
-import * as XLSX from 'xlsx';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -10,6 +6,9 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import * as XLSX from 'xlsx';
 
 /**
  * Excel Import Adapter
@@ -125,6 +124,7 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
     });
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async getBuffer(source: IImportSource): Promise<Result<Uint8Array, DomainError>> {
     if (source.data) {
       if (typeof source.data === 'string') {

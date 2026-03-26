@@ -7,6 +7,7 @@ import type { Result } from 'neverthrow';
  * - `same_record`: Dependency within the same record (no link traversal needed)
  * - `cross_record`: Dependency across records via link (includes same-table self-referencing)
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
 
 /**
@@ -49,6 +50,7 @@ export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
  *   Unlike regular Lookup, it does not use a Link field for association but matches records via condition filters.
  *   When source or condition field values change, the condition must be re-evaluated to fetch matching record values.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type FieldDependencyEdgeSemantic =
   | 'formula_ref'
   | 'lookup_source'
@@ -64,6 +66,7 @@ export type FieldDependencyEdgeSemantic =
  * A dependency edge between two fields.
  * Uses string IDs for portability across different contexts.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface FieldDependencyEdge {
   fromFieldId: string;
   toFieldId: string;
@@ -79,11 +82,13 @@ export interface FieldDependencyEdge {
 /**
  * Link relationship type.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type LinkRelationship = 'oneMany' | 'manyOne' | 'oneOne' | 'manyMany';
 
 /**
  * Parsed lookup options (for lookup/rollup fields).
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ParsedLookupOptions {
   linkFieldId: string;
   foreignTableId: string;
@@ -97,6 +102,7 @@ export interface ParsedLookupOptions {
 /**
  * Parsed link options (for link fields).
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ParsedLinkOptions {
   foreignTableId: string;
   lookupFieldId: string;
@@ -112,6 +118,7 @@ export interface ParsedLinkOptions {
  * Metadata for conditional field options (conditionalRollup / conditionalLookup).
  * Unlike regular lookup/rollup, these don't have a linkFieldId.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ParsedConditionalOptions {
   foreignTableId: string;
   lookupFieldId: string;
@@ -124,6 +131,7 @@ export interface ParsedConditionalOptions {
 /**
  * Field metadata for dependency graph construction.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface FieldMeta {
   id: string;
   tableId: string;
@@ -139,6 +147,7 @@ export interface FieldMeta {
 /**
  * Result of loading field dependency graph data.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface FieldDependencyGraphData {
   fieldsById: Map<string, FieldMeta>;
   edges: ReadonlyArray<FieldDependencyEdge>;
@@ -147,4 +156,5 @@ export interface FieldDependencyGraphData {
 /**
  * Parser function signature for field options.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type OptionsParser<T> = (raw: string | null) => Result<T | null, DomainError>;

@@ -1,5 +1,5 @@
-import type { DependencyContainer } from '@teable/v2-di';
 import { v2CoreTokens } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 
 import { CsvImportAdapter } from '../adapters/CsvImportAdapter';
 import { ExcelImportAdapter } from '../adapters/ExcelImportAdapter';

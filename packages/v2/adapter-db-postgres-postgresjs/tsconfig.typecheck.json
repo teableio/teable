@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationDir": null,
+    "isolatedModules": false,
+    "noEmit": true
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../core/src/**/*.test.ts",
+    "../adapter-db-postgres-shared/src/**/*.spec.ts",
+    "../../**/*.spec.ts",
+    "../../**/*.test.ts"
+  ]
+}

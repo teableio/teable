@@ -80,6 +80,7 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type LinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
   options: Pick<ILinkFieldOptionsRo, 'relationship' | 'foreignTableId'> &
     Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;

@@ -1,15 +1,14 @@
-import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import {
   RunComputedTaskByIdCommand,
   type RunComputedTaskByIdResult,
   v2RecordRepositoryPostgresTokens,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { ActorId, type IInternalCommandBus, v2CoreTokens } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely, SelectQueryBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { CliError } from '../errors/CliError';
-import { Database } from '../services/Database';
 import {
   ComputedTaskInspector,
   type CliTable,
@@ -30,6 +29,7 @@ import {
   type TaskEdgeModeRow,
   type TaskTargetRow,
 } from '../services/ComputedTaskInspector';
+import { Database } from '../services/Database';
 
 type RawTaskRow = {
   id: string;
@@ -821,6 +821,7 @@ export const ComputedTaskInspectorLive = Layer.effect(
             const start = Date.now();
             const context = createContext();
 
+            // eslint-disable-next-line no-constant-condition
             while (true) {
               if (limit !== null && processed >= limit) break;
 

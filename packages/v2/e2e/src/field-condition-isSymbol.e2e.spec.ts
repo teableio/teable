@@ -135,6 +135,7 @@ describe('v2 isSymbol preservation (e2e)', () => {
     expect(getResponse.body.ok).toBe(true);
 
     const refetchedTable = getResponse.body.data.table;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const refetchedField = refetchedTable.fields.find((f: any) => f.id === lookupFieldId);
     const refetchedCondition = refetchedField?.conditionalLookupOptions?.condition;
     const refetchedFilterSet = refetchedCondition?.filter?.filterSet;

@@ -1,6 +1,6 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
@@ -13,7 +13,8 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { BaseId } from '../domain/base/BaseId';
-import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
+import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
@@ -27,8 +28,8 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
-import { type ITableMapper } from '../ports/mappers/TableMapper';
-import { ITableRepository } from '../ports/TableRepository';
+import * as TableMapperPort from '../ports/mappers/TableMapper';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -52,9 +53,9 @@ export class UpdateFieldResult {
 export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, UpdateFieldResult> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: ITableMapper,
+    private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldUpdateSideEffectService)

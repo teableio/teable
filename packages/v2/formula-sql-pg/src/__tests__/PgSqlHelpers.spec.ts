@@ -16,6 +16,8 @@ import {
 } from '../PgSqlHelpers';
 import { Pg16TypeValidationStrategy, PgLegacyTypeValidationStrategy } from '../strategies';
 
+const EMPTY_JSONB_ARRAY = "'[]'::jsonb";
+
 describe('PgSqlHelpers', () => {
   describe('escapeSqlLiteral', () => {
     it('should escape single quotes', () => {
@@ -65,6 +67,7 @@ describe('PgSqlHelpers', () => {
   });
 
   describe('safeJsonbWithStrategy', () => {
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with Pg16TypeValidationStrategy', () => {
       const strategy = new Pg16TypeValidationStrategy();
       const result = safeJsonbWithStrategy('col', strategy);
@@ -72,6 +75,7 @@ describe('PgSqlHelpers', () => {
       expect(result).toContain('jsonb');
     });
 
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with PgLegacyTypeValidationStrategy', () => {
       const strategy = new PgLegacyTypeValidationStrategy();
       const result = safeJsonbWithStrategy('col', strategy);
@@ -86,23 +90,25 @@ describe('PgSqlHelpers', () => {
       expect(result).toContain('jsonb');
       expect(result).toContain('pg_input_is_valid');
       expect(result).toContain('my_column');
-      expect(result).toContain("'[]'::jsonb");
+      expect(result).toContain(EMPTY_JSONB_ARRAY);
     });
   });
 
   describe('normalizeToJsonArrayWithStrategy', () => {
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with Pg16TypeValidationStrategy', () => {
       const strategy = new Pg16TypeValidationStrategy();
       const result = normalizeToJsonArrayWithStrategy('col', strategy);
       expect(result).toContain('pg_input_is_valid');
-      expect(result).toContain("'[]'::jsonb");
+      expect(result).toContain(EMPTY_JSONB_ARRAY);
     });
 
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with PgLegacyTypeValidationStrategy', () => {
       const strategy = new PgLegacyTypeValidationStrategy();
       const result = normalizeToJsonArrayWithStrategy('col', strategy);
       expect(result).toContain('teable_try_cast_valid');
-      expect(result).toContain("'[]'::jsonb");
+      expect(result).toContain(EMPTY_JSONB_ARRAY);
     });
   });
 
@@ -127,6 +133,7 @@ describe('PgSqlHelpers', () => {
   });
 
   describe('extractFirstJsonScalarTextWithStrategy', () => {
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with Pg16TypeValidationStrategy', () => {
       const strategy = new Pg16TypeValidationStrategy();
       const result = extractFirstJsonScalarTextWithStrategy('col', strategy);
@@ -134,6 +141,7 @@ describe('PgSqlHelpers', () => {
       expect(result).toContain('pg_input_is_valid');
     });
 
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with PgLegacyTypeValidationStrategy', () => {
       const strategy = new PgLegacyTypeValidationStrategy();
       const result = extractFirstJsonScalarTextWithStrategy('col', strategy);
@@ -170,6 +178,7 @@ describe('PgSqlHelpers', () => {
   });
 
   describe('stringifyJsonArrayWithStrategy', () => {
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with Pg16TypeValidationStrategy', () => {
       const strategy = new Pg16TypeValidationStrategy();
       const result = stringifyJsonArrayWithStrategy('col', strategy);
@@ -177,6 +186,7 @@ describe('PgSqlHelpers', () => {
       expect(result).toContain('pg_input_is_valid');
     });
 
+    // eslint-disable-next-line sonarjs/no-duplicate-string
     it('should work with PgLegacyTypeValidationStrategy', () => {
       const strategy = new PgLegacyTypeValidationStrategy();
       const result = stringifyJsonArrayWithStrategy('col', strategy);

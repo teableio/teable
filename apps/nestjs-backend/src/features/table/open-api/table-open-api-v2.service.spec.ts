@@ -243,6 +243,7 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
     vi.clearAllMocks();
   });
 
+  /* eslint-disable sonarjs/no-identical-functions */
   const createService = (overrides?: {
     tableService?: Record<string, unknown>;
     fieldOpenApiService?: Record<string, unknown>;
@@ -272,6 +273,10 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         ...overrides?.dbProvider,
       } as never
     );
+  /* eslint-enable sonarjs/no-identical-functions */
+
+  const tblDuplicatedId = 'tblDuplicated';
+  const duplicatedTableName = 'Orders Copy';
 
   it('rebuilds the legacy duplicate-table response from the duplicated v2 table', async () => {
     executeDuplicateTableEndpoint.mockResolvedValue({
@@ -280,7 +285,7 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         ok: true,
         data: {
           table: {
-            id: 'tblDuplicated',
+            id: tblDuplicatedId,
           },
           fieldIdMap: {
             fldSource: 'fldDuplicated',
@@ -295,8 +300,8 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
 
     const tableService = {
       getTableMeta: vi.fn().mockResolvedValue({
-        id: 'tblDuplicated',
-        name: 'Orders Copy',
+        id: tblDuplicatedId,
+        name: duplicatedTableName,
         dbTableName: 'bseTest.orders_copy',
         defaultViewId: 'viwDuplicated',
       }),
@@ -357,7 +362,7 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
     });
 
     const result = await service.duplicateTable('bseTest', 'tblSource', {
-      name: 'Orders Copy',
+      name: duplicatedTableName,
       includeRecords: true,
     });
 
@@ -366,7 +371,7 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       {
         baseId: 'bseTest',
         tableId: 'tblSource',
-        name: 'Orders Copy',
+        name: duplicatedTableName,
         includeRecords: true,
       },
       {}
@@ -400,17 +405,17 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         enableShare: true,
       },
     });
-    expect(tableService.getTableMeta).toHaveBeenCalledWith('bseTest', 'tblDuplicated');
+    expect(tableService.getTableMeta).toHaveBeenCalledWith('bseTest', tblDuplicatedId);
     expect(fieldOpenApiService.getFields).toHaveBeenNthCalledWith(1, 'tblSource', {
       filterHidden: false,
     });
-    expect(fieldOpenApiService.getFields).toHaveBeenNthCalledWith(2, 'tblDuplicated', {
+    expect(fieldOpenApiService.getFields).toHaveBeenNthCalledWith(2, tblDuplicatedId, {
       filterHidden: false,
     });
-    expect(viewService.getViews).toHaveBeenCalledWith('tblDuplicated');
+    expect(viewService.getViews).toHaveBeenCalledWith(tblDuplicatedId);
     expect(result).toMatchObject({
-      id: 'tblDuplicated',
-      name: 'Orders Copy',
+      id: tblDuplicatedId,
+      name: duplicatedTableName,
       fieldMap: {
         fldSource: 'fldDuplicated',
       },
