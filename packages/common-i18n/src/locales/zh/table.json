@@ -797,13 +797,14 @@
   },
   "form": {
     "fieldsManagement": "字段管理",
-    "addAll": "全部添加",
-    "removeAll": "全部移除",
-    "hideFieldTip": "拖拽到这里移除表单中的字段",
+    "addAll": "全部显示",
+    "removeAll": "全部隐藏",
+    "createField": "新建字段",
+    "hideFieldTip": "拖拽字段到此处从表单中隐藏",
     "unableAddFieldTip": "不支持添加该字段类型",
-    "removeFromFormTip": "从表单中移除该字段",
+    "removeFromFormTip": "从表单中隐藏",
     "descriptionPlaceholder": "请输入表单描述",
-    "dragToFormTip": "拖拽字段到这里添加至表单",
+    "dragToFormTip": "拖拽字段到此处在表单中显示",
     "protectedFieldTip": "此字段已被设为\"必填\"字段，无法在表单视图中移除，请在字段设置中进行修改。"
   },
   "kanban": {

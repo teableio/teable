@@ -430,7 +430,12 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
         throw new BadRequestException('Exact date must be entered');
       }
 
-      return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
+      const parsedDate = dateUtil.date(exactDate);
+      if (hasTimeFormat) {
+        return [parsedDate, parsedDate];
+      }
+
+      return [parsedDate.startOf('day'), parsedDate.endOf('day')];
     };
 
     // Helper function to determine date range for a given exact formatted date.
