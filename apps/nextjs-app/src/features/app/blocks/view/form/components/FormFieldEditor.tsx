@@ -73,7 +73,9 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
         <div className="flex items-center">
           {!isComputed && (
             <div className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
-              <Label htmlFor="form-field-required">{t('required')}</Label>
+              <Label htmlFor="form-field-required" className="font-normal">
+                {t('required')}
+              </Label>
               {isProtected ? (
                 <TooltipProvider>
                   <Tooltip delayDuration={200}>
@@ -81,7 +83,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
                       <span className="flex items-center">
                         <Switch
                           id="form-field-required"
-                          className="ml-1 mr-2 cursor-not-allowed"
+                          className="ml-2 mr-3 cursor-not-allowed"
                           checked={required}
                           disabled={isProtected}
                         />
@@ -96,7 +98,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
               ) : (
                 <Switch
                   id="form-field-required"
-                  className="ml-1 mr-2"
+                  className="ml-2 mr-3"
                   checked={required}
                   onCheckedChange={onRequiredChange}
                 />
