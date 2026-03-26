@@ -141,7 +141,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
   return (
     <div className="w-full overflow-y-auto bg-muted sm:py-8">
-      <div className="relative mx-auto flex w-full max-w-screen-sm flex-col items-center overflow-hidden border bg-background pb-12 shadow-md sm:rounded-lg">
+      <div className="relative mx-auto flex w-full max-w-screen-sm flex-col items-center overflow-hidden border bg-background pb-10 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1),0_5px_15px_-5px_rgba(0,0,0,0.05)] sm:rounded-[16px]">
         <div
           className={cn(
             'relative h-36 w-full',
@@ -156,34 +156,33 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               className="absolute inset-0 size-full object-cover"
             />
           )}
-          <Button
-            variant={'ghost'}
-            size={'icon'}
-            className={cn(
-              'absolute right-2 top-2 m-1 bg-accent font-normal',
-              coverUrl && 'right-12'
-            )}
-            onClick={() => coverInput.current?.click()}
-          >
-            <input
-              type="file"
-              className="hidden"
-              ref={coverInput}
-              accept="image/*"
-              onChange={(e) => onFileSelected(e, 'cover')}
-            />
-            <Pencil className="size-4 shrink-0" />
-          </Button>
-          {coverUrl && (
+          <div className="absolute right-3 top-3 flex gap-2">
             <Button
               variant={'ghost'}
-              size={'icon'}
-              className="absolute right-2 top-2 m-1 bg-accent font-normal"
-              onClick={onCoverReset}
+              size={'icon-sm'}
+              className="border bg-background/50 font-normal backdrop-blur-sm hover:bg-background/70"
+              onClick={() => coverInput.current?.click()}
             >
-              <Undo2 className="size-4 shrink-0" />
+              <input
+                type="file"
+                className="hidden"
+                ref={coverInput}
+                accept="image/*"
+                onChange={(e) => onFileSelected(e, 'cover')}
+              />
+              <Pencil className="size-4 shrink-0" />
             </Button>
-          )}
+            {coverUrl && (
+              <Button
+                variant={'ghost'}
+                size={'icon-sm'}
+                className="border bg-background/50 font-normal backdrop-blur-sm hover:bg-background/70"
+                onClick={onCoverReset}
+              >
+                <Undo2 className="size-4 shrink-0" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20 rounded-lg bg-muted">
@@ -200,15 +199,15 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
                 className="absolute left-0 top-0 size-full font-normal opacity-0 group-hover:opacity-100 hover:bg-black/50"
                 onClick={() => logoInput.current?.click()}
               >
-                <Pencil className="size-6" />
+                <Pencil className="size-6 text-white" />
               </Button>
               <Button
                 variant={'ghost'}
-                size={'xs'}
-                className="absolute -right-1 -top-1 size-6 bg-accent font-normal opacity-0 group-hover:opacity-100 "
+                size={'icon-xs'}
+                className="absolute -right-1 -top-1 size-6 bg-accent font-normal opacity-0 group-hover:opacity-100"
                 onClick={onLogoReset}
               >
-                <Undo2 className="size-3" />
+                <Undo2 className="size-4" />
               </Button>
             </>
           ) : (
@@ -231,17 +230,19 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         </div>
 
         {isNameEditing ? (
-          <Input
-            className="mb-6 mt-16 w-2/3 text-center text-3xl"
-            value={name}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            onChange={onNameChange}
-            onBlur={onNameInputBlur}
-          />
+          <div className="mb-6 mt-16 w-full px-12">
+            <Input
+              className="h-auto px-2 py-1 text-center text-3xl"
+              value={name}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              onChange={onNameChange}
+              onBlur={onNameInputBlur}
+            />
+          </div>
         ) : (
           <div
-            className="mb-6 mt-16 w-full px-6 text-center text-3xl sm:px-12"
+            className="mx-12 mb-6 mt-16 rounded-md px-2 py-1 text-center text-3xl hover:bg-surface sm:px-4"
             style={{ overflowWrap: 'break-word' }}
             tabIndex={0}
             role={'button'}
@@ -271,7 +272,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             <DroppableContainer id={FORM_EDITOR_DROPPABLE_ID} items={fields}>
               <SortableContext items={fields} strategy={verticalListSortingStrategy}>
                 {!fields.length && (
-                  <div className="flex h-20 w-full items-center justify-center rounded border border-dashed text-sm text-slate-400 dark:text-slate-600">
+                  <div className="flex h-20 w-full items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground/80">
                     {t('table:form.dragToFormTip')}
                   </div>
                 )}
