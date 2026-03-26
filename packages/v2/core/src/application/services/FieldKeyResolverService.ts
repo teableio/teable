@@ -139,6 +139,7 @@ export class FieldKeyResolverService {
    * @returns The field key (id, name, or dbFieldName)
    */
   static getFieldKey(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     field: { id(): { toString(): string }; name(): { toString(): string }; dbFieldName(): any },
     fieldKeyType: FieldKeyType
   ): string {

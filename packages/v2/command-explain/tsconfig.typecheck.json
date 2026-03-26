@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationDir": null,
+    "isolatedModules": false,
+    "noEmit": true
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../core/src/**/*.test.ts",
+    "../adapter-table-repository-postgres/src/**/*.spec.ts",
+    "../adapter-table-repository-postgres/src/**/*.test.ts",
+    "../adapter-record-repository-postgres/src/**/*.spec.ts",
+    "../../formula/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/*.test.ts",
+    "../formula-sql-pg/src/testkit/**",
+    "../../**/*.spec.ts",
+    "../../**/*.test.ts"
+  ]
+}

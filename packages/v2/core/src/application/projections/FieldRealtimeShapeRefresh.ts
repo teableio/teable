@@ -1,4 +1,4 @@
-import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
+import type { FieldUpdated } from '../../domain/table/events/FieldUpdated';
 import type { ITableFieldPersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 

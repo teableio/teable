@@ -1,13 +1,13 @@
-import type {
-  DomainError,
-  IExecutionContext,
-  IRealtimeEngine,
-  RealtimeApplyChangeOptions,
-  RealtimeChange,
-  RealtimeDocId,
+import {
+  domainError,
+  RealtimeDocId as RealtimeDocIdValue,
+  type DomainError,
+  type IExecutionContext,
+  type IRealtimeEngine,
+  type RealtimeApplyChangeOptions,
+  type RealtimeChange,
+  type RealtimeDocId,
 } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
-import { RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';

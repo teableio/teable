@@ -1,8 +1,8 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { IDomainContext } from '../../../../shared/DomainContext';
 import { BaseId } from '../../../../base/BaseId';
+import type { IDomainContext } from '../../../../shared/DomainContext';
 import { DbFieldName } from '../../../fields/DbFieldName';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';

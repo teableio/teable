@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationDir": null,
+    "isolatedModules": false,
+    "noEmit": true,
+    "types": ["vitest/globals", "node"]
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../**/*.spec.ts",
+    "../**/*.test.ts",
+    "../**/testkit/**",
+    "../**/__tests__/**",
+    "../../**/*.spec.ts",
+    "../../**/*.test.ts"
+  ]
+}

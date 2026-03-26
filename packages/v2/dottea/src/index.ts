@@ -8,12 +8,12 @@ import {
   type IDotTeaParser,
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
-import { normalizeField } from './normalizer';
 import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import unzipper from 'unzipper';
 import { z } from 'zod';
+import { normalizeField } from './normalizer';
 
 const dotTeaFieldSchema = z
   .object({

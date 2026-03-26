@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest';
-
 import {
   ActorId,
   BaseId,
@@ -11,6 +9,7 @@ import {
   TableId,
   TableName,
 } from '@teable/v2-core';
+import { describe, expect, it } from 'vitest';
 import { TableFieldPersistenceBuilder } from './TableFieldPersistenceBuilder';
 
 describe('TableFieldPersistenceBuilder', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { LinkFieldUpdateSideEffectVisitor } from './LinkFieldUpdateSideEffectVisitor';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
+import { LinkFieldUpdateSideEffectVisitor } from './LinkFieldUpdateSideEffectVisitor';
 
 const buildConfig = (params: {
   relationship: 'oneOne' | 'oneMany' | 'manyOne' | 'manyMany';

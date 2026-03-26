@@ -74,6 +74,7 @@ describe('GetTableByIdHandler', () => {
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
+      restore: async () => err(domainError.unexpected({ message: 'restore failed' })),
     };
 
     const queryResult = GetTableByIdQuery.create({

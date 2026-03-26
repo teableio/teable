@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true
+  },
   "include": ["src/**/*.ts", "*.js", "*.mjs", "*.cjs", "*.ts", ".eslintrc.cjs"],
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"]
+  "exclude": ["**/node_modules", "./dist", "./coverage"]
 }

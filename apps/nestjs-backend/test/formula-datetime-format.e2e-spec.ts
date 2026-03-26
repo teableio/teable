@@ -8,6 +8,7 @@ import {
   permanentDeleteTable,
 } from './utils/init-app';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const DATETIME_FORMAT_SPECIFIER_CASES = [
   { token: 'YY', expected: '26' },
   { token: 'YYYY', expected: '2026' },

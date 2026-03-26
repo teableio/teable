@@ -27,6 +27,7 @@ describe('Formula conditional numeric cast safety (regression)', () => {
   it.skipIf(isForceV2)(
     'creates rows successfully when conditional formulas compare malformed numeric text',
     async () => {
+      const malformedPrice = '39.9339.93';
       const displayPriceFieldId = generateFieldId();
       const table = (await createTable(baseId, {
         name: 'formula_conditional_numeric_cast_regression',
@@ -52,7 +53,7 @@ describe('Formula conditional numeric cast safety (regression)', () => {
           records: [
             {
               fields: {
-                DisplayPrice: '39.9339.93',
+                DisplayPrice: malformedPrice,
               },
             },
             {
@@ -67,12 +68,12 @@ describe('Formula conditional numeric cast safety (regression)', () => {
 
         const targetRecords = records.filter((record) => {
           const displayPrice = record.fields.DisplayPrice;
-          return displayPrice === '39.9339.93' || displayPrice === '39.93';
+          return displayPrice === malformedPrice || displayPrice === '39.93';
         });
 
         expect(targetRecords).toHaveLength(2);
         const malformedNumericRecord = targetRecords.find(
-          (record) => record.fields.DisplayPrice === '39.9339.93'
+          (record) => record.fields.DisplayPrice === malformedPrice
         );
         const validNumericRecord = targetRecords.find(
           (record) => record.fields.DisplayPrice === '39.93'

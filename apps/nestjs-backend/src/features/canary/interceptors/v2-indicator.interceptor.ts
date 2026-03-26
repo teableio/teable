@@ -6,8 +6,8 @@ import {
   type CallHandler,
   Logger,
 } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
 import { trace } from '@opentelemetry/api';
+import * as Sentry from '@sentry/nestjs';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { Observable } from 'rxjs';

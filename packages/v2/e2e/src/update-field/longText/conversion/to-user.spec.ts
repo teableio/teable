@@ -41,7 +41,9 @@ describe('update-field: longText → user conversion', () => {
     if (!tableId) return;
     try {
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   });
 
   test('should clear non-matching text values', async () => {

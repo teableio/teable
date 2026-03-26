@@ -40,10 +40,10 @@ import type {
   FieldOutputColumn,
   DynamicDB,
 } from '../query-builder';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import { buildRecordSearchWhereClause } from './RecordSearchWhereBuilder';
-import { buildRecordWhereClause } from './buildRecordWhereClause';
 
 const RECORD_ID_COLUMN = '__id';
 const RECORD_VERSION_COLUMN = '__version';
@@ -621,7 +621,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       return compiled;
     }
     const cteName = source.cteName.trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cteName)) {
+    if (!/^[A-Z_]\w*$/i.test(cteName)) {
       this.logger.warn('Skip invalid record read CTE name', {
         cteName,
       });

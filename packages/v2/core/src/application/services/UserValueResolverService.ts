@@ -12,8 +12,8 @@ import {
 import { CellValue } from '../../domain/table/records/values/CellValue';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
+import * as UserLookupServicePort from '../../ports/UserLookupService';
 import type { UserLookupRecord } from '../../ports/UserLookupService';
-import type { IUserLookupService } from '../../ports/UserLookupService';
 import type { ICellValueSpecResolver } from './SpecResolver';
 
 const buildAvatarUrl = (userId: string): string => {
@@ -45,7 +45,7 @@ export class UserValueResolverService
 {
   constructor(
     @inject(v2CoreTokens.userLookupService)
-    private readonly userLookupService: IUserLookupService
+    private readonly userLookupService: UserLookupServicePort.IUserLookupService
   ) {}
 
   supports(spec: ICellValueSpec): spec is SetUserValueSpec | SetUserValueByIdentifierSpec {

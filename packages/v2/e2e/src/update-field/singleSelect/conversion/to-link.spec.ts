@@ -63,10 +63,14 @@ describe('update-field: singleSelect → link conversion', () => {
   afterAll(async () => {
     try {
       if (hostTableId) await ctx.deleteTable(hostTableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
     try {
       if (foreignTableId) await ctx.deleteTable(foreignTableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   });
 
   test('should convert to link and map matched option value', async () => {

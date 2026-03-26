@@ -1,7 +1,3 @@
-import Papa from 'papaparse';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -10,6 +6,9 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import Papa from 'papaparse';
 
 /**
  * CSV Import Adapter
@@ -44,6 +43,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     );
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async analyze(
     source: IImportSource,
     options?: IImportOptions,
@@ -113,10 +113,11 @@ export class CsvImportAdapter implements IImportSourceAdapter {
   }
 
   /** Create async row iterator */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async *createAsyncRowIterator(
     reader: ReadableStreamDefaultReader<Uint8Array>,
     initialBuffer: string,
-    decoder: TextDecoder,
+    decoder: InstanceType<typeof TextDecoder>,
     options?: IImportOptions
   ): AsyncIterable<ReadonlyArray<unknown>> {
     let buffer = initialBuffer;

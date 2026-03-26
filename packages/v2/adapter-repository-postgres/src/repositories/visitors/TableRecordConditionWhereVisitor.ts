@@ -614,6 +614,18 @@ export class TableRecordConditionWhereVisitor
     return this.addCondition(sql`${sql.ref(column)} in (${sql.join(ids)})`);
   }
 
+  visitIncomingLinkSelected(
+    _spec: core.IncomingLinkSelectedSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    throw new Error('visitIncomingLinkSelected not implemented');
+  }
+
+  visitIncomingLinkCandidate(
+    _spec: core.IncomingLinkCandidateSpec
+  ): Result<RecordConditionWhere, DomainError> {
+    throw new Error('visitIncomingLinkCandidate not implemented');
+  }
+
   visitSingleLineTextIs(
     spec: core.SingleLineTextConditionSpec
   ): Result<RecordConditionWhere, DomainError> {

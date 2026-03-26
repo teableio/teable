@@ -18,6 +18,7 @@ interface IActionTrigger {
 }
 
 const amountTextFieldName = 'Amount Text';
+const xTeableV2Header = xTeableV2Header;
 
 let fieldIdCounter = 0;
 
@@ -212,7 +213,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[xTeableV2Header]).toBe('true');
       },
     });
 
@@ -304,7 +305,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[xTeableV2Header]).toBe('true');
       },
     });
 
@@ -436,7 +437,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[xTeableV2Header]).toBe('true');
       },
     });
 
@@ -499,7 +500,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(201);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[xTeableV2Header]).toBe('true');
       },
     });
 

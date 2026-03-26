@@ -1,3 +1,4 @@
+import { SortFunc } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
 import { buildSelectionViewQuery } from './selectionViewQuery';
@@ -12,8 +13,12 @@ describe('buildSelectionViewQuery', () => {
       conjunction: 'and',
       filterSet: [{ fieldId: 'fldValue', operator: 'is', value: 'Open' }],
     };
-    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [{ fieldId: 'fldSort', order: 'desc' }];
-    const groupBy: NonNullable<IGetRecordsRo['groupBy']> = [{ fieldId: 'fldGroup', order: 'asc' }];
+    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [
+      { fieldId: 'fldSort', order: SortFunc.Desc },
+    ];
+    const groupBy: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldGroup', order: SortFunc.Asc },
+    ];
 
     expect(
       buildSelectionViewQuery({
@@ -60,12 +65,14 @@ describe('buildSelectionViewQuery', () => {
   });
 
   it('keeps ignoreViewQuery when personal query changes sorting', () => {
-    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [{ fieldId: 'fldSort', order: 'asc' }];
+    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [
+      { fieldId: 'fldSort', order: SortFunc.Asc },
+    ];
 
     expect(
       buildSelectionViewQuery({
         view: {
-          sort: { sortObjs: [{ fieldId: 'fldSort', order: 'desc' }] },
+          sort: { sortObjs: [{ fieldId: 'fldSort', order: SortFunc.Desc }] },
         },
         personalViewCommonQuery: {
           ignoreViewQuery: true,

@@ -49,7 +49,9 @@ describe('update-field: user → user conversion (isMultiple toggle)', () => {
     if (!tableId) return;
     try {
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   });
 
   test('should wrap single user in array when enabling isMultiple', async () => {

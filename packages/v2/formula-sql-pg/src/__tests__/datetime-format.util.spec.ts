@@ -1,27 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeDatetimeFormatExpression } from '../utils/datetime-format.util';
 
+const DEFAULT_DATE_FORMAT = "'YYYY-MM-DD'";
+
 describe('normalizeDatetimeFormatExpression', () => {
   describe('default handling', () => {
     it('should return default for null input', () => {
-      expect(normalizeDatetimeFormatExpression(null)).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression(null)).toBe(DEFAULT_DATE_FORMAT);
     });
 
     it('should return default for undefined input', () => {
-      expect(normalizeDatetimeFormatExpression(undefined)).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression(undefined)).toBe(DEFAULT_DATE_FORMAT);
     });
 
     it('should return default for non-string input', () => {
       // @ts-expect-error testing non-string input
-      expect(normalizeDatetimeFormatExpression(123)).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression(123)).toBe(DEFAULT_DATE_FORMAT);
     });
 
     it('should return default for empty string', () => {
-      expect(normalizeDatetimeFormatExpression('')).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression('')).toBe(DEFAULT_DATE_FORMAT);
     });
 
     it('should return default for whitespace only', () => {
-      expect(normalizeDatetimeFormatExpression('   ')).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression('   ')).toBe(DEFAULT_DATE_FORMAT);
     });
   });
 
@@ -53,7 +55,7 @@ describe('normalizeDatetimeFormatExpression', () => {
     });
 
     it('should normalize YYYY-MM-DD', () => {
-      expect(normalizeDatetimeFormatExpression("'YYYY-MM-DD'")).toBe("'YYYY-MM-DD'");
+      expect(normalizeDatetimeFormatExpression(DEFAULT_DATE_FORMAT)).toBe(DEFAULT_DATE_FORMAT);
     });
 
     it('should normalize YY', () => {

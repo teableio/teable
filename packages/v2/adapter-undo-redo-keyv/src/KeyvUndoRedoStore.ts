@@ -1,21 +1,17 @@
+import type { IUndoRedoStore, UndoEntry, UndoRedoListOptions, UndoScope } from '@teable/v2-core';
 import type Keyv from 'keyv';
 import { ok } from 'neverthrow';
 
-import type {
-  DomainError,
-  IUndoRedoStore,
-  UndoEntry,
-  UndoRedoListOptions,
-  UndoScope,
-} from '@teable/v2-core';
-
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type StoredUndoEntry = Omit<UndoEntry, 'scope'>;
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type UndoRedoState = {
   entries: StoredUndoEntry[];
   cursor: number;
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface KeyvUndoRedoStoreOptions {
   keyPrefix?: string;
   ttlMs?: number;

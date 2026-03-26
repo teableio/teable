@@ -11,6 +11,8 @@ import {
   readString,
 } from './parsers';
 
+const nullInputTest = 'returns null for null input';
+
 describe('parsers', () => {
   describe('parseJson', () => {
     it('parses valid JSON', () => {
@@ -151,7 +153,7 @@ describe('parsers', () => {
       });
     });
 
-    it('returns null for null input', () => {
+    it(nullInputTest, () => {
       const result = parseLinkOptions(null);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeNull();
@@ -211,7 +213,7 @@ describe('parsers', () => {
       });
     });
 
-    it('returns null for null input', () => {
+    it(nullInputTest, () => {
       const result = parseLookupOptions(null);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeNull();
@@ -269,7 +271,7 @@ describe('parsers', () => {
       expect(result._unsafeUnwrap()).toBeNull();
     });
 
-    it('returns null for null input', () => {
+    it(nullInputTest, () => {
       const result = parseConditionalFieldOptions(null);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeNull();

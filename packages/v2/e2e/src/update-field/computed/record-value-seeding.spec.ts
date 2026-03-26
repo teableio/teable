@@ -15,7 +15,9 @@ const deleteTableSafe = async (ctx: SharedTestContext, tableId: string | undefin
   if (!tableId) return;
   try {
     await ctx.deleteTable(tableId);
-  } catch {}
+  } catch {
+    /* expected */
+  }
 };
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>

@@ -1,8 +1,8 @@
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../shared/DomainError';
-import type { FieldId } from '../fields/FieldId';
 import type { Field } from '../fields/Field';
+import type { FieldId } from '../fields/FieldId';
 import type { FieldDeletionContext } from '../OnTeableFieldDeleted';
 import type { ViewColumnMeta } from './ViewColumnMeta';
 import type { ViewId } from './ViewId';

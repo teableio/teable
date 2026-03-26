@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
+import { CellValueType } from '../../fields/types/CellValueType';
 import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
 import type { LookupField } from '../../fields/types/LookupField';
 import type { SingleLineTextField } from '../../fields/types/SingleLineTextField';

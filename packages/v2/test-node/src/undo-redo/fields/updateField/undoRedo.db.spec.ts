@@ -171,6 +171,7 @@ describe('undo-redo/updateField (db)', () => {
     const statusField = findField(table, 'Status');
     const titleField = findField(table, 'Title');
     const statusDbName = getFieldDbName(table, 'Status');
+    const inProgressStatus = 'In Progress';
     const existingStatusOption = (
       statusField as unknown as {
         selectOptions(): Array<{
@@ -202,7 +203,7 @@ describe('undo-redo/updateField (db)', () => {
             choices: [
               {
                 id: existingStatusOption.id().toString(),
-                name: 'In Progress',
+                name: inProgressStatus,
                 color: existingStatusOption.color().toString(),
               },
             ],
@@ -225,9 +226,9 @@ describe('undo-redo/updateField (db)', () => {
     expect(entry?.redoCommand.type).toBe('ApplyFieldSnapshot');
 
     let updatedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(updatedTable, 'Status')).toEqual(['In Progress']);
+    expect(getSelectOptionNames(updatedTable, 'Status')).toEqual([inProgressStatus]);
     let updatedRow = await fetchRowById(harness.db, updatedTable, record.record.id().toString());
-    expect(updatedRow?.[statusDbName]).toBe('In Progress');
+    expect(updatedRow?.[statusDbName]).toBe(inProgressStatus);
 
     await harness.undo(table.id().toString());
     expect(harness.probe.names()).toEqual([
@@ -256,8 +257,8 @@ describe('undo-redo/updateField (db)', () => {
     ]);
 
     updatedTable = await loadTable(harness, table);
-    expect(getSelectOptionNames(updatedTable, 'Status')).toEqual(['In Progress']);
+    expect(getSelectOptionNames(updatedTable, 'Status')).toEqual([inProgressStatus]);
     updatedRow = await fetchRowById(harness.db, updatedTable, record.record.id().toString());
-    expect(updatedRow?.[statusDbName]).toBe('In Progress');
+    expect(updatedRow?.[statusDbName]).toBe(inProgressStatus);
   });
 });

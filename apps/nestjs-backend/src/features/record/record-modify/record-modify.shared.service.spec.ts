@@ -55,6 +55,7 @@ describe('RecordModifySharedService', () => {
     try {
       getEffectFieldInstances(
         table,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         [{ Name: 'Task A', 'Source ID 2': 'source-1' }],
         FieldKeyType.Name
       );

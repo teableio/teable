@@ -340,6 +340,7 @@ describe('BaseShareController (e2e)', () => {
       });
       expect(authRes.status).toEqual(200);
       expect(authRes.data.token).toBeDefined();
+      // eslint-disable-next-line sonarjs/no-duplicate-string
       expect(authRes.headers['set-cookie']).toBeDefined();
     });
 

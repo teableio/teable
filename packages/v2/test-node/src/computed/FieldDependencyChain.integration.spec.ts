@@ -344,6 +344,7 @@ describe('FieldDependencyChain Integration Tests', () => {
             type: 'rollup',
             id: orderTotalId,
             name: 'Total',
+            // eslint-disable-next-line sonarjs/no-duplicate-string
             options: { expression: 'sum({values})' },
             config: {
               linkFieldId: orderLinkId,
@@ -693,7 +694,7 @@ describe('FieldDependencyChain Integration Tests', () => {
         v2RecordRepositoryPostgresTokens.computedDependencyGraph
       );
 
-      const baseId_ = nextFieldId();
+      const baseFieldId = nextFieldId();
       const f1Id = nextFieldId();
       const f2Id = nextFieldId();
       const f3Id = nextFieldId();
@@ -702,18 +703,18 @@ describe('FieldDependencyChain Integration Tests', () => {
         name: 'DiamondTable',
         fields: [
           { type: 'singleLineText', name: 'Name', isPrimary: true },
-          { type: 'number', id: baseId_, name: 'Base' },
+          { type: 'number', id: baseFieldId, name: 'Base' },
           {
             type: 'formula',
             id: f1Id,
             name: 'F1',
-            options: { expression: `{${baseId_}} * 2` },
+            options: { expression: `{${baseFieldId}} * 2` },
           },
           {
             type: 'formula',
             id: f2Id,
             name: 'F2',
-            options: { expression: `{${baseId_}} + 10` },
+            options: { expression: `{${baseFieldId}} + 10` },
           },
           {
             type: 'formula',
@@ -825,7 +826,7 @@ describe('FieldDependencyChain Integration Tests', () => {
         v2RecordRepositoryPostgresTokens.computedDependencyGraph
       );
 
-      const baseId_ = nextFieldId();
+      const baseFieldId = nextFieldId();
       const formulaCount = 50;
 
       // Create base field and many formula fields
@@ -837,7 +838,7 @@ describe('FieldDependencyChain Integration Tests', () => {
         options?: Record<string, unknown>;
       }> = [
         { type: 'singleLineText', name: 'Name', isPrimary: true },
-        { type: 'number', id: baseId_, name: 'Base' },
+        { type: 'number', id: baseFieldId, name: 'Base' },
       ];
 
       // Each formula references the base field
@@ -846,7 +847,7 @@ describe('FieldDependencyChain Integration Tests', () => {
           type: 'formula',
           id: nextFieldId(),
           name: `Formula${i}`,
-          options: { expression: `{${baseId_}} + ${i}` },
+          options: { expression: `{${baseFieldId}} + ${i}` },
         });
       }
 

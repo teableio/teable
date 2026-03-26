@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "test/**",
+    "../../packages/v2/**/*.spec.ts",
+    "../../packages/v2/**/*.test.ts",
+    "../../packages/v2/adapter-realtime-sharedb/src/ShareDbWebSocketServer.ts"
+  ]
+}

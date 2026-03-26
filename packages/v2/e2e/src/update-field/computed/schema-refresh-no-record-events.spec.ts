@@ -53,7 +53,9 @@ const deleteTablesSafe = async (ctx: SharedTestContext, tableIds: ReadonlyArray<
   for (const tableId of [...tableIds].reverse()) {
     try {
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      /* expected */
+    }
   }
 };
 

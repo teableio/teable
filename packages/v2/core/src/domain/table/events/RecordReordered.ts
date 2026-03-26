@@ -2,8 +2,8 @@ import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
 import type { RecordId } from '../records/RecordId';
-import type { ViewId } from '../views/ViewId';
 import type { TableId } from '../TableId';
+import type { ViewId } from '../views/ViewId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 
 export class RecordReordered extends AbstractTableUpdatedEvent {

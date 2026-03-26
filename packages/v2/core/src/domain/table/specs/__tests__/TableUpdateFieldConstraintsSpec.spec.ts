@@ -134,6 +134,7 @@ describe('TableUpdateFieldConstraintsSpec', () => {
     const visitor = {
       visitTableUpdateFieldConstraints: () => ok(undefined),
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     spec.accept(visitor as any)._unsafeUnwrap();
   });
 });

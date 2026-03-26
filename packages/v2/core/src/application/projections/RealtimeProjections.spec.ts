@@ -18,8 +18,8 @@ import { TableCreated } from '../../domain/table/events/TableCreated';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
@@ -29,8 +29,8 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
+import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
 import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
@@ -166,6 +166,10 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete() {
+    return ok(undefined);
+  }
+
+  async restore() {
     return ok(undefined);
   }
 }

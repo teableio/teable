@@ -2,8 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { UndoRedoService } from '../application/services/UndoRedoService';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { RecordReordered } from '../domain/table/events/RecordReordered';
@@ -13,7 +13,7 @@ import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRo
 import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import * as RecordOrderCalculatorPort from '../ports/RecordOrderCalculator';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -53,7 +53,7 @@ export class ReorderRecordsHandler
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordOrderCalculator)
-    private readonly recordOrderCalculator: IRecordOrderCalculator,
+    private readonly recordOrderCalculator: RecordOrderCalculatorPort.IRecordOrderCalculator,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)

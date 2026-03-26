@@ -1,6 +1,6 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
@@ -8,7 +8,8 @@ import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoR
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
+import { domainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -18,7 +19,7 @@ import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
-import { ITableRepository } from '../ports/TableRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -56,7 +57,7 @@ export class DuplicateFieldHandler
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.fieldOperationPluginRunner)
     private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)

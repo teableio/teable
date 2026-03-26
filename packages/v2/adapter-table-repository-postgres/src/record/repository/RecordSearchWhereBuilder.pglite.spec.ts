@@ -35,6 +35,7 @@ class PGliteDialect implements Dialect {
             numAffectedRows: result.affectedRows ? BigInt(result.affectedRows) : undefined,
           };
         },
+        // eslint-disable-next-line require-yield
         streamQuery: async function* () {
           throw new Error('PGlite does not support streaming');
         },

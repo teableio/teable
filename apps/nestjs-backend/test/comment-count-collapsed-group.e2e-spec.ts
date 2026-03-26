@@ -1,12 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IFilter, IGroup } from '@teable/core';
 import { Colors, FieldKeyType, FieldType, SortFunc } from '@teable/core';
-import {
-  CommentNodeType,
-  GroupPointType,
-  createComment,
-  getCommentCount,
-} from '@teable/openapi';
+import { CommentNodeType, GroupPointType, createComment, getCommentCount } from '@teable/openapi';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -58,15 +53,11 @@ describe('OpenAPI Comment count with collapsed groups (e2e)', () => {
       records: [{ fields: { LookupKey: 'K-1' } }, { fields: { LookupKey: 'K-2' } }],
     });
 
-    const sourceKeyField = sourceTable.fields.find(
-      ({ name }) => name === 'LookupKey'
-    ) as IFieldVo;
+    const sourceKeyField = sourceTable.fields.find(({ name }) => name === 'LookupKey') as IFieldVo;
     const sourceCategoryField = sourceTable.fields.find(
       ({ name }) => name === 'Category'
     ) as IFieldVo;
-    const hostKeyField = hostTable.fields.find(
-      ({ name }) => name === 'LookupKey'
-    ) as IFieldVo;
+    const hostKeyField = hostTable.fields.find(({ name }) => name === 'LookupKey') as IFieldVo;
 
     const matchByKeyFilter: IFilter = {
       conjunction: 'and',

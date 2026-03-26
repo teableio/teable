@@ -2,8 +2,8 @@ import { ActorId, BaseId, FieldName, Table, TableId, TableName, ok } from '@teab
 import type { IExecutionContext, ITableRepository } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ComputedFieldCascadeAfterSchemaUpdate } from '../ComputedFieldCascadeAfterSchemaUpdate';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
+import { ComputedFieldCascadeAfterSchemaUpdate } from '../ComputedFieldCascadeAfterSchemaUpdate';
 import type { ComputedUpdatePlan, ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 
 const createTable = () => {

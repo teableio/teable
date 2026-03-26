@@ -8,21 +8,21 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import type * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { ICommandBus } from '../ports/CommandBus';
-import type * as TableRepositoryPort from '../ports/TableRepository';
+import * as CommandBusPort from '../ports/CommandBus';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   flattenUndoRedoCommands,
   type UndoRedoCommandLeafData,
 } from '../ports/UndoRedoStore';
-import { v2CoreTokens } from '../ports/tokens';
-import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
+import type { DeleteFieldResult } from './DeleteFieldHandler';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
-import { DeleteFieldResult } from './DeleteFieldHandler';
 
 export class DeleteFieldsResult {
   private constructor(
@@ -42,7 +42,7 @@ export class DeleteFieldsHandler
 {
   constructor(
     @inject(v2CoreTokens.commandBus)
-    private readonly commandBus: ICommandBus,
+    private readonly commandBus: CommandBusPort.ICommandBus,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)

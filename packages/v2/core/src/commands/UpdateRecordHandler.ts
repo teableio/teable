@@ -1,6 +1,6 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
@@ -10,7 +10,8 @@ import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWr
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
+import { domainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordReordered } from '../domain/table/events/RecordReordered';
@@ -22,7 +23,7 @@ import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRo
 import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import * as RecordOrderCalculatorPort from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
@@ -77,7 +78,7 @@ export class UpdateRecordHandler
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordOrderCalculator)
-    private readonly recordOrderCalculator: IRecordOrderCalculator,
+    private readonly recordOrderCalculator: RecordOrderCalculatorPort.IRecordOrderCalculator,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWritePluginRunner)

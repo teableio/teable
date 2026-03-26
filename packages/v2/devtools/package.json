@@ -30,7 +30,7 @@
     "cli": "NODE_NO_WARNINGS=1 tsx bin/run.ts",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-devtools.eslintcache",
-    "typecheck": "NODE_NO_WARNINGS=1 tsc --project ./tsconfig.json --noEmit",
+    "typecheck": "NODE_NO_WARNINGS=1 tsc --project ./tsconfig.typecheck.json --noEmit",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {

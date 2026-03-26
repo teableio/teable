@@ -1,6 +1,7 @@
 import { Command, Options } from '@effect/cli';
-import { Effect, Option } from 'effect';
 import type { IFieldUpdateInput } from '@teable/v2-core';
+import type { Option } from 'effect';
+import { Effect } from 'effect';
 import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
 import { ModuleRef } from '@nestjs/core';
+import { OnEvent } from '@nestjs/event-emitter';
 import { IUserInfoVo } from '@teable/openapi';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';

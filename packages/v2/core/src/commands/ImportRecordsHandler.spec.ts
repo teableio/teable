@@ -38,6 +38,7 @@ import type {
   InsertManyStreamOptions,
   ITableRecordRepository,
   RecordMutationResult,
+  UpdateManyResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
@@ -163,6 +164,10 @@ class FakeTableRepository implements ITableRepository {
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async restore(_: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
@@ -226,7 +231,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     ____: ICellValueSpec
-  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
+  ): Promise<Result<UpdateManyResult, DomainError>> {
     return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 

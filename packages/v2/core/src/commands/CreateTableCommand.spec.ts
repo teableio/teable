@@ -1,6 +1,6 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import { describe, expect, it } from 'vitest';
 
-import { tableI18nKeys } from '@teable/i18n-keys';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { Field } from '../domain/table/fields/Field';

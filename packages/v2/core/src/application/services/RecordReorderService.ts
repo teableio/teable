@@ -5,16 +5,16 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { RecordReordered } from '../../domain/table/events/RecordReordered';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { IRecordOrderCalculator } from '../../ports/RecordOrderCalculator';
+import * as RecordOrderCalculatorPort from '../../ports/RecordOrderCalculator';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type { ITableRecordRepository } from '../../ports/TableRecordRepository';
+import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 
@@ -54,9 +54,9 @@ const buildRecordUpdateBatches = (
 export class RecordReorderService {
   constructor(
     @inject(v2CoreTokens.tableRecordRepository)
-    private readonly tableRecordRepository: ITableRecordRepository,
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.recordOrderCalculator)
-    private readonly recordOrderCalculator: IRecordOrderCalculator
+    private readonly recordOrderCalculator: RecordOrderCalculatorPort.IRecordOrderCalculator
   ) {}
 
   async reorder(
