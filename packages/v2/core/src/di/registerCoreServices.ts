@@ -12,7 +12,9 @@ import { FieldUpdateSideEffectService } from '../application/services/FieldUpdat
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordReorderService } from '../application/services/RecordReorderService';
@@ -213,6 +215,12 @@ export const registerV2CoreServices = (
     });
   }
 
+  if (!container.isRegistered(v2CoreTokens.pasteLinkAutoResolveService)) {
+    container.register(v2CoreTokens.pasteLinkAutoResolveService, PasteLinkAutoResolveService, {
+      lifecycle,
+    });
+  }
+
   // AttachmentValueResolverService - resolve attachment values
   if (!container.isRegistered(v2CoreTokens.attachmentValueResolverService)) {
     container.register(
@@ -291,6 +299,12 @@ export const registerV2CoreServices = (
         lifecycle,
       }
     );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordBatchCreationService)) {
+    container.register(v2CoreTokens.recordBatchCreationService, RecordBatchCreationService, {
+      lifecycle,
+    });
   }
 
   // RecordCreationService - shared single-record creation workflow

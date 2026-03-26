@@ -1473,40 +1473,39 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // Always plan first — if no steps, skip entirely (both sync and async)
-    const planInput = {
-      baseId: table.baseId(),
-      seedTableId: table.id(),
-      seedRecordIds: [...recordIds],
-      extraSeedRecords: extraSeedRecords.map((group) => ({
-        tableId: group.tableId,
-        recordIds: [...group.recordIds],
-      })),
-      beforeImageRecords: [...beforeImageRecords],
-      changedFieldIds: [...expandedChangedFieldIds],
-      changeType: 'update' as const,
-      cyclePolicy: 'skip' as const,
-      impact: normalizedImpact,
-      table,
-    };
-
-    const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
-    if (planResult.isErr()) {
-      this.logger.warn('computed:seed:plan_batch_failed', {
-        error: planResult.error.message,
-        tableId: table.id().toString(),
-        recordCount: recordIds.length,
-      });
-      return err(planResult.error);
-    }
-
-    const plan = planResult.value;
-    if (plan.steps.length === 0) {
-      return ok(undefined);
-    }
-
-    // For sync mode, execute directly
+    // For sync mode, plan and execute directly without using the outbox
     if (this.computedUpdateStrategy.mode === 'sync') {
+      const planInput = {
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [...recordIds],
+        extraSeedRecords: extraSeedRecords.map((group) => ({
+          tableId: group.tableId,
+          recordIds: [...group.recordIds],
+        })),
+        beforeImageRecords: [...beforeImageRecords],
+        changedFieldIds: [...expandedChangedFieldIds],
+        changeType: 'update' as const,
+        cyclePolicy: 'skip' as const,
+        impact: normalizedImpact,
+        table,
+      };
+
+      const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
+      if (planResult.isErr()) {
+        this.logger.warn('computed:seed:plan_batch_failed', {
+          error: planResult.error.message,
+          tableId: table.id().toString(),
+          recordCount: recordIds.length,
+        });
+        return err(planResult.error);
+      }
+
+      const plan = planResult.value;
+      if (plan.steps.length === 0) {
+        return ok(undefined);
+      }
+
       const executeResult = await this.computedUpdateStrategy.execute(
         this.computedFieldUpdater,
         plan,
@@ -1526,7 +1525,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid/async mode, skip planStage to minimize transaction lock hold time.
+    // The worker will plan when it processes the seed task asynchronously.
+    // This matches the pattern used by runComputedUpdate (single-record path).
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
       seedTableId: table.id(),

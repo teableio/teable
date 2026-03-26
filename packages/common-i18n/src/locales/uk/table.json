@@ -662,8 +662,9 @@
   },
   "form": {
     "fieldsManagement": "Поля",
-    "addAll": "Додати все",
-    "removeAll": "Удалити все",
+    "addAll": "Показати все",
+    "removeAll": "Сховати все",
+    "createField": "Створити поле",
     "hideFieldTip": "Скрити поле сюда",
     "unableAddFieldTip": "Неможливо додати поле цього типу",
     "removeFromFormTip": "Удалити з форми",

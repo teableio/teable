@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -27,11 +28,9 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -43,7 +42,11 @@ import type {
   UpdateManyStreamBatchInput,
 } from '../ports/TableRecordRepository';
 import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableFindOptions,
+  TableUpdatePersistResult,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { PasteCommand } from './PasteCommand';
@@ -66,6 +69,17 @@ const noopUndoRedoService = {
 const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
+
+const noopPasteLinkAutoResolveService = {
+  resolve: async () =>
+    ok({
+      resolvedValues: new Map(),
+      tableEvents: [],
+      undoCommands: [],
+      redoCommands: [],
+      afterCommitHandlers: [],
+    }),
+} as unknown as PasteLinkAutoResolveService;
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -190,7 +204,8 @@ class FakeTableRepository implements ITableRepository {
 
   async findOne(
     _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    _options?: Pick<TableFindOptions, 'state'>
   ): Promise<Result<Table, DomainError>> {
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
     if (!match) return err(domainError.notFound({ message: 'Table not found' }));
@@ -200,7 +215,7 @@ class FakeTableRepository implements ITableRepository {
   async find(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
+    __?: TableFindOptions
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
   }
@@ -209,12 +224,16 @@ class FakeTableRepository implements ITableRepository {
     _: IExecutionContext,
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
     const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
     if (index >= 0) {
       this.tables[index] = table;
     }
     this.updated.push(table);
+    return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
@@ -526,6 +545,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -600,6 +620,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -676,6 +697,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -751,6 +773,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -800,6 +823,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -871,6 +895,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -922,6 +947,7 @@ describe('PasteHandler', () => {
         recordRepository,
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -985,6 +1011,7 @@ describe('PasteHandler', () => {
         recordRepository,
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1033,6 +1060,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1088,6 +1116,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1140,6 +1169,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1189,6 +1219,7 @@ describe('PasteHandler', () => {
       new FakeTableRecordRepository(),
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner([plugin]),
@@ -1237,6 +1268,7 @@ describe('PasteHandler', () => {
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner([
