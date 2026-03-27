@@ -10,6 +10,7 @@ import {
   IncomingLinkSelectedSpec,
   LinkFieldConfig,
   RecordId,
+  RecordConditionDateValue,
   RecordConditionFieldReferenceValue,
   LongTextConditionSpec,
   NumberConditionSpec,
@@ -78,6 +79,11 @@ const UTC_DATE_ONLY = DateTimeFormatting.create({
   time: 'None',
   timeZone: 'utc',
 })._unsafeUnwrap();
+const UTC_DATE_TIME = DateTimeFormatting.create({
+  date: 'YYYY-MM-DD',
+  time: 'HH:mm',
+  timeZone: 'utc',
+})._unsafeUnwrap();
 const SHANGHAI_DATE_ONLY = DateTimeFormatting.create({
   date: 'YYYY-MM-DD',
   time: 'None',
@@ -116,6 +122,12 @@ const createTestTable = () => {
     .withName(FieldName.create('Created At')._unsafeUnwrap())
     .withFormatting(SHANGHAI_DATE_ONLY)
     .done();
+  builder
+    .field()
+    .date()
+    .withName(FieldName.create('Due At')._unsafeUnwrap())
+    .withFormatting(UTC_DATE_TIME)
+    .done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
@@ -132,6 +144,7 @@ const createTestTable = () => {
   fields[7]
     .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
     ._unsafeUnwrap();
+  fields[8].setDbFieldName(DbFieldName.rehydrate('col_due_at')._unsafeUnwrap())._unsafeUnwrap();
 
   return {
     table,
@@ -143,6 +156,7 @@ const createTestTable = () => {
     dueDateField: fields[5],
     cutoffDateField: fields[6],
     createdTimeField: fields[7],
+    dueAtField: fields[8],
   };
 };
 
@@ -252,6 +266,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
     dueDateField,
     cutoffDateField,
     createdTimeField,
+    dueAtField,
   } = createTestTable();
 
   // ---- isNot ----
@@ -485,6 +500,21 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('("f"."col_due_date" AT TIME ZONE $1)::date');
       expect(sql).toContain('("t"."col_created_time" AT TIME ZONE $2)::date');
       expect(parameters).toEqual(['utc', 'Asia/Shanghai']);
+    });
+
+    test('datetime exactDate preserves the exact timestamp when the field includes time', () => {
+      const value = RecordConditionDateValue.create({
+        mode: 'exactDate',
+        exactDate: '2025-12-15T11:00:00.000Z',
+        timeZone: 'utc',
+      })._unsafeUnwrap();
+      const spec = dueAtField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('"t"."col_due_at" between $1 and $2');
+      expect(parameters).toEqual(['2025-12-15T11:00:00.000Z', '2025-12-15T11:00:00.000Z']);
     });
   });
 

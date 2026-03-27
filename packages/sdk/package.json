@@ -143,6 +143,7 @@
     "ts-key-enum": "2.0.12",
     "ts-keycode-enum": "1.0.6",
     "ts-mixer": "6.0.4",
+    "turndown": "7.2.2",
     "use-file-picker": "2.1.2",
     "zustand": "4.5.2"
   },
@@ -162,6 +163,7 @@
     "@types/scroller": "0.1.5",
     "@types/sharedb": "5.1.0",
     "@types/sockjs-client": "1.5.4",
+    "@types/turndown": "5.0.6",
     "@vitejs/plugin-react-swc": "3.6.0",
     "@vitest/coverage-v8": "4.0.17",
     "cross-env": "7.0.3",

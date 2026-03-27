@@ -5,6 +5,12 @@ import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import {
+  type IPasteLinkAutoResolveResult,
+  PasteLinkAutoResolveService,
+  type ResolvedLinkValueLookupMap,
+  type ResolvedLinkValueMap,
+} from '../application/services/PasteLinkAutoResolveService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import {
   type RecordWritePluginExecution,
@@ -98,6 +104,7 @@ interface CollectedEventData {
   createdRecords: RecordValuesDTO[];
   schemaUndoCommands: UndoRedoCommandLeafData[];
   schemaRedoCommands: UndoRedoCommandLeafData[];
+  afterCommitHandlers: Array<() => Promise<void>>;
 }
 
 interface CollectedPasteOperations {
@@ -143,6 +150,7 @@ type PasteOperationStreamState = {
   pendingCreateOperation?: CreateOperation;
   tableForMutations: Table;
   accumulatedSideEffects: RecordWriteSideEffect[];
+  resolvedLinkValues: ResolvedLinkValueLookupMap;
 };
 
 type LooseFieldInput = {
@@ -169,6 +177,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.pasteLinkAutoResolveService)
+    private readonly pasteLinkAutoResolveService: PasteLinkAutoResolveService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
@@ -351,6 +361,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         createdRecords: [],
         schemaUndoCommands: [],
         schemaRedoCommands: [],
+        afterCommitHandlers: [],
       };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
@@ -463,6 +474,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         });
       }
       await pluginExecution.afterCommit();
+      for (const afterCommitHandler of eventData.afterCommitHandlers) {
+        await afterCommitHandler();
+      }
 
       return ok({
         updatedCount: eventData.updates.length,
@@ -842,6 +856,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         iterator: operationsStream[Symbol.asyncIterator](),
         tableForMutations: table,
         accumulatedSideEffects: [],
+        resolvedLinkValues: new Map(),
       };
 
       const beforePersistResult = await pluginExecution.beforePersist(context);
@@ -970,6 +985,27 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const batchTable = streamState.tableForMutations;
+      const resolvedLinkValueMapResult = await this.resolvePasteLinkAutoCreate(
+        context,
+        typecast,
+        batchTable,
+        editableColumns,
+        updateOperations.map((operation) => operation.rowData),
+        streamState.resolvedLinkValues
+      );
+      if (resolvedLinkValueMapResult.isErr()) {
+        yield err(resolvedLinkValueMapResult.error);
+        return;
+      }
+      this.mergeResolvedLinkValues(
+        streamState.resolvedLinkValues,
+        resolvedLinkValueMapResult.value.resolvedValues
+      );
+      eventData.tableEvents.push(...resolvedLinkValueMapResult.value.tableEvents);
+      eventData.schemaUndoCommands.push(...resolvedLinkValueMapResult.value.undoCommands);
+      eventData.schemaRedoCommands.push(...resolvedLinkValueMapResult.value.redoCommands);
+      eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
+
       const linkTitleMapResult = typecast
         ? await this.buildLinkTitleMap(context, batchTable, editableColumns, updateOperations)
         : ok(new Map());
@@ -979,6 +1015,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const linkTitleMap = linkTitleMapResult.value;
+      const resolvedLinkValueMap = streamState.resolvedLinkValues;
       const updateItems: UpdateRecordItem[] = [];
       const pendingUpdateEvents: PendingUpdateEvent[] = [];
 
@@ -995,7 +1032,11 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           editableColumns,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
-            return this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId));
+            return this.hydrateLinkValue(
+              rawValue,
+              linkTitleMap.get(fieldId),
+              resolvedLinkValueMap.get(fieldId)
+            );
           }
         );
 
@@ -1071,6 +1112,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     createdRecordBatches: PendingCreatedRecord[][],
     eventData: CollectedEventData
   ): AsyncGenerator<TableRecordRepositoryPort.InsertManyStreamBatchInput> {
+    // `insertManyStream` consumes raw batch inputs rather than `Result`-wrapped yields, so
+    // create-path failures must throw to abort the stream. The update path can yield `err(...)`
+    // because `updateManyStream` accepts `Result` batches directly.
     while (true) {
       const operationsResult = await this.readNextCreateChunk(streamState, batchSize);
       if (operationsResult.isErr()) {
@@ -1095,6 +1139,26 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const batchTable = streamState.tableForMutations;
+      const resolvedLinkValueMapResult = await this.resolvePasteLinkAutoCreate(
+        context,
+        typecast,
+        batchTable,
+        editableColumns,
+        createOperations.map((operation) => operation.rowData),
+        streamState.resolvedLinkValues
+      );
+      if (resolvedLinkValueMapResult.isErr()) {
+        throw resolvedLinkValueMapResult.error;
+      }
+      this.mergeResolvedLinkValues(
+        streamState.resolvedLinkValues,
+        resolvedLinkValueMapResult.value.resolvedValues
+      );
+      eventData.tableEvents.push(...resolvedLinkValueMapResult.value.tableEvents);
+      eventData.schemaUndoCommands.push(...resolvedLinkValueMapResult.value.undoCommands);
+      eventData.schemaRedoCommands.push(...resolvedLinkValueMapResult.value.redoCommands);
+      eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
+
       const linkTitleMapResult = typecast
         ? await this.buildLinkTitleMap(context, batchTable, editableColumns, createOperations)
         : ok(new Map());
@@ -1103,9 +1167,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const linkTitleMap = linkTitleMapResult.value;
+      const resolvedLinkValueMap = streamState.resolvedLinkValues;
       const createFieldValues = createOperations.map((op) =>
         this.buildEditableFieldValues(op.rowData, editableColumns, (fieldId, rawValue) =>
-          this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId))
+          this.hydrateLinkValue(
+            rawValue,
+            linkTitleMap.get(fieldId),
+            resolvedLinkValueMap.get(fieldId)
+          )
         )
       );
 
@@ -1345,20 +1414,74 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return fieldValues;
   }
 
-  private hydrateLinkValue(value: unknown, linkTitleMap: Map<string, string> | undefined): unknown {
-    if (!linkTitleMap || linkTitleMap.size === 0) {
-      return value;
+  private async resolvePasteLinkAutoCreate(
+    context: ExecutionContextPort.IExecutionContext,
+    typecast: boolean,
+    table: Table,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    rowDataList: ReadonlyArray<ReadonlyArray<unknown>>,
+    existingResolvedValues: ResolvedLinkValueLookupMap
+  ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
+    if (!typecast) {
+      return ok(this.createEmptyPasteLinkAutoResolveResult());
     }
 
+    return this.pasteLinkAutoResolveService.resolve(context, {
+      table,
+      editableColumns,
+      rowDataList,
+      existingResolvedValues,
+    });
+  }
+
+  private createEmptyPasteLinkAutoResolveResult(): IPasteLinkAutoResolveResult {
+    return {
+      resolvedValues: new Map(),
+      tableEvents: [],
+      undoCommands: [],
+      redoCommands: [],
+      afterCommitHandlers: [],
+    };
+  }
+
+  private mergeResolvedLinkValues(
+    target: ResolvedLinkValueLookupMap,
+    source: ResolvedLinkValueLookupMap
+  ): void {
+    for (const [fieldId, valueMap] of source.entries()) {
+      const existing = target.get(fieldId);
+      if (existing) {
+        valueMap.forEach((value, title) => existing.set(title, value));
+      } else {
+        target.set(fieldId, new Map(valueMap));
+      }
+    }
+  }
+
+  private hydrateLinkValue(
+    value: unknown,
+    linkTitleMap: Map<string, string> | undefined,
+    resolvedLinkValueMap?: ResolvedLinkValueMap
+  ): unknown {
     if (value == null) {
       return value;
     }
 
     const hydrateItem = (item: unknown): unknown => {
       if (typeof item === 'string') {
-        if (!item.startsWith('rec')) return item;
-        const title = linkTitleMap.get(item);
-        return title ? { id: item, title } : { id: item };
+        const normalized = item.trim();
+        if (!normalized) {
+          return item;
+        }
+        const resolvedLink = resolvedLinkValueMap?.get(normalized);
+        if (resolvedLink) {
+          return resolvedLink.title
+            ? { id: resolvedLink.id, title: resolvedLink.title }
+            : { id: resolvedLink.id };
+        }
+        if (!normalized.startsWith('rec')) return item;
+        const title = linkTitleMap?.get(normalized);
+        return title ? { id: normalized, title } : { id: normalized };
       }
 
       if (typeof item === 'object' && item !== null && 'id' in item) {
@@ -1367,16 +1490,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const title =
           typeof existingTitle === 'string'
             ? existingTitle
-            : linkTitleMap.get(recordId) ?? undefined;
+            : linkTitleMap?.get(recordId) ?? undefined;
         return title ? { ...(item as Record<string, unknown>), id: recordId, title } : item;
       }
 
       return item;
     };
-
-    if (Array.isArray(value)) {
-      return value.map((item) => hydrateItem(item));
-    }
 
     if (typeof value === 'string') {
       const tokens = value
@@ -1386,13 +1505,25 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (tokens.length === 0) {
         return value;
       }
-      if (!tokens.every((token) => token.startsWith('rec'))) {
+      const hydratedTokens = tokens.map((token) => hydrateItem(token));
+      const allResolved = hydratedTokens.every(
+        (item) => typeof item === 'object' && item !== null && 'id' in item
+      );
+      if (!allResolved) {
         return value;
       }
       if (tokens.length === 1) {
-        return hydrateItem(tokens[0]);
+        return hydratedTokens[0];
       }
-      return tokens.map((token) => hydrateItem(token));
+      return hydratedTokens;
+    }
+
+    if (Array.isArray(value)) {
+      const hydratedItems = value.map((item) => hydrateItem(item));
+      const allResolved = hydratedItems.every(
+        (item) => typeof item === 'object' && item !== null && 'id' in item
+      );
+      return allResolved ? hydratedItems : value;
     }
 
     return hydrateItem(value);

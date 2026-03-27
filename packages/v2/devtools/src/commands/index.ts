@@ -29,6 +29,7 @@ import {
   underlyingField,
   underlyingRecords,
   underlyingRecord,
+  underlyingCanarySpace,
 } from './underlying';
 
 // explain subcommand group
@@ -92,6 +93,7 @@ export const underlying = Command.make('underlying').pipe(
     underlyingField,
     underlyingRecords,
     underlyingRecord,
+    underlyingCanarySpace,
   ])
 );
 
