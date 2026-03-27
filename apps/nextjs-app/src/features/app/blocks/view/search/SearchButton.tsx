@@ -81,6 +81,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
 
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
+  const [inputKey, setInputKey] = useState(0);
   const { t } = useTranslation(['common', 'table']);
   const searchComposition = useRef(false);
   const ref = useRef<HTMLInputElement>(null);
@@ -366,6 +367,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
 
       <div className="flex flex-1 justify-between overflow-hidden">
         <input
+          key={inputKey}
           ref={ref}
           className="placeholder:text-muted-foregrounds min-w-0 grow rounded-md bg-transparent px-1 outline-none"
           placeholder={t('actions.search')}
@@ -404,6 +406,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
           }}
           onBlur={() => {
             setIsFocused(false);
+            setInputKey((k) => k + 1);
           }}
           onFocus={() => {
             setIsFocused(true);

@@ -1299,6 +1299,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             return ok([]);
           }
 
+          const batchSpan = context.tracer?.startSpan(
+            'teable.PostgresTableRecordRepository.updateManyStream.batch',
+            {
+              [core.TeableSpanAttributes.COMPONENT]: 'repository',
+              [core.TeableSpanAttributes.OPERATION]:
+                'PostgresTableRecordRepository.updateManyStream.batch',
+              [core.TeableSpanAttributes.TABLE_ID]: batchTable.id().toString(),
+              'record.update.batchIndex': batchIndex,
+              'record.update.batchRecordCount': batch.length,
+            }
+          );
+
           // Convert batch to BatchRecordUpdateInput format
           const updates: Array<{ recordId: core.RecordId; mutateSpec: core.ICellValueSpec }> =
             batch.map((updateResult) => ({
@@ -1330,6 +1342,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             impact,
             systemColumns,
           } = batchDataResult.value;
+          batchSpan?.setAttributes({
+            'record.update.batchColumnCount': columnUpdateData.size,
+            'record.update.batchAdditionalStatementCount': additionalStatements.length,
+            'record.update.batchLinkedLockCount': linkedRecordLocks.length,
+            'record.update.batchValueFieldCount': impact.valueFieldIds.length,
+            'record.update.batchLinkFieldCount': impact.impactHint.linkFieldIds.length,
+          });
 
           try {
             // Generate and execute batch UPDATE SQL
@@ -1342,6 +1361,38 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             });
             if (updateSqlResult.isErr()) {
               return err(updateSqlResult.error);
+            }
+            batchSpan?.setAttributes({
+              'record.update.batchSqlBytes': updateSqlResult.value.sql.length,
+              'record.update.batchSqlParameterCount': updateSqlResult.value.parameters.length,
+            });
+            const batchLogContext = {
+              tableId: batchTable.id().toString(),
+              tableName,
+              batchIndex,
+              batchRecordCount: batch.length,
+              batchColumnCount: columnUpdateData.size,
+              batchAdditionalStatementCount: additionalStatements.length,
+              batchLinkedLockCount: linkedRecordLocks.length,
+              batchValueFieldCount: impact.valueFieldIds.length,
+              batchLinkFieldCount: impact.impactHint.linkFieldIds.length,
+              batchSqlBytes: updateSqlResult.value.sql.length,
+              batchSqlParameterCount: updateSqlResult.value.parameters.length,
+            };
+            this.logger.debug(
+              'PostgresTableRecordRepository.updateManyStream.batch',
+              batchLogContext
+            );
+            if (
+              batch.length >= 100 ||
+              updateSqlResult.value.sql.length >= 50_000 ||
+              linkedRecordLocks.length > 0 ||
+              additionalStatements.length > 0
+            ) {
+              this.logger.info(
+                'PostgresTableRecordRepository.updateManyStream.batchHeavy',
+                batchLogContext
+              );
             }
 
             const queryResult = await db.executeQuery(updateSqlResult.value);
@@ -1397,6 +1448,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             }
 
             totalUpdated += batchUpdatedRecords.length;
+            batchSpan?.setAttribute('record.update.batchUpdatedCount', batchUpdatedRecords.length);
             options?.onBatchUpdated?.({
               batchIndex,
               updatedCount: batchUpdatedRecords.length,
@@ -1405,7 +1457,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             batchIndex++;
             return ok(batchUpdatedRecords);
           } catch (error) {
+            batchSpan?.recordError(describeError(error));
             return err(wrapDatabaseError(error, 'update', { tableName }, context.$t));
+          } finally {
+            batchSpan?.end();
           }
         };
 
@@ -1473,40 +1528,39 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // Always plan first — if no steps, skip entirely (both sync and async)
-    const planInput = {
-      baseId: table.baseId(),
-      seedTableId: table.id(),
-      seedRecordIds: [...recordIds],
-      extraSeedRecords: extraSeedRecords.map((group) => ({
-        tableId: group.tableId,
-        recordIds: [...group.recordIds],
-      })),
-      beforeImageRecords: [...beforeImageRecords],
-      changedFieldIds: [...expandedChangedFieldIds],
-      changeType: 'update' as const,
-      cyclePolicy: 'skip' as const,
-      impact: normalizedImpact,
-      table,
-    };
-
-    const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
-    if (planResult.isErr()) {
-      this.logger.warn('computed:seed:plan_batch_failed', {
-        error: planResult.error.message,
-        tableId: table.id().toString(),
-        recordCount: recordIds.length,
-      });
-      return err(planResult.error);
-    }
-
-    const plan = planResult.value;
-    if (plan.steps.length === 0) {
-      return ok(undefined);
-    }
-
-    // For sync mode, execute directly
+    // For sync mode, plan and execute directly without using the outbox
     if (this.computedUpdateStrategy.mode === 'sync') {
+      const planInput = {
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [...recordIds],
+        extraSeedRecords: extraSeedRecords.map((group) => ({
+          tableId: group.tableId,
+          recordIds: [...group.recordIds],
+        })),
+        beforeImageRecords: [...beforeImageRecords],
+        changedFieldIds: [...expandedChangedFieldIds],
+        changeType: 'update' as const,
+        cyclePolicy: 'skip' as const,
+        impact: normalizedImpact,
+        table,
+      };
+
+      const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
+      if (planResult.isErr()) {
+        this.logger.warn('computed:seed:plan_batch_failed', {
+          error: planResult.error.message,
+          tableId: table.id().toString(),
+          recordCount: recordIds.length,
+        });
+        return err(planResult.error);
+      }
+
+      const plan = planResult.value;
+      if (plan.steps.length === 0) {
+        return ok(undefined);
+      }
+
       const executeResult = await this.computedUpdateStrategy.execute(
         this.computedFieldUpdater,
         plan,
@@ -1526,7 +1580,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid/async mode, skip planStage to minimize transaction lock hold time.
+    // The worker will plan when it processes the seed task asynchronously.
+    // This matches the pattern used by runComputedUpdate (single-record path).
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
       seedTableId: table.id(),
