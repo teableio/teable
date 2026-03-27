@@ -1,3 +1,4 @@
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   v2CoreTokens,
   TableId,
@@ -19,10 +20,13 @@ import {
   type DebugFieldMeta,
   type DebugFieldRelationReport,
 } from '@teable/v2-debug-data';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
+import { sql, type Kysely } from 'kysely';
 import { CliError } from '../errors/CliError';
 import { Database } from '../services/Database';
 import {
+  type CanarySpaceCheckResult,
   DebugData,
   type RecordQueryOptions,
   type RecordQueryResult,
@@ -32,6 +36,113 @@ import {
   type RawRecord,
 } from '../services/DebugData';
 
+type ParsedCanaryConfig = {
+  present: boolean;
+  valid: boolean;
+  enabled: boolean;
+  forceV2All: boolean;
+  spaceIds: string[];
+};
+
+const toIso = (value: Date | null | undefined): string | null => value?.toISOString() ?? null;
+
+const parseCanaryConfig = (content: string | null | undefined): ParsedCanaryConfig => {
+  if (content == null) {
+    return {
+      present: false,
+      valid: false,
+      enabled: false,
+      forceV2All: false,
+      spaceIds: [],
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const enabled = typeof parsed.enabled === 'boolean' ? parsed.enabled : false;
+    const forceV2All = typeof parsed.forceV2All === 'boolean' ? parsed.forceV2All : false;
+    const spaceIds = Array.isArray(parsed.spaceIds)
+      ? parsed.spaceIds.filter((value): value is string => typeof value === 'string')
+      : [];
+    const valid =
+      typeof parsed === 'object' &&
+      parsed != null &&
+      typeof parsed.enabled === 'boolean' &&
+      Array.isArray(parsed.spaceIds);
+
+    return {
+      present: true,
+      valid,
+      enabled,
+      forceV2All,
+      spaceIds,
+    };
+  } catch {
+    return {
+      present: true,
+      valid: false,
+      enabled: false,
+      forceV2All: false,
+      spaceIds: [],
+    };
+  }
+};
+
+const resolveCanaryMembership = (
+  env: { enableCanaryFeature: boolean; forceV2All: boolean },
+  config: ParsedCanaryConfig,
+  spaceId: string
+): Omit<CanarySpaceCheckResult, 'target'> => {
+  const matched = config.valid ? config.spaceIds.includes(spaceId) : false;
+
+  const canaryReason: CanarySpaceCheckResult['canaryReason'] = !env.enableCanaryFeature
+    ? 'env_disabled'
+    : !config.present
+      ? 'config_missing'
+      : !config.valid
+        ? 'config_invalid'
+        : !config.enabled
+          ? 'config_disabled'
+          : matched
+            ? 'space_list'
+            : 'space_not_listed';
+
+  const effectiveUseV2Reason: CanarySpaceCheckResult['effectiveUseV2Reason'] = env.forceV2All
+    ? 'env_force_v2_all'
+    : !env.enableCanaryFeature
+      ? 'env_disabled'
+      : !config.present
+        ? 'config_missing'
+        : !config.valid
+          ? 'config_invalid'
+          : config.forceV2All
+            ? 'config_force_v2_all'
+            : !config.enabled
+              ? 'config_disabled'
+              : matched
+                ? 'space_list'
+                : 'space_not_listed';
+
+  return {
+    isCanarySpace: canaryReason === 'space_list',
+    canaryReason,
+    effectiveUseV2:
+      effectiveUseV2Reason === 'env_force_v2_all' ||
+      effectiveUseV2Reason === 'config_force_v2_all' ||
+      effectiveUseV2Reason === 'space_list',
+    effectiveUseV2Reason,
+    env,
+    config: {
+      present: config.present,
+      valid: config.valid,
+      enabled: config.enabled,
+      forceV2All: config.forceV2All,
+      spaceIdsCount: config.spaceIds.length,
+      matched,
+    },
+  };
+};
+
 export const DebugDataLive = Layer.effect(
   DebugData,
   Effect.gen(function* () {
@@ -39,6 +150,7 @@ export const DebugDataLive = Layer.effect(
 
     registerV2DebugData(container);
     const service = container.resolve(v2DebugDataTokens.debugDataService) as DebugDataService;
+    const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
 
     // Helper to create execution context
     const createContext = () => {
@@ -217,6 +329,70 @@ export const DebugDataLive = Layer.effect(
             const result = await service.getRawRecord(tableId, recordId);
             if (result.isErr()) throw result.error;
             return result.value;
+          },
+          catch: (e) => CliError.fromUnknown(e),
+        }),
+
+      checkCanarySpace: (input): Effect.Effect<CanarySpaceCheckResult | null, CliError> =>
+        Effect.tryPromise({
+          try: async () => {
+            const env = {
+              enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true',
+              forceV2All: process.env.FORCE_V2_ALL === 'true',
+            };
+
+            const base = input.baseId
+              ? await db
+                  .selectFrom('base')
+                  .select(['id', 'name', 'space_id as spaceId', 'deleted_time as deletedTime'])
+                  .where('id', '=', input.baseId)
+                  .executeTakeFirst()
+              : null;
+
+            if (input.baseId && !base) {
+              return null;
+            }
+
+            const resolvedSpaceId = input.spaceId ?? base?.spaceId;
+            if (!resolvedSpaceId) {
+              throw new Error('Either spaceId or baseId is required');
+            }
+
+            const space = await db
+              .selectFrom('space')
+              .select(['id', 'name', 'deleted_time as deletedTime'])
+              .where('id', '=', resolvedSpaceId)
+              .executeTakeFirst();
+
+            const settingResult = await sql<{ content: string | null }>`
+              SELECT content
+              FROM setting
+              WHERE name = 'canaryConfig'
+              LIMIT 1
+            `.execute(db);
+
+            const config = parseCanaryConfig(settingResult.rows[0]?.content);
+            const decision = resolveCanaryMembership(env, config, resolvedSpaceId);
+
+            return {
+              target: {
+                source: input.spaceId ? 'space-id' : 'base-id',
+                base: base
+                  ? {
+                      id: base.id,
+                      name: base.name,
+                      deletedTime: toIso(base.deletedTime),
+                    }
+                  : null,
+                space: {
+                  id: resolvedSpaceId,
+                  name: space?.name ?? null,
+                  exists: Boolean(space),
+                  deletedTime: toIso(space?.deletedTime),
+                },
+              },
+              ...decision,
+            };
           },
           catch: (e) => CliError.fromUnknown(e),
         }),

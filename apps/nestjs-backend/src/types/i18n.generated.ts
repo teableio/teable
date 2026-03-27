@@ -4342,6 +4342,7 @@ export type I18nTranslations = {
             "fieldsManagement": string;
             "addAll": string;
             "removeAll": string;
+            "createField": string;
             "hideFieldTip": string;
             "unableAddFieldTip": string;
             "removeFromFormTip": string;
