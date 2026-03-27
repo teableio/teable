@@ -44,6 +44,61 @@ export interface RawRecordQueryResult {
 /** Single raw record from underlying database (includes system columns) */
 export type RawRecord = Record<string, unknown>;
 
+export interface CanarySpaceSummary {
+  readonly id: string;
+  readonly name: string | null;
+  readonly exists: boolean;
+  readonly deletedTime: string | null;
+}
+
+export interface CanaryBaseSummary {
+  readonly id: string;
+  readonly name: string | null;
+  readonly deletedTime: string | null;
+}
+
+export interface CanaryConfigSummary {
+  readonly present: boolean;
+  readonly valid: boolean;
+  readonly enabled: boolean;
+  readonly forceV2All: boolean;
+  readonly spaceIdsCount: number;
+  readonly matched: boolean;
+}
+
+export interface CanaryEnvSummary {
+  readonly enableCanaryFeature: boolean;
+  readonly forceV2All: boolean;
+}
+
+export interface CanarySpaceCheckResult {
+  readonly target: {
+    readonly source: 'space-id' | 'base-id';
+    readonly base: CanaryBaseSummary | null;
+    readonly space: CanarySpaceSummary;
+  };
+  readonly isCanarySpace: boolean;
+  readonly canaryReason:
+    | 'env_disabled'
+    | 'config_missing'
+    | 'config_invalid'
+    | 'config_disabled'
+    | 'space_list'
+    | 'space_not_listed';
+  readonly effectiveUseV2: boolean;
+  readonly effectiveUseV2Reason:
+    | 'env_force_v2_all'
+    | 'env_disabled'
+    | 'config_missing'
+    | 'config_invalid'
+    | 'config_disabled'
+    | 'config_force_v2_all'
+    | 'space_list'
+    | 'space_not_listed';
+  readonly env: CanaryEnvSummary;
+  readonly config: CanaryConfigSummary;
+}
+
 export class DebugData extends Context.Tag('DebugData')<
   DebugData,
   {
@@ -76,5 +131,9 @@ export class DebugData extends Context.Tag('DebugData')<
       tableId: string,
       recordId: string
     ) => Effect.Effect<RawRecord | null, CliError>;
+    readonly checkCanarySpace: (input: {
+      readonly spaceId?: string;
+      readonly baseId?: string;
+    }) => Effect.Effect<CanarySpaceCheckResult | null, CliError>;
   }
 >() {}
