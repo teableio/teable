@@ -83,7 +83,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   if (!view) return null;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 flex-1 items-center gap-1">
       {!isReadOnlyPreview && (
         <>
           <CreateRecordModal>

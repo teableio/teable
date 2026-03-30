@@ -1436,7 +1436,8 @@
       "fetchLinkedInPostFailed": "Abrufen des LinkedIn-Beitrags fehlgeschlagen: {{error}}",
       "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
-      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}"
+      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}",
+      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden"
     }
   }
 }
