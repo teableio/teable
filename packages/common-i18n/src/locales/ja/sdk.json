@@ -1430,7 +1430,8 @@
       "fetchLinkedInPostFailed": "LinkedIn投稿の取得に失敗しました: {{error}}",
       "linkedInPostNotFound": "LinkedIn投稿が見つかりません: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn投稿者が見つかりません: {{postId}}",
-      "fetchLinkedInUserFailed": "LinkedInユーザーの取得に失敗しました: {{error}}"
+      "fetchLinkedInUserFailed": "LinkedInユーザーの取得に失敗しました: {{error}}",
+      "domainAlreadyInUse": "このドメインはすでに別のアプリに紐付けられています"
     }
   }
 }
