@@ -119,7 +119,7 @@ export interface SelectionToolbarOptions {
 }
 
 export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions): Plugin {
-  const useFixed = options?.useFixedPosition ?? false;
+  const useFixed = options?.useFixedPosition ?? true;
   let tooltip: HTMLDivElement | null = null;
   let containerEl: HTMLElement | null = null;
   let buttonsWrap: HTMLDivElement | null = null;
@@ -188,7 +188,17 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
 
   function createTooltip(view: EditorView): HTMLDivElement {
     const el = document.createElement('div');
-    el.className = 'milkdown-selection-toolbar hidden';
+    el.className = `milkdown-selection-toolbar hidden${useFixed ? ' click-outside-ignore' : ''}`;
+
+    // Prevent mousedown on the toolbar from stealing editor focus or propagating
+    // to document-level click-outside handlers (e.g. the grid's InteractionLayer).
+    // Allow the link input to receive focus normally.
+    el.addEventListener('mousedown', (e) => {
+      if (e.target !== linkInput) {
+        e.preventDefault();
+      }
+      e.stopPropagation();
+    });
 
     // Buttons mode
     buttonsWrap = document.createElement('div');
@@ -310,8 +320,8 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
       // Try above the visible selection first
       let top = visTop - tooltipHeight - 8;
 
-      // If toolbar would go above the editor bounds, flip below the visible selection
-      if (top < editorRect.top) {
+      // If toolbar would go above the viewport, flip below the visible selection
+      if (top < 4) {
         top = visBottom + 8;
       }
 

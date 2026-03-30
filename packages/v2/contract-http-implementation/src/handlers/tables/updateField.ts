@@ -12,7 +12,7 @@ export const executeUpdateFieldEndpoint = async (
   rawBody: unknown,
   commandBus: ICommandBus
 ): Promise<IUpdateFieldEndpointResult> => {
-  const commandResult = UpdateFieldCommand.create(rawBody);
+  const commandResult = UpdateFieldCommand.create(rawBody, { allowNoop: true });
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

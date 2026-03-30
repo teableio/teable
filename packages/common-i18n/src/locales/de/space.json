@@ -51,7 +51,12 @@
     "exportTips2": "Sie können die .tea-Datei in Space -> mehr -> Import importieren",
     "exportTips3": "Base-übergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
     "exportIncludeDataLabel": "Datensätze einschließen",
-    "exportIncludeDataDescription": "Deaktivieren, um nur Struktur und Konfiguration zu exportieren.",
+    "exportIncludeDataDescription": "Beim Deaktivieren nur Struktur und Konfiguration exportieren",
+    "exportTitle": "Exportieren",
+    "exportDescription": "Die aktuelle Datenbank als .tea-Datei exportieren, dies kann einige Zeit dauern.",
+    "exportStartButton": "Export starten",
+    "exportSlowTip": "Die Datenmenge ist groß. Der Export kann eine Weile dauern. Sie können vorübergehend die Seite verlassen.",
+    "exportReadyDescription": "Bitte laden Sie die .tea-Datei herunter, {{importHint}}",
     "moveBaseSuccessTitle": "Verschiebung erfolgreich",
     "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben"
   },

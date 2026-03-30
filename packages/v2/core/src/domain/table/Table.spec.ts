@@ -2039,3 +2039,139 @@ describe('Table.createRecordsStream', () => {
     expect(events[0]).toBeInstanceOf(TableCreated);
   });
 });
+
+const buildAutoCreateValidationTable = (params?: {
+  primaryType?: 'singleLineText' | 'number' | 'formula';
+  requiredFieldWithoutDefault?: boolean;
+  requiredFieldWithDefault?: boolean;
+  optionalField?: boolean;
+}) => {
+  const primaryType = params?.primaryType ?? 'singleLineText';
+  const baseId = createBaseId('u')._unsafeUnwrap();
+  const builder = Table.builder()
+    .withBaseId(baseId)
+    .withName(TableName.create('Auto Create Validation')._unsafeUnwrap());
+
+  if (primaryType === 'formula') {
+    builder
+      .field()
+      .formula()
+      .withId(createFieldId('v')._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create('1 + 1')._unsafeUnwrap())
+      .primary()
+      .done();
+  } else if (primaryType === 'number') {
+    builder
+      .field()
+      .number()
+      .withId(createFieldId('v')._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+  } else {
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('v')._unsafeUnwrap())
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+  }
+
+  if (params?.requiredFieldWithoutDefault) {
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('w')._unsafeUnwrap())
+      .withName(FieldName.create('Required')._unsafeUnwrap())
+      .withNotNull(FieldNotNull.required())
+      .done();
+  }
+
+  if (params?.requiredFieldWithDefault) {
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('x')._unsafeUnwrap())
+      .withName(FieldName.create('Defaulted Required')._unsafeUnwrap())
+      .withNotNull(FieldNotNull.required())
+      .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+      .done();
+  }
+
+  if (params?.optionalField) {
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('y')._unsafeUnwrap())
+      .withName(FieldName.create('Optional')._unsafeUnwrap())
+      .done();
+  }
+
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
+describe('Table auto-create validation', () => {
+  it('returns required editable fields without defaults while honoring exclusions', () => {
+    const table = buildAutoCreateValidationTable({
+      requiredFieldWithoutDefault: true,
+      requiredFieldWithDefault: true,
+      optionalField: true,
+    });
+    const requiredField = table
+      .getField((field) => field.name().toString() === 'Required')
+      ._unsafeUnwrap();
+
+    const result = table.getRequiredFieldsWithoutDefaults([table.primaryFieldId()]);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().map((field) => field.name().toString())).toEqual(['Required']);
+
+    const excludedResult = table.getRequiredFieldsWithoutDefaults([
+      table.primaryFieldId(),
+      requiredField.id(),
+    ]);
+    expect(excludedResult.isOk()).toBe(true);
+    expect(excludedResult._unsafeUnwrap()).toEqual([]);
+  });
+
+  it('allows create with only the primary field when other required fields have defaults', () => {
+    const table = buildAutoCreateValidationTable({
+      requiredFieldWithDefault: true,
+      optionalField: true,
+    });
+
+    const result = table.validateCreateWithPrimaryOnly();
+    expect(result).toEqual(ok(undefined));
+  });
+
+  it('rejects create with only the primary field when the primary is computed', () => {
+    const table = buildAutoCreateValidationTable({ primaryType: 'formula' });
+
+    const result = table.validateCreateWithPrimaryOnly();
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe(
+      'paste.link_auto_create_computed_primary_unsupported'
+    );
+  });
+
+  it('rejects create with only the primary field when the primary is not text', () => {
+    const table = buildAutoCreateValidationTable({ primaryType: 'number' });
+
+    const result = table.validateCreateWithPrimaryOnly();
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_text_primary');
+  });
+
+  it('rejects create with only the primary field when required fields lack defaults', () => {
+    const table = buildAutoCreateValidationTable({ requiredFieldWithoutDefault: true });
+
+    const result = table.validateCreateWithPrimaryOnly();
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_missing_required_fields');
+    expect(result._unsafeUnwrapErr().details).toMatchObject({
+      requiredFieldNames: ['Required'],
+    });
+  });
+});

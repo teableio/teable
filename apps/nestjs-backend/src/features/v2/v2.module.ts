@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DiscoveryService } from '@nestjs/core';
 import { ORPCModule } from '@orpc/nest';
 import type { Response } from 'express';
 import { LoggerModule } from '../../logger/logger.module';
@@ -96,6 +97,7 @@ const toErrorMessage = (body: unknown): string => {
   ],
   controllers: [V2Controller, V2OpenApiController],
   providers: [
+    DiscoveryService,
     V2ContainerService,
     V2ExecutionContextFactory,
     V2ActionTriggerService,
