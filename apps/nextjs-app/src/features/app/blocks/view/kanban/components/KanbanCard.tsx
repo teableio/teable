@@ -67,9 +67,9 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     | undefined;
 
   const titleComponent = useMemo(() => {
-    if (primaryField == null) return t('untitled');
+    if (primaryField == null) return <span className="text-muted-foreground">{t('untitled')}</span>;
     const value = card.getCellValue(primaryField.id);
-    if (value == null) return t('untitled');
+    if (value == null) return <span className="text-muted-foreground">{t('untitled')}</span>;
     return (
       <CellValue field={primaryField} value={value} className="text-base" ellipsis plainLongText />
     );

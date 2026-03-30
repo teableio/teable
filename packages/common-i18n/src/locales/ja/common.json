@@ -717,7 +717,7 @@
     "type": "タイプ",
     "resetTrash": "ゴミ箱を空にする",
     "deletedBy": "削除者",
-    "deletedTime": "削除日時",
+    "deletedTime": "日時",
     "fromSpace": "「{{name}}」スペースから",
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
