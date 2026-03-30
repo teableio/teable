@@ -1430,7 +1430,8 @@
       "fetchLinkedInPostFailed": "Impossibile recuperare il post LinkedIn: {{error}}",
       "linkedInPostNotFound": "Post LinkedIn non trovato: {{postId}}",
       "linkedInAuthorNotFound": "Autore LinkedIn non trovato: {{postId}}",
-      "fetchLinkedInUserFailed": "Impossibile recuperare l'utente LinkedIn: {{error}}"
+      "fetchLinkedInUserFailed": "Impossibile recuperare l'utente LinkedIn: {{error}}",
+      "domainAlreadyInUse": "Questo dominio è già associato a un'altra app"
     }
   }
 }

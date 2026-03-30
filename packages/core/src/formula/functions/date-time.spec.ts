@@ -790,11 +790,11 @@ describe('DateTime', () => {
       expect(result).toBe(73);
     });
 
-    it('should accurately return the workday difference for short date ranges', () => {
+    it('should exclude the start date when calculating forward workday ranges', () => {
       const result = workdayDiffFunc.eval(
         [
-          new TypedValue(new Date('2023-09-05').toISOString(), CellValueType.DateTime, false),
-          new TypedValue(new Date('2023-09-11').toISOString(), CellValueType.DateTime, false),
+          new TypedValue(new Date('2026-02-23').toISOString(), CellValueType.DateTime, false),
+          new TypedValue(new Date('2026-02-27').toISOString(), CellValueType.DateTime, false),
         ],
         {
           record: {} as IRecord,
@@ -803,7 +803,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(5);
+      expect(result).toBe(4);
     });
   });
 
@@ -1418,6 +1418,7 @@ describe('DateTime', () => {
       timeZone: 'UTC',
     };
     const workdayDiffFunc = new WorkdayDiff();
+    const workdayFunc = new Workday();
 
     it('should calculate workday difference with literal holidays', () => {
       const start = new TypedValue('2025-01-01T00:00:00.000Z', CellValueType.DateTime, false);
@@ -1426,7 +1427,32 @@ describe('DateTime', () => {
 
       const result = workdayDiffFunc.eval([start, end, holidays], context);
 
-      expect(result).toBe(7);
+      expect(result).toBe(6);
+    });
+
+    it('should return a negative count for reverse workday ranges', () => {
+      const start = new TypedValue('2026-03-02T00:00:00.000Z', CellValueType.DateTime, false);
+      const end = new TypedValue('2026-02-23T00:00:00.000Z', CellValueType.DateTime, false);
+
+      const result = workdayDiffFunc.eval([start, end], context);
+
+      expect(result).toBe(-5);
+    });
+
+    it('should stay inverse to WORKDAY for business-day offsets', () => {
+      const start = new TypedValue('2026-02-23T00:00:00.000Z', CellValueType.DateTime, false);
+      const offset = new TypedValue(5, CellValueType.Number, false);
+      const end = workdayFunc.eval([start, offset], context);
+
+      expect(end).toBeTruthy();
+      if (end == null) return;
+
+      const result = workdayDiffFunc.eval(
+        [start, new TypedValue(end, CellValueType.DateTime, false)],
+        context
+      );
+
+      expect(result).toBe(5);
     });
   });
 
