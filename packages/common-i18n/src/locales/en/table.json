@@ -795,13 +795,14 @@
   },
   "form": {
     "fieldsManagement": "Fields",
-    "addAll": "Add all",
-    "removeAll": "Remove all",
-    "hideFieldTip": "Hide the field to here",
+    "addAll": "Show all",
+    "removeAll": "Hide all",
+    "createField": "Create field",
+    "hideFieldTip": "Drag field here to hide from form",
     "unableAddFieldTip": "Unable to add this type field",
-    "removeFromFormTip": "Remove from the form",
+    "removeFromFormTip": "Hide from the form",
     "descriptionPlaceholder": "Enter from description",
-    "dragToFormTip": "Drag the field here to add it to the form",
+    "dragToFormTip": "Drag field here to show in form",
     "protectedFieldTip": "This field has been set as a \"required\" field, and cannot be removed in the form view. Please modify it in the field settings."
   },
   "kanban": {

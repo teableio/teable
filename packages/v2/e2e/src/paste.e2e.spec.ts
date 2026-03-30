@@ -868,6 +868,841 @@ describe('v2 http paste (e2e)', () => {
       ]);
     });
 
+    it('auto creates and reuses a missing linked record title during paste', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Auto Create ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const firstRow = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+      });
+      const secondRow = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 2',
+      });
+
+      const missingTitle = `auto_create_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 1],
+        ],
+        content: [[missingTitle], [missingTitle]],
+        typecast: true,
+      });
+
+      const afterForeignRecords = await ctx.listRecords(linkTableId);
+      const createdMatches = afterForeignRecords.filter(
+        (record) => record.fields[linkPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(afterForeignRecords.length).toBe(beforeRecords.length + 1);
+
+      const hostRecords = await ctx.listRecords(hostTable.id);
+      const createdForeignRecord = createdMatches[0]!;
+
+      const row1 = hostRecords.find((record) => record.id === firstRow.id);
+      const row2 = hostRecords.find((record) => record.id === secondRow.id);
+
+      expect(row1?.fields[linkFieldId]).toEqual([
+        {
+          id: createdForeignRecord.id,
+          title: missingTitle,
+        },
+      ]);
+      expect(row2?.fields[linkFieldId]).toEqual([
+        {
+          id: createdForeignRecord.id,
+          title: missingTitle,
+        },
+      ]);
+    });
+
+    it('pastes comma-separated link titles by reusing existing records and auto-creating missing ones', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Mixed Titles ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+      });
+
+      const missingTitle = `auto_mixed_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[`table2_1, ${missingTitle}`]],
+        typecast: true,
+      });
+
+      const afterForeignRecords = await ctx.listRecords(linkTableId);
+      const createdMatches = afterForeignRecords.filter(
+        (record) => record.fields[linkPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(afterForeignRecords).toHaveLength(beforeRecords.length + 1);
+
+      const hostRecords = await ctx.listRecords(hostTable.id);
+      const row = hostRecords.find((record) => record.id === hostRecord.id);
+      const createdForeignRecord = createdMatches[0]!;
+
+      expect(row?.fields[linkFieldId]).toEqual([
+        {
+          id: linkRecords[0].id,
+          title: 'table2_1',
+        },
+        {
+          id: createdForeignRecord.id,
+          title: missingTitle,
+        },
+      ]);
+    });
+
+    it('reuses an auto-created linked record across separate paste requests', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Reuse Across Requests ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const firstRow = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+      });
+      const secondRow = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 2',
+      });
+
+      const missingTitle = `auto_reuse_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[missingTitle]],
+        typecast: true,
+      });
+
+      let foreignRecords = await ctx.listRecords(linkTableId);
+      let createdMatches = foreignRecords.filter(
+        (record) => record.fields[linkPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(foreignRecords).toHaveLength(beforeRecords.length + 1);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 1],
+          [1, 1],
+        ],
+        content: [[missingTitle]],
+        typecast: true,
+      });
+
+      foreignRecords = await ctx.listRecords(linkTableId);
+      createdMatches = foreignRecords.filter(
+        (record) => record.fields[linkPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(foreignRecords).toHaveLength(beforeRecords.length + 1);
+
+      const hostRecords = await ctx.listRecords(hostTable.id);
+      const createdForeignRecord = createdMatches[0]!;
+      const row1 = hostRecords.find((record) => record.id === firstRow.id);
+      const row2 = hostRecords.find((record) => record.id === secondRow.id);
+
+      expect(row1?.fields[linkFieldId]).toEqual([
+        {
+          id: createdForeignRecord.id,
+          title: missingTitle,
+        },
+      ]);
+      expect(row2?.fields[linkFieldId]).toEqual([
+        {
+          id: createdForeignRecord.id,
+          title: missingTitle,
+        },
+      ]);
+    });
+
+    it('rejects auto create when the foreign primary field is computed', async () => {
+      const foreignValueFieldId = createFieldId();
+      const foreignPrimaryFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Formula Primary ${foreignPrimaryFieldId}`,
+        fields: [
+          { name: 'Value', type: 'singleLineText', id: foreignValueFieldId },
+          {
+            name: 'Title',
+            type: 'formula',
+            id: foreignPrimaryFieldId,
+            isPrimary: true,
+            options: {
+              expression: `{${foreignValueFieldId}}`,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Formula Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await ctx.createRecord(hostTable.id, {
+        [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['formula-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_computed_primary_unsupported');
+    });
+
+    it('rejects auto create for self-link fields', async () => {
+      const selfLinkFieldId = createFieldId();
+      const selfTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Self Link ${selfLinkFieldId}`,
+        fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const selfPrimaryFieldId = selfTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: selfTable.id,
+        field: {
+          name: `Self ${selfLinkFieldId}`,
+          type: 'link',
+          id: selfLinkFieldId,
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: selfTable.id,
+            lookupFieldId: selfPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await ctx.createRecord(selfTable.id, { [selfPrimaryFieldId]: 'Row 1' });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: selfTable.id,
+          viewId: selfTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['self-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_self_link_unsupported');
+    });
+
+    it('rejects auto create when the foreign primary field is not text', async () => {
+      const foreignPrimaryFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Number Primary ${foreignPrimaryFieldId}`,
+        fields: [
+          {
+            name: 'NumPrimary',
+            type: 'number',
+            id: foreignPrimaryFieldId,
+            isPrimary: true,
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Number Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await ctx.createRecord(hostTable.id, {
+        [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['num-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_requires_text_primary');
+    });
+
+    it('rejects auto create when the foreign table has required fields without defaults', async () => {
+      const foreignPrimaryFieldId = createFieldId();
+      const foreignRequiredFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Required ${foreignPrimaryFieldId}`,
+        fields: [
+          {
+            name: 'Name',
+            type: 'singleLineText',
+            id: foreignPrimaryFieldId,
+            isPrimary: true,
+          },
+          {
+            name: 'RequiredCol',
+            type: 'singleLineText',
+            id: foreignRequiredFieldId,
+            notNull: true,
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Required Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await ctx.createRecord(hostTable.id, {
+        [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['req-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_missing_required_fields');
+    });
+
+    it('rejects auto create when the link lookup field is not the foreign primary', async () => {
+      const foreignPrimaryFieldId = createFieldId();
+      const foreignAltFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link NonPrimary Lookup ${foreignPrimaryFieldId}`,
+        fields: [
+          {
+            name: 'Name',
+            type: 'singleLineText',
+            id: foreignPrimaryFieldId,
+            isPrimary: true,
+          },
+          {
+            name: 'Alt',
+            type: 'singleLineText',
+            id: foreignAltFieldId,
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link NonPrimary Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignAltFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await ctx.createRecord(hostTable.id, {
+        [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['lookup-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_requires_primary_lookup');
+    });
+
+    it('does not auto-create foreign records when typecast is false', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link No Typecast ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      await ctx.createRecord(hostTable.id, { [hostPrimaryFieldId]: 'Row 1' });
+
+      const missingTitle = `no_typecast_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      // Without typecast, pasting a raw string into a link field may fail validation
+      // because the link field expects an array; either way no foreign records should be created.
+      await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [[missingTitle]],
+          typecast: false,
+        }),
+      });
+
+      // Whether the paste succeeds or fails validation, no foreign records should be created
+      const afterRecords = await ctx.listRecords(linkTableId);
+      expect(afterRecords.length).toBe(beforeRecords.length);
+    });
+
+    it('does not create empty foreign records for blank or whitespace-only titles', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link Blank Titles ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      await ctx.createRecord(hostTable.id, { [hostPrimaryFieldId]: 'Row 1' });
+      await ctx.createRecord(hostTable.id, { [hostPrimaryFieldId]: 'Row 2' });
+      await ctx.createRecord(hostTable.id, { [hostPrimaryFieldId]: 'Row 3' });
+
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 2],
+        ],
+        content: [[''], [' '], [',,,']],
+        typecast: true,
+      });
+
+      const afterRecords = await ctx.listRecords(linkTableId);
+      expect(afterRecords.length).toBe(beforeRecords.length);
+    });
+
+    it('auto creates a missing linked record for a manyOne relationship', async () => {
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link ManyOne AutoCreate ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: linkTableId,
+              lookupFieldId: linkPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+      });
+
+      const missingTitle = `manyOne_auto_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(linkTableId);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[missingTitle]],
+        typecast: true,
+      });
+
+      const afterRecords = await ctx.listRecords(linkTableId);
+      const createdMatches = afterRecords.filter(
+        (record) => record.fields[linkPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(afterRecords.length).toBe(beforeRecords.length + 1);
+
+      const hostRecords = await ctx.listRecords(hostTable.id);
+      const row = hostRecords.find((record) => record.id === hostRecord.id);
+
+      expect(row?.fields[linkFieldId]).toEqual({
+        id: createdMatches[0]!.id,
+        title: missingTitle,
+      });
+    });
+
+    it('auto creates linked records through a two-way link', async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Paste Link TwoWay Foreign',
+        fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id ?? '';
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Link TwoWay Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+      });
+
+      const missingTitle = `twoWay_auto_${linkFieldId}`;
+      const beforeRecords = await ctx.listRecords(foreignTable.id);
+
+      await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[missingTitle]],
+        typecast: true,
+      });
+
+      const afterForeignRecords = await ctx.listRecords(foreignTable.id);
+      const createdMatches = afterForeignRecords.filter(
+        (record) => record.fields[foreignPrimaryFieldId] === missingTitle
+      );
+
+      expect(createdMatches).toHaveLength(1);
+      expect(afterForeignRecords.length).toBe(beforeRecords.length + 1);
+
+      const hostRecords = await ctx.listRecords(hostTable.id);
+      const row = hostRecords.find((record) => record.id === hostRecord.id);
+
+      expect(row?.fields[linkFieldId]).toEqual([
+        {
+          id: createdMatches[0]!.id,
+          title: missingTitle,
+        },
+      ]);
+    });
+
+    it('rejects auto create through a two-way link when foreign primary is computed', async () => {
+      const foreignValueFieldId = createFieldId();
+      const foreignPrimaryFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste TwoWay Formula Primary ${foreignPrimaryFieldId}`,
+        fields: [
+          { name: 'Value', type: 'singleLineText', id: foreignValueFieldId },
+          {
+            name: 'Title',
+            type: 'formula',
+            id: foreignPrimaryFieldId,
+            isPrimary: true,
+            options: {
+              expression: `{${foreignValueFieldId}}`,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste TwoWay Formula Host ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: `Link ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await ctx.createRecord(hostTable.id, {
+        [hostTable.fields.find((field) => field.isPrimary)?.id ?? '']: 'Row 1',
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          viewId: hostTable.views[0].id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          content: [['twoWay-formula-miss']],
+          typecast: true,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('paste.link_auto_create_computed_primary_unsupported');
+    });
+
     it('filters link title lookup by record ids', async () => {
       const linkFieldId = createFieldId();
       const hostTable = await ctx.createTable({

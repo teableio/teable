@@ -626,6 +626,25 @@ export class RecordOpenApiV2Service {
       return [];
     }
 
+    const routeSpan = trace.getActiveSpan();
+    const uniqueFieldIds = new Set<string>();
+    let totalFieldAssignments = 0;
+    for (const record of records) {
+      const fieldIds = Object.keys(record.fields);
+      totalFieldAssignments += fieldIds.length;
+      for (const fieldId of fieldIds) {
+        uniqueFieldIds.add(fieldId);
+      }
+    }
+    routeSpan?.setAttributes({
+      'teable.table_id': tableId,
+      'record.update.request.recordCount': recordIds.length,
+      'record.update.request.uniqueFieldCount': uniqueFieldIds.size,
+      'record.update.request.totalFieldAssignments': totalFieldAssignments,
+      'record.update.request.hasOrder': Boolean(updateRecordsRo.order),
+      'record.update.request.typecast': updateRecordsRo.typecast ?? false,
+    });
+
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
@@ -671,6 +690,7 @@ export class RecordOpenApiV2Service {
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    routeSpan?.setAttribute('record.update.response.recordCount', resultRecords.length);
     return resultRecords;
   }
 
