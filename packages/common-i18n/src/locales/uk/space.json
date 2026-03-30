@@ -51,7 +51,12 @@
     "exportTips2": "Ви можете імпортувати файл .tea в простір -> більше -> імпорт",
     "exportTips3": "Поля зв'язку між базами будуть перетворені на однорядковий текст.",
     "exportIncludeDataLabel": "Включити записи",
-    "exportIncludeDataDescription": "Вимкніть, щоб експортувати лише структуру та конфігурацію.",
+    "exportIncludeDataDescription": "При вимкненні експортується лише структура та конфігурація",
+    "exportTitle": "Експорт",
+    "exportDescription": "Експортувати поточну базу даних у файл .tea, це може зайняти деякий час.",
+    "exportStartButton": "Почати експорт",
+    "exportSlowTip": "Обсяг даних великий. Експорт може зайняти деякий час. Ви можете тимчасово залишити сторінку.",
+    "exportReadyDescription": "Будь ласка, завантажте файл .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Переміщення успішне",
     "moveBaseSuccessDescription": "{{baseName}} успішно переміщено до {{spaceName}}"
   },

@@ -3303,6 +3303,7 @@ export type I18nTranslations = {
                 "noFilesInZip": string;
                 "zipFileTooLarge": string;
                 "invalidZip": string;
+                "domainAlreadyInUse": string;
             };
             "reward": {
                 "notFound": string;
@@ -3325,6 +3326,7 @@ export type I18nTranslations = {
                 "linkedInPostNotFound": string;
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
+                "domainAlreadyInUse": string;
             };
         };
         "aiError": {
@@ -3411,6 +3413,11 @@ export type I18nTranslations = {
             "exportTips3": string;
             "exportIncludeDataLabel": string;
             "exportIncludeDataDescription": string;
+            "exportTitle": string;
+            "exportDescription": string;
+            "exportStartButton": string;
+            "exportSlowTip": string;
+            "exportReadyDescription": string;
             "moveBaseSuccessTitle": string;
             "moveBaseSuccessDescription": string;
         };
@@ -4342,6 +4349,7 @@ export type I18nTranslations = {
             "fieldsManagement": string;
             "addAll": string;
             "removeAll": string;
+            "createField": string;
             "hideFieldTip": string;
             "unableAddFieldTip": string;
             "removeFromFormTip": string;

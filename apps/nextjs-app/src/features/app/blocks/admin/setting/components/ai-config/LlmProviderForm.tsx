@@ -693,6 +693,7 @@ export const LLMProviderForm = ({
     let completedCount = 0;
     let successCount = 0;
     let nextIndex = 0;
+    const errors: string[] = [];
 
     const updateModelStatus = (model: string, update: Partial<IModelTestStatus>) => {
       setModelTestStatuses((prev) =>
@@ -715,6 +716,9 @@ export const LLMProviderForm = ({
 
       updateModelStatus(model, result);
       completedCount++;
+      if (result.status === 'failed' && result.error) {
+        errors.push(result.error);
+      }
       if (result.status === 'success') {
         successCount++;
         // Save test result to form's modelConfigs so it persists on submit
@@ -759,10 +763,19 @@ export const LLMProviderForm = ({
           total: modelList.length,
         })
       );
-    } else {
+    }
+
+    // Show error details whenever any model fails
+    if (errors.length > 0) {
+      const firstError = errors[0];
+      const analysis = analyzeError(firstError, provider.baseUrl, provider.type);
       setTestResult({
         success: false,
-        message: t('admin.setting.ai.allTestsFailed'),
+        message:
+          successCount === 0
+            ? `${t('admin.setting.ai.allTestsFailed')}: ${analysis.message}`
+            : analysis.message,
+        suggestions: analysis.suggestions,
       });
     }
   }, [form, t, testTextModel, testImageModel, onSaveTestResult]);
@@ -939,6 +952,24 @@ export const LLMProviderForm = ({
                   <ModelTestPill key={status.model} status={status} />
                 ))}
               </div>
+              {/* Per-model error messages */}
+              {modelTestStatuses.some((s) => s.status === 'failed' && s.error) && (
+                <div className="space-y-1">
+                  {modelTestStatuses
+                    .filter((s) => s.status === 'failed' && s.error)
+                    .map((s) => (
+                      <div
+                        key={s.model}
+                        className="flex items-start gap-1.5 text-xs text-destructive"
+                      >
+                        <X className="mt-0.5 size-3 shrink-0" />
+                        <span>
+                          <span className="font-medium">{s.model}</span>: {s.error}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1048,7 +1079,6 @@ const ModelTestPill = ({ status }: IModelTestPillProps) => {
         getStatusStyles(),
         isImageModel && 'ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20'
       )}
-      title={error || model}
     >
       <span className="max-w-[100px] truncate">{model}</span>
 
