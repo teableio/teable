@@ -346,6 +346,41 @@ export class LinkField
     return ok(undefined);
   }
 
+  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
+    if (foreignTable.id().equals(hostTable.id())) {
+      return err(
+        domainError.validation({
+          code: 'paste.link_auto_create_self_link_unsupported',
+          message: 'Auto-creating linked rows from paste is not supported for self links.',
+          details: {
+            tableId: hostTable.id().toString(),
+            fieldId: this.id().toString(),
+            foreignTableId: foreignTable.id().toString(),
+          },
+        })
+      );
+    }
+
+    if (!this.lookupFieldId().equals(foreignTable.primaryFieldId())) {
+      return err(
+        domainError.validation({
+          code: 'paste.link_auto_create_requires_primary_lookup',
+          message:
+            'Auto-creating linked rows from paste requires the link title field to use the foreign primary field.',
+          details: {
+            tableId: hostTable.id().toString(),
+            fieldId: this.id().toString(),
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: this.lookupFieldId().toString(),
+            primaryFieldId: foreignTable.primaryFieldId().toString(),
+          },
+        })
+      );
+    }
+
+    return foreignTable.validateCreateWithPrimaryOnly();
+  }
+
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLinkField(this);
   }
