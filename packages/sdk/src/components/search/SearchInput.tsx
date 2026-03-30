@@ -46,6 +46,7 @@ export function SearchInput({
   const filterFields = fields.filter((f) => f.type !== FieldType.Button);
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
+  const [inputKey, setInputKey] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
   const { t } = useTranslation();
@@ -298,6 +299,7 @@ export function SearchInput({
         </TooltipProvider>
       )}
       <input
+        key={inputKey}
         ref={ref}
         className="placeholder:text-muted-foregrounds grow rounded-md bg-transparent px-1 outline-none"
         placeholder={t('editor.link.searchPlaceholder')}
@@ -311,6 +313,7 @@ export function SearchInput({
         }}
         onBlur={() => {
           setIsFocused(false);
+          setInputKey((k) => k + 1);
         }}
         onFocus={() => {
           setIsFocused(true);

@@ -51,7 +51,12 @@
     "exportTips2": "Puedes importar el archivo .tea en espacio -> más -> importar",
     "exportTips3": "Los campos de relación entre bases se convertirán en texto de una sola línea.",
     "exportIncludeDataLabel": "Incluir registros",
-    "exportIncludeDataDescription": "Desactiva para exportar solo la estructura y la configuración.",
+    "exportIncludeDataDescription": "Exportar solo estructura y configuración al desactivar",
+    "exportTitle": "Exportar",
+    "exportDescription": "Exportar la base de datos actual a un archivo .tea, lo cual puede tardar un tiempo.",
+    "exportStartButton": "Iniciar exportación",
+    "exportSlowTip": "El volumen de datos es grande. La exportación puede tardar un rato. Puede salir temporalmente.",
+    "exportReadyDescription": "Por favor descargue el archivo .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Movimiento exitoso",
     "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}"
   },

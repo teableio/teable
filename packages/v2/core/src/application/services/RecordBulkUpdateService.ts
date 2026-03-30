@@ -11,46 +11,44 @@ import type {
   RecordUpdateDTO,
 } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
-import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
-import type { IEventBus } from '../../ports/EventBus';
+import { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ILogger } from '../../ports/Logger';
+import { ILogger } from '../../ports/Logger';
 import {
   RecordWriteOperationKind,
   type RecordWriteFieldValues,
 } from '../../ports/RecordWritePlugin';
+import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
+import type { ITableRecordQueryResult } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../../ports/TableRecordQueryRepository';
-import type {
-  ITableRecordRepository,
-  UpdateManyStreamBatchInput,
-} from '../../ports/TableRecordRepository';
+import { ITableRecordRepository } from '../../ports/TableRecordRepository';
+import type { UpdateManyStreamBatchInput } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
+import { TeableSpanAttributes } from '../../ports/Tracer';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   type UndoRedoCommandLeafData,
 } from '../../ports/UndoRedoStore';
-import type { IUnitOfWork } from '../../ports/UnitOfWork';
+import { IUnitOfWork } from '../../ports/UnitOfWork';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
-import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
-import { RecordWritePluginExecution, RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
+import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
+import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import {
   RecordWriteUndoRedoPlanService,
@@ -122,6 +120,14 @@ export interface IRecordBulkUpdateInput {
   readonly order: RecordInsertOrder | undefined;
 }
 
+type ExplicitUpdateSummary = {
+  readonly recordCount: number;
+  readonly recordsWithFieldChanges: number;
+  readonly totalFieldAssignments: number;
+  readonly uniqueFieldCount: number;
+  readonly maxFieldsPerRecord: number;
+};
+
 export interface IRecordBulkUpdateResult {
   readonly updatedCount: number;
   readonly events: ReadonlyArray<IDomainEvent>;
@@ -149,6 +155,35 @@ const composeRecordConditionSpecs = (
   ...specs: ReadonlyArray<RecordConditionSpec | undefined>
 ): RecordConditionSpec | undefined =>
   composeAndSpecsOrUndefined(specs.filter((spec): spec is RecordConditionSpec => spec != null));
+
+const summarizeExplicitUpdates = (
+  updates: ReadonlyArray<Pick<ExplicitResolvedUpdate, 'fieldValues'>>
+): ExplicitUpdateSummary => {
+  const uniqueFieldIds = new Set<string>();
+  let recordsWithFieldChanges = 0;
+  let totalFieldAssignments = 0;
+  let maxFieldsPerRecord = 0;
+
+  for (const update of updates) {
+    const fieldCount = update.fieldValues.size;
+    if (fieldCount > 0) {
+      recordsWithFieldChanges += 1;
+    }
+    totalFieldAssignments += fieldCount;
+    maxFieldsPerRecord = Math.max(maxFieldsPerRecord, fieldCount);
+    for (const fieldId of update.fieldValues.keys()) {
+      uniqueFieldIds.add(fieldId);
+    }
+  }
+
+  return {
+    recordCount: updates.length,
+    recordsWithFieldChanges,
+    totalFieldAssignments,
+    uniqueFieldCount: uniqueFieldIds.size,
+    maxFieldsPerRecord,
+  };
+};
 
 @injectable()
 export class RecordBulkUpdateService {
@@ -184,6 +219,28 @@ export class RecordBulkUpdateService {
     input: IRecordBulkUpdateInput
   ): Promise<Result<IRecordBulkUpdateResult, DomainError>> {
     const service = this;
+    const activeSpan = context.tracer?.getActiveSpan();
+    activeSpan?.setAttributes({
+      [TeableSpanAttributes.TABLE_ID]: input.table.id().toString(),
+      'record.update.variant': input.records ? 'explicit' : 'selector',
+      'record.update.typecast': input.typecast,
+      'record.update.hasOrder': Boolean(input.order),
+    });
+    if (input.records) {
+      const summary = summarizeExplicitUpdates(input.records);
+      activeSpan?.setAttributes({
+        'record.update.recordCount': summary.recordCount,
+        'record.update.recordsWithFieldChanges': summary.recordsWithFieldChanges,
+        'record.update.uniqueFieldCount': summary.uniqueFieldCount,
+        'record.update.totalFieldAssignments': summary.totalFieldAssignments,
+        'record.update.maxFieldsPerRecord': summary.maxFieldsPerRecord,
+      });
+    } else {
+      activeSpan?.setAttributes({
+        'record.update.selectorFieldCount': input.fieldValues.size,
+        'record.update.selectorRecordIdCount': input.recordIds?.length ?? 0,
+      });
+    }
 
     return safeTry<IRecordBulkUpdateResult, DomainError>(async function* () {
       const executionResult = input.records
@@ -248,6 +305,7 @@ export class RecordBulkUpdateService {
       }
 
       await executionResult.pluginExecution.afterCommit();
+      activeSpan?.setAttribute('record.update.updatedCount', executionResult.updatedCount);
       return ok({
         updatedCount: executionResult.updatedCount,
         events,
@@ -419,6 +477,13 @@ export class RecordBulkUpdateService {
       });
       yield* await pluginExecution.guard();
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
+      const activeSpan = context.tracer?.getActiveSpan();
+      const resolvedSummary = summarizeExplicitUpdates(resolvedUpdates);
+      activeSpan?.setAttributes({
+        'record.update.resolvedRecordCount': resolvedSummary.recordCount,
+        'record.update.resolvedUniqueFieldCount': resolvedSummary.uniqueFieldCount,
+        'record.update.resolvedTotalFieldAssignments': resolvedSummary.totalFieldAssignments,
+      });
 
       const currentRecordsResult = yield* await service.loadExplicitCurrentRecords(
         context,
@@ -433,6 +498,12 @@ export class RecordBulkUpdateService {
         pluginRecordSpec
       );
       const authorizedUpdates = explicitAuthorization.authorizedUpdates;
+      activeSpan?.setAttributes({
+        'record.update.authorizedRecordCount': authorizedUpdates.length,
+        'record.update.missingRecordCount': explicitAuthorization.missingRecordIds.length,
+        'record.update.pluginFilteredRecordCount':
+          explicitAuthorization.pluginFilteredRecordIds.length,
+      });
 
       if (authorizedUpdates.length === 0) {
         return ok({
@@ -488,6 +559,7 @@ export class RecordBulkUpdateService {
 
                 const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];
                 let resolvedIndex = 0;
+                let maxBatchSize = 0;
 
                 for (const batchResult of updateBatches) {
                   if (batchResult.isErr()) {
@@ -505,6 +577,7 @@ export class RecordBulkUpdateService {
                       updates: resolvedBatch,
                     })
                   );
+                  maxBatchSize = Math.max(maxBatchSize, resolvedBatch.length);
 
                   for (const updateResult of resolvedBatch) {
                     const pending = fieldUpdateTargets[resolvedIndex];
@@ -529,6 +602,25 @@ export class RecordBulkUpdateService {
                     resolvedIndex += 1;
                   }
                 }
+
+                const authorizedSummary = summarizeExplicitUpdates(authorizedUpdates);
+                activeSpan?.setAttributes({
+                  'record.update.batchCount': persistedBatches.length,
+                  'record.update.maxBatchSize': maxBatchSize,
+                  'record.update.authorizedRecordsWithFieldChanges':
+                    authorizedSummary.recordsWithFieldChanges,
+                });
+                service.logger.info('RecordBulkUpdateService.explicitUpdatesPrepared', {
+                  tableId: input.table.id().toString(),
+                  recordCount: authorizedSummary.recordCount,
+                  recordsWithFieldChanges: authorizedSummary.recordsWithFieldChanges,
+                  uniqueFieldCount: authorizedSummary.uniqueFieldCount,
+                  totalFieldAssignments: authorizedSummary.totalFieldAssignments,
+                  batchCount: persistedBatches.length,
+                  maxBatchSize,
+                  typecast: input.typecast,
+                  hasOrder: Boolean(input.order),
+                });
 
                 if (resolvedIndex !== fieldUpdateTargets.length) {
                   return err(
@@ -624,7 +716,7 @@ export class RecordBulkUpdateService {
         typecast
       );
 
-      let tableEvents: ReadonlyArray<IDomainEvent> = [];
+      const tableEvents: ReadonlyArray<IDomainEvent> = [];
 
       return ok({
         tableForWrite: sideEffectResult.table,

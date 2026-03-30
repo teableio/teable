@@ -14,6 +14,7 @@ import { CellValueType } from '../../../domain/table/fields/types/CellValueType'
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
 import { ConditionalLookupField } from '../../../domain/table/fields/types/ConditionalLookupField';
 import { ConditionalLookupOptions } from '../../../domain/table/fields/types/ConditionalLookupOptions';
+import { ConditionalRollupField } from '../../../domain/table/fields/types/ConditionalRollupField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
@@ -755,5 +756,131 @@ describe('DefaultTableMapper', () => {
         lookupFieldId: `fld${'v'.repeat(16)}`,
       },
     });
+  });
+
+  it('returns validation error for invalid formula formatting in persistence dto', () => {
+    const table = buildFormulaTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: dto.fields.map((field) =>
+        field.type === 'formula'
+          ? {
+              ...field,
+              options: {
+                ...field.options,
+                formatting: { type: 'not-a-valid-format' },
+              },
+            }
+          : field
+      ),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Invalid FormulaFormatting');
+  });
+
+  it('returns validation error for invalid formula showAs in persistence dto', () => {
+    const table = buildFormulaTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: dto.fields.map((field) =>
+        field.type === 'formula'
+          ? {
+              ...field,
+              options: {
+                ...field.options,
+                showAs: { type: 'not-a-valid-show-as' },
+              },
+            }
+          : field
+      ),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Invalid FormulaShowAs');
+  });
+
+  it('returns validation error for invalid trackedFieldIds on generated fields', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const withInvalidTrackedFieldIds = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: `fld${'y'.repeat(16)}`,
+          name: 'Last Modified By',
+          type: 'lastModifiedBy' as const,
+          options: {
+            trackedFieldIds: 'invalid',
+          },
+          meta: {},
+        },
+      ],
+    };
+
+    const result = mapper.toDomain(withInvalidTrackedFieldIds);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Invalid trackedFieldIds');
+  });
+
+  it('rehydrates conditional rollup when result type is provided', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const conditionalRollupId = `fld${'r'.repeat(16)}`;
+
+    const withConditionalRollup = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalRollupId,
+          name: 'Conditional Rollup',
+          type: 'conditionalRollup' as const,
+          options: {
+            expression: 'countall({values})',
+            formatting: {
+              type: 'currency',
+              precision: 2,
+              symbol: '$',
+            },
+          },
+          config: {
+            foreignTableId: `tbl${'s'.repeat(16)}`,
+            lookupFieldId: `fld${'t'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and' as const,
+                filterSet: [{ fieldId: `fld${'u'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+          isComputed: true,
+        },
+      ],
+    };
+
+    const mapped = mapper.toDomain(withConditionalRollup)._unsafeUnwrap();
+    const conditionalRollupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(conditionalRollupId)._unsafeUnwrap()));
+
+    expect(conditionalRollupField).toBeInstanceOf(ConditionalRollupField);
+    expect((conditionalRollupField as ConditionalRollupField).hasError().isError()).toBe(false);
+    expect(
+      (conditionalRollupField as ConditionalRollupField).cellValueType()._unsafeUnwrap().toString()
+    ).toBe('number');
   });
 });
