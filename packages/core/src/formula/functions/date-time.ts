@@ -51,6 +51,8 @@ const getUnit = (unit?: string) => {
   return 'second';
 };
 
+const dateOnlyFormat = 'YYYY-MM-DD';
+
 function isISODateString(dateString: string) {
   const isoDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
   return isoDatePattern.test(dateString);
@@ -104,6 +106,9 @@ export const getDayjs = (isoStr: string | null, timeZone: string, customFormat?:
   if (!date.isValid()) throw new FormulaBaseError();
   return date;
 };
+
+const normalizeToCalendarDate = (date: dayjs.Dayjs, timeZone: string) =>
+  dayjs.tz(date.format(dateOnlyFormat), dateOnlyFormat, timeZone);
 
 export class Today extends DateTimeFunc {
   name = FunctionName.Today;
@@ -507,30 +512,33 @@ export class WorkdayDiff extends DateTimeFunc {
         ? holidayStr
             .split(',')
             .map((str) => getDayjs(str.trim(), context.timeZone))
-            .filter(Boolean)
+            .filter((date): date is dayjs.Dayjs => date != null)
+            .map((date) => normalizeToCalendarDate(date, context.timeZone))
         : []
     ) as dayjs.Dayjs[];
 
-    const unit = 'day';
-    const totalDays = endDate.diff(startDate, unit) + 1;
-    const weeks = Math.floor(totalDays / 7);
-    let weekendDays = weeks * 2;
-    let remaining = totalDays - weeks * 7;
-    let currentDay = startDate.add(weeks * 7, unit);
+    const normalizedStartDate = normalizeToCalendarDate(startDate, context.timeZone);
+    const normalizedEndDate = normalizeToCalendarDate(endDate, context.timeZone);
+    const isForward =
+      normalizedEndDate.isSame(normalizedStartDate, 'day') ||
+      normalizedEndDate.isAfter(normalizedStartDate, 'day');
+    const minDate = isForward ? normalizedStartDate : normalizedEndDate;
+    const maxDate = isForward ? normalizedEndDate : normalizedStartDate;
+    let currentDay = minDate.add(1, 'day');
+    let count = 0;
 
-    while (remaining > 0) {
-      if (currentDay.day() === 0 || currentDay.day() === 6) {
-        weekendDays++;
+    while (currentDay.isSame(maxDate, 'day') || currentDay.isBefore(maxDate, 'day')) {
+      const isWeekend = currentDay.day() === 0 || currentDay.day() === 6;
+      const isHoliday = holidays.some((holiday) => holiday.isSame(currentDay, 'day'));
+
+      if (!isWeekend && !isHoliday) {
+        count++;
       }
-      currentDay = currentDay.add(1, unit);
-      remaining--;
+
+      currentDay = currentDay.add(1, 'day');
     }
 
-    const holidayDays = holidays.filter((date) => {
-      return date.isBetween(startDate, endDate, unit, '[]') && ![0, 6].includes(date.day());
-    }).length;
-
-    return totalDays - weekendDays - holidayDays;
+    return isForward ? count : -count;
   }
 }
 
@@ -673,7 +681,7 @@ export class Datestr extends DateTimeFunc {
 
     if (date == null) return null;
 
-    return date.format('YYYY-MM-DD');
+    return date.format(dateOnlyFormat);
   }
 }
 

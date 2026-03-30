@@ -113,6 +113,7 @@ export { default as Heart } from './components/Heart';
 export { default as HelpCircle } from './components/HelpCircle';
 export { default as History } from './components/History';
 export { default as Home } from './components/Home';
+export { default as Info } from './components/Info';
 export { default as Image } from './components/Image';
 export { default as ImageGeneration } from './components/ImageGeneration';
 export { default as Import } from './components/Import';
