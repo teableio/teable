@@ -34,6 +34,7 @@ import { ensureSelectFieldOptionCountWithinLimit } from './fields/types/SelectFi
 import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
 import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
+import { FieldDefaultValueVisitor } from './fields/visitors/FieldDefaultValueVisitor';
 import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
@@ -373,6 +374,86 @@ export class Table extends AggregateRoot<TableId> {
   getEditableFields(): ReadonlyArray<Field> {
     const notComputedSpec = new NotSpec(FieldIsComputedSpec.create());
     return this.getFields(notComputedSpec);
+  }
+
+  getRequiredFieldsWithoutDefaults(
+    excludeFieldIds: ReadonlyArray<FieldId> = []
+  ): Result<ReadonlyArray<Field>, DomainError> {
+    const excludedFieldIds = new Set(excludeFieldIds.map((fieldId) => fieldId.toString()));
+    const defaultValueVisitor = FieldDefaultValueVisitor.create();
+    const blockingFields: Field[] = [];
+
+    for (const field of this.getEditableFields()) {
+      if (excludedFieldIds.has(field.id().toString()) || !field.notNull().toBoolean()) {
+        continue;
+      }
+
+      const defaultValueResult = field.accept(defaultValueVisitor);
+      if (defaultValueResult.isErr()) {
+        return err(defaultValueResult.error);
+      }
+
+      if (defaultValueResult.value === undefined) {
+        blockingFields.push(field);
+      }
+    }
+
+    return ok(blockingFields);
+  }
+
+  validateCreateWithPrimaryOnly(): Result<void, DomainError> {
+    return this.primaryField().andThen((primaryField) => {
+      if (primaryField.computed().toBoolean()) {
+        return err(
+          domainError.validation({
+            code: 'paste.link_auto_create_computed_primary_unsupported',
+            message:
+              'Auto-creating linked rows from paste is not supported when the foreign primary field is computed.',
+            details: {
+              tableId: this.id().toString(),
+              primaryFieldId: primaryField.id().toString(),
+            },
+          })
+        );
+      }
+
+      if (!primaryField.type().equals(FieldType.singleLineText())) {
+        return err(
+          domainError.validation({
+            code: 'paste.link_auto_create_requires_text_primary',
+            message:
+              'Auto-creating linked rows from paste is only supported when the foreign primary field is single line text.',
+            details: {
+              tableId: this.id().toString(),
+              primaryFieldId: primaryField.id().toString(),
+              primaryFieldType: primaryField.type().toString(),
+            },
+          })
+        );
+      }
+
+      return this.getRequiredFieldsWithoutDefaults([primaryField.id()]).andThen(
+        (blockingRequiredFields) => {
+          if (blockingRequiredFields.length === 0) {
+            return ok(undefined);
+          }
+
+          return err(
+            domainError.validation({
+              code: 'paste.link_auto_create_missing_required_fields',
+              message:
+                'Auto-creating linked rows from paste is not supported when the foreign table has required fields without defaults.',
+              details: {
+                tableId: this.id().toString(),
+                primaryFieldId: primaryField.id().toString(),
+                requiredFieldIds: blockingRequiredFields.map((field) => field.id().toString()),
+                requiredFieldNames: blockingRequiredFields.map((field) => field.name().toString()),
+              },
+            })
+          );
+        }
+      );
+    });
   }
 
   /**

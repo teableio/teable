@@ -1,8 +1,11 @@
-import type { OnModuleDestroy } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DiscoveryService, Reflector } from '@nestjs/core';
+import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
 import {
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
@@ -15,83 +18,152 @@ import { PinoLogger } from 'nestjs-pino';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
-import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
-import type { IV2ProjectionRegistrar } from './v2-projection-registrar';
 import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
+import {
+  V2_PROJECTION_REGISTRAR_METADATA,
+  isV2ProjectionRegistrar,
+  type IV2ProjectionRegistrar,
+} from './v2-projection-registrar';
 
 @Injectable()
-export class V2ContainerService implements OnModuleDestroy {
+export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(V2ContainerService.name);
   private containerPromise?: Promise<DependencyContainer>;
-  private readonly dynamicRegistrars: IV2ProjectionRegistrar[] = [];
 
   constructor(
     private readonly configService: ConfigService,
     private readonly pinoLogger: PinoLogger,
     private readonly shareDbService: ShareDbService,
     private readonly cacheService: CacheService,
-    private readonly actionTriggerService: V2ActionTriggerService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly reflector: Reflector,
+    private readonly discoveryService: DiscoveryService
   ) {}
 
-  /**
-   * Add a projection registrar dynamically.
-   * Must be called during module initialization (onModuleInit), before getContainer() is called.
-   */
-  addProjectionRegistrar(registrar: IV2ProjectionRegistrar): void {
-    this.dynamicRegistrars.push(registrar);
+  async onApplicationBootstrap(): Promise<void> {
+    await this.getContainer();
   }
 
   async getContainer(): Promise<DependencyContainer> {
     if (!this.containerPromise) {
-      const connectionString = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
-      const logger = new PinoLoggerAdapter(this.pinoLogger);
-      const tracer = new OpenTelemetryTracer();
-      const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
-      const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
-      const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
-      this.containerPromise = createV2NodePgContainer({
-        connectionString,
-        logger,
-        tracer,
-        commandBusMiddlewares,
-        queryBusMiddlewares,
-        computedUpdate: computedUpdateMode === 'sync' ? { mode: 'sync' } : undefined,
-        maxFreeRowLimit: this.configService.get<number>('MAX_FREE_ROW_LIMIT'),
-      }).then((container) => {
-        registerV2ShareDbRealtime(container, {
-          publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
-        });
-        container.registerInstance(
-          v2CoreTokens.undoRedoStore,
-          new KeyvUndoRedoStore(this.cacheService.getKeyv(), {
-            keyPrefix: 'v2:undo-redo',
-            ttlMs: this.thresholdConfig.undoExpirationTime * 1000,
-            maxEntries: this.thresholdConfig.maxUndoStackSize,
-          })
-        );
-        // Register V2 import services (csv, excel adapters)
-        registerV2ImportServices(container);
-        // Register V2 action trigger projections for V1 frontend compatibility
-        this.actionTriggerService.registerProjections(container);
-        // Register dynamically added projections (audit-log, automation, task, etc.)
-        for (const registrar of this.dynamicRegistrars) {
-          registrar.registerProjections(container);
-        }
-        return container;
+      this.containerPromise = this.createContainer().catch((error) => {
+        this.containerPromise = undefined;
+        throw error;
       });
     }
 
     return this.containerPromise;
   }
 
+  private async createContainer(): Promise<DependencyContainer> {
+    const connectionString = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+    const logger = new PinoLoggerAdapter(this.pinoLogger);
+    const tracer = new OpenTelemetryTracer();
+    const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
+    const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
+    const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
+
+    this.logger.log('Initializing shared V2 container');
+
+    const container = await createV2NodePgContainer({
+      connectionString,
+      logger,
+      tracer,
+      commandBusMiddlewares,
+      queryBusMiddlewares,
+      computedUpdate: computedUpdateMode === 'sync' ? { mode: 'sync' } : undefined,
+      maxFreeRowLimit: this.configService.get<number>('MAX_FREE_ROW_LIMIT'),
+    });
+
+    registerV2ShareDbRealtime(container, {
+      publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+    });
+    container.registerInstance(
+      v2CoreTokens.undoRedoStore,
+      new KeyvUndoRedoStore(this.cacheService.getKeyv(), {
+        keyPrefix: 'v2:undo-redo',
+        ttlMs: this.thresholdConfig.undoExpirationTime * 1000,
+        maxEntries: this.thresholdConfig.maxUndoStackSize,
+      })
+    );
+    // Register V2 import services (csv, excel adapters)
+    registerV2ImportServices(container);
+
+    for (const registrar of this.discoverProjectionRegistrars()) {
+      registrar.registerProjections(container);
+    }
+
+    this.logger.log('Shared V2 container initialized');
+    return container;
+  }
+
+  private discoverProjectionRegistrars(): IV2ProjectionRegistrar[] {
+    const seen = new Set<IV2ProjectionRegistrar>();
+    const registrars: IV2ProjectionRegistrar[] = [];
+
+    for (const wrapper of this.discoveryService.getProviders()) {
+      const registrar = this.getProjectionRegistrar(wrapper);
+      if (!registrar || seen.has(registrar)) {
+        continue;
+      }
+
+      seen.add(registrar);
+      registrars.push(registrar);
+    }
+
+    return registrars;
+  }
+
+  private getProjectionRegistrar(wrapper: InstanceWrapper): IV2ProjectionRegistrar | null {
+    const target =
+      !wrapper.metatype || wrapper.inject ? wrapper.instance?.constructor : wrapper.metatype;
+    if (!target || !this.reflector.get(V2_PROJECTION_REGISTRAR_METADATA, target)) {
+      return null;
+    }
+
+    const name = target.name || wrapper.name || String(wrapper.token);
+    if (!wrapper.isDependencyTreeStatic()) {
+      throw new Error(`V2 projection registrar "${name}" must be statically scoped`);
+    }
+
+    if (!isV2ProjectionRegistrar(wrapper.instance)) {
+      throw new Error(`V2 projection registrar "${name}" is not instantiated during bootstrap`);
+    }
+
+    return wrapper.instance;
+  }
+
   async onModuleDestroy(): Promise<void> {
     if (!this.containerPromise) return;
 
     const container = await this.containerPromise;
+    await this.stopComputedUpdatePolling(container);
     const db = container.resolve<{ destroy(): Promise<void> }>(v2PostgresDbTokens.db);
     await db.destroy();
+  }
+
+  private async stopComputedUpdatePolling(container: DependencyContainer): Promise<void> {
+    if (!container.isRegistered(v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig)) {
+      return;
+    }
+
+    const pollingConfig = container.resolve<{ enabled?: boolean }>(
+      v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig
+    );
+    if (!pollingConfig.enabled) {
+      return;
+    }
+
+    if (!container.isRegistered(v2RecordRepositoryPostgresTokens.computedUpdatePollingService)) {
+      return;
+    }
+
+    const pollingService = container.resolve<{ stop(): Promise<void> }>(
+      v2RecordRepositoryPostgresTokens.computedUpdatePollingService
+    );
+    await pollingService.stop();
   }
 }

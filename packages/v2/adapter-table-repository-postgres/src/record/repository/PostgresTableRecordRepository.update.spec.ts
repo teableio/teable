@@ -17,6 +17,7 @@ import {
   ok,
 } from '@teable/v2-core';
 import type {
+  IEventBus,
   IHasher,
   ILogger,
   ISpecification,
@@ -192,6 +193,14 @@ const createNoopRecordOrderCalculator = (): IRecordOrderCalculator => {
   };
 };
 
+const createNoopEventBus = (): IEventBus => {
+  return {
+    publish: async () => undefined,
+    publishMany: async () => undefined,
+    subscribe: () => ({ unsubscribe: () => undefined }),
+  } as unknown as IEventBus;
+};
+
 const createRepository = (
   db: Kysely<DynamicDB>,
   table: Table,
@@ -211,6 +220,7 @@ const createRepository = (
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    createNoopEventBus(),
     hasher
   );
 };
@@ -1329,6 +1339,327 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     );
     expect(orderUpdate).toBeDefined();
     expect(orderUpdate!.sql).toContain('::integer');
+
+    vi.useRealTimers();
+  });
+});
+
+// =============================================================================
+// Tests: hybrid/async mode skips planStage in transaction
+// =============================================================================
+
+const createHybridRepository = (
+  db: Kysely<DynamicDB>,
+  table: Table,
+  overrides: {
+    computedUpdatePlanner?: ComputedUpdatePlanner;
+    computedUpdateOutbox?: IComputedUpdateOutbox;
+    computedUpdateStrategy?: IUpdateStrategy;
+  } = {}
+) => {
+  const logger = createLogger();
+  const computedFieldUpdater = {} as ComputedFieldUpdater;
+  const computedUpdatePlanner = overrides.computedUpdatePlanner ?? createNoopComputedPlanner(table);
+  const computedUpdateOutbox = overrides.computedUpdateOutbox ?? createNoopOutbox();
+  const computedUpdateStrategy = overrides.computedUpdateStrategy ?? {
+    mode: 'hybrid' as const,
+    name: 'hybrid',
+    execute: async () => ok(undefined),
+    scheduleDispatch: vi.fn(),
+  };
+  const hasher = createNoopHasher();
+
+  return new PostgresTableRecordRepository(
+    db as unknown as Kysely<V1TeableDatabase>,
+    logger,
+    createNoopRecordOrderCalculator(),
+    computedUpdatePlanner,
+    computedFieldUpdater,
+    computedUpdateStrategy,
+    computedUpdateOutbox,
+    createNoopEventBus(),
+    hasher
+  );
+};
+
+describe('PostgresTableRecordRepository hybrid/async computed update', () => {
+  it('skips planStage and enqueues seed task directly in hybrid mode for updateManyStream', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const updateResult = table
+      .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-1', merged: false }));
+    const scheduleDispatchSpy = vi.fn();
+
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+
+    const computedUpdateStrategy = {
+      mode: 'hybrid' as const,
+      name: 'hybrid',
+      execute: async () => ok(undefined),
+      scheduleDispatch: scheduleDispatchSpy,
+    };
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (
+        compiledQuery.sql.includes(`UPDATE ${tableName} AS t`) &&
+        compiledQuery.sql.includes('RETURNING')
+      ) {
+        return [{ record_id: recordIdA.toString(), new_version: 2 }];
+      }
+      return [];
+    });
+
+    const repo = createHybridRepository(db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy,
+    });
+
+    function* batches() {
+      yield ok([updateResult]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+
+    // planStage must NOT be called in hybrid mode
+    expect(planStageSpy).not.toHaveBeenCalled();
+
+    // enqueueSeedTask must be called with the seed data
+    expect(enqueueSeedTaskSpy).toHaveBeenCalledTimes(1);
+    const seedTask = enqueueSeedTaskSpy.mock.calls[0][0];
+    expect(seedTask.seedTableId).toBe(tableId.toString());
+    expect(seedTask.seedRecordIds).toContain(recordIdA.toString());
+    expect(seedTask.changeType).toBe('update');
+
+    // scheduleDispatch must be called
+    expect(scheduleDispatchSpy).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  it('still calls planStage in sync mode for updateManyStream', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SyncTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const updateResult = table
+      .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Bob']]))
+      ._unsafeUnwrap();
+
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordIdA],
+        extraSeedRecords: [],
+        steps: [],
+        edges: [],
+        estimatedComplexity: 0,
+        changeType: 'update' as const,
+      })
+    );
+    const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-1', merged: false }));
+
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+
+    const syncStrategy = {
+      mode: 'sync' as const,
+      name: 'sync',
+      execute: async () => ok(undefined),
+      scheduleDispatch: vi.fn(),
+    };
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (
+        compiledQuery.sql.includes(`UPDATE ${tableName} AS t`) &&
+        compiledQuery.sql.includes('RETURNING')
+      ) {
+        return [{ record_id: recordIdA.toString(), new_version: 2 }];
+      }
+      return [];
+    });
+
+    const repo = createHybridRepository(db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy: syncStrategy,
+    });
+
+    function* batches() {
+      yield ok([updateResult]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+
+    // In sync mode, planStage MUST still be called
+    expect(planStageSpy).toHaveBeenCalledTimes(1);
+
+    // enqueueSeedTask must NOT be called in sync mode (plan had 0 steps)
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('does not call planStage in hybrid mode for updateMany (non-computed fields skip early)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridBulkTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'done']]))
+      ._unsafeUnwrap().mutateSpec;
+    const filterSpec = buildRecordConditionSpec(table, {
+      fieldId: textFieldId.toString(),
+      operator: 'is',
+      value: 'pending',
+    })._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-2', merged: false }));
+
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+
+    const computedUpdateStrategy = {
+      mode: 'hybrid' as const,
+      name: 'hybrid',
+      execute: async () => ok(undefined),
+      scheduleDispatch: vi.fn(),
+    };
+
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (compiledQuery.sql.includes('RETURNING')) {
+        return [{ record_id: recordId.toString(), new_version: 2, old_version: 1 }];
+      }
+      return [];
+    });
+
+    const repo = createHybridRepository(db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy,
+    });
+
+    const result = await repo.updateMany({ actorId }, table, filterSpec, mutateSpec);
+    expect(result.isOk()).toBe(true);
+
+    // planStage must NOT be called in hybrid mode — even if no computed fields
+    // exist, the code path should branch on strategy.mode before calling planStage
+    expect(planStageSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
   });
