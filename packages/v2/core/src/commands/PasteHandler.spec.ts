@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -17,7 +18,13 @@ import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { CellValueMultiplicity } from '../domain/table/fields/types/CellValueMultiplicity';
+import { CellValueType } from '../domain/table/fields/types/CellValueType';
+import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
+import { UserField } from '../domain/table/fields/types/UserField';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -27,11 +34,9 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -43,7 +48,11 @@ import type {
   UpdateManyStreamBatchInput,
 } from '../ports/TableRecordRepository';
 import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableFindOptions,
+  TableUpdatePersistResult,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { PasteCommand } from './PasteCommand';
@@ -66,6 +75,17 @@ const noopUndoRedoService = {
 const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
+
+const noopPasteLinkAutoResolveService = {
+  resolve: async () =>
+    ok({
+      resolvedValues: new Map(),
+      tableEvents: [],
+      undoCommands: [],
+      redoCommands: [],
+      afterCommitHandlers: [],
+    }),
+} as unknown as PasteLinkAutoResolveService;
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -171,6 +191,82 @@ const buildTableWithUser = () => {
   };
 };
 
+const buildTableWithFormula = () => {
+  const baseId = BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'g'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Paste Formula Test')._unsafeUnwrap();
+  const textFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+  const formulaFieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder
+    .field()
+    .singleLineText()
+    .withId(textFieldId)
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .formula()
+    .withId(formulaFieldId)
+    .withName(FieldName.create('Computed')._unsafeUnwrap())
+    .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
+    .withResultType({
+      cellValueType: CellValueType.number(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    })
+    .done();
+  builder.view().defaultGrid().done();
+
+  return {
+    table: builder.build()._unsafeUnwrap(),
+    baseId,
+    tableId,
+    textFieldId,
+    formulaFieldId,
+  };
+};
+
+const buildTableWithMissingForeignLink = () => {
+  const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+  const missingForeignTableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Paste Link Error Test')._unsafeUnwrap();
+  const textFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+  const linkFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+  const linkConfig = LinkFieldConfig.create({
+    baseId: baseId.toString(),
+    relationship: 'manyMany',
+    foreignTableId: missingForeignTableId.toString(),
+    lookupFieldId: textFieldId.toString(),
+    isOneWay: true,
+  })._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder
+    .field()
+    .singleLineText()
+    .withId(textFieldId)
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(FieldName.create('Related')._unsafeUnwrap())
+    .withConfig(linkConfig)
+    .done();
+  builder.view().defaultGrid().done();
+
+  return {
+    table: builder.build()._unsafeUnwrap(),
+    tableId,
+    linkFieldId,
+  };
+};
+
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   updated: Table[] = [];
@@ -190,7 +286,8 @@ class FakeTableRepository implements ITableRepository {
 
   async findOne(
     _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    _options?: Pick<TableFindOptions, 'state'>
   ): Promise<Result<Table, DomainError>> {
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
     if (!match) return err(domainError.notFound({ message: 'Table not found' }));
@@ -200,7 +297,7 @@ class FakeTableRepository implements ITableRepository {
   async find(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
-    __?: IFindOptions<TableSortKey>
+    __?: TableFindOptions
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
   }
@@ -209,12 +306,16 @@ class FakeTableRepository implements ITableRepository {
     _: IExecutionContext,
     table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
     const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
     if (index >= 0) {
       this.tables[index] = table;
     }
     this.updated.push(table);
+    return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
@@ -526,6 +627,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -600,6 +702,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -676,6 +779,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -751,6 +855,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -780,6 +885,114 @@ describe('PasteHandler', () => {
   });
 
   describe('additional behavior', () => {
+    it('returns early for empty paste content without mutating records', async () => {
+      const { table, tableId } = buildTable();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const recordRepository = new FakeTableRecordRepository();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        new FakeTableRecordQueryRepository(),
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [],
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        updatedCount: 0,
+        createdCount: 0,
+        createdRecordIds: [],
+      });
+      expect(recordRepository.insertCalls).toBe(0);
+      expect(recordRepository.updateCalls).toBe(0);
+      expect(eventBus.published).toHaveLength(0);
+    });
+
+    it('skips paste when selected columns are all computed fields', async () => {
+      const { table, tableId, formulaFieldId } = buildTableWithFormula();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const recordRepository = new FakeTableRecordRepository();
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = [
+        {
+          id: `rec${'j'.repeat(16)}`,
+          fields: { [formulaFieldId.toString()]: 1 },
+          version: 1,
+        },
+      ];
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [['123']],
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        updatedCount: 0,
+        createdCount: 0,
+        createdRecordIds: [],
+      });
+      expect(recordRepository.insertCalls).toBe(0);
+      expect(recordRepository.updateCalls).toBe(0);
+      expect(eventBus.published).toHaveLength(0);
+    });
+
     it('uses batched resolution for typecast paste with multiple rows', async () => {
       const { table, tableId } = buildTableWithUser();
       const viewId = table.views()[0]!.id();
@@ -800,6 +1013,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -871,6 +1085,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -922,6 +1137,7 @@ describe('PasteHandler', () => {
         recordRepository,
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -985,6 +1201,7 @@ describe('PasteHandler', () => {
         recordRepository,
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1033,6 +1250,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1088,6 +1306,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1140,6 +1359,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
@@ -1163,6 +1383,172 @@ describe('PasteHandler', () => {
       expect(result._unsafeUnwrap().createdCount).toBe(1);
       expect(tableRepository.updated).toHaveLength(1);
       expect(tableRepository.updated[0]?.getFields()).toHaveLength(3);
+    });
+
+    it('maps lookup source field metadata when auto-expanding pasted columns', async () => {
+      const { table, tableId } = buildTable();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        new FakeTableRecordRepository(),
+        new FakeTableRecordQueryRepository(),
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [2, 0],
+        ],
+        content: [['A', 1, 'Open']],
+        sourceFields: [
+          { name: 'Title', type: 'singleLineText' },
+          { name: 'Amount', type: 'number' },
+          {
+            name: 'Lookup Assignee',
+            type: 'user',
+            isLookup: true,
+            isMultipleCellValue: true,
+            options: { shouldNotify: false },
+          },
+        ],
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+
+      expect(result.isOk()).toBe(true);
+      expect(tableRepository.updated).toHaveLength(1);
+      const expandedField = tableRepository.updated[0]
+        ?.getFields()
+        .find((field) => field.name().toString() === 'Lookup Assignee');
+      expect(expandedField).toBeDefined();
+      expect(expandedField?.type().equals(FieldType.user())).toBe(true);
+      expect((expandedField as UserField | undefined)?.multiplicity().toBoolean()).toBe(true);
+    });
+
+    it('returns an error when typecast update paste cannot load linked record titles', async () => {
+      const { table, tableId, linkFieldId } = buildTableWithMissingForeignLink();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = [
+        {
+          id: `rec${'u'.repeat(16)}`,
+          fields: { [linkFieldId.toString()]: null },
+          version: 1,
+        },
+      ];
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const recordRepository = new FakeTableRecordRepository();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[`rec${'z'.repeat(16)}`]],
+        typecast: true,
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+
+      expect(result.isErr()).toBe(true);
+      expect(recordRepository.updateCalls).toBe(1);
+      expect(recordRepository.updated).toHaveLength(0);
+      expect(eventBus.published).toHaveLength(0);
+    });
+
+    it('returns an error when typecast create paste cannot load linked record titles', async () => {
+      const { table, tableId } = buildTableWithMissingForeignLink();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const recordRepository = new FakeTableRecordRepository();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        new FakeTableRecordQueryRepository(),
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[`rec${'y'.repeat(16)}`]],
+        typecast: true,
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+
+      expect(result.isErr()).toBe(true);
+      expect(recordRepository.insertCalls).toBe(1);
+      expect(recordRepository.inserted).toHaveLength(0);
+      expect(eventBus.published).toHaveLength(0);
     });
   });
 
@@ -1189,6 +1575,7 @@ describe('PasteHandler', () => {
       new FakeTableRecordRepository(),
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner([plugin]),
@@ -1237,6 +1624,7 @@ describe('PasteHandler', () => {
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
       createRecordWritePluginRunner([

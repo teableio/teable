@@ -23,10 +23,8 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
 describe('v2 http createRecord link fields (e2e)', () => {
   let ctx: SharedTestContext;
 
-  const processOutbox = async (times = 1) => {
-    for (let i = 0; i < times; i += 1) {
-      await ctx.testContainer.processOutbox();
-    }
+  const processOutbox = async (_times = 1) => {
+    await ctx.testContainer.processOutbox();
   };
 
   beforeAll(async () => {

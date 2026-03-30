@@ -60,9 +60,9 @@ export const Card = (props: IKanbanCardProps) => {
     | undefined;
 
   const titleComponent = useMemo(() => {
-    if (primaryField == null) return t('untitled');
+    if (primaryField == null) return <span className="text-muted-foreground">{t('untitled')}</span>;
     const value = card.getCellValue(primaryField.id);
-    if (value == null) return t('untitled');
+    if (value == null) return <span className="text-muted-foreground">{t('untitled')}</span>;
     return (
       <CellValue field={primaryField} value={value} className="text-base" ellipsis plainLongText />
     );
@@ -130,7 +130,7 @@ export const Card = (props: IKanbanCardProps) => {
                   style={{ height: CARD_COVER_HEIGHT }}
                   className="flex w-full items-center justify-center bg-muted"
                 >
-                  <Image className="size-20 text-gray-300 dark:text-gray-700" />
+                  <Image className="size-20 text-zinc-300 dark:text-zinc-700" />
                 </div>
               )}
             </Fragment>
@@ -160,8 +160,6 @@ export const Card = (props: IKanbanCardProps) => {
               });
               const cellValue = card.getCellValue(fieldId);
 
-              if (cellValue == null) return null;
-
               return (
                 <div key={fieldId} className="mb-2">
                   {!isFieldNameHidden && (
@@ -170,7 +168,11 @@ export const Card = (props: IKanbanCardProps) => {
                       <span className="text-xs">{name}</span>
                     </div>
                   )}
-                  <CellValue field={field} value={cellValue} ellipsis plainLongText />
+                  {cellValue != null ? (
+                    <CellValue field={field} value={cellValue} ellipsis plainLongText />
+                  ) : (
+                    <div className="flex h-5 items-center text-muted-foreground/50">-</div>
+                  )}
                 </div>
               );
             })}
