@@ -58,7 +58,7 @@ export const RecordEditorItem = (props: {
           </span>
           {field.description && (
             <TooltipWrap description={field.description}>
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0 cursor-pointer text-muted-foreground" />
+              <AlertCircle className="ml-0.5 mt-[3px] size-4 shrink-0 cursor-pointer text-muted-foreground" />
             </TooltipWrap>
           )}
         </div>

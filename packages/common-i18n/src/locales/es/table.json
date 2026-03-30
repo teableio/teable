@@ -656,8 +656,9 @@
   },
   "form": {
     "fieldsManagement": "Campos",
-    "addAll": "Agregar todos",
-    "removeAll": "Eliminar todos",
+    "addAll": "Mostrar todos",
+    "removeAll": "Ocultar todos",
+    "createField": "Crear campo",
     "hideFieldTip": "Ocultar el campo aquí",
     "unableAddFieldTip": "No se puede agregar este tipo de campo",
     "removeFromFormTip": "Eliminar del formulario",
@@ -787,8 +788,8 @@
   },
   "tableTrash": {
     "title": "Papelera de tablas",
-    "resourceType": "Tipo de recurso",
-    "deletedResource": "Recurso eliminado"
+    "resourceType": "Tipo",
+    "deletedResource": "Recurso"
   },
   "baseShare": {
     "title": "Compartir Base",

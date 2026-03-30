@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Clean } from '@teable/icons';
 import { resetTrashItems, TrashType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBasePermission } from '@teable/sdk/hooks';
@@ -42,11 +43,12 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
             <DialogTitle className="flex items-center">{t('table:tableTrash.title')}</DialogTitle>
             {hasResetPermission && (
               <Button
-                size="xs"
+                size="sm"
                 className="mr-8"
-                variant="secondary"
+                variant="outline"
                 onClick={() => setConfirmVisible(true)}
               >
+                <Clean className="size-4 shrink-0" />
                 {t('trash.resetTrash')}
               </Button>
             )}

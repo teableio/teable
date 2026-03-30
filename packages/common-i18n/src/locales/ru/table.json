@@ -652,8 +652,9 @@
   },
   "form": {
     "fieldsManagement": "Поля",
-    "addAll": "Добавить все",
-    "removeAll": "Удалить все",
+    "addAll": "Показать все",
+    "removeAll": "Скрыть все",
+    "createField": "Создать поле",
     "hideFieldTip": "Скрыть поле сюда",
     "unableAddFieldTip": "Невозможно добавить поле этого типа",
     "removeFromFormTip": "Удалить из формы",
@@ -777,8 +778,8 @@
   "lastModify": "Последнее изменение: ",
   "tableTrash": {
     "title": "Корзина таблицы",
-    "resourceType": "Тип ресурса",
-    "deletedResource": "Удаленный ресурс"
+    "resourceType": "Тип",
+    "deletedResource": "Ресурс"
   },
   "baseShare": {
     "title": "Поделиться базой",
