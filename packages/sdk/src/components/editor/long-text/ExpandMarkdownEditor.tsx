@@ -143,19 +143,114 @@ const ExpandedTextEditorInner = ({
   );
 };
 
-const useDrag = (open: boolean) => {
+const STORAGE_KEY = 'expand-markdown-editor-size';
+const MIN_WIDTH = 560;
+const MIN_HEIGHT = 400;
+const MAX_RATIO = 0.8;
+
+const getSavedSize = (): { width: number; height: number } | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed.width === 'number' &&
+      typeof parsed.height === 'number' &&
+      parsed.width >= MIN_WIDTH &&
+      parsed.height >= MIN_HEIGHT
+    ) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const saveSize = (width: number, height: number) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ width, height }));
+  } catch {
+    // ignore
+  }
+};
+
+const clampSize = (width: number, height: number) => {
+  const maxW = Math.floor(window.innerWidth * MAX_RATIO);
+  const maxH = Math.floor(window.innerHeight * MAX_RATIO);
+  return {
+    width: Math.max(MIN_WIDTH, Math.min(width, maxW)),
+    height: Math.max(MIN_HEIGHT, Math.min(height, maxH)),
+  };
+};
+
+const VIEWPORT_PADDING = 12;
+const SIDE_OFFSET = 4;
+
+const calcViewportOffset = (
+  triggerRect: DOMRect,
+  popWidth: number,
+  popHeight: number
+): { x: number; y: number } => {
+  const pad = VIEWPORT_PADDING;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const popLeft = triggerRect.right + SIDE_OFFSET;
+  const popTop = triggerRect.top;
+  const popRight = popLeft + popWidth;
+  const popBottom = popTop + popHeight;
+
+  let dx = 0;
+  let dy = 0;
+
+  if (popRight > vw - pad) dx = vw - pad - popRight;
+  if (popBottom > vh - pad) dy = vh - pad - popBottom;
+  if (popLeft + dx < pad) dx = pad - popLeft;
+  if (popTop + dy < pad) dy = pad - popTop;
+
+  return { x: dx, y: dy };
+};
+
+const clampToViewport = (
+  el: HTMLElement | null,
+  offsetRef: React.MutableRefObject<{ x: number; y: number }>,
+  setOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>
+) => {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const pad = VIEWPORT_PADDING;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let dx = 0;
+  let dy = 0;
+
+  if (rect.right > vw - pad) dx = vw - pad - rect.right;
+  if (rect.bottom > vh - pad) dy = vh - pad - rect.bottom;
+  if (rect.left + dx < pad) dx = pad - rect.left;
+  if (rect.top + dy < pad) dy = pad - rect.top;
+
+  if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+    const next = {
+      x: offsetRef.current.x + dx,
+      y: offsetRef.current.y + dy,
+    };
+    offsetRef.current = next;
+    setOffset(next);
+  }
+};
+
+const useDrag = () => {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const draggingRef = useRef(false);
   const startRef = useRef({ x: 0, y: 0 });
   const offsetRef = useRef({ x: 0, y: 0 });
 
-  // Reset offset when popover reopens
-  useEffect(() => {
-    if (open) {
-      setOffset({ x: 0, y: 0 });
-      offsetRef.current = { x: 0, y: 0 };
-    }
-  }, [open]);
+  const initOffset = useCallback((value: { x: number; y: number }) => {
+    offsetRef.current = value;
+    setOffset(value);
+  }, []);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     draggingRef.current = true;
@@ -177,7 +272,66 @@ const useDrag = (open: boolean) => {
     draggingRef.current = false;
   }, []);
 
-  return { offset, onPointerDown, onPointerMove, onPointerUp };
+  return { offset, setOffset, offsetRef, initOffset, onPointerDown, onPointerMove, onPointerUp };
+};
+
+const useResize = (open: boolean, onResizeEnd?: () => void) => {
+  const [size, setSize] = useState<{ width: number; height: number }>(() => {
+    const saved = getSavedSize();
+    return saved ? clampSize(saved.width, saved.height) : { width: MIN_WIDTH, height: MIN_HEIGHT };
+  });
+  const sizeRef = useRef(size);
+
+  useEffect(() => {
+    sizeRef.current = size;
+  }, [size]);
+
+  useEffect(() => {
+    if (open) {
+      const saved = getSavedSize();
+      const next = saved
+        ? clampSize(saved.width, saved.height)
+        : { width: MIN_WIDTH, height: MIN_HEIGHT };
+      setSize(next);
+      sizeRef.current = next;
+    }
+  }, [open]);
+
+  const onResizePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = sizeRef.current.width;
+      const startH = sizeRef.current.height;
+      const el = (e.currentTarget as HTMLElement).parentElement;
+
+      const handleMove = (ev: PointerEvent) => {
+        const next = clampSize(startW + ev.clientX - startX, startH + ev.clientY - startY);
+        sizeRef.current = next;
+        if (el) {
+          el.style.width = `${next.width}px`;
+          el.style.height = `${next.height}px`;
+        }
+      };
+
+      const handleUp = () => {
+        document.removeEventListener('pointermove', handleMove);
+        document.removeEventListener('pointerup', handleUp);
+        const final = sizeRef.current;
+        setSize(final);
+        saveSize(final.width, final.height);
+        onResizeEnd?.();
+      };
+
+      document.addEventListener('pointermove', handleMove);
+      document.addEventListener('pointerup', handleUp);
+    },
+    [onResizeEnd]
+  );
+
+  return { size, onResizePointerDown };
 };
 
 export const ExpandMarkdownEditor = ({
@@ -192,14 +346,42 @@ export const ExpandMarkdownEditor = ({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [converting, setConverting] = useState(false);
-  const { offset, onPointerDown, onPointerMove, onPointerUp } = useDrag(open);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { offset, setOffset, offsetRef, initOffset, onPointerDown, onPointerMove, onPointerUp } =
+    useDrag();
+
+  const scheduleClamp = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        clampToViewport(contentRef.current, offsetRef, setOffset);
+      });
+    });
+  }, [offsetRef, setOffset]);
+
+  const { size, onResizePointerDown } = useResize(open, scheduleClamp);
+
+  const handleExpandClick = useCallback(() => {
+    onExpandOpen?.();
+    const el = triggerRef.current;
+    if (el) {
+      const saved = getSavedSize();
+      const popSize = saved
+        ? clampSize(saved.width, saved.height)
+        : { width: MIN_WIDTH, height: MIN_HEIGHT };
+      initOffset(calcViewportOffset(el.getBoundingClientRect(), popSize.width, popSize.height));
+    } else {
+      initOffset({ x: 0, y: 0 });
+    }
+    setOpen(true);
+  }, [onExpandOpen, initOffset]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (converting) return;
-    setOpen(isOpen);
     if (!isOpen) {
       setMode(initialMode);
     }
+    setOpen(isOpen);
   };
 
   const handleModeChange = async (checked: boolean) => {
@@ -252,29 +434,38 @@ export const ExpandMarkdownEditor = ({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className="inline-flex size-5 items-center justify-center rounded bg-background text-muted-foreground shadow-sm ring-1 ring-border/40 hover:bg-muted hover:text-foreground"
-          onClick={() => {
-            onExpandOpen?.();
-            setOpen(true);
-          }}
+          onClick={handleExpandClick}
           title="Expand editor"
         >
           <Maximize2 className="size-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent
+        ref={contentRef}
         side="right"
         align="start"
-        className="click-outside-ignore flex h-[400px] w-[560px] flex-col p-3"
-        style={{ translate: `${offset.x}px ${offset.y}px` }}
+        avoidCollisions={false}
+        className="click-outside-ignore relative flex flex-col p-3"
+        style={{
+          width: size.width,
+          height: size.height,
+          maxWidth: 'none',
+          translate: `${offset.x}px ${offset.y}px`,
+        }}
         onKeyDown={(e) => e.stopPropagation()}
         onCopy={(e) => e.stopPropagation()}
         onPaste={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDownOutside={(e) => {
           const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement;
-          if (target.closest('.milkdown-floating-toolbar, .milkdown-link-tooltip')) {
+          if (
+            target.closest(
+              '.milkdown-floating-toolbar, .milkdown-link-tooltip, .milkdown-selection-toolbar'
+            )
+          ) {
             e.preventDefault();
           }
         }}
@@ -317,6 +508,26 @@ export const ExpandMarkdownEditor = ({
           )}
         </div>
         {renderEditor()}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div
+          className="group/resize absolute bottom-0 right-0 z-10 flex size-5 cursor-se-resize items-center justify-center"
+          onPointerDown={onResizePointerDown}
+        >
+          <svg
+            className="pointer-events-none text-muted-foreground/50 transition-colors group-hover/resize:text-muted-foreground"
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+          >
+            <path
+              d="M9 1L1 9M9 5L5 9M9 9L9 9"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -35,6 +35,16 @@ export const baseIdOptionalOption = Options.text('base-id').pipe(
   Options.optional
 );
 
+/**
+ * Space ID option
+ */
+export const spaceIdOption = Options.text('space-id').pipe(Options.withDescription('Space ID'));
+
+export const spaceIdOptionalOption = Options.text('space-id').pipe(
+  Options.withDescription('Space ID'),
+  Options.optional
+);
+
 export const baseIdsOption = Options.text('base-ids').pipe(
   Options.withDescription('Comma-separated base IDs'),
   Options.optional

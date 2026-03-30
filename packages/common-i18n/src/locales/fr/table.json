@@ -652,8 +652,9 @@
   },
   "form": {
     "fieldsManagement": "Champs",
-    "addAll": "Ajouter tout",
-    "removeAll": "Supprimer tout",
+    "addAll": "Tout afficher",
+    "removeAll": "Tout masquer",
+    "createField": "Créer un champ",
     "hideFieldTip": "Masquer le champ ici",
     "unableAddFieldTip": "Impossible d'ajouter ce type de champ",
     "removeFromFormTip": "Supprimer du formulaire",
