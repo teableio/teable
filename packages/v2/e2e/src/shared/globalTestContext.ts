@@ -25,10 +25,7 @@
 
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import {
-  createV2NodeTestContainer,
-  type IV2NodeTestContainer,
-} from '@teable/v2-container-node-test';
+import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
@@ -71,6 +68,7 @@ import type {
 import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
 import { registerV2ImportServices } from '@teable/v2-import';
 import express from 'express';
+import { createE2eTestContainer, type E2eDbMode } from './createE2eTestContainer';
 
 // Default test user that will be used as the actorId for all API requests
 export const TEST_USER = {
@@ -142,6 +140,10 @@ export interface SharedTestContext {
     tableId: string,
     options?: { limit?: number; offset?: number; baseId?: string }
   ) => Promise<Array<{ id: string; fields: Record<string, unknown> }>>;
+  listRecordsWithoutDrain: (
+    tableId: string,
+    options?: { limit?: number; offset?: number; baseId?: string }
+  ) => Promise<Array<{ id: string; fields: Record<string, unknown> }>>;
   listRecordsWithPagination: (
     tableId: string,
     options?: { limit?: number; offset?: number; baseId?: string }
@@ -185,10 +187,34 @@ export interface SharedTestContext {
   getLastComputedPlan: () => ReturnType<IV2NodeTestContainer['getLastComputedPlan']>;
 }
 
-// Singleton state
-let sharedContext: SharedTestContext | null = null;
-let initPromise: Promise<SharedTestContext> | null = null;
-let server: Server | null = null;
+export interface SharedTestContextOptions {
+  dbMode?: E2eDbMode;
+}
+
+const isSetupTimingEnabled = () => process.env.TEABLE_V2_TEST_SETUP_TIMING === '1';
+
+const createSetupTimer = (scope: string) => {
+  if (!isSetupTimingEnabled()) {
+    return <T>(_: string, run: () => Promise<T>) => run();
+  }
+
+  return async <T>(label: string, run: () => Promise<T>) => {
+    const startedAt = Date.now();
+    try {
+      return await run();
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+    }
+  };
+};
+
+const DEFAULT_DB_MODE: E2eDbMode = 'pglite';
+
+// Singleton state keyed by DB mode so PG-only tests can opt into a separate context.
+const sharedContexts = new Map<E2eDbMode, SharedTestContext>();
+const initPromises = new Map<E2eDbMode, Promise<SharedTestContext>>();
+const servers = new Map<E2eDbMode, Server>();
 
 // Response parsers
 const parseCreateTableResponse = (rawBody: unknown) => {
@@ -355,19 +381,29 @@ const parseImportRecordsResponse = (rawBody: unknown) => {
  * Initialize the shared test context.
  * This is called once per worker process.
  */
-const initSharedContext = async (): Promise<SharedTestContext> => {
-  const testContainer = await createV2NodeTestContainer();
+const initSharedContext = async (
+  options: SharedTestContextOptions = {}
+): Promise<SharedTestContext> => {
+  const dbMode = options.dbMode ?? DEFAULT_DB_MODE;
+  const time = createSetupTimer(`shared-context:${dbMode}`);
+  const testContainer = await time('create-test-container', async () =>
+    createE2eTestContainer({ dbMode })
+  );
   const baseId = testContainer.baseId.toString();
 
   // Register import services (CSV, Excel adapters)
-  registerV2ImportServices(testContainer.container);
+  await time('register-import-services', async () => {
+    registerV2ImportServices(testContainer.container);
+  });
 
   // Insert the test user into the database
-  await testContainer.db
-    .insertInto('users')
-    .values({ id: TEST_USER.id, name: TEST_USER.name, email: TEST_USER.email })
-    .onConflict((oc) => oc.column('id').doNothing())
-    .execute();
+  await time('seed-test-user', async () =>
+    testContainer.db
+      .insertInto('users')
+      .values({ id: TEST_USER.id, name: TEST_USER.name, email: TEST_USER.email })
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute()
+  );
 
   // Create actorId for execution context
   const actorIdResult = ActorId.create(TEST_USER.id);
@@ -377,19 +413,27 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
   const actorId = actorIdResult.value;
 
   // Enable undo/redo in e2e by default.
-  testContainer.container.registerInstance(v2CoreTokens.undoRedoStore, new MemoryUndoRedoStore());
+  await time('register-undo-redo', async () => {
+    testContainer.container.registerInstance(v2CoreTokens.undoRedoStore, new MemoryUndoRedoStore());
+  });
 
   const app = express();
-  app.use(
-    createV2ExpressRouter({
-      createContainer: () => testContainer.container,
-      createExecutionContext: () => ({ actorId, windowId: 'e2e-window' }),
-    })
-  );
-
-  server = await new Promise<Server>((resolve) => {
-    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  await time('register-router', async () => {
+    app.use(
+      createV2ExpressRouter({
+        createContainer: () => testContainer.container,
+        createExecutionContext: () => ({ actorId, windowId: 'e2e-window' }),
+      })
+    );
   });
+  const server = await time(
+    'listen',
+    async () =>
+      new Promise<Server>((resolve) => {
+        const s = app.listen(0, '127.0.0.1', () => resolve(s));
+      })
+  );
+  servers.set(dbMode, server);
 
   const address = server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${address.port}`;
@@ -658,11 +702,10 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     }
   };
 
-  const listRecordsWithPagination = async (
+  const listRecordsWithPaginationWithoutDrain = async (
     tableId: string,
     options?: { limit?: number; offset?: number; baseId?: string }
   ) => {
-    await drainOutbox();
     const params = new URLSearchParams({ tableId });
     if (options?.limit !== undefined) params.set('limit', String(options.limit));
     if (options?.offset !== undefined) params.set('offset', String(options.offset));
@@ -676,6 +719,22 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
       throw new Error(`Failed to list records: ${errorText}`);
     }
     return parseListRecordsResponse(await response.json());
+  };
+
+  const listRecordsWithPagination = async (
+    tableId: string,
+    options?: { limit?: number; offset?: number; baseId?: string }
+  ) => {
+    await drainOutbox();
+    return listRecordsWithPaginationWithoutDrain(tableId, options);
+  };
+
+  const listRecordsWithoutDrain = async (
+    tableId: string,
+    options?: { limit?: number; offset?: number; baseId?: string }
+  ) => {
+    const result = await listRecordsWithPaginationWithoutDrain(tableId, options);
+    return result.records;
   };
 
   const listRecords = async (
@@ -808,6 +867,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     deleteRecord,
     deleteRecords,
     listRecords,
+    listRecordsWithoutDrain,
     listRecordsWithPagination,
     getTableById,
     clear,
@@ -825,16 +885,23 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
  * Get the shared test context.
  * The first call initializes the context; subsequent calls return the same instance.
  */
-export const getSharedTestContext = async (): Promise<SharedTestContext> => {
-  if (sharedContext) {
-    return sharedContext;
+export const getSharedTestContext = async (
+  options: SharedTestContextOptions = {}
+): Promise<SharedTestContext> => {
+  const dbMode = options.dbMode ?? DEFAULT_DB_MODE;
+
+  const existingContext = sharedContexts.get(dbMode);
+  if (existingContext) {
+    return existingContext;
   }
 
-  if (!initPromise) {
-    initPromise = initSharedContext();
+  const existingInitPromise = initPromises.get(dbMode);
+  if (!existingInitPromise) {
+    initPromises.set(dbMode, initSharedContext({ dbMode }));
   }
 
-  sharedContext = await initPromise;
+  const sharedContext = await initPromises.get(dbMode)!;
+  sharedContexts.set(dbMode, sharedContext);
   return sharedContext;
 };
 
@@ -843,11 +910,12 @@ export const getSharedTestContext = async (): Promise<SharedTestContext> => {
  * This should only be called by the global teardown.
  */
 export const disposeSharedTestContext = async (): Promise<void> => {
-  if (server) {
-    await new Promise<void>((resolve) => server!.close(() => resolve()));
-    server = null;
+  for (const [dbMode, server] of servers.entries()) {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    servers.delete(dbMode);
   }
-  if (sharedContext) {
+
+  for (const [dbMode, sharedContext] of sharedContexts.entries()) {
     // Drain any pending outbox tasks before disposing to avoid
     // "terminating connection due to administrator command" errors
     try {
@@ -856,7 +924,7 @@ export const disposeSharedTestContext = async (): Promise<void> => {
       // Ignore errors during cleanup - the outbox may already be empty or unavailable
     }
     await sharedContext.testContainer.dispose();
-    sharedContext = null;
-    initPromise = null;
+    sharedContexts.delete(dbMode);
+    initPromises.delete(dbMode);
   }
 };

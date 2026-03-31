@@ -83,7 +83,7 @@ describe('v2 same-table conditional fields on delete (e2e)', () => {
 
     await ctx.drainOutbox();
 
-    const beforeDelete = await ctx.listRecords(table.id);
+    const beforeDelete = await ctx.listRecordsWithoutDrain(table.id);
     expect(beforeDelete).toHaveLength(3);
     for (const record of beforeDelete) {
       expect(Number(record.fields[countFieldId])).toBe(2);
@@ -92,7 +92,7 @@ describe('v2 same-table conditional fields on delete (e2e)', () => {
     await ctx.deleteRecord(table.id, deletedRecord.id);
     await ctx.drainOutbox();
 
-    const afterDelete = await ctx.listRecords(table.id);
+    const afterDelete = await ctx.listRecordsWithoutDrain(table.id);
     expect(afterDelete).toHaveLength(2);
     for (const record of afterDelete) {
       expect(Number(record.fields[countFieldId])).toBe(1);
@@ -160,7 +160,7 @@ describe('v2 same-table conditional fields on delete (e2e)', () => {
 
     await ctx.drainOutbox();
 
-    const beforeDelete = await ctx.listRecords(table.id);
+    const beforeDelete = await ctx.listRecordsWithoutDrain(table.id);
     expect(beforeDelete).toHaveLength(3);
     for (const record of beforeDelete) {
       expect(record.fields[lookupFieldId]).toEqual([20, 30]);
@@ -169,7 +169,7 @@ describe('v2 same-table conditional fields on delete (e2e)', () => {
     await ctx.deleteRecord(table.id, deletedRecord.id);
     await ctx.drainOutbox();
 
-    const afterDelete = await ctx.listRecords(table.id);
+    const afterDelete = await ctx.listRecordsWithoutDrain(table.id);
     expect(afterDelete).toHaveLength(2);
     for (const record of afterDelete) {
       expect(record.fields[lookupFieldId]).toEqual([30]);

@@ -126,10 +126,8 @@ describe('v2 http createRecords (e2e)', () => {
     return parsed.data.data.records;
   };
 
-  const processOutbox = async (times = 1) => {
-    for (let i = 0; i < times; i += 1) {
-      await ctx.testContainer.processOutbox();
-    }
+  const processOutbox = async (_times = 1) => {
+    await ctx.testContainer.processOutbox();
   };
 
   beforeAll(async () => {

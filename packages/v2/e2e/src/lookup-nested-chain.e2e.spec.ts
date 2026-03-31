@@ -170,10 +170,10 @@ describe('nested lookup chain regression', () => {
       await ctx.drainOutbox();
 
       const initialBridgeRecords = new Map(
-        (await ctx.listRecords(bridgeTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(bridgeTable.id)).map((record) => [record.id, record])
       );
       const initialHostRecords = new Map(
-        (await ctx.listRecords(hostTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(hostTable.id)).map((record) => [record.id, record])
       );
 
       expect(initialBridgeRecords.get(bridge1.id)?.fields[bridgeLookupFieldId]).toEqual([10, 20]);
@@ -189,7 +189,7 @@ describe('nested lookup chain regression', () => {
       await ctx.drainOutbox();
 
       let hostRecords = new Map(
-        (await ctx.listRecords(hostTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(hostTable.id)).map((record) => [record.id, record])
       );
       expect(hostRecords.get(host4.id)?.fields[hostLookupFieldId]).toEqual([10, 20]);
 
@@ -199,7 +199,7 @@ describe('nested lookup chain regression', () => {
       await ctx.drainOutbox();
 
       hostRecords = new Map(
-        (await ctx.listRecords(hostTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(hostTable.id)).map((record) => [record.id, record])
       );
       expect(hostRecords.get(host1.id)?.fields[hostLookupFieldId]).toEqual([10, 20]);
       expect(hostRecords.get(host2.id)?.fields[hostLookupFieldId]).toEqual([10, 20]);
@@ -215,10 +215,10 @@ describe('nested lookup chain regression', () => {
       await ctx.drainOutbox();
 
       let bridgeRecords = new Map(
-        (await ctx.listRecords(bridgeTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(bridgeTable.id)).map((record) => [record.id, record])
       );
       hostRecords = new Map(
-        (await ctx.listRecords(hostTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(hostTable.id)).map((record) => [record.id, record])
       );
 
       expect(bridgeRecords.get(bridge1.id)?.fields[bridgeLookupFieldId]).toEqual([15, 20]);
@@ -246,10 +246,10 @@ describe('nested lookup chain regression', () => {
       await ctx.drainOutbox();
 
       bridgeRecords = new Map(
-        (await ctx.listRecords(bridgeTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(bridgeTable.id)).map((record) => [record.id, record])
       );
       hostRecords = new Map(
-        (await ctx.listRecords(hostTable.id)).map((record) => [record.id, record])
+        (await ctx.listRecordsWithoutDrain(hostTable.id)).map((record) => [record.id, record])
       );
 
       expect(bridgeRecords.get(bridge1.id)?.fields[bridgeLookupFieldId]).toEqual([15]);

@@ -687,15 +687,15 @@
     },
     "DATETIME_DIFF": {
       "summary": "Returns the difference between datetimes in specified units. Default unit is \"day\".\nSupported units: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nThe difference between datetimes is determined by subtracting [date2] from [date1]. This means that if [date2] is later than [date1], the resulting value will be negative.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-09\", \"2026-03-13\", \"day\") => -4\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
     },
     "WORKDAY": {
       "summary": "Returns the workday to the start date, excluding the specified holidays",
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "Returns the number of working days between date1 and date2. Working days exclude weekends and an optional list of holidays, formatted as a comma-separated string of ISO-formatted dates.",
-      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+      "summary": "Returns the number of working days after [date1] up to and including [date2]. Working days exclude weekends and an optional list of holidays, formatted as a comma-separated string of ISO-formatted dates. The result is negative when [date2] is earlier than [date1], and WORKDAY_DIFF(date, WORKDAY(date, n)) returns n.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
     },
     "IS_SAME": {
       "summary": "Compares two dates up to a unit and determines whether they are identical. Returns true if yes, false if no.",
@@ -1437,7 +1437,8 @@
       "noDeploymentUrlAvailable": "No deployment URL available",
       "noFilesInZip": "No files found in ZIP",
       "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
-      "invalidZip": "Invalid ZIP file"
+      "invalidZip": "Invalid ZIP file",
+      "domainAlreadyInUse": "This domain is already bound to another app"
     },
     "reward": {
       "notFound": "Reward not found",

@@ -116,6 +116,39 @@ const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<Rea
 
 const fieldCases = createFieldTypeCases();
 const dateFunctionChunks = chunkArray(dateFunctionCases, 7);
+const dateFunctionMatrix = dateFunctionCases.flatMap((fn) =>
+  fieldCases.map((fieldCase) => ({
+    funcId: fn.id,
+    fieldCase,
+    formulaName: buildFormulaName(fn.id, fieldCase.fieldName),
+    normalizeResult: fn.normalizeResult,
+  }))
+);
+
+let defaultContainer: IV2NodeTestContainer | undefined;
+let batchTestTables: FormulaTestTable[] = [];
+
+const buildFormulaFields = (
+  cases: ReadonlyArray<DateFunctionCase>
+): ReadonlyArray<FormulaFieldDefinition> =>
+  cases.flatMap((fn) =>
+    fieldCases.map((fieldCase) => ({
+      name: buildFormulaName(fn.id, fieldCase.fieldName),
+      expression: fn.buildExpression(fieldCase.fieldName),
+    }))
+  );
+
+beforeAll(async () => {
+  defaultContainer = await createFormulaTestContainer();
+  batchTestTables = [];
+  for (const cases of dateFunctionChunks) {
+    batchTestTables.push(await createFormulaTestTable(defaultContainer, buildFormulaFields(cases)));
+  }
+});
+
+afterAll(async () => {
+  await defaultContainer?.dispose();
+});
 
 describe('DATETIME_PARSE without custom format uses formula time zone', () => {
   let container: IV2NodeTestContainer | undefined;
@@ -156,37 +189,27 @@ describe('DATETIME_PARSE without custom format uses formula time zone', () => {
   });
 });
 
-const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCase>) => {
+const runDateFunctionSuite = (
+  label: string,
+  cases: ReadonlyArray<DateFunctionCase>,
+  batchIndex: number
+) => {
   describe(label, () => {
-    const matrix = cases.flatMap((fn) =>
-      fieldCases.map((fieldCase) => ({
-        funcId: fn.id,
-        fieldCase,
-        formulaName: buildFormulaName(fn.id, fieldCase.fieldName),
-        normalizeResult: fn.normalizeResult,
-      }))
+    const formulaNames = new Set(
+      cases.flatMap((fn) =>
+        fieldCases.map((fieldCase) => buildFormulaName(fn.id, fieldCase.fieldName))
+      )
     );
-    let container: IV2NodeTestContainer | undefined;
-    let testTable: FormulaTestTable;
-
-    beforeAll(async () => {
-      container = await createFormulaTestContainer();
-      const formulaFields: FormulaFieldDefinition[] = cases.flatMap((fn) =>
-        fieldCases.map((fieldCase) => ({
-          name: buildFormulaName(fn.id, fieldCase.fieldName),
-          expression: fn.buildExpression(fieldCase.fieldName),
-        }))
-      );
-      testTable = await createFormulaTestTable(container, formulaFields);
-    });
-
-    afterAll(async () => {
-      await container?.dispose();
-    });
+    const matrix = dateFunctionMatrix.filter(({ formulaName }) => formulaNames.has(formulaName));
 
     it.each(matrix)(
       '$funcId with $fieldCase.type',
       async ({ funcId, fieldCase, formulaName, normalizeResult }) => {
+        const testTable = batchTestTables[batchIndex];
+        if (!testTable) {
+          throw new Error(`Missing test table for batch ${String(batchIndex + 1)}`);
+        }
+
         const context = await buildFormulaSnapshotContext(testTable, formulaName);
         const result = normalizeResult ? normalizeResult(context.result) : context.result;
         expect({
@@ -203,5 +226,5 @@ const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCa
 };
 
 dateFunctionChunks.forEach((cases, index) => {
-  runDateFunctionSuite(`date functions batch ${index + 1}`, cases);
+  runDateFunctionSuite(`date functions batch ${index + 1}`, cases, index);
 });

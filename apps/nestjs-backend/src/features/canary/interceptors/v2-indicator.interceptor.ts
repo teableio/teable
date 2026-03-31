@@ -17,6 +17,7 @@ import type { IClsStore } from '../../../types/cls';
 export const X_TEABLE_V2_HEADER = 'x-teable-v2';
 export const X_TEABLE_V2_REASON_HEADER = 'x-teable-v2-reason';
 export const X_TEABLE_V2_FEATURE_HEADER = 'x-teable-v2-feature';
+export const TEABLE_REQUEST_ATTRIBUTION = 'teable.request.attribution';
 
 type SentryScopeLike = {
   setTag(key: string, value: string): void;
@@ -87,11 +88,13 @@ export class V2IndicatorInterceptor implements NestInterceptor {
     setSentryTag('teable.v2.enabled', useV2 ? 'true' : 'false');
     setSentryTag('teable.v2.reason', v2Reason);
     setSentryTag('teable.v2.feature', v2Feature);
+    setSentryTag(TEABLE_REQUEST_ATTRIBUTION, useV2 ? 'v2' : 'v1');
 
     // Add span attributes for tracing
     const span = trace.getActiveSpan();
     if (span) {
       span.setAttributes({
+        [TEABLE_REQUEST_ATTRIBUTION]: useV2 ? 'v2' : 'v1',
         'teable.v2.enabled': useV2 ?? false,
         ...(v2Reason && { 'teable.v2.reason': v2Reason }),
         ...(v2Feature && { 'teable.v2.feature': v2Feature }),

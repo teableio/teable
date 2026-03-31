@@ -88,21 +88,32 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
   const milkdownGetEditorRef = useRef<(() => Editor) | null>(null);
   const [editorValue, setEditorValue] = useState(() => normalizeMarkdownValue(cell.data));
   const latestValueRef = useRef(editorValue);
-  const lastSavedRef = useRef<string | null>(null);
+  const savedRef = useRef(false);
 
   useEffect(() => {
     const next = normalizeMarkdownValue(cell.data);
     latestValueRef.current = next;
-    lastSavedRef.current = null;
     setEditorValue(next);
+    savedRef.current = false;
   }, [cell.data]);
 
-  const persistValue = (rawValue: string) => {
-    const trimmed = rawValue.trim();
+  const saveValue = () => {
+    if (isReadonly || savedRef.current) return;
+
+    if (isMarkdown && milkdownGetEditorRef.current) {
+      const markdown = getEditorMarkdown(milkdownGetEditorRef.current());
+      if (markdown !== undefined) {
+        latestValueRef.current = markdown;
+      }
+    }
+
+    const trimmed = latestValueRef.current.trim();
     const nextValue = trimmed || null;
-    if (nextValue === cell.data) return;
-    if (nextValue === lastSavedRef.current) return;
-    lastSavedRef.current = nextValue;
+    // cell.data is '' for null values (from `(cellValue as string) || ''`), normalize both sides
+    const cellData = (cell.data as string)?.trim() || null;
+    if (nextValue === cellData) return;
+
+    savedRef.current = true;
     record.updateCell(field.id, nextValue, { t });
   };
 
@@ -119,39 +130,28 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
       }
     },
     setValue: (value?: string | null) => {
-      if (value === null || value === undefined) return;
       const next = normalizeMarkdownValue(value);
       latestValueRef.current = next;
       setEditorValue(next);
+      savedRef.current = false;
     },
-    saveValue: () => {
-      if (isReadonly) return;
-      if (isMarkdown && milkdownGetEditorRef.current) {
-        const markdown = getEditorMarkdown(milkdownGetEditorRef.current());
-        if (markdown !== undefined) {
-          latestValueRef.current = markdown;
-        }
-      }
-      persistValue(latestValueRef.current);
-    },
+    saveValue,
   }));
-
-  const saveValue = (value: unknown) => {
-    if (!isEditing || isReadonly) return;
-    const normalized = normalizeMarkdownValue(value);
-    latestValueRef.current = normalized;
-    persistValue(normalized);
-  };
 
   const handleExpandChange = useCallback(
     (v: string | null) => {
       const normalized = normalizeMarkdownValue(v);
       latestValueRef.current = normalized;
       setEditorValue(normalized);
-      persistValue(normalized);
+      const trimmed = normalized.trim();
+      const nextValue = trimmed || null;
+      const cellData = (cell.data as string)?.trim() || null;
+      if (nextValue !== cellData) {
+        record.updateCell(field.id, nextValue, { t });
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cell.data]
+    [record.id, field.id, cell.data]
   );
 
   const handleEditorValueChange = useCallback((value: string) => {
@@ -162,24 +162,20 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     milkdownGetEditorRef.current = getEditor;
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        persistValue(latestValueRef.current);
-        setEditing?.(false);
-        return;
-      }
-      if (isMarkdown || e.key !== 'Enter') return;
-      if (e.shiftKey) {
-        e.stopPropagation();
-      } else {
-        e.preventDefault();
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isMarkdown, setEditing]
-  );
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      saveValue();
+      setEditing?.(false);
+      return;
+    }
+    if (isMarkdown || e.key !== 'Enter') return;
+    if (e.shiftKey) {
+      e.stopPropagation();
+    } else {
+      e.preventDefault();
+    }
+  };
 
   const attachStyle = useMemo(() => {
     const result: React.CSSProperties = {
@@ -224,7 +220,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
           border: `2px solid ${cellLineColorActived}`,
         }}
         className="relative rounded-md bg-background"
-        onKeyDown={handleKeyDown}
+        onKeyDown={onKeyDown}
       >
         {isMarkdown && (
           <div
@@ -240,7 +236,6 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
               readonly={isReadonly}
               hideExpand
               gridMode={!isReadonly}
-              onChange={isReadonly ? undefined : saveValue}
               onValueChange={handleEditorValueChange}
               onEditorReady={isReadonly ? undefined : handleEditorReady}
             />
@@ -264,7 +259,6 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
               value={editorValue}
               minRows={2}
               maxRows={5}
-              onBlur={() => persistValue(latestValueRef.current)}
               onChange={(e) => {
                 const val = e.target.value;
                 latestValueRef.current = val;

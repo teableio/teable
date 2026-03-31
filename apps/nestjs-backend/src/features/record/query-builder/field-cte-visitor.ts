@@ -1590,6 +1590,25 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         return;
       }
 
+      const requiredLinkFields = new Map<string, LinkFieldCore>();
+      const ensureLinkDependencies = (candidate?: FieldCore) => {
+        if (!candidate) return;
+        if (candidate.type === FieldType.Link) {
+          const linkField = candidate as LinkFieldCore;
+          requiredLinkFields.set(linkField.id, linkField);
+          if (!this.state.getFieldCteMap().has(linkField.id)) {
+            this.generateLinkFieldCteForTable(foreignTable, linkField);
+          }
+        }
+        for (const linkField of candidate.getLinkFields(foreignTable)) {
+          if (!linkField) continue;
+          requiredLinkFields.set(linkField.id, linkField as LinkFieldCore);
+          if (this.state.getFieldCteMap().has(linkField.id)) continue;
+          this.generateLinkFieldCteForTable(foreignTable, linkField as LinkFieldCore);
+        }
+      };
+      ensureLinkDependencies(targetField);
+
       const joinToMain = table === this.table;
 
       const cteName = `CTE_REF_${field.id}`;
@@ -1617,6 +1636,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
       const formattedExpression = targetField.accept(formattingVisitor);
 
+      const joinLinkDependencies = (qb: Knex.QueryBuilder) => {
+        for (const linkField of requiredLinkFields.values()) {
+          const cteName = this.getCteNameForField(linkField.id);
+          if (!cteName) continue;
+          qb.leftJoin(cteName, `${foreignAliasUsed}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+        }
+      };
+
       const aggregationFn = parseRollupFunctionName(expression);
       const useFormattedForArrayFunctions =
         (targetField.type === FieldType.Link ||
@@ -1636,6 +1663,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       if (supportsOrdering && sort?.fieldId) {
         const sortField = foreignTable.getField(sort.fieldId);
         if (sortField) {
+          ensureLinkDependencies(sortField);
           let sortExpression = this.resolveConditionalComputedTargetExpression(
             sortField,
             foreignTable,
@@ -1709,6 +1737,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const countsQuery = this.qb.client
           .queryBuilder()
           .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+        joinLinkDependencies(countsQuery);
         for (const cond of equalityPlan.joinKeys) {
           countsQuery.select(this.qb.client.raw(`${cond.foreignExpr} as "${cond.alias}"`));
           countsQuery.groupByRaw(cond.foreignExpr);
@@ -1781,6 +1810,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         .queryBuilder()
         .select('*')
         .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+      joinLinkDependencies(aggregateSourceQuery);
 
       if (filter) {
         const fieldMap = foreignTable.fieldList.reduce(
