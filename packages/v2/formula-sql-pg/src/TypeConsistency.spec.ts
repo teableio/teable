@@ -50,8 +50,8 @@ describe('type consistency', () => {
     testTable = await createFormulaTestTable(container, formulaFields);
 
     const tableName = testTable.table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
-    const singleLineText = testTable.fieldsByType.singleLineText
-      .dbFieldName()
+    const singleLineText = testTable.fieldsByType
+      .singleLineText!.dbFieldName()
       ._unsafeUnwrap()
       .value()
       ._unsafeUnwrap();

@@ -661,8 +661,9 @@
   },
   "form": {
     "fieldsManagement": "Felder",
-    "addAll": "Alle hinzufügen",
-    "removeAll": "Alle entfernen",
+    "addAll": "Alle anzeigen",
+    "removeAll": "Alle ausblenden",
+    "createField": "Feld erstellen",
     "hideFieldTip": "Das Feld bis hierhin ausblenden",
     "unableAddFieldTip": "Feld dieses Typs kann nicht hinzugefügt werden",
     "removeFromFormTip": "Aus dem Formular entfernen",
@@ -798,8 +799,8 @@
   },
   "tableTrash": {
     "title": "Tabelle Papierkorb",
-    "resourceType": "Typ der Ressource",
-    "deletedResource": "Gelöschte Ressource"
+    "resourceType": "Typ",
+    "deletedResource": "Ressource"
   },
   "baseShare": {
     "title": "Base teilen",

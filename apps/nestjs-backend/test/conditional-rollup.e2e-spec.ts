@@ -25,6 +25,7 @@ import {
   SortFunc,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
+import { DELETE_URL, RangeType, X_CANARY_HEADER, axios, urlBuilder } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
@@ -50,6 +51,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -3862,6 +3864,256 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(updatedById.get(recordIds[2])?.fields[rollupField.id]).toEqual(1);
       expect(updatedById.get(recordIds[3])?.fields[rollupField.id]).toEqual(1);
     });
+
+    const deleteCases = isForceV2
+      ? [{ label: 'v2-forced', useV2: true }]
+      : [
+          { label: 'v1', useV2: false },
+          { label: 'v2', useV2: true },
+        ];
+
+    it.each(deleteCases)(
+      'deletes rows via selection/delete without 500 in $label when self conditional rollups use field references',
+      async ({ useV2 }) => {
+        const tempTable = await createTable(baseId, {
+          name: `ConditionalRollup_SelfReference_Delete_${useV2 ? 'v2' : 'v1'}`,
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Score', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Name: 'Alpha', Status: 'todo', Score: 5 } },
+            { fields: { Name: 'Beta', Status: 'todo', Score: 5 } },
+            { fields: { Name: 'Gamma', Status: 'todo', Score: 8 } },
+            { fields: { Name: 'Delta', Status: 'done', Score: 5 } },
+          ],
+        });
+
+        try {
+          const tempStatusFieldId = tempTable.fields.find((field) => field.name === 'Status')!.id;
+          const tempScoreFieldId = tempTable.fields.find((field) => field.name === 'Score')!.id;
+          const tempRecordIds = tempTable.records.map((record) => record.id);
+
+          const tempLinkField = await createField(tempTable.id, {
+            name: 'Related',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: tempTable.id,
+            },
+          } as IFieldRo);
+
+          const tempLinkTargets = tempRecordIds.map((id) => ({ id }));
+          for (const recordId of tempRecordIds) {
+            await updateRecordByApi(tempTable.id, recordId, tempLinkField.id, tempLinkTargets);
+          }
+
+          const tempRollupField = await createField(tempTable.id, {
+            name: 'Self Matching Count',
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: tempTable.id,
+              lookupFieldId: tempScoreFieldId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: tempStatusFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: tempStatusFieldId, tableId: tempTable.id },
+                  },
+                  {
+                    fieldId: tempScoreFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: tempScoreFieldId, tableId: tempTable.id },
+                  },
+                ],
+              },
+            } as IConditionalRollupFieldOptions,
+          } as IFieldRo);
+
+          const beforeDelete = await getRecords(tempTable.id, { fieldKeyType: FieldKeyType.Id });
+          expect(beforeDelete.records).toHaveLength(4);
+          expect(beforeDelete.records[0].fields[tempRollupField.id]).toEqual(2);
+
+          const response = await axios.delete<{ ids: string[] }>(
+            urlBuilder(DELETE_URL, {
+              tableId: tempTable.id,
+            }),
+            {
+              headers: {
+                [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+              },
+              params: {
+                viewId: tempTable.views[0].id,
+                type: RangeType.Rows,
+                ranges: JSON.stringify([[0, 0]]),
+              },
+            }
+          );
+
+          expect(response.status).toBe(200);
+          expect(response.data.ids).toHaveLength(1);
+
+          const afterDelete = await getRecords(tempTable.id, { fieldKeyType: FieldKeyType.Id });
+          expect(afterDelete.records).toHaveLength(3);
+          expect(
+            afterDelete.records.find((record) => record.id === tempRecordIds[0])
+          ).toBeUndefined();
+        } finally {
+          await permanentDeleteTable(baseId, tempTable.id);
+        }
+      }
+    );
+
+    it.each(deleteCases)(
+      'deletes rows via selection/delete in $label when self conditional rollups aggregate formulas backed by lookups',
+      async ({ useV2 }) => {
+        let employeesTable: ITableFullVo | undefined;
+        let tempTable: ITableFullVo | undefined;
+
+        try {
+          employeesTable = await createTable(baseId, {
+            name: `ConditionalRollup_FormulaLookup_Employees_${useV2 ? 'v2' : 'v1'}`,
+            fields: [
+              { name: 'Employee', type: FieldType.SingleLineText } as IFieldRo,
+              { name: 'Multiplier', type: FieldType.Number } as IFieldRo,
+            ],
+            records: [
+              { fields: { Employee: 'Alice', Multiplier: 2 } },
+              { fields: { Employee: 'Bob', Multiplier: 3 } },
+              { fields: { Employee: 'Carol', Multiplier: 1 } },
+            ],
+          });
+          const multiplierFieldId = employeesTable.fields.find(
+            (field) => field.name === 'Multiplier'
+          )!.id;
+
+          tempTable = await createTable(baseId, {
+            name: `ConditionalRollup_FormulaLookup_Delete_${useV2 ? 'v2' : 'v1'}`,
+            fields: [
+              { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+              { name: 'Department', type: FieldType.SingleLineText } as IFieldRo,
+              { name: 'Score', type: FieldType.Number } as IFieldRo,
+            ],
+            records: [
+              { fields: { Name: 'Alpha', Department: 'Engineering', Score: 10 } },
+              { fields: { Name: 'Beta', Department: 'Engineering', Score: 8 } },
+              { fields: { Name: 'Gamma', Department: 'Sales', Score: 7 } },
+              { fields: { Name: 'Delta', Department: 'Engineering', Score: 5 } },
+            ],
+          });
+
+          const tempRecordIds = tempTable.records.map((record) => record.id);
+          const departmentFieldId = tempTable.fields.find(
+            (field) => field.name === 'Department'
+          )!.id;
+          const scoreFieldId = tempTable.fields.find((field) => field.name === 'Score')!.id;
+
+          const employeeLinkField = await createField(tempTable.id, {
+            name: 'Employee Link',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: employeesTable.id,
+            },
+          } as IFieldRo);
+
+          await updateRecordByApi(tempTable.id, tempRecordIds[0], employeeLinkField.id, {
+            id: employeesTable.records[0].id,
+          });
+          await updateRecordByApi(tempTable.id, tempRecordIds[1], employeeLinkField.id, {
+            id: employeesTable.records[1].id,
+          });
+          await updateRecordByApi(tempTable.id, tempRecordIds[2], employeeLinkField.id, {
+            id: employeesTable.records[2].id,
+          });
+          await updateRecordByApi(tempTable.id, tempRecordIds[3], employeeLinkField.id, {
+            id: employeesTable.records[0].id,
+          });
+
+          const multiplierLookupField = await createField(tempTable.id, {
+            name: 'Multiplier Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: employeesTable.id,
+              linkFieldId: employeeLinkField.id,
+              lookupFieldId: multiplierFieldId,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
+
+          const weightedScoreField = await createField(tempTable.id, {
+            name: 'Weighted Score',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${scoreFieldId}} * {${multiplierLookupField.id}}`,
+              formatting: {
+                type: NumberFormattingType.Decimal,
+                precision: 2,
+              },
+            },
+          } as IFieldRo);
+
+          const weightedDepartmentTotalField = await createField(tempTable.id, {
+            name: 'Department Weighted Total',
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: tempTable.id,
+              lookupFieldId: weightedScoreField.id,
+              expression: 'sum({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: departmentFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: departmentFieldId, tableId: tempTable.id },
+                  },
+                ],
+              },
+            } as IConditionalRollupFieldOptions,
+          } as IFieldRo);
+
+          const response = await axios.delete<{ ids: string[] }>(
+            urlBuilder(DELETE_URL, {
+              tableId: tempTable.id,
+            }),
+            {
+              headers: {
+                [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+              },
+              params: {
+                viewId: tempTable.views[0].id,
+                type: RangeType.Rows,
+                ranges: JSON.stringify([[0, 0]]),
+              },
+            }
+          );
+
+          expect(response.status).toBe(200);
+          expect(response.data.ids).toEqual([tempRecordIds[0]]);
+
+          const afterDelete = await getRecords(tempTable.id, { fieldKeyType: FieldKeyType.Id });
+          expect(afterDelete.records).toHaveLength(3);
+
+          const byId = new Map(afterDelete.records.map((record) => [record.id, record]));
+          expect(byId.has(tempRecordIds[0])).toBe(false);
+          expect(byId.get(tempRecordIds[1])?.fields[weightedDepartmentTotalField.id]).toBeDefined();
+          expect(byId.get(tempRecordIds[2])?.fields[weightedDepartmentTotalField.id]).toBeDefined();
+          expect(byId.get(tempRecordIds[3])?.fields[weightedDepartmentTotalField.id]).toBeDefined();
+        } finally {
+          if (tempTable) {
+            await permanentDeleteTable(baseId, tempTable.id);
+          }
+          if (employeesTable) {
+            await permanentDeleteTable(baseId, employeesTable.id);
+          }
+        }
+      }
+    );
   });
 
   describe('numeric array field reference rollups', () => {

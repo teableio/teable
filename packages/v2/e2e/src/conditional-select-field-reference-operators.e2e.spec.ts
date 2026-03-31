@@ -211,7 +211,7 @@ describe('v2 conditional select field reference operators (e2e)', () => {
 
       await ctx.drainOutbox();
 
-      const hostRecords = await ctx.listRecords(host.id);
+      const hostRecords = await ctx.listRecordsWithoutDrain(host.id);
       const hostRecordsByLabel = new Map(
         hostRecords.map((record) => [String(record.fields[hostNameFieldId]), record.fields])
       );

@@ -2,7 +2,6 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
@@ -12,6 +11,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import express from 'express';
 import type { Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 /**
  * NOTE: This test cannot use the shared test context because it requires
@@ -69,7 +69,7 @@ describe('v2 credit limit (e2e)', () => {
 
   beforeAll(async () => {
     // Pass maxFreeRowLimit as a parameter instead of relying on env var
-    testContainer = await createV2NodeTestContainer({ maxFreeRowLimit: 10 });
+    testContainer = await createE2eTestContainer({ maxFreeRowLimit: 10 });
     baseId = testContainer.baseId.toString();
     db = testContainer.db;
 

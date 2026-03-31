@@ -173,7 +173,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           ) : (
             <div className="relative flex w-full flex-1 justify-between overflow-y-auto">
               {fields.length > 0 ? (
-                <div className="size-full overflow-auto p-9">
+                <div className="size-full overflow-auto px-14 py-9">
                   <RecordEditor
                     record={record}
                     fields={fields}
@@ -189,7 +189,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
               )}
 
               {commentVisible && baseId && tableId && recordId && (
-                <div className="w-[360px] shrink-0">
+                <div className="w-[320px] shrink-0">
                   <CommentPanel
                     tableId={tableId}
                     recordId={recordId}
