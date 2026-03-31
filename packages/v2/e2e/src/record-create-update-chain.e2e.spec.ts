@@ -220,11 +220,13 @@ describe('v2 http record create/update multi-table chain (e2e)', () => {
 
     await ctx.drainOutbox();
 
-    const dealRecords = await ctx.listRecords(dealTable.id, { baseId: ctx.baseId });
+    const dealRecords = await ctx.listRecordsWithoutDrain(dealTable.id, { baseId: ctx.baseId });
     const dealRecord = dealRecords.find((record) => record.id === deal1.id);
     expect(dealRecord?.fields[dealCompanyFormula.id]).toContain('Acme Updated');
 
-    const invoiceRecords = await ctx.listRecords(invoiceTable.id, { baseId: ctx.baseId });
+    const invoiceRecords = await ctx.listRecordsWithoutDrain(invoiceTable.id, {
+      baseId: ctx.baseId,
+    });
     const invoiceRecord = invoiceRecords.find((record) => record.id === invoice1.id);
     expect(invoiceRecord?.fields[invoiceLabelFormula.id]).toContain('Acme Updated');
 
@@ -285,7 +287,7 @@ describe('v2 http record create/update multi-table chain (e2e)', () => {
     expect(updateResponse.ok).toBe(true);
     await ctx.drainOutbox();
 
-    const records = await ctx.listRecords(dealTable.id, { baseId: ctx.baseId });
+    const records = await ctx.listRecordsWithoutDrain(dealTable.id, { baseId: ctx.baseId });
     const updated = records.find((record) => record.id === deal.id);
     expect(updated?.fields[dealAmountFieldId]).toBe(200);
 

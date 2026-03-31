@@ -5,6 +5,12 @@ import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import {
+  type IPasteLinkAutoResolveResult,
+  PasteLinkAutoResolveService,
+  type ResolvedLinkValueLookupMap,
+  type ResolvedLinkValueMap,
+} from '../application/services/PasteLinkAutoResolveService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import {
   type RecordWritePluginExecution,
@@ -13,7 +19,10 @@ import {
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
-import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import {
+  TableUpdateFlow,
+  type TableUpdateFlowResult,
+} from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -98,11 +107,20 @@ interface CollectedEventData {
   createdRecords: RecordValuesDTO[];
   schemaUndoCommands: UndoRedoCommandLeafData[];
   schemaRedoCommands: UndoRedoCommandLeafData[];
+  afterCommitHandlers: Array<() => Promise<void>>;
 }
 
 interface CollectedPasteOperations {
   updateOperations: UpdateOperation[];
   createOperations: CreateOperation[];
+}
+
+interface PlannedColumnExpansion {
+  table: Table;
+  newFieldIds: ReadonlyArray<FieldId>;
+  apply: (
+    context: ExecutionContextPort.IExecutionContext
+  ) => Promise<Result<TableUpdateFlowResult, DomainError>>;
 }
 
 /** Represents an update operation for an existing record */
@@ -143,6 +161,7 @@ type PasteOperationStreamState = {
   pendingCreateOperation?: CreateOperation;
   tableForMutations: Table;
   accumulatedSideEffects: RecordWriteSideEffect[];
+  resolvedLinkValues: ResolvedLinkValueLookupMap;
 };
 
 type LooseFieldInput = {
@@ -169,6 +188,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.pasteLinkAutoResolveService)
+    private readonly pasteLinkAutoResolveService: PasteLinkAutoResolveService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
@@ -192,15 +213,22 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     return safeTry<PasteResult, DomainError>(async function* () {
       // 1. Get table
-      let table = yield* await handler.tableQueryService.getById(context, command.tableId);
+      const persistedTable = yield* await handler.tableQueryService.getById(
+        context,
+        command.tableId
+      );
+      let tableForPaste = persistedTable;
 
       // 2. Get ordered visible field IDs from view's columnMeta or projection
-      let orderedFieldIds = yield* table.getOrderedVisibleFieldIds(command.viewId.toString(), {
-        projection: command.projection,
-      });
+      let orderedFieldIds = yield* persistedTable.getOrderedVisibleFieldIds(
+        command.viewId.toString(),
+        {
+          projection: command.projection,
+        }
+      );
       const totalCols = orderedFieldIds.length;
 
-      const view = yield* table.getView(command.viewId);
+      const view = yield* persistedTable.getView(command.viewId);
       const viewDefaults = yield* view.queryDefaults();
       const mergedDefaults = viewDefaults.merge({
         filter: command.filter,
@@ -219,7 +247,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined =
         undefined;
       if (effectiveFilter) {
-        filterSpec = yield* buildRecordConditionSpec(table, effectiveFilter);
+        filterSpec = yield* buildRecordConditionSpec(persistedTable, effectiveFilter);
       }
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
@@ -232,7 +260,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
           const countResult = yield* await handler.tableRecordQueryRepository.find(
             context,
-            table,
+            persistedTable,
             filterSpec,
             { mode: 'stored', pagination, search: visibleRowSearch }
           );
@@ -254,17 +282,21 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 7. Expand columns if paste exceeds current field count
+      // 7. Plan column expansion if paste exceeds current field count.
+      // Persist the table schema only in the final execution phase so DDL
+      // does not happen during the planning/stream-shaping stage.
       const expandedColCount = expandedContent[0]!.length;
       const numColsToExpand = Math.max(0, startCol + expandedColCount - totalCols);
+      let plannedColumnExpansion: PlannedColumnExpansion | undefined;
       if (numColsToExpand > 0) {
-        const expandResult = yield* await handler.expandColumns(context, table, {
+        const expandResult = yield* await handler.planColumnExpansion(context, persistedTable, {
           numColsToExpand,
           sourceFields: command.sourceFields,
         });
-        table = expandResult.table;
-        if (expandResult.newFieldIds.length > 0) {
-          orderedFieldIds = [...orderedFieldIds, ...expandResult.newFieldIds];
+        plannedColumnExpansion = expandResult;
+        tableForPaste = expandResult.table;
+        if (plannedColumnExpansion.newFieldIds.length > 0) {
+          orderedFieldIds = [...orderedFieldIds, ...plannedColumnExpansion.newFieldIds];
         }
       }
 
@@ -274,7 +306,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       // 9. Filter out computed fields while preserving column indices
       const editableColumns: EditableColumn[] = [];
       targetFieldIds.forEach((fieldId, columnIndex) => {
-        const fieldResult = table.getField((f) => f.id().equals(fieldId));
+        const fieldResult = tableForPaste.getField((f) => f.id().equals(fieldId));
         if (fieldResult.isOk() && !fieldResult.value.computed().toBoolean()) {
           editableColumns.push({ fieldId, columnIndex });
         }
@@ -300,7 +332,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       // 11. Create streaming query for existing records with filter and sort
       const existingRecordsStream = handler.tableRecordQueryRepository.findStream(
         context,
-        table,
+        persistedTable,
         filterSpec,
         {
           mode: 'stored',
@@ -319,21 +351,21 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         | ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
         | undefined = undefined;
       if (command.updateFilter) {
-        updateFilterSpec = yield* buildRecordConditionSpec(table, command.updateFilter);
+        updateFilterSpec = yield* buildRecordConditionSpec(persistedTable, command.updateFilter);
       }
 
       // 11. Generate paste operations by streaming through existing records
       const operationsStream = handler.generatePasteOperations(
         existingRecordsStream,
         expandedContent,
-        table,
+        persistedTable,
         updateFilterSpec
       );
       const collectedOperations = yield* await handler.collectPasteOperations(operationsStream);
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.paste,
         executionContext: context,
-        table,
+        table: persistedTable,
         payload: yield* handler.buildPastePluginPayload(
           command.typecast,
           editableColumns,
@@ -351,18 +383,20 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         createdRecords: [],
         schemaUndoCommands: [],
         schemaRedoCommands: [],
+        afterCommitHandlers: [],
       };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
         return handler.executePasteStream(
           txContext,
-          table,
+          tableForPaste,
           collectedOperations.updateOperations,
           collectedOperations.createOperations,
           pluginExecution,
           command.typecast,
           editableColumns,
-          eventData
+          eventData,
+          plannedColumnExpansion
         );
       });
 
@@ -372,8 +406,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (eventData.updates.length > 0) {
         events.push(
           RecordsBatchUpdated.create({
-            tableId: table.id(),
-            baseId: table.baseId(),
+            tableId: persistedTable.id(),
+            baseId: persistedTable.baseId(),
             updates: eventData.updates,
             source: 'user',
           })
@@ -383,8 +417,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (eventData.createdRecords.length > 0) {
         events.push(
           RecordsBatchCreated.create({
-            tableId: table.id(),
-            baseId: table.baseId(),
+            tableId: persistedTable.id(),
+            baseId: persistedTable.baseId(),
             records: eventData.createdRecords,
           })
         );
@@ -396,7 +430,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) =>
         createUndoRedoCommand('UpdateRecord', {
-          tableId: table.id().toString(),
+          tableId: persistedTable.id().toString(),
           recordId,
           fields,
           fieldKeyType: 'id',
@@ -409,7 +443,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (eventData.createdRecords.length > 0) {
         undoCommands.push(
           createUndoRedoCommand('DeleteRecords', {
-            tableId: table.id().toString(),
+            tableId: persistedTable.id().toString(),
             recordIds: eventData.createdRecords.map((record) => record.recordId),
           })
         );
@@ -450,19 +484,22 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
         redoCommands.push(
           createUndoRedoCommand('RestoreRecords', {
-            tableId: table.id().toString(),
+            tableId: persistedTable.id().toString(),
             records: restoreRecords,
           })
         );
       }
 
       if (undoCommands.length > 0 || redoCommands.length > 0) {
-        yield* await handler.undoRedoService.recordEntry(context, table.id(), {
+        yield* await handler.undoRedoService.recordEntry(context, persistedTable.id(), {
           undoCommand: composeUndoRedoCommands([...undoCommands, ...eventData.schemaUndoCommands]),
           redoCommand: composeUndoRedoCommands([...eventData.schemaRedoCommands, ...redoCommands]),
         });
       }
       await pluginExecution.afterCommit();
+      for (const afterCommitHandler of eventData.afterCommitHandlers) {
+        await afterCommitHandler();
+      }
 
       return ok({
         updatedCount: eventData.updates.length,
@@ -472,17 +509,21 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     });
   }
 
-  private async expandColumns(
+  private async planColumnExpansion(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     params: {
       numColsToExpand: number;
       sourceFields?: ReadonlyArray<SourceFieldMeta>;
     }
-  ): Promise<Result<{ table: Table; newFieldIds: FieldId[] }, DomainError>> {
+  ): Promise<Result<PlannedColumnExpansion, DomainError>> {
     const { numColsToExpand, sourceFields } = params;
     if (numColsToExpand <= 0) {
-      return ok({ table, newFieldIds: [] });
+      return ok({
+        table,
+        newFieldIds: [],
+        apply: async () => ok({ table, events: [], postPersistEvents: [] }),
+      });
     }
 
     const headerFields = sourceFields ?? [];
@@ -492,7 +533,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     );
 
     const handler = this;
-    return safeTry<{ table: Table; newFieldIds: FieldId[] }, DomainError>(async function* () {
+    return safeTry<PlannedColumnExpansion, DomainError>(async function* () {
       const existingNames = table.getFields().map((field) => field.name().toString());
       const resolvedInputs = yield* resolveTableFieldInputs(fieldInputs, existingNames, {
         t: context.$t,
@@ -520,37 +561,36 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         createdFields.push(field);
       }
 
-      const updateResult = yield* await handler.tableUpdateFlow.execute(
-        context,
-        { table },
-        (current) =>
-          current.update((mutator) => {
-            let next = mutator;
-            for (const field of createdFields) {
-              next = next.addField(field, { foreignTables });
-            }
-            return next;
-          }),
-        {
-          hooks: {
-            afterPersist: async (transactionContext, updatedTable) =>
-              safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                if (createdFields.length === 0) return ok([]);
-                const sideEffectResult =
-                  yield* await handler.fieldCreationSideEffectService.execute(transactionContext, {
-                    table: updatedTable,
-                    fields: createdFields,
-                    foreignTables,
-                  });
-                return ok(sideEffectResult.events);
-              }),
-          },
-        }
-      );
+      const applyFields = (current: Table) =>
+        current.update((mutator) => {
+          let next = mutator;
+          for (const field of createdFields) {
+            next = next.addField(field, { foreignTables });
+          }
+          return next;
+        });
+      const plannedUpdate = yield* applyFields(table);
 
       return ok({
-        table: updateResult.table,
+        table: plannedUpdate.table,
         newFieldIds: createdFields.map((field) => field.id()),
+        apply: async (transactionContext: ExecutionContextPort.IExecutionContext) =>
+          handler.tableUpdateFlow.execute(transactionContext, { table }, applyFields, {
+            publishEvents: false,
+            hooks: {
+              afterPersist: async (currentContext, updatedTable) =>
+                safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+                  if (createdFields.length === 0) return ok([]);
+                  const sideEffectResult =
+                    yield* await handler.fieldCreationSideEffectService.execute(currentContext, {
+                      table: updatedTable,
+                      fields: createdFields,
+                      foreignTables,
+                    });
+                  return ok(sideEffectResult.events);
+                }),
+            },
+          }),
       });
     });
   }
@@ -819,7 +859,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     pluginExecution: RecordWritePluginExecution,
     typecast: boolean,
     editableColumns: ReadonlyArray<EditableColumn>,
-    eventData: CollectedEventData
+    eventData: CollectedEventData,
+    plannedColumnExpansion?: PlannedColumnExpansion
   ): Promise<Result<void, DomainError>> {
     const handler = this;
     const tracer = context.tracer;
@@ -842,11 +883,37 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         iterator: operationsStream[Symbol.asyncIterator](),
         tableForMutations: table,
         accumulatedSideEffects: [],
+        resolvedLinkValues: new Map(),
       };
+      let persistedTable = table;
 
       const beforePersistResult = await pluginExecution.beforePersist(context);
       if (beforePersistResult.isErr()) {
         return err(beforePersistResult.error);
+      }
+
+      if (plannedColumnExpansion) {
+        const columnExpansionResult = await plannedColumnExpansion.apply(context);
+        if (columnExpansionResult.isErr()) {
+          return err(columnExpansionResult.error);
+        }
+        persistedTable = columnExpansionResult.value.table;
+        streamState.tableForMutations = persistedTable;
+        eventData.tableEvents.push(
+          ...columnExpansionResult.value.events,
+          ...columnExpansionResult.value.postPersistEvents
+        );
+        const fieldExpansionUndoRedoPlan =
+          await handler.recordWriteUndoRedoPlanService.captureCreatedFields(
+            context,
+            persistedTable,
+            plannedColumnExpansion.newFieldIds
+          );
+        if (fieldExpansionUndoRedoPlan.isErr()) {
+          return err(fieldExpansionUndoRedoPlan.error);
+        }
+        eventData.schemaUndoCommands.push(...fieldExpansionUndoRedoPlan.value.undoCommands);
+        eventData.schemaRedoCommands.push(...fieldExpansionUndoRedoPlan.value.redoCommands);
       }
 
       if (updateOperations.length > 0) {
@@ -854,7 +921,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         try {
           const updateResult = await handler.tableRecordRepository.updateManyStream(
             context,
-            table,
+            persistedTable,
             handler.createResolvedUpdateBatchStream(
               context,
               streamState,
@@ -881,7 +948,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         try {
           const createResult = await handler.tableRecordRepository.insertManyStream(
             context,
-            table,
+            persistedTable,
             handler.createRecordBatchStream(
               context,
               streamState,
@@ -919,7 +986,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const sideEffectUndoRedoPlan =
           await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
             context,
-            table,
+            persistedTable,
             streamState.tableForMutations,
             streamState.accumulatedSideEffects
           );
@@ -970,6 +1037,27 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const batchTable = streamState.tableForMutations;
+      const resolvedLinkValueMapResult = await this.resolvePasteLinkAutoCreate(
+        context,
+        typecast,
+        batchTable,
+        editableColumns,
+        updateOperations.map((operation) => operation.rowData),
+        streamState.resolvedLinkValues
+      );
+      if (resolvedLinkValueMapResult.isErr()) {
+        yield err(resolvedLinkValueMapResult.error);
+        return;
+      }
+      this.mergeResolvedLinkValues(
+        streamState.resolvedLinkValues,
+        resolvedLinkValueMapResult.value.resolvedValues
+      );
+      eventData.tableEvents.push(...resolvedLinkValueMapResult.value.tableEvents);
+      eventData.schemaUndoCommands.push(...resolvedLinkValueMapResult.value.undoCommands);
+      eventData.schemaRedoCommands.push(...resolvedLinkValueMapResult.value.redoCommands);
+      eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
+
       const linkTitleMapResult = typecast
         ? await this.buildLinkTitleMap(context, batchTable, editableColumns, updateOperations)
         : ok(new Map());
@@ -979,6 +1067,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const linkTitleMap = linkTitleMapResult.value;
+      const resolvedLinkValueMap = streamState.resolvedLinkValues;
       const updateItems: UpdateRecordItem[] = [];
       const pendingUpdateEvents: PendingUpdateEvent[] = [];
 
@@ -995,7 +1084,11 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           editableColumns,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
-            return this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId));
+            return this.hydrateLinkValue(
+              rawValue,
+              linkTitleMap.get(fieldId),
+              resolvedLinkValueMap.get(fieldId)
+            );
           }
         );
 
@@ -1071,6 +1164,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     createdRecordBatches: PendingCreatedRecord[][],
     eventData: CollectedEventData
   ): AsyncGenerator<TableRecordRepositoryPort.InsertManyStreamBatchInput> {
+    // `insertManyStream` consumes raw batch inputs rather than `Result`-wrapped yields, so
+    // create-path failures must throw to abort the stream. The update path can yield `err(...)`
+    // because `updateManyStream` accepts `Result` batches directly.
     while (true) {
       const operationsResult = await this.readNextCreateChunk(streamState, batchSize);
       if (operationsResult.isErr()) {
@@ -1095,6 +1191,26 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const batchTable = streamState.tableForMutations;
+      const resolvedLinkValueMapResult = await this.resolvePasteLinkAutoCreate(
+        context,
+        typecast,
+        batchTable,
+        editableColumns,
+        createOperations.map((operation) => operation.rowData),
+        streamState.resolvedLinkValues
+      );
+      if (resolvedLinkValueMapResult.isErr()) {
+        throw resolvedLinkValueMapResult.error;
+      }
+      this.mergeResolvedLinkValues(
+        streamState.resolvedLinkValues,
+        resolvedLinkValueMapResult.value.resolvedValues
+      );
+      eventData.tableEvents.push(...resolvedLinkValueMapResult.value.tableEvents);
+      eventData.schemaUndoCommands.push(...resolvedLinkValueMapResult.value.undoCommands);
+      eventData.schemaRedoCommands.push(...resolvedLinkValueMapResult.value.redoCommands);
+      eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
+
       const linkTitleMapResult = typecast
         ? await this.buildLinkTitleMap(context, batchTable, editableColumns, createOperations)
         : ok(new Map());
@@ -1103,9 +1219,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       }
 
       const linkTitleMap = linkTitleMapResult.value;
+      const resolvedLinkValueMap = streamState.resolvedLinkValues;
       const createFieldValues = createOperations.map((op) =>
         this.buildEditableFieldValues(op.rowData, editableColumns, (fieldId, rawValue) =>
-          this.hydrateLinkValue(rawValue, linkTitleMap.get(fieldId))
+          this.hydrateLinkValue(
+            rawValue,
+            linkTitleMap.get(fieldId),
+            resolvedLinkValueMap.get(fieldId)
+          )
         )
       );
 
@@ -1345,20 +1466,74 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return fieldValues;
   }
 
-  private hydrateLinkValue(value: unknown, linkTitleMap: Map<string, string> | undefined): unknown {
-    if (!linkTitleMap || linkTitleMap.size === 0) {
-      return value;
+  private async resolvePasteLinkAutoCreate(
+    context: ExecutionContextPort.IExecutionContext,
+    typecast: boolean,
+    table: Table,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    rowDataList: ReadonlyArray<ReadonlyArray<unknown>>,
+    existingResolvedValues: ResolvedLinkValueLookupMap
+  ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
+    if (!typecast) {
+      return ok(this.createEmptyPasteLinkAutoResolveResult());
     }
 
+    return this.pasteLinkAutoResolveService.resolve(context, {
+      table,
+      editableColumns,
+      rowDataList,
+      existingResolvedValues,
+    });
+  }
+
+  private createEmptyPasteLinkAutoResolveResult(): IPasteLinkAutoResolveResult {
+    return {
+      resolvedValues: new Map(),
+      tableEvents: [],
+      undoCommands: [],
+      redoCommands: [],
+      afterCommitHandlers: [],
+    };
+  }
+
+  private mergeResolvedLinkValues(
+    target: ResolvedLinkValueLookupMap,
+    source: ResolvedLinkValueLookupMap
+  ): void {
+    for (const [fieldId, valueMap] of source.entries()) {
+      const existing = target.get(fieldId);
+      if (existing) {
+        valueMap.forEach((value, title) => existing.set(title, value));
+      } else {
+        target.set(fieldId, new Map(valueMap));
+      }
+    }
+  }
+
+  private hydrateLinkValue(
+    value: unknown,
+    linkTitleMap: Map<string, string> | undefined,
+    resolvedLinkValueMap?: ResolvedLinkValueMap
+  ): unknown {
     if (value == null) {
       return value;
     }
 
     const hydrateItem = (item: unknown): unknown => {
       if (typeof item === 'string') {
-        if (!item.startsWith('rec')) return item;
-        const title = linkTitleMap.get(item);
-        return title ? { id: item, title } : { id: item };
+        const normalized = item.trim();
+        if (!normalized) {
+          return item;
+        }
+        const resolvedLink = resolvedLinkValueMap?.get(normalized);
+        if (resolvedLink) {
+          return resolvedLink.title
+            ? { id: resolvedLink.id, title: resolvedLink.title }
+            : { id: resolvedLink.id };
+        }
+        if (!normalized.startsWith('rec')) return item;
+        const title = linkTitleMap?.get(normalized);
+        return title ? { id: normalized, title } : { id: normalized };
       }
 
       if (typeof item === 'object' && item !== null && 'id' in item) {
@@ -1367,16 +1542,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const title =
           typeof existingTitle === 'string'
             ? existingTitle
-            : linkTitleMap.get(recordId) ?? undefined;
+            : linkTitleMap?.get(recordId) ?? undefined;
         return title ? { ...(item as Record<string, unknown>), id: recordId, title } : item;
       }
 
       return item;
     };
-
-    if (Array.isArray(value)) {
-      return value.map((item) => hydrateItem(item));
-    }
 
     if (typeof value === 'string') {
       const tokens = value
@@ -1386,13 +1557,25 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (tokens.length === 0) {
         return value;
       }
-      if (!tokens.every((token) => token.startsWith('rec'))) {
+      const hydratedTokens = tokens.map((token) => hydrateItem(token));
+      const allResolved = hydratedTokens.every(
+        (item) => typeof item === 'object' && item !== null && 'id' in item
+      );
+      if (!allResolved) {
         return value;
       }
       if (tokens.length === 1) {
-        return hydrateItem(tokens[0]);
+        return hydratedTokens[0];
       }
-      return tokens.map((token) => hydrateItem(token));
+      return hydratedTokens;
+    }
+
+    if (Array.isArray(value)) {
+      const hydratedItems = value.map((item) => hydrateItem(item));
+      const allResolved = hydratedItems.every(
+        (item) => typeof item === 'object' && item !== null && 'id' in item
+      );
+      return allResolved ? hydratedItems : value;
     }
 
     return hydrateItem(value);

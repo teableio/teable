@@ -1,4 +1,3 @@
-import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
@@ -8,8 +7,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { ViewService } from '../view/view.service';
 import { V2_FIELD_DELETE_COMPAT_CONTEXT_KEY } from './v2-field-delete-compat.constants';
 import type { IV2FieldDeleteCompatContext } from './v2-field-delete-compat.constants';
-import { V2ContainerService } from './v2-container.service';
-import type { IV2ProjectionRegistrar } from './v2-projection-registrar';
+import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const getFieldDeleteCompatContext = (
   context: IExecutionContext,
@@ -84,19 +82,15 @@ class V2FieldDeletedCompatProjection implements IEventHandler<FieldDeleted> {
   }
 }
 
+@V2ProjectionRegistrar()
 @Injectable()
-export class V2FieldDeleteCompatService implements IV2ProjectionRegistrar, OnModuleInit {
+export class V2FieldDeleteCompatService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2FieldDeleteCompatService.name);
 
   constructor(
-    private readonly v2ContainerService: V2ContainerService,
     private readonly prisma: PrismaService,
     private readonly viewService: ViewService
   ) {}
-
-  onModuleInit(): void {
-    this.v2ContainerService.addProjectionRegistrar(this);
-  }
 
   registerProjections(container: DependencyContainer): void {
     this.logger.debug('Registering V2 field delete compatibility projections');

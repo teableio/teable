@@ -4,21 +4,31 @@ import { NoopCellValueSpec } from '../../records/specs/values/NoopCellValueSpec'
 import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
+import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
 import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
+import { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpec';
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
 import { SetUserValueSpec } from '../../records/specs/values/SetUserValueSpec';
+import { SetAttachmentValueSpec } from '../../records/specs/values/SetAttachmentValueSpec';
+import { AttachmentField } from '../types/AttachmentField';
+import { AutoNumberField } from '../types/AutoNumberField';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { ButtonField } from '../types/ButtonField';
 import { CheckboxField } from '../types/CheckboxField';
+import { CreatedByField } from '../types/CreatedByField';
+import { CreatedTimeField } from '../types/CreatedTimeField';
 import { DateField } from '../types/DateField';
 import { FormulaExpression } from '../types/FormulaExpression';
 import { FormulaField } from '../types/FormulaField';
+import { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
+import { LongTextField } from '../types/LongTextField';
 import { MultipleSelectField } from '../types/MultipleSelectField';
 import { NumberField } from '../types/NumberField';
+import { RatingField } from '../types/RatingField';
 import { SelectOption } from '../types/SelectOption';
 import { SingleLineTextField } from '../types/SingleLineTextField';
 import { SingleSelectField } from '../types/SingleSelectField';
@@ -309,6 +319,32 @@ describe('FieldToSpecVisitor', () => {
     });
   });
 
+  describe('visitLongTextField', () => {
+    const field = LongTextField.create({
+      id: createFieldId('fa'),
+      name: createFieldName('Description'),
+    })._unsafeUnwrap();
+
+    it('converts object values to string', () => {
+      const visitor = FieldToSpecVisitor.create({ foo: 'bar' }, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(
+        (
+          result._unsafeUnwrap() as
+            | SetSingleLineTextValueSpec
+            | { value: { toValue: () => unknown } }
+        ).value.toValue()
+      ).toBe('[object Object]');
+    });
+
+    it('accepts null value', () => {
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
   describe('visitNumberField', () => {
     const field = NumberField.create({
       id: createFieldId('g'),
@@ -350,6 +386,33 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create('abc', true);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('visitRatingField', () => {
+    const field = RatingField.create({
+      id: createFieldId('gb'),
+      name: createFieldName('Score'),
+    })._unsafeUnwrap();
+
+    it('rejects out-of-range values in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(9, false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('clamps out-of-range values in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create(9, true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetRatingValueSpec).value.toValue()).toBe(5);
+    });
+
+    it('truncates parsed string values in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('3.6', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetRatingValueSpec).value.toValue()).toBe(3);
     });
   });
 
@@ -529,6 +592,113 @@ describe('FieldToSpecVisitor', () => {
       const visitor = FieldToSpecVisitor.create(['Title1', 'Title2'], false);
       const result = field.accept(visitor);
       expect(result.isErr()).toBe(true);
+    });
+
+    it('converts record id strings to link items', () => {
+      const configResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      });
+      const field = LinkField.create({
+        id: createFieldId('n'),
+        name: createFieldName('Related'),
+        config: configResult._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create('rec' + 'b'.repeat(16), false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueSpec);
+    });
+
+    it('creates title-based link specs in typecast mode', () => {
+      const configResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      });
+      const field = LinkField.create({
+        id: createFieldId('o'),
+        name: createFieldName('Related'),
+        config: configResult._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create(['Title1', 'Title2'], true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueByTitleSpec);
+    });
+  });
+
+  describe('visitAttachmentField', () => {
+    const field = AttachmentField.create({
+      id: createFieldId('p'),
+      name: createFieldName('Files'),
+    })._unsafeUnwrap();
+
+    it('accepts attachment objects with id and name', () => {
+      const visitor = FieldToSpecVisitor.create([{ id: 'act123', name: 'demo.png' }], false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetAttachmentValueSpec);
+    });
+
+    it('parses attachment ids from comma-separated strings in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('act1, act2, bad', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetAttachmentValueSpec).value.toValue()).toEqual([
+        { id: 'act1' },
+        { id: 'act2' },
+      ]);
+    });
+
+    it('rejects invalid attachment objects in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create([{ id: 'act123' }], false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
+    });
+  });
+
+  describe('system fields are readonly', () => {
+    it('rejects created time field', () => {
+      const field = CreatedTimeField.create({
+        id: createFieldId('q'),
+        name: createFieldName('Created Time'),
+      })._unsafeUnwrap();
+
+      const result = field.accept(FieldToSpecVisitor.create('2024-01-01T00:00:00.000Z', false));
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('system field');
+    });
+
+    it('rejects last modified time field', () => {
+      const field = LastModifiedTimeField.create({
+        id: createFieldId('r'),
+        name: createFieldName('Updated Time'),
+      })._unsafeUnwrap();
+
+      const result = field.accept(FieldToSpecVisitor.create('2024-01-01T00:00:00.000Z', false));
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('rejects created by field and auto number field', () => {
+      const createdByField = CreatedByField.create({
+        id: createFieldId('s'),
+        name: createFieldName('Created By'),
+      })._unsafeUnwrap();
+      const autoNumberField = AutoNumberField.create({
+        id: createFieldId('t'),
+        name: createFieldName('No.'),
+      })._unsafeUnwrap();
+
+      expect(createdByField.accept(FieldToSpecVisitor.create({ id: 'usr1' }, false)).isErr()).toBe(
+        true
+      );
+      expect(autoNumberField.accept(FieldToSpecVisitor.create(1, false)).isErr()).toBe(true);
     });
   });
 });

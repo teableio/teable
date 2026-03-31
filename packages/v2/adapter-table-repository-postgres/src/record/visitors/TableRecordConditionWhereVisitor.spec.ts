@@ -4,12 +4,16 @@ import {
   CheckboxConditionSpec,
   DateTimeFormatting,
   DbFieldName,
+  type Field,
   FieldId,
   FieldName,
   IncomingLinkCandidateSpec,
   IncomingLinkSelectedSpec,
   LinkFieldConfig,
+  RecordByIdSpec,
+  RecordByIdsSpec,
   RecordId,
+  RecordConditionDateValue,
   RecordConditionFieldReferenceValue,
   LongTextConditionSpec,
   NumberConditionSpec,
@@ -78,6 +82,11 @@ const UTC_DATE_ONLY = DateTimeFormatting.create({
   time: 'None',
   timeZone: 'utc',
 })._unsafeUnwrap();
+const UTC_DATE_TIME = DateTimeFormatting.create({
+  date: 'YYYY-MM-DD',
+  time: 'HH:mm',
+  timeZone: 'utc',
+})._unsafeUnwrap();
 const SHANGHAI_DATE_ONLY = DateTimeFormatting.create({
   date: 'YYYY-MM-DD',
   time: 'None',
@@ -87,6 +96,26 @@ const SHANGHAI_DATE_ONLY = DateTimeFormatting.create({
 const createTestTable = () => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
   const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const singleLinkFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+  const multipleLinkFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+  const lookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+  const singleLinkConfig = LinkFieldConfig.create({
+    relationship: 'manyOne',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    fkHostTableName: 'public.link_single',
+    selfKeyName: '__self_id',
+    foreignKeyName: '__foreign_id',
+  })._unsafeUnwrap();
+  const multipleLinkConfig = LinkFieldConfig.create({
+    relationship: 'manyMany',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    fkHostTableName: 'public.link_multiple',
+    selfKeyName: '__self_id',
+    foreignKeyName: '__foreign_id',
+  })._unsafeUnwrap();
 
   const builder = Table.builder()
     .withId(tableId)
@@ -116,6 +145,35 @@ const createTestTable = () => {
     .withName(FieldName.create('Created At')._unsafeUnwrap())
     .withFormatting(SHANGHAI_DATE_ONLY)
     .done();
+  builder
+    .field()
+    .date()
+    .withName(FieldName.create('Due At')._unsafeUnwrap())
+    .withFormatting(UTC_DATE_TIME)
+    .done();
+  builder.field().multipleSelect().withName(FieldName.create('Labels')._unsafeUnwrap()).done();
+  builder.field().attachment().withName(FieldName.create('Files')._unsafeUnwrap()).done();
+  builder.field().user().withName(FieldName.create('Owner')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .user()
+    .withName(FieldName.create('Watchers')._unsafeUnwrap())
+    .withMultiplicity(UserMultiplicity.multiple())
+    .done();
+  builder
+    .field()
+    .link()
+    .withId(singleLinkFieldId)
+    .withName(FieldName.create('Tag')._unsafeUnwrap())
+    .withConfig(singleLinkConfig)
+    .done();
+  builder
+    .field()
+    .link()
+    .withId(multipleLinkFieldId)
+    .withName(FieldName.create('Tags')._unsafeUnwrap())
+    .withConfig(multipleLinkConfig)
+    .done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
@@ -132,6 +190,13 @@ const createTestTable = () => {
   fields[7]
     .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
     ._unsafeUnwrap();
+  fields[8].setDbFieldName(DbFieldName.rehydrate('col_due_at')._unsafeUnwrap())._unsafeUnwrap();
+  fields[9].setDbFieldName(DbFieldName.rehydrate('col_labels')._unsafeUnwrap())._unsafeUnwrap();
+  fields[10].setDbFieldName(DbFieldName.rehydrate('col_files')._unsafeUnwrap())._unsafeUnwrap();
+  fields[11].setDbFieldName(DbFieldName.rehydrate('col_owner')._unsafeUnwrap())._unsafeUnwrap();
+  fields[12].setDbFieldName(DbFieldName.rehydrate('col_watchers')._unsafeUnwrap())._unsafeUnwrap();
+  fields[13].setDbFieldName(DbFieldName.rehydrate('col_tag')._unsafeUnwrap())._unsafeUnwrap();
+  fields[14].setDbFieldName(DbFieldName.rehydrate('col_tags')._unsafeUnwrap())._unsafeUnwrap();
 
   return {
     table,
@@ -143,6 +208,13 @@ const createTestTable = () => {
     dueDateField: fields[5],
     cutoffDateField: fields[6],
     createdTimeField: fields[7],
+    dueAtField: fields[8],
+    labelsField: fields[9],
+    filesField: fields[10],
+    ownerField: fields[11],
+    watchersField: fields[12],
+    tagField: fields[13],
+    tagsField: fields[14],
   };
 };
 
@@ -156,6 +228,29 @@ const buildWhereFor = (
 ) => {
   const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't', ...options });
   const acceptResult = spec.accept(visitor);
+  expect(acceptResult.isErr()).toBe(false);
+  const whereResult = visitor.where();
+  expect(whereResult.isOk()).toBe(true);
+  if (whereResult.isErr()) throw new Error('where() failed');
+  return compileWhere(db, whereResult.value);
+};
+
+const buildWhereForDirectMethod = (
+  db: ReturnType<typeof createTestDb>,
+  method: string,
+  field: Field,
+  value?: unknown,
+  options?: { tableAlias?: string; hostTableAlias?: string }
+) => {
+  const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't', ...options });
+  const visit = (visitor as unknown as Record<string, (spec: unknown) => { isErr: () => boolean }>)[
+    method
+  ];
+  expect(typeof visit).toBe('function');
+  const acceptResult = visit.call(visitor, {
+    field: () => field,
+    value: () => value,
+  });
   expect(acceptResult.isErr()).toBe(false);
   const whereResult = visitor.where();
   expect(whereResult.isOk()).toBe(true);
@@ -252,6 +347,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
     dueDateField,
     cutoffDateField,
     createdTimeField,
+    dueAtField,
   } = createTestTable();
 
   // ---- isNot ----
@@ -486,6 +582,21 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('("t"."col_created_time" AT TIME ZONE $2)::date');
       expect(parameters).toEqual(['utc', 'Asia/Shanghai']);
     });
+
+    test('datetime exactDate preserves the exact timestamp when the field includes time', () => {
+      const value = RecordConditionDateValue.create({
+        mode: 'exactDate',
+        exactDate: '2025-12-15T11:00:00.000Z',
+        timeZone: 'utc',
+      })._unsafeUnwrap();
+      const spec = dueAtField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('"t"."col_due_at" between $1 and $2');
+      expect(parameters).toEqual(['2025-12-15T11:00:00.000Z', '2025-12-15T11:00:00.000Z']);
+    });
   });
 
   describe('incoming link selection specs', () => {
@@ -646,6 +757,410 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("t"."col_assignees")');
       expect(parameters).toEqual([]);
+    });
+  });
+
+  describe('delegated visitor methods', () => {
+    const {
+      nameField,
+      notesField,
+      scoreField,
+      dueDateField,
+      labelsField,
+      filesField,
+      watchersField,
+      tagField,
+      tagsField,
+    } = createTestTable();
+    const textListValue = RecordConditionLiteralListValue.create(['alpha', 'beta'])._unsafeUnwrap();
+    const idListValue = RecordConditionLiteralListValue.create([
+      `rec${'x'.repeat(16)}`,
+      `rec${'y'.repeat(16)}`,
+    ])._unsafeUnwrap();
+    const textValue = RecordConditionLiteralValue.create('alpha')._unsafeUnwrap();
+    const numericValue = RecordConditionLiteralValue.create(10)._unsafeUnwrap();
+    const dateValue = RecordConditionDateValue.create({
+      mode: 'exactDate',
+      exactDate: '2025-12-15T00:00:00.000Z',
+      timeZone: 'utc',
+    })._unsafeUnwrap();
+
+    test.each([
+      {
+        name: 'multiple select hasAllOf uses array containment',
+        method: 'visitMultipleSelectHasAllOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('to_jsonb("t"."col_labels")');
+          expect(sql).toContain('?& array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'multiple select isNotExactly keeps NULL rows selectable',
+        method: 'visitMultipleSelectIsNotExactly',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string) => {
+          expect(sql).toContain(`to_jsonb(coalesce("t"."col_labels", '[]'::jsonb))`);
+          expect(sql).toContain('not ((');
+        },
+      },
+      {
+        name: 'attachment isEmpty checks null or empty json array',
+        method: 'visitAttachmentIsEmpty',
+        field: filesField,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('"t"."col_files" is null');
+          expect(sql).toContain('jsonb_array_length(to_jsonb("t"."col_files")) = 0');
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'attachment isNotEmpty checks non-empty json array',
+        method: 'visitAttachmentIsNotEmpty',
+        field: filesField,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('"t"."col_files" is not null');
+          expect(sql).toContain('jsonb_array_length(to_jsonb("t"."col_files")) > 0');
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'user hasAllOf uses jsonb_exists_all',
+        method: 'visitUserHasAllOf',
+        field: watchersField,
+        value: idListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('jsonb_exists_all');
+          expect(parameters).toEqual([`rec${'x'.repeat(16)}`, `rec${'y'.repeat(16)}`]);
+        },
+      },
+      {
+        name: 'user isNotExactly includes NULL rows in anti-match',
+        method: 'visitUserIsNotExactly',
+        field: watchersField,
+        value: idListValue,
+        assert: (sql: string) => {
+          expect(sql).toContain('OR "t"."col_watchers" IS NULL');
+        },
+      },
+      {
+        name: 'link contains matches title on single-link json payload',
+        method: 'visitLinkContains',
+        field: tagField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'link doesNotContain negates title match on single-link payload',
+        method: 'visitLinkDoesNotContain',
+        field: tagField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('NOT jsonb_path_exists');
+          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'link isExactly compares multi-link ids as sets',
+        method: 'visitLinkIsExactly',
+        field: tagsField,
+        value: idListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('@> to_jsonb(ARRAY[$1, $2])');
+          expect(sql).toContain('to_jsonb(ARRAY[$3, $4]) @>');
+          expect(parameters).toEqual([
+            `rec${'x'.repeat(16)}`,
+            `rec${'y'.repeat(16)}`,
+            `rec${'x'.repeat(16)}`,
+            `rec${'y'.repeat(16)}`,
+          ]);
+        },
+      },
+      {
+        name: 'formula doesNotContain reuses string negative match builder',
+        method: 'visitFormulaDoesNotContain',
+        field: nameField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(`coalesce("t"."col_name", '') not ilike $1 escape '\\'`);
+          expect(parameters).toEqual(['%alpha%']);
+        },
+      },
+      {
+        name: 'formula isGreaterEqual reuses numeric comparison builder',
+        method: 'visitFormulaIsGreaterEqual',
+        field: scoreField,
+        value: numericValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe('"t"."col_score" >= $1');
+          expect(parameters).toEqual([10]);
+        },
+      },
+      {
+        name: 'formula isWithIn reuses date-range builder',
+        method: 'visitFormulaIsWithIn',
+        field: dueDateField,
+        value: dateValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe('"t"."col_due_date" between $1 and $2');
+          expect(parameters).toEqual(['2025-12-15T00:00:00.000Z', '2025-12-15T23:59:59.999Z']);
+        },
+      },
+      {
+        name: 'rollup doesNotContain reuses string negative match builder',
+        method: 'visitRollupDoesNotContain',
+        field: notesField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(`coalesce("t"."col_notes", '') not ilike $1 escape '\\'`);
+          expect(parameters).toEqual(['%alpha%']);
+        },
+      },
+      {
+        name: 'rollup hasAllOf reuses list-all builder',
+        method: 'visitRollupHasAllOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('to_jsonb("t"."col_labels")');
+          expect(sql).toContain('?& array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'rollup isOnOrAfter reuses date comparison builder',
+        method: 'visitRollupIsOnOrAfter',
+        field: dueDateField,
+        value: dateValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe('"t"."col_due_date" >= $1');
+          expect(parameters).toEqual(['2025-12-15T00:00:00.000Z']);
+        },
+      },
+      {
+        name: 'conditional rollup doesNotContain reuses string negative match builder',
+        method: 'visitConditionalRollupDoesNotContain',
+        field: notesField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(`coalesce("t"."col_notes", '') not ilike $1 escape '\\'`);
+          expect(parameters).toEqual(['%alpha%']);
+        },
+      },
+      {
+        name: 'conditional rollup hasAllOf reuses list-all builder',
+        method: 'visitConditionalRollupHasAllOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('to_jsonb("t"."col_labels")');
+          expect(sql).toContain('?& array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional rollup isOnOrAfter reuses date comparison builder',
+        method: 'visitConditionalRollupIsOnOrAfter',
+        field: dueDateField,
+        value: dateValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe('"t"."col_due_date" >= $1');
+          expect(parameters).toEqual(['2025-12-15T00:00:00.000Z']);
+        },
+      },
+      {
+        name: 'conditional lookup is reuses equality builder',
+        method: 'visitConditionalLookupIs',
+        field: nameField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe('"t"."col_name" = $1');
+          expect(parameters).toEqual(['alpha']);
+        },
+      },
+      {
+        name: 'conditional lookup contains reuses string contains builder',
+        method: 'visitConditionalLookupContains',
+        field: nameField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe(`"t"."col_name" ilike $1 escape '\\'`);
+          expect(parameters).toEqual(['%alpha%']);
+        },
+      },
+      {
+        name: 'conditional lookup isNot reuses inequality builder',
+        method: 'visitConditionalLookupIsNot',
+        field: nameField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe(`"t"."col_name" is distinct from $1`);
+          expect(parameters).toEqual(['alpha']);
+        },
+      },
+      {
+        name: 'conditional lookup doesNotContain reuses string negative match builder',
+        method: 'visitConditionalLookupDoesNotContain',
+        field: nameField,
+        value: textValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(`coalesce("t"."col_name", '') not ilike $1 escape '\\'`);
+          expect(parameters).toEqual(['%alpha%']);
+        },
+      },
+      {
+        name: 'conditional lookup isEmpty reuses string empty builder',
+        method: 'visitConditionalLookupIsEmpty',
+        field: nameField,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe(`("t"."col_name" is null) or ("t"."col_name" = '')`);
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'conditional lookup isNotEmpty reuses string non-empty builder',
+        method: 'visitConditionalLookupIsNotEmpty',
+        field: nameField,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toBe(`("t"."col_name" is not null) and ("t"."col_name" != '')`);
+          expect(parameters).toEqual([]);
+        },
+      },
+      {
+        name: 'conditional lookup isAnyOf reuses list-any builder',
+        method: 'visitConditionalLookupIsAnyOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('?| array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional lookup isNoneOf reuses list-none builder',
+        method: 'visitConditionalLookupIsNoneOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(
+            `not (to_jsonb(coalesce("t"."col_labels", '[]'::jsonb)) ?| array[$1, $2])`
+          );
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional lookup hasAnyOf reuses list-any builder',
+        method: 'visitConditionalLookupHasAnyOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('?| array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional lookup hasAllOf reuses list-all builder',
+        method: 'visitConditionalLookupHasAllOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('to_jsonb("t"."col_labels")');
+          expect(sql).toContain('?& array[$1, $2]');
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional lookup hasNoneOf reuses list-none builder',
+        method: 'visitConditionalLookupHasNoneOf',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain(
+            `not (to_jsonb(coalesce("t"."col_labels", '[]'::jsonb)) ?| array[$1, $2])`
+          );
+          expect(parameters).toEqual(['alpha', 'beta']);
+        },
+      },
+      {
+        name: 'conditional lookup isNotExactly keeps NULL rows selectable',
+        method: 'visitConditionalLookupIsNotExactly',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string) => {
+          expect(sql).toContain(`to_jsonb(coalesce("t"."col_labels", '[]'::jsonb))`);
+          expect(sql).toContain('not ((');
+        },
+      },
+      {
+        name: 'conditional lookup isExactly reuses list-exact builder',
+        method: 'visitConditionalLookupIsExactly',
+        field: labelsField,
+        value: textListValue,
+        assert: (sql: string, parameters: unknown[]) => {
+          expect(sql).toContain('@> to_jsonb(array[$1, $2])');
+          expect(sql).toContain('<@ to_jsonb(array[$3, $4])');
+          expect(parameters).toEqual(['alpha', 'beta', 'alpha', 'beta']);
+        },
+      },
+    ])('$name', ({ method, field, value, assert }) => {
+      const { sql, parameters } = buildWhereForDirectMethod(db, method, field, value);
+      assert(sql, parameters);
+    });
+  });
+
+  describe('record id and logical helpers', () => {
+    test('visitRecordById filters by current table id', () => {
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't' });
+      const recordId = RecordId.create(`rec${'1'.repeat(16)}`)._unsafeUnwrap();
+      const result = RecordByIdSpec.create(recordId).accept(visitor);
+
+      expect(result.isErr()).toBe(false);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toBe('"t"."__id" = $1');
+      expect(parameters).toEqual([recordId.toString()]);
+    });
+
+    test('visitRecordByIds handles empty list as impossible predicate', () => {
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't' });
+      const spec = RecordByIdsSpec.create([]);
+      const result = spec.accept(visitor);
+
+      expect(result.isErr()).toBe(false);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toBe('1 = 0');
+      expect(parameters).toEqual([]);
+    });
+
+    test('clone keeps aliases and logical combinators compile correctly', () => {
+      const baseVisitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const cloned = baseVisitor.clone();
+      const combined = cloned.or(
+        cloned.and(sql`"f"."col_name" = ${'alpha'}`, sql`"f"."col_score" > ${10}`),
+        cloned.not(sql`"f"."col_done" = ${true}`)
+      );
+
+      const { sql: whereSql, parameters } = compileWhere(db, combined);
+      expect(whereSql).toContain('(("f"."col_name" = $1) and ("f"."col_score" > $2))');
+      expect(whereSql).toContain('or (not ("f"."col_done" = $3))');
+      expect(parameters).toEqual(['alpha', 10, true]);
     });
   });
 });

@@ -14,9 +14,9 @@ import {
   LookupField,
   NumberFormatting,
   v2CoreTokens,
+  CreateFieldsCommand,
   type ICommandBus,
   type Table,
-  CreateFieldCommand,
   CreateRecordsCommand,
   type CreateRecordsResult,
   CreateTableCommand,
@@ -73,13 +73,15 @@ export type FormulaTestTable = {
   db: Kysely<DynamicDb>;
   formulaDefinitions: Map<string, FormulaFieldDefinition>;
   formulaFields: Map<string, Field>;
-  fieldsByType: Record<FieldTypeLiteral, Field>;
+  fieldsByType: Partial<Record<FieldTypeLiteral, Field>>;
   tableAlias: string;
   fieldSnapshotCache: Map<string, Promise<FieldSnapshotValue>>;
 };
 
 type CreateFormulaTestTableOptions = {
   formulaTimeZone?: string;
+  profile?: 'full' | 'minimal';
+  fieldTypes?: ReadonlyArray<FieldTypeLiteral>;
 };
 
 const TABLE_ALIAS = 't';
@@ -135,6 +137,38 @@ const FIELD_TYPE_NAMES: Record<FieldTypeLiteral, string> = {
   autoNumber: 'AutoNumber',
   button: 'Button',
   link: 'LinkType',
+};
+
+const minimalFieldTypes = [
+  'singleLineText',
+  'number',
+] as const satisfies ReadonlyArray<FieldTypeLiteral>;
+const relationFieldTypes = new Set<FieldTypeLiteral>([
+  'link',
+  'lookup',
+  'conditionalLookup',
+  'rollup',
+  'conditionalRollup',
+]);
+
+const resolveIncludedFieldTypes = (
+  options?: CreateFormulaTestTableOptions
+): ReadonlyArray<FieldTypeLiteral> => {
+  if (options?.profile !== 'minimal') {
+    return fieldTypeValues;
+  }
+
+  const included = new Set<FieldTypeLiteral>(options.fieldTypes ?? minimalFieldTypes);
+  if (
+    included.has('lookup') ||
+    included.has('conditionalLookup') ||
+    included.has('rollup') ||
+    included.has('conditionalRollup')
+  ) {
+    included.add('link');
+  }
+  included.add('formula');
+  return fieldTypeValues.filter((type) => included.has(type));
 };
 
 const fieldTypeSamples = (): Record<FieldTypeLiteral, FieldTypeCase> => ({
@@ -254,6 +288,14 @@ const resolveDbTableName = (table: Table): string =>
 
 const buildUniqueName = (prefix: string): string =>
   `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
+
+const chunkItems = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
 
 const unwrapOrThrow = <T>(result: Result<T, DomainError>, label: string): T => {
   if (result.isErr()) {
@@ -414,19 +456,28 @@ const createForeignTable = async (
 
 const createHostTable = async (params: {
   container: IV2NodeTestContainer;
-  foreignTable: Table;
-  foreignPrimary: Field;
-  foreignNumber: Field;
-  foreignDate: Field;
+  foreignTable?: Table;
+  foreignPrimary?: Field;
+  foreignNumber?: Field;
+  foreignDate?: Field;
   formulaFields: ReadonlyArray<FormulaFieldDefinition>;
+  includedFieldTypes: ReadonlyArray<FieldTypeLiteral>;
 }): Promise<{
   table: Table;
-  fieldsByType: Record<FieldTypeLiteral, Field>;
+  fieldsByType: Partial<Record<FieldTypeLiteral, Field>>;
   formulaFields: Map<string, Field>;
   formulaFieldDefinitions: ReadonlyArray<FormulaFieldDefinition>;
 }> => {
-  const { container, foreignTable, foreignPrimary, foreignNumber, foreignDate } = params;
+  const {
+    container,
+    foreignTable,
+    foreignPrimary,
+    foreignNumber,
+    foreignDate,
+    includedFieldTypes,
+  } = params;
   const baseId = container.baseId.toString();
+  const includedFieldTypeSet = new Set(includedFieldTypes);
 
   const formulaFieldDefinitions = [...params.formulaFields];
   if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
@@ -469,15 +520,24 @@ const createHostTable = async (params: {
   );
 
   const fieldNameToId = new Map<string, string>();
-  fieldTypeValues.forEach((type) => {
+  includedFieldTypes.forEach((type) => {
+    if (type === 'formula') return;
     fieldNameToId.set(FIELD_TYPE_NAMES[type], fieldIds[type]);
   });
   formulaFieldIds.forEach((id, name) => fieldNameToId.set(name, id));
 
-  const lookupNumberId = generateFieldId('lookup-number');
-  const lookupDateId = generateFieldId('lookup-date');
-  fieldNameToId.set('LookupNumber', lookupNumberId);
-  fieldNameToId.set('LookupDate', lookupDateId);
+  const lookupNumberId = includedFieldTypeSet.has('lookup')
+    ? generateFieldId('lookup-number')
+    : undefined;
+  const lookupDateId = includedFieldTypeSet.has('lookup')
+    ? generateFieldId('lookup-date')
+    : undefined;
+  if (lookupNumberId) {
+    fieldNameToId.set('LookupNumber', lookupNumberId);
+  }
+  if (lookupDateId) {
+    fieldNameToId.set('LookupDate', lookupDateId);
+  }
 
   const resolvedFormulaFieldDefinitions = formulaFieldDefinitions.map((definition) => ({
     ...definition,
@@ -493,115 +553,106 @@ const createHostTable = async (params: {
     ),
   ];
 
-  const fields = [
-    {
-      type: 'singleLineText',
-      id: fieldIds.singleLineText,
-      name: FIELD_TYPE_NAMES.singleLineText,
-      isPrimary: true,
-    },
-    {
-      type: 'longText',
-      id: fieldIds.longText,
-      name: FIELD_TYPE_NAMES.longText,
-    },
-    {
-      type: 'number',
-      id: fieldIds.number,
-      name: FIELD_TYPE_NAMES.number,
-      options: {
-        formatting: { type: 'decimal', precision: 2 },
-      },
-    },
-    {
-      type: 'rating',
-      id: fieldIds.rating,
-      name: FIELD_TYPE_NAMES.rating,
-    },
-    {
-      type: 'singleSelect',
-      id: fieldIds.singleSelect,
-      name: FIELD_TYPE_NAMES.singleSelect,
-      options: ['10', '20'],
-    },
-    {
-      type: 'multipleSelect',
-      id: fieldIds.multipleSelect,
-      name: FIELD_TYPE_NAMES.multipleSelect,
-      options: ['10', '20'],
-    },
-    {
-      type: 'checkbox',
-      id: fieldIds.checkbox,
-      name: FIELD_TYPE_NAMES.checkbox,
-    },
-    {
-      type: 'attachment',
-      id: fieldIds.attachment,
-      name: FIELD_TYPE_NAMES.attachment,
-    },
-    {
-      type: 'date',
-      id: fieldIds.date,
-      name: FIELD_TYPE_NAMES.date,
-      options: {
-        formatting: DEFAULT_DATE_FORMATTING,
-      },
-    },
-    {
-      type: 'createdTime',
-      id: fieldIds.createdTime,
-      name: FIELD_TYPE_NAMES.createdTime,
-      options: {
-        formatting: DEFAULT_DATE_FORMATTING,
-      },
-    },
-    {
-      type: 'lastModifiedTime',
-      id: fieldIds.lastModifiedTime,
-      name: FIELD_TYPE_NAMES.lastModifiedTime,
-      options: {
-        formatting: DEFAULT_DATE_FORMATTING,
-      },
-    },
-    {
-      type: 'user',
-      id: fieldIds.user,
-      name: FIELD_TYPE_NAMES.user,
-      options: { isMultiple: true },
-    },
-    {
-      type: 'createdBy',
-      id: fieldIds.createdBy,
-      name: FIELD_TYPE_NAMES.createdBy,
-    },
-    {
-      type: 'lastModifiedBy',
-      id: fieldIds.lastModifiedBy,
-      name: FIELD_TYPE_NAMES.lastModifiedBy,
-    },
-    {
-      type: 'autoNumber',
-      id: fieldIds.autoNumber,
-      name: FIELD_TYPE_NAMES.autoNumber,
-    },
-    {
-      type: 'button',
-      id: fieldIds.button,
-      name: FIELD_TYPE_NAMES.button,
-    },
-    {
-      type: 'link',
-      id: linkFieldId,
-      name: FIELD_TYPE_NAMES.link,
-      options: {
-        relationship: 'manyOne',
-        foreignTableId: foreignTable.id().toString(),
-        lookupFieldId: foreignPrimary.id().toString(),
-        isOneWay: true,
-      },
-    },
-  ];
+  const fields = includedFieldTypes
+    .filter(
+      (type) =>
+        type !== 'formula' &&
+        type !== 'lookup' &&
+        type !== 'conditionalLookup' &&
+        type !== 'rollup' &&
+        type !== 'conditionalRollup'
+    )
+    .map((type) => {
+      switch (type) {
+        case 'singleLineText':
+          return {
+            type,
+            id: fieldIds.singleLineText,
+            name: FIELD_TYPE_NAMES.singleLineText,
+            isPrimary: true,
+          };
+        case 'longText':
+          return { type, id: fieldIds.longText, name: FIELD_TYPE_NAMES.longText };
+        case 'number':
+          return {
+            type,
+            id: fieldIds.number,
+            name: FIELD_TYPE_NAMES.number,
+            options: { formatting: { type: 'decimal', precision: 2 } },
+          };
+        case 'rating':
+          return { type, id: fieldIds.rating, name: FIELD_TYPE_NAMES.rating };
+        case 'singleSelect':
+          return {
+            type,
+            id: fieldIds.singleSelect,
+            name: FIELD_TYPE_NAMES.singleSelect,
+            options: ['10', '20'],
+          };
+        case 'multipleSelect':
+          return {
+            type,
+            id: fieldIds.multipleSelect,
+            name: FIELD_TYPE_NAMES.multipleSelect,
+            options: ['10', '20'],
+          };
+        case 'checkbox':
+          return { type, id: fieldIds.checkbox, name: FIELD_TYPE_NAMES.checkbox };
+        case 'attachment':
+          return { type, id: fieldIds.attachment, name: FIELD_TYPE_NAMES.attachment };
+        case 'date':
+          return {
+            type,
+            id: fieldIds.date,
+            name: FIELD_TYPE_NAMES.date,
+            options: { formatting: DEFAULT_DATE_FORMATTING },
+          };
+        case 'createdTime':
+          return {
+            type,
+            id: fieldIds.createdTime,
+            name: FIELD_TYPE_NAMES.createdTime,
+            options: { formatting: DEFAULT_DATE_FORMATTING },
+          };
+        case 'lastModifiedTime':
+          return {
+            type,
+            id: fieldIds.lastModifiedTime,
+            name: FIELD_TYPE_NAMES.lastModifiedTime,
+            options: { formatting: DEFAULT_DATE_FORMATTING },
+          };
+        case 'user':
+          return {
+            type,
+            id: fieldIds.user,
+            name: FIELD_TYPE_NAMES.user,
+            options: { isMultiple: true },
+          };
+        case 'createdBy':
+          return { type, id: fieldIds.createdBy, name: FIELD_TYPE_NAMES.createdBy };
+        case 'lastModifiedBy':
+          return { type, id: fieldIds.lastModifiedBy, name: FIELD_TYPE_NAMES.lastModifiedBy };
+        case 'autoNumber':
+          return { type, id: fieldIds.autoNumber, name: FIELD_TYPE_NAMES.autoNumber };
+        case 'button':
+          return { type, id: fieldIds.button, name: FIELD_TYPE_NAMES.button };
+        case 'link':
+          if (!foreignTable || !foreignPrimary) {
+            throw new Error('Link field requires a foreign table');
+          }
+          return {
+            type,
+            id: linkFieldId,
+            name: FIELD_TYPE_NAMES.link,
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id().toString(),
+              lookupFieldId: foreignPrimary.id().toString(),
+              isOneWay: true,
+            },
+          };
+      }
+    });
 
   const command = unwrapOrThrow(
     CreateTableCommand.create({
@@ -615,144 +666,162 @@ const createHostTable = async (params: {
   const result = await executeCommand<{ table: Table }>(container, command);
   let table = result.table;
 
-  // Create multiple lookup fields with different innerField types
-  // This allows testing optimization for different innerField types
-  const lookupFields = [
-    {
-      id: fieldIds.lookup,
-      name: FIELD_TYPE_NAMES.lookup, // Default lookup (innerField: singleLineText)
-      lookupFieldId: foreignPrimary.id().toString(),
-    },
-    {
-      id: lookupNumberId,
-      name: 'LookupNumber', // Lookup with number innerField
-      lookupFieldId: foreignNumber.id().toString(),
-    },
-    {
-      id: lookupDateId,
-      name: 'LookupDate', // Lookup with date innerField
-      lookupFieldId: foreignDate.id().toString(),
-    },
-  ];
-
-  for (const lookupField of lookupFields) {
-    const lookupCommand = unwrapOrThrow(
-      CreateFieldCommand.create({
-        baseId,
-        tableId: table.id().toString(),
-        field: {
-          type: 'lookup',
-          id: lookupField.id,
-          name: lookupField.name,
-          options: {
-            linkFieldId,
-            foreignTableId: foreignTable.id().toString(),
-            lookupFieldId: lookupField.lookupFieldId,
-          },
+  const relationFields: Array<Record<string, unknown>> = [];
+  if (includedFieldTypeSet.has('lookup')) {
+    if (
+      !foreignTable ||
+      !foreignPrimary ||
+      !foreignNumber ||
+      !foreignDate ||
+      !lookupNumberId ||
+      !lookupDateId
+    ) {
+      throw new Error('Lookup fields require a foreign table');
+    }
+    relationFields.push(
+      {
+        type: 'lookup',
+        id: fieldIds.lookup,
+        name: FIELD_TYPE_NAMES.lookup,
+        options: {
+          linkFieldId,
+          foreignTableId: foreignTable.id().toString(),
+          lookupFieldId: foreignPrimary.id().toString(),
         },
-      }),
-      `CreateFieldCommand(${lookupField.name})`
-    );
-    table = (await executeCommand<{ table: Table }>(container, lookupCommand)).table;
-  }
-
-  const rollupCommand = unwrapOrThrow(
-    CreateFieldCommand.create({
-      baseId,
-      tableId: table.id().toString(),
-      field: {
-        type: 'rollup',
-        id: fieldIds.rollup,
-        name: FIELD_TYPE_NAMES.rollup,
-        options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
-        config: {
+      },
+      {
+        type: 'lookup',
+        id: lookupNumberId,
+        name: 'LookupNumber',
+        options: {
           linkFieldId,
           foreignTableId: foreignTable.id().toString(),
           lookupFieldId: foreignNumber.id().toString(),
         },
       },
-    }),
-    'CreateFieldCommand(RollupType)'
-  );
-  table = (await executeCommand<{ table: Table }>(container, rollupCommand)).table;
-
-  const nonEmptyCondition = {
-    filter: {
-      conjunction: 'and' as const,
-      filterSet: [
-        {
-          fieldId: foreignNumber.id().toString(),
-          operator: 'isNotEmpty' as const,
-          value: null,
-        },
-      ] as const,
-    },
-  };
-
-  const conditionalLookupCommand = unwrapOrThrow(
-    CreateFieldCommand.create({
-      baseId,
-      tableId: table.id().toString(),
-      field: {
-        type: 'conditionalLookup',
-        id: fieldIds.conditionalLookup,
-        name: FIELD_TYPE_NAMES.conditionalLookup,
+      {
+        type: 'lookup',
+        id: lookupDateId,
+        name: 'LookupDate',
         options: {
+          linkFieldId,
           foreignTableId: foreignTable.id().toString(),
-          lookupFieldId: foreignNumber.id().toString(),
-          condition: nonEmptyCondition,
+          lookupFieldId: foreignDate.id().toString(),
         },
-      },
-    }),
-    'CreateFieldCommand(ConditionalLookupType)'
-  );
-  table = (await executeCommand<{ table: Table }>(container, conditionalLookupCommand)).table;
+      }
+    );
+  }
 
-  const conditionalRollupCommand = unwrapOrThrow(
-    CreateFieldCommand.create({
-      baseId,
-      tableId: table.id().toString(),
-      field: {
-        type: 'conditionalRollup',
-        id: fieldIds.conditionalRollup,
-        name: FIELD_TYPE_NAMES.conditionalRollup,
-        options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
-        config: {
-          foreignTableId: foreignTable.id().toString(),
-          lookupFieldId: foreignNumber.id().toString(),
-          condition: nonEmptyCondition,
-        },
+  if (includedFieldTypeSet.has('rollup')) {
+    if (!foreignTable || !foreignNumber) {
+      throw new Error('Rollup field requires a foreign table');
+    }
+    relationFields.push({
+      type: 'rollup',
+      id: fieldIds.rollup,
+      name: FIELD_TYPE_NAMES.rollup,
+      options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
+      config: {
+        linkFieldId,
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignNumber.id().toString(),
       },
-    }),
-    'CreateFieldCommand(ConditionalRollupType)'
-  );
-  table = (await executeCommand<{ table: Table }>(container, conditionalRollupCommand)).table;
+    });
+  }
+
+  const nonEmptyCondition =
+    foreignNumber == null
+      ? undefined
+      : {
+          filter: {
+            conjunction: 'and' as const,
+            filterSet: [
+              {
+                fieldId: foreignNumber.id().toString(),
+                operator: 'isNotEmpty' as const,
+                value: null,
+              },
+            ] as const,
+          },
+        };
+
+  if (includedFieldTypeSet.has('conditionalLookup')) {
+    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
+      throw new Error('Conditional lookup field requires a foreign table');
+    }
+    relationFields.push({
+      type: 'conditionalLookup',
+      id: fieldIds.conditionalLookup,
+      name: FIELD_TYPE_NAMES.conditionalLookup,
+      options: {
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignNumber.id().toString(),
+        condition: nonEmptyCondition,
+      },
+    });
+  }
+
+  if (includedFieldTypeSet.has('conditionalRollup')) {
+    if (!foreignTable || !foreignNumber || !nonEmptyCondition) {
+      throw new Error('Conditional rollup field requires a foreign table');
+    }
+    relationFields.push({
+      type: 'conditionalRollup',
+      id: fieldIds.conditionalRollup,
+      name: FIELD_TYPE_NAMES.conditionalRollup,
+      options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
+      config: {
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignNumber.id().toString(),
+        condition: nonEmptyCondition,
+      },
+    });
+  }
+
+  if (relationFields.length > 0) {
+    const relationCommand = unwrapOrThrow(
+      CreateFieldsCommand.create({
+        baseId,
+        tableId: table.id().toString(),
+        fields: relationFields,
+      }),
+      'CreateFieldsCommand(RelationFields)'
+    );
+    table = (await executeCommand<{ table: Table }>(container, relationCommand)).table;
+  }
 
   // Create formula fields (including the matrix input formula field) before inserting records.
   // This avoids triggering computed updates/backfills on large existing datasets.
-  for (const definition of orderedFormulaFieldDefinitions) {
-    const command = unwrapOrThrow(
-      CreateFieldCommand.create({
+  const formulaFieldBatches = chunkItems(
+    orderedFormulaFieldDefinitions.map((definition) => ({
+      type: 'formula' as const,
+      id: formulaFieldIds.get(definition.name),
+      name: definition.name,
+      options: { expression: definition.expressionWithIds ?? definition.expression },
+    })),
+    24
+  );
+  for (const [batchIndex, formulaFields] of formulaFieldBatches.entries()) {
+    const formulaCommand = unwrapOrThrow(
+      CreateFieldsCommand.create({
         baseId,
         tableId: table.id().toString(),
-        field: {
-          type: 'formula',
-          id: formulaFieldIds.get(definition.name),
-          name: definition.name,
-          options: { expression: definition.expressionWithIds ?? definition.expression },
-        },
+        fields: formulaFields,
       }),
-      `CreateFieldCommand(Formula:${definition.name})`
+      `CreateFieldsCommand(FormulaFields:${String(batchIndex + 1)})`
     );
-    table = (await executeCommand<{ table: Table }>(container, command)).table;
+    table = (await executeCommand<{ table: Table }>(container, formulaCommand)).table;
   }
 
-  const fieldsByType = fieldTypeValues.reduce<Record<FieldTypeLiteral, Field>>(
+  const fieldsByType = includedFieldTypes.reduce<Partial<Record<FieldTypeLiteral, Field>>>(
     (acc, type) => {
-      acc[type] = findFieldByName(table, FIELD_TYPE_NAMES[type]);
+      acc[type] =
+        type === 'formula'
+          ? findFieldByName(table, FORMULA_TYPE_FIELD_NAME)
+          : findFieldByName(table, FIELD_TYPE_NAMES[type]);
       return acc;
     },
-    {} as Record<FieldTypeLiteral, Field>
+    {}
   );
 
   const formulaFieldMap = new Map<string, Field>();
@@ -827,24 +896,40 @@ const seedAttachments = async (db: Kysely<unknown>): Promise<void> => {
 const createHostRecord = async (
   container: IV2NodeTestContainer,
   table: Table,
-  fieldsByType: Record<FieldTypeLiteral, Field>,
-  foreignRecordId: string
+  fieldsByType: Partial<Record<FieldTypeLiteral, Field>>,
+  foreignRecordId?: string
 ) => {
-  const linkValue = { id: foreignRecordId, title: '10' };
   const attachmentsAvailable = await hasTable(container.db as Kysely<unknown>, 'attachments');
-  const fields: Record<string, unknown> = {
-    [fieldsByType.singleLineText.id().toString()]: '10',
-    [fieldsByType.longText.id().toString()]: '10',
-    [fieldsByType.number.id().toString()]: 10,
-    [fieldsByType.rating.id().toString()]: 4,
-    [fieldsByType.singleSelect.id().toString()]: '10',
-    [fieldsByType.multipleSelect.id().toString()]: ['10', '20'],
-    [fieldsByType.checkbox.id().toString()]: true,
-    [fieldsByType.date.id().toString()]: '2024-02-03T00:00:00Z',
-    [fieldsByType.link.id().toString()]: linkValue,
-  };
+  const fields: Record<string, unknown> = {};
+  if (fieldsByType.singleLineText) {
+    fields[fieldsByType.singleLineText.id().toString()] = '10';
+  }
+  if (fieldsByType.longText) {
+    fields[fieldsByType.longText.id().toString()] = '10';
+  }
+  if (fieldsByType.number) {
+    fields[fieldsByType.number.id().toString()] = 10;
+  }
+  if (fieldsByType.rating) {
+    fields[fieldsByType.rating.id().toString()] = 4;
+  }
+  if (fieldsByType.singleSelect) {
+    fields[fieldsByType.singleSelect.id().toString()] = '10';
+  }
+  if (fieldsByType.multipleSelect) {
+    fields[fieldsByType.multipleSelect.id().toString()] = ['10', '20'];
+  }
+  if (fieldsByType.checkbox) {
+    fields[fieldsByType.checkbox.id().toString()] = true;
+  }
+  if (fieldsByType.date) {
+    fields[fieldsByType.date.id().toString()] = '2024-02-03T00:00:00Z';
+  }
+  if (fieldsByType.link && foreignRecordId) {
+    fields[fieldsByType.link.id().toString()] = { id: foreignRecordId, title: '10' };
+  }
 
-  if (attachmentsAvailable) {
+  if (attachmentsAvailable && fieldsByType.attachment) {
     // Seed attachments table first
     await seedAttachments(container.db as Kysely<unknown>);
 
@@ -886,23 +971,26 @@ export const createFormulaTestTable = async (
   formulaFields: ReadonlyArray<FormulaFieldDefinition>,
   options?: CreateFormulaTestTableOptions
 ): Promise<FormulaTestTable> => {
+  const includedFieldTypes = resolveIncludedFieldTypes(options);
+  const needsForeignTable = includedFieldTypes.some((type) => relationFieldTypes.has(type));
   const formulaFieldDefinitions = [...formulaFields];
   if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
     formulaFieldDefinitions.push({ name: FORMULA_TYPE_FIELD_NAME, expression: '10' });
   }
-  const foreign = await createForeignTable(container);
+  const foreign = needsForeignTable ? await createForeignTable(container) : undefined;
   const host = await createHostTable({
     container,
-    foreignTable: foreign.table,
-    foreignPrimary: foreign.primary,
-    foreignNumber: foreign.number,
-    foreignDate: foreign.date,
+    foreignTable: foreign?.table,
+    foreignPrimary: foreign?.primary,
+    foreignNumber: foreign?.number,
+    foreignDate: foreign?.date,
     formulaFields: formulaFieldDefinitions,
+    includedFieldTypes,
   });
   const formulaDefinitions = new Map(
     host.formulaFieldDefinitions.map((definition) => [definition.name, definition])
   );
-  const foreignRecordId = await createForeignRecord(container, foreign.table);
+  const foreignRecordId = foreign ? await createForeignRecord(container, foreign.table) : undefined;
   await createHostRecord(container, host.table, host.fieldsByType, foreignRecordId);
 
   const typeValidationStrategy = await detectTypeValidationStrategy(

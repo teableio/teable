@@ -581,7 +581,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial lookup
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual(['Alpha']);
 
@@ -596,12 +596,12 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Table A values updated
-    const aRecords = await ctx.listRecords(tableAId);
+    const aRecords = await ctx.listRecordsWithoutDrain(tableAId);
     expect(aRecords.find((r) => r.id === recA1.id)?.fields[aSelectFieldId]).toBe('Omega');
     expect(aRecords.find((r) => r.id === recA2.id)?.fields[aSelectFieldId]).toBe('Beta');
 
     // Assert: Table B lookup cascaded
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual(['Omega']);
 
@@ -662,7 +662,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial rollup (only recA1 is linked, so sum = 5)
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(5);
 
@@ -676,13 +676,13 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Table A values clamped
-    const aRecords = await ctx.listRecords(tableAId);
+    const aRecords = await ctx.listRecordsWithoutDrain(tableAId);
     expect(aRecords.find((r) => r.id === recA1.id)?.fields[aRatingFieldId]).toBe(3); // 5→3
     expect(aRecords.find((r) => r.id === recA2.id)?.fields[aRatingFieldId]).toBe(3); // 4→3
     expect(aRecords.find((r) => r.id === recA3.id)?.fields[aRatingFieldId]).toBe(3); // unchanged
 
     // Assert: Table B rollup recomputed (linked to recA1, now clamped to 3)
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(3);
 
@@ -734,7 +734,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial lookup shows Amount
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual([100]);
 
@@ -754,7 +754,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Lookup self-backfills with Quantity values
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual([7]);
 
@@ -809,7 +809,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial state
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual([50]);
 
@@ -829,7 +829,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Lookup self-backfills, formula cascades
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[lookupFieldId]).toEqual([3]);
     // v2 applies default number formatting (precision=2) when coercing to text in formulas
@@ -911,7 +911,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
 
       await ctx.drainOutbox();
 
-      let hostRecords = await ctx.listRecords(tableBId);
+      let hostRecords = await ctx.listRecordsWithoutDrain(tableBId);
       let hostRecord = hostRecords.find((r) => r.id === recB.id);
       expect(hostRecord?.fields[lookupFieldId]).toEqual(['text 1', 'text 2']);
 
@@ -923,7 +923,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
 
       await ctx.drainOutbox();
 
-      hostRecords = await ctx.listRecords(tableBId);
+      hostRecords = await ctx.listRecordsWithoutDrain(tableBId);
       hostRecord = hostRecords.find((r) => r.id === recB.id);
       expect(hostRecord?.fields[lookupFieldId]).toEqual(['text 1', 'text 2']);
 
@@ -1025,7 +1025,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
 
       await ctx.drainOutbox();
 
-      const hostRecords = await ctx.listRecords(tableBId);
+      const hostRecords = await ctx.listRecordsWithoutDrain(tableBId);
       const hostRecord = hostRecords.find((r) => r.id === recB.id);
       expect(hostRecord?.fields[lookupFieldId]).toEqual([1771200000000]);
     } finally {
@@ -1115,7 +1115,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
 
       await ctx.drainOutbox();
 
-      const hostRecords = await ctx.listRecords(tableBId);
+      const hostRecords = await ctx.listRecordsWithoutDrain(tableBId);
       const hostRecord = hostRecords.find((r) => r.id === recB.id);
       expect(hostRecord?.fields[lookupFieldId]).toEqual(['1.00']);
       const formulaValue = hostRecord?.fields[formulaFieldId];
@@ -1175,7 +1175,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial rollup = 10 (linked to recA1 only)
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(10);
 
@@ -1191,7 +1191,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Rollup self-backfills with count (1 linked record)
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(1);
 
@@ -1234,7 +1234,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Verify initial rollup = 100 (sum of Amount)
-    let bRecords = await ctx.listRecords(tableBId);
+    let bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     let bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(100);
 
@@ -1251,7 +1251,7 @@ describe('update-field: cascade after schema update (cross-table)', () => {
     await ctx.drainOutbox();
 
     // Assert: Rollup self-backfills with Quantity value
-    bRecords = await ctx.listRecords(tableBId);
+    bRecords = await ctx.listRecordsWithoutDrain(tableBId);
     bRec = bRecords.find((r) => r.id === recB.id);
     expect(bRec?.fields[rollupFieldId]).toBe(5);
 
@@ -1380,7 +1380,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Verify initial: should see Alpha and Beta (Active records)
-    let hostRecords = await ctx.listRecords(hostTableId);
+    let hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     let hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condLookupFieldId]).toEqual(['Alpha', 'Beta']);
 
@@ -1397,7 +1397,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
 
       // After rename, foreign records now have "Running" instead of "Active"
       // But host.StatusFilter still says "Active" — so the filter no longer matches
-      hostRecords = await ctx.listRecords(hostTableId);
+      hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
       hRec = hostRecords.find((r) => r.id === recH.id);
       expect(hRec?.fields[condLookupFieldId]).toBeNull();
     } finally {
@@ -1462,7 +1462,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Verify initial: should see Item2 (Closed)
-    let hostRecords = await ctx.listRecords(hostTableId);
+    let hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     let hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condLookupFieldId]).toEqual(['Item2']);
 
@@ -1477,7 +1477,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
       await ctx.drainOutbox();
 
       // Foreign records with "Closed" now have null Status → no match
-      hostRecords = await ctx.listRecords(hostTableId);
+      hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
       hRec = hostRecords.find((r) => r.id === recH.id);
       expect(hRec?.fields[condLookupFieldId]).toBeNull();
     } finally {
@@ -1551,7 +1551,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Verify initial: SUM of Active amounts = 100 + 200 = 300
-    let hostRecords = await ctx.listRecords(hostTableId);
+    let hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     let hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condRollupFieldId]).toBe(300);
 
@@ -1568,7 +1568,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
 
       // After rename, foreign Status="Live" but host filter still says "Active"
       // Filter no longer matches → rollup should be 0 or null
-      hostRecords = await ctx.listRecords(hostTableId);
+      hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
       hRec = hostRecords.find((r) => r.id === recH.id);
       expect(
         hRec?.fields[condRollupFieldId] === 0 || hRec?.fields[condRollupFieldId] === null
@@ -1630,7 +1630,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Verify initial: looking up Name where Status == 'Active'
-    let hostRecords = await ctx.listRecords(hostTableId);
+    let hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     let hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condLookupFieldId]).toEqual(['LookItem']);
 
@@ -1662,7 +1662,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Assert: condLookup self-backfills with Amount values
-    hostRecords = await ctx.listRecords(hostTableId);
+    hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condLookupFieldId]).toEqual([42]);
 
@@ -1737,7 +1737,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Verify initial: SUM(15, 25) = 40, formula = 80
-    let hostRecords = await ctx.listRecords(hostTableId);
+    let hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     let hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condRollupFieldId]).toBe(40);
     expect(hRec?.fields[formulaFieldId]).toBe(80);
@@ -1757,7 +1757,7 @@ describe('update-field: cascade for conditionalLookup/conditionalRollup', () => 
     await ctx.drainOutbox();
 
     // Assert: condRollup self-backfills with count(2), formula cascades
-    hostRecords = await ctx.listRecords(hostTableId);
+    hostRecords = await ctx.listRecordsWithoutDrain(hostTableId);
     hRec = hostRecords.find((r) => r.id === recH.id);
     expect(hRec?.fields[condRollupFieldId]).toBe(2);
     expect(hRec?.fields[formulaFieldId]).toBe(4);

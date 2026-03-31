@@ -1,6 +1,6 @@
 import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable/icons';
 import { useTableId, useTablePermission, useView, useViewId } from '@teable/sdk/hooks';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
@@ -78,24 +78,23 @@ export const FormToolBar: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-wrap items-center justify-end border-y py-2 pl-8 pr-4 @container/toolbar sm:justify-between">
+    <div className="flex flex-wrap items-center justify-end border-y px-4 py-2 @container/toolbar sm:justify-between">
       <div className="hidden flex-1 sm:flex">
-        {isEditable &&
-          FORM_MODE_BUTTON_LIST.map((item) => {
-            const { text, Icon, mode } = item;
-            return (
-              <Button
-                key={mode}
-                variant={currentMode === mode ? 'default' : 'outline'}
-                size={'xs'}
-                className="mr-4 px-8 font-normal"
-                onClick={() => setFormMode(mode)}
-              >
-                <Icon />
-                {text}
-              </Button>
-            );
-          })}
+        {isEditable && (
+          <Tabs size="sm" value={currentMode} onValueChange={(v) => setFormMode(v as FormMode)}>
+            <TabsList>
+              {FORM_MODE_BUTTON_LIST.map((item) => {
+                const { text, Icon, mode } = item;
+                return (
+                  <TabsTrigger key={mode} value={mode} className="w-20 gap-1">
+                    <Icon className="size-4" />
+                    {text}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
       <FormShareButton disabled={!permission['view|update']} />
