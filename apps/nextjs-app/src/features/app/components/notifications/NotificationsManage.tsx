@@ -120,7 +120,28 @@ export const NotificationsManage: React.FC = () => {
     const toastId = isCreditNotification ? 'credit-exhausted-notification' : notificationId;
 
     if (notification.notification.notifyType === NotificationTypeEnum.ExportBase) {
-      showExportBaseToast(notification.notification, toastId, t);
+      // Dispatch event for export dialog to listen
+      // If dialog handles it (preventDefault), skip the toast
+      const { messageI18n, url } = notification.notification;
+      let handledByDialog = false;
+      try {
+        const parsed = JSON.parse(messageI18n || '{}');
+        const baseName = parsed?.context?.baseName || '';
+        const fileName = parsed?.context?.name || baseName;
+        const downloadUrl = url || parsed?.context?.previewUrl || '';
+        const isSuccess = !parsed?.i18nKey?.includes('failed');
+        const event = new CustomEvent('export-base-complete', {
+          cancelable: true,
+          detail: { downloadUrl, fileName, baseName, isSuccess },
+        });
+        window.dispatchEvent(event);
+        handledByDialog = event.defaultPrevented;
+      } catch {
+        // ignore parse error
+      }
+      if (!handledByDialog) {
+        showExportBaseToast(notification.notification, toastId, t);
+      }
     } else {
       toast.info(
         <div className="flex items-center">

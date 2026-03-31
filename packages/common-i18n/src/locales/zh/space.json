@@ -56,6 +56,11 @@
     "exportTips3": "跨数据库关联字段将会被转换成单行文本。",
     "exportIncludeDataLabel": "包含记录",
     "exportIncludeDataDescription": "关闭开关时仅导出结构和配置。",
+    "exportTitle": "导出",
+    "exportDescription": "将当前数据库导出成 .tea 文件，这可能需要一定的时间。",
+    "exportStartButton": "开始导出",
+    "exportSlowTip": "数据量较大，导出可能需要较长时间，您可以暂时离开。",
+    "exportReadyDescription": "请下载 .tea 文件，{{importHint}}",
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },

@@ -1723,9 +1723,6 @@ export class FieldOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      if (result.body.error.message === 'No changes to apply') {
-        return this.getFieldFromV2(tableId, fieldId, context);
-      }
       this.throwV2Error(result.body.error, result.status);
     }
 

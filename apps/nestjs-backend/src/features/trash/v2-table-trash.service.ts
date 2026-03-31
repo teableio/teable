@@ -1,4 +1,3 @@
-import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
@@ -20,8 +19,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
-import { V2ContainerService } from '../v2/v2-container.service';
-import type { IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
+import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import { TableTrashListener } from './listener/table-trash.listener';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
@@ -158,20 +156,16 @@ export class V2TableRestoredProjection implements IEventHandler<TableRestored> {
   }
 }
 
+@V2ProjectionRegistrar()
 @Injectable()
-export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit {
+export class V2TableTrashService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2TableTrashService.name);
 
   constructor(
-    private readonly v2ContainerService: V2ContainerService,
     private readonly tableTrashListener: TableTrashListener,
     private readonly attachmentsTableService: AttachmentsTableService,
     private readonly prisma: PrismaService
   ) {}
-
-  onModuleInit(): void {
-    this.v2ContainerService.addProjectionRegistrar(this);
-  }
 
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 trash projections');
