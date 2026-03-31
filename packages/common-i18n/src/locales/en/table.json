@@ -795,13 +795,14 @@
   },
   "form": {
     "fieldsManagement": "Fields",
-    "addAll": "Add all",
-    "removeAll": "Remove all",
-    "hideFieldTip": "Hide the field to here",
+    "addAll": "Show all",
+    "removeAll": "Hide all",
+    "createField": "Create field",
+    "hideFieldTip": "Drag field here to hide from form",
     "unableAddFieldTip": "Unable to add this type field",
-    "removeFromFormTip": "Remove from the form",
+    "removeFromFormTip": "Hide from the form",
     "descriptionPlaceholder": "Enter from description",
-    "dragToFormTip": "Drag the field here to add it to the form",
+    "dragToFormTip": "Drag field here to show in form",
     "protectedFieldTip": "This field has been set as a \"required\" field, and cannot be removed in the form view. Please modify it in the field settings."
   },
   "kanban": {
@@ -934,8 +935,8 @@
   },
   "tableTrash": {
     "title": "Table trash",
-    "resourceType": "Resource type",
-    "deletedResource": "Deleted resource"
+    "resourceType": "Type",
+    "deletedResource": "Resource"
   },
   "plugin": {
     "recent": "Recents",
@@ -1042,7 +1043,12 @@
         "completed": "Completed",
         "tools": "{{count}} tools",
         "toolsWithErrors": "{{count}} tools ({{errors}} error(s))",
-        "hasErrors": "errors"
+        "hasErrors": "errors",
+        "noDetails": "No details available",
+        "contextWindow": "Context Window",
+        "contextTooltip": "Agent's working memory usage. When approaching the limit, the agent will automatically summarize earlier conversation to free up space.",
+        "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
+        "contextTipMemory": "Say \"remember XXX\" to save to long-term memory, accessible across chats."
       },
       "taskProgress": {
         "title": "Task Progress",
@@ -1494,6 +1500,20 @@
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
+    "sandboxExpiry": {
+      "expiresIn": "Sandbox expires in {{time}}",
+      "reset": "Reset",
+      "resetTitle": "Reset Sandbox",
+      "runningTasks_one": "There is {{count}} running task. Resetting will terminate it.",
+      "runningTasks_other": "There are {{count}} running tasks. Resetting will terminate them.",
+      "noRunningTasks": "No tasks are currently running.",
+      "newSandboxHint": "A new sandbox will be created automatically on your next message.",
+      "cancel": "Cancel",
+      "confirmReset": "Reset",
+      "confirmResetWithTasks": "Reset Anyway",
+      "expiresSoon": "Sandbox is expiring",
+      "resetFailed": "Failed to reset sandbox"
+    },
     "noModel": "No available models",
     "addAttachment": "Add Attachment",
     "noHistory": "No chat history",

@@ -31,6 +31,8 @@ import { UserNotification } from '../domain/table/fields/types/UserNotification'
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import { UpdateButtonMaxCountSpec } from '../domain/table/specs/field-updates/UpdateButtonMaxCountSpec';
+import { UpdateButtonWorkflowSpec } from '../domain/table/specs/field-updates/UpdateButtonWorkflowSpec';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
@@ -647,6 +649,22 @@ const sameTypeCases: SameTypeCase[] = [
           'UpdateButtonWorkflowSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
+        assertSpecs: (specs) => {
+          const maxCountSpec = specs.find(
+            (spec): spec is UpdateButtonMaxCountSpec => spec instanceof UpdateButtonMaxCountSpec
+          );
+          const workflowSpec = specs.find(
+            (spec): spec is UpdateButtonWorkflowSpec => spec instanceof UpdateButtonWorkflowSpec
+          );
+
+          expect(maxCountSpec).toBeDefined();
+          expect(maxCountSpec?.previousMaxCount()).toEqual(BUTTON_MAX_THREE);
+          expect(maxCountSpec?.nextMaxCount()).toBeUndefined();
+
+          expect(workflowSpec).toBeDefined();
+          expect(workflowSpec?.previousWorkflow()).toEqual(BUTTON_WORKFLOW);
+          expect(workflowSpec?.nextWorkflow()).toBeUndefined();
+        },
       };
     },
   },
@@ -710,6 +728,73 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
       true
     );
     expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldAiConfigSpec)).toBe(
+      true
+    );
+  });
+
+  it('clears description and aiConfig when metadata is explicitly nulled', () => {
+    const { currentField } = buildHarness('v', 'v', (builder, fieldId) => {
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+    });
+    currentField.setDescription('Existing description')._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      description: null,
+      aiConfig: null,
+    });
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const descriptionSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldDescriptionSpec =>
+        spec instanceof TableUpdateFieldDescriptionSpec
+    );
+    const aiConfigSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldAiConfigSpec => spec instanceof TableUpdateFieldAiConfigSpec
+    );
+
+    expect(descriptionSpec).toBeDefined();
+    expect(descriptionSpec?.previousDescription()).toBe('Existing description');
+    expect(descriptionSpec?.nextDescription()).toBeNull();
+    expect(aiConfigSpec).toBeDefined();
+    expect(aiConfigSpec?.previousAiConfig()).toBeNull();
+    expect(aiConfigSpec?.nextAiConfig()).toBeNull();
+  });
+
+  it('skips dbFieldName metadata spec when current field has no stable dbFieldName', () => {
+    const { currentField } = buildHarness('w', 'w', (builder, fieldId) => {
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+    });
+
+    expect(currentField.dbFieldName().isErr()).toBe(true);
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      dbFieldName: 'next_column_name',
+      description: 'Updated description',
+    });
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldDbFieldNameSpec)).toBe(
+      false
+    );
+    expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldDescriptionSpec)).toBe(
       true
     );
   });

@@ -191,6 +191,37 @@ export interface V1ComputedUpdateDeadLetterTable {
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
+export interface V1TaskTable {
+  id: string;
+  type: string;
+  status: string;
+  snapshot: string | null;
+  created_time: ColumnType<Date, Date | undefined, never>;
+  last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  created_by: string;
+  last_modified_by: string | null;
+}
+
+export interface V1TaskRunTable {
+  id: string;
+  task_id: string;
+  status: string;
+  snapshot: string;
+  spent: number | null;
+  log: string | null;
+  error_msg: string | null;
+  started_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  created_time: ColumnType<Date, Date | undefined, never>;
+  last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+}
+
+export interface V1TaskReferenceTable {
+  id: string;
+  from_field_id: string;
+  to_field_id: string;
+  created_time: ColumnType<Date, Date | undefined, never>;
+}
+
 export interface V1TeableDatabase {
   users: V1UserTable;
   space: V1SpaceTable;
@@ -203,4 +234,7 @@ export interface V1TeableDatabase {
   computed_update_outbox: V1ComputedUpdateOutboxTable;
   computed_update_outbox_seed: V1ComputedUpdateOutboxSeedTable;
   computed_update_dead_letter: V1ComputedUpdateDeadLetterTable;
+  task: V1TaskTable;
+  task_run: V1TaskRunTable;
+  task_reference: V1TaskReferenceTable;
 }

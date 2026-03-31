@@ -353,7 +353,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records[0]?.fields[f1Id]).toBe(11);
       expect(records[1]?.fields[f1Id]).toBe(1);
     } finally {
@@ -366,7 +366,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records[0]?.fields[f2Id]).toBe(12);
       expect(records[1]?.fields[f2Id]).toBe(2);
     } finally {
@@ -425,7 +425,7 @@ describe('update-field: computed dependency cascades', () => {
         field: { type: 'singleLineText' },
       });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(setup.hostTableId);
+      const records = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(records[0]?.fields[setup.lookupFieldId]).toEqual(['100.00']);
     } finally {
       await cleanupTable(hostTableId);
@@ -446,7 +446,7 @@ describe('update-field: computed dependency cascades', () => {
         field: { type: 'number' },
       });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(setup.hostTableId);
+      const records = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(records[0]?.fields[setup.formulaFieldId]).toEqual([100]);
     } finally {
       await cleanupTable(hostTableId);
@@ -495,7 +495,7 @@ describe('update-field: computed dependency cascades', () => {
       expect(rollupField?.type).toBe('rollup');
       expect(rollupField?.hasError ?? false).toBe(false);
 
-      const foreignRecords = await ctx.listRecords(setup.foreignTableId);
+      const foreignRecords = await ctx.listRecordsWithoutDrain(setup.foreignTableId);
       const firstForeign = foreignRecords[0];
       if (!firstForeign) throw new Error('No foreign record');
 
@@ -504,7 +504,7 @@ describe('update-field: computed dependency cascades', () => {
       });
       await ctx.drainOutbox();
 
-      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      const recordsAfter = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(recordsAfter[0]?.fields[setup.rollupFieldId]).toBe('Alpha\nLine 2');
     } finally {
       await cleanupTable(hostTableId);
@@ -579,7 +579,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.map((record) => record.fields[f1Id])).toEqual([11, 1]);
     } finally {
       await cleanupTable(tableId);
@@ -633,7 +633,7 @@ describe('update-field: computed dependency cascades', () => {
         field: { type: 'number' },
       });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(setup.hostTableId);
+      const records = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(records[0]?.fields[setup.lookupFieldId]).toEqual([100]);
     } finally {
       await cleanupTable(hostTableId);
@@ -658,7 +658,7 @@ describe('update-field: computed dependency cascades', () => {
         field: { type: 'number' },
       });
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(setup.hostTableId);
+      const records = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(records[0]?.fields[setup.formulaFieldId]).toEqual([100]);
     } finally {
       await cleanupTable(hostTableId);
@@ -709,7 +709,7 @@ describe('update-field: computed dependency cascades', () => {
       expect(conditionalLookupAfter?.hasError).toBe(true);
       expect(formulaAfter?.hasError ?? false).toBe(false);
 
-      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      const recordsAfter = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(recordsAfter[0]?.fields[setup.formulaFieldId] ?? null).toBeNull();
     } finally {
       await cleanupTable(hostTableId);
@@ -742,7 +742,7 @@ describe('update-field: computed dependency cascades', () => {
       expect(conditionalRollupField?.type).toBe('conditionalRollup');
       expect(conditionalRollupField?.hasError ?? false).toBe(false);
 
-      const foreignRecords = await ctx.listRecords(setup.foreignTableId);
+      const foreignRecords = await ctx.listRecordsWithoutDrain(setup.foreignTableId);
       const activeForeign = foreignRecords.find(
         (record) => record.fields[setup.foreignStatusFieldId] === 'Active'
       );
@@ -753,7 +753,7 @@ describe('update-field: computed dependency cascades', () => {
       });
       await ctx.drainOutbox();
 
-      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      const recordsAfter = await ctx.listRecordsWithoutDrain(setup.hostTableId);
       expect(recordsAfter[0]?.fields[setup.conditionalRollupFieldId]).toBe('Alpha\nLine 2');
     } finally {
       await cleanupTable(hostTableId);
@@ -772,7 +772,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const rows = await ctx.listRecords(tableId);
+      const rows = await ctx.listRecordsWithoutDrain(tableId);
       expect(rows[0]?.fields[f1Id]).toBe(11);
       expect(rows[1]?.fields[f1Id]).toBe(1);
     } finally {
@@ -785,7 +785,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const rows = await ctx.listRecords(tableId);
+      const rows = await ctx.listRecordsWithoutDrain(tableId);
       expect(rows[0]?.fields[f1Id]).toBe(11);
       expect(rows[0]?.fields[f2Id]).toBe(12);
     } finally {
@@ -802,7 +802,7 @@ describe('update-field: computed dependency cascades', () => {
     try {
       await ctx.updateField({ tableId, fieldId: sourceFieldId, field: { type: 'number' } });
       await ctx.drainOutbox();
-      const rows = await ctx.listRecords(tableId);
+      const rows = await ctx.listRecordsWithoutDrain(tableId);
       expect(rows[0]?.fields[f1Id]).toBe(11);
     } finally {
       await cleanupTable(tableId);

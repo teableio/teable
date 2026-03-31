@@ -999,7 +999,7 @@
     "type": "类型",
     "resetTrash": "清空回收站",
     "deletedBy": "操作者",
-    "deletedTime": "删除时间",
+    "deletedTime": "时间",
     "fromSpace": "来自 \"{{name}}\" 空间",
     "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
     "resetTrashConfirm": "确定要清空回收站吗？",
@@ -1405,8 +1405,8 @@
   },
   "changelog": {
     "newUpdate": "最新更新",
-    "title": "附件批量下载已上线",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "App 自定义域名已上线",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

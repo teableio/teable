@@ -11,6 +11,7 @@ import type {
   IChatModelAbility,
   IAbilityDetail,
   ISettingVo,
+  IPublicSettingVo,
   ITestLLMRo,
   ITestLLMVo,
   IBatchTestLLMRo,
@@ -24,7 +25,7 @@ import type {
   GatewayModelTag,
   GatewayModelProvider,
 } from '@teable/openapi';
-import { chatModelAbilityType, UploadType, LLMProviderType } from '@teable/openapi';
+import { chatModelAbilityType, UploadType, LLMProviderType, SettingKey } from '@teable/openapi';
 import { createGateway, generateText, tool, experimental_generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
@@ -82,6 +83,62 @@ export class SettingOpenApiService {
     return {
       brandName: 'Teable',
       brandLogo: getPublicFullStorageUrl(logoPath),
+    };
+  }
+
+  /**
+   * Returns the core public setting (without controller-only fields like turnstile/threshold).
+   * Overridable in EE to append platform-specific providers (e.g. Slack from DB config).
+   */
+  async getPublicSetting(): Promise<
+    Omit<
+      IPublicSettingVo,
+      | 'turnstileSiteKey'
+      | 'changeEmailSendCodeMailRate'
+      | 'resetPasswordSendMailRate'
+      | 'signupVerificationSendCodeMailRate'
+    >
+  > {
+    const setting = await this.getSetting([
+      SettingKey.INSTANCE_ID,
+      SettingKey.BRAND_NAME,
+      SettingKey.BRAND_LOGO,
+      SettingKey.DISALLOW_SIGN_UP,
+      SettingKey.DISALLOW_SPACE_CREATION,
+      SettingKey.DISALLOW_SPACE_INVITATION,
+      SettingKey.DISALLOW_DASHBOARD,
+      SettingKey.ENABLE_EMAIL_VERIFICATION,
+      SettingKey.ENABLE_WAITLIST,
+      SettingKey.ENABLE_CREDIT_REWARD,
+      SettingKey.AI_CONFIG,
+      SettingKey.APP_CONFIG,
+    ]);
+    const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
+
+    const availableIntegrationProviders: string[] = [
+      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
+      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
+    ];
+
+    return {
+      ...rest,
+      enableCreditReward: enableCreditReward ?? undefined,
+      aiConfig: {
+        enable: Boolean(aiConfig?.chatModel?.lg),
+        llmProviders:
+          aiConfig?.llmProviders?.map((provider) => ({
+            type: provider.type,
+            name: provider.name,
+            models: provider.models,
+            isInstance: true,
+            modelConfigs: provider.modelConfigs,
+          })) ?? [],
+        chatModel: aiConfig?.chatModel ?? undefined,
+        capabilities: aiConfig?.capabilities,
+        gatewayModels: aiConfig?.gatewayModels,
+      },
+      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      availableIntegrationProviders,
     };
   }
 

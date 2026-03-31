@@ -88,7 +88,7 @@ export const gridTheme: IGridTheme = {
   cellBgHovered: '#F7F7F7',
   cellBgSelected: '#F0F0F0',
   // cellBgSelected: colors.zinc[100],
-  cellBgLoading: colors.zinc[50],
+  cellBgLoading: hexToRGBA(colors.black, 0.04),
   cellLineColor: colors.zinc[200],
   cellLineColorActived: colors.black,
   cellTextColor: colors.zinc[900],

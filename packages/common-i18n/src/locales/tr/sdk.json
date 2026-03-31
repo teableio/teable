@@ -1430,7 +1430,8 @@
       "fetchLinkedInPostFailed": "LinkedIn gönderisi alınamadı: {{error}}",
       "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
-      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}"
+      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}",
+      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı"
     }
   }
 }

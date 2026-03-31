@@ -6,7 +6,6 @@ import {
   ShareDbWebSocketServer,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createTableOkResponseSchema,
@@ -30,6 +29,7 @@ import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 /**
  * NOTE: This test cannot use the shared test context because it requires
@@ -316,7 +316,7 @@ describe('v2 realtime sharedb (e2e)', () => {
     shareDbRuntime = runtime;
     shareDbUrl = `ws://127.0.0.1:${runtime.port}/socket`;
 
-    testContainer = await createV2NodeTestContainer();
+    testContainer = await createE2eTestContainer();
     registerRealtime(testContainer.container, runtime);
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
@@ -1244,11 +1244,19 @@ describe('v2 realtime sharedb (e2e)', () => {
     expect(initialSnapshot.fields[primaryFieldId]).toBe('Original Value');
 
     // 4. Subscribe to ShareDB doc changes
+    let markReady: (() => void) | undefined;
+    let markReadyError: ((error: unknown) => void) | undefined;
+    const updateReady = new Promise<void>((resolve, reject) => {
+      markReady = resolve;
+      markReadyError = reject;
+    });
+
     const updatePromise = new Promise<RecordSnapshot>((resolve, reject) => {
       const socket = new WebSocket(shareDbUrl);
       const connection = new Connection(socket as Socket);
       const doc = connection.get(recordCollection, recordId) as Doc<RecordSnapshot>;
       let settled = false;
+      let readyResolved = false;
 
       const cleanup = () => {
         doc.removeListener('op', onOp);
@@ -1283,12 +1291,23 @@ describe('v2 realtime sharedb (e2e)', () => {
           settled = true;
           clearTimeout(timeout);
           cleanup();
+          if (!readyResolved) {
+            readyResolved = true;
+            markReadyError?.(error);
+            return;
+          }
           reject(error);
           return;
+        }
+        if (!readyResolved) {
+          readyResolved = true;
+          markReady?.();
         }
         doc.on('op', onOp);
       });
     });
+
+    await updateReady;
 
     // 5. Execute paste operation to update the record
     const pasteResponse = await fetch(`${baseUrl}/tables/paste`, {
