@@ -651,8 +651,9 @@
   },
   "form": {
     "fieldsManagement": "フィールド",
-    "addAll": "すべて追加",
-    "removeAll": "すべて削除",
+    "addAll": "すべて表示",
+    "removeAll": "すべて非表示",
+    "createField": "フィールドを作成",
     "hideFieldTip": "ここまでフィールドを非表示にする",
     "unableAddFieldTip": "このタイプのフィールドを追加できません",
     "removeFromFormTip": "フォームから削除",
@@ -776,8 +777,8 @@
   "lastModify": "最終更新: ",
   "tableTrash": {
     "title": "テーブルのごみ箱",
-    "resourceType": "リソースタイプ",
-    "deletedResource": "削除されたリソース"
+    "resourceType": "タイプ",
+    "deletedResource": "リソース"
   },
   "baseShare": {
     "title": "ベースを共有",

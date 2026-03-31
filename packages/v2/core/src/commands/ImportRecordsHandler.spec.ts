@@ -248,14 +248,17 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 }
 
 class FakeEventBus implements IEventBus {
+  publishedMany: ReadonlyArray<IDomainEvent>[] = [];
+
   async publish(_: IExecutionContext, __: IDomainEvent): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
   async publishMany(
     _: IExecutionContext,
-    __: ReadonlyArray<IDomainEvent>
+    events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
+    this.publishedMany.push(events);
     return ok(undefined);
   }
 }
@@ -269,6 +272,29 @@ class FakeUnitOfWork implements IUnitOfWork {
     return work({ ...context, transaction });
   }
 }
+
+const createCommand = (
+  tableId: string,
+  textFieldId: string,
+  rows = 'Title\nImported row',
+  options: Partial<NonNullable<Parameters<typeof ImportRecordsCommand.create>[0]['options']>> = {}
+) =>
+  ImportRecordsCommand.create({
+    tableId,
+    source: {
+      type: 'csv',
+      data: rows,
+    },
+    sourceColumnMap: {
+      [textFieldId]: 0,
+    },
+    options: {
+      batchSize: 1,
+      skipFirstNLines: 0,
+      typecast: false,
+      ...options,
+    },
+  })._unsafeUnwrap();
 
 describe('ImportRecordsHandler', () => {
   it('rejects when a plugin blocks importAppend', async () => {
@@ -395,5 +421,217 @@ describe('ImportRecordsHandler', () => {
     expect(tableRecordRepository.inserted).toHaveLength(1);
     expect(adapter.parseCalls).toHaveLength(1);
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.importAppend);
+  });
+
+  it('returns validation.max_row_limit for async sources that exceed maxRowCount', async () => {
+    const { table, textFieldId } = buildTable();
+    async function* rowsAsync() {
+      yield ['row 1'];
+      yield ['row 2'];
+    }
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowsAsync: rowsAsync(),
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const { plugin, calls } = createTrackedRecordWritePlugin([
+      RecordWriteOperationKind.importAppend,
+    ]);
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([plugin]),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        typecast: true,
+        maxRowCount: 1,
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.max_row_limit');
+    expect(tableRecordRepository.inserted).toHaveLength(0);
+    expect(calls.prepare).toHaveLength(0);
+    expect(calls.guard).toHaveLength(0);
+  });
+
+  it('stops before insert when plugin beforePersist rejects', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['Imported row']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const beforePersistError = domainError.forbidden({
+      code: 'plugin.before_persist_blocked',
+      message: 'before persist blocked',
+    });
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([
+        {
+          name: 'before-persist-blocker',
+          supports: (operation) => operation === RecordWriteOperationKind.importAppend,
+          async beforePersist() {
+            return err(beforePersistError);
+          },
+        },
+      ]),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), undefined, { typecast: true })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('plugin.before_persist_blocked');
+    expect(tableRecordRepository.inserted).toHaveLength(0);
+  });
+
+  it('persists discovered side effects and publishes collected events', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['Imported row']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const event = { type: 'import.side_effect.persisted' } as IDomainEvent;
+    let sideEffectCalls = 0;
+    let updateFlowCalls = 0;
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => {
+          sideEffectCalls += 1;
+          return ok({
+            table,
+            updateResult: {
+              table,
+              events: [event],
+            },
+          });
+        },
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => {
+          updateFlowCalls += 1;
+          return ok({ table, events: [event] });
+        },
+      } as unknown as TableUpdateFlow,
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), undefined, { typecast: true })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(sideEffectCalls).toBe(1);
+    expect(updateFlowCalls).toBe(1);
+    expect(eventBus.publishedMany).toEqual([[event]]);
+    expect(tableRecordRepository.inserted).toHaveLength(1);
+  });
+
+  it('resolves mutate specs before yielding imported records', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['Imported row']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const originalRecord = { id: 'raw-record' } as unknown as TableRecord;
+    const resolvedRecord = { id: 'resolved-record' } as unknown as TableRecord;
+    const mutateSpec = {
+      mutate: () => ok(resolvedRecord),
+    } as unknown as ICellValueSpec;
+
+    (
+      table as unknown as {
+        createRecords: typeof table.createRecords;
+      }
+    ).createRecords = () =>
+      ok({
+        records: [originalRecord],
+        mutateSpecs: [mutateSpec],
+      });
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(true),
+        resolveAndReplaceMany: async () => ok([mutateSpec]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), undefined, { typecast: true })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tableRecordRepository.inserted).toEqual([resolvedRecord]);
   });
 });

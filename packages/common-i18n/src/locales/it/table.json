@@ -661,8 +661,9 @@
   },
   "form": {
     "fieldsManagement": "Campi",
-    "addAll": "Aggiungi Tutto",
-    "removeAll": "Rimuovi Tutto",
+    "addAll": "Mostra tutto",
+    "removeAll": "Nascondi tutto",
+    "createField": "Crea campo",
     "hideFieldTip": "Nascondi il campo qui",
     "unableAddFieldTip": "Impossibile aggiungere questo tipo di campo",
     "removeFromFormTip": "Rimuovi dal modulo",
@@ -798,8 +799,8 @@
   },
   "tableTrash": {
     "title": "Cestino della tabella",
-    "resourceType": "Tipo di risorsa",
-    "deletedResource": "Risorsa eliminata"
+    "resourceType": "Tipo",
+    "deletedResource": "Risorsa"
   },
   "baseShare": {
     "title": "Condividi Base",

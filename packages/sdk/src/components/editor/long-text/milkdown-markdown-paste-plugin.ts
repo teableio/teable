@@ -3,12 +3,59 @@ import type { Ctx } from '@milkdown/ctx';
 import { getNodeFromSchema, isTextOnlySlice } from '@milkdown/prose';
 import { DOMParser, DOMSerializer } from '@milkdown/prose/model';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
+import TurndownService from 'turndown';
 
 const VSCODE_TEXT_MODES = new Set(['markdown', 'plaintext', 'plain']);
+
+const isGoogleDocsHtml = (html: string) => html.includes('docs-internal-guid');
+
+let _turndown: TurndownService | null = null;
+const getTurndown = () => {
+  if (!_turndown) {
+    _turndown = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      bulletListMarker: '-',
+    });
+  }
+  return _turndown;
+};
+
+/**
+ * Parse markdown text into a ProseMirror slice and dispatch it.
+ * Returns true if the paste was handled.
+ */
+const pasteMarkdown = (
+  ctx: Ctx,
+  view: Parameters<NonNullable<NonNullable<Plugin['props']>['handlePaste']>>[0],
+  markdown: string
+): boolean => {
+  const schema = ctx.get(schemaCtx);
+  const parser = ctx.get(parserCtx);
+  const parsed = parser(markdown);
+  if (!parsed) return false;
+
+  const dom = DOMSerializer.fromSchema(schema).serializeFragment(parsed.content);
+  const slice = DOMParser.fromSchema(schema).parseSlice(dom);
+
+  const node = isTextOnlySlice(slice);
+  if (node) {
+    view.dispatch(view.state.tr.replaceSelectionWith(node, true));
+    return true;
+  }
+
+  try {
+    view.dispatch(view.state.tr.replaceSelection(slice));
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Create a ProseMirror plugin that handles all paste events:
  * - VSCode code pastes (JS, Python, etc.) → code block with language
+ * - Google Docs HTML → convert to markdown via turndown, then parse
  * - Everything else → parse text/plain as markdown
  *
  * This replaces the clipboard plugin's handlePaste entirely.
@@ -54,26 +101,20 @@ export const createMarkdownPastePlugin = (ctx: Ctx) =>
           }
         }
 
-        // Parse text/plain as markdown
-        const parser = ctx.get(parserCtx);
-        const parsed = parser(text);
-        if (!parsed) return false;
-
-        const dom = DOMSerializer.fromSchema(schema).serializeFragment(parsed.content);
-        const slice = DOMParser.fromSchema(schema).parseSlice(dom);
-
-        const node = isTextOnlySlice(slice);
-        if (node) {
-          view.dispatch(view.state.tr.replaceSelectionWith(node, true));
-          return true;
+        // Google Docs paste: convert HTML to markdown via turndown
+        const html = clipboardData.getData('text/html');
+        if (html && isGoogleDocsHtml(html)) {
+          const markdown = getTurndown()
+            .turndown(html)
+            // Clean up empty bold/italic markers left by Google Docs' <b>/<i> wrappers
+            .replace(/^[*_]{2,}\s*$/gm, '')
+            .replace(/^\s*\n/, '')
+            .replace(/\n\s*$/, '');
+          return pasteMarkdown(ctx, view, markdown);
         }
 
-        try {
-          view.dispatch(view.state.tr.replaceSelection(slice));
-          return true;
-        } catch {
-          return false;
-        }
+        // Default: parse text/plain as markdown
+        return pasteMarkdown(ctx, view, text);
       },
     },
   });

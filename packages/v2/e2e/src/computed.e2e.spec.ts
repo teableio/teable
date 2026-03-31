@@ -949,7 +949,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Process outbox to ensure lookup field is calculated
         await ctx.testContainer.processOutbox();
 
-        const beforeRecordsA = await listRecords(tableA.id);
+        const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '100');
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -976,7 +976,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 200 });
         await ctx.testContainer.processOutbox();
 
-        const afterRecordsA = await listRecords(tableA.id);
+        const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '200');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -1088,7 +1088,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Process outbox to ensure lookup field is calculated
         await ctx.testContainer.processOutbox();
 
-        const beforeRecords = await listRecords(tableB.id);
+        const beforeRecords = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(beforeRecords, 0, bFieldIds[bFieldIds.length - 1], '[10]');
         expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1118,7 +1118,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableB.id);
+        const afterRecords = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(afterRecords, 0, bFieldIds[bFieldIds.length - 1], '[20]');
         expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1260,7 +1260,7 @@ describe('v2 computed field updates (e2e)', () => {
           // Process any pending outbox tasks (cross-table updates are async)
           await ctx.testContainer.processOutbox();
 
-          const afterContacts = await listRecords(contacts.id);
+          const afterContacts = await listRecordsWithoutDrain(contacts.id);
           expectCellDisplay(
             afterContacts,
             0,
@@ -1374,7 +1374,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Process outbox to ensure rollup field is calculated
         await ctx.testContainer.processOutbox();
 
-        const beforeRecordsA = await listRecords(tableA.id);
+        const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '10');
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -1402,7 +1402,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.updateRecord(tableA.id, recordA1.id, { [aValueFieldId]: 50 });
         await ctx.testContainer.processOutbox();
 
-        const afterRecordsA = await listRecords(tableA.id);
+        const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '50');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -1515,7 +1515,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Process outbox to ensure rollup field is calculated
         await ctx.testContainer.processOutbox();
 
-        const beforeRecords = await listRecords(tableB.id);
+        const beforeRecords = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(beforeRecords, 0, bFieldIds[bFieldIds.length - 1], '10');
         expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1533,7 +1533,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableB.id);
+        const afterRecords = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(afterRecords, 0, bFieldIds[bFieldIds.length - 1], '60');
         expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1751,7 +1751,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const beforeRecordsA = await listRecords(tableA.id);
+      const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '100');
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -1779,7 +1779,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
       await ctx.testContainer.processOutbox();
 
-      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '999');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -1904,7 +1904,7 @@ describe('v2 computed field updates (e2e)', () => {
       // Process outbox to ensure lookup and formula fields are calculated
       await ctx.testContainer.processOutbox();
 
-      const beforeRecordsA = await listRecords(tableA.id);
+      const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '20');
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -2263,7 +2263,7 @@ describe('v2 computed field updates (e2e)', () => {
       // Process outbox to ensure link title is updated
       await ctx.testContainer.processOutbox();
 
-      const beforeRecordsA = await listRecords(tableA.id);
+      const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], 'Original Title');
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -2291,7 +2291,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(tableA.id, recordA.id, { [aNameFieldId]: 'Updated Title' });
       await ctx.testContainer.processOutbox();
 
-      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], 'Updated Title');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -2433,7 +2433,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const beforeRecordsA = await listRecords(tableA.id);
+        const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '10');
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -2474,7 +2474,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const afterRecordsA = await listRecords(tableA.id);
+        const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '99');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -2691,7 +2691,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const aFieldsAfter = await listRecords(tableA.id);
+        const aFieldsAfter = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(aFieldsAfter, 0, aFieldIds[aFieldIds.length - 1], '-');
         expect(printTableSnapshot(tableA.name, aFieldNames, aFieldsAfter, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -2770,7 +2770,7 @@ describe('v2 computed field updates (e2e)', () => {
         // Process outbox to ensure symmetric link is updated
         await ctx.testContainer.processOutbox();
 
-        const beforeRecordsA = await listRecords(tableA.id);
+        const beforeRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(beforeRecordsA, 0, aFieldIds[aFieldIds.length - 1], '100');
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -2797,7 +2797,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
         await ctx.testContainer.processOutbox();
 
-        const afterRecordsA = await listRecords(tableA.id);
+        const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '999');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -3031,7 +3031,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const parentRecordsAfter = await listRecords(tableParent.id);
+        const parentRecordsAfter = await listRecordsWithoutDrain(tableParent.id);
         expectCellDisplay(parentRecordsAfter, 0, parentFieldIds[parentFieldIds.length - 1], 'C1');
         expect(
           printTableSnapshot(tableParent.name, parentFieldNames, parentRecordsAfter, parentFieldIds)
@@ -3148,7 +3148,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableA.id);
+        const afterRecords = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '60');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -3246,7 +3246,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const beforeRecords = await listRecords(tableA.id);
+        const beforeRecords = await listRecordsWithoutDrain(tableA.id);
         const beforeParent = beforeRecords.find((r) => r.id === parent.id);
         const beforeLookup = beforeParent?.fields[aLookupFieldId];
         expect(
@@ -3262,7 +3262,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const afterRemoveRecords = await listRecords(tableA.id);
+        const afterRemoveRecords = await listRecordsWithoutDrain(tableA.id);
         const afterRemoveParent = afterRemoveRecords.find((r) => r.id === parent.id);
         expect(afterRemoveParent?.fields[aLookupFieldId]).toEqual([123]);
 
@@ -3273,7 +3273,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const afterClearRecords = await listRecords(tableA.id);
+        const afterClearRecords = await listRecordsWithoutDrain(tableA.id);
         const afterClearParent = afterClearRecords.find((r) => r.id === parent.id);
         const lookupValue = afterClearParent?.fields[aLookupFieldId];
         expect(
@@ -3836,7 +3836,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.updateRecord(tableB.id, recordB.id, { [bValueFieldId]: 999 });
         await ctx.testContainer.processOutbox();
 
-        const afterRecordsB = await listRecords(tableB.id);
+        const afterRecordsB = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(afterRecordsB, 0, bFieldIds[bFieldIds.length - 1], '999');
         expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -3929,7 +3929,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const childRecords = await listRecords(tableChild.id);
+        const childRecords = await listRecordsWithoutDrain(tableChild.id);
         expectCellDisplay(childRecords, 0, childFieldIds[childFieldIds.length - 1], 'P1');
         expect(printTableSnapshot(tableChild.name, childFieldNames, childRecords, childFieldIds))
           .toMatchInlineSnapshot(`
@@ -3977,7 +3977,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const childRecordsAfter = await listRecords(tableChild.id);
+        const childRecordsAfter = await listRecordsWithoutDrain(tableChild.id);
         expectCellDisplay(childRecordsAfter, 0, childFieldIds[childFieldIds.length - 1], 'P1');
         expect(
           printTableSnapshot(tableChild.name, childFieldNames, childRecordsAfter, childFieldIds)
@@ -4092,7 +4092,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.updateRecord(tableA.id, recordA.id, { [aLinkFieldId]: { id: recordB2.id } });
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableA.id);
+        const afterRecords = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '[20]');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -4196,7 +4196,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableA.id);
+        const afterRecords = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '20');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -4328,7 +4328,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const aRecordsAfter = await listRecords(tableA.id);
+        const aRecordsAfter = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(aRecordsAfter, 0, aFieldIds[aFieldIds.length - 1], 'B1, B2');
         expect(printTableSnapshot(tableA.name, aFieldNames, aRecordsAfter, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -4556,7 +4556,7 @@ describe('v2 computed field updates (e2e)', () => {
       // Some cross-table title updates can be enqueued after the first drain (via async handlers).
       await ctx.testContainer.processOutbox();
 
-      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], 'Item-100');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -4712,7 +4712,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordsA = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], 'Item-12');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -5383,7 +5383,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const bRecordsAfter1 = await listRecords(tableB.id);
+        const bRecordsAfter1 = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(bRecordsAfter1, 0, bFieldIds[bFieldIds.length - 1], 'A1');
         expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter1, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -5402,7 +5402,7 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await ctx.testContainer.processOutbox();
 
-        const bRecordsAfter2 = await listRecords(tableB.id);
+        const bRecordsAfter2 = await listRecordsWithoutDrain(tableB.id);
         expectCellDisplay(bRecordsAfter2, 0, bFieldIds[bFieldIds.length - 1], 'A1, A2');
         expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter2, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -5946,7 +5946,7 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableA.id);
+        const afterRecords = await listRecordsWithoutDrain(tableA.id);
         expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '20');
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -6188,7 +6188,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(tableA.id);
+      const afterRecords = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '[200]');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -6439,7 +6439,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(tableA.id);
+      const afterRecords = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '30');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -6538,7 +6538,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(tableA.id, record.id, { [aLinkFieldId]: [] });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(tableA.id);
+      const afterRecords = await listRecordsWithoutDrain(tableA.id);
       expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '0');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -6740,7 +6740,7 @@ describe('v2 computed field updates (e2e)', () => {
       }
       expect(drained).toBe(0);
 
-      let aRecords = await listRecords(tableA.id);
+      let aRecords = await listRecordsWithoutDrain(tableA.id);
       let bRecords = await listRecords(tableB.id);
 
       expectCellDisplay(aRecords, 0, aLookupBNameFieldId, '[B1]');
@@ -6864,7 +6864,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7099,7 +7099,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '40');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7192,7 +7192,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7279,7 +7279,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7371,7 +7371,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       // Should sum only top 2 values (40 + 30 = 70)
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '70');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
@@ -7480,7 +7480,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7670,7 +7670,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '3');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7748,7 +7748,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '10');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -7768,7 +7768,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8240,7 +8240,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, conditionalRollupFieldId, '150');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8259,7 +8259,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, conditionalRollupFieldId, '100');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8346,7 +8346,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '[10, 20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8471,7 +8471,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[30, 20, 10]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8560,7 +8560,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       // Should return only top 2 values (40, 30)
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[40, 30]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
@@ -8656,7 +8656,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[10, 30]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8796,7 +8796,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[Alpha, Beta]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8871,7 +8871,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '[10]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8891,7 +8891,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '[10, 20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -8996,7 +8996,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[10, 20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9081,7 +9081,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[true, false]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9209,7 +9209,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const records = await listRecords(hostTable.id);
+      const records = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9289,7 +9289,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '[10, 20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9305,7 +9305,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.deleteRecord(foreignTable.id, record1.id);
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '[20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9550,7 +9550,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, conditionalLookupFieldId, '[100, 50]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9569,7 +9569,7 @@ describe('v2 computed field updates (e2e)', () => {
       });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, conditionalLookupFieldId, '[100]');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9724,7 +9724,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, conditionalLookupFieldId, '[100]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9742,7 +9742,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, conditionalLookupFieldId, '[100, 50]');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9839,7 +9839,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '10');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9855,7 +9855,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(foreignTable.id, record2.id, { [foreignStatusFieldId]: 'active' });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9935,7 +9935,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
       await ctx.testContainer.processOutbox();
 
-      const beforeRecords = await listRecords(hostTable.id);
+      const beforeRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(beforeRecords, 0, fieldIds[fieldIds.length - 1], '[10]');
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -9951,7 +9951,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(foreignTable.id, record2.id, { [foreignStatusFieldId]: 'active' });
       await ctx.testContainer.processOutbox();
 
-      const afterRecords = await listRecords(hostTable.id);
+      const afterRecords = await listRecordsWithoutDrain(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '[10, 20]');
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
@@ -10328,7 +10328,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const hostRecords = await listRecords(hostTable.id);
+      const hostRecords = await listRecordsWithoutDrain(hostTable.id);
       const hostRecordIndex = hostRecords.findIndex((r) => r.id === hostRecord.id);
       expect(hostRecordIndex).toBeGreaterThanOrEqual(0);
 
@@ -10360,7 +10360,7 @@ describe('v2 computed field updates (e2e)', () => {
       for (let i = 0; i < 20; i += 1) {
         await ctx.testContainer.processOutbox();
 
-        const hostRecordsAfter = await listRecords(hostTable.id);
+        const hostRecordsAfter = await listRecordsWithoutDrain(hostTable.id);
         const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
         hostTitleAfter = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
 
@@ -10461,7 +10461,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const hostRecords = await listRecords(hostTable.id);
+      const hostRecords = await listRecordsWithoutDrain(hostTable.id);
       const hostRecordIndex = hostRecords.findIndex((r) => r.id === hostRecord.id);
       expect(hostRecordIndex).toBeGreaterThanOrEqual(0);
 
@@ -10496,7 +10496,7 @@ describe('v2 computed field updates (e2e)', () => {
       for (let i = 0; i < 20; i += 1) {
         await ctx.testContainer.processOutbox();
 
-        const hostRecordsAfter = await listRecords(hostTable.id);
+        const hostRecordsAfter = await listRecordsWithoutDrain(hostTable.id);
         const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
         hostTitleAfter = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
 
@@ -10606,7 +10606,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const hostRecords = await listRecords(hostTable.id);
+      const hostRecords = await listRecordsWithoutDrain(hostTable.id);
       const hostRecordIndex = hostRecords.findIndex((r) => r.id === hostRecord.id);
       expect(hostRecordIndex).toBeGreaterThanOrEqual(0);
 
@@ -10638,7 +10638,7 @@ describe('v2 computed field updates (e2e)', () => {
       for (let i = 0; i < 20; i += 1) {
         await ctx.testContainer.processOutbox();
 
-        const hostRecordsAfter = await listRecords(hostTable.id);
+        const hostRecordsAfter = await listRecordsWithoutDrain(hostTable.id);
         const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
         hostTitleAfterValueChange = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
 
@@ -10676,7 +10676,7 @@ describe('v2 computed field updates (e2e)', () => {
       for (let i = 0; i < 20; i += 1) {
         await ctx.testContainer.processOutbox();
 
-        const hostRecordsAfter = await listRecords(hostTable.id);
+        const hostRecordsAfter = await listRecordsWithoutDrain(hostTable.id);
         const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
         hostTitleAfterLinkChange = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
 
@@ -10797,7 +10797,7 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
-      const projectRecords = await listRecords(projectTable.id);
+      const projectRecords = await listRecordsWithoutDrain(projectTable.id);
       const projectRecordIndex = projectRecords.findIndex((r) => r.id === projectRecord.id);
       expect(projectRecordIndex).toBeGreaterThanOrEqual(0);
 

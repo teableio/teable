@@ -260,7 +260,6 @@ describe('v2 http conditional lookup (e2e)', () => {
 
       // Process outbox to compute lookup values
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox(); // May need multiple passes
 
       // Get records and verify lookup values
       const hostRecords = await listRecords(host.id);
@@ -371,7 +370,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await drainOutbox();
+      await ctx.testContainer.processOutbox();
 
       const hostRecords = await listRecords(host.id);
       const hostRecord = hostRecords[0];
@@ -489,7 +488,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await drainOutbox();
+      await ctx.testContainer.processOutbox();
 
       const hostRecords = await listRecords(host.id);
       const hostRecord = hostRecords[0];
@@ -554,7 +553,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       // Verify baseline
       let hostRecords = await listRecords(host.id);
@@ -571,7 +569,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       // Verify Gamma now appears in lookup
       hostRecords = await listRecords(host.id);
@@ -583,7 +580,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         [titleFieldId]: 'Gamma Updated',
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       // Verify title change is reflected
@@ -597,7 +593,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         [statusFieldId]: 'Closed',
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       // Verify Gamma is no longer in lookup
@@ -766,7 +761,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       const hostRecords = await listRecords(host.id);
       expect(hostRecords).toHaveLength(1);
@@ -865,7 +859,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       return { host, assigneesFieldId, lookupFieldId, aliceCell, bobCell };
@@ -966,7 +959,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       const hostRecordsBefore = await listRecords(host.id);
       expect(hostRecordsBefore[0]?.fields[lookupFieldId]).toEqual(['Task Alpha', 'Task Beta']);
@@ -977,7 +969,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         options: {},
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       const tableAfterConversion = await getTableById(host.id);
@@ -1007,7 +998,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         [taskFieldId]: 'Task Alpha\nLine 2',
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       const hostRecordsAfter = await listRecords(host.id);
@@ -1080,7 +1070,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       const tableBefore = await getTableById(host.id);
       const lookupBefore = tableBefore.fields.find((field) => field.id === lookupFieldId) as
@@ -1094,7 +1083,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         options: {},
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       const tableAfter = await getTableById(host.id);
@@ -1167,7 +1155,6 @@ describe('v2 http conditional lookup (e2e)', () => {
       });
 
       await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
 
       const tableBefore = await getTableById(host.id);
       const lookupBefore = tableBefore.fields.find((field) => field.id === lookupFieldId) as
@@ -1181,7 +1168,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         options: {},
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       const tableAfter = await getTableById(host.id);
@@ -1253,7 +1239,6 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
       // Verify: should get top 2 scores in descending order (30, 20)
@@ -1343,7 +1328,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await drainOutbox();
+      await ctx.testContainer.processOutbox();
 
       const ascRecords = await listRecords(host.id, {
         sort: [{ fieldId: lookupFieldId, order: 'asc' }],
@@ -1437,8 +1422,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      await drainOutbox();
 
       // Verify: should get Item1 (A, 100) and Item4 (A, 200)
       const hostRecords = await listRecords(host.id);
@@ -1523,8 +1507,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      await drainOutbox();
 
       const hostRecords = await listRecords(host.id);
       const record = hostRecords[0];
@@ -1831,9 +1814,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         },
       });
 
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      await drainOutbox();
 
       const hostRecords = await listRecords(host.id);
       const hostRecord = hostRecords[0];
@@ -1864,9 +1845,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         [supplierRatingFieldId]: 5,
       });
 
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      await drainOutbox();
 
       const afterBoostHost = await listRecords(host.id);
       const boostedLookupValues =
@@ -1894,9 +1873,7 @@ describe('v2 http conditional lookup (e2e)', () => {
         [supplierRatingFieldId]: 4,
       });
 
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      await drainOutbox();
 
       const restoredHost = await listRecords(host.id);
       const restoredLookupValues =

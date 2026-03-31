@@ -459,6 +459,9 @@ importers:
       reflect-metadata:
         specifier: 0.2.1
         version: 0.2.1
+      request-filtering-agent:
+        specifier: 3.2.0
+        version: 3.2.0
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -2195,6 +2198,9 @@ importers:
       ts-mixer:
         specifier: 6.0.4
         version: 6.0.4
+      turndown:
+        specifier: 7.2.2
+        version: 7.2.2
       use-file-picker:
         specifier: 2.1.2
         version: 2.1.2(react@18.3.1)
@@ -2235,6 +2241,9 @@ importers:
       '@types/sockjs-client':
         specifier: 1.5.4
         version: 1.5.4
+      '@types/turndown':
+        specifier: 5.0.6
+        version: 5.0.6
       '@vitejs/plugin-react-swc':
         specifier: 3.6.0
         version: 3.6.0(@swc/helpers@0.5.17)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
@@ -2279,7 +2288,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
+        version: 4.2.0(rollup@4.55.1)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
       vitest:
         specifier: 4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
@@ -8057,6 +8066,9 @@ packages:
   '@milkdown/utils@7.19.0':
     resolution: {integrity: sha512-aIu8j7TypVn+4ZWgrIUjpljIulAVwNERWNZgkfYLQLOv+BbF1gIbpoB7t3w0RD2EeENrEu0P3J0Sl5LDMbyDRQ==}
 
+  '@mixmark-io/domino@2.2.0':
+    resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
+
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     resolution: {integrity: sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw==}
     cpu: [arm64]
@@ -13360,6 +13372,9 @@ packages:
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
+  '@types/turndown@5.0.6':
+    resolution: {integrity: sha512-ru00MoyeeouE5BX4gRL+6m/BsDfbRayOskWqUvh7CLGW+UXxHQItqALa38kKnOiZPqJrtzJUgAC2+F0rL1S4Pg==}
+
   '@types/unist@2.0.11':
     resolution: {integrity: sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA==}
 
@@ -13658,6 +13673,7 @@ packages:
   '@univerjs/core@0.3.0':
     resolution: {integrity: sha512-eUOpkFxsMT95fk+3wNDxU6g8g0XTE0waiCngrswnPy2YO0ezkXUF9dzkrT5mAiDC/k8KP/nCMr/U+iHTpThFLA==}
     peerDependencies:
+      '@univerjs/core': 0.3.0
       react: ^16.9.0 || ^17.0.0 || ^18.0.0
       rxjs: '>=7.0.0'
 
@@ -13909,6 +13925,7 @@ packages:
       '@univerjs/core': 0.3.0
       '@univerjs/engine-formula': 0.3.0
       '@univerjs/sheets': 0.3.0
+      '@univerjs/sheets-hyper-link': 0.3.0
       rxjs: '>=7.0.0'
 
   '@univerjs/sheets-numfmt@0.3.0':
@@ -13926,6 +13943,7 @@ packages:
 
   '@univerjs/sheets-thread-comment-base@0.3.0':
     resolution: {integrity: sha512-JNAMb52Nqf6KY5Usa3tTqilM0lz76xXEFnkDCOqt6Zv7rbLOpgKw1j9MriEov9lCQVFSnmTmabTOdR7iOXzW6w==}
+    deprecated: Package no longer supported.
     peerDependencies:
       '@univerjs/core': 0.3.0
       '@univerjs/engine-formula': 0.3.0
@@ -13971,6 +13989,7 @@ packages:
       '@univerjs/engine-formula': 0.3.0
       '@univerjs/engine-numfmt': 0.3.0
       '@univerjs/rpc': 0.3.0
+      '@univerjs/sheets': 0.3.0
       rxjs: '>=7.0.0'
 
   '@univerjs/telemetry@0.3.0':
@@ -14005,6 +14024,7 @@ packages:
       '@univerjs/core': 0.3.0
       '@univerjs/design': 0.3.0
       '@univerjs/engine-render': 0.3.0
+      '@univerjs/ui': 0.3.0
       clsx: '>=2.0.0'
       react: ^16.9.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0
@@ -22480,6 +22500,10 @@ packages:
     resolution: {integrity: sha512-PV0dzCYDNfRi1jCDbJzpW7jNNDRuCOG/jI5ctQcGKt/clZD+YcPS3yIlWuTJMmESC8aevCFmWJy5wjAFgNqN6w==}
     engines: {node: '>=0.10'}
 
+  request-filtering-agent@3.2.0:
+    resolution: {integrity: sha512-tKPrKdsmTFuGG1/pBEpzTB66mDZ2lZLW8kjW4N6jj4QjnxUTKrIfv5p2zuJRfztOos86jRPD41lRaGjh+1QqDw==}
+    engines: {node: '>=20.0.0'}
+
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -24005,6 +24029,9 @@ packages:
 
   turbo-stream@2.4.1:
     resolution: {integrity: sha512-v8kOJXpG3WoTN/+at8vK7erSzo6nW6CIaeOvNOkHQVDajfz1ZVeSxCbc6tOH4hrGZW7VUCV0TOXd8CPzYnYkrw==}
+
+  turndown@7.2.2:
+    resolution: {integrity: sha512-1F7db8BiExOKxjSMU2b7if62D/XOyQyZbPKq/nUwopfgnHlqXHqQ0lvfUTeUIr1lZJzOPFn43dODyMSIfvWRKQ==}
 
   tw-animate-css@1.4.0:
     resolution: {integrity: sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ==}
@@ -29218,6 +29245,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@mixmark-io/domino@2.2.0': {}
+
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     optional: true
 
@@ -32726,14 +32755,6 @@ snapshots:
       estree-walker: 2.0.2
       picomatch: 2.3.1
 
-  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
-    dependencies:
-      '@types/estree': 1.0.6
-      estree-walker: 2.0.2
-      picomatch: 4.0.2
-    optionalDependencies:
-      rollup: 2.79.2
-
   '@rollup/pluginutils@5.1.4(rollup@4.55.1)':
     dependencies:
       '@types/estree': 1.0.6
@@ -35695,6 +35716,8 @@ snapshots:
   '@types/trusted-types@2.0.7':
     optional: true
 
+  '@types/turndown@5.0.6': {}
+
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
@@ -36126,6 +36149,7 @@ snapshots:
 
   '@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1)':
     dependencies:
+      '@univerjs/core': 0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1)
       '@univerjs/protocol': 0.1.39-alpha.15(@grpc/grpc-js@1.12.4)(rxjs@7.8.1)
       '@wendellhu/redi': 0.16.1
       lodash-es: 4.17.21
@@ -36453,6 +36477,7 @@ snapshots:
       '@univerjs/engine-formula': 0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1)
       '@univerjs/protocol': 0.1.39-alpha.15(@grpc/grpc-js@1.12.4)(rxjs@7.8.1)
       '@univerjs/sheets': 0.3.0(@grpc/grpc-js@1.12.4)(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/engine-formula@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1))(@univerjs/engine-numfmt@0.3.0)(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1)
+      '@univerjs/sheets-hyper-link': 0.3.0(@grpc/grpc-js@1.12.4)(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/engine-formula@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1))(@univerjs/sheets@0.3.0(@grpc/grpc-js@1.12.4)(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/engine-formula@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1))(@univerjs/engine-numfmt@0.3.0)(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1)
       rxjs: 7.8.1
     transitivePeerDependencies:
       - '@grpc/grpc-js'
@@ -36545,6 +36570,7 @@ snapshots:
       '@univerjs/engine-numfmt': 0.3.0
       '@univerjs/protocol': 0.1.39-alpha.15(@grpc/grpc-js@1.12.4)(rxjs@7.8.1)
       '@univerjs/rpc': 0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1)
+      '@univerjs/sheets': 0.3.0(@grpc/grpc-js@1.12.4)(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/engine-formula@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1))(@univerjs/engine-numfmt@0.3.0)(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1)
       rxjs: 7.8.1
     transitivePeerDependencies:
       - '@grpc/grpc-js'
@@ -36587,6 +36613,7 @@ snapshots:
       '@univerjs/engine-formula': 0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(rxjs@7.8.1)
       '@univerjs/engine-render': 0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1)
       '@univerjs/icons': 0.1.87(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@univerjs/ui': 0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(@univerjs/design@0.3.0(clsx@2.1.1)(date-fns@4.1.0)(dayjs@1.11.10)(luxon@3.5.0)(moment@2.30.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@univerjs/engine-render@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(@univerjs/rpc@0.3.0(@univerjs/core@0.3.0(@grpc/grpc-js@1.12.4)(react@18.3.1)(rxjs@7.8.1))(rxjs@7.8.1))(clsx@2.1.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.1)(typescript@5.4.3)
       clsx: 2.1.1
       localforage: 1.10.0
       rc-notification: 5.6.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -47311,6 +47338,10 @@ snapshots:
 
   repeat-string@1.6.1: {}
 
+  request-filtering-agent@3.2.0:
+    dependencies:
+      ipaddr.js: 2.2.0
+
   require-directory@2.1.1: {}
 
   require-from-string@2.0.2: {}
@@ -49243,6 +49274,10 @@ snapshots:
 
   turbo-stream@2.4.1: {}
 
+  turndown@7.2.2:
+    dependencies:
+      '@mixmark-io/domino': 2.2.0
+
   tw-animate-css@1.4.0: {}
 
   tween-functions@1.2.0: {}
@@ -49813,17 +49848,6 @@ snapshots:
       - sugarss
       - supports-color
       - terser
-
-  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)):
-    dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
-      '@svgr/core': 8.1.0(typescript@5.4.3)
-      '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
-      vite: 7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
-    transitivePeerDependencies:
-      - rollup
-      - supports-color
-      - typescript
 
   vite-plugin-svgr@4.2.0(rollup@4.55.1)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)):
     dependencies:

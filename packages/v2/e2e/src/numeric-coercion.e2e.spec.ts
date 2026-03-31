@@ -125,7 +125,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      let records = await ctx.listRecords(table.id);
+      let records = await ctx.listRecordsWithoutDrain(table.id);
 
       // Should extract: 10 - 3 = 7
       expect(records[0].fields[remainingFieldId]).toBe(7);
@@ -134,7 +134,7 @@ describe('v2 numeric coercion (e2e)', () => {
       // Update with "4天"
       await ctx.updateRecord(table.id, record.id, { [consumedFieldId]: '4天' });
       await ctx.drainOutbox();
-      records = await ctx.listRecords(table.id);
+      records = await ctx.listRecordsWithoutDrain(table.id);
 
       // Should extract: 10 - 4 = 6
       expect(records[0].fields[remainingFieldId]).toBe(6);
@@ -143,7 +143,7 @@ describe('v2 numeric coercion (e2e)', () => {
       // Update with "12周"
       await ctx.updateRecord(table.id, record.id, { [durationFieldId]: '12周' });
       await ctx.drainOutbox();
-      records = await ctx.listRecords(table.id);
+      records = await ctx.listRecordsWithoutDrain(table.id);
 
       // Should extract: 12 - 4 = 8
       expect(records[0].fields[remainingFieldId]).toBe(8);
@@ -284,7 +284,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(table.id);
+      const records = await ctx.listRecordsWithoutDrain(table.id);
 
       const recordWithValue = records.find((r) => r.id === valueOnlyRecord.id);
       const recordWithOptional = records.find((r) => r.id === optionalOnlyRecord.id);
@@ -387,7 +387,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      let records = await ctx.listRecords(table.id);
+      let records = await ctx.listRecordsWithoutDrain(table.id);
 
       const storedDueDate = records[0].fields[dueDateFieldId] as string | undefined;
       const expectedInitialLead = shiftDateString(storedDueDate, -2, dueDateUtc);
@@ -397,7 +397,7 @@ describe('v2 numeric coercion (e2e)', () => {
       // Update buffer to 7
       await ctx.updateRecord(table.id, record.id, { [bufferDaysFieldId]: 7 });
       await ctx.drainOutbox();
-      records = await ctx.listRecords(table.id);
+      records = await ctx.listRecordsWithoutDrain(table.id);
 
       const updatedDueDate = records[0].fields[dueDateFieldId] as string | undefined;
       const expectedUpdatedLead = shiftDateString(updatedDueDate, -7, dueDateUtc);
@@ -460,14 +460,14 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      let records = await ctx.listRecords(table.id);
+      let records = await ctx.listRecordsWithoutDrain(table.id);
 
       expect(records[0].fields[workdayDiffFieldId] ?? null).toBeNull();
 
       // Update to 12
       await ctx.updateRecord(table.id, record.id, { [monthFieldId]: 12 });
       await ctx.drainOutbox();
-      records = await ctx.listRecords(table.id);
+      records = await ctx.listRecordsWithoutDrain(table.id);
 
       expect(records[0].fields[workdayDiffFieldId] ?? null).toBeNull();
     });
@@ -525,12 +525,12 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      let records = await ctx.listRecords(table.id);
+      let records = await ctx.listRecordsWithoutDrain(table.id);
       expect(records[0].fields[workdayFieldId]).toBe('2026-01-23');
 
       await ctx.updateRecord(table.id, record.id, { [numberFieldId]: 3 });
       await ctx.drainOutbox();
-      records = await ctx.listRecords(table.id);
+      records = await ctx.listRecordsWithoutDrain(table.id);
       expect(records[0].fields[workdayFieldId]).toBe('2026-01-27');
     });
   });
@@ -611,7 +611,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(table.id);
+      const records = await ctx.listRecordsWithoutDrain(table.id);
 
       expect(records[0].fields[workdayDiffFieldId] ?? null).toBeNull();
     });
@@ -673,7 +673,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(table.id);
+      const records = await ctx.listRecordsWithoutDrain(table.id);
 
       const notifiedResult = records.find((r) => r.id === notifiedRecord.id);
       const pendingResult = records.find((r) => r.id === pendingRecord.id);
@@ -736,7 +736,7 @@ describe('v2 numeric coercion (e2e)', () => {
       });
 
       await ctx.drainOutbox();
-      const records = await ctx.listRecords(table.id);
+      const records = await ctx.listRecordsWithoutDrain(table.id);
 
       const activeResult = records.find((r) => r.id === activeRecord.id);
       const inactiveResult = records.find((r) => r.id === inactiveRecord.id);
