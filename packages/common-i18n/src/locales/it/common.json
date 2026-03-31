@@ -704,8 +704,8 @@
     "spaceTrash": "Cestino dello spazio",
     "type": "Tipo",
     "resetTrash": "Svuota cestino",
-    "deletedBy": "Eliminato da",
-    "deletedTime": "Ora di eliminazione",
+    "deletedBy": "Da",
+    "deletedTime": "Data",
     "fromSpace": "Dallo spazio \"{{name}}\"",
     "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
@@ -1082,8 +1082,8 @@
   },
   "changelog": {
     "newUpdate": "NUOVO AGGIORNAMENTO",
-    "title": "Download massivo degli allegati disponibile",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Dominio personalizzato per l'App disponibile",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

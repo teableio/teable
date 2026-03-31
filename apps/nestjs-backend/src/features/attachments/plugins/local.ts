@@ -68,7 +68,7 @@ export class LocalStorage implements StorageAdapter {
   private getUrl(bucket: string, path: string, params: ITokenEncryptor) {
     const token = this.expireTokenEncryptor.encrypt(params);
     const responseContentDisposition = params.respHeaders?.['Content-Disposition'];
-    return `${join(LocalStorage.readPath, bucket, path)}?token=${token}${responseContentDisposition ? `&response-content-disposition=${responseContentDisposition}` : ''}`;
+    return `${join(LocalStorage.readPath, bucket, path)}?token=${token}${responseContentDisposition ? `&response-content-disposition=${encodeURIComponent(responseContentDisposition)}` : ''}`;
   }
 
   parsePath(path: string) {

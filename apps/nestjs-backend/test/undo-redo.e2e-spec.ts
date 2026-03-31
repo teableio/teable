@@ -28,6 +28,8 @@ import {
   getFields,
   getRecord,
   getRecords,
+  getTrashItems,
+  ResourceType,
   getView,
   getViewList,
   paste,
@@ -54,6 +56,18 @@ import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from '.
 const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 const canRunCanaryV2 =
   process.env.FORCE_V2_ALL === 'true' || process.env.ENABLE_CANARY_FEATURE === 'true';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitForTableTrashCount = async (tableId: string, expectedCount: number, maxRetries = 100) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+    if (result.data.trashItems.length === expectedCount) {
+      return result;
+    }
+    await sleep(100);
+  }
+
+  return await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+};
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -244,6 +258,54 @@ describe('Undo Redo (e2e)', () => {
     expect(allRecordsAfterRedo.data.records).toHaveLength(3);
     expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
   });
+
+  it.skipIf(!canRunCanaryV2)(
+    'should remove v2 record trash after undo restores deleted records',
+    async () => {
+      const constrainedTable = await createTable(baseId, {
+        name: `undo-trash-${getRandomString(6)}`,
+        fields: [{ type: FieldType.SingleLineText, name: 'Title', isPrimary: true }],
+        records: [],
+      });
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const titleFieldId = constrainedTable.fields.find((field) => field.name === 'Title')?.id;
+        expect(titleFieldId).toBeTruthy();
+        if (!titleFieldId) {
+          return;
+        }
+
+        const created = await createRecords(constrainedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [titleFieldId]: `trash-undo-${getRandomString(6)}` } }],
+        });
+        expect(created.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        const recordId = created.data.records[0].id;
+
+        const deleteRes = await deleteRecord(constrainedTable.id, recordId);
+        expect(deleteRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+        const trashAfterDelete = await waitForTableTrashCount(constrainedTable.id, 1);
+        expect(trashAfterDelete.data.trashItems).toHaveLength(1);
+
+        const undoRes = await undo(constrainedTable.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const trashAfterUndo = await waitForTableTrashCount(constrainedTable.id, 0);
+        expect(trashAfterUndo.data.trashItems).toHaveLength(0);
+      } finally {
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        await permanentDeleteTable(baseId, constrainedTable.id);
+      }
+    }
+  );
 
   it('should undo / redo delete multiple records', async () => {
     await awaitWithEvent(() => createField(table.id, { type: FieldType.CreatedTime }));

@@ -78,55 +78,6 @@ export const TableTrash = (props: ITableTrashProps) => {
   const columns: ColumnDef<ITableTrashItemVo>[] = useMemo(() => {
     const result: ColumnDef<ITableTrashItemVo>[] = [
       {
-        accessorKey: 'deletedTime',
-        header: t('trash.deletedTime'),
-        size: 90,
-        cell: ({ row }) => {
-          const deletedTime = row.getValue<string>('deletedTime');
-          const deletedDate = dayjs(deletedTime);
-          const isToday = deletedDate.isSame(dayjs(), 'day');
-          return (
-            <div className="text-xs" title={deletedDate.format('YYYY/MM/DD HH:mm')}>
-              {deletedDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'deletedBy',
-        header: t('trash.deletedBy'),
-        size: 80,
-        cell: ({ row }) => {
-          const deletedBy = row.getValue<string>('deletedBy');
-          const user = userMap[deletedBy];
-
-          if (!user) return null;
-
-          const { id, name, avatar, email } = user;
-
-          return (
-            <div className="flex justify-center">
-              <CollaboratorWithHoverCard id={id} name={name} avatar={avatar} email={email} />
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'resourceType',
-        header: t('table:tableTrash.resourceType'),
-        size: 100,
-        cell: ({ row }) => {
-          const resourceType = row.getValue<string>('resourceType');
-          const resourceStringMap: Record<string, string> = {
-            [TableTrashType.View]: t('noun.view'),
-            [TableTrashType.Field]: t('noun.field'),
-            [TableTrashType.Record]: t('noun.record'),
-          };
-
-          return <div className="flex items-center gap-x-1">{resourceStringMap[resourceType]}</div>;
-        },
-      },
-      {
         accessorKey: 'resourceIds',
         header: t('table:tableTrash.deletedResource'),
         size: Number.MAX_SAFE_INTEGER,
@@ -160,7 +111,7 @@ export const TableTrash = (props: ITableTrashProps) => {
                     return (
                       <div
                         key={id}
-                        className="flex items-center rounded-sm bg-muted px-2 py-[2px] text-xs"
+                        className="flex items-center rounded-sm border bg-muted px-2 py-[2px] text-xs"
                       >
                         {Icon && <Icon className="mr-1 size-3" />}
                         {name || t('sdk:common.unnamedRecord')}
@@ -169,9 +120,58 @@ export const TableTrash = (props: ITableTrashProps) => {
                   })}
                 </div>
               ) : (
-                <span className="text-gray-500">{t('common.empty')}</span>
+                <span className="text-muted-foreground">{t('common.empty')}</span>
               )}
             </Fragment>
+          );
+        },
+      },
+      {
+        accessorKey: 'resourceType',
+        header: t('table:tableTrash.resourceType'),
+        size: 96,
+        cell: ({ row }) => {
+          const resourceType = row.getValue<string>('resourceType');
+          const resourceStringMap: Record<string, string> = {
+            [TableTrashType.View]: t('noun.view'),
+            [TableTrashType.Field]: t('noun.field'),
+            [TableTrashType.Record]: t('noun.record'),
+          };
+
+          return <div className="flex items-center gap-x-1">{resourceStringMap[resourceType]}</div>;
+        },
+      },
+      {
+        accessorKey: 'deletedBy',
+        header: t('trash.deletedBy'),
+        size: 80,
+        cell: ({ row }) => {
+          const deletedBy = row.getValue<string>('deletedBy');
+          const user = userMap[deletedBy];
+
+          if (!user) return null;
+
+          const { id, name, avatar, email } = user;
+
+          return (
+            <div className="flex justify-center">
+              <CollaboratorWithHoverCard id={id} name={name} avatar={avatar} email={email} />
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'deletedTime',
+        header: t('trash.deletedTime'),
+        size: 80,
+        cell: ({ row }) => {
+          const deletedTime = row.getValue<string>('deletedTime');
+          const deletedDate = dayjs(deletedTime);
+          const isToday = deletedDate.isSame(dayjs(), 'day');
+          return (
+            <div className="text-xs" title={deletedDate.format('YYYY/MM/DD HH:mm')}>
+              {deletedDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}
+            </div>
           );
         },
       },
@@ -181,11 +181,12 @@ export const TableTrash = (props: ITableTrashProps) => {
       result.push({
         accessorKey: 'id',
         header: t('actions.title'),
-        size: 80,
+        size: 104,
+        minSize: 104,
         cell: ({ row }) => {
           const trashId = row.getValue<string>('id');
           return (
-            <Button size="sm" onClick={() => mutateRestore({ trashId })}>
+            <Button size="sm" variant={'outline'} onClick={() => mutateRestore({ trashId })}>
               {t('actions.restore')}
             </Button>
           );

@@ -717,7 +717,7 @@
     "type": "タイプ",
     "resetTrash": "ゴミ箱を空にする",
     "deletedBy": "削除者",
-    "deletedTime": "削除日時",
+    "deletedTime": "日時",
     "fromSpace": "「{{name}}」スペースから",
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
@@ -1084,8 +1084,8 @@
   },
   "changelog": {
     "newUpdate": "新着アップデート",
-    "title": "添付ファイルの一括ダウンロードが利用可能に",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "アプリのカスタムドメインが利用可能に",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

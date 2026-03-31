@@ -28,7 +28,6 @@ import {
   ITestLLMRo,
   setSettingMailTransportConfigRoSchema,
   ISetSettingMailTransportConfigRo,
-  SettingKey,
   batchTestLLMRoSchema,
   IBatchTestLLMRo,
   testApiKeyRoSchema,
@@ -64,40 +63,9 @@ export class SettingOpenApiController {
   @Public()
   @Get('public')
   async getPublicSetting(): Promise<IPublicSettingVo> {
-    const setting = await this.settingOpenApiService.getSetting([
-      SettingKey.INSTANCE_ID,
-      SettingKey.BRAND_NAME,
-      SettingKey.BRAND_LOGO,
-      SettingKey.DISALLOW_SIGN_UP,
-      SettingKey.DISALLOW_SPACE_CREATION,
-      SettingKey.DISALLOW_SPACE_INVITATION,
-      SettingKey.DISALLOW_DASHBOARD,
-      SettingKey.ENABLE_EMAIL_VERIFICATION,
-      SettingKey.ENABLE_WAITLIST,
-      SettingKey.ENABLE_CREDIT_REWARD,
-      SettingKey.AI_CONFIG,
-      SettingKey.APP_CONFIG,
-    ]);
-    const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
+    const setting = await this.settingOpenApiService.getPublicSetting();
     return {
-      ...rest,
-      enableCreditReward: enableCreditReward ?? undefined,
-      aiConfig: {
-        enable: Boolean(aiConfig?.chatModel?.lg),
-        llmProviders:
-          aiConfig?.llmProviders?.map((provider) => ({
-            type: provider.type,
-            name: provider.name,
-            models: provider.models,
-            isInstance: true,
-            modelConfigs: provider.modelConfigs,
-          })) ?? [],
-        chatModel: aiConfig?.chatModel ?? undefined,
-        capabilities: aiConfig?.capabilities,
-        // Include gateway models for space-level AI config
-        gatewayModels: aiConfig?.gatewayModels,
-      },
-      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      ...setting,
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,

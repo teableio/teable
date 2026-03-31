@@ -143,7 +143,7 @@ describe('v2 link field title with multi-value lookup (e2e)', () => {
     await ctx.drainOutbox();
 
     // Read back Table2 to verify link field has title
-    const table2Records = await ctx.listRecords(table2.id);
+    const table2Records = await ctx.listRecordsWithoutDrain(table2.id);
     const linkValue = table2Records[0].fields[linkFieldId];
 
     expect(linkValue).toEqual([
@@ -154,7 +154,7 @@ describe('v2 link field title with multi-value lookup (e2e)', () => {
     ]);
 
     // Also check the symmetric field on Table1
-    const table1Records = await ctx.listRecords(table1.id);
+    const table1Records = await ctx.listRecordsWithoutDrain(table1.id);
     const symmetricFieldName = Object.keys(table1Records[0].fields).find(
       (key) => key !== 'text' && key !== text1FieldId
     );

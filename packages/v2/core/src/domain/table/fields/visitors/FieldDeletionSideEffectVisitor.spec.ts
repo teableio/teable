@@ -229,6 +229,106 @@ describe('FieldDeletionSideEffectVisitor', () => {
     expect(sideEffectsResult._unsafeUnwrap()).toHaveLength(0);
   });
 
+  it('returns an error when the foreign table no longer has the symmetric field', () => {
+    const baseId = createBaseId('w')._unsafeUnwrap();
+    const hostTableId = createTableId('x')._unsafeUnwrap();
+    const foreignTableId = createTableId('y')._unsafeUnwrap();
+    const hostPrimaryId = createFieldId('z')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('a')._unsafeUnwrap();
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Foreign',
+      primaryFieldId: foreignPrimaryId,
+      primaryFieldName: 'Foreign Name',
+    });
+
+    const linkField = createNewLinkField({
+      id: createFieldId('b')._unsafeUnwrap(),
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap();
+
+    const result = FieldDeletionSideEffectVisitor.collect([linkField], {
+      table: hostTable,
+      foreignTables: [foreignTable],
+    });
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('collect preserves only link deletion effects when mixed with plain fields', () => {
+    const baseId = createBaseId('c')._unsafeUnwrap();
+    const hostTableId = createTableId('d')._unsafeUnwrap();
+    const foreignTableId = createTableId('e')._unsafeUnwrap();
+    const hostPrimaryId = createFieldId('f')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('g')._unsafeUnwrap();
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Foreign',
+      primaryFieldId: foreignPrimaryId,
+      primaryFieldName: 'Foreign Name',
+    });
+
+    const linkField = createNewLinkField({
+      id: createFieldId('h')._unsafeUnwrap(),
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap() as LinkField;
+
+    const symmetricField = linkField
+      .buildSymmetricField({
+        foreignTable: ForeignTable.from(foreignTable),
+        hostTable,
+      })
+      ._unsafeUnwrap();
+    const foreignTableWithSymmetric = foreignTable
+      .update((mutator) => mutator.addField(symmetricField, { foreignTables: [hostTable] }))
+      ._unsafeUnwrap().table;
+
+    const plainTextField = SingleLineTextField.create({
+      id: createFieldId('i')._unsafeUnwrap(),
+      name: FieldName.create('Notes')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = FieldDeletionSideEffectVisitor.collect([plainTextField, linkField], {
+      table: hostTable,
+      foreignTables: [foreignTableWithSymmetric],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toHaveLength(1);
+  });
+
   it('returns error when foreign table is missing', () => {
     const baseIdResult = createBaseId('q');
     const hostTableIdResult = createTableId('r');

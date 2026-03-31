@@ -3,6 +3,7 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
+import type { FieldId } from '../../domain/table/fields/FieldId';
 import { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import { Table } from '../../domain/table/Table';
 import { IExecutionContext } from '../../ports/ExecutionContext';
@@ -22,6 +23,47 @@ export class RecordWriteUndoRedoPlanService {
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
+
+  @TraceSpan()
+  async captureCreatedFields(
+    context: IExecutionContext,
+    table: Table,
+    fieldIds: ReadonlyArray<FieldId>
+  ): Promise<Result<RecordWriteUndoRedoPlan, DomainError>> {
+    const service = this;
+    return safeTry<RecordWriteUndoRedoPlan, DomainError>(async function* () {
+      const undoCommands: UndoRedoCommandLeafData[] = [];
+      const redoCommands: UndoRedoCommandLeafData[] = [];
+
+      for (const fieldId of [...fieldIds].reverse()) {
+        undoCommands.push(
+          createUndoRedoCommand('DeleteField', {
+            baseId: table.baseId().toString(),
+            tableId: table.id().toString(),
+            fieldId: fieldId.toString(),
+          })
+        );
+      }
+
+      for (const fieldId of fieldIds) {
+        const snapshot = yield* await service.fieldUndoRedoSnapshotService.capture(
+          context,
+          table,
+          fieldId,
+          { includeRecords: false }
+        );
+        redoCommands.push(
+          createUndoRedoCommand('ApplyFieldSnapshot', {
+            baseId: table.baseId().toString(),
+            tableId: table.id().toString(),
+            snapshot,
+          })
+        );
+      }
+
+      return ok({ undoCommands, redoCommands });
+    });
+  }
 
   @TraceSpan()
   async captureSelectOptionSideEffects(
