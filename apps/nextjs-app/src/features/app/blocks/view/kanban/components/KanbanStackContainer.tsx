@@ -68,7 +68,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
               <div className="h-full w-14">
                 <div
                   className={cn(
-                    'h-64 w-full cursor-grab rounded-md border bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800',
+                    'h-64 w-full cursor-grab rounded-md border bg-muted hover:bg-accent dark:bg-zinc-900 dark:hover:bg-zinc-800',
                     isDragging && 'shadow-md'
                   )}
                   {...dragHandleProps}
@@ -85,8 +85,9 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
             ) : (
               <div
                 className={cn(
-                  'w-[264px] h-full border bg-muted rounded-md shrink-0 flex flex-col overflow-hidden',
-                  isDragging && 'shadow-md'
+                  'w-[264px] h-full border dark:border-white/[0.12] bg-muted rounded-lg shrink-0 flex flex-col overflow-hidden',
+                  isDragging &&
+                    'shadow-[0_5px_15px_-5px_rgba(0,0,0,0.05),0_10px_30px_-5px_rgba(0,0,0,0.1)] '
                 )}
               >
                 <div ref={ref} className="flex size-full flex-col justify-between">
@@ -111,8 +112,8 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
 
                   {cardCreatable && (
                     <CreateRecordModal callback={onAppendCallback}>
-                      <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-muted">
-                        <Button variant="outline" className="w-full shadow-none hover:bg-zinc-700">
+                      <div className="flex items-center justify-center rounded-b-md bg-muted px-3 py-2 dark:bg-muted">
+                        <Button variant="outline" size="sm" className="w-full shadow-none">
                           <Plus className="size-5" />
                         </Button>
                       </div>

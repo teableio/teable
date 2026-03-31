@@ -652,8 +652,9 @@
   },
   "form": {
     "fieldsManagement": "Champs",
-    "addAll": "Ajouter tout",
-    "removeAll": "Supprimer tout",
+    "addAll": "Tout afficher",
+    "removeAll": "Tout masquer",
+    "createField": "Créer un champ",
     "hideFieldTip": "Masquer le champ ici",
     "unableAddFieldTip": "Impossible d'ajouter ce type de champ",
     "removeFromFormTip": "Supprimer du formulaire",
@@ -777,8 +778,8 @@
   "lastModify": "Dernière modification : ",
   "tableTrash": {
     "title": "Corbeille de Table",
-    "resourceType": "Type de Ressource",
-    "deletedResource": "Ressource Supprimée"
+    "resourceType": "Type",
+    "deletedResource": "Ressource"
   },
   "baseShare": {
     "title": "Partager la Base",

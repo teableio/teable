@@ -70,13 +70,15 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                 return (
                   <TableHead
                     key={header.id}
-                    className={cn('flex items-center px-4', isAutoSize && 'flex-1')}
+                    className={cn('flex items-center px-4', isAutoSize ? 'flex-1' : 'truncate')}
                     style={{
                       minWidth: header.column.columnDef.minSize,
                       width: isAutoSize ? undefined : width,
                     }}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    <span className="truncate">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </span>
                   </TableHead>
                 );
               })}

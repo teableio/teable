@@ -144,6 +144,61 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('trash')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('resource_type', 'text', (col) => col.notNull())
+    .addColumn('resource_id', 'text', (col) => col.notNull())
+    .addColumn('parent_id', 'text')
+    .addColumn('deleted_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('deleted_by', 'text', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex('trash_resource_type_resource_id_key')
+    .ifNotExists()
+    .on('trash')
+    .columns(['resource_type', 'resource_id'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createTable('table_trash')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('resource_type', 'text', (col) => col.notNull())
+    .addColumn('snapshot', 'text', (col) => col.notNull())
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex('table_trash_table_id_idx')
+    .ifNotExists()
+    .on('table_trash')
+    .column('table_id')
+    .execute();
+
+  await db.schema
+    .createTable('record_trash')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('snapshot', 'text', (col) => col.notNull())
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex('record_trash_table_id_record_id_idx')
+    .ifNotExists()
+    .on('record_trash')
+    .columns(['table_id', 'record_id'])
+    .execute();
+
+  await db.schema
     .createTable('computed_update_outbox')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())

@@ -81,8 +81,8 @@ export const useSelectionOperation = (props?: {
 
   const groupBy = view?.group;
   const selectionViewQuery = useMemo(
-    () => buildSelectionViewQuery({ view, personalViewCommonQuery }),
-    [view, personalViewCommonQuery]
+    () => buildSelectionViewQuery({ personalViewCommonQuery }),
+    [personalViewCommonQuery]
   );
 
   const { mutateAsync: defaultCopyReq } = useMutation({

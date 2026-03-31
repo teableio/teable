@@ -88,7 +88,7 @@ describe('update-field: user property updates', () => {
       expect(updatedField.options?.isMultiple).toBe(true);
     }
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     const v1 = records.find((r) => r.id === r1.id)?.fields[fieldId] as
       | UserCellValue[]
       | null
@@ -128,7 +128,7 @@ describe('update-field: user property updates', () => {
       expect(updatedField.options?.isMultiple).toBe(false);
     }
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     const value = records.find((r) => r.id === r1.id)?.fields[fieldId] as
       | UserCellValue
       | null
@@ -153,7 +153,7 @@ describe('update-field: user property updates', () => {
       field: { type: 'user', options: { isMultiple: false, shouldNotify: false } },
     });
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual([]);
 
     await ctx.deleteField({ tableId, fieldId });
@@ -183,7 +183,7 @@ describe('update-field: user property updates', () => {
       expect(updatedField.options?.isMultiple).toBe(false);
     }
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toMatchObject({ id: 'system' });
 
     await ctx.deleteField({ tableId, fieldId });
@@ -294,7 +294,7 @@ describe('update-field: user conversions', () => {
       field: { type: 'singleLineText' },
     });
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe('System');
 
     await ctx.deleteField({ tableId, fieldId });
@@ -323,7 +323,7 @@ describe('update-field: user conversions', () => {
       field: { type: 'user' },
     });
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
 
@@ -352,7 +352,7 @@ describe('update-field: user conversions', () => {
       field: { type: 'number' },
     });
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });

@@ -63,6 +63,139 @@ describe('undo-redo/paste (e2e)', () => {
     );
   });
 
+  it('undoes auto-created linked rows together with the host-table paste changes, then redoes both tables', async () => {
+    const foreignTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo E2E Paste Link Auto Create Foreign',
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignPrimaryFieldId = findFieldId(foreignTable, 'Title');
+
+    const hostTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo E2E Paste Link Auto Create Host',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const hostViewId = getViewId(hostTable);
+    const hostTitleFieldId = findFieldId(hostTable, 'Title');
+    const hostLinkFieldId = findFieldId(hostTable, 'Related');
+
+    const existingHostRows = await ctx.createRecords(hostTable.id, [
+      { fields: { [hostTitleFieldId]: 'Alpha' } },
+      { fields: { [hostTitleFieldId]: 'Beta' } },
+    ]);
+    const beforeHostRecords = await ctx.listRecords(hostTable.id, { limit: 20 });
+    const beforeForeignRecords = await ctx.listRecords(foreignTable.id, { limit: 20 });
+    const missingTitle = `auto_link_${hostTable.id}`;
+
+    await ctx.paste({
+      tableId: hostTable.id,
+      viewId: hostViewId,
+      typecast: true,
+      ranges: [
+        [0, 0],
+        [1, 2],
+      ],
+      content: [
+        ['Alpha Updated', missingTitle],
+        ['Beta Updated', missingTitle],
+        ['Gamma Created', missingTitle],
+      ],
+    });
+
+    let hostRecords = await ctx.listRecords(hostTable.id, { limit: 20 });
+    let foreignRecords = await ctx.listRecords(foreignTable.id, { limit: 20 });
+    const createdForeignRow = foreignRecords.find(
+      (record) => record.fields[foreignPrimaryFieldId] === missingTitle
+    );
+    const createdHostRow = hostRecords.find(
+      (record) => !beforeHostRecords.some((existing) => existing.id === record.id)
+    );
+
+    expect(createdForeignRow).toBeDefined();
+    expect(foreignRecords).toHaveLength(beforeForeignRecords.length + 1);
+    expect(hostRecords).toHaveLength(beforeHostRecords.length + 1);
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Alpha Updated');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Beta Updated');
+    expect(createdHostRow?.fields[hostTitleFieldId]).toBe('Gamma Created');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostLinkFieldId]
+    ).toEqual([{ id: createdForeignRow!.id, title: missingTitle }]);
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostLinkFieldId]
+    ).toEqual([{ id: createdForeignRow!.id, title: missingTitle }]);
+    expect(createdHostRow?.fields[hostLinkFieldId]).toEqual([
+      { id: createdForeignRow!.id, title: missingTitle },
+    ]);
+
+    await executeUndo(ctx, hostTable.id);
+    hostRecords = await ctx.listRecords(hostTable.id, { limit: 20 });
+    foreignRecords = await ctx.listRecords(foreignTable.id, { limit: 20 });
+
+    expect(hostRecords).toHaveLength(beforeHostRecords.length);
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Alpha');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Beta');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostLinkFieldId]
+    ).toBeNull();
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostLinkFieldId]
+    ).toBeNull();
+    expect(createdHostRow && hostRecords.find((record) => record.id === createdHostRow.id)).toBe(
+      undefined
+    );
+    expect(foreignRecords).toHaveLength(beforeForeignRecords.length);
+    expect(foreignRecords.find((record) => record.id === createdForeignRow!.id)).toBeUndefined();
+
+    await executeRedo(ctx, hostTable.id);
+    hostRecords = await ctx.listRecords(hostTable.id, { limit: 20 });
+    foreignRecords = await ctx.listRecords(foreignTable.id, { limit: 20 });
+    const redoneForeignRow = foreignRecords.find((record) => record.id === createdForeignRow!.id);
+
+    expect(redoneForeignRow?.fields[foreignPrimaryFieldId]).toBe(missingTitle);
+    expect(hostRecords).toHaveLength(beforeHostRecords.length + 1);
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Alpha Updated');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostTitleFieldId]
+    ).toBe('Beta Updated');
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[0]!.id)?.fields[hostLinkFieldId]
+    ).toEqual([{ id: createdForeignRow!.id, title: missingTitle }]);
+    expect(
+      hostRecords.find((record) => record.id === existingHostRows[1]!.id)?.fields[hostLinkFieldId]
+    ).toEqual([{ id: createdForeignRow!.id, title: missingTitle }]);
+    expect(
+      hostRecords.find((record) => record.id === createdHostRow!.id)?.fields[hostTitleFieldId]
+    ).toBe('Gamma Created');
+    expect(
+      hostRecords.find((record) => record.id === createdHostRow!.id)?.fields[hostLinkFieldId]
+    ).toEqual([{ id: createdForeignRow!.id, title: missingTitle }]);
+  });
+
   it('undoes select-option schema side effects produced by paste', async () => {
     const table = await ctx.createTable({
       baseId: ctx.baseId,
