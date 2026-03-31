@@ -672,8 +672,8 @@
     "spaceTrash": "Корзина пространства",
     "type": "Тип",
     "resetTrash": "Очистить корзину",
-    "deletedBy": "Удалено",
-    "deletedTime": "Время удаления",
+    "deletedBy": "Кем",
+    "deletedTime": "Время",
     "fromSpace": "Из пространства \"{{name}}\"",
     "permanentDeleteTips": "Вы уверены, что хотите окончательно удалить \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Вы уверены, что хотите очистить корзину?",
@@ -1040,8 +1040,8 @@
   },
   "changelog": {
     "newUpdate": "НОВОЕ ОБНОВЛЕНИЕ",
-    "title": "Массовая загрузка вложений доступна",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Собственный домен для App доступен",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

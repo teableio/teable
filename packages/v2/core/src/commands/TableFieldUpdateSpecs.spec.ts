@@ -8,12 +8,16 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import { CellValueMultiplicity } from '../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../domain/table/fields/types/CellValueType';
 import { ConditionalLookupOptions } from '../domain/table/fields/types/ConditionalLookupOptions';
+import { ConditionalRollupConfig } from '../domain/table/fields/types/ConditionalRollupConfig';
+import { ConditionalRollupField } from '../domain/table/fields/types/ConditionalRollupField';
+import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
+import { RollupExpression } from '../domain/table/fields/types/RollupExpression';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
@@ -871,6 +875,229 @@ describe('TableFieldUpdateSpecs', () => {
     expect(specsResult.value).toHaveLength(0);
   });
 
+  it('defaults lookupFieldId to the new foreign table primary field when lookup foreignTableId changes', () => {
+    const baseId = createBaseId('1');
+    const hostTableId = createTableId('1');
+    const foreignTableAId = createTableId('2');
+    const foreignTableBId = createTableId('3');
+    const foreignPrimaryAId = createFieldId('4');
+    const foreignPrimaryBId = createFieldId('5');
+    const hostPrimaryId = createFieldId('6');
+    const linkFieldId = createFieldId('7');
+    const lookupFieldId = createFieldId('8');
+
+    const foreignABuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableAId)
+      .withName(TableName.create('Lookup Foreign A')._unsafeUnwrap());
+    foreignABuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryAId)
+      .withName(FieldName.create('Name A')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignABuilder.view().defaultGrid().done();
+    const foreignTableA = foreignABuilder.build()._unsafeUnwrap();
+
+    const foreignBBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableBId)
+      .withName(TableName.create('Lookup Foreign B')._unsafeUnwrap());
+    foreignBBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryBId)
+      .withName(FieldName.create('Name B')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBBuilder.view().defaultGrid().done();
+    const foreignTableB = foreignBBuilder.build()._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableAId.toString(),
+      lookupFieldId: foreignPrimaryAId.toString(),
+    })._unsafeUnwrap();
+
+    const lookupOptions = LookupOptions.create({
+      linkFieldId: linkFieldId.toString(),
+      foreignTableId: foreignTableAId.toString(),
+      lookupFieldId: foreignPrimaryAId.toString(),
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Lookup Foreign Switch Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    hostBuilder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup')._unsafeUnwrap())
+      .withInnerField(
+        SingleLineTextField.create({
+          id: createFieldId('9'),
+          name: FieldName.create('Inner')._unsafeUnwrap(),
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(lookupOptions)
+      .withIsMultipleCellValue(false)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableBId.toString(),
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTableA, foreignTableB],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const lookupSpec = specsResult.value.find(
+      (spec): spec is UpdateLookupOptionsSpec => spec instanceof UpdateLookupOptionsSpec
+    );
+    expect(lookupSpec).toBeDefined();
+    if (!lookupSpec) {
+      return;
+    }
+
+    expect(lookupSpec.nextOptions().foreignTableId().equals(foreignTableBId)).toBe(true);
+    expect(lookupSpec.nextOptions().lookupFieldId().equals(foreignPrimaryBId)).toBe(true);
+  });
+
+  it('forces a lookup options spec when replaceOptions clears showAs without changing other options', () => {
+    const baseId = createBaseId('a');
+    const hostTableId = createTableId('a');
+    const foreignTableId = createTableId('b');
+    const foreignPrimaryId = createFieldId('c');
+    const hostPrimaryId = createFieldId('d');
+    const linkFieldId = createFieldId('e');
+    const lookupFieldId = createFieldId('f');
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Lookup Replace Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+    })._unsafeUnwrap();
+
+    const lookupOptions = LookupOptions.create({
+      linkFieldId: linkFieldId.toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Lookup Replace Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    hostBuilder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup')._unsafeUnwrap())
+      .withInnerField(
+        SingleLineTextField.create({
+          id: createFieldId('g'),
+          name: FieldName.create('Inner')._unsafeUnwrap(),
+          showAs: { type: 'email' },
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(lookupOptions)
+      .withIsMultipleCellValue(false)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+        },
+        replaceOptions: true,
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    expect(specsResult.value).toHaveLength(1);
+    expect(specsResult.value[0]).toBeInstanceOf(UpdateLookupOptionsSpec);
+    const lookupSpec = specsResult.value[0] as UpdateLookupOptionsSpec;
+    expect(lookupSpec.previousOptions().equals(lookupSpec.nextOptions())).toBe(true);
+  });
+
   it('preserves inner formula result type when conditional lookup updates condition only', () => {
     const baseId = createBaseId('h');
     const hostTableId = createTableId('h');
@@ -1097,6 +1324,264 @@ describe('TableFieldUpdateSpecs', () => {
     expect(nextValueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(true);
   });
 
+  it('returns an error when conditional lookup updates innerOptions without an innerType', () => {
+    const baseId = createBaseId('o');
+    const hostTableId = createTableId('o');
+    const foreignTableId = createTableId('p');
+    const hostPrimaryId = createFieldId('q');
+    const hostStatusId = createFieldId('r');
+    const conditionalLookupFieldId = createFieldId('s');
+    const foreignPrimaryId = createFieldId('t');
+
+    const conditionalLookupOptions = ConditionalLookupOptions.create({
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+        },
+      },
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Conditional Lookup Missing InnerType')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostStatusId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    hostBuilder
+      .field()
+      .conditionalLookup()
+      .withId(conditionalLookupFieldId)
+      .withName(FieldName.create('Pending Conditional Lookup')._unsafeUnwrap())
+      .withConditionalLookupOptions(conditionalLookupOptions)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(conditionalLookupFieldId))
+      ._unsafeUnwrap();
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'conditionalLookup',
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+            },
+          },
+          innerOptions: {
+            expression: 'NOW()',
+          },
+        },
+      },
+      { hostTable }
+    );
+
+    expect(specsResult.isErr()).toBe(true);
+    expect(specsResult._unsafeUnwrapErr().message).toContain('innerType is required');
+  });
+
+  it('returns an error when conditional lookup formula inference is missing innerOptions', () => {
+    const baseId = createBaseId('u');
+    const hostTableId = createTableId('u');
+    const foreignTableId = createTableId('v');
+    const hostPrimaryId = createFieldId('w');
+    const hostStatusId = createFieldId('x');
+    const conditionalLookupFieldId = createFieldId('y');
+    const foreignPrimaryId = createFieldId('z');
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Conditional Lookup Foreign For Missing Options')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const conditionalLookupOptions = ConditionalLookupOptions.create({
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+        },
+      },
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Conditional Lookup Missing InnerOptions')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostStatusId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    hostBuilder
+      .field()
+      .conditionalLookup()
+      .withId(conditionalLookupFieldId)
+      .withName(FieldName.create('Pending Conditional Lookup')._unsafeUnwrap())
+      .withConditionalLookupOptions(conditionalLookupOptions)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(conditionalLookupFieldId))
+      ._unsafeUnwrap();
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'conditionalLookup',
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+            },
+          },
+          innerType: 'formula',
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isErr()).toBe(true);
+    expect(specsResult._unsafeUnwrapErr().message).toContain('innerOptions are required');
+  });
+
+  it('returns an error when conditional lookup formula inference is missing expression', () => {
+    const baseId = createBaseId('a');
+    const hostTableId = createTableId('a');
+    const foreignTableId = createTableId('b');
+    const hostPrimaryId = createFieldId('c');
+    const hostStatusId = createFieldId('d');
+    const conditionalLookupFieldId = createFieldId('e');
+    const foreignPrimaryId = createFieldId('f');
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(
+        TableName.create('Conditional Lookup Foreign For Missing Expression')._unsafeUnwrap()
+      );
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const conditionalLookupOptions = ConditionalLookupOptions.create({
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+        },
+      },
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Conditional Lookup Missing Expression')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostStatusId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    hostBuilder
+      .field()
+      .conditionalLookup()
+      .withId(conditionalLookupFieldId)
+      .withName(FieldName.create('Pending Conditional Lookup')._unsafeUnwrap())
+      .withConditionalLookupOptions(conditionalLookupOptions)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(conditionalLookupFieldId))
+      ._unsafeUnwrap();
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'conditionalLookup',
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+            },
+          },
+          innerType: 'formula',
+          innerOptions: {},
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isErr()).toBe(true);
+    expect(specsResult._unsafeUnwrapErr().message).toContain('innerOptions.expression is required');
+  });
+
   it('clears link filter options when replaceOptions is enabled', () => {
     const baseId = createBaseId('y');
     const hostTableId = createTableId('y');
@@ -1301,6 +1786,107 @@ describe('TableFieldUpdateSpecs', () => {
       conjunction: 'and',
       filterSet: [{ fieldId: foreignStatusId.toString(), operator: 'is', value: 'Active' }],
     });
+  });
+
+  it('defaults link lookupFieldId to the new foreign table primary field when foreignTableId changes', () => {
+    const baseId = createBaseId('h');
+    const hostTableId = createTableId('h');
+    const foreignTableAId = createTableId('i');
+    const foreignTableBId = createTableId('j');
+    const foreignPrimaryAId = createFieldId('k');
+    const foreignPrimaryBId = createFieldId('l');
+    const hostPrimaryId = createFieldId('m');
+    const linkFieldId = createFieldId('n');
+
+    const foreignABuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableAId)
+      .withName(TableName.create('Link Foreign A')._unsafeUnwrap());
+    foreignABuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryAId)
+      .withName(FieldName.create('Name A')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignABuilder.view().defaultGrid().done();
+    const foreignTableA = foreignABuilder.build()._unsafeUnwrap();
+
+    const foreignBBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableBId)
+      .withName(TableName.create('Link Foreign B')._unsafeUnwrap());
+    foreignBBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryBId)
+      .withName(FieldName.create('Name B')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBBuilder.view().defaultGrid().done();
+    const foreignTableB = foreignBBuilder.build()._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableAId.toString(),
+      lookupFieldId: foreignPrimaryAId.toString(),
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Link Foreign Switch Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(linkFieldId))
+      ._unsafeUnwrap() as LinkField;
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: foreignTableBId.toString(),
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTableA, foreignTableB],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const nextField = typeSpec.newField() as LinkField;
+    expect(nextField.foreignTableId().equals(foreignTableBId)).toBe(true);
+    expect(nextField.lookupFieldId().equals(foreignPrimaryBId)).toBe(true);
   });
 
   it('fills link lookupFieldId from the foreign primary during type conversion', () => {
@@ -1688,6 +2274,119 @@ describe('TableFieldUpdateSpecs', () => {
     }
 
     expect(valueTypeResult.value.cellValueType.toString()).toBe('number');
+    expect(valueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(false);
+  });
+
+  it('clears sort and limit when conditional rollup expression becomes single-value aggregation', () => {
+    const baseId = createBaseId('g');
+    const hostTableId = createTableId('g');
+    const foreignTableId = createTableId('h');
+    const targetFieldId = createFieldId('i');
+    const foreignPrimaryFieldId = createFieldId('j');
+    const foreignDateFieldId = createFieldId('k');
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Conditional Rollup Sort Clear Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('l'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .date()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Target')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Conditional Rollup Sort Clear Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryFieldId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .date()
+      .withId(foreignDateFieldId)
+      .withName(FieldName.create('Due Date')._unsafeUnwrap())
+      .withFormatting(
+        DateTimeFormatting.create({
+          date: 'YYYY-MM-DD',
+          time: 'HH:mm',
+          timeZone: 'utc',
+        })._unsafeUnwrap()
+      )
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const currentField = ConditionalRollupField.createPending({
+      id: targetFieldId,
+      name: FieldName.create('Target')._unsafeUnwrap(),
+      config: ConditionalRollupConfig.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignDateFieldId.toString(),
+        condition: {
+          filter: { conjunction: 'and', filterSet: [] },
+          sort: { fieldId: foreignDateFieldId.toString(), order: 'desc' },
+          limit: 10,
+        },
+      })._unsafeUnwrap(),
+      expression: RollupExpression.create('countall({values})')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'conditionalRollup',
+        options: {
+          expression: 'max({values})',
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const nextField = typeSpec.newField() as ConditionalRollupField;
+    expect(nextField.config().condition().hasSort()).toBe(false);
+    expect(nextField.config().condition().hasLimit()).toBe(false);
+    const valueTypeResult = nextField.accept(new FieldValueTypeVisitor());
+    expect(valueTypeResult.isOk()).toBe(true);
+    if (valueTypeResult.isErr()) {
+      return;
+    }
+    expect(valueTypeResult.value.cellValueType.toString()).toBe('dateTime');
     expect(valueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(false);
   });
 });

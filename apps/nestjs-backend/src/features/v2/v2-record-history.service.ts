@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType as CoreFieldType, generateRecordHistoryId } from '@teable/core';
@@ -35,8 +34,7 @@ import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
-import { V2ContainerService } from './v2-container.service';
-import type { IV2ProjectionRegistrar } from './v2-projection-registrar';
+import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const SELECT_FIELD_TYPE_SET = new Set([CoreFieldType.SingleSelect, CoreFieldType.MultipleSelect]);
 
@@ -426,8 +424,9 @@ class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<RecordsBat
  * Service that registers V2 record history projections with the V2 container.
  * These projections write record history to the database when records are updated.
  */
+@V2ProjectionRegistrar()
 @Injectable()
-export class V2RecordHistoryService implements IV2ProjectionRegistrar, OnModuleInit {
+export class V2RecordHistoryService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2RecordHistoryService.name);
 
   constructor(
@@ -435,16 +434,8 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar, OnModuleI
     private readonly cls: ClsService<IClsStore>,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly eventEmitterService: EventEmitterService,
-    private readonly v2ContainerService: V2ContainerService
+    private readonly eventEmitterService: EventEmitterService
   ) {}
-
-  /**
-   * Register this service with V2ContainerService on module initialization.
-   */
-  onModuleInit(): void {
-    this.v2ContainerService.addProjectionRegistrar(this);
-  }
 
   /**
    * Register record history projections with the V2 container.

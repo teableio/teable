@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
+    "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.17",

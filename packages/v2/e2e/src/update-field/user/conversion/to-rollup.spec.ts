@@ -126,7 +126,7 @@ describe('update-field: user → rollup conversion', () => {
     const updatedField = result.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('rollup');
 
-    const records = await ctx.listRecords(hostTableId);
+    const records = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(1);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
@@ -160,7 +160,7 @@ describe('update-field: user → rollup conversion', () => {
       },
     });
 
-    const records = await ctx.listRecords(hostTableId);
+    const records = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(2);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
@@ -194,7 +194,7 @@ describe('update-field: user → rollup conversion', () => {
       },
     });
 
-    const records = await ctx.listRecords(hostTableId);
+    const records = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(10);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
@@ -219,7 +219,7 @@ describe('update-field: user → rollup conversion', () => {
       },
     });
 
-    const records = await ctx.listRecords(hostTableId);
+    const records = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(0);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
@@ -247,7 +247,7 @@ describe('update-field: user → rollup conversion', () => {
       },
     });
 
-    const records = await ctx.listRecords(hostTableId);
+    const records = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(1);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });

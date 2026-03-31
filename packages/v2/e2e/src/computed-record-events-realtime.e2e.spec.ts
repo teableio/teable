@@ -6,10 +6,7 @@ import {
   ShareDbWebSocketServer,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import {
-  createV2NodeTestContainer,
-  type IV2NodeTestContainer,
-} from '@teable/v2-container-node-test';
+import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -27,6 +24,7 @@ import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type ShareDbRuntime = {
   backend: ShareDb;
@@ -643,7 +641,7 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
     shareDbRuntime = await startShareDbRuntime();
     shareDbUrl = `ws://127.0.0.1:${shareDbRuntime.port}/socket`;
 
-    testContainer = await createV2NodeTestContainer();
+    testContainer = await createE2eTestContainer();
     registerRealtime(testContainer.container, shareDbRuntime);
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();

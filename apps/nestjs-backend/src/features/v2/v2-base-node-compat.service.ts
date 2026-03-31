@@ -1,4 +1,3 @@
-import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IBaseNodePresenceFlushPayload } from '@teable/openapi';
 import {
@@ -15,8 +14,7 @@ import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { presenceHandler } from '../base-node/helper';
-import { V2ContainerService } from './v2-container.service';
-import type { IV2ProjectionRegistrar } from './v2-projection-registrar';
+import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 @ProjectionHandler(TableCreated)
 class V2TableCreatedBaseNodeProjection implements IEventHandler<TableCreated> {
@@ -46,19 +44,15 @@ class V2TableCreatedBaseNodeProjection implements IEventHandler<TableCreated> {
   }
 }
 
+@V2ProjectionRegistrar()
 @Injectable()
-export class V2BaseNodeCompatService implements IV2ProjectionRegistrar, OnModuleInit {
+export class V2BaseNodeCompatService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2BaseNodeCompatService.name);
 
   constructor(
-    private readonly v2ContainerService: V2ContainerService,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly shareDbService: ShareDbService
   ) {}
-
-  onModuleInit(): void {
-    this.v2ContainerService.addProjectionRegistrar(this);
-  }
 
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 base-node compatibility projections');

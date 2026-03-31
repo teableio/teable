@@ -209,6 +209,110 @@ const buildConversionScenario = (params: { withFilter: boolean; withStatisticFun
 };
 
 describe('FieldUpdateSideEffectService', () => {
+  it('prepare skips side effects for one-way link conversion', async () => {
+    const context = createContext();
+    const repo = new MemoryTableRepository();
+    const flow = buildFlow(repo);
+    const service = new FieldUpdateSideEffectService(
+      flow,
+      repo,
+      new LinkFieldUpdateSideEffectService(flow),
+      new FieldCrossTableUpdateSideEffectService(repo, flow)
+    );
+
+    const baseId = createBaseId('0');
+    const hostTableId = createTableId('0');
+    const foreignTableId = createTableId('9');
+    const hostPrimaryFieldId = createFieldId('0');
+    const foreignPrimaryFieldId = createFieldId('9');
+    const convertFieldId = createFieldId('8');
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Prepare OneWay Host',
+      primaryFieldId: hostPrimaryFieldId,
+      primaryFieldName: 'Title',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Prepare OneWay Foreign',
+      primaryFieldId: foreignPrimaryFieldId,
+      primaryFieldName: 'Foreign Title',
+    });
+
+    const previousField = SingleLineTextField.create({
+      id: convertFieldId,
+      name: FieldName.create('ToOneWayLink')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const hostWithTextField = hostTable.addField(previousField)._unsafeUnwrap();
+
+    const updatedField = createNewLinkField({
+      id: convertFieldId,
+      name: FieldName.create('ToOneWayLink')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryFieldId.toString(),
+        isOneWay: true,
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap();
+
+    await repo.insert(context, hostWithTextField);
+    await repo.insert(context, foreignTable);
+
+    const result = await service.prepare(context, {
+      table: hostWithTextField,
+      updatedField,
+      previousField,
+      updateSpecs: [],
+      foreignTables: [foreignTable],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual([]);
+    const foreignInRepo = repo.tables().find((t) => t.id().equals(foreignTableId));
+    expect(foreignInRepo?.getFields(buildFieldSpec((builder) => builder.isLink()))).toHaveLength(0);
+  });
+
+  it('execute returns unchanged result when update specs are empty', async () => {
+    const context = createContext();
+    const repo = new MemoryTableRepository();
+    const flow = buildFlow(repo);
+    const service = new FieldUpdateSideEffectService(
+      flow,
+      repo,
+      new LinkFieldUpdateSideEffectService(flow),
+      new FieldCrossTableUpdateSideEffectService(repo, flow)
+    );
+
+    const table = buildTable({
+      baseId: createBaseId('1'),
+      tableId: createTableId('1'),
+      tableName: 'Noop Table',
+      primaryFieldId: createFieldId('1'),
+      primaryFieldName: 'Title',
+    });
+    const updatedField = table.getFields()[0]!;
+
+    const result = await service.execute(context, {
+      table,
+      updatedField,
+      updateSpecs: [],
+      foreignTables: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      specs: [],
+      updatedTable: table,
+      events: [],
+    });
+  });
+
   it('prepare pre-creates symmetric field for text -> two-way manyOne conversion', async () => {
     const context = createContext();
     const repo = new MemoryTableRepository();
@@ -463,6 +567,90 @@ describe('FieldUpdateSideEffectService', () => {
     const symmetricField = symmetricFields[0] as LinkField;
     expect(symmetricField.relationship().toString()).toBe('oneMany');
     expect(symmetricField.symmetricFieldId()?.equals(convertFieldId)).toBe(true);
+  });
+
+  it('uses latest foreign table from repo during execute for non-link -> link conversion', async () => {
+    const context = createContext();
+    const repo = new MemoryTableRepository();
+    const flow = buildFlow(repo);
+    const service = new FieldUpdateSideEffectService(
+      flow,
+      repo,
+      new LinkFieldUpdateSideEffectService(flow),
+      new FieldCrossTableUpdateSideEffectService(repo, flow)
+    );
+
+    const baseId = createBaseId('2');
+    const hostTableId = createTableId('2');
+    const foreignTableId = createTableId('3');
+    const hostPrimaryFieldId = createFieldId('2');
+    const foreignPrimaryFieldId = createFieldId('3');
+    const convertFieldId = createFieldId('4');
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host Latest Foreign',
+      primaryFieldId: hostPrimaryFieldId,
+      primaryFieldName: 'Title',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Foreign Latest',
+      primaryFieldId: foreignPrimaryFieldId,
+      primaryFieldName: 'Foreign Title',
+    });
+
+    const previousField = SingleLineTextField.create({
+      id: convertFieldId,
+      name: FieldName.create('MyField')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const hostWithTextField = hostTable.addField(previousField)._unsafeUnwrap();
+
+    const linkField = createNewLinkField({
+      id: convertFieldId,
+      name: FieldName.create('MyField')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryFieldId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap() as LinkField;
+
+    const typeSpec = TableUpdateFieldTypeSpec.create(previousField, linkField);
+    const convertedTable = typeSpec.mutate(hostWithTextField)._unsafeUnwrap();
+    const updatedField = convertedTable
+      .getField((field) => field.id().equals(convertFieldId))
+      ._unsafeUnwrap();
+
+    const latestSymmetric = linkField
+      .buildSymmetricField({
+        foreignTable: ForeignTable.from(foreignTable),
+        hostTable,
+      })
+      ._unsafeUnwrap();
+    const latestForeignTable = foreignTable
+      .update((mutator) => mutator.addField(latestSymmetric, { foreignTables: [hostTable] }))
+      ._unsafeUnwrap().table;
+
+    await repo.insert(context, convertedTable);
+    await repo.insert(context, latestForeignTable);
+
+    const staleForeignTable = foreignTable;
+    const result = await service.execute(context, {
+      table: convertedTable,
+      updatedField,
+      previousField,
+      updateSpecs: [typeSpec],
+      foreignTables: [staleForeignTable],
+    });
+
+    expect(result.isOk()).toBe(true);
+    const foreignInRepo = repo.tables().find((t) => t.id().equals(foreignTableId));
+    expect(foreignInRepo?.getFields(buildFieldSpec((builder) => builder.isLink()))).toHaveLength(1);
   });
 
   it('deletes symmetric field from foreign table when converting link -> text', async () => {
