@@ -326,13 +326,12 @@ describe('update-field: number property updates', () => {
       },
     });
 
-    await expect(
-      ctx.updateField({
-        tableId,
-        fieldId,
-        field: { options: { showAs: undefined } },
-      })
-    ).rejects.toThrow('No changes to apply');
+    // allowNoop: noop update should succeed silently
+    await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { options: { showAs: undefined } },
+    });
 
     const table = await ctx.getTableById(tableId);
     const field = table.fields.find((f) => f.id === fieldId);

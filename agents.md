@@ -23,8 +23,8 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 
 ## UI components (frontend)
 
-- In app UIs (e.g. `apps/playground`), use shadcn wrappers from `apps/playground/src/components/ui/*` (or `@teable/ui-lib`) instead of importing Radix primitives directly.
-- If a shadcn wrapper is missing, add it under `apps/playground/src/components/ui` before using the primitive.
+- In app UIs, use local shadcn wrappers (or `@teable/ui-lib`) instead of importing Radix primitives directly.
+- If a shadcn wrapper is missing for an app UI, add it under that app's local `src/components/ui` before using the primitive.
 
 ## Dependency injection (DI)
 

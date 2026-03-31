@@ -649,8 +649,9 @@
   },
   "form": {
     "fieldsManagement": "Alanlar",
-    "addAll": "Tümünü Ekle",
-    "removeAll": "Tümünü Kaldır",
+    "addAll": "Tümünü göster",
+    "removeAll": "Tümünü gizle",
+    "createField": "Alan oluştur",
     "hideFieldTip": "Alanı buraya gizle",
     "unableAddFieldTip": "Bu tür alan eklenemiyor",
     "removeFromFormTip": "Formdan kaldır",

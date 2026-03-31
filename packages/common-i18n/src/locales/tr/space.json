@@ -51,7 +51,12 @@
     "exportTips2": "Alan -> daha fazla -> içe aktar yolundan .tea dosyasını içe aktarabilirsiniz",
     "exportTips3": "Veritabanları arası ilişki alanları tek satır metne dönüştürülecektir.",
     "exportIncludeDataLabel": "Kayıtları dahil et",
-    "exportIncludeDataDescription": "Yalnızca yapı ve yapılandırmayı dışa aktarmak için kapatın.",
+    "exportIncludeDataDescription": "Kapatıldığında yalnızca yapı ve yapılandırma dışa aktarılır",
+    "exportTitle": "Dışa Aktar",
+    "exportDescription": "Mevcut veritabanını .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir.",
+    "exportStartButton": "Dışa aktarmayı başlat",
+    "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir. Geçici olarak ayrılabilirsiniz.",
+    "exportReadyDescription": "Lütfen .tea dosyasını indirin, {{importHint}}",
     "moveBaseSuccessTitle": "Taşıma başarılı",
     "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı"
   },

@@ -202,6 +202,8 @@ const resolveDateRange = (
       return ok(numberOfDays);
     };
 
+    const hasTimeFormatting = formatting != null && formatting.time() !== core.TimeFormatting.None;
+
     const computeDateRangeForFixedDays = (
       method: 'date' | 'tomorrow' | 'yesterday'
     ): [Dayjs, Dayjs] => {
@@ -222,6 +224,9 @@ const resolveDateRange = (
     const determineExactDateRange = (): Result<[Dayjs, Dayjs], DomainError> => {
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
+        if (hasTimeFormatting) {
+          return [parsed, parsed];
+        }
         return [parsed.startOf('day'), parsed.endOf('day')];
       });
     };

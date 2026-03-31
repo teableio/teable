@@ -1178,3 +1178,128 @@ describe('LinkField', () => {
     });
   });
 });
+
+const buildLinkAutoCreateTables = (params?: {
+  foreignPrimaryType?: 'singleLineText' | 'number';
+  selfLink?: boolean;
+  lookupFieldId?: FieldId;
+}) => {
+  const baseId = createBaseId('z')._unsafeUnwrap();
+  const foreignTableId = createTableId('y')._unsafeUnwrap();
+  const hostTableId = params?.selfLink ? foreignTableId : createTableId('x')._unsafeUnwrap();
+  const foreignLookupFieldId = createFieldId('w')._unsafeUnwrap();
+  const foreignAltFieldId = createFieldId('v')._unsafeUnwrap();
+  const linkFieldId = createFieldId('u')._unsafeUnwrap();
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Foreign Auto Create')._unsafeUnwrap());
+
+  if ((params?.foreignPrimaryType ?? 'singleLineText') === 'number') {
+    foreignBuilder
+      .field()
+      .number()
+      .withId(foreignLookupFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+  } else {
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignLookupFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+  }
+
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(foreignAltFieldId)
+    .withName(FieldName.create('Alt')._unsafeUnwrap())
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+  const hostBuilder = Table.builder()
+    .withId(hostTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Host Auto Create')._unsafeUnwrap());
+  hostBuilder
+    .field()
+    .singleLineText()
+    .withId(createFieldId('t')._unsafeUnwrap())
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  hostBuilder.view().defaultGrid().done();
+  const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+  const linkField = LinkField.create({
+    id: linkFieldId,
+    name: FieldName.create('Link')._unsafeUnwrap(),
+    config: LinkFieldConfig.create({
+      relationship: 'oneMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: (params?.lookupFieldId ?? foreignLookupFieldId).toString(),
+      isOneWay: true,
+    })._unsafeUnwrap(),
+  })._unsafeUnwrap();
+
+  return {
+    hostTable,
+    foreignTable,
+    linkField,
+    foreignPrimaryFieldId: foreignLookupFieldId,
+    foreignAltFieldId,
+  };
+};
+
+describe('LinkField.validateAutoCreateTarget', () => {
+  it('rejects self-link auto-create targets', () => {
+    const { hostTable, linkField } = buildLinkAutoCreateTables({ selfLink: true });
+
+    const result = linkField.validateAutoCreateTarget(hostTable, hostTable);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_self_link_unsupported');
+  });
+
+  it('rejects non-primary lookup targets', () => {
+    const { hostTable, foreignTable, foreignAltFieldId } = buildLinkAutoCreateTables({
+      lookupFieldId: createFieldId('v')._unsafeUnwrap(),
+    });
+    const linkField = LinkField.create({
+      id: createFieldId('s')._unsafeUnwrap(),
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'oneMany',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignAltFieldId.toString(),
+        isOneWay: true,
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = linkField.validateAutoCreateTarget(hostTable, foreignTable);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_primary_lookup');
+  });
+
+  it('propagates foreign-table primary-only validation errors', () => {
+    const { hostTable, foreignTable, linkField } = buildLinkAutoCreateTables({
+      foreignPrimaryType: 'number',
+    });
+
+    const result = linkField.validateAutoCreateTarget(hostTable, foreignTable);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('paste.link_auto_create_requires_text_primary');
+  });
+
+  it('allows auto-create when lookup targets the foreign text primary', () => {
+    const { hostTable, foreignTable, linkField } = buildLinkAutoCreateTables();
+
+    const result = linkField.validateAutoCreateTarget(hostTable, foreignTable);
+    expect(result).toEqual(ok(undefined));
+  });
+});

@@ -80,7 +80,7 @@ describe('update-field: longText property updates', () => {
     expect(field?.name).toBe('Details');
     expect(field?.type).toBe('longText');
 
-    const records = await ctx.listRecords(tableId);
+    const records = await ctx.listRecordsWithoutDrain(tableId);
     const r1 = records.find((r) => r.id === record1.id);
     expect(r1?.fields[fieldId]).toBe('Line 1\nLine 2');
 
@@ -160,7 +160,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'singleLineText' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe('Line 1 Line 2');
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe('Single line');
 
@@ -185,7 +185,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'number' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(123);
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe(456.78);
       expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();
@@ -211,7 +211,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'singleSelect' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe('Option A');
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe('Option B');
       expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBe('Option A');
@@ -243,7 +243,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'multipleSelect' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual(['Tag1']);
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toEqual(['Tag2']);
       expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toEqual(['Tag1']);
@@ -276,7 +276,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'checkbox' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(true);
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe(true);
       expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBe(true);
@@ -302,7 +302,7 @@ describe('update-field: longText property updates', () => {
         field: { type: 'date' },
       });
 
-      const records = await ctx.listRecords(tableId);
+      const records = await ctx.listRecordsWithoutDrain(tableId);
       expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toMatch(/^2024-01-15/);
       expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
 

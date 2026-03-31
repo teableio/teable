@@ -128,10 +128,8 @@ describe('v2 http updateRecord (e2e)', () => {
     expect(value).toBe(expected);
   };
 
-  const processOutbox = async (times = 1) => {
-    for (let i = 0; i < times; i += 1) {
-      await ctx.testContainer.processOutbox();
-    }
+  const processOutbox = async (_times = 1) => {
+    await ctx.testContainer.processOutbox();
   };
 
   beforeAll(async () => {

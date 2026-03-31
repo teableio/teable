@@ -40,10 +40,8 @@ describe('v2 http formula (e2e)', () => {
 
   // No afterAll dispose needed - handled by vitest.setup.ts
 
-  const processOutbox = async (times = 1) => {
-    for (let i = 0; i < times; i += 1) {
-      await ctx.testContainer.processOutbox();
-    }
+  const processOutbox = async (_times = 1) => {
+    await ctx.testContainer.processOutbox();
   };
 
   const listRecords = async (tableIdParam: string) => {

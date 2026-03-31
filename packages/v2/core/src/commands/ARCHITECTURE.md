@@ -54,4 +54,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 ## Examples
 
-- `packages/v2/test-node/src/commands/CreateTableHandler.spec.ts` - Command flow and port usage.
+- `packages/v2/core/src/commands/CreateTableHandler.command-bus.spec.ts` - Command flow and bus-level integration coverage.

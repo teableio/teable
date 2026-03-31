@@ -1,6 +1,10 @@
+import type { Field } from '@teable/v2-core';
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 import {
   describeError,
+  extractNotNullColumn,
+  extractUniqueColumn,
   isLinkUniqueViolation,
   isNotNullViolation,
   isUniqueViolation,
@@ -8,6 +12,14 @@ import {
   PG_UNIQUE_VIOLATION,
   wrapDatabaseError,
 } from './errors';
+
+/** Minimal Field-like stub for testing wrapDatabaseError field resolution. */
+const stubField = (fieldId: string, fieldName: string, dbColumn: string): Field =>
+  ({
+    id: () => ({ toString: () => fieldId }),
+    name: () => ({ toString: () => fieldName }),
+    dbFieldName: () => ok({ value: () => ok(dbColumn) }),
+  }) as unknown as Field;
 
 describe('PostgreSQL error utilities', () => {
   describe('describeError', () => {
@@ -91,6 +103,63 @@ describe('PostgreSQL error utilities', () => {
     });
   });
 
+  describe('extractNotNullColumn', () => {
+    it('extracts column name from PG error with column property', () => {
+      expect(extractNotNullColumn({ code: PG_NOT_NULL_VIOLATION, column: 'fld_abc123' })).toBe(
+        'fld_abc123'
+      );
+    });
+
+    it('returns undefined when column is missing', () => {
+      expect(extractNotNullColumn({ code: PG_NOT_NULL_VIOLATION })).toBeUndefined();
+    });
+
+    it('returns undefined for non-object', () => {
+      expect(extractNotNullColumn('string')).toBeUndefined();
+    });
+
+    it('returns undefined for empty column string', () => {
+      expect(extractNotNullColumn({ column: '' })).toBeUndefined();
+    });
+  });
+
+  describe('extractUniqueColumn', () => {
+    it('extracts column name from constraint following tableName_columnName_unique pattern', () => {
+      expect(
+        extractUniqueColumn(
+          { code: PG_UNIQUE_VIOLATION, constraint: 'test_table_fld_abc123_unique' },
+          'test_table'
+        )
+      ).toBe('fld_abc123');
+    });
+
+    it('returns undefined when constraint does not match pattern', () => {
+      expect(
+        extractUniqueColumn(
+          { code: PG_UNIQUE_VIOLATION, constraint: 'other_constraint_name' },
+          'test_table'
+        )
+      ).toBeUndefined();
+    });
+
+    it('returns undefined when constraint property is missing', () => {
+      expect(extractUniqueColumn({ code: PG_UNIQUE_VIOLATION }, 'test_table')).toBeUndefined();
+    });
+
+    it('returns undefined for non-object', () => {
+      expect(extractUniqueColumn(null, 'test_table')).toBeUndefined();
+    });
+
+    it('handles schema-qualified table name', () => {
+      expect(
+        extractUniqueColumn(
+          { code: PG_UNIQUE_VIOLATION, constraint: 'tblAbc123_Ge_Ren_Zhu_Ye_unique' },
+          'bseSchema.tblAbc123'
+        )
+      ).toBe('Ge_Ren_Zhu_Ye');
+    });
+  });
+
   describe('isLinkUniqueViolation', () => {
     it('returns true for unique violation with __fk_fld in constraint name', () => {
       const pgError = {
@@ -144,9 +213,7 @@ describe('PostgreSQL error utilities', () => {
 
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.field.not_null');
-        expect(result.message).toBe(
-          'Cannot complete insert: null value violates not-null constraint'
-        );
+        expect(result.message).toBe('Cannot complete insert: field  cannot be empty');
       });
 
       it('wraps unique violation as validation error', () => {
@@ -155,7 +222,7 @@ describe('PostgreSQL error utilities', () => {
 
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.field.unique');
-        expect(result.message).toBe('Cannot complete insert: unique constraint violated');
+        expect(result.message).toBe('Cannot complete insert: field  must have a unique value');
       });
 
       it('wraps link unique violation with specific message', () => {
@@ -188,9 +255,7 @@ describe('PostgreSQL error utilities', () => {
 
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.field.not_null');
-        expect(result.message).toBe(
-          'Cannot complete update: null value violates not-null constraint'
-        );
+        expect(result.message).toBe('Cannot complete update: field  cannot be empty');
       });
 
       it('wraps unique violation as validation error', () => {
@@ -199,7 +264,7 @@ describe('PostgreSQL error utilities', () => {
 
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.field.unique');
-        expect(result.message).toBe('Cannot complete update: unique constraint violated');
+        expect(result.message).toBe('Cannot complete update: field  must have a unique value');
       });
 
       it('includes recordId in infrastructure error details', () => {
@@ -227,6 +292,91 @@ describe('PostgreSQL error utilities', () => {
           recordId,
           error: 'Error: Read timeout',
         });
+      });
+    });
+
+    describe('field info enrichment', () => {
+      const fields = [
+        stubField('fldAbc123', 'Email Address', 'fld_email'),
+        stubField('fldDef456', 'Required Field', 'fld_required'),
+      ];
+
+      it('includes fieldId in message and fieldName in details for unique violation', () => {
+        const pgError = {
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'test_table_fld_email_unique',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields,
+        });
+
+        expect(result.tags).toContain('validation');
+        expect(result.code).toBe('validation.field.unique');
+        expect(result.message).toBe(
+          'Cannot complete insert: field fldAbc123 must have a unique value'
+        );
+        expect(result.details).toEqual({ fieldId: 'fldAbc123', fieldName: 'Email Address' });
+      });
+
+      it('includes fieldId in message and fieldName in details for not-null violation', () => {
+        const pgError = {
+          code: PG_NOT_NULL_VIOLATION,
+          column: 'fld_required',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields,
+        });
+
+        expect(result.tags).toContain('validation');
+        expect(result.code).toBe('validation.field.not_null');
+        expect(result.message).toBe('Cannot complete insert: field fldDef456 cannot be empty');
+        expect(result.details).toEqual({ fieldId: 'fldDef456', fieldName: 'Required Field' });
+      });
+
+      it('falls back to generic unique message when column not in fields', () => {
+        const pgError = {
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'test_table_fld_unknown_unique',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields,
+        });
+
+        expect(result.message).toBe('Cannot complete insert: field  must have a unique value');
+        expect(result.details).toBeUndefined();
+      });
+
+      it('falls back to generic not-null message when column not in fields', () => {
+        const pgError = {
+          code: PG_NOT_NULL_VIOLATION,
+          column: 'fld_unknown',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields,
+        });
+
+        expect(result.message).toBe('Cannot complete insert: field  cannot be empty');
+        expect(result.details).toBeUndefined();
+      });
+
+      it('falls back to generic messages when fields is not provided', () => {
+        const uniqueError = {
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'test_table_fld_email_unique',
+        };
+        const notNullError = { code: PG_NOT_NULL_VIOLATION, column: 'fld_required' };
+
+        const uniqueResult = wrapDatabaseError(uniqueError, 'update', { tableName });
+        expect(uniqueResult.message).toBe(
+          'Cannot complete update: field  must have a unique value'
+        );
+
+        const notNullResult = wrapDatabaseError(notNullError, 'update', { tableName });
+        expect(notNullResult.message).toBe('Cannot complete update: field  cannot be empty');
       });
     });
 
