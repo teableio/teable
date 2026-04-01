@@ -5,6 +5,7 @@ import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
+import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
@@ -152,6 +153,11 @@ const buildTable = () => {
     name: 'Deploy',
     isActive: true,
   })._unsafeUnwrap();
+  const buttonConfirm = ButtonConfirm.create({
+    title: 'Confirm deploy',
+    description: 'Ship this change?',
+    confirmText: 'Deploy',
+  })._unsafeUnwrap();
 
   const fields = [
     SingleLineTextField.create({
@@ -220,6 +226,7 @@ const buildTable = () => {
       maxCount: buttonMax,
       resetCount: buttonReset,
       workflow: buttonWorkflow,
+      confirm: buttonConfirm,
     })._unsafeUnwrap(),
   ];
 
@@ -353,6 +360,13 @@ describe('DefaultTableMapper', () => {
     expect(mapped.views().length).toBe(table.views().length);
     expect(mapped.views()[0]?.options()).toEqual(table.views()[0]?.options());
     expect(mapped.views()[5]?.options()).toEqual(table.views()[5]?.options());
+    const mappedButton = mapped
+      .getFields()
+      .find((field) => field.name().toString() === 'Action') as ButtonField | undefined;
+    const originalButton = table
+      .getFields()
+      .find((field) => field.name().toString() === 'Action') as ButtonField | undefined;
+    expect(mappedButton?.confirm()?.toDto()).toEqual(originalButton?.confirm()?.toDto());
     mapped.dbTableName()._unsafeUnwrap();
 
     const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
