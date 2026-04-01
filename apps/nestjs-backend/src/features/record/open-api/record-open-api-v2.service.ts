@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
   CellFormat,
@@ -63,12 +63,8 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
-import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
-import {
-  buildUndoRedoEnginePreferenceKey,
-  UNDO_REDO_ENGINE_PREFERENCE_TTL_SECONDS,
-} from '../../undo-redo/open-api/undo-redo-engine-preference';
+import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
 import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
@@ -105,9 +101,7 @@ export class RecordOpenApiV2Service {
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly fieldService: FieldService,
     private readonly recordPermissionService: RecordPermissionService,
-    private readonly aggregationService: AggregationService,
-    @Inject(forwardRef(() => SelectionService))
-    private readonly selectionService: SelectionService
+    private readonly aggregationService: AggregationService
   ) {}
 
   private throwV2Error(
@@ -137,15 +131,6 @@ export class RecordOpenApiV2Service {
     }
 
     return buildUndoRedoEnginePreferenceKey(userId, tableId, windowId);
-  }
-
-  private async preferLegacyUndoEngine(tableId: string): Promise<void> {
-    const key = this.getUndoRedoEnginePreferenceKey(tableId);
-    if (!key) {
-      return;
-    }
-
-    await this.cacheService.setDetail(key, 'v1', UNDO_REDO_ENGINE_PREFERENCE_TTL_SECONDS);
   }
 
   private async clearUndoRedoEnginePreference(tableId: string): Promise<void> {
@@ -626,6 +611,25 @@ export class RecordOpenApiV2Service {
       return [];
     }
 
+    const routeSpan = trace.getActiveSpan();
+    const uniqueFieldIds = new Set<string>();
+    let totalFieldAssignments = 0;
+    for (const record of records) {
+      const fieldIds = Object.keys(record.fields);
+      totalFieldAssignments += fieldIds.length;
+      for (const fieldId of fieldIds) {
+        uniqueFieldIds.add(fieldId);
+      }
+    }
+    routeSpan?.setAttributes({
+      'teable.table_id': tableId,
+      'record.update.request.recordCount': recordIds.length,
+      'record.update.request.uniqueFieldCount': uniqueFieldIds.size,
+      'record.update.request.totalFieldAssignments': totalFieldAssignments,
+      'record.update.request.hasOrder': Boolean(updateRecordsRo.order),
+      'record.update.request.typecast': updateRecordsRo.typecast ?? false,
+    });
+
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
@@ -671,6 +675,7 @@ export class RecordOpenApiV2Service {
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    routeSpan?.setAttribute('record.update.response.recordCount', resultRecords.length);
     return resultRecords;
   }
 
@@ -823,7 +828,6 @@ export class RecordOpenApiV2Service {
       ignoreViewQuery,
     } = pasteRo;
 
-    let fallbackRanges: IPasteVo['ranges'] | null = null;
     let v2Input: unknown;
     let finalContent: unknown[][] = [];
     let startCol = 0;
@@ -910,17 +914,6 @@ export class RecordOpenApiV2Service {
         const effectiveColsToExpand = hasFieldCreatePermission ? numColsToExpand : 0;
         const effectiveRowsToExpand = hasRecordCreatePermission ? numRowsToExpand : 0;
 
-        // When paste needs to create new fields, fall back to V1's paste implementation.
-        // V2's paste doesn't support field creation, and mixing V2 record operations with
-        // V1 field operations causes database lock conflicts during undo.
-        if (effectiveColsToExpand > 0) {
-          fallbackRanges = await this.selectionService.paste(tableId, pasteRo, {
-            windowId,
-          });
-          await this.preferLegacyUndoEngine(tableId);
-          return;
-        }
-
         // Truncate content if expansion is not allowed
         finalContent = parsedContent;
         const maxCols = tableSize[0] - startCol + effectiveColsToExpand;
@@ -995,10 +988,6 @@ export class RecordOpenApiV2Service {
       }
     });
 
-    if (fallbackRanges) {
-      return { ranges: fallbackRanges };
-    }
-
     if (!v2Input) {
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -1014,8 +1003,7 @@ export class RecordOpenApiV2Service {
       // because some rows may be skipped due to permission filters
       const finalCols = finalContent[0]?.length ?? 1;
 
-      // Note: Record creation undo/redo is handled by V2's RecordsBatchCreated projection handler
-      // Field creation case is handled by V1 fallback above
+      // Note: Record creation and schema expansion undo/redo are handled by V2.
 
       // Best-effort: normalize v1 range formats (cell/rows/columns) into a cell range.
       // v1 "ranges" uses `cellSchema` for all modes:

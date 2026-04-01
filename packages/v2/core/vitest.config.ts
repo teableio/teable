@@ -16,6 +16,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./src/testkit/vitest.setup.ts'],
     passWithNoTests: true,
     typecheck: {
       enabled: false,

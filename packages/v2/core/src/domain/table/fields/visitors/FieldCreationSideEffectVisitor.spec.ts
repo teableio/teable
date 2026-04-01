@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
+import { ForeignTable } from '../../ForeignTable';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
@@ -10,6 +11,7 @@ import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import type { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
+import { SingleLineTextField } from '../types/SingleLineTextField';
 import { FieldCreationSideEffectVisitor } from './FieldCreationSideEffectVisitor';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
@@ -265,6 +267,107 @@ describe('FieldCreationSideEffectVisitor', () => {
       .getFields(buildFieldSpec((builder) => builder.isLink())) as ReadonlyArray<LinkField>;
     expect(linkFields).toHaveLength(2);
     expect(linkFields.map((field) => field.name().toString())).toEqual(['Self', 'Self (linked)']);
+  });
+
+  it('skips creation when the symmetric field already exists on the foreign table', () => {
+    const baseId = createBaseId('w')._unsafeUnwrap();
+    const hostTableId = createTableId('x')._unsafeUnwrap();
+    const foreignTableId = createTableId('y')._unsafeUnwrap();
+    const hostPrimaryId = createFieldId('z')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('a')._unsafeUnwrap();
+    const linkFieldId = createFieldId('b')._unsafeUnwrap();
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Foreign',
+      primaryFieldId: foreignPrimaryId,
+      primaryFieldName: 'Foreign Name',
+    });
+
+    const linkField = createNewLinkField({
+      id: linkFieldId,
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap() as LinkField;
+
+    const symmetricField = linkField
+      .buildSymmetricField({
+        foreignTable: ForeignTable.from(foreignTable),
+        hostTable,
+      })
+      ._unsafeUnwrap();
+    const foreignTableWithSymmetric = foreignTable
+      .update((mutator) => mutator.addField(symmetricField, { foreignTables: [hostTable] }))
+      ._unsafeUnwrap().table;
+
+    const result = FieldCreationSideEffectVisitor.collect([linkField], {
+      table: hostTable,
+      foreignTables: [foreignTableWithSymmetric],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('collect keeps non-link fields inert while preserving link side effects', () => {
+    const baseId = createBaseId('c')._unsafeUnwrap();
+    const hostTableId = createTableId('d')._unsafeUnwrap();
+    const foreignTableId = createTableId('e')._unsafeUnwrap();
+    const hostPrimaryId = createFieldId('f')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('g')._unsafeUnwrap();
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Foreign',
+      primaryFieldId: foreignPrimaryId,
+      primaryFieldName: 'Foreign Name',
+    });
+
+    const plainTextField = SingleLineTextField.create({
+      id: createFieldId('h')._unsafeUnwrap(),
+      name: FieldName.create('Notes')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const linkField = createNewLinkField({
+      id: createFieldId('i')._unsafeUnwrap(),
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap();
+
+    const result = FieldCreationSideEffectVisitor.collect([plainTextField, linkField], {
+      table: hostTable,
+      foreignTables: [foreignTable],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toHaveLength(1);
   });
 
   it('errors when foreign table is missing', () => {

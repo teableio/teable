@@ -97,7 +97,7 @@ describe('update-field: user → link conversion', () => {
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('link');
 
-    const rows = await ctx.listRecords(hostTableId);
+    const rows = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(rows.find((r) => r.id === r1.id)?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
@@ -205,7 +205,7 @@ describe('update-field: user → link conversion', () => {
     });
     await ctx.drainOutbox();
 
-    const rows = await ctx.listRecords(hostTableId);
+    const rows = await ctx.listRecordsWithoutDrain(hostTableId);
     expect(rows.find((r) => r.id === r1.id)?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });

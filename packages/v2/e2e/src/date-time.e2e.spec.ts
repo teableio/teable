@@ -2,9 +2,10 @@
 import {
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
+  listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
-import { FieldKeyType } from '@teable/v2-core';
+import { FieldKeyType, type RecordFilter } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -130,6 +131,37 @@ describe('v2 http date time parsing (e2e)', () => {
     return parsed.data.data.record;
   };
 
+  const listRecords = async (
+    tableId: string,
+    options?: { filter?: RecordFilter; groupBy?: string[] }
+  ) => {
+    const params = new URLSearchParams({
+      tableId,
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    if (options?.filter) {
+      params.set('filter', JSON.stringify(options.filter));
+    }
+
+    if (options?.groupBy) {
+      params.set('groupBy', JSON.stringify(options.groupBy));
+    }
+
+    const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'content-type': 'application/json' },
+    });
+    const rawBody = await response.json();
+    expect(response.status).toBe(200);
+    const parsed = listTableRecordsOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error(`Failed to parse list records response: ${JSON.stringify(rawBody)}`);
+    }
+    return parsed.data.data.records;
+  };
+
   beforeAll(async () => {
     ctx = await getSharedTestContext();
   }, 30000);
@@ -171,5 +203,89 @@ describe('v2 http date time parsing (e2e)', () => {
       [dateFieldId]: dateCase.update.input,
     });
     expect(updatedRecord.fields[dateFieldId]).toBe(dateCase.update.expected);
+  });
+
+  it('filters exact datetime groups to a single timestamp', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: uniqueName('grouped-datetime-exact-date'),
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'date',
+          name: 'Event Date',
+          options: {
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'HH:mm',
+              timeZone: 'utc',
+            },
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+    const dateFieldId = table.fields.find((field) => field.name === 'Event Date')?.id ?? '';
+
+    const createdRecords = await createRecords(table.id, [
+      {
+        fields: {
+          [primaryFieldId]: 'Morning',
+          [dateFieldId]: '2025-12-15T09:00:00.000Z',
+        },
+      },
+      {
+        fields: {
+          [primaryFieldId]: 'Later',
+          [dateFieldId]: '2025-12-15T10:00:00.000Z',
+        },
+      },
+    ]);
+
+    expect(createdRecords).toHaveLength(2);
+
+    const groupedRecords = await listRecords(table.id, { groupBy: [dateFieldId] });
+    expect(groupedRecords).toHaveLength(2);
+
+    const firstTimestamp = createdRecords[0]?.fields[dateFieldId] as string | undefined;
+    const secondTimestamp = createdRecords[1]?.fields[dateFieldId] as string | undefined;
+    expect(firstTimestamp).toBe('2025-12-15T09:00:00.000Z');
+    expect(secondTimestamp).toBe('2025-12-15T10:00:00.000Z');
+
+    const firstGroupRecords = await listRecords(table.id, {
+      groupBy: [dateFieldId],
+      filter: {
+        fieldId: dateFieldId,
+        operator: 'is',
+        value: {
+          mode: 'exactDate',
+          exactDate: firstTimestamp,
+          timeZone: 'utc',
+        },
+      },
+    });
+
+    expect(firstGroupRecords).toHaveLength(1);
+    expect(firstGroupRecords[0]?.fields[primaryFieldId]).toBe('Morning');
+    expect(firstGroupRecords[0]?.fields[dateFieldId]).toBe(firstTimestamp);
+
+    const secondGroupRecords = await listRecords(table.id, {
+      groupBy: [dateFieldId],
+      filter: {
+        fieldId: dateFieldId,
+        operator: 'is',
+        value: {
+          mode: 'exactDate',
+          exactDate: secondTimestamp,
+          timeZone: 'utc',
+        },
+      },
+    });
+
+    expect(secondGroupRecords).toHaveLength(1);
+    expect(secondGroupRecords[0]?.fields[primaryFieldId]).toBe('Later');
+    expect(secondGroupRecords[0]?.fields[dateFieldId]).toBe(secondTimestamp);
   });
 });

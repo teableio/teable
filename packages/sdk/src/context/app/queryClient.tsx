@@ -42,78 +42,96 @@ export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?:
   return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
-export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
-  const { code, message, status } = error as IHttpError;
-
-  // Network errors - show a gentler warning, deduplicated with cooldown
-  // These are typically transient client-side issues, not server errors
-  if (code === HttpErrorCode.NETWORK_ERROR) {
-    const now = Date.now();
-    // Skip if within cooldown period (prevents toast spam when multiple APIs fail)
-    if (now - lastNetworkErrorTime < NETWORK_ERROR_COOLDOWN_MS) {
-      return;
-    }
-    lastNetworkErrorTime = now;
-
-    // Show a gentle warning with fixed id to prevent duplicates
-    toast.warning(t ? t('httpErrors.networkError') : 'Network connection issue', {
-      id: NETWORK_ERROR_TOAST_ID,
-      duration: 3000,
-    });
-    return;
+const handleNetworkError = (t?: ILocaleFunction): boolean => {
+  const now = Date.now();
+  if (now - lastNetworkErrorTime < NETWORK_ERROR_COOLDOWN_MS) {
+    return true;
   }
+  lastNetworkErrorTime = now;
+  toast.warning(t ? t('httpErrors.networkError') : 'Network connection issue', {
+    id: NETWORK_ERROR_TOAST_ID,
+    duration: 3000,
+  });
+  return true;
+};
 
-  // Validation errors - deduplicate by message to avoid spam when multiple APIs fail with same filter issue
-  if (code === HttpErrorCode.VALIDATION_ERROR && message) {
-    const now = Date.now();
-    const lastTime = lastValidationErrorTimes.get(message);
-    if (lastTime && now - lastTime < VALIDATION_ERROR_COOLDOWN_MS) {
-      return;
-    }
-    lastValidationErrorTimes.set(message, now);
+const dedupeValidationError = (message: string): boolean => {
+  const now = Date.now();
+  const lastTime = lastValidationErrorTimes.get(message);
+  if (lastTime && now - lastTime < VALIDATION_ERROR_COOLDOWN_MS) {
+    return true;
+  }
+  lastValidationErrorTimes.set(message, now);
 
-    // Clean up old entries to prevent memory leak
-    if (lastValidationErrorTimes.size > 20) {
-      const threshold = now - VALIDATION_ERROR_COOLDOWN_MS;
-      for (const [key, time] of lastValidationErrorTimes) {
-        if (time < threshold) {
-          lastValidationErrorTimes.delete(key);
-        }
+  // Clean up old entries to prevent memory leak
+  if (lastValidationErrorTimes.size > 20) {
+    const threshold = now - VALIDATION_ERROR_COOLDOWN_MS;
+    for (const [key, time] of lastValidationErrorTimes) {
+      if (time < threshold) {
+        lastValidationErrorTimes.delete(key);
       }
     }
   }
+  return false;
+};
 
-  // no authentication
+const handleStatusRedirect = (status: number): boolean => {
   if (status === 401) {
     window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
-    return;
+    return true;
   }
   if (status === 402) {
     useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.Upgrade, modalOpen: true });
-    return;
+    return true;
   }
   if (status === 460) {
     useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.User, modalOpen: true });
+    return true;
+  }
+  return false;
+};
+
+export const errorRequestHandler = (
+  error: unknown,
+  t?: ILocaleFunction,
+  options?: { isQuery?: boolean }
+) => {
+  const { code, message, status } = error as IHttpError;
+
+  if (code === HttpErrorCode.NETWORK_ERROR) {
+    handleNetworkError(t);
+    return;
+  }
+
+  if (code === HttpErrorCode.VALIDATION_ERROR && message && dedupeValidationError(message)) {
+    return;
+  }
+
+  if (handleStatusRedirect(status)) {
+    return;
+  }
+
+  // Silence 4xx errors on GET (query) requests — raw technical messages not useful to users.
+  // Mutation 4xx errors are always shown so users get feedback on their actions.
+  // 429 is always shown (rate limit).
+  if (options?.isQuery && status >= 400 && status < 500 && status !== 429) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[Silenced 4xx] ${status} ${code}: ${message}`);
+    }
     return;
   }
 
   if (t) {
     const description = getHttpErrorMessage(error, t);
-
     return toast.error(
       code
         ? t(`httpErrors.${toCamelCaseErrorCode(code)}` as TKey)
         : t('httpErrors.unknownErrorCode'),
-      {
-        description,
-      }
+      { description }
     );
   }
 
-  toast.error(code || 'Unknown Error', {
-    description: message,
-  });
+  toast.error(code || 'Unknown Error', { description: message });
 };
 
 export const createQueryClient = (t?: ILocaleFunction) => {
@@ -135,7 +153,7 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         if (query.meta?.['preventGlobalError']) {
           return;
         }
-        errorRequestHandler(error, t);
+        errorRequestHandler(error, t, { isQuery: true });
       },
     }),
     mutationCache: new MutationCache({

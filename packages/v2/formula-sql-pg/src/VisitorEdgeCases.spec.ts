@@ -9,57 +9,51 @@ import {
   type FormulaTestTable,
 } from './testkit/FormulaSqlPgTestkit';
 
+let container: IV2NodeTestContainer;
+let testTable: FormulaTestTable;
+
+beforeAll(async () => {
+  container = await createFormulaTestContainer();
+  const formulaFields: FormulaFieldDefinition[] = [
+    { name: 'EscapeNewline', expression: '"hello\\nworld"' },
+    { name: 'EscapeCarriageReturn', expression: '"hello\\rworld"' },
+    { name: 'EscapeTab', expression: '"hello\\tworld"' },
+    { name: 'EscapeBackspace', expression: '"hello\\bworld"' },
+    { name: 'EscapeFormFeed', expression: '"hello\\fworld"' },
+    { name: 'EscapeVerticalTab', expression: '"hello\\vworld"' },
+    { name: 'EscapeBackslash', expression: '"hello\\\\world"' },
+    { name: 'EscapeDoubleQuote', expression: '"hello\\"world"' },
+    { name: 'EscapeSingleQuote', expression: '"hello\\\'world"' },
+    { name: 'EscapeUnknown', expression: '"hello\\xworld"' },
+    { name: 'IntegerLiteral', expression: '42' },
+    { name: 'NegativeInteger', expression: '-42' },
+    { name: 'DecimalLiteral', expression: '3.14' },
+    { name: 'NegativeDecimal', expression: '-3.14' },
+    { name: 'BooleanTrue', expression: 'TRUE' },
+    { name: 'BooleanFalse', expression: 'FALSE' },
+    { name: 'BooleanTrueLower', expression: 'true' },
+    { name: 'BooleanFalseLower', expression: 'false' },
+    { name: 'Brackets', expression: '(10 + 20)' },
+    { name: 'NestedBrackets', expression: '((10 + 20) * 2)' },
+    { name: 'UnaryMinus', expression: '-{Number}' },
+    { name: 'UnaryMinusLiteral', expression: '-(10)' },
+    { name: 'Ampersand', expression: '{SingleLineText} & "suffix"' },
+    { name: 'Percent', expression: '10 % 3' },
+    { name: 'ValidFieldRef', expression: '{Number} + 1' },
+    { name: 'EmptyString', expression: '""' },
+    { name: 'WhitespaceExpr', expression: '  10 + 20  ' },
+  ];
+  testTable = await createFormulaTestTable(container, formulaFields, {
+    profile: 'minimal',
+    fieldTypes: ['singleLineText', 'number'],
+  });
+});
+
+afterAll(async () => {
+  await container.dispose();
+});
+
 describe('FormulaSqlPgVisitor edge cases', () => {
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
-
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    const formulaFields: FormulaFieldDefinition[] = [
-      // String escape sequences
-      { name: 'EscapeNewline', expression: '"hello\\nworld"' },
-      { name: 'EscapeCarriageReturn', expression: '"hello\\rworld"' },
-      { name: 'EscapeTab', expression: '"hello\\tworld"' },
-      { name: 'EscapeBackspace', expression: '"hello\\bworld"' },
-      { name: 'EscapeFormFeed', expression: '"hello\\fworld"' },
-      { name: 'EscapeVerticalTab', expression: '"hello\\vworld"' },
-      { name: 'EscapeBackslash', expression: '"hello\\\\world"' },
-      { name: 'EscapeDoubleQuote', expression: '"hello\\"world"' },
-      { name: 'EscapeSingleQuote', expression: '"hello\\\'world"' },
-      { name: 'EscapeUnknown', expression: '"hello\\xworld"' },
-      // Integer and decimal literals
-      { name: 'IntegerLiteral', expression: '42' },
-      { name: 'NegativeInteger', expression: '-42' },
-      { name: 'DecimalLiteral', expression: '3.14' },
-      { name: 'NegativeDecimal', expression: '-3.14' },
-      // Boolean literals
-      { name: 'BooleanTrue', expression: 'TRUE' },
-      { name: 'BooleanFalse', expression: 'FALSE' },
-      { name: 'BooleanTrueLower', expression: 'true' },
-      { name: 'BooleanFalseLower', expression: 'false' },
-      // Brackets/parentheses
-      { name: 'Brackets', expression: '(10 + 20)' },
-      { name: 'NestedBrackets', expression: '((10 + 20) * 2)' },
-      // Unary minus
-      { name: 'UnaryMinus', expression: '-{Number}' },
-      { name: 'UnaryMinusLiteral', expression: '-(10)' },
-      // Binary operators
-      { name: 'Ampersand', expression: '{SingleLineText} & "suffix"' },
-      { name: 'Percent', expression: '10 % 3' },
-      // Field references
-      { name: 'ValidFieldRef', expression: '{Number} + 1' },
-      // Empty string literal
-      { name: 'EmptyString', expression: '""' },
-      // Complex expressions with whitespace
-      { name: 'WhitespaceExpr', expression: '  10 + 20  ' },
-    ];
-    testTable = await createFormulaTestTable(container, formulaFields);
-  });
-
-  afterAll(async () => {
-    await container.dispose();
-  });
-
   describe('string escape sequences', () => {
     it('should handle newline escape', async () => {
       const result = await executeFormulaAsText(testTable, 'EscapeNewline');
@@ -204,18 +198,6 @@ describe('FormulaSqlPgVisitor edge cases', () => {
 });
 
 describe('FormulaSqlPgVisitor error handling', () => {
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
-
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    testTable = await createFormulaTestTable(container, []);
-  });
-
-  afterAll(async () => {
-    await container.dispose();
-  });
-
   it('should handle invalid field reference via translator', () => {
     // Test directly via translator, since CreateFieldCommand validates field references
     const result = testTable.translator.translateExpression('{NonExistentField}');

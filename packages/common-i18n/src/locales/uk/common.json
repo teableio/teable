@@ -652,8 +652,8 @@
     "spaceTrash": "Кошик простору",
     "type": "Тип",
     "resetTrash": "Очистити кошик",
-    "deletedBy": "Видалено",
-    "deletedTime": "Час видалення",
+    "deletedBy": "Ким",
+    "deletedTime": "Час",
     "fromSpace": "З простору \"{{name}}\"",
     "permanentDeleteTips": "Ви впевнені, що хочете остаточно видалити \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Ви впевнені, що хочете очистити кошик?",
@@ -1061,8 +1061,8 @@
   },
   "changelog": {
     "newUpdate": "НОВЕ ОНОВЛЕННЯ",
-    "title": "Масове завантаження вкладень доступне",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Власний домен для App доступний",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

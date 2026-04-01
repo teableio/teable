@@ -13,30 +13,29 @@ import {
   type FormulaTestTable,
 } from './testkit/FormulaSqlPgTestkit';
 
+let container: IV2NodeTestContainer;
+let testTable: FormulaTestTable;
+
+beforeAll(async () => {
+  container = await createFormulaTestContainer();
+  const formulaFields: FormulaFieldDefinition[] = [
+    { name: 'ArrayFormula', expression: '{MultipleSelect}' },
+    { name: 'BaseFormula', expression: '{Number} * 2' },
+    { name: 'NestedFormula', expression: '{BaseFormula} + 10' },
+    { name: 'ErrorFormula', expression: '1 / 0' },
+    { name: 'FieldByName', expression: '{Number} + {SingleLineText}' },
+  ];
+  testTable = await createFormulaTestTable(container, formulaFields, {
+    profile: 'minimal',
+    fieldTypes: ['singleLineText', 'number', 'multipleSelect'],
+  });
+});
+
+afterAll(async () => {
+  await container.dispose();
+});
+
 describe('FormulaSqlPgTranslator edge cases', () => {
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
-
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    const formulaFields: FormulaFieldDefinition[] = [
-      // Array result formula
-      { name: 'ArrayFormula', expression: '{MultipleSelect}' },
-      // Formula referencing another formula
-      { name: 'BaseFormula', expression: '{Number} * 2' },
-      { name: 'NestedFormula', expression: '{BaseFormula} + 10' },
-      // Error propagation
-      { name: 'ErrorFormula', expression: '1 / 0' },
-      // Field name fallback
-      { name: 'FieldByName', expression: '{Number} + {SingleLineText}' },
-    ];
-    testTable = await createFormulaTestTable(container, formulaFields);
-  });
-
-  afterAll(async () => {
-    await container.dispose();
-  });
-
   describe('renderSql', () => {
     it('should render array result with error handling', async () => {
       const result = await executeFormulaAsText(testTable, 'ArrayFormula');
@@ -69,18 +68,6 @@ describe('FormulaSqlPgTranslator edge cases', () => {
 });
 
 describe('FormulaSqlPgTranslator options', () => {
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
-
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    testTable = await createFormulaTestTable(container, []);
-  });
-
-  afterAll(async () => {
-    await container.dispose();
-  });
-
   it('should create translator with skipFormulaExpansion option', () => {
     const translator = new FormulaSqlPgTranslator({
       table: testTable.table,
@@ -125,18 +112,6 @@ describe('FormulaSqlPgTranslator options', () => {
 });
 
 describe('FormulaSqlPgTranslator parse errors', () => {
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
-
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    testTable = await createFormulaTestTable(container, []);
-  });
-
-  afterAll(async () => {
-    await container.dispose();
-  });
-
   it('should return error for invalid formula syntax', () => {
     const result = testTable.translator.translateExpression('INVALID(((');
     expect(result.isErr()).toBe(true);

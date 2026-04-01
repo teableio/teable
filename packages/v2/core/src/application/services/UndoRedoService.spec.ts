@@ -21,6 +21,8 @@ import { createUndoRedoCommand, type UndoEntry, type UndoScope } from '../../por
 import { UndoRedoService } from './UndoRedoService';
 
 class FakeCommandBus implements ICommandBus {
+  readonly contexts: IExecutionContext[] = [];
+  readonly commands: unknown[] = [];
   lastContext: IExecutionContext | undefined;
   lastCommand: unknown;
 
@@ -28,6 +30,8 @@ class FakeCommandBus implements ICommandBus {
     context: IExecutionContext,
     command: TCommand
   ): Promise<Result<TResult, DomainError>> {
+    this.contexts.push(context);
+    this.commands.push(command);
     this.lastContext = context;
     this.lastCommand = command;
     return ok(undefined as TResult);
@@ -424,5 +428,164 @@ describe('UndoRedoService', () => {
       'teable.undo_redo.command_type': 'UpdateRecord',
       'teable.undo_redo.mode': 'undo',
     });
+  });
+
+  it('supports multi-step undo/redo stacks and clears redo history after a fresh change', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+
+    await service.recordUpdateRecord(context, {
+      tableId,
+      recordId,
+      oldValues: { fld1: 'v0' },
+      newValues: { fld1: 'v1' },
+      recordVersionBefore: 1,
+      recordVersionAfter: 2,
+    });
+
+    await service.recordUpdateRecord(context, {
+      tableId,
+      recordId,
+      oldValues: { fld1: 'v1' },
+      newValues: { fld1: 'v2' },
+      recordVersionBefore: 2,
+      recordVersionAfter: 3,
+    });
+
+    const firstUndo = await service.undo(context, tableId, context.windowId);
+    expect(firstUndo._unsafeUnwrap()?.recordVersionBefore).toBe(2);
+    expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v1');
+
+    const secondUndo = await service.undo(context, tableId, context.windowId);
+    expect(secondUndo._unsafeUnwrap()?.recordVersionBefore).toBe(1);
+    expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v0');
+
+    const redo = await service.redo(context, tableId, context.windowId);
+    expect(redo._unsafeUnwrap()?.recordVersionAfter).toBe(2);
+    expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v1');
+
+    await service.recordUpdateRecord(context, {
+      tableId,
+      recordId,
+      oldValues: { fld1: 'v1' },
+      newValues: { fld1: 'v3' },
+      recordVersionBefore: 2,
+      recordVersionAfter: 4,
+    });
+
+    const redoAfterFreshChange = await service.redo(context, tableId, context.windowId);
+    expect(redoAfterFreshChange._unsafeUnwrap()).toBeNull();
+  });
+
+  it('executes nested batch undo and redo commands in sequence', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+
+    await service.recordEntry(context, tableId, {
+      undoCommand: createUndoRedoCommand('Batch', [
+        createUndoRedoCommand('UpdateRecord', {
+          tableId: tableId.toString(),
+          recordId: recordId.toString(),
+          fields: { fld1: 'before-title' },
+          fieldKeyType: 'id',
+          typecast: false,
+        }),
+        createUndoRedoCommand('ApplyRecordOrders', {
+          tableId: tableId.toString(),
+          viewId: `viw${'m'.repeat(16)}`,
+          records: [{ recordId: recordId.toString(), order: 3 }],
+        }),
+      ]),
+      redoCommand: createUndoRedoCommand('Batch', [
+        createUndoRedoCommand('ApplyRecordOrders', {
+          tableId: tableId.toString(),
+          viewId: `viw${'m'.repeat(16)}`,
+          records: [{ recordId: recordId.toString(), order: 4 }],
+        }),
+        createUndoRedoCommand('UpdateRecord', {
+          tableId: tableId.toString(),
+          recordId: recordId.toString(),
+          fields: { fld1: 'after-title' },
+          fieldKeyType: 'id',
+          typecast: false,
+        }),
+      ]),
+    });
+
+    const undoResult = await service.undo(context, tableId, context.windowId);
+    expect(undoResult.isOk()).toBe(true);
+    expect(bus.commands).toHaveLength(2);
+    expect((bus.commands[0] as UpdateRecordCommand).fieldValues.get('fld1')).toBe('before-title');
+    expect((bus.commands[1] as ApplyRecordOrdersCommand).records[0]?.order).toBe(3);
+    expect(bus.contexts.every((candidate) => candidate.undoRedo?.mode === 'undo')).toBe(true);
+
+    bus.commands.length = 0;
+    bus.contexts.length = 0;
+
+    const redoResult = await service.redo(context, tableId, context.windowId);
+    expect(redoResult.isOk()).toBe(true);
+    expect(bus.commands).toHaveLength(2);
+    expect((bus.commands[0] as ApplyRecordOrdersCommand).records[0]?.order).toBe(4);
+    expect((bus.commands[1] as UpdateRecordCommand).fieldValues.get('fld1')).toBe('after-title');
+    expect(bus.contexts.every((candidate) => candidate.undoRedo?.mode === 'redo')).toBe(true);
+  });
+
+  it('skips storing empty batch entries and requires a window id for undo/redo', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoService(store, bus);
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+
+    await service.recordEntry(context, tableId, {
+      undoCommand: createUndoRedoCommand('Batch', []),
+      redoCommand: createUndoRedoCommand('Batch', []),
+    });
+
+    const entries = await store.list(buildScope(context, tableId));
+    expect(entries._unsafeUnwrap()).toHaveLength(0);
+
+    const missingWindowResult = await service.undo({ ...context, windowId: undefined }, tableId);
+    expect(missingWindowResult.isErr()).toBe(true);
+    expect(missingWindowResult._unsafeUnwrapErr().message).toContain('Missing windowId');
+  });
+
+  it('rejects unsupported undo/redo command versions before execution', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+
+    await service.recordEntry(context, tableId, {
+      undoCommand: {
+        ...createUndoRedoCommand('UpdateRecord', {
+          tableId: tableId.toString(),
+          recordId: recordId.toString(),
+          fields: { fld1: 'old' },
+          fieldKeyType: 'id',
+          typecast: false,
+        }),
+        version: 999,
+      },
+      redoCommand: createUndoRedoCommand('UpdateRecord', {
+        tableId: tableId.toString(),
+        recordId: recordId.toString(),
+        fields: { fld1: 'new' },
+        fieldKeyType: 'id',
+        typecast: false,
+      }),
+    });
+
+    const result = await service.undo(context, tableId, context.windowId);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Unsupported undo/redo command version');
+    expect(bus.commands).toHaveLength(0);
   });
 });
