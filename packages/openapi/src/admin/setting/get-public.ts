@@ -49,6 +49,7 @@ export const publicSettingVoSchema = settingVoSchema
     resetPasswordSendMailRate: z.number().optional(),
     signupVerificationSendCodeMailRate: z.number().optional(),
     enableCreditReward: z.boolean().optional(),
+    availableIntegrationProviders: z.array(z.string()).optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

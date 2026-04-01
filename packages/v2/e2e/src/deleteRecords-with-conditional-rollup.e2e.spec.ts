@@ -208,7 +208,6 @@ describe('v2 deleteRecords with conditionalRollup filtering on conditionalLookup
     });
 
     await ctx.testContainer.processOutbox();
-    await ctx.testContainer.processOutbox();
 
     // =========================================================================
     // Table C (Target): has a conditionalRollup that sums Amount from Table B
@@ -268,7 +267,6 @@ describe('v2 deleteRecords with conditionalRollup filtering on conditionalLookup
     });
 
     await ctx.testContainer.processOutbox();
-    await ctx.testContainer.processOutbox();
 
     // Verify TotalAmount was computed
     const beforeRecords = await listRecords(tableC.id);
@@ -296,7 +294,6 @@ describe('v2 deleteRecords with conditionalRollup filtering on conditionalLookup
     }
 
     // Process computed updates after deletion
-    await ctx.testContainer.processOutbox();
     await ctx.testContainer.processOutbox();
 
     // Verify TotalAmount was recomputed correctly (only B2 remains: 200)

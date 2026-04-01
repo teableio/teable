@@ -4,3 +4,4 @@ export { underlyingFields } from './fields';
 export { underlyingField } from './field';
 export { underlyingRecords } from './records';
 export { underlyingRecord } from './record';
+export { underlyingCanarySpace } from './canary-space';

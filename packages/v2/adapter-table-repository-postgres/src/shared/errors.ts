@@ -1,10 +1,11 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import {
   domainError,
   isDomainError,
   type DomainError,
+  type Field,
   type IExecutionContext,
 } from '@teable/v2-core';
-import { tableI18nKeys } from '@teable/i18n-keys';
 
 export const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;
@@ -77,6 +78,7 @@ export interface WrapDatabaseErrorContext {
   tableName: string;
   recordId?: string;
   count?: number;
+  fields?: ReadonlyArray<Field>;
 }
 
 const i18nOrFallback = (
@@ -93,6 +95,55 @@ const i18nOrFallback = (
   } catch {
     return fallback;
   }
+};
+
+/**
+ * Extract the column name from a PostgreSQL not-null violation error.
+ * PG includes the `column` property on 23502 errors.
+ */
+export const extractNotNullColumn = (error: unknown): string | undefined => {
+  if (error && typeof error === 'object' && 'column' in error) {
+    const col = (error as { column?: string }).column;
+    return typeof col === 'string' && col.length > 0 ? col : undefined;
+  }
+  return undefined;
+};
+
+/**
+ * Extract the column name from a PostgreSQL unique violation constraint name.
+ * Constraint names follow the pattern `${tableName}_${columnName}_unique`
+ * (matching `ColumnUniqueConstraintRule.getIndexName`).
+ */
+export const extractUniqueColumn = (error: unknown, tableName: string): string | undefined => {
+  if (error && typeof error === 'object' && 'constraint' in error) {
+    const constraint = (error as { constraint?: string }).constraint;
+    if (typeof constraint !== 'string') return undefined;
+    // tableName may be schema-qualified ("schema.table"); constraint uses plain table name only
+    const plainTable = tableName.includes('.')
+      ? tableName.slice(tableName.indexOf('.') + 1)
+      : tableName;
+    const prefix = `${plainTable}_`;
+    const suffix = '_unique';
+    if (constraint.startsWith(prefix) && constraint.endsWith(suffix)) {
+      const col = constraint.slice(prefix.length, -suffix.length);
+      return col.length > 0 ? col : undefined;
+    }
+  }
+  return undefined;
+};
+
+/**
+ * Find the field whose DB column name matches the given column.
+ */
+const findFieldByColumn = (
+  column: string | undefined,
+  fields: ReadonlyArray<Field> | undefined
+): Field | undefined => {
+  if (!column || !fields) return undefined;
+  return fields.find((f) => {
+    const result = f.dbFieldName().andThen((name) => name.value());
+    return result.isOk() && result.value === column;
+  });
 };
 
 /**
@@ -118,16 +169,24 @@ export const wrapDatabaseError = (
   }
 
   if (isUniqueViolation(error)) {
+    const column = extractUniqueColumn(error, context.tableName);
+    const field = findFieldByColumn(column, context.fields);
+    const fieldId = field?.id().toString();
     return domainError.validation({
-      message: `Cannot complete ${operation}: unique constraint violated`,
+      message: `Cannot complete ${operation}: field ${fieldId ?? ''} must have a unique value`,
       code: 'validation.field.unique',
+      ...(field && { details: { fieldId, fieldName: field.name().toString() } }),
     });
   }
 
   if (isNotNullViolation(error)) {
+    const column = extractNotNullColumn(error);
+    const field = findFieldByColumn(column, context.fields);
+    const fieldId = field?.id().toString();
     return domainError.validation({
-      message: `Cannot complete ${operation}: null value violates not-null constraint`,
+      message: `Cannot complete ${operation}: field ${fieldId ?? ''} cannot be empty`,
       code: 'validation.field.not_null',
+      ...(field && { details: { fieldId, fieldName: field.name().toString() } }),
     });
   }
 

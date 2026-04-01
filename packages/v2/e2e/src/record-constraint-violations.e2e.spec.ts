@@ -127,7 +127,7 @@ describe('v2 constraint violation errors (P0)', () => {
         expect(parsed.data.ok).toBe(false);
         expect(parsed.data.error.code).toBe('validation.field.not_null');
         expect(parsed.data.error.tags).toContain('validation');
-        expect(parsed.data.error.message).toContain('not-null');
+        expect(parsed.data.error.message).toMatch(/cannot be empty|not-null/);
       }
     });
 
@@ -227,7 +227,7 @@ describe('v2 constraint violation errors (P0)', () => {
         expect(parsed.data.ok).toBe(false);
         expect(parsed.data.error.code).toBe('validation.field.unique');
         expect(parsed.data.error.tags).toContain('validation');
-        expect(parsed.data.error.message).toContain('unique');
+        expect(parsed.data.error.message).toMatch(/unique/);
       }
     });
 

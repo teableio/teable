@@ -563,7 +563,14 @@ export function useInstances<T, R extends { id: string }>({
       if (!currentKey) {
         return;
       }
+      // Reset refs so the main effect re-acquires the query after
+      // React Strict Mode unmount/re-mount cycles in development.
+      currentKeyRef.current = undefined;
+      currentScopeKeyRef.current = undefined;
+      preQueryRef.current = undefined;
+      lastConnectionRef.current = undefined;
       dispatch({ type: 'clear' });
+      setQuery(undefined);
       releaseQuery(currentKey, () => listeners.clear());
     };
   }, []);

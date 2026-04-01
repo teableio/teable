@@ -570,7 +570,7 @@ describe('v2 http deleteField (e2e)', () => {
           },
         });
         await ctx.drainOutbox();
-        const recordsBeforeDelete = await ctx.listRecords(tableId);
+        const recordsBeforeDelete = await ctx.listRecordsWithoutDrain(tableId);
         const firstRecordId = recordsBeforeDelete[0]?.id;
         if (!firstRecordId) throw new Error('Missing record');
         const formulaDbFieldName = await getFieldDbName(formulaFieldId);
@@ -589,7 +589,7 @@ describe('v2 http deleteField (e2e)', () => {
         expect(formulaField?.type).toBe('formula');
         expect(formulaField?.hasError).toBe(true);
         expect(await getStoredCellValue(tableId, firstRecordId, formulaDbFieldName)).toBeNull();
-        const recordsAfter = await ctx.listRecords(tableId);
+        const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);
@@ -639,7 +639,7 @@ describe('v2 http deleteField (e2e)', () => {
           },
         });
         await ctx.drainOutbox();
-        const recordsBeforeDelete = await ctx.listRecords(tableId);
+        const recordsBeforeDelete = await ctx.listRecordsWithoutDrain(tableId);
         const firstRecordId = recordsBeforeDelete[0]?.id;
         if (!firstRecordId) throw new Error('Missing record');
         const tailFormulaDbFieldName = await getFieldDbName(tailFormulaFieldId);
@@ -656,7 +656,7 @@ describe('v2 http deleteField (e2e)', () => {
         expect(tailFormulaAfter).toBeDefined();
         expect(tailFormulaAfter?.hasError).toBe(true);
         expect(await getStoredCellValue(tableId, firstRecordId, tailFormulaDbFieldName)).toBeNull();
-        const recordsAfter = await ctx.listRecords(tableId);
+        const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);
@@ -720,7 +720,7 @@ describe('v2 http deleteField (e2e)', () => {
           },
         });
         await ctx.drainOutbox();
-        const recordsBeforeDelete = await ctx.listRecords(tableId);
+        const recordsBeforeDelete = await ctx.listRecordsWithoutDrain(tableId);
         const firstRecordId = recordsBeforeDelete[0]?.id;
         if (!firstRecordId) throw new Error('Missing record');
         const primaryDbFieldName = await getFieldDbName(primaryFieldId);
@@ -738,7 +738,7 @@ describe('v2 http deleteField (e2e)', () => {
         expect(primaryAfter?.type).toBe('formula');
         expect(primaryAfter?.hasError).toBe(true);
         expect(await getStoredCellValue(tableId, firstRecordId, primaryDbFieldName)).toBeNull();
-        const recordsAfter = await ctx.listRecords(tableId);
+        const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);
@@ -792,7 +792,7 @@ describe('v2 http deleteField (e2e)', () => {
           },
         });
         await ctx.drainOutbox();
-        const recordsBeforeDelete = await ctx.listRecords(tableId);
+        const recordsBeforeDelete = await ctx.listRecordsWithoutDrain(tableId);
         const firstRecordId = recordsBeforeDelete[0]?.id;
         if (!firstRecordId) throw new Error('Missing record');
         const primaryDbFieldName = await getFieldDbName(primaryFieldId);
@@ -811,7 +811,7 @@ describe('v2 http deleteField (e2e)', () => {
         expect(primaryAfter?.isPrimary).toBe(true);
         expect(primaryAfter?.hasError).toBe(true);
         expect(await getStoredCellValue(tableId, firstRecordId, primaryDbFieldName)).toBeNull();
-        const recordsAfter = await ctx.listRecords(tableId);
+        const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);
@@ -1517,7 +1517,7 @@ describe('v2 http deleteField (e2e)', () => {
           },
         });
         await ctx.drainOutbox();
-        const recordsBeforeDelete = await ctx.listRecords(tableId);
+        const recordsBeforeDelete = await ctx.listRecordsWithoutDrain(tableId);
         const firstRecordId = recordsBeforeDelete[0]?.id;
         if (!firstRecordId) throw new Error('Missing record');
         const midFormulaDbFieldName = await getFieldDbName(midFormulaFieldId);
@@ -1536,7 +1536,7 @@ describe('v2 http deleteField (e2e)', () => {
         expect(tailFormula?.hasError).toBe(true);
         expect(await getStoredCellValue(tableId, firstRecordId, midFormulaDbFieldName)).toBeNull();
         expect(await getStoredCellValue(tableId, firstRecordId, tailFormulaDbFieldName)).toBeNull();
-        const recordsAfter = await ctx.listRecords(tableId);
+        const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);

@@ -2,7 +2,6 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -12,6 +11,7 @@ import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type TestHarness = {
   testContainer: IV2NodeTestContainer;
@@ -25,9 +25,12 @@ const activeHarnesses = new Set<TestHarness>();
 const createFieldId = () => `fld${getRandomString(16)}`;
 
 const createHarness = async (
-  options: Parameters<typeof createV2NodeTestContainer>[0] = {}
+  options: Parameters<typeof createE2eTestContainer>[0] = {}
 ): Promise<TestHarness> => {
-  const testContainer = await createV2NodeTestContainer(options);
+  const testContainer = await createE2eTestContainer({
+    dbMode: 'postgres',
+    ...options,
+  });
 
   const app = express();
   app.use(

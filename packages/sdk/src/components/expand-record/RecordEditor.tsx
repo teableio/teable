@@ -39,7 +39,7 @@ export const RecordEditor = (props: {
   );
 
   return (
-    <div ref={ref} className="max-w-3xl">
+    <div ref={ref} className="mx-auto max-w-3xl">
       <div ref={wrapRef} className="mx-auto space-y-6">
         {fields.map((field) => (
           <RecordEditorItem

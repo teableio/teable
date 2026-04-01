@@ -3303,6 +3303,7 @@ export type I18nTranslations = {
                 "noFilesInZip": string;
                 "zipFileTooLarge": string;
                 "invalidZip": string;
+                "domainAlreadyInUse": string;
             };
             "reward": {
                 "notFound": string;
@@ -3325,6 +3326,7 @@ export type I18nTranslations = {
                 "linkedInPostNotFound": string;
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
+                "domainAlreadyInUse": string;
             };
         };
         "aiError": {
@@ -3411,6 +3413,11 @@ export type I18nTranslations = {
             "exportTips3": string;
             "exportIncludeDataLabel": string;
             "exportIncludeDataDescription": string;
+            "exportTitle": string;
+            "exportDescription": string;
+            "exportStartButton": string;
+            "exportSlowTip": string;
+            "exportReadyDescription": string;
             "moveBaseSuccessTitle": string;
             "moveBaseSuccessDescription": string;
         };
@@ -4342,6 +4349,7 @@ export type I18nTranslations = {
             "fieldsManagement": string;
             "addAll": string;
             "removeAll": string;
+            "createField": string;
             "hideFieldTip": string;
             "unableAddFieldTip": string;
             "removeFromFormTip": string;
@@ -5068,6 +5076,11 @@ export type I18nTranslations = {
                     "tools": string;
                     "toolsWithErrors": string;
                     "hasErrors": string;
+                    "noDetails": string;
+                    "contextWindow": string;
+                    "contextTooltip": string;
+                    "contextTipNewChat": string;
+                    "contextTipMemory": string;
                 };
                 "taskProgress": {
                     "title": string;
@@ -5119,6 +5132,20 @@ export type I18nTranslations = {
                     "moreActions": string;
                     "collapseActions": string;
                 };
+            };
+            "sandboxExpiry": {
+                "expiresIn": string;
+                "reset": string;
+                "resetTitle": string;
+                "runningTasks_one": string;
+                "runningTasks_other": string;
+                "noRunningTasks": string;
+                "newSandboxHint": string;
+                "cancel": string;
+                "confirmReset": string;
+                "confirmResetWithTasks": string;
+                "expiresSoon": string;
+                "resetFailed": string;
             };
             "queue": {
                 "nQueued": string;

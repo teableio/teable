@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
+    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/express": "4.17.21",
     "@types/node": "22.18.0",

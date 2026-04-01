@@ -126,7 +126,7 @@ describe('update-field: link lookupFieldId updates', () => {
 
     await ctx.drainOutbox();
 
-    const foreignRecords = await ctx.listRecords(table2.id);
+    const foreignRecords = await ctx.listRecordsWithoutDrain(table2.id);
     const record21 = foreignRecords.find((record) => record.id === foreignRecord1.id);
     const record22 = foreignRecords.find((record) => record.id === foreignRecord2.id);
 
@@ -251,7 +251,7 @@ describe('update-field: link lookupFieldId updates', () => {
 
     await ctx.drainOutbox();
 
-    const foreignRecords = await ctx.listRecords(table2.id);
+    const foreignRecords = await ctx.listRecordsWithoutDrain(table2.id);
     const record21 = foreignRecords.find((record) => record.id === foreignRecord1.id);
     const record22 = foreignRecords.find((record) => record.id === foreignRecord2.id);
 
@@ -313,7 +313,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsBeforeLookupChange = await ctx.listRecords(table1.id);
+    const recordsBeforeLookupChange = await ctx.listRecordsWithoutDrain(table1.id);
     const hostBeforeLookupChange = recordsBeforeLookupChange.find(
       (record) => record.id === hostRecord.id
     );
@@ -337,7 +337,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsAfterLookupChange = await ctx.listRecords(table1.id);
+    const recordsAfterLookupChange = await ctx.listRecordsWithoutDrain(table1.id);
     const hostAfterLookupChange = recordsAfterLookupChange.find(
       (record) => record.id === hostRecord.id
     );
@@ -351,7 +351,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsAfterForeignUpdate = await ctx.listRecords(table1.id);
+    const recordsAfterForeignUpdate = await ctx.listRecordsWithoutDrain(table1.id);
     const hostAfterForeignUpdate = recordsAfterForeignUpdate.find(
       (record) => record.id === hostRecord.id
     );
@@ -415,7 +415,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsBeforeConversion = await ctx.listRecords(table1.id);
+    const recordsBeforeConversion = await ctx.listRecordsWithoutDrain(table1.id);
     const hostBeforeConversion = recordsBeforeConversion.find(
       (record) => record.id === hostRecord.id
     );
@@ -439,7 +439,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsAfterNumberConversion = await ctx.listRecords(table1.id);
+    const recordsAfterNumberConversion = await ctx.listRecordsWithoutDrain(table1.id);
     const hostAfterNumberConversion = recordsAfterNumberConversion.find(
       (record) => record.id === hostRecord.id
     );
@@ -457,7 +457,7 @@ describe('update-field: link lookupFieldId updates', () => {
     });
     await ctx.drainOutbox();
 
-    const recordsAfterCheckboxConversion = await ctx.listRecords(table1.id);
+    const recordsAfterCheckboxConversion = await ctx.listRecordsWithoutDrain(table1.id);
     const hostAfterCheckboxConversion = recordsAfterCheckboxConversion.find(
       (record) => record.id === hostRecord.id
     );

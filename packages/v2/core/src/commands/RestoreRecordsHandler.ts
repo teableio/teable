@@ -135,7 +135,10 @@ export class RestoreRecordsHandler
               transactionContext,
               tableForInsert,
               records,
-              { restoreRecordsById }
+              {
+                restoreRecordsById,
+                cleanupTrashRecordIds: command.records.map((record) => record.recordId),
+              }
             );
             return ok({ mutation, tableEvents });
           });

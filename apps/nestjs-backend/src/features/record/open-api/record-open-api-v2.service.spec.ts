@@ -80,7 +80,6 @@ describe('RecordOpenApiV2Service', () => {
       { del: cacheDel, setDetail: cacheSetDetail } as never,
       { getFieldsByQuery } as never,
       { getReadQuerySource } as never,
-      {} as never,
       {} as never
     );
   });

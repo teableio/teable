@@ -588,6 +588,289 @@ describe('v2 http deleteByRange (e2e)', () => {
     });
   });
 
+  describe('deleteByRange with self conditional rollups', () => {
+    it('deletes a row without error when same-table conditionalRollup filters use field references', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Self Conditional Rollup ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Status', type: 'singleLineText' },
+          { name: 'Score', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const viewId = table.views[0].id;
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const statusFieldId = table.fields.find((f) => f.name === 'Status')?.id ?? '';
+      const scoreFieldId = table.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+      const tableWithRollup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Self Matching Count',
+          type: 'conditionalRollup',
+          options: {
+            expression: 'countall({values})',
+          },
+          config: {
+            foreignTableId: table.id,
+            lookupFieldId: scoreFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: statusFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: statusFieldId, tableId: table.id },
+                  },
+                  {
+                    fieldId: scoreFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: scoreFieldId, tableId: table.id },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+      const conditionalRollupFieldId =
+        tableWithRollup.fields.find((field) => field.name === 'Self Matching Count')?.id ?? '';
+
+      const record1 = await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Alpha',
+        [statusFieldId]: 'todo',
+        [scoreFieldId]: 5,
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Beta',
+        [statusFieldId]: 'todo',
+        [scoreFieldId]: 5,
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Gamma',
+        [statusFieldId]: 'todo',
+        [scoreFieldId]: 8,
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Delta',
+        [statusFieldId]: 'done',
+        [scoreFieldId]: 5,
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const beforeDelete = await ctx.listRecords(table.id);
+      expect(beforeDelete).toHaveLength(4);
+      expect(beforeDelete[0].fields[conditionalRollupFieldId]).toBe(2);
+
+      const result = await ctx.deleteByRange({
+        tableId: table.id,
+        viewId,
+        ranges: [[0, 0]],
+        type: 'rows',
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([record1.id]);
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const afterDelete = await ctx.listRecords(table.id);
+      expect(afterDelete).toHaveLength(3);
+      expect(afterDelete.find((record) => record.id === record1.id)).toBeUndefined();
+      expect(afterDelete.map((record) => record.fields[nameFieldId])).toEqual([
+        'Beta',
+        'Gamma',
+        'Delta',
+      ]);
+    });
+
+    it('deletes a row without error when same-table conditionalRollup aggregates formulas backed by lookups', async () => {
+      const employeesTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Formula Lookup Employees ${Date.now()}`,
+        fields: [
+          { name: 'Employee', type: 'singleLineText', isPrimary: true },
+          { name: 'Multiplier', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const employeeNameFieldId = employeesTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const multiplierFieldId =
+        employeesTable.fields.find((field) => field.name === 'Multiplier')?.id ?? '';
+
+      const alice = await ctx.createRecord(employeesTable.id, {
+        [employeeNameFieldId]: 'Alice',
+        [multiplierFieldId]: 2,
+      });
+      const bob = await ctx.createRecord(employeesTable.id, {
+        [employeeNameFieldId]: 'Bob',
+        [multiplierFieldId]: 3,
+      });
+      const carol = await ctx.createRecord(employeesTable.id, {
+        [employeeNameFieldId]: 'Carol',
+        [multiplierFieldId]: 1,
+      });
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Formula Lookup Conditional Rollup ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Department', type: 'singleLineText' },
+          { name: 'Score', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const viewId = table.views[0].id;
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const departmentFieldId = table.fields.find((field) => field.name === 'Department')?.id ?? '';
+      const scoreFieldId = table.fields.find((field) => field.name === 'Score')?.id ?? '';
+
+      const tableWithEmployeeLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Employee Link',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: employeesTable.id,
+            lookupFieldId: employeeNameFieldId,
+          },
+        },
+      });
+      const employeeLinkFieldId =
+        tableWithEmployeeLink.fields.find((field) => field.name === 'Employee Link')?.id ?? '';
+
+      const tableWithMultiplierLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Multiplier Lookup',
+          type: 'lookup',
+          options: {
+            foreignTableId: employeesTable.id,
+            linkFieldId: employeeLinkFieldId,
+            lookupFieldId: multiplierFieldId,
+          },
+        },
+      });
+      const multiplierLookupFieldId =
+        tableWithMultiplierLookup.fields.find((field) => field.name === 'Multiplier Lookup')?.id ??
+        '';
+
+      const tableWithWeightedScore = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Weighted Score',
+          type: 'formula',
+          options: {
+            expression: `{${scoreFieldId}} * {${multiplierLookupFieldId}}`,
+          },
+        },
+      });
+      const weightedScoreFieldId =
+        tableWithWeightedScore.fields.find((field) => field.name === 'Weighted Score')?.id ?? '';
+
+      const tableWithConditionalRollup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Department Weighted Total',
+          type: 'conditionalRollup',
+          options: {
+            expression: 'sum({values})',
+          },
+          config: {
+            foreignTableId: table.id,
+            lookupFieldId: weightedScoreFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: departmentFieldId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: departmentFieldId, tableId: table.id },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+      const weightedDepartmentTotalFieldId =
+        tableWithConditionalRollup.fields.find(
+          (field) => field.name === 'Department Weighted Total'
+        )?.id ?? '';
+
+      const alpha = await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Alpha',
+        [departmentFieldId]: 'Engineering',
+        [scoreFieldId]: 10,
+        [employeeLinkFieldId]: { id: alice.id },
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Beta',
+        [departmentFieldId]: 'Engineering',
+        [scoreFieldId]: 8,
+        [employeeLinkFieldId]: { id: bob.id },
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Gamma',
+        [departmentFieldId]: 'Sales',
+        [scoreFieldId]: 7,
+        [employeeLinkFieldId]: { id: carol.id },
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Delta',
+        [departmentFieldId]: 'Engineering',
+        [scoreFieldId]: 5,
+        [employeeLinkFieldId]: { id: alice.id },
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const beforeDelete = await ctx.listRecords(table.id);
+      expect(beforeDelete).toHaveLength(4);
+      expect(beforeDelete[0].fields[weightedDepartmentTotalFieldId]).toBe(54);
+
+      const result = await ctx.deleteByRange({
+        tableId: table.id,
+        viewId,
+        ranges: [[0, 0]],
+        type: 'rows',
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([alpha.id]);
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const afterDelete = await ctx.listRecords(table.id);
+      expect(afterDelete).toHaveLength(3);
+
+      const byId = new Map(afterDelete.map((record) => [record.id, record]));
+      expect(byId.has(alpha.id)).toBe(false);
+      expect(byId.get(afterDelete[0].id)?.fields[weightedDepartmentTotalFieldId]).toBeDefined();
+      expect(byId.get(afterDelete[1].id)?.fields[weightedDepartmentTotalFieldId]).toBeDefined();
+      expect(byId.get(afterDelete[2].id)?.fields[weightedDepartmentTotalFieldId]).toBeDefined();
+    });
+  });
+
   describe('deleteByRange with multi-column sort', () => {
     let multiSortTableId: string;
     let multiSortViewId: string;
