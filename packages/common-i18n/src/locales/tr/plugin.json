@@ -47,10 +47,26 @@
     "url": {
       "label": "URL",
       "description": "Eklentinin URL'si"
+    },
+    "autoCreateMember": {
+      "label": "Auto create member",
+      "description": "Auto create member for the plugin"
+    },
+    "config": {
+      "label": "Config",
+      "description": "Config of the plugin"
     }
   },
   "markdown": {
     "write": "Yaz",
     "preview": "Önizleme"
+  },
+  "status": {
+    "reviewing": "Reviewing",
+    "published": "Published",
+    "developing": "Developing"
+  },
+  "button": {
+    "submitApproved": "Submit approved"
   }
 }

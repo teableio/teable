@@ -37,6 +37,11 @@
   "notification": {
     "title": "Bildirim"
   },
+  "aiError": {
+    "title": "AI Generation Failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss"
+  },
   "preview": {
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
     "loadFileError": "Dosya yüklenemedi"
@@ -59,11 +64,22 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Yapıştırın veya buraya sürükleyip bırakın",
-      "upload": "yükle"
+      "upload": "yükle",
+      "downloadAll": "Download all",
+      "downloading": "Downloading...",
+      "downloadSuccess": "Download completed",
+      "downloadFailed": "Download failed",
+      "downloadCancelled": "Download cancelled",
+      "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost"
     },
     "date": {
       "placeholder": "Bir tarih seçin",
-      "today": "Bugün"
+      "today": "Bugün",
+      "rangePlaceholder": "Pick a date range",
+      "rangeSelected": "Selected",
+      "invalidTimeRange": "End time must be after start time",
+      "from": "From",
+      "to": "To"
     },
     "formula": {
       "title": "Formül Düzenleyici",
@@ -217,6 +233,7 @@
         "daysFromNow": "gün sonra",
         "exactDate": "tam tarih",
         "exactFormatDate": "tam tarih (biçimlendirildi)",
+        "dateRange": "custom range",
         "currentWeek": "current week",
         "currentMonth": "current month",
         "currentYear": "current year",
@@ -985,13 +1002,13 @@
       "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
       "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
       "triggerNodeAlreadyExists": "Bu otomasyonun zaten bir tetikleyici düğümü var",
+      "unSupportLogicType": "Desteklenmeyen mantık türü",
       "generateLogicError": "Mantık düğümü oluşturma hatası",
       "logicNotFound": "Otomasyon mantık düğümü bulunamadı",
-      "actionNotFound": "Otomasyon eylem düğümü bulunamadı",
-      "unSupportDuplicateWorkflowNodeType": "Bu otomasyon düğüm türünün çoğaltılması desteklenmiyor",
-      "unSupportLogicType": "Desteklenmeyen mantık türü",
       "groupEndNotFound": "Mantık için GroupEnd bulunamadı",
       "insertNodeError": "Düğüm ekleme hatası",
+      "actionNotFound": "Otomasyon eylem düğümü bulunamadı",
+      "unSupportDuplicateWorkflowNodeType": "Bu otomasyon düğüm türünün çoğaltılması desteklenmiyor",
       "controlNodeNotBeTested": "Kontrol düğümü test edilmemeli",
       "invalidNodeType": "Geçersiz düğüm türü",
       "unsupportedCategory": "Desteklenmeyen kategori",
@@ -1120,7 +1137,8 @@
       "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
       "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
       "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
-      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}",
+      "readOnlyCheckFailed": "Read only check failed: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
@@ -1141,7 +1159,8 @@
       "deniedByEnabledAuthorityMatrix": "Etkin yetki matrisi tarafından reddedildi",
       "invalidRequestPath": "İstek yolu geçerli değil",
       "notAllowedOperation": "Bu işlemi gerçekleştirme izniniz yok",
-      "notAllowedDepartment": "Bu departmana erişiminiz yok"
+      "notAllowedDepartment": "Bu departmana erişiminiz yok",
+      "templateHeaderInvalid": "Template header is invalid"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Varsayılan rol bulunamadı",
@@ -1190,6 +1209,7 @@
       "lookupFieldIdInvalid": "Arama alanı {{lookupFieldId}} geçersiz",
       "formulaExpressionParseError": "Formül ifadesi ayrıştırma hatası",
       "formulaReferenceNotFound": "Formül referans alanı {{fieldIds}} bulunamadı",
+      "formulaReferenceNotFieldId": "Formula references {{fieldIds}} not found. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.",
       "rollupExpressionParseError": "Toplama ifadesi ayrıştırma hatası",
       "choiceNameAlreadyExists": "Seçenek adı {{name}} zaten mevcut",
       "symmetricFieldIdRequired": "Simetrik alan kimliği gereklidir",
@@ -1198,12 +1218,12 @@
       "lookupFieldTypeNotEqual": "Mevcut alan türü {{fieldType}} arama alanı türü {{lookupFieldType}} ile eşit değil",
       "recordNotFound": "Kayıt {{recordId}} {{tableId}} içinde bulunamadı",
       "linkCellRecordIdAlreadyExists": "Aynı hücrede yinelenen recordId ayarlanamaz: {{recordId}}",
+      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneOneLinkCellValueCannotBeArray": "Bire-bir bağlantı alanı değerleri dizi olamaz",
       "manyOneLinkCellValueCannotBeArray": "Çoka-bir bağlantı alanı değerleri dizi olamaz",
-      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
-      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneManyLinkCellValueShouldBeArray": "Bire-çok bağlantı alanı değerleri dizi olmalıdır",
       "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır",
+      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
       "onlyLinkFieldCanBeFiltered": "Yalnızca bağlantı alanları filtreleme için kullanılabilir",
       "notLinkedToCurrentTable": "Alan mevcut tabloya bağlı değil",
       "notAttachment": "Alan bir ek alanı değil",
@@ -1224,10 +1244,13 @@
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
+      "cannotDeleteLastView": "Cannot delete the last view in a table. A table must have at least one view.",
       "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
       "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
       "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
       "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
+      "filterInvalidOperator": "Filter has invalid operator for this field type",
+      "filterInvalidOperatorMode": "Filter has invalid operator and mode combination",
       "sortUnsupportedFieldType": "Sıralama desteklenmeyen alan türü",
       "groupUnsupportedFieldType": "Gruplama desteklenmeyen alan türü",
       "anchorNotFound": "Bağlantı görünümü bulunamadı",
@@ -1260,6 +1283,7 @@
       "configurationNotSet": "AI yapılandırması ayarlanmamış",
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "gatewayApiKeyNotSet": "AI Gateway API key is not configured",
       "testLLMFailed": "LLM bağlantı testi başarısız oldu",
       "audioNotSupported": "Bu model {{model}} ses girişini desteklemiyor",
       "imageNotSupported": "Bu model {{model}} görüntü girişini desteklemiyor",
@@ -1269,7 +1293,8 @@
       "embeddingModelNotSet": "Gömme modeli ayarlanmamış",
       "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
       "generateFailed": "AI üretimi başarısız oldu",
-      "unsupportedActionType": "Desteklenmeyen AI eylem türü"
+      "unsupportedActionType": "Desteklenmeyen AI eylem türü",
+      "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead."
     },
     "role": {
       "notFound": "Rol bulunamadı"
@@ -1333,12 +1358,21 @@
       "expired": "Lisansın süresi doldu",
       "userLimitExceeded": "Mevcut örnekteki kullanıcı sayısı lisansın koltuk sınırını aşıyor. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin"
     },
+    "domainVerification": {
+      "notFound": "Domain doğrulama kodu bulunamadı",
+      "invalidCode": "Geçersiz doğrulama kodu",
+      "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin",
+      "alreadyVerified": "Domain already verified"
+    },
     "organization": {
       "notFound": "Organizasyon bulunamadı",
-      "emailNotSpaceUser": "E-posta alan kullanıcısı değil",
       "authenticationNotFound": "Kimlik doğrulama bulunamadı",
       "spaceShouldExist": "Organizasyon alanı mevcut olmalı",
-      "emailsNotInOrgDomain": "Bu e-postalar {{emails}} organizasyon etki alanında değil"
+      "emailsNotInOrgDomain": "Bu e-postalar {{emails}} organizasyon etki alanında değil",
+      "emailNotSpaceUser": "E-posta alan kullanıcısı değil"
+    },
+    "mail": {
+      "failedToSendEmail": "E-posta gönderimi başarısız"
     },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
@@ -1383,14 +1417,6 @@
       "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor",
       "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})"
     },
-    "domainVerification": {
-      "notFound": "Domain doğrulama kodu bulunamadı",
-      "invalidCode": "Geçersiz doğrulama kodu",
-      "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin"
-    },
-    "mail": {
-      "failedToSendEmail": "E-posta gönderimi başarısız"
-    },
     "department": {
       "parentNotFound": "Üst departman bulunamadı",
       "notFound": "Departman bulunamadı",
@@ -1408,7 +1434,11 @@
       "apiKeyNotSet": "Uygulama oluşturucu API anahtarı ayarlanmamış",
       "cannotDeployAppBeforeInitialization": "Başlatmadan önce uygulama dağıtılamaz",
       "noProjectOrVersionFound": "Proje veya sürüm bulunamadı",
-      "noDeploymentUrlAvailable": "Dağıtım URL'si mevcut değil"
+      "noDeploymentUrlAvailable": "Dağıtım URL'si mevcut değil",
+      "noFilesInZip": "No files found in ZIP",
+      "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
+      "invalidZip": "Invalid ZIP file",
+      "domainAlreadyInUse": "This domain is already bound to another app"
     },
     "reward": {
       "notFound": "Ödül bulunamadı",
@@ -1430,8 +1460,7 @@
       "fetchLinkedInPostFailed": "LinkedIn gönderisi alınamadı: {{error}}",
       "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
-      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}",
-      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı"
+      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}"
     }
   }
 }
