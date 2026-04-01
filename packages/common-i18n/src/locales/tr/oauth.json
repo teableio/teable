@@ -2,7 +2,8 @@
   "add": "Yeni OAuth Uygulamaları",
   "title": {
     "add": "Yeni OAuth Uygulamaları",
-    "edit": "OAuth Uygulamalarını Düzenle"
+    "edit": "OAuth Uygulamalarını Düzenle",
+    "description": "Teable Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
   },
   "form": {
     "name": {
@@ -59,5 +60,13 @@
     "scopes": "Bu uygulama aşağıdaki izinlere erişebilecek:",
     "redirectDescription": "Yetkilendirme şuraya yönlendirecek",
     "authorize": "Yetkilendir"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "Learn more"
+  },
+  "deleteConfirm": {
+    "title": "Delete OAuth App",
+    "description": "Are you sure you want to delete the {{name}} OAuth App? This action cannot be undone."
   }
 }

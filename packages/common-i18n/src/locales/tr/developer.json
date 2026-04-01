@@ -16,5 +16,19 @@
   "replaceToken": "Token değiştir",
   "createNewToken": "Yeni token oluştur",
   "showPagination": "Sayfalandırma parametreleri JSON modunda görüntülenir",
-  "addSort": "Sıralama ekle"
+  "addSort": "Sıralama ekle",
+  "tabs": {
+    "apiBuilder": "API Oluşturucu",
+    "aiContext": "AI Context"
+  },
+  "aiContext": {
+    "title": "AI-Friendly Table Context",
+    "description": "Copy this context to your AI assistant (ChatGPT, Claude, etc.) to help it understand how to interact with your table data.",
+    "selectTableFirst": "Please select a table to generate AI context",
+    "fullContext": "Full Context",
+    "compactContext": "Compact",
+    "copyToClipboard": "Copy to Clipboard",
+    "copied": "Copied!",
+    "compactDescription": "A shorter version suitable for quick context sharing with token limits in mind."
+  }
 }

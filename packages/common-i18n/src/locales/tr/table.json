@@ -19,9 +19,14 @@
         "passwordTips": "Paylaşılan görünümlere erişim için şifre kısıtlamaları",
         "embed": "Yerleştir",
         "embedPreview": "Yerleştirme önizlemesi",
+        "copyCode": "Kodu kopyala",
         "hideToolbar": "Araç çubuğunu gizle",
         "URLSetting": "URL parametreleri yapılandırması",
         "URLSettingDescription": "Aşağıdaki ayarları değiştirmek paylaşılan bağlantıları etkilemez. Yeni parametrelerin etkili olması için bağlantıyı yeni parametrelerle kopyalamanız gerekir",
+        "theme": "Tema",
+        "themeSystem": "Sistem",
+        "themeLight": "Açık",
+        "themeDark": "Koyu",
         "cancel": "İptal",
         "save": "Kaydet",
         "requireLogin": "Giriş yapılmasını gerektir"
@@ -33,12 +38,43 @@
       "api": {
         "label": "API",
         "restfulApi": "Restful API",
-        "databaseConnection": "Veritabanı Bağlantısı"
+        "databaseConnection": "Veritabanı Bağlantısı",
+        "title": "API Erişimi",
+        "aiContext": "AI'ya Kopyala",
+        "advanced": "Gelişmiş",
+        "generatingToken": "Oluşturuluyor...",
+        "aiContextTitle": "AI Dostu API Belgelendirmesi",
+        "aiContextDescriptionNoToken": "Bu belgelendirmeyi AI asistanınıza kopyalayın (ChatGPT, Claude vb.). API token'ı oluşturmak için 'Token Oluştur'a tıklayın, otomatik olarak doldurulacaktır.",
+        "aiContextDescriptionWithToken": "Bu belgelendirmeyi AI asistanınıza kopyalayın (ChatGPT, Claude vb.). İzin kısıtlamalı bir API token'ı oluşturuldu ve dolduruldu.",
+        "generateToken": "Token Oluştur",
+        "confirmTitle": "API Token'ı Oluştur",
+        "confirmDescription": "Bu, bu taban için aşağıdaki izinlere sahip yeni bir API token'ı oluşturacaktır:",
+        "scopeTableRead": "Tablo bilgilerini oku",
+        "scopeFieldRead": "Alanları oku",
+        "scopeRead": "Kayıtları oku",
+        "scopeCreate": "Kayıt oluştur",
+        "scopeUpdate": "Kayıtları güncelle",
+        "scopeDelete": "Kayıtları sil",
+        "confirmExpiry": "Token 1 yıl geçerli olacaktır.",
+        "confirmButton": "Onayla ve Oluştur",
+        "tokenInfo": "Token sona erme: {{expiry}}",
+        "tokenCreatedSuccess": "Token başarıyla oluşturuldu! AI asistanınızla kullanmak için kopyalayın.",
+        "copied": "Kopyalandı!",
+        "copy": "Kopyala",
+        "copyAIDoc": "AI Belgesini Kopyala",
+        "aiDocPreview": "AI Belgesi Önizleme",
+        "manageToken": "Token'ı Yönet",
+        "openInNewTab": "Yeni Sekmede Aç",
+        "advancedDesc": "Daha fazla özelleştirme seçeneği için gelişmiş API sorgu oluşturucuyu açın.",
+        "openAdvanced": "Sorgu Oluşturucuyu Aç",
+        "queryBuilderTitle": "API Sorgu Oluşturucu",
+        "queryBuilderDesc": "Çalıştırmaya hazır API istek kodu oluşturmak için filtreleri, sıralamayı ve diğer parametreleri görsel olarak yapılandırın.",
+        "viewApiDocs": "Tam API Belgelerini Görüntüle"
       },
       "personalView": {
         "personal": "Kişisel",
-        "tip": "Etkinleştirildiğinde, görünüm ayarları yalnızca size uygulanacaktır",
         "collaborative": "İş Birlikçi",
+        "tip": "Etkinleştirildiğinde, görünüm ayarları yalnızca size uygulanacaktır",
         "dialog": {
           "title": "Kişisel moddan çık",
           "description": "Kişisel görünüm yapılandırması, gerçek zamanlı iş birliği durumuna geri yüklenecek. Ayrıca kişisel görünüm ayarlarını kaydedip herkese senkronize edebilirsiniz.",
@@ -207,7 +243,8 @@
         }
       },
       "conditionalRollup": {
-        "title": "{{lookupFieldName}} koşullu toplama"
+        "title": "{{lookupFieldName}} koşullu toplama",
+        "description": "Filtreler kullanarak başka bir tablodan değerleri topla."
       }
     },
     "editor": {
@@ -219,9 +256,10 @@
       "reset": "Sıfırla",
       "fieldUpdated": "Alan güncellendi",
       "fieldCreated": "Alan oluşturuldu",
-      "confirmFieldChange": "Confirm Field Change",
+      "confirmFieldChange": "Alan Değişikliğini Onayla",
       "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
       "addDescription": "Açıklama Ekle",
+      "dbFieldName": "Veritabanı alan adı",
       "description": "Açıklama",
       "descriptionPlaceholder": "Bu alanı açıklayın (isteğe bağlı)",
       "type": "Tür",
@@ -254,6 +292,7 @@
       "linkFromAnotherBase": "Harici veritabanından bağlantı",
       "inSelfLink": "kendi içinde bağlantı",
       "betweenTwoTables": "iki tablo arasında",
+      "tips": "İpuçları",
       "linkTipMessage": "İpucu: bu yapılandırma<br></br> <b>{{relationship}}</b> ilişkisini temsil eder <span>{{linkType}}</span>",
       "style": "Stil",
       "maximum": "Maksimum",
@@ -267,6 +306,28 @@
       "lookupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
       "rollupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
       "selectField": "Bir alan seç...",
+      "lastModifiedScope": "Alanlar",
+      "lastModifiedAll": "Tüm düzenlenebilir alanlar",
+      "lastModifiedSpecific": "Belirli alanlar",
+      "lastModifiedSelect": "İzlenen alanlar",
+      "lastModifiedSelectAll": "Tüm alanları izle",
+      "noEditableFields": "Düzenlenebilir alan yok",
+      "conditionalRollup": {
+        "fieldMapping": "Alan eşlemesi ekle",
+        "selectBaseField": "Temel alan seçin",
+        "noMappings": "Henüz alan eşlemesi yapılandırılmadı."
+      },
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Bağlı kayıtları sırala ve eşleşme sayısını sınırla",
+        "sortLabel": "Sonuçları sırala",
+        "orderPlaceholder": "Bir sıralama seçin",
+        "clearSort": "Sıralamayı temizle",
+        "limitLabel": "Dahil edilecek maksimum kayıt sayısı",
+        "limitPlaceholder": "Tüm eşleşmeleri dahil etmek için boş bırakın",
+        "limitHint": "En fazla {{limit}} eşleşen kayıt tutulur.",
+        "sortMissingWarningTitle": "Sıralama alanı kullanılamıyor",
+        "sortMissingWarningDescription": "Bu sıralamayı sağlayan alan silindi. Sonuçlar sıralamayı yok sayar ve yalnızca limiti uygular."
+      },
       "linkTable": "Bağlantı tablosu",
       "linkBase": "Bağlantı veritabanı",
       "tableNoPermission": "İzin olmayan tablo",
@@ -298,20 +359,7 @@
         "safeToDeleteDesc": "Bu alan diğer alanlar tarafından referans alınmıyor, güvenle silinebilir",
         "affectedItems": "Etkilenen öğeler",
         "type": "Tür",
-        "source": "Kaynak",
-        "sourceTable": "Kaynak tablo",
-        "typeField": "Alan"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "source": "Kaynak"
       }
     },
     "subTitle": {
@@ -329,6 +377,7 @@
       "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
       "formula": "Alanlara dayalı değerler hesaplayın.",
       "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
+      "conditionalRollup": "Koşullu filtrelerle bağlı tablodan değerleri özetle.",
       "conditionalLookup": "Tanımladığınız filtreleri karşılayan bağlı değerleri gösterir.",
       "count": "Bağlantılı kayıtların sayısını sayın.",
       "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
@@ -367,7 +416,10 @@
         "sourceFieldForAttachment": "Ek alanın kaynak alanı",
         "imageSize": "Görüntü boyutu",
         "imageQuality": "Görüntü kalitesi",
-        "imageCount": "Görüntü sayısı"
+        "imageCount": "Görüntü sayısı",
+        "aspectRatio": "En boy oranı",
+        "resolution": "Çözünürlük",
+        "advancedSettings": "Gelişmiş ayarlar"
       },
       "placeholder": {
         "summarize": "İçerik özetini",
@@ -383,6 +435,8 @@
         "targetLanguage": "İngilizce, Çince, Fransızca...",
         "imageSize": "Lütfen görüntü boyutunu girin",
         "imageQuality": "Lütfen görüntü kalitesini girin",
+        "aspectRatio": "En boy oranı seçin",
+        "resolution": "Çözünürlük seçin",
         "attachPromptForImageGeneration": "Görüntünün canlı ve doğal olması gerekiyor",
         "attachPromptForRating": "Görüntü kalitesini değerlendirin"
       },
@@ -390,6 +444,17 @@
         "low": "Düşük",
         "medium": "Orta",
         "high": "Yüksek"
+      },
+      "hint": {
+        "imageInputSupported": "Bu model görsel girişini destekler. Oluşturma için referans olarak görselleri kullanmak üzere bir ek dosya alanı seçebilirsiniz.",
+        "attachmentNotSupported": "Bu model ek dosya girişini desteklemiyor. Yalnızca Gemini modelleri görselden görsele oluşturmayı destekler.",
+        "singleImageOnly": "Bu model aynı anda yalnızca bir görsel oluşturabilir"
+      },
+      "auto": "Otomatik",
+      "resolution": {
+        "1K": "1K (Standart)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Otomatik Güncelle",
@@ -402,9 +467,21 @@
       "autoFillConfirm": {
         "title": "Tüm sütunu oluşturulsun mu?",
         "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "generateMode": "Oluşturma modu",
+        "emptyOnlyMode": "Yalnızca boş hücreleri doldur",
+        "emptyOnlyModeDesc": "Yalnızca boş hücreler için oluşturulur, mevcut içerik üzerine yazılmaz",
+        "allMode": "Tüm sütunu oluştur",
+        "allModeDesc": "Tüm satırlar için oluşturulur, mevcut içeriğin üzerine yazılır",
+        "saveOnlyMode": "Yalnızca yapılandırmayı kaydet",
+        "saveOnlyModeDesc": "Yalnızca alan yapılandırmasını kaydeder, hiçbir hücreye yazılmaz",
         "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
         "generate": "Oluştur",
-        "generateFailed": "Oluşturma başarısız oldu"
+        "fillEmptyCells": "Boş hücreleri doldur",
+        "generateAll": "Tümünü oluştur",
+        "recommended": "Recommended",
+        "generateFailed": "Oluşturma başarısız oldu",
+        "taskLimited": "Satır sınırı nedeniyle yalnızca ilk {{processedCount}} satır işlendi ({{rowCount}} satır eşleşti)",
+        "limitWarning": "Görev başına 1.000 satır sınırı nedeniyle yalnızca ilk 1.000 satır işlenecektir. Kalan satırları işlemek için görevi tekrar çalıştırabilirsiniz."
       },
       "action": {
         "addAttachment": "Ek alan ekle"
@@ -419,8 +496,7 @@
     "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
     "dbTableName": "Fiziksel veritabanındaki tablo adı",
     "schemaName": "Fiziksel veritabanındaki şema adı",
-    "tableInfo": "Tablo Bilgisi",
-    "tableInfoDetail": "Tablo için temel bilgiler",
+    "baseInfo": "Temel bilgiler",
     "typeOfDatabase": "Veritabanı türü",
     "descriptionForTable": "Bu tablo için açıklama",
     "nameForTable": "Bu tablo için ad",
@@ -443,12 +519,26 @@
       "fillFailed": "Doldurma başarısız",
       "clearing": "Temizleniyor...",
       "clearSuccessful": "Temizleme başarılı",
+      "clearConfirmTitle": "Verileri temizle",
+      "clearConfirmDescription": "Bu işlem {{rowCount}} kayıttaki {{cellCount}} hücreyi temizleyecektir. Devam etmek istediğinize emin misiniz?",
+      "deleteRecordConfirmTitle": "Kayıtları sil",
+      "deleteRecordConfirmDescription": "Bu işlem {{recordCount}} kaydı silecektir. Devam etmek istediğinize emin misiniz?",
+      "pasteConfirmTitle": "Yapıştır",
+      "pasteConfirmDescription": "{{recordCount}} kaydın üzerine yazılacak bir yapıştırma işlemi gerçekleştireceksiniz. Devam etmek istediğinize emin misiniz?",
+      "expandCommonDescription": "Yapıştırılan verilerin tabloya sığması için eklenmesi gereken:",
+      "expandColDescription": "{{count}} alan",
+      "expandRowDescription": "{{count}} kayıt",
+      "paste": "Yapıştır",
+      "deleteRecord": "Sil",
+      "clear": "Temizle",
+      "conjunction": "ve",
       "deleteFieldConfirmTitle": "Aşağıdaki alanları silmek üzeresiniz",
       "deleting": "Siliniyor...",
       "deleteSuccessful": "Silme başarılı",
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
-        "noFocus": "Lütfen pencereyi değiştirmeyin"
+        "noFocus": "Lütfen pencereyi değiştirmeyin",
+        "noPermission": "Kayıtları kopyalama izniniz yok"
       }
     },
     "graph": {
@@ -463,6 +553,8 @@
       "loading": "Bütünlük kontrol ediliyor...",
       "allGood": "Her şey yolunda!",
       "fixIssues": "Sorunları düzelt",
+      "type": "Tür",
+      "message": "Hata mesajı",
       "v2": {
         "dialogTitle": "Şema Bütünlüğü",
         "dialogDescription": "{{tableName}} için v2 şema denetimi ve onarım akışını çalıştır.",
@@ -483,61 +575,61 @@
         "detailsMissing": "Eksik: {{details}}",
         "detailsExtra": "Fazladan: {{details}}",
         "message": {
-          "schemaValid": "Schema is valid",
-          "schemaValidationFailed": "Schema validation failed",
-          "schemaElementMissing": "Schema element missing",
-          "schemaAlreadyValid": "Schema is already valid",
-          "schemaRepaired": "Schema repaired successfully",
-          "manualRepair": "Rule requires manual repair",
-          "noRepairStatements": "No repair statements available",
-          "skippedDependencies": "Skipped because dependencies are not satisfied",
-          "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
-          "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
-          "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
-          "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "schemaValid": "Şema geçerli",
+          "schemaValidationFailed": "Şema doğrulama başarısız",
+          "schemaElementMissing": "Şema öğesi eksik",
+          "schemaAlreadyValid": "Şema zaten geçerli",
+          "schemaRepaired": "Şema başarıyla onarıldı",
+          "manualRepair": "Kural manuel onarım gerektiriyor",
+          "noRepairStatements": "Onarım ifadesi mevcut değil",
+          "skippedDependencies": "Bağımlılıklar karşılanmadığı için atlandı",
+          "checkStreamConnected": "Şema bütünlük denetimi akışı bağlandı",
+          "baseCheckStreamConnected": "Temel şema bütünlük denetimi akışı bağlandı",
+          "repairStreamConnected": "Şema bütünlük onarım akışı bağlandı",
+          "baseRepairStreamConnected": "Temel şema bütünlük onarım akışı bağlandı",
+          "checkCompleted": "Şema bütünlük denetimi tamamlandı",
+          "baseCheckCompleted": "Temel şema bütünlük denetimi tamamlandı",
+          "repairCompleted": "Şema bütünlük onarımı tamamlandı",
+          "baseRepairCompleted": "Temel şema bütünlük onarımı tamamlandı"
         },
         "rule": {
-          "column": "Physical column",
-          "columnTyped": "Physical column ({{dataType}})",
-          "notNull": "NOT NULL constraint",
-          "columnUnique": "UNIQUE constraint",
-          "fkColumn": "Foreign key column",
-          "index": "Index",
-          "uniqueIndex": "Unique index",
+          "column": "Fiziksel sütun",
+          "columnTyped": "Fiziksel sütun ({{dataType}})",
+          "notNull": "NOT NULL kısıtlaması",
+          "columnUnique": "UNIQUE kısıtlaması",
+          "fkColumn": "Yabancı anahtar sütunu",
+          "index": "İndeks",
+          "uniqueIndex": "Benzersiz indeks",
           "primaryKey": "PRIMARY KEY",
-          "defaultExpression": "Default expression",
-          "foreignKey": "Foreign key constraint",
-          "junctionTable": "Junction table",
-          "junctionUnique": "Junction table unique constraint",
-          "junctionIndex": "Junction table index",
-          "junctionForeignKey": "Junction table foreign key",
-          "reference": "Reference records",
-          "generatedColumn": "Generated column",
-          "generatedMeta": "Generated column state",
-          "linkValueColumn": "Link value column",
-          "orderColumn": "Order column",
-          "fieldMeta": "Field metadata",
-          "symmetricField": "Symmetric field relationship",
-          "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
-          "connection": "Connection",
-          "completion": "Completion",
-          "unexpected": "Unexpected error"
+          "defaultExpression": "Varsayılan ifade",
+          "foreignKey": "Yabancı anahtar kısıtlaması",
+          "junctionTable": "Bağlantı tablosu",
+          "junctionUnique": "Bağlantı tablosu benzersizlik kısıtlaması",
+          "junctionIndex": "Bağlantı tablosu indeksi",
+          "junctionForeignKey": "Bağlantı tablosu yabancı anahtarı",
+          "reference": "Referans kayıtları",
+          "generatedColumn": "Otomatik oluşturulan sütun",
+          "generatedMeta": "Otomatik oluşturulan sütun durumu",
+          "linkValueColumn": "Bağlantı değer sütunu",
+          "orderColumn": "Sıralama sütunu",
+          "fieldMeta": "Alan meta verisi",
+          "symmetricField": "Simetrik alan ilişkisi",
+          "systemColumn": "Sistem sütunu \"{{columnName}}\"",
+          "systemColumnTyped": "Sistem sütunu \"{{columnName}}\" ({{dataType}})",
+          "systemNotNull": "Sistem sütunu \"{{columnName}}\" üzerinde NOT NULL",
+          "systemUnique": "Sistem sütunu \"{{columnName}}\" üzerinde UNIQUE indeksi",
+          "systemPrimaryKey": "Sistem sütunu \"{{columnName}}\" üzerinde PRIMARY KEY",
+          "systemDefault": "Sistem sütunu \"{{columnName}}\" üzerinde varsayılan ifade",
+          "connection": "Bağlantı",
+          "completion": "Tamamlanma",
+          "unexpected": "Beklenmeyen hata"
         },
         "detail": {
-          "systemColumnMissing": "System column \"{{columnName}}\" not found",
-          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
-          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
-          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnMissing": "Sistem sütunu \"{{columnName}}\" bulunamadı",
+          "systemColumnNotNull": "Sistem sütunu \"{{columnName}}\" NOT NULL olmalıdır",
+          "systemColumnUnique": "Sistem sütunu \"{{columnName}}\" UNIQUE indeksine sahip olmalıdır",
+          "systemColumnPrimaryKey": "Sistem sütunu \"{{columnName}}\" PRIMARY KEY olmalıdır",
+          "systemColumnDefault": "Sistem sütunu \"{{columnName}}\" varsayılan ifadeye sahip olmalıdır"
         },
         "phase": {
           "check": "Kontrol sonuçları",
@@ -567,7 +659,34 @@
           "manual": "Manuel",
           "skipped": "Atlandı"
         }
+      },
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString"
       }
+    },
+    "index": {
+      "description": "İndeksler, özellikle büyük veri miktarlarıyla ({{rowCount}} satırın üzerinde) çalışırken arama performansını önemli ölçüde artırabilir. Dezavantajı, yazma işlemlerinin biraz yavaşlamasıdır. Sık arama yapıyorsanız veya büyük veri kümeleriniz varsa indekslemeyi etkinleştirmeniz önerilir.",
+      "repair": "onar",
+      "repairTip": "İndeks anomalileri tespit edildi, bu durum arama performansının düşmesine neden olabilir. İndeksi düzeltmek için onar düğmesine tıklamanız önerilir",
+      "enableIndexTip": "Bir indeks oluşturuyorsunuz. Gereken süre tablo boyutuna bağlıdır. Bu süreçte tablonun okuma ve yazma performansı etkilenebilir. Lütfen sabırlı olun.",
+      "globalSearchTip_limited": "Tarih, onay kutusu ve düğme alanları hariç tüm alanlarda arama yap, en fazla {{count}} alan",
+      "globalSearchTip_infinity": "Tarih, onay kutusu ve düğme alanları hariç tüm alanlarda arama yap",
+      "autoIndexTip": "Tablonuz {{rowCount}} satırı aştı. Arama performansını artırmak için indekslemeyi etkinleştirmenizi öneririz. İndekslemenin yazma hızını biraz düşürebileceğini lütfen unutmayın. İndeks oluşturma sırasında tablonun okuma/yazma performansı geçici olarak etkilenebilir. Lütfen sabırlı olun.",
+      "enableIndex": "etkinleştir",
+      "keepAsIs": "olduğu gibi bırak",
+      "ignoreIndexError": "yoksay"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "En fazla {{count}} alan sınırı aşıldı, fazla alanlar göz ardı edilecektir"
     }
   },
   "import": {
@@ -578,7 +697,7 @@
       "linkUrl": "Bağlantı(URL)",
       "linkUrlInputTitle": "URL'den dosya ekle",
       "importTitle": "Yeni bir tablo oluştur",
-      "incrementImportTitle": "İçe Aktar — ",
+      "incrementImportTitle": "İçe Aktar , ",
       "optionsTitle": "İçe aktarma seçeneği",
       "primitiveFields": "Temel Alanlar",
       "importFields": "İçe Aktarma Alanı",
@@ -600,7 +719,6 @@
       "duplicating": "Çoğaltılıyor...",
       "duplicateSuccess": "Başarıyla çoğaltıldı",
       "duplicateFailed": "Çoğaltılamadı",
-      "importing": "İçe aktarılıyor",
       "includeRecords": "Kayıtları dahil et"
     },
     "tips": {
@@ -640,6 +758,34 @@
   "export": {
     "menu": {
       "exportCsv": "Csv İndir"
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Tüm ekleri indir",
+      "loading": "Önizleme yükleniyor...",
+      "rowsWithAttachments": "{{count}} satır ek içeriyor",
+      "totalAttachments": "{{count}} ek",
+      "totalSize": "Toplam boyut: {{size}}",
+      "startDownload": "İndirmeyi başlat",
+      "confirmTitle": "{{count}} dosya indir",
+      "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
+      "confirm": "İndir",
+      "cancel": "İptal",
+      "downloading": "İndiriliyor...",
+      "downloadingFile": "İndiriliyor: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "İndirme tamamlandı",
+      "cancelled": "İndirme iptal edildi",
+      "noAttachments": "İndirilecek ek yok",
+      "error": "İndirme başarısız",
+      "errorPartial": "{{failedCount}} dosya indirilemedi",
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "advancedOptions": "Gelişmiş seçenekler",
+      "namingFieldLabel": "Ek adı öneki",
+      "selectField": "Varsayılan: ek dizini",
+      "groupByRow": "Klasörlere arşivle",
+      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
     }
   },
   "grid": {
@@ -720,6 +866,7 @@
     "deleteRecord": "Kaydı sil",
     "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
     "editField": "Alanı düzenle",
+    "duplicateField": "Alanı çoğalt",
     "insertFieldLeft": "Sola ekle",
     "insertFieldRight": "Sağa ekle",
     "freezeUpField": "Bu alana kadar dondur",
@@ -729,6 +876,7 @@
     "filterField": "Bu alana göre filtrele",
     "sortField": "Bu alana göre sırala",
     "groupField": "Bu alana göre grupla",
+    "downloadAllAttachments": "Tüm dosyaları indir",
     "autoFill": "Tüm kayıtları güncelle",
     "groupMenuTitle": "Grup menüsü",
     "expandGroup": "Bu grup ve alt gruplarını genişlet",
@@ -742,6 +890,7 @@
     "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
+    "createFailed": "Lütfen PUBLIC_DATABASE_PROXY ortam değişkeninin doğru ayarlandığından emin olun",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -751,7 +900,10 @@
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
       "rename": "Görünümü yeniden adlandır",
+      "duplicate": "Görünümü çoğalt",
       "delete": "Görünümü sil",
+      "lock": "Görünümü kilitle",
+      "unlock": "Görünüm kilidini aç",
       "enable": "Etkinleştir"
     },
     "category": {
@@ -781,32 +933,37 @@
     "title": "Birden fazla kayıt eklemek istiyor musunuz?",
     "description": "{{count}} kayıt tabloya eklenecek."
   },
-  "download": {
-    "allAttachments": {
-      "title": "Tüm ekleri indir",
-      "loading": "Önizleme yükleniyor...",
-      "rowsWithAttachments": "{{count}} satır ek içeriyor",
-      "totalAttachments": "{{count}} ek",
-      "totalSize": "Toplam boyut: {{size}}",
-      "startDownload": "İndirmeyi başlat",
-      "confirmTitle": "{{count}} dosya indir",
-      "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
-      "confirm": "İndir",
-      "cancel": "İptal",
-      "downloading": "İndiriliyor...",
-      "downloadingFile": "İndiriliyor: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
-      "completed": "İndirme tamamlandı",
-      "cancelled": "İndirme iptal edildi",
-      "noAttachments": "İndirilecek ek yok",
-      "error": "İndirme başarısız",
-      "errorPartial": "{{failedCount}} dosya indirilemedi",
-      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
-      "advancedOptions": "Gelişmiş seçenekler",
-      "namingFieldLabel": "Ek adı öneki",
-      "selectField": "Varsayılan: ek dizini",
-      "groupByRow": "Klasörlere arşivle",
-      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
+  "tableTrash": {
+    "title": "Tablo çöp kutusu",
+    "resourceType": "Tür",
+    "deletedResource": "Kaynak"
+  },
+  "plugin": {
+    "recent": "Son kullanılanlar",
+    "more": "Daha fazlasını keşfet..."
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "Henüz eklenti paneli eklenmedi."
+    },
+    "createPluginPanel": {
+      "button": "Eklenti paneli oluştur",
+      "title": "Eklenti paneli oluştur"
+    },
+    "namePlaceholder": "Eklenti paneli adı girin"
+  },
+  "addPlugin": "Eklenti ekle",
+  "pluginContextMenu": {
+    "mangeButton": "Eklentileri yönet",
+    "manage": "Bağlam menüsü eklentilerinizi yönetin",
+    "noPlugin": "Bağlam menüsü eklentisi yok",
+    "delete": "Sil",
+    "deleteDescription": "Bu eklentiyi silmek istediğinize emin misiniz?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "Bu hücreyi görüntüleme izniniz yok",
+      "deniedUpdate": "Bu hücreyi güncelleme izniniz yok"
     }
   },
   "baseShare": {
@@ -868,6 +1025,602 @@
     "publishSuccess": "Uygulama başarıyla yayınlandı",
     "publishFailed": "Uygulama yayınlanamadı",
     "openLink": "Bağlantıyı aç",
-    "appPublished": "Uygulama yayınlandı"
+    "appPublished": "Uygulama yayınlandı",
+    "shareTableTab": "Tabloyu paylaş",
+    "shareViewTab": "Görünümü paylaş",
+    "shareNodeTab": "Düğümü paylaş"
+  },
+  "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Soru",
+        "confirm": "Onayla ({{count}})",
+        "otherPlaceholder": "Veya yanıtınızı yazın...",
+        "otherSend": "Gönder",
+        "addCustomPlaceholder": "Özel seçenek ekle..."
+      },
+      "completion": {
+        "completed": "Tamamlandı",
+        "tools": "{{count}} araç",
+        "toolsWithErrors": "{{count}} araç ({{errors}} hata)",
+        "hasErrors": "hatalar",
+        "noDetails": "Ayrıntı mevcut değil",
+        "contextWindow": "Bağlam Penceresi",
+        "contextTooltip": "Ajanın çalışma belleği kullanımı. Sınıra yaklaşıldığında, ajan yer açmak için önceki konuşmayı otomatik olarak özetler.",
+        "contextTipNewChat": "Farklı konular için yeni bir sohbet başlatarak Kredi kullanımını önemli ölçüde azaltabilirsiniz.",
+        "contextTipMemory": "Uzun süreli belleğe kaydetmek için \"XXX'i hatırla\" deyin, sohbetler arasında erişilebilir."
+      },
+      "taskProgress": {
+        "title": "Görev İlerlemesi",
+        "noTasks": "Görev yok",
+        "operationFailed": "Görev işlemi başarısız",
+        "collapse": "Daralt",
+        "showMore": "Daha fazla göster ({{count}})"
+      },
+      "tool": {
+        "executing": "Yürütülüyor...",
+        "executionFailed": "Araç yürütme başarısız",
+        "stoppedByUser": "Kullanıcı tarafından durduruldu",
+        "executionDenied": "Araç yürütme reddedildi",
+        "moreLines": "... +{{count}} satır daha",
+        "copy": "Kopyala",
+        "copied": "Kopyalandı!",
+        "copyNewContent": "Yeni içeriği kopyala",
+        "showAllLines": "Tüm {{count}} satırı göster",
+        "collapse": "Daralt",
+        "linesHidden": "{{count}} satır gizli, genişletmek için tıklayın"
+      },
+      "subtask": {
+        "working": "Alt görev üzerinde çalışılıyor",
+        "workingOn": "Alt görev üzerinde çalışılıyor: {{description}}",
+        "completed": "Alt görev tamamlandı"
+      },
+      "skill": {
+        "running": "Beceri çalıştırılıyor",
+        "runningName": "Beceri çalıştırılıyor: {{name}}"
+      },
+      "plan": {
+        "entering": "Plan moduna giriliyor",
+        "exiting": "Plan modundan çıkılıyor"
+      },
+      "worktree": {
+        "creating": "Çalışma ağacı oluşturuluyor",
+        "creatingName": "Çalışma ağacı oluşturuluyor: {{name}}",
+        "exiting": "Çalışma ağacından çıkılıyor"
+      },
+      "cron": {
+        "scheduling": "Görev zamanlanıyor",
+        "removing": "Zamanlanmış görev kaldırılıyor",
+        "listing": "Zamanlanmış görevler"
+      },
+      "step": "Adım {{number}}",
+      "runDetails": {
+        "working": "Çalışıyor...",
+        "summary": "{{actions}} işlem tamamlandı",
+        "moreActions": "... +{{count}} işlem daha",
+        "collapseActions": "Daralt"
+      }
+    },
+    "tool": {
+      "getTableFields": "Tablo alanlarını getir",
+      "getTablesMeta": "Tablo meta verilerini getir",
+      "sqlQuery": "SQL sorgusu çalıştır",
+      "generateScriptAction": "Betik eylemi oluştur",
+      "getScriptInput": "Betik girdisini al",
+      "getTeableApi": "API'yi getir",
+      "dataVisualization": "Veri görselleştirme",
+      "updateBase": "Veritabanı bilgisini güncelle",
+      "args": "Argümanlar",
+      "result": "Sonuç",
+      "thinking": "Düşünüyor...",
+      "retrying": "Yeniden deneniyor ({{attempt}}/{{maxRetries}})...",
+      "queuing": "Sıraya alınıyor...",
+      "toBeConfirmed": "Onay bekleniyor",
+      "errorMessage": "Hata mesajı",
+      "confirm": "Onayla",
+      "createRecordsSuccess": "{{count}} kayıt başarıyla oluşturuldu",
+      "createRecordsFailed": "Kayıt oluşturma başarısız",
+      "updateRecordsSuccess": "{{count}} kayıt başarıyla güncellendi",
+      "updateRecordsFailed": "Kayıt güncelleme başarısız",
+      "generatingRecords": "{{count}} kayıt oluşturuluyor...",
+      "creatingRecords": "{{count}} kayıt oluşturuluyor...",
+      "updatingRecords": "{{count}} kayıt güncelleniyor...",
+      "recordsPreview": "Kayıt önizlemesi",
+      "andMoreRecords": "Ve {{count}} tane daha...",
+      "unknownError": "Bilinmeyen hata",
+      "recordIds": "Kayıt kimlikleri",
+      "records": "kayıt",
+      "viewAll": "Tümünü Gör",
+      "showLess": "Daha Az Göster",
+      "generatingData": "Veri oluşturuluyor...",
+      "generatingUpdates": "Güncellemeler oluşturuluyor...",
+      "recordsGenerated": "{{count}} kayıt oluşturuldu",
+      "recordsCount": "Kayıtlar({{count}})",
+      "fieldsCount": "Alanlar({{count}})",
+      "fieldsGenerated": "{{count}} alan oluşturuldu",
+      "updatedProperties": "Güncellenen ({{count}})",
+      "configured": "yapılandırıldı",
+      "recordsToUpdate": "{{count}} kayıt güncellenecek",
+      "showingLast": "son {{count}}",
+      "recordLabel": "Kayıt",
+      "statusGenerating": "Oluşturuluyor...",
+      "statusCreating": "Oluşturuluyor...",
+      "statusUpdating": "Güncelleniyor...",
+      "statusCreated": "Oluşturuldu",
+      "statusUpdated": "Güncellendi",
+      "getApps": {
+        "title": "Uygulama Listesi",
+        "loading": "Uygulamalar yükleniyor...",
+        "foundApps": "{{count}} uygulama bulundu",
+        "noApps": "Bu temelde uygulama bulunamadı",
+        "openApp": "Uygulamayı Aç"
+      },
+      "generateApp": {
+        "title": "Uygulama Oluşturucu",
+        "creatingApp": "Uygulama oluşturuluyor",
+        "updatingApp": "Uygulama güncelleniyor",
+        "generatingApp": "Uygulama oluşturuluyor",
+        "generating": "Oluşturuluyor...",
+        "openApp": "Uygulamayı Aç",
+        "viewProgress": "İlerlemeyi Gör",
+        "newApp": "Yeni Uygulama",
+        "building": "Derleniyor..."
+      },
+      "generateAutomation": {
+        "title": "Otomasyon Oluşturucu",
+        "creatingAutomation": "Otomasyon oluşturuluyor",
+        "updatingAutomation": "Otomasyon güncelleniyor",
+        "generatingAutomation": "Otomasyon derleniyor",
+        "building": "Derleniyor...",
+        "openAutomation": "Otomasyonu Aç",
+        "viewProgress": "İlerlemeyi Gör",
+        "testResults": "Test Sonuçları",
+        "triggerTest": "Tetikleyici",
+        "actionTest": "Eylem {{index}}"
+      },
+      "htmlPreview": {
+        "preview": "Önizleme",
+        "code": "Kod",
+        "download": "İndir",
+        "downloadHtml": "HTML",
+        "downloadImage": "Görsel (PNG)",
+        "copy": "Kopyala",
+        "copied": "Kopyalandı!",
+        "fullscreen": "Tam Ekran",
+        "exitFullscreen": "Tam Ekrandan Çık",
+        "downloadSuccess": "Görsel başarıyla indirildi",
+        "downloadFailed": "Görsel yakalama başarısız",
+        "iframeFailed": "Yakalama başarısız: iframe erişilemez"
+      },
+      "loadAttachment": {
+        "title": "Ek Yükle",
+        "loading": "Ek yükleniyor",
+        "failed": "Ek yükleme başarısız",
+        "empty": "Yüklenen ek yok",
+        "modeNative": "AI Görüntüleme",
+        "modeNativeDesc": "AI yerel bağlamına yüklendi",
+        "modeExtracted": "Metin Çıkarıldı",
+        "modeExtractedDesc": "Dosya içeriği ayrıştırılıp analiz için metin olarak çıkarıldı",
+        "visionLoaded": "Görsel analiz için yüklendi",
+        "pdfLoaded": "PDF analizi için yüklendi",
+        "textExtracted": "{{chars}} karakter çıkarıldı",
+        "contextLoaded": "AI bağlamına yüklendi",
+        "truncated": "Kırpıldı",
+        "preview": "Önizleme"
+      },
+      "textExtract": {
+        "title": "Metin Çıkarma",
+        "loading": "Metin çıkarılıyor",
+        "failed": "Metin çıkarma başarısız",
+        "empty": "Çıkarılan metin yok",
+        "preview": "Önizleme",
+        "truncated": "Kırpıldı",
+        "previews": "önizlemeler",
+        "chars": "{{chars}} karakter",
+        "totalCharacters": "Toplam: {{chars}} karakter",
+        "filesTruncated": "({{count}} dosya kırpıldı)"
+      },
+      "importExcel": {
+        "title": "Excel İçe Aktar",
+        "loading": "Dosya işleniyor...",
+        "failed": "İçe aktarma başarısız",
+        "suggestions": "Suggestions",
+        "analyzeComplete": "Analiz Tamamlandı",
+        "worksheets": "Çalışma Sayfaları",
+        "columns": "sütunlar",
+        "importComplete": "İçe Aktarma Tamamlandı",
+        "stageAnalyze": "Analiz ediliyor",
+        "stageImport": "İçe aktarılıyor"
+      }
+    },
+    "tools": {
+      "getTeableApi": "Teable API'sini Getir",
+      "readFiles": "Dosyaları Oku",
+      "writeFile": "Dosya Yaz",
+      "deleteFiles": "Dosyaları Sil",
+      "listFiles": "Dosyaları Listele",
+      "addDependencies": "Bağımlılık Ekle",
+      "checkBuildErrors": "Derleme Hatalarını Kontrol Et",
+      "lint": "Kod Denetimi"
+    },
+    "fallback": {
+      "previewLoadFailed": "Önizleme yükleme başarısız",
+      "retry": "{{count}} kez yeniden dene",
+      "chatAborted": "iptal edildi"
+    },
+    "preview": {
+      "deletedTable": "Silinen tablo",
+      "deletedView": "Silinen görünüm",
+      "deletedField": "Silinen alan",
+      "deletedRecords": "Silinen kayıtlar"
+    },
+    "agentName": {
+      "tableOperatorAgent": "Tablo ajanı",
+      "viewOperatorAgent": "Görünüm ajanı",
+      "fieldOperatorAgent": "Alan ajanı",
+      "recordOperatorAgent": "Kayıt ajanı",
+      "buildBaseAgent": "Veritabanı oluşturma ajanı",
+      "buildAutomationAgent": "Otomasyon oluşturma ajanı"
+    },
+    "confirm": {
+      "toBeConfirmed": "Onaylanacak",
+      "deleteWarning": "Silmek istediğinizden emin misiniz?"
+    },
+    "action": {
+      "createTable": "Tablo oluştur",
+      "updateTable": "Tabloyu güncelle",
+      "updateTableName": "Tablo adını güncelle",
+      "deleteTable": "Tabloyu sil",
+      "createView": "Görünüm oluştur",
+      "updateView": "Görünümü güncelle",
+      "updateViewName": "Görünüm adını güncelle",
+      "deleteView": "Görünümü sil",
+      "createField": "Alan oluştur",
+      "createAiField": "AI alanı oluştur",
+      "createLinkField": "Bağlantı alanı oluştur",
+      "createLookupField": "Arama alanı oluştur",
+      "createRollupField": "Toplama alanı oluştur",
+      "createFormulaField": "Formül alanı oluştur",
+      "deleteField": "Alanı sil",
+      "updateField": "Alanı güncelle",
+      "createRecord": "Kayıt oluştur",
+      "createRecords": "Kayıtlar oluştur",
+      "deleteRecord": "Kaydı sil",
+      "updateRecord": "Kaydı güncelle",
+      "updateRecords": "Kayıtları güncelle",
+      "updateBase": "Veritabanı bilgisini güncelle",
+      "planTask": "Görev planla...",
+      "generateTables": "Tabloları oluştur",
+      "generatePrimaryFields": "Birincil alanları oluştur",
+      "generateFields": "Alanları oluştur",
+      "generateViews": "Görünümleri oluştur",
+      "generateRecords": "Kayıtları oluştur",
+      "generateAIFields": "AI alanlarını oluştur",
+      "generateLinkFields": "Bağlantı alanlarını oluştur",
+      "generateLookupFields": "Arama alanlarını oluştur",
+      "generateRollupFields": "Toplama alanlarını oluştur",
+      "generateFormulaFields": "Formül alanlarını oluştur",
+      "generateWorkflow": "İş akışı oluştur",
+      "generateTrigger": "Tetikleyici oluştur",
+      "generateScriptAction": "Betik eylem düğümü oluştur",
+      "generateSendMailAction": "E-posta gönderme eylem düğümü oluştur",
+      "generateAction": "Eylem düğümü oluştur",
+      "setupAutomationTrigger": "Otomasyon tetikleyicisini ayarla",
+      "testAutomationNode": "Otomasyon düğümünü test et",
+      "activateAutomation": "Otomasyonu etkinleştir",
+      "deleteAutomationNode": "{{nodeType}} düğümünü sil",
+      "executeScript": "Betiği çalıştır",
+      "wait": "Bekle",
+      "generateScriptFlowChart": "Betik akış şeması oluştur",
+      "triggerAiFill": "AI doldurmayı tetikle",
+      "initialize": "Ortamı başlat",
+      "rename": "Uygulama adı oluştur",
+      "buildTest": "Test oluştur",
+      "developTask": "Görevi geliştir",
+      "generateSummary": "Özet oluştur",
+      "previewEnvironment": "Önizleme ortamını hazırla",
+      "getRelativeData": "İlişkili verileri al",
+      "getPreviousNodeOutputVariables": "Önceki düğüm çıkış değişkenlerini al",
+      "getApiJson": "API bilgisini al",
+      "generateScriptAndDependencies": "Betik ve bağımlılıkları oluştur",
+      "analyzingAttachment": "Ek dosya analiz ediliyor...",
+      "locateResource": "Bul",
+      "goTo": "Git",
+      "operationSuccess": "İşlem başarıyla tamamlandı",
+      "operationFailed": "İşlem başarısız oldu"
+    },
+    "aiFill": {
+      "processedRecords": "{{count}} kayıt AI oluşturma için sıraya alındı"
+    },
+    "queryTool": {
+      "getRecords": "Kayıtları sorgula",
+      "getRecordsWithTable": "Kayıtları sorgula · {{tableName}}",
+      "getGridRows": "Izgara satırlarını sorgula",
+      "getGridRowsWithTable": "Izgara satırlarını sorgula · {{tableName}}",
+      "getFields": "Alanları sorgula",
+      "getFieldsWithTable": "Alanları sorgula · {{tableName}}",
+      "getTables": "Tabloları sorgula",
+      "getViews": "Görünümleri sorgula",
+      "getViewsWithTable": "Görünümleri sorgula · {{tableName}}",
+      "sqlQuery": "SQL sorgusu",
+      "querying": "Sorgulanıyor...",
+      "queryFailed": "Sorgu başarısız oldu",
+      "aborted": "İptal edildi",
+      "noData": "Veri döndürülmedi",
+      "dataFormatError": "Veri biçimi hatası",
+      "unsupportedQueryType": "Desteklenmeyen sorgu türü: {{toolName}}",
+      "returnedRecords": "{{count}} kayıt döndürüldü",
+      "record": "Kayıt {{index}}",
+      "moreRecords": "... +{{count}} kayıt daha",
+      "foundFields": "{{count}} alan bulundu",
+      "moreFields": "... +{{count}} alan daha",
+      "foundTables": "{{count}} tablo bulundu",
+      "moreTables": "... +{{count}} tablo daha",
+      "foundViews": "{{count}} görünüm bulundu",
+      "moreViews": "... +{{count}} görünüm daha",
+      "queryReturned": "Sorgu {{rowCount}} satır x {{columnCount}} sütun döndürdü",
+      "row": "Satır {{index}}",
+      "moreRows": "... +{{count}} satır daha",
+      "getDoc": "Belgeyi Al",
+      "getDocWithTopic": "Belgeyi Al · {{topic}}",
+      "getAutomations": "Otomasyonları sorgula",
+      "getAutomation": "Otomasyonu sorgula",
+      "getAutomationRuns": "Otomasyon çalıştırmalarını sorgula",
+      "foundAutomations": "{{count}} otomasyon bulundu",
+      "moreAutomations": "... +{{count}} otomasyon daha",
+      "foundRuns": "{{count}} çalıştırma bulundu",
+      "moreRuns": "... +{{count}} çalıştırma daha",
+      "active": "Etkin",
+      "trigger": "Tetikleyici",
+      "actions": "{{count}} eylem",
+      "moreActions": "... +{{count}} eylem daha",
+      "getUserIntegrations": "Entegrasyonları kontrol et",
+      "connectedIntegrations": "Bağlı",
+      "availableToConnect": "Bağlanılabilir",
+      "connect": "Bağlan",
+      "noIntegrationsAvailable": "Kullanılabilir entegrasyon yok",
+      "activateTool": "Araçları etkinleştir",
+      "webSearch": "Web araması",
+      "webSearchResults": "{{count}} sonuç bulundu",
+      "webSearchCompleted": "Arama tamamlandı",
+      "searchApi": "API ara",
+      "searchApiWithQuery": "API ara · {{query}}",
+      "noApiFound": "API bulunamadı",
+      "foundApis": "{{count}} API bulundu",
+      "totalApis": "Toplam {{count}} API mevcut",
+      "callApi": "API çağır",
+      "callApiWithMethod": "{{method}} {{path}}...",
+      "response": "Yanıt",
+      "success": "Başarılı",
+      "failed": "Başarısız",
+      "inputData": "Giriş verisi",
+      "availableNodes": "Kullanılabilir düğümler",
+      "hasPreviousCode": "Mevcut kod var",
+      "noInputData": "Giriş verisi mevcut değil"
+    },
+    "showUI": {
+      "connect": "Bağlan",
+      "connecting": "Bağlanıyor...",
+      "connected": "Bağlandı",
+      "connectToUse": "Otomasyonlarda kullanmak için {{provider}} bağlayın",
+      "checkingConnection": "Bağlantı durumu kontrol ediliyor...",
+      "confirm": "Onayla",
+      "confirmed": "Onaylandı",
+      "cancel": "İptal",
+      "cancelled": "İptal edildi",
+      "connectionCancelled": "Bağlantı iptal edildi"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} satır gizlendi",
+      "collapseCode": "Kodu daralt",
+      "code": "Kod",
+      "preview": "Önizleme"
+    },
+    "buildFlow": {
+      "progress": "Derleme ilerlemesi",
+      "completed": "Uygulama derlemesi tamamlandı",
+      "completedDesc": "Tüm adımlar başarıyla tamamlandı, uygulama önizlemeye hazır",
+      "stepStatus": {
+        "initializing": "Uygulama oluşturuluyor ve ortam başlatılıyor...",
+        "naming": "Uygulama adı oluşturuluyor...",
+        "planning": "Gereksinimler analiz ediliyor ve geliştirme planlanıyor...",
+        "developing": "Kod yazılıyor ve özellikler uygulanıyor...",
+        "summarizing": "Geliştirme sonuçları düzenleniyor...",
+        "deploying": "Önizleme ortamına dağıtılıyor...",
+        "testing": "Test oluşturuluyor..."
+      },
+      "moduleStatus": {
+        "running": "Çalışıyor",
+        "completed": "Tamamlandı",
+        "error": "Başarısız",
+        "pending": "Pending"
+      },
+      "toolStatus": {
+        "running": "Çalışıyor",
+        "completed": "Tamamlandı",
+        "error": "Başarısız"
+      }
+    },
+    "generateScript": {
+      "generateSuccess": "Betik başarıyla oluşturuldu"
+    },
+    "buildBase": {
+      "title": "Veritabanı oluştur",
+      "generateSuccess": "Veritabanı başarıyla oluşturuldu",
+      "generateError": "Veritabanı oluşturma başarısız oldu"
+    },
+    "buildAutomation": {
+      "title": "Otomasyon oluştur",
+      "generateSuccess": "Otomasyon başarıyla oluşturuldu"
+    },
+    "automation": {
+      "created": "Oluşturuldu",
+      "updated": "Güncellendi",
+      "workflow": "İş akışı",
+      "trigger": "Tetikleyici",
+      "scriptAction": "Betik Eylemi",
+      "workflowLabel": "İş akışı",
+      "triggerLabel": "Tetikleyici",
+      "scriptActionLabel": "Betik Eylemi",
+      "workflowId": "İş akışı",
+      "triggerId": "Tetikleyici",
+      "scriptActionId": "Betik Eylemi",
+      "viewAutomation": "Görüntüle",
+      "navigateToAutomation": "Otomasyona git",
+      "triggerType": {
+        "recordCreated": "Kayıt Oluşturuldu",
+        "recordUpdated": "Kayıt Güncellendi",
+        "recordCreatedOrUpdated": "Kayıt Oluşturuldu veya Güncellendi",
+        "formSubmitted": "Form Gönderildi",
+        "scheduledTime": "Zamanlanmış Zaman",
+        "buttonClick": "Düğme Tıklaması"
+      },
+      "activated": "Etkinleştirildi",
+      "deactivated": "Devre dışı bırakıldı",
+      "discarded": "Değişiklikler İptal Edildi",
+      "activateFailed": "Etkinleştirme Başarısız",
+      "deactivateFailed": "Devre Dışı Bırakma Başarısız",
+      "discardFailed": "İptal Başarısız",
+      "scriptUpdated": "Betik Güncellendi",
+      "scriptUpdateFailed": "Güncelleme Başarısız",
+      "scriptExecuted": "Betik Çalıştırıldı",
+      "scriptExecutionFailed": "Çalıştırma Başarısız",
+      "scriptReady": "Betik hazır",
+      "executingScript": "Betik çalıştırılıyor...",
+      "waitedSeconds": "{{seconds}}sn beklendi",
+      "waitFailed": "Bekleme başarısız",
+      "flowchartGenerated": "Akış Şeması Oluşturuldu",
+      "flowchartGenerationFailed": "Oluşturma Başarısız"
+    },
+    "newChat": "Yeni Sohbet",
+    "clearChat": "Sohbeti Temizle",
+    "expand": "Genişlet",
+    "history": "Geçmiş",
+    "close": "Daralt",
+    "clearChatConfirmTitle": "Sohbeti Temizlemeyi Onayla",
+    "clearChatConfirmDesc": "Mevcut sohbet içeriği kaydedilmeyecektir. Temizlemek istediğinizden emin misiniz?",
+    "dontShowAgain": "Bir daha gösterme",
+    "sandboxExpiry": {
+      "expiresIn": "Sandbox {{time}} içinde sona eriyor",
+      "reset": "Sıfırla",
+      "resetTitle": "Sandbox Sıfırla",
+      "runningTasks_one": "{{count}} çalışan görev var. Sıfırlama onu sonlandıracaktır.",
+      "runningTasks_other": "{{count}} çalışan görev var. Sıfırlama bunları sonlandıracaktır.",
+      "noRunningTasks": "Şu anda çalışan görev yok.",
+      "newSandboxHint": "Bir sonraki mesajınızda otomatik olarak yeni bir sandbox oluşturulacaktır.",
+      "cancel": "İptal",
+      "confirmReset": "Sıfırla",
+      "confirmResetWithTasks": "Yine de Sıfırla",
+      "expiresSoon": "Sandbox süresi doluyor",
+      "resetFailed": "Sandbox sıfırlama başarısız oldu"
+    },
+    "noModel": "Kullanılabilir model yok",
+    "addAttachment": "Ek Dosya Ekle",
+    "noHistory": "Sohbet geçmişi yok",
+    "noFoundHistory": "Sohbet geçmişi bulunamadı, lütfen yeni bir konuşma başlatın",
+    "timeGroup": {
+      "today": "Bugün",
+      "oneWeek": "Bir hafta",
+      "twoWeek": "İki hafta",
+      "oneMonth": "Bir ay",
+      "other": "Diğer"
+    },
+    "context": {
+      "button": "Bağlam ekle",
+      "search": "Tablo ekle",
+      "searchEmpty": "Eşleşen bağlam bulunamadı",
+      "emptyContext": "Eklenecek bağlam yok",
+      "selectionRows": "Satırlar {{start}}-{{end}}"
+    },
+    "inputPlaceholder": "Ne yapmak istediğinizi açıklayın",
+    "thought": "Düşünüyor",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Oluşturma süresi: {{timeCost}}sn",
+      "creditDescription": "{{credits}} kredi harcandı",
+      "tokenDescription": "Kullanılan token: {{tokens}}",
+      "input": "Input",
+      "output": "Output",
+      "tokens": "Token",
+      "totalTimeCost": "Toplam süre",
+      "totalCreditCost": "Toplam kredi maliyeti",
+      "customModel": "Custom model",
+      "tokenDetails": "Token Detayları",
+      "cachedInput": "Önbellek Girişi (%90 indirim)",
+      "cacheWrite": "Önbellek Yazımı",
+      "reasoning": "Akıl Yürütme (Düşünme)",
+      "taskCompleted": "Görev tamamlandı"
+    },
+    "dataVisualization": {
+      "error": "Veri görselleştirme başarısız oldu"
+    },
+    "tips": {
+      "modelTips": "Yalnızca yöneticiler yapılandırabilir"
+    },
+    "attachment": {
+      "imageNotSupported": "Görsel desteklenmiyor",
+      "attachmentSizeExceeded": "Ek dosya boyutu {{size}}MB sınırını aşıyor"
+    },
+    "suggestions": {
+      "recommend": "Recommended",
+      "ask": "Sor",
+      "analyze": "Analiz et",
+      "build": "Oluştur",
+      "title": "Nasıl yardımcı olabilirim?",
+      "whatCanIDo": "Ne yapabilirim?",
+      "createOrModifyDatabase": "Veritabanı oluştur veya düzenle",
+      "buildAutomations": "Otomasyon oluştur",
+      "buildApps": "Uygulama oluştur",
+      "buildMeCRM": "Bana bir CRM oluştur",
+      "addAIField": "Her müşteriyi analiz etmek için AI alanı ekle",
+      "createDataAnalysis": "Bana bir veri analizi raporu oluştur",
+      "emailWhenRecordCreated": "Kayıt oluşturulduğunda bana e-posta gönder",
+      "syncStatusToSlack": "Durum güncellemelerini Slack ile senkronize et",
+      "buildDashboard": "Bu tablodan bir kontrol paneli oluştur",
+      "buildLeadCapture": "Bana bir potansiyel müşteri yakalama sayfası oluştur"
+    },
+    "buildApp": {
+      "thinking": {
+        "duration": "{{duration}}sn düşündü"
+      },
+      "task": {
+        "searching": "\"{{query}}\" aranıyor",
+        "readingFiles": "Dosyalar okunuyor:",
+        "foundResults": "{{count}} sonuç bulundu",
+        "noIssuesFound": "Sorun bulunamadı",
+        "defaultTitle": "Görev"
+      },
+      "codeProject": {
+        "defaultTitle": "Kod Projesi"
+      }
+    },
+    "scriptPreview": {
+      "aiModelRequired": "Önizleme oluşturmak için AI modeli gereklidir.",
+      "writeCodeHint": "Akış şeması önizlemesini görmek için kod yazın.",
+      "noPreview": "Akış şeması önizlemesi mevcut değil.",
+      "generatePreview": "Önizleme Oluştur",
+      "analyzing": "Betik analiz ediliyor...",
+      "codeChanged": "Bu önizleme oluşturulduktan sonra kod değişti.",
+      "regenerate": "Yeniden Oluştur",
+      "refresh": "Yenile",
+      "regenerating": "Yeniden oluşturuluyor..."
+    },
+    "queue": {
+      "nQueued": "{{count}} Sırada",
+      "edit": "Düzenle",
+      "forceSend": "Durdur ve şimdi gönder",
+      "removeFromQueue": "Kaldır",
+      "queueFull": "Sıra dolu (en fazla 10 mesaj)",
+      "messageQueued": "Mesaj sıraya alındı"
+    }
+  },
+  "upload": {
+    "panelUploading": "{{count}} dosya yükleniyor",
+    "panelFailed": "{{count}} dosya başarısız oldu",
+    "panelCompleted": "{{count}} dosya tamamlandı",
+    "statusFailed": "Başarısız",
+    "statusCompleted": "Tamamlandı",
+    "statusCancel": "Yüklemeyi iptal et",
+    "statusRetry": "Yüklemeyi yeniden dene"
   }
 }

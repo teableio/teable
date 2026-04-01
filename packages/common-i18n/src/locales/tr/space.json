@@ -24,7 +24,8 @@
     "fromScratch": "Sıfırdan",
     "fromTemplate": "Şablondan",
     "moveBaseToAnotherSpace": "{{baseName}}'i başka bir alana taşı",
-    "chooseSpace": "Alan seç"
+    "chooseSpace": "Alan seç",
+    "duplicateBaseSucceedAndJump": "Success, click to jump"
   },
   "spaceSetting": {
     "title": "Alan ayarları",
@@ -33,8 +34,11 @@
     "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
     "collaboratorDescription": "Alanınızın işbirlikçilerini yönetin ve erişim izinlerini ayarlayın",
     "spaceName": "Alan Adı",
-    "spaceId": "Alan Kimliği"
+    "spaceId": "Alan Kimliği",
+    "importBase": "Import"
   },
+  "collaborators": "Collaborators",
+  "more": "More",
   "pin": {
     "add": "Sabitlemelere ekle",
     "remove": "Sabitlemeleri kaldır",
@@ -90,7 +94,6 @@
     "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyip bırakın",
     "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
     "confirm": "Onayla ve devam et",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",
@@ -137,7 +140,10 @@
     "lastOpened": "Son açılan",
     "enter": "Giriş",
     "noTables": "Tablo yok",
-    "empty": "Henüz üs yok"
+    "empty": "Henüz üs yok",
+    "recent": "Recent",
+    "manual": "Manual order",
+    "noBasesFound": "No bases found"
   },
   "publishBase": {
     "title": "Üssü toplulukta yayınla",
@@ -191,10 +197,10 @@
       "publish": "Yayınla",
       "published": "Yayınlandı",
       "publishing": "Yayınlanıyor...",
+      "notPublished": "Yayınlanmadı",
       "publishFailed": "Yayınlama başarısız",
       "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
       "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
-      "notPublished": "Yayınlanmadı",
       "ignoreAndContinue": "Yoksay ve Devam Et",
       "goToFix": "Düzeltmeye Git",
       "redeploy": "Yeniden Dağıt",
