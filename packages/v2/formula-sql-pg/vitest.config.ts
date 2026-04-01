@@ -24,7 +24,7 @@ export default defineConfig({
       enabled: false,
     },
     pool: 'forks',
-    fileParallelism: false,
+    fileParallelism: true,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{js,ts}'],

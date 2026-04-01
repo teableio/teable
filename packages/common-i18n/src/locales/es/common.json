@@ -702,8 +702,8 @@
     "spaceTrash": "Papelera de espacio",
     "type": "Tipo",
     "resetTrash": "Vaciar papelera",
-    "deletedBy": "Eliminado por",
-    "deletedTime": "Fecha de eliminación",
+    "deletedBy": "Por",
+    "deletedTime": "Fecha",
     "fromSpace": "Del espacio \"{{name}}\"",
     "permanentDeleteTips": "¿Estás seguro de que deseas eliminar permanentemente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?",
@@ -1080,8 +1080,8 @@
   },
   "changelog": {
     "newUpdate": "NUEVA ACTUALIZACIÓN",
-    "title": "Descarga masiva de archivos adjuntos disponible",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Dominio personalizado para la App disponible",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

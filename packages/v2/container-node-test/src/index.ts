@@ -21,7 +21,7 @@ import {
   type ComputedUpdateWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
-import type { IHasher, ITableRepository } from '@teable/v2-core';
+import type { IHasher, ILogger, ITableRepository, LogContext } from '@teable/v2-core';
 import {
   BaseId,
   DefaultTableMapper,
@@ -121,12 +121,123 @@ export interface IV2NodeTestContainerOptions {
   seedBase?: boolean;
   maxFreeRowLimit?: number;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  logToConsole?: boolean;
+  logLevel?: V2NodeTestContainerLogLevel;
 }
+
+export type V2NodeTestContainerLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+
+const isSetupTimingEnabled = () => process.env.TEABLE_V2_TEST_SETUP_TIMING === '1';
+
+const createSetupTimer = (scope: string) => {
+  if (!isSetupTimingEnabled()) {
+    return <T>(_: string, run: () => Promise<T>) => run();
+  }
+
+  return async <T>(label: string, run: () => Promise<T>) => {
+    const startedAt = Date.now();
+    try {
+      return await run();
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+    }
+  };
+};
+
+const testLogLevelPriority: Record<Exclude<V2NodeTestContainerLogLevel, 'silent'>, number> = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  debug: 3,
+};
+
+const parseBooleanEnv = (value?: string): boolean | undefined => {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return undefined;
+};
+
+const resolveTestLogLevel = (value?: string): V2NodeTestContainerLogLevel | undefined => {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'silent') return 'silent';
+  if (normalized === 'error') return 'error';
+  if (normalized === 'warn' || normalized === 'warning') return 'warn';
+  if (normalized === 'info') return 'info';
+  if (normalized === 'debug') return 'debug';
+  return undefined;
+};
+
+class LevelFilteredLogger implements ILogger {
+  constructor(
+    private readonly delegate: ILogger,
+    private readonly minLevel: Exclude<V2NodeTestContainerLogLevel, 'silent'>
+  ) {}
+
+  child(context: LogContext): ILogger {
+    return new LevelFilteredLogger(this.delegate.child(context), this.minLevel);
+  }
+
+  scope(scope: string, context?: LogContext): ILogger {
+    return new LevelFilteredLogger(this.delegate.scope(scope, context), this.minLevel);
+  }
+
+  private shouldLog(level: Exclude<V2NodeTestContainerLogLevel, 'silent'>): boolean {
+    return testLogLevelPriority[level] <= testLogLevelPriority[this.minLevel];
+  }
+
+  debug(message: string, context?: LogContext): void {
+    if (this.shouldLog('debug')) {
+      this.delegate.debug(message, context);
+    }
+  }
+
+  info(message: string, context?: LogContext): void {
+    if (this.shouldLog('info')) {
+      this.delegate.info(message, context);
+    }
+  }
+
+  warn(message: string, context?: LogContext): void {
+    if (this.shouldLog('warn')) {
+      this.delegate.warn(message, context);
+    }
+  }
+
+  error(message: string, context?: LogContext): void {
+    if (this.shouldLog('error')) {
+      this.delegate.error(message, context);
+    }
+  }
+}
+
+const createTestConsoleLogger = (options: IV2NodeTestContainerOptions): ILogger | undefined => {
+  const envLogToConsole = parseBooleanEnv(process.env.TEABLE_V2_TEST_LOG_TO_CONSOLE);
+  const envLogLevel = resolveTestLogLevel(process.env.TEABLE_V2_TEST_LOG_LEVEL);
+
+  const requestedLogLevel = options.logLevel ?? envLogLevel;
+  const shouldLogToConsole =
+    options.logToConsole ??
+    envLogToConsole ??
+    (requestedLogLevel !== undefined && requestedLogLevel !== 'silent');
+
+  if (!shouldLogToConsole) {
+    return undefined;
+  }
+
+  const minLevel = requestedLogLevel && requestedLogLevel !== 'silent' ? requestedLogLevel : 'info';
+
+  return new LevelFilteredLogger(new ConsoleLogger(), minLevel);
+};
 
 export const createV2NodeTestContainer = async (
   options: IV2NodeTestContainerOptions = {}
 ): Promise<IV2NodeTestContainer> => {
   const c = container.createChildContainer();
+  const time = createSetupTimer('container');
 
   const envConnectionString =
     options.connectionString ??
@@ -165,41 +276,49 @@ export const createV2NodeTestContainer = async (
   const ensureSchema = options.ensureSchema ?? true;
 
   if (!c.isRegistered(v2PostgresDbTokens.db)) {
-    if (shouldUsePglite) {
-      await registerV2PostgresPgliteDb(c, dbConfig);
-    } else {
-      await registerV2PostgresDb(c, dbConfig);
-    }
+    await time('register-db', async () => {
+      if (shouldUsePglite) {
+        await registerV2PostgresPgliteDb(c, dbConfig);
+      } else {
+        await registerV2PostgresDb(c, dbConfig);
+      }
+    });
   }
 
   const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
 
   const maxFreeRowLimit = resolveMaxFreeRowLimit(options.maxFreeRowLimit);
 
-  await registerV2PostgresStateAdapter(c, {
-    db,
-    ensureSchema,
-    ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
-  });
+  await time('register-state-adapter', async () =>
+    registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema,
+      ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
+    })
+  );
 
-  await ensureTypeValidationPolyfillMigrationApplied(db as unknown as Kysely<unknown>);
+  await time('type-validation-polyfill', async () =>
+    ensureTypeValidationPolyfillMigrationApplied(db as unknown as Kysely<unknown>)
+  );
 
   // Register SpyLogger BEFORE other services so they get the spy instance
-  const spyLogger = new SpyLogger(new ConsoleLogger());
+  const spyLogger = new SpyLogger(createTestConsoleLogger(options));
   c.registerInstance(v2CoreTokens.logger, spyLogger);
 
   // Register table repository postgres adapter (schema + record repositories)
-  const typeValidationStrategy = await createTypeValidationStrategy(
-    db as unknown as Kysely<unknown>
+  const typeValidationStrategy = await time('create-type-validation-strategy', async () =>
+    createTypeValidationStrategy(db as unknown as Kysely<unknown>)
   );
-  registerV2TableRepositoryPostgresAdapter(c, {
-    db,
-    computedUpdate: {
-      hybridConfig: { dispatchMode: 'external' },
-      pollingConfig: { enabled: false },
-      ...options.computedUpdate,
-    },
-    typeValidationStrategy,
+  await time('register-table-repository-adapter', async () => {
+    registerV2TableRepositoryPostgresAdapter(c, {
+      db,
+      computedUpdate: {
+        hybridConfig: { dispatchMode: 'external' },
+        pollingConfig: { enabled: false },
+        ...options.computedUpdate,
+      },
+      typeValidationStrategy,
+    });
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -239,10 +358,14 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
   // Register core services (uses defaults unless already registered)
-  registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
+  await time('register-core-services', async () => {
+    registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
+  });
 
   // Register command explain module (used by explain endpoints in tests)
-  registerCommandExplainModule(c);
+  await time('register-command-explain', async () => {
+    registerCommandExplainModule(c);
+  });
 
   const computedUpdatePollingService = startComputedUpdatePollingIfEnabled(c);
 
@@ -255,44 +378,52 @@ export const createV2NodeTestContainer = async (
   const shouldSeedSpace = shouldSeedBase;
 
   // Ensure users table exists in public schema for createdBy/lastModifiedBy formula references
-  await db.schema
-    .withSchema('public')
-    .createTable('users')
-    .ifNotExists()
-    .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
-    .addColumn('name', 'varchar(255)', (col) => col.notNull())
-    .addColumn('email', 'varchar(255)')
-    .execute();
+  await time('ensure-users-table', async () =>
+    db.schema
+      .withSchema('public')
+      .createTable('users')
+      .ifNotExists()
+      .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
+      .addColumn('name', 'varchar(255)', (col) => col.notNull())
+      .addColumn('email', 'varchar(255)')
+      .execute()
+  );
 
   // Insert system user for tests
-  await db
-    .withSchema('public')
-    .insertInto('users')
-    .values({ id: 'system', name: 'System', email: null })
-    .onConflict((oc) => oc.columns(['id']).doNothing())
-    .execute();
+  await time('seed-system-user', async () =>
+    db
+      .withSchema('public')
+      .insertInto('users')
+      .values({ id: 'system', name: 'System', email: null })
+      .onConflict((oc) => oc.columns(['id']).doNothing())
+      .execute()
+  );
 
   if (shouldSeedBase) {
     const spaceId = `spc${getRandomString(16)}`;
     const actorId = 'system';
 
     if (shouldSeedSpace) {
-      await db
-        .insertInto('space')
-        .values({ id: spaceId, name: 'Test Space', created_by: actorId })
-        .execute();
+      await time('seed-space', async () =>
+        db
+          .insertInto('space')
+          .values({ id: spaceId, name: 'Test Space', created_by: actorId })
+          .execute()
+      );
     }
 
-    await db
-      .insertInto('base')
-      .values({
-        id: baseId.toString(),
-        space_id: spaceId,
-        name: 'Test Base',
-        order: 1,
-        created_by: actorId,
-      })
-      .execute();
+    await time('seed-base', async () =>
+      db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Test Base',
+          order: 1,
+          created_by: actorId,
+        })
+        .execute()
+    );
   }
 
   const tableRepository = c.isRegistered(v2CoreTokens.tableRepository)
@@ -306,13 +437,43 @@ export const createV2NodeTestContainer = async (
     const worker = c.resolve<ComputedUpdateWorker>(
       v2RecordRepositoryPostgresTokens.computedUpdateWorker
     );
-    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const getActiveOutboxState = async () => {
+      const now = new Date();
+      const rows = await db
+        .selectFrom('computed_update_outbox')
+        .select(['run_id as runId', 'status'])
+        .where((eb) =>
+          eb.or([
+            eb('status', '=', 'processing'),
+            eb.and([eb('status', '=', 'pending'), eb('next_run_at', '<=', now)]),
+          ])
+        )
+        .execute();
+
+      let readyCount = 0;
+      let processingCount = 0;
+      const runIds = new Set<string>();
+      for (const row of rows as Array<{ runId: string | null; status: string }>) {
+        if (row.runId) {
+          runIds.add(row.runId);
+        }
+        if (row.status === 'processing') {
+          processingCount += 1;
+        } else {
+          readyCount += 1;
+        }
+      }
+
+      return {
+        readyCount,
+        processingCount,
+        runIds,
+      };
+    };
+
     let totalProcessed = 0;
     const maxIterations = 100; // Prevent infinite loops
-    const maxIdleRetries = 5;
-    const idleDelayMs = 10;
     let iterations = 0;
-    let idleRetries = 0;
 
     // Keep processing until no more tasks are pending
     while (iterations < maxIterations) {
@@ -327,17 +488,20 @@ export const createV2NodeTestContainer = async (
       totalProcessed += processed;
       iterations += 1;
 
-      if (processed > 0) {
-        idleRetries = 0;
+      const outboxState = await getActiveOutboxState();
+      if (processed > 0 || outboxState.readyCount > 0 || outboxState.processingCount > 0) {
         continue;
       }
 
-      if (idleRetries >= maxIdleRetries) break;
-      idleRetries += 1;
-      await sleep(idleDelayMs);
+      return totalProcessed;
     }
 
-    return totalProcessed;
+    const outboxState = await getActiveOutboxState();
+    throw new Error(
+      `Outbox processing did not quiesce after ${maxIterations} iterations: ` +
+        `processed=${totalProcessed}, ready=${outboxState.readyCount}, processing=${outboxState.processingCount}, ` +
+        `runIds=${[...outboxState.runIds].join(',')}`
+    );
   };
 
   return {

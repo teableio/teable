@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 /**
  * OpenTelemetry Tracing Configuration
@@ -307,17 +308,27 @@ const metricViews = [
 
   // Reduce high-cardinality auto-instrumented histograms from 14 → 5~6 buckets
   // 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow
+  // Keep only operation name + system; drop db.namespace, server.address/port, etc.
   {
     instrumentName: 'db.client.operation.duration',
     aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
+    attributeKeys: ['db.operation.name', 'db.system'],
   },
   // 50ms=fast, 250ms=normal, 1s=slow, 5s=very-slow, 30s=timeout
-  { instrumentName: 'http.client.request.duration', aggregation: buckets([0.05, 0.25, 1, 5, 30]) },
+  {
+    instrumentName: 'http.client.request.duration',
+    aggregation: buckets([0.05, 0.25, 1, 5, 30]),
+    attributeKeys: ['http.request.method', 'server.address', 'http.response.status_code'],
+  },
 
   // 10ms=static, 50ms=fast-api, 250ms=normal, 1s=slow, 5s=very-slow, 10s=timeout
+  // Whitelist only route + method + status; drop url.scheme, server.address,
+  // server.port, network.protocol.version, error.type to slash cardinality.
+  // ~200 routes × 5 methods × 10 statuses × 10 ts = ~100k (vs ~2M without filter).
   {
     instrumentName: 'http.server.request.duration',
     aggregation: buckets([0.01, 0.05, 0.25, 1, 5, 10]),
+    attributeKeys: ['http.route', 'http.request.method', 'http.response.status_code'],
   },
 ];
 

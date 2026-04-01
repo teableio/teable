@@ -704,8 +704,8 @@
     "spaceTrash": "Corbeille de l'espace",
     "type": "Type",
     "resetTrash": "Vider",
-    "deletedBy": "Supprimé par",
-    "deletedTime": "Date de suppression",
+    "deletedBy": "Par",
+    "deletedTime": "Date",
     "fromSpace": "De l'espace \"{{name}}\"",
     "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?",
@@ -1082,8 +1082,8 @@
   },
   "changelog": {
     "newUpdate": "NOUVELLE MISE À JOUR",
-    "title": "Téléchargement groupé des pièces jointes disponible",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Domaine personnalisé pour l'App disponible",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

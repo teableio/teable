@@ -797,13 +797,14 @@
   },
   "form": {
     "fieldsManagement": "字段管理",
-    "addAll": "全部添加",
-    "removeAll": "全部移除",
-    "hideFieldTip": "拖拽到这里移除表单中的字段",
+    "addAll": "全部显示",
+    "removeAll": "全部隐藏",
+    "createField": "新建字段",
+    "hideFieldTip": "拖拽字段到此处从表单中隐藏",
     "unableAddFieldTip": "不支持添加该字段类型",
-    "removeFromFormTip": "从表单中移除该字段",
+    "removeFromFormTip": "从表单中隐藏",
     "descriptionPlaceholder": "请输入表单描述",
-    "dragToFormTip": "拖拽字段到这里添加至表单",
+    "dragToFormTip": "拖拽字段到此处在表单中显示",
     "protectedFieldTip": "此字段已被设为\"必填\"字段，无法在表单视图中移除，请在字段设置中进行修改。"
   },
   "kanban": {
@@ -936,8 +937,8 @@
   },
   "tableTrash": {
     "title": "表格回收站",
-    "resourceType": "资源类型",
-    "deletedResource": "已删除资源"
+    "resourceType": "类型",
+    "deletedResource": "资源"
   },
   "plugin": {
     "recent": "最近使用",
@@ -1044,7 +1045,12 @@
         "completed": "已完成",
         "tools": "{{count}} 个工具",
         "toolsWithErrors": "{{count}} 个工具 ({{errors}} 个错误)",
-        "hasErrors": "有错误"
+        "hasErrors": "有错误",
+        "noDetails": "暂无详情",
+        "contextWindow": "上下文窗口",
+        "contextTooltip": "AI 的工作记忆用量。接近上限时，AI 会自动总结之前的对话以释放空间。",
+        "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少 Credit 消耗。",
+        "contextTipMemory": "对 AI 说「记住 XXX」可存入长期记忆，跨对话保留。"
       },
       "taskProgress": {
         "title": "任务进度",
@@ -1495,6 +1501,20 @@
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",
+    "sandboxExpiry": {
+      "expiresIn": "沙箱将在 {{time}} 后过期",
+      "reset": "重置",
+      "resetTitle": "重置沙箱",
+      "runningTasks_one": "当前有 {{count}} 个正在运行的任务，重置将终止该任务。",
+      "runningTasks_other": "当前有 {{count}} 个正在运行的任务，重置将终止这些任务。",
+      "noRunningTasks": "当前没有正在运行的任务。",
+      "newSandboxHint": "下次发送消息时将自动创建新的沙箱。",
+      "cancel": "取消",
+      "confirmReset": "重置",
+      "confirmResetWithTasks": "仍然重置",
+      "expiresSoon": "沙箱即将过期",
+      "resetFailed": "重置沙箱失败"
+    },
     "noModel": "暂无可用模型",
     "addAttachment": "添加附件",
     "noHistory": "暂无聊天记录",

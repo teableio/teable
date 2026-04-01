@@ -998,8 +998,8 @@
     "spaceTrash": "Space trash",
     "type": "Type",
     "resetTrash": "Empty trash",
-    "deletedBy": "Deleted by",
-    "deletedTime": "Deleted time",
+    "deletedBy": "By",
+    "deletedTime": "Time",
     "fromSpace": "From \"{{name}}\" space",
     "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Are you sure you want to empty the trash?",
@@ -1405,8 +1405,8 @@
   },
   "changelog": {
     "newUpdate": "NEW UPDATE",
-    "title": "Bulk Download Attachments Are Live",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "App Custom Domain is Live",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

@@ -31,7 +31,12 @@ export const splitAccessToken = (accessToken: string) => {
   if (prefix !== authConfig().accessToken.prefix) {
     return null;
   }
-  const { sign } = getAccessTokenEncryptor().decrypt(encryptedSign);
+  let sign: string | null = null;
+  try {
+    sign = getAccessTokenEncryptor().decrypt(encryptedSign).sign;
+  } catch (error) {
+    return null;
+  }
   if (!sign) {
     return null;
   }

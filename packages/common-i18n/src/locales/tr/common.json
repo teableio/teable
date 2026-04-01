@@ -663,8 +663,8 @@
     "spaceTrash": "Alan çöp kutusu",
     "type": "Tür",
     "resetTrash": "Çöp kutusunu boşalt",
-    "deletedBy": "Silen",
-    "deletedTime": "Silinme zamanı",
+    "deletedBy": "Kişi",
+    "deletedTime": "Zaman",
     "fromSpace": "\"{{name}}\" alanından",
     "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
     "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
@@ -1072,8 +1072,8 @@
   },
   "changelog": {
     "newUpdate": "YENİ GÜNCELLEME",
-    "title": "Toplu Ek Dosya İndirme Kullanıma Sunuldu",
-    "url": "https://help.teable.ai/en/changelog#mar-13-2026",
-    "id": "changelog-2026-03-13-bulk-download-attachments-are-live"
+    "title": "Uygulama için Özel Alan Adı Kullanıma Sunuldu",
+    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
+    "id": "changelog-2026-03-31-app-custom-domain-is-live"
   }
 }

@@ -755,9 +755,7 @@ describe('v2 http createTable (e2e)', () => {
 
       expect(tables).toHaveLength(2);
 
-      // Process outbox multiple times to ensure all computed updates complete
-      await ctx.testContainer.processOutbox();
-      await ctx.testContainer.processOutbox();
+      // processOutbox() already runs until the computed queue quiesces.
       await ctx.testContainer.processOutbox();
 
       // Verify Table A records

@@ -199,16 +199,15 @@ describe('update-field: primary field conversions [V1 PARITY]', () => {
     }
   });
 
-  test('[V1 PARITY] should reject no-op update on primary field', async () => {
+  test('[V1 PARITY] should allow no-op update on primary field (allowNoop)', async () => {
     const { tableId, primaryFieldId } = await createPrimaryTextTable();
     try {
-      await expect(
-        ctx.updateField({
-          tableId,
-          fieldId: primaryFieldId,
-          field: { type: 'singleLineText' },
-        })
-      ).rejects.toThrow('No changes to apply');
+      // allowNoop: noop update should succeed silently
+      await ctx.updateField({
+        tableId,
+        fieldId: primaryFieldId,
+        field: { type: 'singleLineText' },
+      });
     } finally {
       await ctx.deleteTable(tableId);
     }

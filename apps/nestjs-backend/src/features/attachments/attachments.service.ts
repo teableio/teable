@@ -1,10 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import fs from 'fs';
 import type { IncomingHttpHeaders } from 'http';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { join, resolve } from 'path';
 import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
@@ -26,13 +26,15 @@ import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
-import { FileUtils } from '../../utils';
+import { FileUtils, getSsrfSafeAgents } from '../../utils';
 import { second } from '../../utils/second';
 import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
+import { extractLocalFilePath, validateReadPath } from './plugins/local.helper';
 import { InjectStorageAdapter } from './plugins/storage';
+import type { IPresignParams, IPresignRes } from './plugins/types';
 import { getSafeUploadContentType } from './plugins/utils';
 import { getExtensionPreview } from './utils';
 @Injectable()
@@ -77,15 +79,8 @@ export class AttachmentsService {
 
   async readLocalFile(path: string, token?: string) {
     const localStorage = this.storageAdapter as LocalStorage;
+    validateReadPath(path, localStorage.storageDir);
     let respHeaders: Record<string, string> = {};
-
-    if (!path) {
-      throw new CustomHttpException('Could not find attachment', HttpErrorCode.NOT_FOUND, {
-        localization: {
-          i18nKey: 'httpErrors.attachment.notFound',
-        },
-      });
-    }
     const { bucket, token: tokenInPath } = localStorage.parsePath(path);
     if (token && !StorageAdapter.isPublicBucket(bucket)) {
       respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
@@ -110,8 +105,9 @@ export class AttachmentsService {
   }
 
   localFileConditionalCaching(path: string, reqHeaders: IncomingHttpHeaders, res: Response) {
-    const ifModifiedSince = reqHeaders['if-modified-since'];
     const localStorage = this.storageAdapter as LocalStorage;
+    validateReadPath(path, localStorage.storageDir);
+    const ifModifiedSince = reqHeaders['if-modified-since'];
     const lastModifiedTimestamp = localStorage.getLastModifiedTime(path);
     if (!lastModifiedTimestamp) {
       throw new CustomHttpException('Could not find attachment', HttpErrorCode.VALIDATION_ERROR, {
@@ -137,19 +133,7 @@ export class AttachmentsService {
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
     if (contentLength > MAX_FILE_SIZE) {
-      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
-      throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${maxSize} MB`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
-            context: {
-              maxSize: `${maxSize}MB`,
-            },
-          },
-        }
-      );
+      this.throwFileSizeExceeded(MAX_FILE_SIZE);
     }
     const hash = presignedParams.hash;
     const dir = StorageAdapter.getDir(type);
@@ -164,6 +148,26 @@ export class AttachmentsService {
       signatureRo.expiresIn ?? second(this.storageConfig.tokenExpireIn)
     );
     return res;
+  }
+
+  async presignedInternal(
+    bucket: string,
+    path: string,
+    filename: string,
+    params: Omit<IPresignParams, 'internal' | 'hash'>
+  ): Promise<IPresignRes> {
+    const resPresigned = await this.storageAdapter.presigned(bucket, path, {
+      ...params,
+      hash: filename,
+    });
+    if (this.storageConfig.provider === 'local') {
+      await this.cacheService.set(
+        `attachment:signature:${resPresigned.token}`,
+        { path: resPresigned.path, bucket, hash: filename },
+        params.expiresIn ?? second(this.storageConfig.tokenExpireIn)
+      );
+    }
+    return resPresigned;
   }
 
   async notify(token: string, filename?: string): Promise<INotifyVo> {
@@ -294,19 +298,7 @@ export class AttachmentsService {
     );
 
     if (contentLength > MAX_FILE_SIZE) {
-      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
-      throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${maxSize} MB`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
-            context: {
-              maxSize: `${maxSize}MB`,
-            },
-          },
-        }
-      );
+      this.throwFileSizeExceeded(MAX_FILE_SIZE);
     }
 
     const filename = this.getFilenameFromUrl(fileUrl);
@@ -329,21 +321,72 @@ export class AttachmentsService {
       });
     } finally {
       if (tempFilePath) {
-        fs.unlinkSync(tempFilePath);
+        await fse.remove(tempFilePath);
       }
     }
+  }
+
+  private throwFileSizeExceeded(maxFileSize: number): never {
+    const maxSize = (maxFileSize / (1024 * 1024)).toFixed(2);
+    throw new CustomHttpException(
+      `File size exceeds the maximum limit of ${maxSize} MB`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+          context: { maxSize: `${maxSize}MB` },
+        },
+      }
+    );
+  }
+
+  private extractLocalFilePath(fileUrl: string): string | null {
+    const localStorage = this.storageAdapter as LocalStorage;
+    return extractLocalFilePath(fileUrl, this.storageConfig.provider, localStorage.storageDir);
+  }
+
+  /**
+   * Read a local file into a temp path, validating size up-front via stat.
+   */
+  private async getLocalFileInfo(
+    relativePath: string,
+    maxFileSize: number
+  ): Promise<{ contentLength: number; contentType: string; tempFilePath: string }> {
+    const localStorage = this.storageAdapter as LocalStorage;
+    const resolvedPath = resolve(localStorage.storageDir, relativePath);
+
+    // Fast size check before streaming — avoids unnecessary I/O for oversized files
+    const stat = await fse.stat(resolvedPath);
+    if (stat.size > maxFileSize) {
+      this.throwFileSizeExceeded(maxFileSize);
+    }
+
+    const tempFilePath = join(tmpdir(), `temp-${nanoid()}`);
+    await pipeline(localStorage.read(relativePath), fse.createWriteStream(tempFilePath));
+
+    return {
+      contentLength: stat.size,
+      contentType: mimeTypes.lookup(relativePath) || 'application/octet-stream',
+      tempFilePath,
+    };
   }
 
   private async getFileInfo(
     fileUrl: string,
     maxFileSize: number
   ): Promise<{ contentLength: number; contentType: string; tempFilePath: string | null }> {
+    // Local provider: read directly from filesystem, bypass HTTP entirely
+    const localRelativePath = this.extractLocalFilePath(fileUrl);
+    if (localRelativePath) {
+      return this.getLocalFileInfo(localRelativePath, maxFileSize);
+    }
+
     let contentLength: number | undefined;
     let contentType: string | undefined;
     let tempFilePath: string | null = null;
 
     try {
-      const headResponse = await axios.head(fileUrl);
+      const headResponse = await axios.head(fileUrl, getSsrfSafeAgents());
       contentLength =
         headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
       contentType =
@@ -354,21 +397,20 @@ export class AttachmentsService {
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
       );
     } catch (error) {
-      console.warn('HEAD request failed, falling back to GET:', error);
+      this.logger.warn('HEAD request failed, falling back to GET:', error);
     }
 
     if (!contentLength) {
       this.logger.log('Content length not available from HEAD request. Downloading file...');
-      const tempFileName = `temp-${nanoid()}`;
-      tempFilePath = join(tmpdir(), tempFileName);
+      tempFilePath = join(tmpdir(), `temp-${nanoid()}`);
 
       const { contentType: contentTypeFromDownLoad } = await this.downloadFile(
         fileUrl,
         tempFilePath,
         maxFileSize
       );
-      // why do not get from downloadFile function causing mismatch size when call it in different environment.
-      contentLength = fs.statSync(tempFilePath).size;
+      const stat = await fse.stat(tempFilePath);
+      contentLength = stat.size;
       this.logger.log(`File downloaded. Size: ${contentLength} bytes`);
 
       if (!contentType) {
@@ -394,14 +436,17 @@ export class AttachmentsService {
     if (tempFilePath) {
       await this.uploadStreamToStorage(
         url,
-        fs.createReadStream(tempFilePath),
+        fse.createReadStream(tempFilePath),
         contentType,
         contentLength
       );
       this.logger.log('Upload from temporary file completed');
     } else {
       this.logger.log(`Downloading and uploading from URL: ${fileUrl}`);
-      const response = await axios.get(fileUrl, { responseType: 'stream' });
+      const response = await axios.get(fileUrl, {
+        responseType: 'stream',
+        ...getSsrfSafeAgents(),
+      });
       await this.uploadStreamToStorage(url, response.data, contentType, contentLength);
     }
   }
@@ -449,10 +494,11 @@ export class AttachmentsService {
       method: 'get',
       url: url,
       responseType: 'stream',
+      ...getSsrfSafeAgents(),
     });
 
     return new Promise((resolve, reject) => {
-      const writer = fs.createWriteStream(filePath);
+      const writer = fse.createWriteStream(filePath);
       const cleanup = () => {
         writer.removeAllListeners();
         writer.destroy();
@@ -465,18 +511,7 @@ export class AttachmentsService {
           downloadedBytes += chunk.length;
           if (downloadedBytes > maxSize) {
             cleanup();
-            throw new CustomHttpException(
-              `File size exceeds the maximum limit of ${(maxSize / (1024 * 1024)).toFixed(2)} MB`,
-              HttpErrorCode.VALIDATION_ERROR,
-              {
-                localization: {
-                  i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
-                  context: {
-                    maxSize: `${(maxSize / (1024 * 1024)).toFixed(2)}MB`,
-                  },
-                },
-              }
-            );
+            this.throwFileSizeExceeded(maxSize);
           }
         });
 

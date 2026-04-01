@@ -38,7 +38,7 @@ describe.skipIf(isPgliteConnection())('field conversion deadlock regression (e2e
   };
 
   beforeAll(async () => {
-    ctx = await getSharedTestContext();
+    ctx = await getSharedTestContext({ dbMode: 'postgres' });
   }, 30000);
 
   it('retries singleLineText -> formula conversion when a concurrent transaction creates the same deadlock shape as v1', async () => {

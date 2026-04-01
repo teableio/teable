@@ -104,8 +104,10 @@ describe('v2 link formula lookup single-value (e2e)', () => {
     return parsed.data.data.record;
   };
 
-  const listRecords = async (tableId: string, fieldKeyType: FieldKeyType = FieldKeyType.Id) => {
-    await ctx.drainOutbox();
+  const listRecordsWithoutDrain = async (
+    tableId: string,
+    fieldKeyType: FieldKeyType = FieldKeyType.Id
+  ) => {
     const params = new URLSearchParams({
       tableId,
       fieldKeyType,
@@ -186,7 +188,7 @@ describe('v2 link formula lookup single-value (e2e)', () => {
     });
 
     await ctx.drainOutbox();
-    const records = await listRecords(table1.id);
+    const records = await listRecordsWithoutDrain(table1.id);
     expect(records[0].fields[linkField.id]).toEqual({
       id: sourceRecord.id,
       title: expectedTitle,
@@ -248,7 +250,7 @@ describe('v2 link formula lookup single-value (e2e)', () => {
     });
 
     await ctx.drainOutbox();
-    const hostRecords = await listRecords(table1.id);
+    const hostRecords = await listRecordsWithoutDrain(table1.id);
     expect(hostRecords[0].fields[linkField.id]).toEqual({
       id: sourceRecord.id,
       title: expectedTitle,
@@ -257,7 +259,7 @@ describe('v2 link formula lookup single-value (e2e)', () => {
     const symmetricFieldId = (linkField.options as { symmetricFieldId?: string } | undefined)
       ?.symmetricFieldId;
     if (symmetricFieldId) {
-      const foreignRecords = await listRecords(table2.id);
+      const foreignRecords = await listRecordsWithoutDrain(table2.id);
       expect(foreignRecords[0].fields[symmetricFieldId]).toEqual({
         id: hostRecord.id,
         title: 'Row 1',
@@ -346,7 +348,7 @@ describe('v2 link formula lookup single-value (e2e)', () => {
     });
 
     await ctx.drainOutbox();
-    const records = await listRecords(table3.id);
+    const records = await listRecordsWithoutDrain(table3.id);
     expect(records[0].fields[lookupField.id]).toBeDefined();
   });
 });

@@ -16,6 +16,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./src/integration/testkit/vitest.setup.ts'],
     testTimeout: 120000,
     hookTimeout: 120000,
     passWithNoTests: true,

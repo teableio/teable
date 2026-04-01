@@ -1430,7 +1430,8 @@
       "fetchLinkedInPostFailed": "Не удалось получить публикацию LinkedIn: {{error}}",
       "linkedInPostNotFound": "Публикация LinkedIn не найдена: {{postId}}",
       "linkedInAuthorNotFound": "Автор LinkedIn не найден: {{postId}}",
-      "fetchLinkedInUserFailed": "Не удалось получить пользователя LinkedIn: {{error}}"
+      "fetchLinkedInUserFailed": "Не удалось получить пользователя LinkedIn: {{error}}",
+      "domainAlreadyInUse": "Этот домен уже привязан к другому приложению"
     }
   }
 }

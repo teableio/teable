@@ -77,7 +77,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
     <Button
       variant={'ghost'}
       size="sm"
-      className="size-full h-9 justify-start gap-0 px-4 py-2"
+      className="size-full h-8 justify-start gap-0 px-2"
       onClick={() => {
         onClick(num);
       }}
@@ -259,7 +259,6 @@ export const RecordMenu = () => {
         },
       },
     ],
-    [],
     [
       {
         type: MenuItemType.Delete,
@@ -302,15 +301,14 @@ export const RecordMenu = () => {
 
                 return (
                   <Fragment key={index}>
-                    <CommandGroup aria-valuetext="name">
+                    <CommandGroup aria-valuetext="name" className="p-1">
                       {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
                         return (
                           <CommandItem
-                            className={cn('px-4 py-2', className, {
-                              'px-0 py-0': [
-                                MenuItemType.InsertBelow,
-                                MenuItemType.InsertAbove,
-                              ].includes(type),
+                            className={cn('h-8 px-2', className, {
+                              'px-0': [MenuItemType.InsertBelow, MenuItemType.InsertAbove].includes(
+                                type
+                              ),
                             })}
                             key={type}
                             value={name}

@@ -194,6 +194,12 @@ export interface InsertOptions {
    * Keys are stringified record ids.
    */
   restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
+
+  /**
+   * Optional record ids whose table trash metadata should be removed within
+   * the same transaction after the records are restored.
+   */
+  cleanupTrashRecordIds?: ReadonlyArray<string>;
 }
 
 export interface ITableRecordRepository {
