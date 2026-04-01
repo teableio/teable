@@ -654,8 +654,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     ).getSearchIndexQuery();
   }
 
-  searchIndex() {
-    return new IndexBuilderPostgres();
+  searchIndex(truncateLength?: number) {
+    return new IndexBuilderPostgres(truncateLength);
   }
 
   duplicateTableQuery(queryBuilder: Knex.QueryBuilder) {

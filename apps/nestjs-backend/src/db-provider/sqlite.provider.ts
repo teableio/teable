@@ -526,7 +526,7 @@ export class SqliteProvider implements IDbProvider {
     ).getSearchIndexQuery();
   }
 
-  searchIndex() {
+  searchIndex(_truncateLength?: number) {
     return new IndexBuilderSqlite();
   }
 

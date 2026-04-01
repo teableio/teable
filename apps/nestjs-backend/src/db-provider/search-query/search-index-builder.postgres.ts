@@ -66,14 +66,22 @@ export class FieldFormatter {
   }
 
   // expression for generating index
-  static getIndexExpression(field: IFieldInstance): string | null {
-    return this.getSearchableExpression(field, field.isMultipleCellValue);
+  static getIndexExpression(field: IFieldInstance, truncateLength?: number): string | null {
+    const expression = this.getSearchableExpression(field, field.isMultipleCellValue);
+    if (expression === null || !truncateLength || truncateLength <= 0) {
+      return expression;
+    }
+    return `LEFT((${expression})::text, ${truncateLength})`;
   }
 }
 
 export class IndexBuilderPostgres extends IndexBuilderAbstract {
   static PG_MAX_INDEX_LEN = 63;
   static DELIMITER_LEN = 3;
+
+  constructor(private readonly truncateLength?: number) {
+    super();
+  }
 
   private getIndexPrefix() {
     return `idx_trgm`;
@@ -108,7 +116,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
   createSingleIndexSql(dbTableName: string, field: IFieldInstance): string | null {
     const [schema, table] = dbTableName.split('.');
     const indexName = this.getIndexName(table, field);
-    const expression = FieldFormatter.getIndexExpression(field);
+    const expression = FieldFormatter.getIndexExpression(field, this.truncateLength);
     if (expression === null) {
       return null;
     }
@@ -141,7 +149,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     const fieldSql = searchFields
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((field) => {
-        const expression = FieldFormatter.getIndexExpression(field);
+        const expression = FieldFormatter.getIndexExpression(field, this.truncateLength);
         return expression ? this.createSingleIndexSql(dbTableName, field) : null;
       })
       .filter((sql): sql is string => sql !== null);

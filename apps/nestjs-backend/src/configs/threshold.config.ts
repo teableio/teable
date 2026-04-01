@@ -21,6 +21,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
   ),
   automationGap: Number(process.env.AUTOMATION_GAP ?? 200),
+  searchIndexTruncateLength: Number(process.env.SEARCH_INDEX_TRUNCATE_LENGTH ?? 1000),
   maxAttachmentUploadSize: Number(process.env.MAX_ATTACHMENT_UPLOAD_SIZE ?? Infinity),
   maxOpenapiAttachmentUploadSize: Number(
     process.env.MAX_OPENAPI_ATTACHMENT_UPLOAD_SIZE ?? Infinity

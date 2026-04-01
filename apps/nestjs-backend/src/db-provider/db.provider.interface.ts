@@ -227,7 +227,7 @@ export interface IDbProvider {
     context?: IRecordQueryFilterContext
   ): Knex.QueryBuilder;
 
-  searchIndex(): IndexBuilderAbstract;
+  searchIndex(truncateLength?: number): IndexBuilderAbstract;
 
   duplicateTableQuery(queryBuilder: Knex.QueryBuilder): DuplicateTableQueryAbstract;
 
