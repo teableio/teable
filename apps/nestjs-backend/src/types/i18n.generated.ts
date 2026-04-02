@@ -773,6 +773,15 @@ export type I18nTranslations = {
                     "chatModels": {
                         "lg": string;
                         "lgDescription": string;
+                        "md": string;
+                        "mdDescription": string;
+                        "sm": string;
+                        "smDescription": string;
+                        "inheritHint": string;
+                        "modelTiers": string;
+                        "modelTiersDescription": string;
+                        "allInheriting": string;
+                        "customized": string;
                     };
                     "actions": {
                         "title": string;
@@ -4136,6 +4145,18 @@ export type I18nTranslations = {
                     "runCheck": string;
                     "recheck": string;
                     "repair": string;
+                    "repairWarnings": string;
+                    "repairWarningsAndErrors": string;
+                    "repairRule": string;
+                    "repairUnavailable": string;
+                    "manual": string;
+                    "manualRepairNotice": string;
+                    "manualRepairNoticeWithCount": string;
+                    "manualRepairDialogTitle": string;
+                    "manualRepairDialogDescription": string;
+                    "manualRepairDialogReason": string;
+                    "manualRepairDialogHint": string;
+                    "manualRepairDialogClose": string;
                     "checking": string;
                     "repairing": string;
                     "streamError": string;
@@ -4165,6 +4186,7 @@ export type I18nTranslations = {
                         "baseCheckCompleted": string;
                         "repairCompleted": string;
                         "baseRepairCompleted": string;
+                        "skippedStatusNotSelected": string;
                     };
                     "rule": {
                         "column": string;
@@ -4204,6 +4226,21 @@ export type I18nTranslations = {
                         "systemColumnUnique": string;
                         "systemColumnPrimaryKey": string;
                         "systemColumnDefault": string;
+                        "columnUniqueMissing": string;
+                        "columnUniqueMissingDescription": string;
+                        "columnUniqueIndexMismatch": string;
+                        "columnUniqueIndexMismatchDescription": string;
+                        "foreignKeyMissing": string;
+                        "foreignKeyMissingDescription": string;
+                        "referenceMissing": string;
+                        "referenceMissingDescription": string;
+                        "symmetricFieldTargetMissing": string;
+                        "symmetricFieldWrongType": string;
+                        "symmetricFieldInvalidOptions": string;
+                        "symmetricFieldMissingBackReference": string;
+                        "symmetricFieldWrongBackReference": string;
+                        "symmetricFieldDuplicateUsage": string;
+                        "symmetricFieldDuplicateUsageDescription": string;
                     };
                     "phase": {
                         "check": string;
@@ -4232,6 +4269,34 @@ export type I18nTranslations = {
                         "unchanged": string;
                         "manual": string;
                         "skipped": string;
+                    };
+                    "manualRepairPreview": string;
+                    "manualRepairPreviewTip": string;
+                    "repairMeta": {
+                        "reason": {
+                            "alreadyValid": string;
+                            "manualRule": string;
+                            "statementGenerationFailed": string;
+                            "noStatements": string;
+                            "symmetricFieldConflict": string;
+                        };
+                        "description": {
+                            "symmetricFieldConflict": string;
+                        };
+                        "manual": {
+                            "apply": string;
+                            "symmetricField": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "keepCurrent": string;
+                                    "keepDuplicate": string;
+                                    "convertDuplicate": string;
+                                };
+                            };
+                        };
                     };
                 };
                 "type": string;
@@ -4535,8 +4600,12 @@ export type I18nTranslations = {
             "shareLink": string;
             "linkHolderLabel": string;
             "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
             "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
             "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "editRequiresLogin": string;
             "passwordProtection": string;
             "enterPassword": string;
             "selectNodes": string;
@@ -5154,6 +5223,13 @@ export type I18nTranslations = {
                 "removeFromQueue": string;
                 "queueFull": string;
                 "messageQueued": string;
+            };
+            "effort": {
+                "title": string;
+                "low": string;
+                "medium": string;
+                "high": string;
+                "max": string;
             };
         };
         "download": {

@@ -485,7 +485,7 @@ export const ExpandMarkdownEditor = ({
           <LongText className="size-4 shrink-0" />
           <span className="truncate">{title}</span>
           <span className="ml-auto" />
-          {!readonly && (
+          {!readonly && field && (
             <div
               className="flex cursor-default items-center gap-1.5"
               onPointerDown={(e) => e.stopPropagation()}

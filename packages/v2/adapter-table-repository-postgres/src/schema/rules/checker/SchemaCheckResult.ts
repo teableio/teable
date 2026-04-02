@@ -1,3 +1,5 @@
+import type { SchemaRuleDetailItem, SchemaRuleRepairHint } from '../core/ISchemaRule';
+
 /**
  * Status of a schema check result.
  */
@@ -31,8 +33,13 @@ export interface SchemaCheckResult {
   /** Detailed information about missing/extra schema objects */
   details?: {
     missing?: ReadonlyArray<string>;
+    missingItems?: ReadonlyArray<SchemaRuleDetailItem>;
     extra?: ReadonlyArray<string>;
+    extraItems?: ReadonlyArray<SchemaRuleDetailItem>;
   };
+
+  /** Repair capability metadata for this rule. */
+  repair?: SchemaRuleRepairHint;
 
   /** Whether this rule is required or optional */
   required: boolean;

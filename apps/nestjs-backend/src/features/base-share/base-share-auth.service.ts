@@ -10,6 +10,7 @@ export interface IBaseShareInfo {
   nodeId: string;
   allowSave: boolean | null;
   allowCopy: boolean | null;
+  allowEdit: boolean | null;
 }
 
 export interface IJwtBaseShareInfo {
@@ -84,6 +85,7 @@ export class BaseShareAuthService {
       nodeId: share.nodeId,
       allowSave: share.allowSave,
       allowCopy: share.allowCopy,
+      allowEdit: share.allowEdit,
     };
   }
 
