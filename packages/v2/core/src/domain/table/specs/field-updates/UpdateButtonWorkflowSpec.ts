@@ -5,6 +5,7 @@ import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../../fields/FieldId';
 import { ButtonField } from '../../fields/types/ButtonField';
+import type { ButtonConfirm } from '../../fields/types/ButtonConfirm';
 import type { ButtonWorkflow } from '../../fields/types/ButtonWorkflow';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
@@ -18,7 +19,9 @@ export class UpdateButtonWorkflowSpec<
   private constructor(
     private readonly fieldIdValue: FieldId,
     private readonly previousWorkflowValue: ButtonWorkflow | undefined,
-    private readonly nextWorkflowValue: ButtonWorkflow | undefined
+    private readonly nextWorkflowValue: ButtonWorkflow | undefined,
+    private readonly previousConfirmValue: ButtonConfirm | undefined,
+    private readonly nextConfirmValue: ButtonConfirm | undefined
   ) {
     super();
   }
@@ -26,9 +29,17 @@ export class UpdateButtonWorkflowSpec<
   static create(
     fieldId: FieldId,
     previousWorkflow: ButtonWorkflow | undefined,
-    nextWorkflow: ButtonWorkflow | undefined
+    nextWorkflow: ButtonWorkflow | undefined,
+    previousConfirm?: ButtonConfirm,
+    nextConfirm?: ButtonConfirm
   ): UpdateButtonWorkflowSpec {
-    return new UpdateButtonWorkflowSpec(fieldId, previousWorkflow, nextWorkflow);
+    return new UpdateButtonWorkflowSpec(
+      fieldId,
+      previousWorkflow,
+      nextWorkflow,
+      previousConfirm,
+      nextConfirm
+    );
   }
 
   fieldId(): FieldId {
@@ -41,6 +52,14 @@ export class UpdateButtonWorkflowSpec<
 
   nextWorkflow(): ButtonWorkflow | undefined {
     return this.nextWorkflowValue;
+  }
+
+  previousConfirm(): ButtonConfirm | undefined {
+    return this.previousConfirmValue;
+  }
+
+  nextConfirm(): ButtonConfirm | undefined {
+    return this.nextConfirmValue;
   }
 
   mutate(t: Table): Result<Table, DomainError> {
@@ -60,6 +79,7 @@ export class UpdateButtonWorkflowSpec<
       maxCount: field.maxCount(),
       resetCount: field.resetCount(),
       workflow: this.nextWorkflowValue,
+      confirm: this.nextConfirmValue,
     });
     if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
 

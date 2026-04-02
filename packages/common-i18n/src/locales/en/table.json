@@ -993,8 +993,12 @@
     "shareLink": "Share link",
     "linkHolderLabel": "The person who obtained the link",
     "linkHolderCanView": "Can view",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Can edit",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Can save as copy",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "Password Protection",
     "enterPassword": "Enter password",
     "selectNodes": "Select Tables",
@@ -1612,6 +1616,13 @@
       "removeFromQueue": "Remove",
       "queueFull": "Queue is full (max 10 messages)",
       "messageQueued": "Message queued"
+    },
+    "effort": {
+      "title": "Select reasoning effort",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "max": "Max"
     }
   },
   "upload": {

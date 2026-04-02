@@ -1,11 +1,10 @@
 import type { IFieldVo, ISort, ITableActionKey, IViewVo, StatisticsFunc } from '@teable/core';
 import type { IGetRecordsRo, IAggregationRo } from '@teable/openapi';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFields, useTableId, useTableListener, useView } from '../../hooks';
 import { validatePersonalViewProps } from '../../utils/personalView';
-import { ShareViewContext } from '../table';
 import { PersonalViewContext } from './PersonalViewContext';
-import { usePersonalViewStore } from './store';
+import { useResolvedPersonalViewStore } from './store';
 
 interface IPersonalViewProviderProps {
   children: React.ReactNode;
@@ -16,8 +15,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
   const tableId = useTableId();
   const visibleFields = useFields();
   const fields = useFields({ withHidden: true, withDenied: true });
-  const { shareId } = useContext(ShareViewContext) ?? {};
-  const { personalViewMap, setPersonalViewMap } = usePersonalViewStore();
+  const { personalViewMap, setPersonalViewMap } = useResolvedPersonalViewStore();
 
   const viewId = view?.id ?? '';
   const cachedView = personalViewMap?.[viewId];
@@ -25,7 +23,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
   const visibleFieldIds = visibleFields.map(({ id }) => id);
 
   const { personalViewCommonQuery, personalViewAggregationQuery } = useMemo(() => {
-    if (!cachedView || shareId) {
+    if (!cachedView) {
       return { personalViewCommonQuery: undefined, personalViewAggregationQuery: undefined };
     }
 
@@ -64,7 +62,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       personalViewCommonQuery: commonQuery,
       personalViewAggregationQuery: aggregationQuery,
     };
-  }, [cachedView, shareId, visibleFieldIds]);
+  }, [cachedView, visibleFieldIds]);
 
   const updatePersonalView = useCallback(
     (actionKey: string, payload?: Record<string, unknown>) => {

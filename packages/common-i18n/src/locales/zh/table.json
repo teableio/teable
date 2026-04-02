@@ -995,8 +995,12 @@
     "shareLink": "分享链接",
     "linkHolderLabel": "获得链接的人",
     "linkHolderCanView": "可查看",
+    "linkHolderCanViewDesc": "获得链接的人可以查看数据",
     "linkHolderCanEdit": "可编辑",
+    "linkHolderCanEditDesc": "登录用户可以编辑表格中的记录",
     "linkHolderCanCopyAndSave": "可另存为副本",
+    "linkHolderCanCopyAndSaveDesc": "获得链接的人可以将数据保存到自己的空间",
+    "editRequiresLogin": "用户必须登录才能编辑记录",
     "passwordProtection": "密码保护",
     "enterPassword": "输入密码",
     "selectNodes": "选择数据表",
@@ -1613,6 +1617,13 @@
       "removeFromQueue": "移除",
       "queueFull": "队列已满（最多 10 条消息）",
       "messageQueued": "消息已加入队列"
+    },
+    "effort": {
+      "title": "选择推理功能",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "max": "超高"
     }
   },
   "upload": {
