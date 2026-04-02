@@ -2129,6 +2129,40 @@ describe('Schema Rules Unit Tests with PGlite', () => {
   });
 
   describe('SchemaRepairer', () => {
+    const expectRuleRepairLifecycle = async (params: {
+      table: Table;
+      fieldId: string;
+      ruleId: string;
+      expectedStatus?: 'warn' | 'error';
+      verifyAfterRepair?: () => Promise<void>;
+    }) => {
+      const { table, fieldId, ruleId, expectedStatus = 'error', verifyAfterRepair } = params;
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const initialCheckResults = await collectFinalResults(checker.checkField(table, fieldId));
+
+      expect(initialCheckResults.find((result) => result.ruleId === ruleId)?.status).toBe(
+        expectedStatus
+      );
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, fieldId, ruleId)
+      );
+
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.status).toBe('success');
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.outcome).toBe('repaired');
+
+      const repairedCheckResults = await collectFinalResults(checker.checkField(table, fieldId));
+      expect(repairedCheckResults.find((result) => result.ruleId === ruleId)?.status).toBe(
+        'success'
+      );
+
+      if (verifyAfterRepair) {
+        await verifyAfterRepair();
+      }
+    };
+
     it('should report missing system __id uniqueness when checking system rules', async () => {
       const tableName = 'test_schema_system_rule_check';
       await createExplicitTestTable(tableName, [
@@ -2309,6 +2343,26 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(checkResults.every((result) => result.status === 'success')).toBe(true);
     });
 
+    it('should include repair hint metadata in check results for failing auto-repair rules', async () => {
+      const tableName = 'test_schema_check_repair_hint';
+      await createTestTable(tableName);
+
+      const field = createRealField('hint001', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+
+      const results = await collectFinalResults(checker.checkField(table, field.id().toString()));
+      const columnRule = results.find(
+        (result) => result.ruleId === `column:${field.id().toString()}`
+      );
+
+      expect(columnRule?.status).toBe('error');
+      expect(columnRule?.repair).toEqual({
+        available: true,
+        mode: 'auto',
+      });
+    });
+
     it('should repair a missing column when repairing a field', async () => {
       const tableName = 'test_schema_repair_field';
       await createTestTable(tableName);
@@ -2329,6 +2383,37 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(results[0].status).toBe('success');
       expect(results[0].outcome).toBe('repaired');
       expect(results[0].ruleId).toBe(`column:${field.id().toString()}`);
+    });
+
+    it('should skip error repairs when targetStatuses only includes warnings', async () => {
+      const tableName = 'test_schema_repair_target_status';
+      await createTestTable(tableName);
+
+      const field = createRealField('target001', 'Title', 'title_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), `column:${field.id().toString()}`, {
+          targetStatuses: ['warn'],
+        })
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].status).toBe('skipped');
+      expect(results[0].outcome).toBe('skipped');
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      expect(
+        checkResults.find((result) => result.ruleId === `column:${field.id().toString()}`)?.status
+      ).toBe('error');
     });
 
     it('should repair generated-column metadata drift for stored columns', async () => {
@@ -2765,6 +2850,553 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       );
       const repairedRule = repairedCheckResults.find((result) => result.ruleId === ruleId);
       expect(repairedRule?.status).toBe('success');
+    });
+
+    describe('rule-specific auto repair coverage', () => {
+      it('should repair a missing system column through repairRule', async () => {
+        const tableName = 'test_schema_system_column_rule';
+        await createExplicitTestTable(tableName, [
+          '__id TEXT NOT NULL UNIQUE',
+          '__auto_number SERIAL PRIMARY KEY',
+          '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+          '__created_by TEXT NOT NULL',
+          '__last_modified_by TEXT',
+          '__version INTEGER NOT NULL',
+          'name_col TEXT',
+        ]);
+
+        const field = createRealField('syscol001', 'Name', 'name_col')._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: SYSTEM_RULE_FIELD_ID,
+          ruleId: 'system_column:__last_modified_time',
+        });
+      });
+
+      it('should repair a missing system NOT NULL constraint through repairRule', async () => {
+        const tableName = 'test_schema_system_not_null_rule';
+        await createExplicitTestTable(tableName, [
+          '__id TEXT NOT NULL UNIQUE',
+          '__auto_number SERIAL PRIMARY KEY',
+          '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+          '__last_modified_time TIMESTAMPTZ',
+          '__created_by TEXT NOT NULL',
+          '__last_modified_by TEXT',
+          '__version INTEGER',
+          'name_col TEXT',
+        ]);
+
+        const field = createRealField('sysnn001', 'Name', 'name_col')._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: SYSTEM_RULE_FIELD_ID,
+          ruleId: 'system_not_null:__version',
+        });
+      });
+
+      it('should repair a missing system default through repairRule', async () => {
+        const tableName = 'test_schema_system_default_rule';
+        await createExplicitTestTable(tableName, [
+          '__id TEXT NOT NULL UNIQUE',
+          '__auto_number SERIAL PRIMARY KEY',
+          '__created_time TIMESTAMPTZ NOT NULL',
+          '__last_modified_time TIMESTAMPTZ',
+          '__created_by TEXT NOT NULL',
+          '__last_modified_by TEXT',
+          '__version INTEGER NOT NULL',
+          'name_col TEXT',
+        ]);
+
+        const field = createRealField('sysdef001', 'Name', 'name_col')._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: SYSTEM_RULE_FIELD_ID,
+          ruleId: 'system_default:__created_time',
+        });
+      });
+
+      it('should repair a missing optional column unique rule through repairRule', async () => {
+        const tableName = 'test_schema_column_unique_rule';
+        await createTestTable(tableName, ['email_col TEXT']);
+
+        const field = createRealField('coluniq01', 'Email', 'email_col', {
+          unique: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `column_unique:${field.id().toString()}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing NOT NULL rule through repairRule', async () => {
+        const tableName = 'test_schema_not_null_rule';
+        await createTestTable(tableName, ['name_col TEXT']);
+
+        const field = createRealField('notnull01', 'Name', 'name_col', {
+          notNull: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `not_null:${field.id().toString()}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing generated column through repairRule', async () => {
+        const tableName = 'test_schema_generated_column_rule';
+        await createTestTable(tableName, ['__created_time TIMESTAMPTZ DEFAULT NOW()']);
+
+        const field = createCreatedTimeFieldWithGeneratedMeta(
+          'gencol01',
+          'CreatedTime',
+          'created_time_col',
+          true
+        )._unsafeUnwrap();
+        const table = createTableAggregate(tableName, field);
+
+        await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'CreatedTime', '{}') ON CONFLICT (id) DO NOTHING`.execute(
+          db
+        );
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `generated_column:${field.id().toString()}`,
+        });
+      });
+
+      it('should repair a missing link value column through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_link_value_rule');
+        const targetTableName = createValidTableId('tgt_link_value_rule');
+
+        await createTestTable(sourceTableName);
+        await createTestTable(targetTableName);
+
+        const field = createRealLinkField({
+          id: 'lnkval001',
+          name: 'Link Value Rule',
+          dbFieldName: 'link_value',
+          relationship: 'oneMany',
+          foreignTableId: targetTableName,
+          fkHostTableName: 'junction_link_value_rule',
+          selfKeyName: '__fk_link_value_self',
+          foreignKeyName: '__fk_link_value_foreign',
+          isOneWay: true,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `link_value_column:${field.id().toString()}`,
+        });
+      });
+
+      it('should repair a missing foreign key column through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_fk_column_rule');
+        const targetTableName = createValidTableId('tgt_fk_column_rule');
+        const fkColumnName = '__fk_column_rule';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await sql
+          .raw(
+            `
+            INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+            VALUES ('rec_source_a', '{"id":"rec_target_a","title":"Target A"}'::jsonb)
+          `
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `
+            INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id)
+            VALUES ('rec_target_a')
+          `
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'fkcol001',
+          name: 'FK Column Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `fk_column:${field.id().toString()}`,
+          expectedStatus: 'warn',
+          verifyAfterRepair: async () => {
+            const rows = await sql<{ fk_value: string | null }>`
+              SELECT ${sql.id(fkColumnName)} AS fk_value
+              FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+              WHERE __id = 'rec_source_a'
+            `.execute(db);
+
+            expect(rows.rows[0]?.fk_value).toBe('rec_target_a');
+          },
+        });
+      });
+
+      it('should repair a missing index rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_index_rule');
+        const targetTableName = createValidTableId('tgt_index_rule');
+        const fkColumnName = '__fk_index_rule';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+
+        const field = createRealLinkField({
+          id: 'index001',
+          name: 'Index Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `index:${field.id().toString()}:${fkColumnName}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing unique index rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_unique_index_rule');
+        const targetTableName = createValidTableId('tgt_unique_index_rule');
+        const fkColumnName = '__fk_unique_index_rule';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+
+        const field = createRealLinkField({
+          id: 'uidxrl01',
+          name: 'Unique Index Rule',
+          dbFieldName: 'link_value',
+          relationship: 'oneOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `unique_index:${field.id().toString()}:${fkColumnName}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing foreign key constraint rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_foreign_key_rule');
+        const targetTableName = createValidTableId('tgt_foreign_key_rule');
+        const fkColumnName = '__fk_foreign_key_rule';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+
+        const field = createRealLinkField({
+          id: 'fkcnst01',
+          name: 'Foreign Key Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `fk:${field.id().toString()}:${fkColumnName}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing order column rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_order_rule');
+        const targetTableName = createValidTableId('tgt_order_rule');
+        const fkColumnName = '__fk_order_rule';
+        const orderColumnName = '__fk_order_rule_order';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+
+        const field = createRealLinkField({
+          id: 'order001',
+          name: 'Order Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `order_column:${field.id().toString()}`,
+          verifyAfterRepair: async () => {
+            const column = await introspector.getColumn(
+              TEST_SCHEMA,
+              sourceTableName,
+              orderColumnName
+            );
+            expect(column._unsafeUnwrap()).toBeTruthy();
+          },
+        });
+      });
+
+      it('should repair missing field metadata through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_field_meta_rule');
+        const targetTableName = createValidTableId('tgt_field_meta_rule');
+        const fkColumnName = '__fk_field_meta_rule';
+        const orderColumnName = '__fk_field_meta_rule_order';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, [
+          'link_value JSONB',
+          `"${fkColumnName}" TEXT`,
+          `"${orderColumnName}" DOUBLE PRECISION`,
+        ]);
+
+        const field = createRealLinkField({
+          id: 'fldmeta01',
+          name: 'Field Meta Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'Field Meta Rule', '{}') ON CONFLICT (id) DO UPDATE SET meta = '{}'::jsonb`.execute(
+          db
+        );
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `field_meta:${field.id().toString()}`,
+          verifyAfterRepair: async () => {
+            const record = await sql<{ meta: Record<string, unknown> }>`
+              SELECT meta
+              FROM field
+              WHERE id = ${field.id().toString()}
+            `.execute(db);
+
+            expect(record.rows[0]?.meta).toMatchObject({ hasOrderColumn: true });
+          },
+        });
+      });
+
+      it('should repair a missing junction table unique rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_junction_unique_rule');
+        const targetTableName = createValidTableId('tgt_junction_unique_rule');
+        const junctionTableName = 'junction_unique_rule';
+        const selfKeyName = '__fk_junction_unique_self';
+        const foreignKeyName = '__fk_junction_unique_foreign';
+
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await createTestTable(targetTableName);
+        await createExplicitTestTable(junctionTableName, [
+          '__id SERIAL PRIMARY KEY',
+          `${selfKeyName} TEXT`,
+          `${foreignKeyName} TEXT`,
+        ]);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${selfKeyName}
+             FOREIGN KEY (${selfKeyName}) REFERENCES ${TEST_SCHEMA}.${sourceTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${foreignKeyName}
+             FOREIGN KEY (${foreignKeyName}) REFERENCES ${TEST_SCHEMA}.${targetTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'jctuniq01',
+          name: 'Junction Unique Rule',
+          dbFieldName: 'link_value',
+          relationship: 'oneMany',
+          foreignTableId: targetTableName,
+          fkHostTableName: junctionTableName,
+          selfKeyName,
+          foreignKeyName,
+          isOneWay: true,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `junction_unique:${field.id().toString()}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing junction index rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_junction_index_rule');
+        const targetTableName = createValidTableId('tgt_junction_index_rule');
+        const junctionTableName = 'junction_index_rule';
+        const selfKeyName = '__fk_junction_index_self';
+        const foreignKeyName = '__fk_junction_index_foreign';
+
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await createTestTable(targetTableName);
+        await createExplicitTestTable(junctionTableName, [
+          '__id SERIAL PRIMARY KEY',
+          `${selfKeyName} TEXT`,
+          `${foreignKeyName} TEXT`,
+          '__order DOUBLE PRECISION',
+        ]);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT uniq_${selfKeyName}_${foreignKeyName} UNIQUE (${selfKeyName}, ${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${selfKeyName}
+             FOREIGN KEY (${selfKeyName}) REFERENCES ${TEST_SCHEMA}.${sourceTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${foreignKeyName}
+             FOREIGN KEY (${foreignKeyName}) REFERENCES ${TEST_SCHEMA}.${targetTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'jctidx001',
+          name: 'Junction Index Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyMany',
+          foreignTableId: targetTableName,
+          fkHostTableName: junctionTableName,
+          selfKeyName,
+          foreignKeyName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `junction_index:${field.id().toString()}:self`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing junction foreign key rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_junction_fk_rule');
+        const targetTableName = createValidTableId('tgt_junction_fk_rule');
+        const junctionTableName = 'junction_fk_rule';
+        const selfKeyName = '__fk_junction_fk_self';
+        const foreignKeyName = '__fk_junction_fk_foreign';
+
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await createTestTable(targetTableName);
+        await createExplicitTestTable(junctionTableName, [
+          '__id SERIAL PRIMARY KEY',
+          `${selfKeyName} TEXT`,
+          `${foreignKeyName} TEXT`,
+          '__order DOUBLE PRECISION',
+        ]);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT uniq_${selfKeyName}_${foreignKeyName} UNIQUE (${selfKeyName}, ${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${selfKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${selfKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${foreignKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${foreignKeyName}
+             FOREIGN KEY (${foreignKeyName}) REFERENCES ${TEST_SCHEMA}.${targetTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'jctfk001',
+          name: 'Junction Foreign Key Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyMany',
+          foreignTableId: targetTableName,
+          fkHostTableName: junctionTableName,
+          selfKeyName,
+          foreignKeyName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `junction_fk:${field.id().toString()}:self`,
+          expectedStatus: 'warn',
+        });
+      });
     });
   });
 });
