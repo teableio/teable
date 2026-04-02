@@ -843,6 +843,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               ...(restoreValues?.autoNumber !== undefined
                 ? { autoNumber: restoreValues.autoNumber }
                 : {}),
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
             },
           });
 

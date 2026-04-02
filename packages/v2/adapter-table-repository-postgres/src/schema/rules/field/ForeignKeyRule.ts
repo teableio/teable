@@ -85,6 +85,8 @@ export class ForeignKeyRule implements ISchemaRule {
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const constraintName = this.constraintName;
     const localTable = this.getLocalTable(ctx);
+    const fieldName = this.field.name().toString();
+    const targetTableName = this.targetTableName;
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const existsResult = await ctx.introspector.foreignKeyExists(
         localTable.schema,
@@ -96,6 +98,28 @@ export class ForeignKeyRule implements ISchemaRule {
       return ok({
         valid: exists,
         missing: exists ? [] : [`foreign key constraint ${constraintName}`],
+        missingItems: exists
+          ? []
+          : [
+              {
+                code: 'foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `Field "${fieldName}" is missing its foreign key constraint.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                  },
+                  fallback: `Without the foreign key constraint, "${fieldName}" can reference rows that no longer exist in ${targetTableName}.`,
+                },
+              },
+            ],
       });
     });
   }

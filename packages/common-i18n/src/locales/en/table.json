@@ -562,6 +562,20 @@
         "runCheck": "Run Check",
         "recheck": "Re-check",
         "repair": "Repair",
+        "repairWarnings": "Repair warnings only",
+        "repairWarningsAndErrors": "Repair warnings and errors",
+        "repairRule": "Repair rule",
+        "repairUnavailable": "This rule cannot be repaired automatically",
+        "manual": "Manual",
+        "manualRepairNotice": "This issue needs manual repair",
+        "manualRepairNoticeWithCount": "{{count}} issues need manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
+        "manualRepairDialogTitle": "Manual repair required",
+        "manualRepairDialogDescription": "This issue cannot be repaired automatically. Review the guidance below and choose how it should be fixed.",
+        "manualRepairDialogReason": "Why manual repair is needed",
+        "manualRepairDialogHint": "This dialog currently guides the user through the repair choices required by the rule. Execution can be added on top of this contract later.",
+        "manualRepairDialogClose": "Close",
+        "manualRepairPreview": "Manual repair setup",
+        "manualRepairPreviewTip": "Manual repair is not submitted yet. This preview shows the options the rule asks the user to choose from.",
         "checking": "Checking schema...",
         "repairing": "Repairing schema...",
         "streamError": "Failed to stream schema integrity results.",
@@ -590,7 +604,8 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Skipped because this status level was not selected for repair"
         },
         "rule": {
           "column": "Physical column",
@@ -629,7 +644,48 @@
           "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Field \"{{fieldName}}\" should be unique",
+          "columnUniqueMissingDescription": "Add a UNIQUE constraint to \"{{fieldName}}\" so duplicate values cannot be written.",
+          "columnUniqueIndexMismatch": "Field \"{{fieldName}}\" is missing the expected unique index",
+          "columnUniqueIndexMismatchDescription": "Rebuild the index for \"{{fieldName}}\" as a unique index so reads and writes follow the field's uniqueness rule.",
+          "foreignKeyMissing": "Field \"{{fieldName}}\" is missing its foreign key constraint",
+          "foreignKeyMissingDescription": "Restore the foreign key from \"{{fieldName}}\" to \"{{targetTableName}}\" so linked records stay consistent.",
+          "referenceMissing": "Field \"{{fieldName}}\" is missing a reference mapping",
+          "referenceMissingDescription": "Restore the reference metadata between \"{{fieldName}}\" and its dependency field so lookup and relation updates can propagate correctly.",
+          "symmetricFieldTargetMissing": "The paired link field for \"{{fieldName}}\" cannot be found",
+          "symmetricFieldWrongType": "The paired field for \"{{fieldName}}\" is not a link field",
+          "symmetricFieldInvalidOptions": "The paired field for \"{{fieldName}}\" has invalid link configuration",
+          "symmetricFieldMissingBackReference": "The paired field for \"{{fieldName}}\" does not point back to the current field",
+          "symmetricFieldWrongBackReference": "The paired field for \"{{fieldName}}\" points to another field instead of the current one",
+          "symmetricFieldDuplicateUsage": "The symmetric link target \"{{symmetricFieldId}}\" is reused by \"{{conflictFieldName}}\"",
+          "symmetricFieldDuplicateUsageDescription": "Each two-way link pair must have a unique symmetric field. Choose which field should keep this relationship before repairing."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Check results",
@@ -993,8 +1049,12 @@
     "shareLink": "Share link",
     "linkHolderLabel": "The person who obtained the link",
     "linkHolderCanView": "Can view",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Can edit",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Can save as copy",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "Password Protection",
     "enterPassword": "Enter password",
     "selectNodes": "Select Tables",
@@ -1612,6 +1672,13 @@
       "removeFromQueue": "Remove",
       "queueFull": "Queue is full (max 10 messages)",
       "messageQueued": "Message queued"
+    },
+    "effort": {
+      "title": "Select reasoning effort",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "max": "Max"
     }
   },
   "upload": {

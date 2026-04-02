@@ -35,30 +35,28 @@ export const LongTextOptions = (props: {
 
   return (
     <div className="form-control space-y-4 border-t pt-4">
+      <div className="flex w-full flex-col gap-2">
+        <Label className="text-sm font-medium">{t('table:field.editor.showAs')}</Label>
+        <Tabs value={selectedType} onValueChange={onShowAsChange} className="w-full">
+          <TabsList className="flex w-full gap-2">
+            <TabsTrigger value={textFlag} className="flex-1 font-normal">
+              {t('table:field.editor.text')}
+            </TabsTrigger>
+            <TabsTrigger value="markdown" className="flex-1 font-normal">
+              {t('table:field.editor.markdown')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       {!isLookup && (
-        <>
-          <div className="flex w-full flex-col gap-2">
-            <Label className="text-sm font-medium">{t('table:field.editor.showAs')}</Label>
-            <Tabs value={selectedType} onValueChange={onShowAsChange} className="w-full">
-              <TabsList className="flex w-full gap-2">
-                <TabsTrigger value={textFlag} className="flex-1 font-normal">
-                  {t('table:field.editor.text')}
-                </TabsTrigger>
-                <TabsTrigger value="markdown" className="flex-1 font-normal">
-                  {t('table:field.editor.markdown')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
-            <Textarea
-              className="w-full"
-              value={options?.defaultValue || ''}
-              onChange={(e) => onDefaultValueChange(e.target.value)}
-              rows={3}
-            />
-          </DefaultValue>
-        </>
+        <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
+          <Textarea
+            className="w-full"
+            value={options?.defaultValue || ''}
+            onChange={(e) => onDefaultValueChange(e.target.value)}
+            rows={3}
+          />
+        </DefaultValue>
       )}
     </div>
   );
