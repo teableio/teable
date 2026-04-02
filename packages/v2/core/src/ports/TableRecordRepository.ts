@@ -200,6 +200,13 @@ export interface InsertOptions {
    * the same transaction after the records are restored.
    */
   cleanupTrashRecordIds?: ReadonlyArray<string>;
+
+  /**
+   * When true, generate SQL to fill missing link titles by JOINing
+   * the foreign table's primary field. Used in typecast mode when
+   * API clients provide link IDs without titles.
+   */
+  fillLinkTitles?: boolean;
 }
 
 export interface ITableRecordRepository {
