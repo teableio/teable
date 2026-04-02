@@ -304,6 +304,7 @@ export * from './domain/table/fields/visitors/FieldValueTypeVisitor';
 export * from './domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 export type { AttachmentField } from './domain/table/fields/types/AttachmentField';
 export type { ButtonField } from './domain/table/fields/types/ButtonField';
+export * from './domain/table/fields/types/ButtonConfirm';
 export * from './domain/table/fields/types/ButtonLabel';
 export * from './domain/table/fields/types/ButtonMaxCount';
 export * from './domain/table/fields/types/ButtonResetCount';

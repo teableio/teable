@@ -128,6 +128,11 @@ interface UpdateOperation {
   type: 'update';
   existingRecord: TableRecordReadModel;
   rowData: ReadonlyArray<unknown>;
+  /**
+   * Per-record editable columns after plugin scoping. `undefined` means this
+   * operation still uses the shared update column set for the paste request.
+   */
+  editableColumns?: ReadonlyArray<EditableColumn>;
 }
 
 /** Represents a create operation for a new record */
@@ -158,6 +163,7 @@ type PendingCreatedRecord = {
 
 type PasteOperationStreamState = {
   iterator: AsyncIterator<Result<PasteOperation, DomainError>>;
+  pendingUpdateOperation?: UpdateOperation;
   pendingCreateOperation?: CreateOperation;
   tableForMutations: Table;
   accumulatedSideEffects: RecordWriteSideEffect[];
@@ -362,6 +368,36 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         updateFilterSpec
       );
       const collectedOperations = yield* await handler.collectPasteOperations(operationsStream);
+      const initialPluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.paste,
+        executionContext: context,
+        table: persistedTable,
+        payload: yield* handler.buildPastePluginPayload(
+          command.typecast,
+          editableColumns,
+          editableColumns,
+          collectedOperations.updateOperations,
+          collectedOperations.createOperations
+        ),
+        isTransactionBound: false,
+      });
+      const pluginScope = yield* initialPluginExecution.getScope();
+      const expandedFieldIds = new Set(
+        plannedColumnExpansion?.newFieldIds.map((fieldId) => fieldId.toString()) ?? []
+      );
+      const scopedUpdateOperations = yield* handler.scopeUpdateOperations(
+        persistedTable,
+        collectedOperations.updateOperations,
+        editableColumns,
+        pluginScope?.recordSpec,
+        initialPluginExecution,
+        expandedFieldIds
+      );
+      const scopedCreateColumns = handler.filterCreateColumns(
+        editableColumns,
+        pluginScope?.createFieldIds,
+        expandedFieldIds
+      );
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.paste,
         executionContext: context,
@@ -369,12 +405,19 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         payload: yield* handler.buildPastePluginPayload(
           command.typecast,
           editableColumns,
-          collectedOperations.updateOperations,
+          scopedCreateColumns,
+          scopedUpdateOperations,
           collectedOperations.createOperations
         ),
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
+      const executableUpdateOperations = scopedUpdateOperations;
+      const executableCreateOperations =
+        scopedCreateColumns.length > 0 ? collectedOperations.createOperations : [];
+      if (executableUpdateOperations.length === 0 && executableCreateOperations.length === 0) {
+        return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
+      }
 
       // 12. Execute paste within transaction
       const eventData: CollectedEventData = {
@@ -390,11 +433,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return handler.executePasteStream(
           txContext,
           tableForPaste,
-          collectedOperations.updateOperations,
-          collectedOperations.createOperations,
+          executableUpdateOperations,
+          executableCreateOperations,
           pluginExecution,
           command.typecast,
           editableColumns,
+          scopedCreateColumns,
           eventData,
           plannedColumnExpansion
         );
@@ -756,6 +800,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           type: 'update' as const,
           existingRecord: readModel,
           rowData: content[rowIndex]!,
+          editableColumns: undefined,
         });
       }
       // Always increment rowIndex to consume the content row (even if skipping update)
@@ -792,9 +837,87 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return ok({ updateOperations, createOperations });
   }
 
+  private filterUpdateColumns(
+    editableColumns: ReadonlyArray<EditableColumn>,
+    allowedFieldIds: ReadonlySet<string> | undefined,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): ReadonlyArray<EditableColumn> {
+    if (!allowedFieldIds) {
+      return editableColumns;
+    }
+
+    return editableColumns.filter((column) => {
+      const fieldId = column.fieldId.toString();
+      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
+    });
+  }
+
+  private filterCreateColumns(
+    editableColumns: ReadonlyArray<EditableColumn>,
+    allowedFieldIds: ReadonlySet<string> | undefined,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): ReadonlyArray<EditableColumn> {
+    if (!allowedFieldIds) {
+      return editableColumns;
+    }
+
+    if (allowedFieldIds.size === 0) {
+      return [];
+    }
+
+    return editableColumns.filter((column) => {
+      const fieldId = column.fieldId.toString();
+      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
+    });
+  }
+
+  private scopeUpdateOperations(
+    table: Table,
+    updateOperations: ReadonlyArray<UpdateOperation>,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    recordSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    pluginExecution: RecordWritePluginExecution,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): Result<ReadonlyArray<UpdateOperation>, DomainError> {
+    const authorizedOperations: UpdateOperation[] = [];
+    for (const operation of updateOperations) {
+      const tableRecord = toTableRecord(table, operation.existingRecord);
+      if (tableRecord.isErr()) {
+        return err(tableRecord.error);
+      }
+      if (recordSpec && !recordSpec.isSatisfiedBy(tableRecord.value)) {
+        continue;
+      }
+
+      const allowedFieldIdsResult = pluginExecution.getUpdateFieldIdsForRecord(tableRecord.value);
+      if (allowedFieldIdsResult.isErr()) {
+        return err(allowedFieldIdsResult.error);
+      }
+
+      const operationEditableColumns = this.filterUpdateColumns(
+        editableColumns,
+        allowedFieldIdsResult.value,
+        extraAllowedFieldIds
+      );
+      if (!operationEditableColumns.length) {
+        continue;
+      }
+
+      authorizedOperations.push({
+        ...operation,
+        editableColumns: operationEditableColumns,
+      });
+    }
+
+    return ok(authorizedOperations);
+  }
+
   private buildPastePluginPayload(
     typecast: boolean,
-    editableColumns: ReadonlyArray<EditableColumn>,
+    // Columns shared by the entire update side of the paste request before per-record scoping.
+    updateColumns: ReadonlyArray<EditableColumn>,
+    // Columns that remain createable after plugin scoping and field expansion allowances.
+    createColumns: ReadonlyArray<EditableColumn>,
     updateOperations: ReadonlyArray<UpdateOperation>,
     createOperations: ReadonlyArray<CreateOperation>
   ): Result<
@@ -819,15 +942,28 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return err(recordIdResult.error);
       }
       updateRecordIds.push(recordIdResult.value);
-      updateRecordsFieldValues.push(this.rowDataToFieldValues(operation.rowData, editableColumns));
+      const operationEditableColumns = operation.editableColumns ?? updateColumns;
+      updateRecordsFieldValues.push(
+        this.rowDataToFieldValues(operation.rowData, operationEditableColumns)
+      );
+    }
+
+    const editableFieldIds = new Map<string, FieldId>();
+    for (const operation of updateOperations) {
+      for (const column of operation.editableColumns ?? updateColumns) {
+        editableFieldIds.set(column.fieldId.toString(), column.fieldId);
+      }
+    }
+    for (const column of createColumns) {
+      editableFieldIds.set(column.fieldId.toString(), column.fieldId);
     }
 
     return ok({
-      editableFieldIds: editableColumns.map((column) => column.fieldId),
+      editableFieldIds: [...editableFieldIds.values()],
       updateRecordIds,
       updateRecordsFieldValues,
       createRecordsFieldValues: createOperations.map((operation) =>
-        this.rowDataToFieldValues(operation.rowData, editableColumns)
+        this.rowDataToFieldValues(operation.rowData, createColumns)
       ),
       typecast,
       updateRecordCount: updateOperations.length,
@@ -858,7 +994,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     createOperations: ReadonlyArray<CreateOperation>,
     pluginExecution: RecordWritePluginExecution,
     typecast: boolean,
-    editableColumns: ReadonlyArray<EditableColumn>,
+    updateColumns: ReadonlyArray<EditableColumn>,
+    createColumns: ReadonlyArray<EditableColumn>,
     eventData: CollectedEventData,
     plannedColumnExpansion?: PlannedColumnExpansion
   ): Promise<Result<void, DomainError>> {
@@ -926,7 +1063,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               context,
               streamState,
               typecast,
-              editableColumns,
+              updateColumns,
               batchSize,
               eventData
             )
@@ -953,7 +1090,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               context,
               streamState,
               typecast,
-              editableColumns,
+              createColumns,
               batchSize,
               createdRecordBatches,
               eventData
@@ -1022,13 +1159,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (!updateOperations) {
         return;
       }
+      const batchEditableColumns = updateOperations[0]?.editableColumns ?? editableColumns;
 
       const sideEffectResult = await this.prepareMutationChunk(
         context,
         streamState,
         updateOperations,
         typecast,
-        editableColumns,
+        batchEditableColumns,
         eventData
       );
       if (sideEffectResult.isErr()) {
@@ -1041,7 +1179,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         context,
         typecast,
         batchTable,
-        editableColumns,
+        batchEditableColumns,
         updateOperations.map((operation) => operation.rowData),
         streamState.resolvedLinkValues
       );
@@ -1059,7 +1197,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
 
       const linkTitleMapResult = typecast
-        ? await this.buildLinkTitleMap(context, batchTable, editableColumns, updateOperations)
+        ? await this.buildLinkTitleMap(context, batchTable, batchEditableColumns, updateOperations)
         : ok(new Map());
       if (linkTitleMapResult.isErr()) {
         yield err(linkTitleMapResult.error);
@@ -1081,7 +1219,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const oldValues = new Map<string, unknown>();
         const fieldValues = this.buildEditableFieldValues(
           op.rowData,
-          editableColumns,
+          batchEditableColumns,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
             return this.hydrateLinkValue(
@@ -1130,7 +1268,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             return;
           }
 
-          const changes: RecordFieldChangeDTO[] = editableColumns.map((column) => {
+          const changes: RecordFieldChangeDTO[] = batchEditableColumns.map((column) => {
             const fieldId = column.fieldId;
             const fieldIdStr = fieldId.toString();
             const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
@@ -1340,6 +1478,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     const batch: UpdateOperation[] = [];
+    let expectedSignature: string | undefined;
+
+    if (streamState.pendingUpdateOperation) {
+      batch.push(streamState.pendingUpdateOperation);
+      expectedSignature = this.getEditableColumnSignature(
+        streamState.pendingUpdateOperation.editableColumns
+      );
+      streamState.pendingUpdateOperation = undefined;
+    }
 
     while (batch.length < batchSize) {
       const next = await streamState.iterator.next();
@@ -1357,6 +1504,13 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         break;
       }
 
+      const signature = this.getEditableColumnSignature(operation.editableColumns);
+      if (expectedSignature && signature !== expectedSignature) {
+        streamState.pendingUpdateOperation = operation;
+        break;
+      }
+
+      expectedSignature = signature;
       batch.push(operation);
     }
 
@@ -1367,6 +1521,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     streamState: PasteOperationStreamState,
     batchSize: number
   ): Promise<Result<ReadonlyArray<CreateOperation> | null, DomainError>> {
+    if (streamState.pendingUpdateOperation) {
+      return err(
+        domainError.unexpected({
+          code: 'paste.create_stream.pending_update',
+          message: 'Create stream must not start while update operations are still pending',
+        })
+      );
+    }
+
     const batch: CreateOperation[] = [];
 
     if (streamState.pendingCreateOperation) {
@@ -1398,6 +1561,18 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     return ok(batch.length > 0 ? batch : null);
+  }
+
+  /**
+   * Group only contiguous update operations with the same scoped columns. In the worst case,
+   * alternating per-record permissions can reduce batching to single-row updates.
+   */
+  private getEditableColumnSignature(
+    editableColumns: ReadonlyArray<EditableColumn> | undefined
+  ): string {
+    return (editableColumns ?? [])
+      .map((column) => `${column.fieldId.toString()}:${column.columnIndex}`)
+      .join('|');
   }
 
   private async prepareMutationChunk(
