@@ -34,6 +34,7 @@ import {
 } from '../domain/table/fields/FieldFactory';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { ButtonConfirm } from '../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../domain/table/fields/types/ButtonResetCount';
@@ -2105,6 +2106,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
     private readonly maxCount: ButtonMaxCount | undefined,
     private readonly resetCount: ButtonResetCount | undefined,
     private readonly workflow: ButtonWorkflow | undefined,
+    private readonly confirm: ButtonConfirm | undefined,
     private readonly notNull: FieldNotNull,
     private readonly unique: FieldUnique
   ) {}
@@ -2119,6 +2121,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
       maxCount?: ButtonMaxCount;
       resetCount?: ButtonResetCount;
       workflow?: ButtonWorkflow;
+      confirm?: ButtonConfirm;
       notNull: FieldNotNull;
       unique: FieldUnique;
     }
@@ -2131,6 +2134,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
       options.maxCount,
       options.resetCount,
       options.workflow,
+      options.confirm,
       options.notNull,
       options.unique
     ).withPrimary(options.isPrimary);
@@ -2149,6 +2153,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
     if (this.maxCount) fieldBuilder.withMaxCount(this.maxCount);
     if (this.resetCount) fieldBuilder.withResetCount(this.resetCount);
     if (this.workflow) fieldBuilder.withWorkflow(this.workflow);
+    if (this.confirm) fieldBuilder.withConfirm(this.confirm);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
@@ -2165,6 +2170,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
         maxCount: this.maxCount,
         resetCount: this.resetCount,
         workflow: this.workflow,
+        confirm: this.confirm,
         notNull: this.notNull,
         unique: this.unique,
       })
@@ -2645,17 +2651,20 @@ export const parseTableFieldSpec = (
                 optional(field.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
                   optional(field.options?.resetCount, ButtonResetCount.create).andThen(
                     (resetCount) =>
-                      optional(field.options?.workflow, ButtonWorkflow.create).map((workflow) =>
-                        CreateButtonFieldSpec.create(id, name, {
-                          isPrimary: options.isPrimary,
-                          label,
-                          color,
-                          maxCount,
-                          resetCount,
-                          workflow,
-                          notNull: validation.notNull,
-                          unique: validation.unique,
-                        })
+                      optional(field.options?.workflow, ButtonWorkflow.create).andThen((workflow) =>
+                        optional(field.options?.confirm, ButtonConfirm.create).map((confirm) =>
+                          CreateButtonFieldSpec.create(id, name, {
+                            isPrimary: options.isPrimary,
+                            label,
+                            color,
+                            maxCount,
+                            resetCount,
+                            workflow,
+                            confirm,
+                            notNull: validation.notNull,
+                            unique: validation.unique,
+                          })
+                        )
                       )
                   )
                 )
