@@ -4535,8 +4535,12 @@ export type I18nTranslations = {
             "shareLink": string;
             "linkHolderLabel": string;
             "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
             "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
             "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "editRequiresLogin": string;
             "passwordProtection": string;
             "enterPassword": string;
             "selectNodes": string;
@@ -5154,6 +5158,13 @@ export type I18nTranslations = {
                 "removeFromQueue": string;
                 "queueFull": string;
                 "messageQueued": string;
+            };
+            "effort": {
+                "title": string;
+                "low": string;
+                "medium": string;
+                "high": string;
+                "max": string;
             };
         };
         "download": {

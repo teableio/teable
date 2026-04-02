@@ -40,6 +40,18 @@ import {
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from './shared/orderBy';
+import { toTableRecord } from './shared/toTableRecord';
+
+const filterScopedFieldIds = <T extends { toString(): string }>(
+  fieldIds: ReadonlyArray<T>,
+  allowedFieldIds: ReadonlySet<string> | undefined
+): T[] => {
+  if (!allowedFieldIds) {
+    return [...fieldIds];
+  }
+
+  return fieldIds.filter((fieldId) => allowedFieldIds.has(fieldId.toString()));
+};
 
 export interface ClearResult {
   /** Number of records updated (cleared) */
@@ -149,6 +161,55 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         return ok({ updatedCount: 0 });
       }
 
+      const initialClearedFieldValues = new Map<string, unknown>();
+      for (const fieldId of editableFieldIds) {
+        initialClearedFieldValues.set(fieldId.toString(), null);
+      }
+      const initialPluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.updateMany,
+        executionContext: context,
+        table,
+        payload: {
+          variant: 'selector',
+          fieldValues: initialClearedFieldValues,
+          fieldKeyType: FieldKeyType.Id,
+          typecast: false,
+          recordIds: [],
+          recordCount: 0,
+        },
+        isTransactionBound: false,
+      });
+      const pluginScope = yield* initialPluginExecution.getScope();
+      const scopedEditableFieldIds = filterScopedFieldIds(
+        editableFieldIds,
+        pluginScope?.updateFieldIds
+      );
+      const pluginRecordSpec = pluginScope?.recordSpec;
+
+      const clearedFieldValues = new Map<string, unknown>();
+      for (const fieldId of scopedEditableFieldIds) {
+        clearedFieldValues.set(fieldId.toString(), null);
+      }
+
+      if (scopedEditableFieldIds.length === 0) {
+        const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+          kind: RecordWriteOperationKind.updateMany,
+          executionContext: context,
+          table,
+          payload: {
+            variant: 'selector',
+            fieldValues: clearedFieldValues,
+            fieldKeyType: FieldKeyType.Id,
+            typecast: false,
+            recordIds: [],
+            recordCount: 0,
+          },
+          isTransactionBound: false,
+        });
+        yield* await pluginExecution.guard();
+        return ok({ updatedCount: 0 });
+      }
+
       // 8. Build orderBy from group + sort for correct row mapping
       // If none provided, fall back to view row order column (__row_{viewId})
       const effectiveGroup = command.ignoreViewQuery
@@ -185,12 +246,30 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         }
 
         const record = recordResult.value;
+        let tableRecord: TableRecord | undefined;
+        if (pluginRecordSpec || pluginScope?.resolveUpdateFieldIdsForRecord) {
+          tableRecord = yield* toTableRecord(table, record);
+        }
+        if (pluginRecordSpec && tableRecord && !pluginRecordSpec.isSatisfiedBy(tableRecord)) {
+          continue;
+        }
         const recordId = yield* RecordId.create(record.id);
         const fieldValues = new Map<string, unknown>();
         const changes: RecordFieldChangeDTO[] = [];
 
         let hasNonNullValue = false;
-        for (const fieldId of editableFieldIds) {
+        const perRecordAllowedFieldIds = tableRecord
+          ? yield* initialPluginExecution.getUpdateFieldIdsForRecord(tableRecord)
+          : undefined;
+        const recordScopedEditableFieldIds = filterScopedFieldIds(
+          scopedEditableFieldIds,
+          perRecordAllowedFieldIds
+        );
+        if (recordScopedEditableFieldIds.length === 0) {
+          continue;
+        }
+
+        for (const fieldId of recordScopedEditableFieldIds) {
           const fieldIdStr = fieldId.toString();
           const oldValue = record.fields[fieldIdStr];
           if (oldValue !== null && oldValue !== undefined) {
@@ -213,11 +292,22 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       }
 
       if (updateItems.length === 0) {
+        const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+          kind: RecordWriteOperationKind.updateMany,
+          executionContext: context,
+          table,
+          payload: {
+            variant: 'selector',
+            fieldValues: clearedFieldValues,
+            fieldKeyType: FieldKeyType.Id,
+            typecast: false,
+            recordIds: [],
+            recordCount: 0,
+          },
+          isTransactionBound: false,
+        });
+        yield* await pluginExecution.guard();
         return ok({ updatedCount: 0 });
-      }
-      const clearedFieldValues = new Map<string, unknown>();
-      for (const fieldId of editableFieldIds) {
-        clearedFieldValues.set(fieldId.toString(), null);
       }
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.updateMany,
