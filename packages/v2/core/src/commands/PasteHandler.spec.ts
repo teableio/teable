@@ -18,13 +18,13 @@ import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { FieldType } from '../domain/table/fields/FieldType';
 import { CellValueMultiplicity } from '../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../domain/table/fields/types/CellValueType';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
-import { UserField } from '../domain/table/fields/types/UserField';
-import { FieldType } from '../domain/table/fields/FieldType';
+import type { UserField } from '../domain/table/fields/types/UserField';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -54,19 +54,18 @@ import type {
   TableUpdatePersistResult,
 } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import {
   createUndoRedoCommand,
   flattenUndoRedoCommands,
   type UndoRedoApplyFieldSnapshotCommandData,
   type UndoRedoDeleteFieldCommandData,
 } from '../ports/UndoRedoStore';
+import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { PasteCommand } from './PasteCommand';
 import { PasteHandler } from './PasteHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
-  expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -1482,7 +1481,13 @@ describe('PasteHandler', () => {
 
       const result = await handler.handle(createContext(), command._unsafeUnwrap());
       expect(result.isOk()).toBe(true);
-      expect(executionOrder).toEqual(['prepare:0', 'beforePersist:0', 'ddl', 'insert']);
+      expect(executionOrder).toEqual([
+        'prepare:0',
+        'prepare:0',
+        'beforePersist:0',
+        'ddl',
+        'insert',
+      ]);
       expect(beforePersistFieldCount).toBe(2);
       expect(insertedFieldCount).toBe(3);
     });
@@ -1754,6 +1759,180 @@ describe('PasteHandler', () => {
     });
   });
 
+  it('trims paste update and create fields from plugin scope independently', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'p'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [textFieldId.toString()]: 'old-title',
+          [numberFieldId.toString()]: 1,
+        },
+      },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new PasteHandler(
+      tableQueryService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      new FakeFieldCreationSideEffectService() as never,
+      new FakeForeignTableLoaderService() as never,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createRecordWritePluginRunner([
+        {
+          name: 'paste-scope-fields',
+          supports: (operation) => operation === RecordWriteOperationKind.paste,
+          scope: async () =>
+            ok({
+              updateFieldIds: new Set([textFieldId.toString()]),
+              createFieldIds: new Set([numberFieldId.toString()]),
+            }),
+          guard: async () => ok(undefined),
+        },
+      ]),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = PasteCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 1],
+      ],
+      content: [
+        ['new-title', 99],
+        ['created-title', 123],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toMatchObject({
+      updatedCount: 1,
+      createdCount: 1,
+    });
+    expect(recordRepository.updated).toHaveLength(1);
+    expect(recordRepository.inserted).toHaveLength(1);
+    expect(recordRepository.updated[0]?.record.fields().get(textFieldId)?.toValue()).toBe(
+      'new-title'
+    );
+    expect(recordRepository.updated[0]?.record.fields().get(numberFieldId)).toBeUndefined();
+    expect(recordRepository.inserted[0]?.fields().get(textFieldId)).toBeUndefined();
+    expect(recordRepository.inserted[0]?.fields().get(numberFieldId)?.toValue()).toBe(123);
+  });
+
+  it('trims paste update fields per record when plugin field scope varies by record', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'a'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [textFieldId.toString()]: 'row-1',
+          [numberFieldId.toString()]: 1,
+        },
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [textFieldId.toString()]: 'row-2',
+          [numberFieldId.toString()]: 2,
+        },
+      },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new PasteHandler(
+      tableQueryService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      new FakeFieldCreationSideEffectService() as never,
+      new FakeForeignTableLoaderService() as never,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopPasteLinkAutoResolveService,
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createRecordWritePluginRunner([
+        {
+          name: 'paste-scope-fields-per-record',
+          supports: (operation) => operation === RecordWriteOperationKind.paste,
+          scope: async () =>
+            ok({
+              updateFieldIds: new Set([textFieldId.toString(), numberFieldId.toString()]),
+              resolveUpdateFieldIdsForRecord: (record) =>
+                record.fields().get(textFieldId)?.toValue() === 'row-1'
+                  ? new Set([textFieldId.toString()])
+                  : new Set([numberFieldId.toString()]),
+            }),
+          guard: async () => ok(undefined),
+        },
+      ]),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = PasteCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 1],
+      ],
+      content: [
+        ['updated-row-1', 11],
+        ['updated-row-2', 22],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toMatchObject({
+      updatedCount: 2,
+      createdCount: 0,
+    });
+    expect(recordRepository.updated).toHaveLength(2);
+    expect(recordRepository.updated[0]?.record.fields().get(textFieldId)?.toValue()).toBe(
+      'updated-row-1'
+    );
+    expect(recordRepository.updated[0]?.record.fields().get(numberFieldId)).toBeUndefined();
+    expect(recordRepository.updated[1]?.record.fields().get(textFieldId)).toBeUndefined();
+    expect(recordRepository.updated[1]?.record.fields().get(numberFieldId)?.toValue()).toBe(22);
+  });
+
   it('skips plugins that do not support paste', async () => {
     const { table, tableId } = buildTable();
     const viewId = table.views()[0]!.id();
@@ -1799,7 +1978,14 @@ describe('PasteHandler', () => {
     const result = await handler.handle(createContext(), command);
     result._unsafeUnwrap();
 
-    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.paste);
+    expect(calls.supports).toEqual([
+      RecordWriteOperationKind.paste,
+      RecordWriteOperationKind.paste,
+    ]);
+    expect(calls.prepare).toHaveLength(0);
+    expect(calls.guard).toHaveLength(0);
+    expect(calls.beforePersist).toHaveLength(0);
+    expect(calls.afterCommit).toHaveLength(0);
   });
 
   it('rejects when a plugin blocks paste', async () => {

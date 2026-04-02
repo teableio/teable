@@ -3,6 +3,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
+import { getRuleRepairHint } from '../core/RuleRepairMetadata';
 import {
   createSchemaRulePlanner,
   getSchemaRulePlanningStageDescription,
@@ -110,14 +111,26 @@ export class SchemaChecker {
           } else {
             const details = {
               missing: validation.missing,
+              missingItems: validation.missingItems,
               extra: validation.extra,
+              extraItems: validation.extraItems,
             };
+            const repairResult = getRuleRepairHint(rule, ctx, validation, {
+              skipStatementCheck: true,
+            });
+            const repair = repairResult.isOk() ? repairResult.value : undefined;
 
             if (rule.required) {
-              yield errorResult(pending, 'Schema validation failed', details);
+              yield {
+                ...errorResult(pending, 'Schema validation failed', details),
+                repair,
+              };
               validatedRules.set(rule.id, false);
             } else {
-              yield warnResult(pending, 'Schema element missing', details);
+              yield {
+                ...warnResult(pending, 'Schema element missing', details),
+                repair,
+              };
               validatedRules.set(rule.id, true);
             }
           }
@@ -205,21 +218,36 @@ export class SchemaChecker {
             yield successResult(pending);
             validatedRules.set(rule.id, true);
           } else {
-            const details = { missing: validation.missing, extra: validation.extra };
+            const details = {
+              missing: validation.missing,
+              missingItems: validation.missingItems,
+              extra: validation.extra,
+              extraItems: validation.extraItems,
+            };
+            const repairResult = getRuleRepairHint(rule, ctx, validation, {
+              skipStatementCheck: true,
+            });
+            const repair = repairResult.isOk() ? repairResult.value : undefined;
 
             if (rule.required) {
-              yield errorResult(
-                pending,
-                `Schema validation failed: ${validation.missing?.join(', ') || 'unknown issue'}`,
-                details
-              );
+              yield {
+                ...errorResult(
+                  pending,
+                  `Schema validation failed: ${validation.missing?.join(', ') || 'unknown issue'}`,
+                  details
+                ),
+                repair,
+              };
               validatedRules.set(rule.id, false);
             } else {
-              yield warnResult(
-                pending,
-                `Optional schema element missing: ${validation.missing?.join(', ')}`,
-                details
-              );
+              yield {
+                ...warnResult(
+                  pending,
+                  `Optional schema element missing: ${validation.missing?.join(', ')}`,
+                  details
+                ),
+                repair,
+              };
               validatedRules.set(rule.id, true);
             }
           }
