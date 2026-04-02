@@ -1856,7 +1856,7 @@ export class RecordOpenApiV2Service {
         tableId,
         [duplicatedRecordId],
         undefined,
-        FieldKeyType.Name,
+        FieldKeyType.Id,
         undefined,
         true
       );
