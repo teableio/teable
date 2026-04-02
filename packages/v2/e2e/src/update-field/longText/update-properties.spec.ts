@@ -26,7 +26,6 @@ const getChoiceNames = (field?: SelectFieldLike) =>
 describe('update-field: longText property updates', () => {
   let ctx: SharedTestContext;
   let tableId: string;
-  let primaryFieldId: string;
   let fieldIdCounter = 0;
 
   const createFieldId = () => {
@@ -46,7 +45,6 @@ describe('update-field: longText property updates', () => {
     tableId = table.id;
     const primaryField = table.fields.find((f) => f.isPrimary);
     if (!primaryField) throw new Error('No primary field');
-    primaryFieldId = primaryField.id;
   });
 
   afterAll(async () => {
