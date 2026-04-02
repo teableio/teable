@@ -5,8 +5,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
-import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import * as LoggerPort from '../../ports/Logger';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
@@ -14,6 +14,7 @@ import type {
   IRecordWritePlugin,
   RecordWritePluginContext,
   RecordWritePluginEnforce,
+  RecordWriteScopedFieldIdsResolver,
   RecordWritePluginScope,
 } from '../../ports/RecordWritePlugin';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -142,6 +143,38 @@ const withRecordWritePluginTraceContext = (
   };
 };
 
+const intersectDefinedSets = (
+  sets: ReadonlyArray<ReadonlySet<string> | undefined>
+): ReadonlySet<string> | undefined => {
+  const definedSets = sets.filter((set): set is ReadonlySet<string> => set != null);
+  if (!definedSets.length) {
+    return undefined;
+  }
+
+  const [firstSet, ...restSets] = definedSets;
+  return new Set([...firstSet].filter((value) => restSets.every((set) => set.has(value))));
+};
+
+const composeUpdateFieldResolvers = (
+  resolvers: ReadonlyArray<RecordWriteScopedFieldIdsResolver | undefined>,
+  staticFieldIds: ReadonlySet<string> | undefined
+): RecordWriteScopedFieldIdsResolver | undefined => {
+  const definedResolvers = resolvers.filter(
+    (resolver): resolver is RecordWriteScopedFieldIdsResolver => resolver != null
+  );
+
+  if (!definedResolvers.length && !staticFieldIds) {
+    return undefined;
+  }
+
+  return (record) => {
+    const dynamicFieldIds = intersectDefinedSets(
+      definedResolvers.map((resolver) => resolver(record))
+    );
+    return intersectDefinedSets([staticFieldIds, dynamicFieldIds]);
+  };
+};
+
 const withRecordWritePluginSpan = async <T>(
   context: RecordWritePluginContext,
   pluginName: string,
@@ -183,10 +216,7 @@ export class RecordWritePluginExecution {
     return this.runPhase('guard', this.context);
   }
 
-  getRecordSpec(): Result<
-    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    DomainError
-  > {
+  getScope(): Result<RecordWritePluginScope | undefined, DomainError> {
     const specs = this.preparedPlugins
       .map((entry) => entry.scope?.recordSpec)
       .filter(
@@ -194,7 +224,41 @@ export class RecordWritePluginExecution {
           spec != null
       );
 
-    return ok(composeAndSpecsOrUndefined(specs));
+    const recordSpec = composeAndSpecsOrUndefined(specs);
+    const updateFieldIds = intersectDefinedSets(
+      this.preparedPlugins.map((entry) => entry.scope?.updateFieldIds)
+    );
+    const createFieldIds = intersectDefinedSets(
+      this.preparedPlugins.map((entry) => entry.scope?.createFieldIds)
+    );
+    const resolveUpdateFieldIdsForRecord = composeUpdateFieldResolvers(
+      this.preparedPlugins.map((entry) => entry.scope?.resolveUpdateFieldIdsForRecord),
+      updateFieldIds
+    );
+
+    if (!recordSpec && !updateFieldIds && !createFieldIds && !resolveUpdateFieldIdsForRecord) {
+      return ok(undefined);
+    }
+
+    return ok({
+      ...(recordSpec ? { recordSpec } : {}),
+      ...(updateFieldIds ? { updateFieldIds } : {}),
+      ...(createFieldIds ? { createFieldIds } : {}),
+      ...(resolveUpdateFieldIdsForRecord ? { resolveUpdateFieldIdsForRecord } : {}),
+    });
+  }
+
+  getRecordSpec(): Result<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    DomainError
+  > {
+    return this.getScope().map((scope) => scope?.recordSpec);
+  }
+
+  getUpdateFieldIdsForRecord(
+    record: TableRecord
+  ): Result<ReadonlySet<string> | undefined, DomainError> {
+    return this.getScope().map((scope) => scope?.resolveUpdateFieldIdsForRecord?.(record));
   }
 
   async beforePersist(executionContext: IExecutionContext): Promise<Result<void, DomainError>> {

@@ -563,6 +563,20 @@
         "runCheck": "开始检查",
         "recheck": "重新检查",
         "repair": "修复",
+        "repairWarnings": "仅修复警告",
+        "repairWarningsAndErrors": "修复警告和错误",
+        "repairRule": "修复此规则",
+        "repairUnavailable": "该规则暂不支持自动修复",
+        "manual": "手动处理",
+        "manualRepairNotice": "这个问题需要手动修复",
+        "manualRepairNoticeWithCount": "有 {{count}} 个问题需要手动修复。请点击对应规则右侧的“手动处理”按钮打开修复弹窗。",
+        "manualRepairDialogTitle": "需要手动修复",
+        "manualRepairDialogDescription": "这个问题无法自动修复。请先阅读下面的说明，再选择合适的处理方式。",
+        "manualRepairDialogReason": "为什么需要手动修复",
+        "manualRepairDialogHint": "当前弹窗先承载规则要求的修复说明和配置项，后续可以在这个契约上继续补真正的执行动作。",
+        "manualRepairDialogClose": "关闭",
+        "manualRepairPreview": "手动修复配置",
+        "manualRepairPreviewTip": "当前仅展示规则要求用户提供的修复选项，尚未真正提交执行。",
         "checking": "正在检查 schema...",
         "repairing": "正在修复 schema...",
         "streamError": "Schema 完整性流式请求失败。",
@@ -591,7 +605,9 @@
           "checkCompleted": "Schema 检查已完成",
           "baseCheckCompleted": "Base Schema 检查已完成",
           "repairCompleted": "Schema 修复已完成",
-          "baseRepairCompleted": "Base Schema 修复已完成"
+          "baseRepairCompleted": "Base Schema 修复已完成",
+          "skippedStatusNotSelected": "已跳过：当前未选择修复这个级别的问题",
+          "skippedRepairUnavailable": "已跳过：当前状态下无法自动修复"
         },
         "rule": {
           "column": "物理列",
@@ -630,7 +646,52 @@
           "systemColumnNotNull": "系统列 \"{{columnName}}\" 应为 NOT NULL",
           "systemColumnUnique": "系统列 \"{{columnName}}\" 应有唯一索引",
           "systemColumnPrimaryKey": "系统列 \"{{columnName}}\" 应为 PRIMARY KEY",
-          "systemColumnDefault": "系统列 \"{{columnName}}\" 应有默认表达式"
+          "systemColumnDefault": "系统列 \"{{columnName}}\" 应有默认表达式",
+          "columnUniqueMissing": "字段「{{fieldName}}」应保持唯一",
+          "columnUniqueMissingDescription": "需要为字段「{{fieldName}}」补上唯一约束，避免继续写入重复值。",
+          "columnUniqueIndexMismatch": "字段「{{fieldName}}」缺少预期的唯一索引",
+          "columnUniqueIndexMismatchDescription": "需要把字段「{{fieldName}}」的索引重建为唯一索引，才能保证唯一性规则真正生效。",
+          "foreignKeyMissing": "字段「{{fieldName}}」缺少外键约束",
+          "foreignKeyMissingDescription": "需要恢复字段「{{fieldName}}」到表「{{targetTableName}}」的外键约束，保证关联数据的一致性。",
+          "foreignKeyTargetTableMissing": "字段「{{fieldName}}」关联的目标表不存在",
+          "foreignKeyTargetTableMissingDescription": "外键目标表「{{targetPhysicalTableName}}」不存在，因此当前无法自动补上字段「{{fieldName}}」的外键约束。",
+          "referenceMissing": "字段「{{fieldName}}」缺少引用映射",
+          "referenceMissingDescription": "需要恢复字段「{{fieldName}}」与依赖字段之间的引用元数据，才能正确触发 lookup / relation 的联动更新。",
+          "symmetricFieldTargetMissing": "字段「{{fieldName}}」对应的对称关联字段不存在",
+          "symmetricFieldWrongType": "字段「{{fieldName}}」对应的对称字段不是关联字段",
+          "symmetricFieldInvalidOptions": "字段「{{fieldName}}」对应的对称字段配置不合法",
+          "symmetricFieldMissingBackReference": "字段「{{fieldName}}」对应的对称字段没有回指当前字段",
+          "symmetricFieldWrongBackReference": "字段「{{fieldName}}」对应的对称字段指向了其他字段，而不是当前字段",
+          "symmetricFieldDuplicateUsage": "对称关联目标「{{symmetricFieldId}}」同时被字段「{{conflictFieldName}}」占用",
+          "symmetricFieldDuplicateUsageDescription": "同一个双向关联只能有一组唯一的对称字段。修复前需要先决定应该由哪个字段保留这组双向关系。"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "该规则当前已经是正确状态",
+            "manualRule": "该规则需要人工决策后才能修复",
+            "statementGenerationFailed": "系统无法安全生成修复语句",
+            "noStatements": "该规则没有可执行的自动修复语句",
+            "symmetricFieldConflict": "这个对称关联冲突需要先手动选择修复策略",
+            "foreignKeyTargetTableMissing": "当前无法自动修复：关联目标表不存在"
+          },
+          "description": {
+            "symmetricFieldConflict": "有多个字段同时指向同一个对称关联目标。需要先决定哪一个字段应该保留双向关联关系，再继续修复。",
+            "foreignKeyTargetTableMissing": "请先确认关联目标表 {{targetPhysicalTableName}} 是否已被删除或重命名。恢复目标表后可重新执行修复；如果该关联已经不再需要，请修改或删除字段「{{fieldName}}」的关联配置。"
+          },
+          "manual": {
+            "apply": "执行手动修复",
+            "symmetricField": {
+              "title": "处理对称关联冲突",
+              "description": "请选择这组重复对称关联应如何修复。",
+              "resolutionLabel": "修复策略",
+              "resolutionDescription": "选择哪个字段应该保留双向关联行为。",
+              "option": {
+                "keepCurrent": "保留当前字段为双向关联",
+                "keepDuplicate": "保留冲突字段为双向关联",
+                "convertDuplicate": "将冲突字段改为单向关联"
+              }
+            }
+          }
         },
         "phase": {
           "check": "检查结果",
@@ -995,8 +1056,12 @@
     "shareLink": "分享链接",
     "linkHolderLabel": "获得链接的人",
     "linkHolderCanView": "可查看",
+    "linkHolderCanViewDesc": "获得链接的人可以查看数据",
     "linkHolderCanEdit": "可编辑",
+    "linkHolderCanEditDesc": "登录用户可以编辑表格中的记录",
     "linkHolderCanCopyAndSave": "可另存为副本",
+    "linkHolderCanCopyAndSaveDesc": "获得链接的人可以将数据保存到自己的空间",
+    "editRequiresLogin": "用户必须登录才能编辑记录",
     "passwordProtection": "密码保护",
     "enterPassword": "输入密码",
     "selectNodes": "选择数据表",
@@ -1613,6 +1678,13 @@
       "removeFromQueue": "移除",
       "queueFull": "队列已满（最多 10 条消息）",
       "messageQueued": "消息已加入队列"
+    },
+    "effort": {
+      "title": "选择推理功能",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "max": "超高"
     }
   },
   "upload": {

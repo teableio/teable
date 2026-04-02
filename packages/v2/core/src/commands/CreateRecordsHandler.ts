@@ -204,7 +204,10 @@ export class CreateRecordsHandler
               transactionContext,
               tableForCreate,
               records,
-              command.order ? { order: command.order } : undefined
+              {
+                ...(command.order ? { order: command.order } : {}),
+                fillLinkTitles: command.typecast,
+              }
             );
             return ok({ mutation, tableEvents });
           });
