@@ -112,6 +112,7 @@ export const registerV2NodePgDependencies = async (
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
         const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);

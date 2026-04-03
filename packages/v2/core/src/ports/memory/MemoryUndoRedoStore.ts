@@ -2,7 +2,14 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import type { IUndoRedoStore, UndoEntry, UndoRedoListOptions, UndoScope } from '../UndoRedoStore';
+import {
+  composeUndoRedoCommands,
+  flattenUndoRedoCommands,
+  type IUndoRedoStore,
+  type UndoEntry,
+  type UndoRedoListOptions,
+  type UndoScope,
+} from '../UndoRedoStore';
 
 type UndoRedoState = {
   entries: UndoEntry[];
@@ -27,8 +34,10 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     if (state.cursor <= 0) {
       return ok(null);
     }
-    state.cursor -= 1;
-    return ok(state.entries[state.cursor] ?? null);
+    const currentIndex = state.cursor - 1;
+    const group = this.resolveUndoGroup(state.entries, currentIndex);
+    state.cursor = group.startIndex;
+    return ok(this.composeGroupedEntry(group.entries));
   }
 
   async redo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>> {
@@ -36,9 +45,9 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     if (state.cursor >= state.entries.length) {
       return ok(null);
     }
-    const entry = state.entries[state.cursor] ?? null;
-    state.cursor += 1;
-    return ok(entry);
+    const group = this.resolveRedoGroup(state.entries, state.cursor);
+    state.cursor = group.endIndex;
+    return ok(this.composeGroupedEntry(group.entries));
   }
 
   async list(
@@ -63,5 +72,64 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
 
   private scopeKey(scope: UndoScope): string {
     return `${scope.actorId.toString()}::${scope.tableId.toString()}::${scope.windowId}`;
+  }
+
+  private resolveUndoGroup(entries: ReadonlyArray<UndoEntry>, currentIndex: number) {
+    const current = entries[currentIndex]!;
+    const groupId = current.groupId;
+    if (!groupId) {
+      return {
+        startIndex: currentIndex,
+        entries: [current],
+      };
+    }
+
+    let startIndex = currentIndex;
+    while (startIndex > 0 && entries[startIndex - 1]?.groupId === groupId) {
+      startIndex -= 1;
+    }
+
+    return {
+      startIndex,
+      entries: entries.slice(startIndex, currentIndex + 1),
+    };
+  }
+
+  private resolveRedoGroup(entries: ReadonlyArray<UndoEntry>, cursor: number) {
+    const current = entries[cursor]!;
+    const groupId = current.groupId;
+    if (!groupId) {
+      return {
+        endIndex: cursor + 1,
+        entries: [current],
+      };
+    }
+
+    let endIndex = cursor + 1;
+    while (endIndex < entries.length && entries[endIndex]?.groupId === groupId) {
+      endIndex += 1;
+    }
+
+    return {
+      endIndex,
+      entries: entries.slice(cursor, endIndex),
+    };
+  }
+
+  private composeGroupedEntry(entries: ReadonlyArray<UndoEntry>): UndoEntry {
+    const undoCommands = entries
+      .slice()
+      .reverse()
+      .flatMap((entry) => flattenUndoRedoCommands(entry.undoCommand));
+    const redoCommands = entries.flatMap((entry) => flattenUndoRedoCommands(entry.redoCommand));
+    const tail = entries.at(-1)!;
+
+    return {
+      ...tail,
+      undoCommand: composeUndoRedoCommands(undoCommands),
+      redoCommand: composeUndoRedoCommands(redoCommands),
+      recordVersionBefore: entries[0]?.recordVersionBefore,
+      recordVersionAfter: tail.recordVersionAfter,
+    };
   }
 }

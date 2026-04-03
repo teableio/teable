@@ -19,6 +19,7 @@ import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertO
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
+import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
@@ -45,6 +46,10 @@ import { IUnitOfWork } from '../../ports/UnitOfWork';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from './ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
@@ -211,7 +216,9 @@ export class RecordBulkUpdateService {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: IUnitOfWork
+    private readonly unitOfWork: IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   async update(
@@ -381,11 +388,21 @@ export class RecordBulkUpdateService {
               }
 
               yield* await pluginExecution.beforePersist(transactionContext);
+              const fillLinkTitleForeignTables = input.typecast
+                ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                    transactionContext,
+                    [specBuildResult.mutateSpec]
+                  )
+                : new Map();
               const mutationResult = yield* await service.tableRecordRepository.updateMany(
                 transactionContext,
                 preparedWrite.tableForWrite,
                 filterSpec,
-                mutateSpec
+                mutateSpec,
+                {
+                  ...(input.typecast ? { fillLinkTitles: true } : {}),
+                  ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                }
               );
 
               if (mutationResult.updatedRecordIds.length === 0) {
@@ -558,6 +575,7 @@ export class RecordBulkUpdateService {
                 );
 
                 const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];
+                const fillLinkTitleSpecs: ICellValueSpec[] = [];
                 let resolvedIndex = 0;
                 let maxBatchSize = 0;
 
@@ -570,6 +588,10 @@ export class RecordBulkUpdateService {
                     transactionContext,
                     batchResult.value
                   );
+
+                  for (const updateResult of batchResult.value) {
+                    fillLinkTitleSpecs.push(updateResult.mutateSpec);
+                  }
 
                   persistedBatches.push(
                     ok({
@@ -631,10 +653,20 @@ export class RecordBulkUpdateService {
                   );
                 }
 
+                const fillLinkTitleForeignTables = input.typecast
+                  ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                      transactionContext,
+                      fillLinkTitleSpecs
+                    )
+                  : new Map();
                 const persistResult = yield* await service.tableRecordRepository.updateManyStream(
                   transactionContext,
                   preparedWrite.tableForWrite,
-                  service.createSyncUpdateBatchesGenerator(persistedBatches)
+                  service.createSyncUpdateBatchesGenerator(persistedBatches),
+                  {
+                    ...(input.typecast ? { fillLinkTitles: true } : {}),
+                    ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                  }
                 );
                 const persistedVersions = new Map(
                   (persistResult.updatedRecords ?? []).map((record) => [

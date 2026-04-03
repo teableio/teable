@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -17,6 +18,7 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { RecordWriteFieldValues } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -73,6 +75,22 @@ export class DuplicateRecordHandler
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
+  private filterFieldValuesByCreateScope(
+    pluginExecution: RecordWritePluginExecution,
+    fieldValues: RecordWriteFieldValues
+  ): Result<RecordWriteFieldValues, DomainError> {
+    return pluginExecution.getScope().map((scope) => {
+      const createFieldIds = scope?.createFieldIds;
+      if (!createFieldIds) {
+        return fieldValues;
+      }
+
+      return new Map(
+        [...fieldValues].filter(([fieldId]) => createFieldIds.has(fieldId))
+      ) as RecordWriteFieldValues;
+    });
+  }
+
   @TraceSpan()
   async handle(
     context: ExecutionContextPort.IExecutionContext,
@@ -112,7 +130,7 @@ export class DuplicateRecordHandler
           fieldValues.set(fieldId, value);
         }
       }
-      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+      const duplicatePluginContext = {
         kind: RecordWriteOperationKind.duplicate,
         executionContext: context,
         table,
@@ -123,7 +141,29 @@ export class DuplicateRecordHandler
           recordCount: 1,
         },
         isTransactionBound: false,
-      });
+      } as const;
+      const initialPluginExecution =
+        yield* await handler.recordWritePluginRunner.prepare(duplicatePluginContext);
+      const scopedFieldValues = yield* handler.filterFieldValuesByCreateScope(
+        initialPluginExecution,
+        fieldValues
+      );
+      const pluginExecution =
+        scopedFieldValues.size === fieldValues.size
+          ? initialPluginExecution
+          : yield* await handler.recordWritePluginRunner.prepare({
+              ...duplicatePluginContext,
+              payload: {
+                ...duplicatePluginContext.payload,
+                fieldValues: scopedFieldValues,
+              },
+            });
+      if (scopedFieldValues !== fieldValues) {
+        fieldValues.clear();
+        for (const [fieldId, value] of scopedFieldValues) {
+          fieldValues.set(fieldId, value);
+        }
+      }
       yield* await pluginExecution.guard();
 
       // 4. Execute side effects on field values
