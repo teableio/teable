@@ -137,7 +137,7 @@ export class SettingOpenApiService {
         capabilities: aiConfig?.capabilities,
         gatewayModels: aiConfig?.gatewayModels,
       },
-      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      appGenerationEnabled: Boolean(appConfig?.vercelToken),
       availableIntegrationProviders,
     };
   }

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import {
   Colors,
@@ -17,8 +18,12 @@ import {
   RangeType,
   IdReturnType,
   CLEAR_URL,
+  CLEAR_STREAM_URL,
+  DELETE_STREAM_URL,
+  DUPLICATE_STREAM_URL,
   DELETE_URL,
   PASTE_URL,
+  PASTE_STREAM_URL,
   X_CANARY_HEADER,
   axios,
   getIdsFromRanges as apiGetIdsFromRanges,
@@ -37,6 +42,7 @@ import {
   getRecords,
   urlBuilder,
 } from '@teable/openapi';
+import { RecordOpenApiV2Service } from '../src/features/record/open-api/record-open-api-v2.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   permanentDeleteBase,
@@ -52,12 +58,14 @@ import {
 describe('OpenAPI SelectionController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
+  let cookie: string;
   const baseId = globalThis.testConfig.baseId;
   const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    cookie = appCtx.cookie;
   });
 
   beforeEach(async () => {
@@ -127,6 +135,442 @@ describe('OpenAPI SelectionController (e2e)', () => {
         },
       }
     );
+  };
+
+  const deleteStreamWithCanary = async (
+    tableId: string,
+    rangesRo: {
+      viewId: string;
+      type: RangeType;
+      ranges: Array<[number, number]>;
+    },
+    useV2: boolean
+  ) => {
+    const streamUrl = axios.getUri({
+      baseURL: axios.defaults.baseURL,
+      url: urlBuilder(DELETE_STREAM_URL, {
+        tableId,
+      }),
+      params: {
+        viewId: rangesRo.viewId,
+        type: rangesRo.type,
+        ranges: JSON.stringify(rangesRo.ranges),
+      },
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/event-stream',
+        Cookie: cookie,
+        [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const progressEvents: Array<{ phase: string; deletedCount: number; totalCount: number }> = [];
+    let doneEvent:
+      | { id: 'done'; data: { deletedRecordIds: string[] }; deletedCount: number }
+      | undefined;
+    const errorEvents: Array<{
+      id: 'error';
+      message: string;
+      batchIndex: number;
+      phase: string;
+      recordIds: string[];
+    }> = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        const event = JSON.parse(jsonStr) as {
+          id: string;
+          phase?: string;
+          deletedCount?: number;
+          totalCount?: number;
+          message?: string;
+          batchIndex?: number;
+          recordIds?: string[];
+          data?: { deletedRecordIds: string[] };
+        };
+
+        if (event.id === 'progress') {
+          progressEvents.push({
+            phase: event.phase ?? 'preparing',
+            deletedCount: event.deletedCount ?? 0,
+            totalCount: event.totalCount ?? 0,
+          });
+        }
+
+        if (event.id === 'done') {
+          doneEvent = event as typeof doneEvent;
+        }
+
+        if (event.id === 'error') {
+          errorEvents.push({
+            id: 'error',
+            message: event.message ?? '',
+            batchIndex: event.batchIndex ?? -1,
+            phase: event.phase ?? 'deleting',
+            recordIds: event.recordIds ?? [],
+          });
+        }
+      }
+    }
+
+    return {
+      headers: {
+        contentType: response.headers.get('content-type'),
+        xAccelBuffering: response.headers.get('x-accel-buffering'),
+        xTeableV2: response.headers.get('x-teable-v2'),
+        xTeableV2Reason: response.headers.get('x-teable-v2-reason'),
+        xTeableV2Feature: response.headers.get('x-teable-v2-feature'),
+        link: response.headers.get('link'),
+        traceparent: response.headers.get('traceparent'),
+      },
+      progressEvents,
+      doneEvent,
+      errorEvents,
+    };
+  };
+
+  const duplicateStreamWithCanary = async (
+    tableId: string,
+    rangesRo: {
+      viewId: string;
+      type: RangeType;
+      ranges: Array<[number, number]>;
+    },
+    useV2: boolean
+  ) => {
+    const streamUrl = axios.getUri({
+      baseURL: axios.defaults.baseURL,
+      url: urlBuilder(DUPLICATE_STREAM_URL, {
+        tableId,
+      }),
+      params: {
+        viewId: rangesRo.viewId,
+        type: rangesRo.type,
+        ranges: JSON.stringify(rangesRo.ranges),
+      },
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/event-stream',
+        Cookie: cookie,
+        [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const progressEvents: Array<{ phase: string; duplicatedCount: number; totalCount: number }> =
+      [];
+    let doneEvent:
+      | { id: 'done'; data: { duplicatedRecordIds: string[] }; duplicatedCount: number }
+      | undefined;
+    const errorEvents: Array<{
+      id: 'error';
+      message: string;
+      batchIndex: number;
+      phase: string;
+      recordIds: string[];
+    }> = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        const event = JSON.parse(jsonStr) as {
+          id: string;
+          phase?: string;
+          duplicatedCount?: number;
+          totalCount?: number;
+          message?: string;
+          batchIndex?: number;
+          recordIds?: string[];
+          data?: { duplicatedRecordIds: string[] };
+        };
+
+        if (event.id === 'progress') {
+          progressEvents.push({
+            phase: event.phase ?? 'preparing',
+            duplicatedCount: event.duplicatedCount ?? 0,
+            totalCount: event.totalCount ?? 0,
+          });
+        }
+
+        if (event.id === 'done') {
+          doneEvent = event as typeof doneEvent;
+        }
+
+        if (event.id === 'error') {
+          errorEvents.push({
+            id: 'error',
+            message: event.message ?? '',
+            batchIndex: event.batchIndex ?? -1,
+            phase: event.phase ?? 'duplicating',
+            recordIds: event.recordIds ?? [],
+          });
+        }
+      }
+    }
+
+    return {
+      progressEvents,
+      doneEvent,
+      errorEvents,
+    };
+  };
+
+  const clearStreamWithCanary = async (
+    tableId: string,
+    rangesRo: {
+      viewId: string;
+      type: RangeType;
+      ranges: Array<[number, number]>;
+    },
+    useV2: boolean
+  ) => {
+    const streamUrl = axios.getUri({
+      baseURL: axios.defaults.baseURL,
+      url: urlBuilder(CLEAR_STREAM_URL, {
+        tableId,
+      }),
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+        Cookie: cookie,
+        [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+      },
+      body: JSON.stringify(rangesRo),
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const progressEvents: Array<{
+      phase: string;
+      processedCount: number;
+      clearedCount: number;
+      totalCount: number;
+    }> = [];
+    let doneEvent:
+      | {
+          id: 'done';
+          processedCount: number;
+          clearedCount: number;
+          data: { clearedRecordIds: string[] };
+        }
+      | undefined;
+    const errorEvents: Array<{
+      id: 'error';
+      message: string;
+      batchIndex: number;
+      phase: string;
+      recordIds: string[];
+    }> = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        const event = JSON.parse(jsonStr) as {
+          id: string;
+          phase?: string;
+          processedCount?: number;
+          clearedCount?: number;
+          totalCount?: number;
+          message?: string;
+          batchIndex?: number;
+          recordIds?: string[];
+          data?: { clearedRecordIds: string[] };
+        };
+
+        if (event.id === 'progress') {
+          progressEvents.push({
+            phase: event.phase ?? 'preparing',
+            processedCount: event.processedCount ?? 0,
+            clearedCount: event.clearedCount ?? 0,
+            totalCount: event.totalCount ?? 0,
+          });
+        }
+
+        if (event.id === 'done') {
+          doneEvent = event as typeof doneEvent;
+        }
+
+        if (event.id === 'error') {
+          errorEvents.push({
+            id: 'error',
+            message: event.message ?? '',
+            batchIndex: event.batchIndex ?? -1,
+            phase: event.phase ?? 'clearing',
+            recordIds: event.recordIds ?? [],
+          });
+        }
+      }
+    }
+
+    return {
+      progressEvents,
+      doneEvent,
+      errorEvents,
+    };
+  };
+
+  const pasteStreamWithCanary = async (tableId: string, pasteRo: IPasteRo, useV2: boolean) => {
+    const streamUrl = axios.getUri({
+      baseURL: axios.defaults.baseURL,
+      url: urlBuilder(PASTE_STREAM_URL, {
+        tableId,
+      }),
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+        Cookie: cookie,
+        [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+      },
+      body: JSON.stringify(pasteRo),
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const progressEvents: Array<{
+      phase: string;
+      processedCount: number;
+      updatedCount: number;
+      createdCount: number;
+      totalCount: number;
+    }> = [];
+    let doneEvent:
+      | {
+          id: 'done';
+          processedCount: number;
+          updatedCount: number;
+          createdCount: number;
+          data: { createdRecordIds: string[]; ranges?: [[number, number], [number, number]] };
+        }
+      | undefined;
+    const errorEvents: Array<{
+      id: 'error';
+      message: string;
+      batchIndex: number;
+      phase: string;
+      recordIds: string[];
+    }> = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        const event = JSON.parse(jsonStr) as {
+          id: string;
+          phase?: string;
+          processedCount?: number;
+          updatedCount?: number;
+          createdCount?: number;
+          totalCount?: number;
+          message?: string;
+          batchIndex?: number;
+          recordIds?: string[];
+          data?: { createdRecordIds: string[]; ranges?: [[number, number], [number, number]] };
+        };
+
+        if (event.id === 'progress') {
+          progressEvents.push({
+            phase: event.phase ?? 'preparing',
+            processedCount: event.processedCount ?? 0,
+            updatedCount: event.updatedCount ?? 0,
+            createdCount: event.createdCount ?? 0,
+            totalCount: event.totalCount ?? 0,
+          });
+        }
+
+        if (event.id === 'done') {
+          doneEvent = event as typeof doneEvent;
+        }
+
+        if (event.id === 'error') {
+          errorEvents.push({
+            id: 'error',
+            message: event.message ?? '',
+            batchIndex: event.batchIndex ?? -1,
+            phase: event.phase ?? 'pasting',
+            recordIds: event.recordIds ?? [],
+          });
+        }
+      }
+    }
+
+    return {
+      progressEvents,
+      doneEvent,
+      errorEvents,
+    };
   };
 
   describe('getIdsFromRanges', () => {
@@ -1701,6 +2145,502 @@ describe('OpenAPI SelectionController (e2e)', () => {
           ).toBe(true);
         } finally {
           await permanentDeleteTable(baseId, deleteTable.id);
+        }
+      }
+    );
+  });
+
+  describe('api/table/:tableId/selection/delete-stream (SSE)', () => {
+    it('should stream v2 delete progress and return the deleted ids', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-1', number: 1 } },
+          { fields: { name: 'stream-2', number: 2 } },
+          { fields: { name: 'stream-3', number: 3 } },
+        ],
+      });
+
+      try {
+        const { progressEvents, doneEvent, errorEvents } = await deleteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 2]],
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.data.deletedRecordIds).toEqual(
+          streamTable.records.map((record) => record.id)
+        );
+        expect(progressEvents.some((event) => event.totalCount === 3)).toBe(true);
+        expect(progressEvents.some((event) => event.deletedCount > 0)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(0);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should expose stream response headers for v2 delete', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-stream-headers',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: [{ fields: { name: 'stream-headers-1' } }],
+      });
+
+      try {
+        const { headers } = await deleteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 0]],
+          },
+          true
+        );
+
+        expect(headers.contentType).toContain('text/event-stream');
+        expect(headers.xAccelBuffering).toBe('no');
+        expect(headers.xTeableV2).toBe('true');
+        expect(headers.xTeableV2Feature).toBe('deleteRecord');
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should allow delete-stream when v2 canary is disabled and fall back to v1 synchronous delete', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-stream-v1-fallback',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-v1-1', number: 1 } },
+          { fields: { name: 'stream-v1-2', number: 2 } },
+          { fields: { name: 'stream-v1-3', number: 3 } },
+        ],
+      });
+
+      try {
+        const { progressEvents, doneEvent, errorEvents } = await deleteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 2]],
+          },
+          false
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(progressEvents.length).toBeGreaterThan(0);
+        expect(progressEvents[0]).toMatchObject({
+          phase: 'preparing',
+          deletedCount: 0,
+        });
+        expect(progressEvents.at(-1)).toMatchObject({
+          totalCount: 3,
+        });
+        expect(doneEvent?.data.deletedRecordIds).toEqual(
+          streamTable.records.map((record) => record.id)
+        );
+        expect(doneEvent?.deletedCount).toBe(3);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(0);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should keep streaming after chunk error events and still deliver the final done event', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-stream-partial-error',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-error-1', number: 1 } },
+          { fields: { name: 'stream-error-2', number: 2 } },
+          { fields: { name: 'stream-error-3', number: 3 } },
+        ],
+      });
+
+      const recordOpenApiV2Service = app.get(RecordOpenApiV2Service);
+      const deleteByRangeStreamSpy = vi
+        .spyOn(recordOpenApiV2Service, 'deleteByRangeStream')
+        .mockImplementation(async function* () {
+          yield {
+            id: 'progress',
+            phase: 'deleting',
+            batchIndex: 0,
+            totalCount: 3,
+            deletedCount: 1,
+            batchDeletedCount: 1,
+          };
+          yield {
+            id: 'error',
+            phase: 'deleting',
+            batchIndex: 1,
+            totalCount: 3,
+            deletedCount: 1,
+            recordIds: [streamTable.records[1]!.id],
+            message: 'chunk 2 failed',
+            code: 'unexpected',
+          };
+          yield {
+            id: 'done',
+            totalCount: 3,
+            deletedCount: 2,
+            data: {
+              deletedCount: 2,
+              deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
+            },
+          };
+        });
+
+      try {
+        const { progressEvents, doneEvent, errorEvents } = await deleteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 2]],
+          },
+          true
+        );
+
+        expect(progressEvents).toHaveLength(1);
+        expect(errorEvents).toEqual([
+          {
+            id: 'error',
+            message: 'chunk 2 failed',
+            batchIndex: 1,
+            phase: 'deleting',
+            recordIds: [streamTable.records[1]!.id],
+          },
+        ]);
+        expect(doneEvent).toMatchObject({
+          id: 'done',
+          deletedCount: 2,
+          data: {
+            deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
+          },
+        });
+      } finally {
+        deleteByRangeStreamSpy.mockRestore();
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+  });
+
+  describe('api/table/:tableId/selection/clear-stream (SSE)', () => {
+    it('should stream v2 clear progress and clear the selected cells', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'clear-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-1', number: 1 } },
+          { fields: { name: 'stream-2', number: 2 } },
+          { fields: { name: 'stream-3', number: 3 } },
+        ],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+        const numberFieldId = streamTable.fields.find((field) => field.name === 'number')!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await clearStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 2]],
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.processedCount).toBe(3);
+        expect(doneEvent?.clearedCount).toBe(3);
+        expect(progressEvents.some((event) => event.totalCount === 3)).toBe(true);
+        expect(progressEvents.some((event) => event.clearedCount > 0)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(3);
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          undefined,
+          undefined,
+          undefined,
+        ]);
+        expect(recordsAfter.data.records.map((record) => record.fields[numberFieldId])).toEqual([
+          undefined,
+          undefined,
+          undefined,
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should allow clear-stream when v2 canary is disabled and fall back to v1 clear', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'clear-stream-v1-fallback',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-v1-1', number: 1 } },
+          { fields: { name: 'stream-v1-2', number: 2 } },
+        ],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await clearStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 1]],
+          },
+          false
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(progressEvents[0]).toMatchObject({
+          phase: 'preparing',
+          processedCount: 0,
+        });
+        expect(doneEvent?.processedCount).toBe(2);
+        expect(doneEvent?.clearedCount).toBe(2);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          undefined,
+          undefined,
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+  });
+
+  describe('api/table/:tableId/selection/duplicate-stream (SSE)', () => {
+    it('should stream v2 duplicate progress and return the duplicated ids', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'duplicate-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-1', number: 1 } },
+          { fields: { name: 'stream-2', number: 2 } },
+        ],
+      });
+
+      try {
+        const { progressEvents, doneEvent, errorEvents } = await duplicateStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 1]],
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.duplicatedCount).toBe(2);
+        expect(doneEvent?.data.duplicatedRecordIds).toHaveLength(2);
+        expect(progressEvents.some((event) => event.totalCount === 2)).toBe(true);
+        expect(progressEvents.some((event) => event.duplicatedCount > 0)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(4);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should allow duplicate-stream when v2 canary is disabled and fall back to v1 duplication', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'duplicate-stream-v1-fallback',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-v1-1', number: 1 } },
+          { fields: { name: 'stream-v1-2', number: 2 } },
+        ],
+      });
+
+      try {
+        const { progressEvents, doneEvent, errorEvents } = await duplicateStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 1]],
+          },
+          false
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(progressEvents.length).toBeGreaterThan(0);
+        expect(progressEvents[0]).toMatchObject({
+          phase: 'preparing',
+          duplicatedCount: 0,
+        });
+        expect(doneEvent?.duplicatedCount).toBe(2);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(4);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+  });
+
+  describe('api/table/:tableId/selection/paste-stream (SSE)', () => {
+    it('should stream v2 paste progress and return the created ids', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'paste-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'stream-1', number: 1 } },
+          { fields: { name: 'stream-2', number: 2 } },
+        ],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await pasteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            ranges: [
+              [0, 0],
+              [1, 2],
+            ],
+            content: [
+              ['updated-1', 11],
+              ['updated-2', 22],
+              ['created-3', 33],
+            ],
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.processedCount).toBe(3);
+        expect(doneEvent?.updatedCount).toBe(2);
+        expect(doneEvent?.createdCount).toBe(1);
+        expect(doneEvent?.data.createdRecordIds).toHaveLength(1);
+        expect(progressEvents.some((event) => event.totalCount === 3)).toBe(true);
+        expect(progressEvents.some((event) => event.processedCount > 0)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(3);
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          'updated-1',
+          'updated-2',
+          'created-3',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it.skipIf(isForceV2)(
+      'should allow paste-stream when v2 canary is disabled and fall back to v1 paste',
+      async () => {
+        const streamTable = await createTable(baseId, {
+          name: 'paste-stream-v1-fallback',
+          fields: [
+            { name: 'name', type: FieldType.SingleLineText },
+            { name: 'number', type: FieldType.Number },
+          ],
+          records: [{ fields: { name: 'stream-v1-1', number: 1 } }],
+        });
+
+        try {
+          const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+
+          const { progressEvents, doneEvent, errorEvents } = await pasteStreamWithCanary(
+            streamTable.id,
+            {
+              viewId: streamTable.views[0].id,
+              ranges: [
+                [0, 0],
+                [1, 1],
+              ],
+              content: [
+                ['fallback-1', 11],
+                ['fallback-2', 22],
+              ],
+            },
+            false
+          );
+
+          expect(errorEvents).toHaveLength(0);
+          expect(progressEvents.length).toBeGreaterThan(0);
+          expect(progressEvents[0]).toMatchObject({
+            phase: 'preparing',
+            processedCount: 0,
+          });
+          expect(doneEvent?.processedCount).toBe(2);
+          expect(doneEvent?.data.ranges).toEqual([
+            [0, 0],
+            [1, 1],
+          ]);
+
+          const recordsAfter = await getRecords(streamTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          expect(recordsAfter.data.records).toHaveLength(2);
+          expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+            'fallback-1',
+            'fallback-2',
+          ]);
+        } finally {
+          await permanentDeleteTable(baseId, streamTable.id);
         }
       }
     );

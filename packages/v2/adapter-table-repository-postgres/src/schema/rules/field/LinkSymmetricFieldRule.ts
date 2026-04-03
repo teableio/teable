@@ -1,13 +1,20 @@
 import type { DomainError, LinkField } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { z } from 'zod';
 
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import {
+  serializeManualRepairSchema,
+  withManualRepairFieldMeta,
+  withManualRepairFormMeta,
+} from '../core/ManualRepairSchema';
 
 /**
  * Schema rule for validating Link field symmetric relationship integrity.
@@ -24,6 +31,64 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
   readonly dependencies: ReadonlyArray<string> = [];
   readonly required = true;
   readonly repairMode = 'manual' as const;
+
+  private readonly manualRepairSchema = withManualRepairFormMeta(
+    z.object({
+      resolution: withManualRepairFieldMeta(
+        z.enum(['keep_current_link', 'keep_duplicate_link', 'convert_duplicate_to_one_way']),
+        {
+          widget: 'select',
+          title: {
+            key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.resolutionLabel',
+            fallback: 'Repair strategy',
+          },
+          description: {
+            key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.resolutionDescription',
+            fallback:
+              'Decide which field keeps the current two-way link, or convert the duplicate link into a one-way link before repairing.',
+          },
+          options: {
+            keep_current_link: {
+              value: 'keep_current_link',
+              label: {
+                key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.option.keepCurrent',
+                fallback: 'Keep the current link as the two-way source',
+              },
+            },
+            keep_duplicate_link: {
+              value: 'keep_duplicate_link',
+              label: {
+                key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.option.keepDuplicate',
+                fallback: 'Keep the duplicate link instead',
+              },
+            },
+            convert_duplicate_to_one_way: {
+              value: 'convert_duplicate_to_one_way',
+              label: {
+                key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.option.convertDuplicate',
+                fallback: 'Convert the duplicate link to one-way',
+              },
+            },
+          },
+        }
+      ).default('keep_current_link'),
+    }),
+    {
+      title: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.title',
+        fallback: 'Resolve symmetric field conflict',
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricField.description',
+        fallback:
+          'This rule cannot be repaired automatically. The user must choose how to handle the duplicate two-way link.',
+      },
+      submitLabel: {
+        key: 'table:table.integrity.v2.repairMeta.manual.apply',
+        fallback: 'Apply manual repair',
+      },
+    }
+  );
 
   private constructor(
     private readonly field: LinkField,
@@ -71,7 +136,25 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
       missing.push(
         `symmetricFieldId "${symmetricFieldId}" does not exist (field may have been deleted)`
       );
-      return ok({ valid: false, missing });
+      return ok({
+        valid: false,
+        missing,
+        missingItems: [
+          {
+            code: 'symmetric_field_missing',
+            message: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldTargetMissing',
+              values: {
+                fieldName: this.field.name().toString(),
+              },
+              fallback: `The paired link field for "${this.field.name().toString()}" does not exist.`,
+            },
+            description: {
+              fallback: missing[0],
+            },
+          },
+        ],
+      });
     }
 
     // 2. Check if symmetric field is a link type
@@ -79,7 +162,27 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
       missing.push(
         `symmetricFieldId "${symmetricFieldId}" (${symmetricFieldResult.name}) is type "${symmetricFieldResult.type}", expected "link"`
       );
-      return ok({ valid: false, missing });
+      return ok({
+        valid: false,
+        missing,
+        missingItems: [
+          {
+            code: 'symmetric_field_wrong_type',
+            message: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldWrongType',
+              values: {
+                fieldName: this.field.name().toString(),
+                targetFieldName: symmetricFieldResult.name,
+                targetFieldType: symmetricFieldResult.type,
+              },
+              fallback: `The paired field "${symmetricFieldResult.name}" is not a link field.`,
+            },
+            description: {
+              fallback: missing[0],
+            },
+          },
+        ],
+      });
     }
 
     // 3. Check bidirectional consistency: symmetric field should point back to this field
@@ -94,7 +197,25 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
         missing.push(
           `symmetricFieldId "${symmetricFieldId}" (${symmetricFieldResult.name}) has invalid JSON in options column`
         );
-        return ok({ valid: false, missing });
+        return ok({
+          valid: false,
+          missing,
+          missingItems: [
+            {
+              code: 'symmetric_field_invalid_options',
+              message: {
+                key: 'table:table.integrity.v2.detail.symmetricFieldInvalidOptions',
+                values: {
+                  targetFieldName: symmetricFieldResult.name,
+                },
+                fallback: `The paired field "${symmetricFieldResult.name}" has invalid link metadata.`,
+              },
+              description: {
+                fallback: missing[0],
+              },
+            },
+          ],
+        });
       }
     }
 
@@ -103,14 +224,52 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
       missing.push(
         `symmetricFieldId "${symmetricFieldId}" (${symmetricFieldResult.name}) has no symmetricFieldId (broken bidirectional link)`
       );
-      return ok({ valid: false, missing });
+      return ok({
+        valid: false,
+        missing,
+        missingItems: [
+          {
+            code: 'symmetric_field_no_back_reference',
+            message: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldMissingBackReference',
+              values: {
+                fieldName: this.field.name().toString(),
+                targetFieldName: symmetricFieldResult.name,
+              },
+              fallback: `The paired field "${symmetricFieldResult.name}" no longer points back to "${this.field.name().toString()}".`,
+            },
+            description: {
+              fallback: missing[0],
+            },
+          },
+        ],
+      });
     }
 
     if (backReference !== currentFieldId) {
       missing.push(
         `symmetricFieldId "${symmetricFieldId}" (${symmetricFieldResult.name}) points to "${backReference}", expected "${currentFieldId}" (broken bidirectional link)`
       );
-      return ok({ valid: false, missing });
+      return ok({
+        valid: false,
+        missing,
+        missingItems: [
+          {
+            code: 'symmetric_field_wrong_back_reference',
+            message: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldWrongBackReference',
+              values: {
+                fieldName: this.field.name().toString(),
+                targetFieldName: symmetricFieldResult.name,
+              },
+              fallback: `The paired field "${symmetricFieldResult.name}" points to another field instead of "${this.field.name().toString()}".`,
+            },
+            description: {
+              fallback: missing[0],
+            },
+          },
+        ],
+      });
     }
 
     // 4. Check for duplicate symmetric field references (uniqueness)
@@ -133,7 +292,31 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
       missing.push(
         `symmetricFieldId "${symmetricFieldId}" is also used by: ${duplicates} (should be unique)`
       );
-      return ok({ valid: false, missing });
+      return ok({
+        valid: false,
+        missing,
+        missingItems: [
+          {
+            code: 'symmetric_field_duplicate_usage',
+            message: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldDuplicateUsage',
+              values: {
+                fieldName: this.field.name().toString(),
+                duplicateFields: duplicateResult.map((r) => r.name).join(', '),
+              },
+              fallback: `The paired link target for "${this.field.name().toString()}" is reused by another link field.`,
+            },
+            description: {
+              key: 'table:table.integrity.v2.detail.symmetricFieldDuplicateUsageDescription',
+              values: {
+                duplicateFields: duplicateResult.map((r) => r.name).join(', '),
+                symmetricFieldId,
+              },
+              fallback: missing[0],
+            },
+          },
+        ],
+      });
     }
 
     return ok({ valid: true });
@@ -152,5 +335,33 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
    */
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return ok([]);
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    const duplicateMessage = validation.missingItems?.find(
+      (item) => item.code === 'symmetric_field_duplicate_usage'
+    );
+    const duplicateSchemaResult = duplicateMessage
+      ? serializeManualRepairSchema(this.manualRepairSchema)
+      : undefined;
+
+    return ok({
+      available: false,
+      mode: 'manual',
+      reason: {
+        key: 'table:table.integrity.v2.repairMeta.reason.symmetricFieldConflict',
+        fallback:
+          'This two-way link needs a user decision because more than one field shares the same symmetric target.',
+      },
+      description: duplicateMessage?.description ?? {
+        key: 'table:table.integrity.v2.repairMeta.description.symmetricFieldConflict',
+        fallback:
+          'Choose which link should keep the existing symmetric pairing, and decide how the duplicate field should be adjusted.',
+      },
+      manualRepairSchema: duplicateSchemaResult?.isOk() ? duplicateSchemaResult.value : undefined,
+    });
   }
 }
