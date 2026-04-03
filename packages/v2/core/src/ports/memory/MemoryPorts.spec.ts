@@ -25,6 +25,8 @@ import { EventHandler, type IEventHandler } from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IHandlerResolver, IClassToken } from '../HandlerResolver';
 import type { IQueryBusMiddleware } from '../QueryBus';
+import type { ISpan, ITracer, SpanAttributes } from '../Tracer';
+import { TeableSpanAttributes } from '../Tracer';
 import type { AsyncEventBusError, AsyncEventBusScheduler } from './AsyncMemoryEventBus';
 import { AsyncMemoryEventBus } from './AsyncMemoryEventBus';
 import { MemoryCommandBus } from './MemoryCommandBus';
@@ -42,6 +44,68 @@ const waitForPredicate = async (predicate: () => boolean, timeoutMs = 100): Prom
   }
 };
 
+class FakeSpan implements ISpan {
+  readonly attributes: Array<[string, string | number | boolean]> = [];
+  readonly errors: string[] = [];
+  ended = false;
+
+  setAttribute(key: string, value: string | number | boolean): void {
+    this.attributes.push([key, value]);
+  }
+
+  setAttributes(attrs: SpanAttributes): void {
+    for (const [key, value] of Object.entries(attrs)) {
+      this.attributes.push([key, value]);
+    }
+  }
+
+  recordError(message: string): void {
+    this.errors.push(message);
+  }
+
+  end(): void {
+    this.ended = true;
+  }
+}
+
+class FakeTracer implements ITracer {
+  readonly spans: Array<{
+    name: string;
+    attributes?: SpanAttributes;
+    span: FakeSpan;
+    parentName?: string;
+  }> = [];
+  private readonly activeStack: FakeSpan[] = [];
+  private readonly activeNames = new Map<FakeSpan, string>();
+
+  startSpan(name: string, attributes?: SpanAttributes): ISpan {
+    const span = new FakeSpan();
+    const parent = this.activeStack.at(-1);
+    this.spans.push({
+      name,
+      attributes,
+      span,
+      parentName: parent ? this.activeNames.get(parent) : undefined,
+    });
+    this.activeNames.set(span, name);
+    return span;
+  }
+
+  async withSpan<T>(span: ISpan, callback: () => Promise<T>): Promise<T> {
+    const fakeSpan = span as FakeSpan;
+    this.activeStack.push(fakeSpan);
+    try {
+      return await callback();
+    } finally {
+      this.activeStack.pop();
+    }
+  }
+
+  getActiveSpan(): ISpan | undefined {
+    return this.activeStack.at(-1);
+  }
+}
+
 class MapResolver implements IHandlerResolver {
   private readonly instances = new Map<IClassToken<unknown>, unknown>();
 
@@ -54,9 +118,9 @@ class MapResolver implements IHandlerResolver {
   }
 }
 
-const createContext = (): IExecutionContext => {
+const createContext = (tracer?: ITracer): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId };
+  return { actorId, tracer };
 };
 
 describe('MemoryCommandBus', () => {
@@ -299,6 +363,44 @@ describe('AsyncMemoryEventBus', () => {
     await tasks.shift()?.();
 
     expect(handled).toBe(1);
+  });
+
+  it('does not retain published events when recording is disabled', async () => {
+    class PingEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    @EventHandler(PingEvent)
+    class PingEventHandler implements IEventHandler<PingEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: PingEvent
+      ): ReturnType<IEventHandler<PingEvent>['handle']> {
+        return ok(undefined);
+      }
+    }
+    expect(PingEventHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, {
+      schedule,
+      recordPublishedEvents: false,
+    });
+    const context = createContext();
+    const publishResult = await bus.publish(context, new PingEvent());
+    publishResult._unsafeUnwrap();
+
+    expect(bus.events()).toEqual([]);
+
+    await tasks.shift()?.();
+
+    expect(bus.events()).toEqual([]);
   });
 
   it('records handler errors via onError', async () => {
@@ -574,6 +676,60 @@ describe('AsyncMemoryEventBus', () => {
 
     releaseFirstProjection();
     await drainPromise;
+  });
+
+  it('tags projection handlers and projection groups with dedicated tracing spans', async () => {
+    class TracedProjectionEvent implements IDomainEvent {
+      readonly name = DomainEventName.recordsBatchCreated();
+      readonly occurredAt = OccurredAt.now();
+      readonly records = [{ recordId: 'rec1' }];
+    }
+
+    @ProjectionHandler(TracedProjectionEvent)
+    class TracedProjectionHandler implements IEventHandler<TracedProjectionEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: TracedProjectionEvent
+      ): ReturnType<IEventHandler<TracedProjectionEvent>['handle']> {
+        return ok(undefined);
+      }
+    }
+    expect(TracedProjectionHandler).toBeDefined();
+
+    const tracer = new FakeTracer();
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
+    await bus.publish(createContext(tracer), new TracedProjectionEvent());
+    const drainTask = tasks.shift();
+    expect(drainTask).toBeDefined();
+    await drainTask?.();
+
+    const groupSpan = tracer.spans.find(
+      (span) => span.name === 'teable.AsyncMemoryEventBus.projectionGroup'
+    );
+    expect(groupSpan?.attributes).toMatchObject({
+      [TeableSpanAttributes.COMPONENT]: 'projection',
+      [TeableSpanAttributes.EVENT_NAME]: 'RecordsBatchCreated',
+      [TeableSpanAttributes.EVENT_ROLE]: 'projection',
+      [TeableSpanAttributes.EVENT_GROUP_MODE]: 'concurrent',
+      [TeableSpanAttributes.EVENT_HANDLER_COUNT]: 1,
+      [TeableSpanAttributes.EVENT_ASYNC]: true,
+    });
+
+    const handlerSpan = tracer.spans.find((span) =>
+      span.name.includes('TracedProjectionHandler.handle')
+    );
+    expect(handlerSpan?.attributes).toMatchObject({
+      [TeableSpanAttributes.COMPONENT]: 'projection',
+      [TeableSpanAttributes.EVENT_NAME]: 'RecordsBatchCreated',
+      [TeableSpanAttributes.EVENT_ROLE]: 'projection',
+      [TeableSpanAttributes.EVENT_ASYNC]: true,
+    });
+    expect(handlerSpan?.parentName).toBe('teable.AsyncMemoryEventBus.projectionGroup');
   });
 
   it('preserves handler ordering boundaries around non-projection handlers', async () => {
