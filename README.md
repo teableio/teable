@@ -156,6 +156,7 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on AlibabaCloud ComputeNest](https://service-info-public.oss-cn-hangzhou.aliyuncs.com/computenest-en.svg)](https://computenest.console.aliyun.com/service/instance/create/default?ServiceName=Teable%20%E7%A4%BE%E5%8C%BA%E7%89%88)
 
+[![Run on ClawCloud](https://raw.githubusercontent.com/ClawCloud/Run-Template/refs/heads/main/Run-on-ClawCloud.svg)](https://template.run.claw.cloud/?referralCode=9XK7L2MZQ4F3&openapp=system-fastdeploy%3FtemplateName%3Dteable)
 
 ## Development
 
