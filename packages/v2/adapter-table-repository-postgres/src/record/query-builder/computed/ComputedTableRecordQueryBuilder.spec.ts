@@ -186,7 +186,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toMatchInlineSnapshot(
         `
-        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."col_created_time" as "col_created_time", "t"."col_last_modified_time" as "col_last_modified_time", 
+        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."__created_time" as "col_created_time", "t"."__last_modified_time" as "col_last_modified_time", 
                 case
                   when "t"."col_user" is null then null
                   when jsonb_typeof(to_jsonb("t"."col_user")) = 'array' then (
@@ -238,7 +238,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
                 )
                 from public.users u
                 where u.id = "t"."__last_modified_by"
-              ) as "col_last_modified_by", "t"."col_auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
+              ) as "col_last_modified_by", "t"."__auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
       `
       );
       expect(parameters).toEqual(Array(4).fill('/api/attachments/read/public/avatar/'));

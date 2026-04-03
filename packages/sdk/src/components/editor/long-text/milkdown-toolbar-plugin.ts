@@ -290,6 +290,7 @@ export function createFloatingToolbarPlugin(): Plugin {
   let panel: HTMLDivElement | null = null;
   let toggleButton: HTMLButtonElement | null = null;
   let scrollWrapEl: HTMLElement | null = null;
+  let mountEl: HTMLElement | null = null;
   let items: ToolbarItem[] = [];
   let buttons: HTMLButtonElement[] = [];
   let expanded = false;
@@ -408,22 +409,19 @@ export function createFloatingToolbarPlugin(): Plugin {
   }
 
   function updateToolbarPosition(view: EditorView) {
-    if (!tooltip) return;
+    if (!tooltip || !mountEl) return;
     const cursorRect = view.coordsAtPos(view.state.selection.from);
+    const mountRect = mountEl.getBoundingClientRect();
     const editorRect = scrollWrapEl?.getBoundingClientRect() ?? view.dom.getBoundingClientRect();
     const toolbarHeight = tooltip.offsetHeight || 30;
-    const toolbarWidth = tooltip.offsetWidth || 30;
-    const minTop = editorRect.top;
-    const maxTop = Math.max(minTop, editorRect.bottom - toolbarHeight);
-    const desiredTop = cursorRect.top;
-    const desiredLeft = editorRect.left - 34;
+
+    // All coordinates relative to mountEl
+    const minTop = editorRect.top - mountRect.top;
+    const maxTop = Math.max(minTop, editorRect.bottom - mountRect.top - toolbarHeight);
+    const desiredTop = cursorRect.top - mountRect.top;
     const top = Math.max(minTop, Math.min(maxTop, desiredTop));
-    const left = Math.max(
-      editorRect.left - 34,
-      Math.min(editorRect.right - toolbarWidth, desiredLeft)
-    );
+
     tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
   }
 
   function isMultiLineSelection(view: EditorView): boolean {
@@ -503,7 +501,10 @@ export function createFloatingToolbarPlugin(): Plugin {
 
       const scrollWrap = editorView.dom.closest('.milkdown-editor-wrap');
       scrollWrapEl = scrollWrap instanceof HTMLElement ? scrollWrap : null;
-      document.body.appendChild(tooltip);
+
+      // Mount inside the editor's positioned parent so ancestor overflow clips naturally
+      mountEl = scrollWrapEl?.parentElement ?? editorView.dom.parentElement;
+      (mountEl ?? document.body).appendChild(tooltip);
 
       if (scrollWrapEl) {
         const onScroll = () => updateTooltip(editorView);
@@ -538,6 +539,7 @@ export function createFloatingToolbarPlugin(): Plugin {
           panel = null;
           toggleButton = null;
           scrollWrapEl = null;
+          mountEl = null;
           items = [];
           buttons = [];
           expanded = false;

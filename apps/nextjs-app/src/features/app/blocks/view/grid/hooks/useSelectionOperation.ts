@@ -4,6 +4,18 @@ import { useMutation } from '@tanstack/react-query';
 import { FieldType, fieldVoSchema, type HttpError } from '@teable/core';
 import type {
   ICopyVo,
+  IClearSelectionStreamDoneEvent,
+  IClearSelectionStreamErrorEvent,
+  IClearSelectionStreamProgressEvent,
+  IDeleteSelectionStreamDoneEvent,
+  IDeleteSelectionStreamErrorEvent,
+  IDeleteSelectionStreamProgressEvent,
+  IDuplicateSelectionStreamDoneEvent,
+  IDuplicateSelectionStreamErrorEvent,
+  IDuplicateSelectionStreamProgressEvent,
+  IPasteSelectionStreamDoneEvent,
+  IPasteSelectionStreamErrorEvent,
+  IPasteSelectionStreamProgressEvent,
   IPasteRo,
   IRangesRo,
   ITemporaryPasteRo,
@@ -11,9 +23,14 @@ import type {
 } from '@teable/openapi';
 import {
   clear,
+  clearSelectionStream,
   copy,
   deleteSelection,
+  deleteSelectionStream,
+  duplicateSelectionStream,
+  ensureUndoRedoWindowIdHeader,
   paste,
+  pasteSelectionStream,
   saveQueryParams,
   temporaryPaste,
 } from '@teable/openapi';
@@ -34,11 +51,19 @@ import { useConfirm } from '@teable/ui-lib/base';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
 import { serializerCellValueHtml, serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
-import { getEffectCellCount, getEffectRows, selectionCoverAttachments } from '../utils';
+import {
+  getEffectCellCount,
+  getEffectRows,
+  selectionCoverAttachments,
+  shouldUseClearSelectionStream,
+  shouldUseDeleteSelectionStream,
+  shouldUseDuplicateSelectionStream,
+  shouldUsePasteSelectionStream,
+} from '../utils';
 import {
   ClipboardTypes,
   copyHandler,
@@ -53,6 +78,28 @@ import { useSyncSelectionStore } from './useSelectionStore';
 
 const clearToastId = 'clearToastId';
 const deleteToastId = 'deleteToastId';
+type StreamDialogStatus = 'running' | 'success' | 'partial' | 'error';
+type StreamDialogMode = 'confirm' | 'progress';
+type PendingDeleteSelection = {
+  deleteRo: IRangesRo;
+  totalCount: number;
+};
+type PendingClearSelection = {
+  clearRo: IRangesRo;
+  totalCount: number;
+};
+type PendingDuplicateSelection = {
+  duplicateRo: IRangesRo;
+  totalCount: number;
+};
+type PendingPasteSelection = {
+  pasteRo: IPasteRo;
+  totalCount: number;
+};
+type PasteSelectionRequestOptions = {
+  affectedRows: number;
+  updateTemporaryData?: (records: ITemporaryPasteVo) => void;
+};
 
 export const useSelectionOperation = (props?: {
   collapsedGroupIds?: string[];
@@ -78,11 +125,283 @@ export const useSelectionOperation = (props?: {
   });
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const [clearProgress, setClearProgress] = useState<IClearSelectionStreamProgressEvent | null>(
+    null
+  );
+  const [clearSummary, setClearSummary] = useState<IClearSelectionStreamDoneEvent | null>(null);
+  const [clearErrors, setClearErrors] = useState<IClearSelectionStreamErrorEvent[]>([]);
+  const [clearProgressStatus, setClearProgressStatus] = useState<StreamDialogStatus | null>(null);
+  const [isClearProgressOpen, setIsClearProgressOpen] = useState(false);
+  const [clearDialogMode, setClearDialogMode] = useState<StreamDialogMode | null>(null);
+  const [pendingClearSelection, setPendingClearSelection] = useState<PendingClearSelection | null>(
+    null
+  );
+  const [deleteProgress, setDeleteProgress] = useState<IDeleteSelectionStreamProgressEvent | null>(
+    null
+  );
+  const [deleteSummary, setDeleteSummary] = useState<IDeleteSelectionStreamDoneEvent | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<IDeleteSelectionStreamErrorEvent[]>([]);
+  const [deleteProgressStatus, setDeleteProgressStatus] = useState<StreamDialogStatus | null>(null);
+  const [isDeleteProgressOpen, setIsDeleteProgressOpen] = useState(false);
+  const [deleteDialogMode, setDeleteDialogMode] = useState<StreamDialogMode | null>(null);
+  const [pendingDeleteSelection, setPendingDeleteSelection] =
+    useState<PendingDeleteSelection | null>(null);
+  const [duplicateProgress, setDuplicateProgress] =
+    useState<IDuplicateSelectionStreamProgressEvent | null>(null);
+  const [duplicateSummary, setDuplicateSummary] =
+    useState<IDuplicateSelectionStreamDoneEvent | null>(null);
+  const [duplicateErrors, setDuplicateErrors] = useState<IDuplicateSelectionStreamErrorEvent[]>([]);
+  const [duplicateProgressStatus, setDuplicateProgressStatus] = useState<StreamDialogStatus | null>(
+    null
+  );
+  const [isDuplicateProgressOpen, setIsDuplicateProgressOpen] = useState(false);
+  const [duplicateDialogMode, setDuplicateDialogMode] = useState<StreamDialogMode | null>(null);
+  const [pendingDuplicateSelection, setPendingDuplicateSelection] =
+    useState<PendingDuplicateSelection | null>(null);
+  const [pasteProgress, setPasteProgress] = useState<IPasteSelectionStreamProgressEvent | null>(
+    null
+  );
+  const [pasteSummary, setPasteSummary] = useState<IPasteSelectionStreamDoneEvent | null>(null);
+  const [pasteErrors, setPasteErrors] = useState<IPasteSelectionStreamErrorEvent[]>([]);
+  const [pasteProgressStatus, setPasteProgressStatus] = useState<StreamDialogStatus | null>(null);
+  const [isPasteProgressOpen, setIsPasteProgressOpen] = useState(false);
+  const [pasteDialogMode, setPasteDialogMode] = useState<StreamDialogMode | null>(null);
+  const [pendingPasteSelection, setPendingPasteSelection] = useState<PendingPasteSelection | null>(
+    null
+  );
+
+  const closeDeleteProgressDialog = useCallback(() => {
+    setIsDeleteProgressOpen(false);
+    setDeleteProgress(null);
+    setDeleteSummary(null);
+    setDeleteErrors([]);
+    setDeleteProgressStatus(null);
+    setDeleteDialogMode(null);
+    setPendingDeleteSelection(null);
+  }, []);
+
+  const closeClearProgressDialog = useCallback(() => {
+    setIsClearProgressOpen(false);
+    setClearProgress(null);
+    setClearSummary(null);
+    setClearErrors([]);
+    setClearProgressStatus(null);
+    setClearDialogMode(null);
+    setPendingClearSelection(null);
+  }, []);
+
+  const closeDuplicateProgressDialog = useCallback(() => {
+    setIsDuplicateProgressOpen(false);
+    setDuplicateProgress(null);
+    setDuplicateSummary(null);
+    setDuplicateErrors([]);
+    setDuplicateProgressStatus(null);
+    setDuplicateDialogMode(null);
+    setPendingDuplicateSelection(null);
+  }, []);
+
+  const closePasteProgressDialog = useCallback(() => {
+    setIsPasteProgressOpen(false);
+    setPasteProgress(null);
+    setPasteSummary(null);
+    setPasteErrors([]);
+    setPasteProgressStatus(null);
+    setPasteDialogMode(null);
+    setPendingPasteSelection(null);
+  }, []);
+
+  const ensureDeleteProgressDialogError = useCallback(
+    (message: string) => {
+      setDeleteDialogMode('progress');
+      setDeleteProgressStatus('error');
+      setDeleteErrors((previous) =>
+        previous.length
+          ? previous
+          : [
+              {
+                id: 'error',
+                phase: 'deleting',
+                batchIndex: -1,
+                totalCount: deleteProgress?.totalCount ?? 0,
+                deletedCount: deleteSummary?.deletedCount ?? deleteProgress?.deletedCount ?? 0,
+                recordIds: [],
+                message,
+              },
+            ]
+      );
+      setIsDeleteProgressOpen(true);
+    },
+    [deleteProgress?.deletedCount, deleteProgress?.totalCount, deleteSummary?.deletedCount]
+  );
+
+  const ensureClearProgressDialogError = useCallback(
+    (message: string) => {
+      setClearDialogMode('progress');
+      setClearProgressStatus('error');
+      setClearErrors((previous) =>
+        previous.length
+          ? previous
+          : [
+              {
+                id: 'error',
+                phase: 'clearing',
+                batchIndex: -1,
+                totalCount: clearProgress?.totalCount ?? 0,
+                processedCount: clearSummary?.processedCount ?? clearProgress?.processedCount ?? 0,
+                clearedCount: clearSummary?.clearedCount ?? clearProgress?.clearedCount ?? 0,
+                recordIds: [],
+                message,
+              },
+            ]
+      );
+      setIsClearProgressOpen(true);
+    },
+    [
+      clearProgress?.clearedCount,
+      clearProgress?.processedCount,
+      clearProgress?.totalCount,
+      clearSummary?.clearedCount,
+      clearSummary?.processedCount,
+    ]
+  );
+
+  const openDeleteConfirmationDialog = useCallback((deleteRo: IRangesRo, totalCount: number) => {
+    setDeleteProgress(null);
+    setDeleteSummary(null);
+    setDeleteErrors([]);
+    setDeleteProgressStatus(null);
+    setPendingDeleteSelection({ deleteRo, totalCount });
+    setDeleteDialogMode('confirm');
+    setIsDeleteProgressOpen(true);
+  }, []);
+
+  const openClearConfirmationDialog = useCallback((clearRo: IRangesRo, totalCount: number) => {
+    setClearProgress(null);
+    setClearSummary(null);
+    setClearErrors([]);
+    setClearProgressStatus(null);
+    setPendingClearSelection({ clearRo, totalCount });
+    setClearDialogMode('confirm');
+    setIsClearProgressOpen(true);
+  }, []);
+
+  const ensureDuplicateProgressDialogError = useCallback(
+    (message: string) => {
+      setDuplicateDialogMode('progress');
+      setDuplicateProgressStatus('error');
+      setDuplicateErrors((previous) =>
+        previous.length
+          ? previous
+          : [
+              {
+                id: 'error',
+                phase: 'duplicating',
+                batchIndex: -1,
+                totalCount: duplicateProgress?.totalCount ?? 0,
+                duplicatedCount:
+                  duplicateSummary?.duplicatedCount ?? duplicateProgress?.duplicatedCount ?? 0,
+                recordIds: [],
+                message,
+              },
+            ]
+      );
+      setIsDuplicateProgressOpen(true);
+    },
+    [
+      duplicateProgress?.duplicatedCount,
+      duplicateProgress?.totalCount,
+      duplicateSummary?.duplicatedCount,
+    ]
+  );
+
+  const openDuplicateConfirmationDialog = useCallback(
+    (duplicateRo: IRangesRo, totalCount: number) => {
+      setDuplicateProgress(null);
+      setDuplicateSummary(null);
+      setDuplicateErrors([]);
+      setDuplicateProgressStatus(null);
+      setPendingDuplicateSelection({ duplicateRo, totalCount });
+      setDuplicateDialogMode('confirm');
+      setIsDuplicateProgressOpen(true);
+    },
+    []
+  );
+
+  const ensurePasteProgressDialogError = useCallback(
+    (message: string) => {
+      setPasteDialogMode('progress');
+      setPasteProgressStatus('error');
+      setPasteErrors((previous) =>
+        previous.length
+          ? previous
+          : [
+              {
+                id: 'error',
+                phase: 'pasting',
+                batchIndex: -1,
+                totalCount: pasteProgress?.totalCount ?? 0,
+                processedCount: pasteSummary?.processedCount ?? pasteProgress?.processedCount ?? 0,
+                updatedCount: pasteSummary?.updatedCount ?? pasteProgress?.updatedCount ?? 0,
+                createdCount: pasteSummary?.createdCount ?? pasteProgress?.createdCount ?? 0,
+                recordIds: [],
+                message,
+              },
+            ]
+      );
+      setIsPasteProgressOpen(true);
+    },
+    [
+      pasteProgress?.createdCount,
+      pasteProgress?.processedCount,
+      pasteProgress?.totalCount,
+      pasteProgress?.updatedCount,
+      pasteSummary?.createdCount,
+      pasteSummary?.processedCount,
+      pasteSummary?.updatedCount,
+    ]
+  );
+
+  const openPasteConfirmationDialog = useCallback((pasteRo: IPasteRo, totalCount: number) => {
+    setPasteProgress(null);
+    setPasteSummary(null);
+    setPasteErrors([]);
+    setPasteProgressStatus(null);
+    setPendingPasteSelection({ pasteRo, totalCount });
+    setPasteDialogMode('confirm');
+    setIsPasteProgressOpen(true);
+  }, []);
 
   const groupBy = view?.group;
   const selectionViewQuery = useMemo(
     () => buildSelectionViewQuery({ personalViewCommonQuery }),
     [personalViewCommonQuery]
+  );
+
+  const buildSelectionRequest = useCallback(
+    async (rangesRo: IRangesRo) => {
+      const { collapsedGroupIds: _originalCollapsedGroupIds, ...rest } = rangesRo;
+      const params = {
+        ...rest,
+        ...selectionViewQuery,
+        viewId,
+        groupBy,
+        search,
+      };
+
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return {
+          ...params,
+          queryId: data.queryId,
+        };
+      }
+
+      return {
+        ...params,
+        collapsedGroupIds,
+      };
+    },
+    [collapsedGroupIds, groupBy, search, selectionViewQuery, viewId]
   );
 
   const { mutateAsync: defaultCopyReq } = useMutation({
@@ -142,21 +461,8 @@ export const useSelectionOperation = (props?: {
   });
 
   const { mutateAsync: deleteReq } = useMutation({
-    mutationFn: async (deleteRo: IRangesRo) => {
-      const { collapsedGroupIds: _originalCollapsedGroupIds, ...rest } = deleteRo;
-      const params = {
-        ...rest,
-        ...selectionViewQuery,
-        viewId,
-        groupBy,
-        search,
-      };
-      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
-        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
-        return deleteSelection(tableId!, { ...params, queryId: data.queryId });
-      }
-      return deleteSelection(tableId!, { ...params, collapsedGroupIds });
-    },
+    mutationFn: async (deleteRo: IRangesRo) =>
+      deleteSelection(tableId!, await buildSelectionRequest(deleteRo)),
     onError: () => {
       toast.dismiss(deleteToastId);
     },
@@ -224,6 +530,136 @@ export const useSelectionOperation = (props?: {
 
   const { confirm } = useConfirm();
 
+  const executePasteSelectionRequest = useCallback(
+    async (
+      pasteRo: IPasteRo,
+      totalCount: number,
+      updateTemporaryData?: (records: ITemporaryPasteVo) => void
+    ) => {
+      if (updateTemporaryData) {
+        const res = await temporaryPasteReq({
+          content: pasteRo.content,
+          ranges: pasteRo.ranges,
+          header: pasteRo.header,
+        });
+        updateTemporaryData(res.data);
+        return { streamed: false as const };
+      }
+
+      if (shouldUsePasteSelectionStream(totalCount)) {
+        openPasteConfirmationDialog(pasteRo, totalCount);
+        return { streamed: true as const };
+      }
+
+      await pasteReq(pasteRo);
+      return { streamed: false as const };
+    },
+    [openPasteConfirmationDialog, pasteReq, temporaryPasteReq]
+  );
+
+  const handleFilePasteSelection = useCallback(
+    async (
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      files: FileList,
+      options: PasteSelectionRequestOptions
+    ) => {
+      const { affectedRows, updateTemporaryData } = options;
+      const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
+      if (!isSelectionCoverAttachments) {
+        throw new Error(t('table:table.actionTips.pasteFileFailed'));
+      }
+
+      await filePasteHandler({
+        files,
+        fields,
+        selection,
+        recordMap,
+        baseId,
+        requestPaste: async (content, type, ranges) => {
+          const header = [fieldVoSchema.parse(fields.find((f) => f.type === FieldType.Attachment))];
+          await executePasteSelectionRequest(
+            { content, type, ranges, header },
+            Array.isArray(content) ? content.length : affectedRows,
+            updateTemporaryData
+          );
+        },
+      });
+    },
+    [baseId, executePasteSelectionRequest, fields, t]
+  );
+
+  const handleTextPasteSelection = useCallback(
+    async (
+      clipboard: { html: string; text: string; hasHtml: boolean },
+      selection: CombinedSelection,
+      options: PasteSelectionRequestOptions
+    ) => {
+      const { affectedRows, updateTemporaryData } = options;
+      await textPasteHandlerWithData(
+        clipboard,
+        selection,
+        async (content, type, ranges, header) => {
+          if (!content) {
+            return;
+          }
+          await executePasteSelectionRequest(
+            { content, type, ranges, header },
+            Math.max(Array.isArray(content) ? content.length : 0, affectedRows),
+            updateTemporaryData
+          );
+        }
+      );
+    },
+    [executePasteSelectionRequest]
+  );
+
+  const confirmPasteSelectionIfNeeded = useCallback(
+    async (affectedRows: number, shouldUsePasteStream: boolean) => {
+      if (affectedRows < 10 || shouldUsePasteStream) {
+        return true;
+      }
+
+      return confirm({
+        title: t('table:table.actionTips.pasteConfirmTitle'),
+        description: t('table:table.actionTips.pasteConfirmDescription', {
+          recordCount: affectedRows,
+        }),
+        confirmText: t('table:table.actionTips.paste'),
+        cancelText: t('common:actions.cancel'),
+        confirmButtonVariant: 'destructive',
+      });
+    },
+    [confirm, t]
+  );
+
+  const performPasteSelection = useCallback(
+    async (
+      params: {
+        hasTextType: boolean;
+        html: string;
+        text: string;
+        hasHtml: boolean;
+        files: FileList;
+      },
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      options: PasteSelectionRequestOptions
+    ) => {
+      if (params.files.length > 0 && !params.hasTextType) {
+        await handleFilePasteSelection(selection, recordMap, params.files, options);
+        return;
+      }
+
+      await handleTextPasteSelection(
+        { html: params.html, text: params.text, hasHtml: params.hasHtml },
+        selection,
+        options
+      );
+    },
+    [handleFilePasteSelection, handleTextPasteSelection]
+  );
+
   const doPaste = useCallback(
     async (
       e: React.ClipboardEvent,
@@ -247,85 +683,59 @@ export const useSelectionOperation = (props?: {
       const effectRows = getEffectRows(selection, rowCount);
       const affectedRows = Math.max(pasteRecordLength, effectRows);
 
-      if (affectedRows >= 10) {
-        const confirmed = await confirm({
-          title: t('table:table.actionTips.pasteConfirmTitle'),
-          description: t('table:table.actionTips.pasteConfirmDescription', {
-            recordCount: affectedRows,
-          }),
-          confirmText: t('table:table.actionTips.paste'),
-          cancelText: t('common:actions.cancel'),
-          confirmButtonVariant: 'destructive',
-        });
-        if (!confirmed) return;
+      const shouldUsePasteStream = shouldUsePasteSelectionStream(affectedRows);
+
+      const confirmed = await confirmPasteSelectionIfNeeded(affectedRows, shouldUsePasteStream);
+      if (!confirmed) {
+        return;
       }
 
-      const toastId = toast.loading(t('table:table.actionTips.pasting'));
+      const toastId = shouldUsePasteStream
+        ? null
+        : toast.loading(t('table:table.actionTips.pasting'));
 
       try {
-        if (fileArray.length > 0 && !types.includes(ClipboardTypes.text)) {
-          const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
-          if (!isSelectionCoverAttachments) {
-            toast.error(t('table:table.actionTips.pasteFileFailed'), { id: toastId });
-            return;
-          }
-          await filePasteHandler({
+        await performPasteSelection(
+          {
+            hasTextType: types.includes(ClipboardTypes.text),
+            html,
+            text,
+            hasHtml,
             files: fileArray,
-            fields,
-            selection,
-            recordMap,
-            baseId,
-            requestPaste: async (content, type, ranges) => {
-              const header = [
-                fieldVoSchema.parse(fields.find((f) => f.type === FieldType.Attachment)),
-              ];
-              if (updateTemporaryData) {
-                const res = await temporaryPasteReq({
-                  content,
-                  ranges,
-                  header,
-                });
-                updateTemporaryData(res.data);
-              } else {
-                await pasteReq({ content, type, ranges, header });
-              }
-            },
-          });
-        } else {
-          await textPasteHandlerWithData(
-            { html, text, hasHtml },
-            selection,
-            async (content, type, ranges, header) => {
-              if (!content) {
-                return;
-              }
-              if (updateTemporaryData) {
-                const res = await temporaryPasteReq({ content, ranges, header });
-                updateTemporaryData(res.data);
-              } else {
-                await pasteReq({ content, type, ranges, header });
-              }
-            }
-          );
+          },
+          selection,
+          recordMap,
+          {
+            affectedRows,
+            updateTemporaryData,
+          }
+        );
+        if (toastId) {
+          toast.success(t('table:table.actionTips.pasteSuccessful'), { id: toastId });
         }
-        toast.success(t('table:table.actionTips.pasteSuccessful'), { id: toastId });
       } catch (e) {
         const error = e as HttpError;
         const description = getHttpErrorMessage(error, t, 'sdk');
         toast.error(t('table:table.actionTips.pasteFailed'), {
           description,
-          id: toastId,
+          ...(toastId ? { id: toastId } : {}),
         });
         console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, fields, rowCount, t, confirm, baseId, temporaryPasteReq, pasteReq]
+    [viewId, tableId, rowCount, t, confirmPasteSelectionIfNeeded, performPasteSelection]
   );
 
   const doFill = useCallback(
     async (args: Pick<IPasteRo, 'content' | 'ranges' | 'header' | 'type'>) => {
-      const toastId = toast.loading(t('table:table.actionTips.filling'));
       try {
+        const totalCount = Array.isArray(args.content) ? args.content.length : 0;
+        if (shouldUsePasteSelectionStream(totalCount)) {
+          openPasteConfirmationDialog(args, totalCount);
+          return;
+        }
+
+        const toastId = toast.loading(t('table:table.actionTips.filling'));
         await pasteReq(args);
         toast.success(t('table:table.actionTips.fillSuccessful'), { id: toastId });
       } catch (e) {
@@ -333,12 +743,11 @@ export const useSelectionOperation = (props?: {
         const description = getHttpErrorMessage(error, t, 'sdk');
         toast.error(t('table:table.actionTips.fillFailed'), {
           description,
-          id: toastId,
         });
         console.error('Fill error: ', error);
       }
     },
-    [pasteReq, t]
+    [openPasteConfirmationDialog, pasteReq, t]
   );
 
   const doClear = useCallback(
@@ -347,6 +756,15 @@ export const useSelectionOperation = (props?: {
 
       const effectRows = getEffectRows(selection, rowCount);
       const effectCells = getEffectCellCount(selection, fields, rowCount);
+      const clearRo = {
+        ranges: selection.serialize(),
+        ...(rangeTypes[selection.type] ? { type: rangeTypes[selection.type] } : {}),
+      } satisfies IRangesRo;
+
+      if (shouldUseClearSelectionStream(selection, rowCount)) {
+        openClearConfirmationDialog(clearRo, effectRows);
+        return;
+      }
 
       if (effectRows >= 10 && effectCells) {
         const confirmed = await confirm({
@@ -363,35 +781,386 @@ export const useSelectionOperation = (props?: {
       }
 
       const toastId = toast.loading(t('table:table.actionTips.clearing'), { id: clearToastId });
-      const ranges = selection.serialize();
-      const type = rangeTypes[selection.type];
-
-      await clearReq({
-        ranges,
-        ...(type ? { type } : {}),
-      });
+      await clearReq(clearRo);
 
       toast.success(t('table:table.actionTips.clearSuccessful'), { id: toastId });
     },
-    [viewId, tableId, fields, rowCount, t, clearReq, confirm]
+    [viewId, tableId, rowCount, fields, openClearConfirmationDialog, t, clearReq, confirm]
   );
+
+  const runDeleteSelectionStream = useCallback(
+    async (deleteRo: IRangesRo, totalCount: number) => {
+      if (!tableId) {
+        return false;
+      }
+
+      setDeleteDialogMode('progress');
+      setDeleteErrors([]);
+      setDeleteSummary(null);
+      setDeleteProgressStatus('running');
+      setDeleteProgress({
+        id: 'progress',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount,
+        deletedCount: 0,
+        batchDeletedCount: 0,
+      });
+      setIsDeleteProgressOpen(true);
+
+      const streamResult = await deleteSelectionStream(
+        tableId,
+        await buildSelectionRequest(deleteRo),
+        {
+          headers: {
+            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+          },
+          onProgress: (progress) => {
+            setDeleteProgress(progress);
+            setDeleteProgressStatus('running');
+            setIsDeleteProgressOpen(true);
+          },
+          onError: (error) => {
+            setDeleteErrors((previous) => [...previous, error]);
+            setIsDeleteProgressOpen(true);
+          },
+        }
+      );
+
+      setDeleteSummary(streamResult.done);
+      setDeleteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+
+      if (streamResult.errors.length) {
+        return true;
+      }
+
+      return false;
+    },
+    [buildSelectionRequest, tableId]
+  );
+
+  const runClearSelectionStream = useCallback(
+    async (clearRo: IRangesRo, totalCount: number) => {
+      if (!tableId) {
+        return false;
+      }
+
+      setClearDialogMode('progress');
+      setClearErrors([]);
+      setClearSummary(null);
+      setClearProgressStatus('running');
+      setClearProgress({
+        id: 'progress',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount,
+        processedCount: 0,
+        clearedCount: 0,
+        batchProcessedCount: 0,
+        batchClearedCount: 0,
+      });
+      setIsClearProgressOpen(true);
+
+      const streamResult = await clearSelectionStream(
+        tableId,
+        {
+          ...clearRo,
+          ...selectionViewQuery,
+          viewId,
+          groupBy,
+          collapsedGroupIds,
+          search,
+        },
+        {
+          headers: {
+            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+          },
+          onProgress: (progress) => {
+            setClearProgress(progress);
+            setClearProgressStatus('running');
+            setIsClearProgressOpen(true);
+          },
+          onError: (error) => {
+            setClearErrors((previous) => [...previous, error]);
+            setIsClearProgressOpen(true);
+          },
+        }
+      );
+
+      setClearSummary(streamResult.done);
+      setClearProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+
+      return streamResult.errors.length > 0;
+    },
+    [collapsedGroupIds, groupBy, search, selectionViewQuery, tableId, viewId]
+  );
+
+  const confirmDeleteSelection = useCallback(async () => {
+    if (!pendingDeleteSelection) {
+      return;
+    }
+
+    const { deleteRo, totalCount } = pendingDeleteSelection;
+
+    setPendingDeleteSelection(null);
+
+    try {
+      const hasPartialErrors = await runDeleteSelectionStream(deleteRo, totalCount);
+      if (hasPartialErrors) {
+        return;
+      }
+    } catch (error) {
+      const description =
+        getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+        (error instanceof Error ? error.message : 'Unknown error');
+      ensureDeleteProgressDialogError(description);
+      console.error('Delete error: ', error);
+    }
+  }, [ensureDeleteProgressDialogError, pendingDeleteSelection, runDeleteSelectionStream, t]);
+
+  const confirmClearSelection = useCallback(async () => {
+    if (!pendingClearSelection) {
+      return;
+    }
+
+    const { clearRo, totalCount } = pendingClearSelection;
+    setPendingClearSelection(null);
+
+    try {
+      await runClearSelectionStream(clearRo, totalCount);
+    } catch (error) {
+      const description =
+        getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+        (error instanceof Error ? error.message : 'Unknown error');
+      ensureClearProgressDialogError(description);
+      console.error('Clear error: ', error);
+    }
+  }, [ensureClearProgressDialogError, pendingClearSelection, runClearSelectionStream, t]);
+
+  const runDuplicateSelectionStream = useCallback(
+    async (duplicateRo: IRangesRo, totalCount: number) => {
+      if (!tableId) {
+        return false;
+      }
+
+      setDuplicateDialogMode('progress');
+      setDuplicateErrors([]);
+      setDuplicateSummary(null);
+      setDuplicateProgressStatus('running');
+      setDuplicateProgress({
+        id: 'progress',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount,
+        duplicatedCount: 0,
+        batchDuplicatedCount: 0,
+      });
+      setIsDuplicateProgressOpen(true);
+
+      const streamResult = await duplicateSelectionStream(
+        tableId,
+        await buildSelectionRequest(duplicateRo),
+        {
+          headers: {
+            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+          },
+          onProgress: (progress) => {
+            setDuplicateProgress(progress);
+            setDuplicateProgressStatus('running');
+            setIsDuplicateProgressOpen(true);
+          },
+          onError: (error) => {
+            setDuplicateErrors((previous) => [...previous, error]);
+            setIsDuplicateProgressOpen(true);
+          },
+        }
+      );
+
+      setDuplicateSummary(streamResult.done);
+      setDuplicateProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+
+      if (streamResult.errors.length) {
+        return true;
+      }
+
+      return false;
+    },
+    [buildSelectionRequest, tableId]
+  );
+
+  const runPasteSelectionStream = useCallback(
+    async (pasteRo: IPasteRo, totalCount: number) => {
+      if (!tableId) {
+        return false;
+      }
+
+      setPasteDialogMode('progress');
+      setPasteErrors([]);
+      setPasteSummary(null);
+      setPasteProgressStatus('running');
+      setPasteProgress({
+        id: 'progress',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount,
+        processedCount: 0,
+        updatedCount: 0,
+        createdCount: 0,
+        batchProcessedCount: 0,
+      });
+      setIsPasteProgressOpen(true);
+
+      const streamResult = await pasteSelectionStream(
+        tableId,
+        {
+          ...pasteRo,
+          ...selectionViewQuery,
+          viewId,
+          groupBy,
+          collapsedGroupIds,
+          search,
+        },
+        {
+          headers: {
+            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+          },
+          onProgress: (progress) => {
+            setPasteProgress(progress);
+            setPasteProgressStatus('running');
+            setIsPasteProgressOpen(true);
+          },
+          onError: (error) => {
+            setPasteErrors((previous) => [...previous, error]);
+            setIsPasteProgressOpen(true);
+          },
+        }
+      );
+
+      setPasteSummary(streamResult.done);
+      setPasteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+
+      return streamResult.errors.length > 0;
+    },
+    [collapsedGroupIds, groupBy, search, selectionViewQuery, tableId, viewId]
+  );
+
+  const confirmDuplicateSelection = useCallback(async () => {
+    if (!pendingDuplicateSelection) {
+      return;
+    }
+
+    const { duplicateRo, totalCount } = pendingDuplicateSelection;
+
+    setPendingDuplicateSelection(null);
+
+    try {
+      const hasPartialErrors = await runDuplicateSelectionStream(duplicateRo, totalCount);
+      if (hasPartialErrors) {
+        return;
+      }
+    } catch (error) {
+      const description =
+        getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+        (error instanceof Error ? error.message : 'Unknown error');
+      ensureDuplicateProgressDialogError(description);
+      console.error('Duplicate error: ', error);
+    }
+  }, [
+    ensureDuplicateProgressDialogError,
+    pendingDuplicateSelection,
+    runDuplicateSelectionStream,
+    t,
+  ]);
+
+  const confirmPasteSelection = useCallback(async () => {
+    if (!pendingPasteSelection) {
+      return;
+    }
+
+    const { pasteRo, totalCount } = pendingPasteSelection;
+    setPendingPasteSelection(null);
+
+    try {
+      await runPasteSelectionStream(pasteRo, totalCount);
+    } catch (error) {
+      const description =
+        getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+        (error instanceof Error ? error.message : 'Unknown error');
+      ensurePasteProgressDialogError(description);
+      console.error('Paste error: ', error);
+    }
+  }, [ensurePasteProgressDialogError, pendingPasteSelection, runPasteSelectionStream, t]);
 
   const doDelete = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
-
-      const toastId = toast.loading(t('table:table.actionTips.deleting'), { id: deleteToastId });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 
-      await deleteReq({
-        ranges,
-        ...(type ? { type } : {}),
-      });
+      try {
+        const deleteRo = {
+          ranges,
+          ...(type ? { type } : {}),
+        } satisfies IRangesRo;
 
-      toast.success(t('table:table.actionTips.deleteSuccessful'), { id: toastId });
+        if (shouldUseDeleteSelectionStream(selection, rowCount)) {
+          openDeleteConfirmationDialog(deleteRo, getEffectRows(selection, rowCount));
+          return;
+        } else {
+          const toastId = toast.loading(t('table:table.actionTips.deleting'), {
+            id: deleteToastId,
+          });
+          await deleteReq(deleteRo);
+          toast.success(t('table:table.actionTips.deleteSuccessful'), { id: toastId });
+        }
+      } catch (error) {
+        const description =
+          getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+          (error instanceof Error ? error.message : 'Unknown error');
+        toast.error(description, { id: deleteToastId });
+        console.error('Delete error: ', error);
+      }
     },
-    [deleteReq, tableId, viewId, t]
+    [deleteReq, openDeleteConfirmationDialog, rowCount, tableId, t, viewId]
+  );
+
+  const doDuplicate = useCallback(
+    async (selection: CombinedSelection) => {
+      if (!viewId || !tableId) return;
+
+      const duplicateRo = {
+        ranges: selection.serialize(),
+        ...(rangeTypes[selection.type] ? { type: rangeTypes[selection.type] } : {}),
+      } satisfies IRangesRo;
+      const totalCount = getEffectRows(selection, rowCount);
+
+      try {
+        if (shouldUseDuplicateSelectionStream(selection, rowCount)) {
+          openDuplicateConfirmationDialog(duplicateRo, totalCount);
+          return;
+        }
+
+        const hasPartialErrors = await runDuplicateSelectionStream(duplicateRo, totalCount);
+        if (hasPartialErrors) {
+          return;
+        }
+      } catch (error) {
+        const description =
+          getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+          (error instanceof Error ? error.message : 'Unknown error');
+        ensureDuplicateProgressDialogError(description);
+        console.error('Duplicate error: ', error);
+      }
+    },
+    [
+      ensureDuplicateProgressDialogError,
+      openDuplicateConfirmationDialog,
+      rowCount,
+      runDuplicateSelectionStream,
+      tableId,
+      t,
+      viewId,
+    ]
   );
 
   const doSyncCopy = useCallback(
@@ -447,6 +1216,43 @@ export const useSelectionOperation = (props?: {
     paste: doPaste,
     clear: doClear,
     deleteRecords: doDelete,
+    duplicateRecords: doDuplicate,
+    clearProgress,
+    clearSummary,
+    clearErrors,
+    clearProgressStatus,
+    clearDialogMode,
+    clearConfirmRecordCount: pendingClearSelection?.totalCount ?? 0,
+    isClearProgressOpen,
+    closeClearProgressDialog,
+    confirmClearSelection,
+    deleteProgress,
+    deleteSummary,
+    deleteErrors,
+    deleteProgressStatus,
+    deleteDialogMode,
+    deleteConfirmRecordCount: pendingDeleteSelection?.totalCount ?? 0,
+    isDeleteProgressOpen,
+    closeDeleteProgressDialog,
+    confirmDeleteSelection,
+    duplicateProgress,
+    duplicateSummary,
+    duplicateErrors,
+    duplicateProgressStatus,
+    duplicateDialogMode,
+    duplicateConfirmRecordCount: pendingDuplicateSelection?.totalCount ?? 0,
+    isDuplicateProgressOpen,
+    closeDuplicateProgressDialog,
+    confirmDuplicateSelection,
+    pasteProgress,
+    pasteSummary,
+    pasteErrors,
+    pasteProgressStatus,
+    pasteDialogMode,
+    pasteConfirmRecordCount: pendingPasteSelection?.totalCount ?? 0,
+    isPasteProgressOpen,
+    closePasteProgressDialog,
+    confirmPasteSelection,
     syncCopy: doSyncCopy,
     fill: doFill,
   };

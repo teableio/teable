@@ -39,11 +39,11 @@ export class AuthService {
     }
   }
 
-  async getTempToken() {
+  async getTempToken(expiresIn: string = '10m', userId?: string, allowSystemUser?: boolean) {
     const payload: IJwtAuthInfo = {
-      userId: this.cls.get('user.id'),
+      userId: userId ?? this.cls.get('user.id'),
+      ...(allowSystemUser ? { allowSystemUser: true } : {}),
     };
-    const expiresIn = '10m';
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
       expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),

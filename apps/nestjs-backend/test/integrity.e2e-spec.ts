@@ -949,6 +949,103 @@ describe('OpenAPI integrity (e2e)', () => {
     });
   });
 
+  describe('fix invalid filter operator', () => {
+    let baseId1: string;
+    let base1table1: ITableFullVo;
+    let base1table2: ITableFullVo;
+    beforeEach(async () => {
+      baseId1 = (await createBase({ spaceId, name: 'base1' })).data.id;
+      base1table1 = await createTable(baseId1, { name: 'base1table1' });
+      base1table2 = await createTable(baseId1, { name: 'base1table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId1, base1table1.id);
+      await permanentDeleteTable(baseId1, base1table2.id);
+      await deleteBase(baseId1);
+    });
+
+    it('should detect and fix invalid filter operator in lookupOptions', async () => {
+      // Create a link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: base1table2.id,
+        },
+      };
+      const linkField = await createField(base1table1.id, linkFieldRo);
+
+      // Create a number field in table2 for filtering
+      const numberFieldRo: IFieldRo = {
+        name: 'score',
+        type: FieldType.Number,
+      };
+      const numberField = await createField(base1table2.id, numberFieldRo);
+
+      // Create a lookup field on table1 that looks up the primary field of table2
+      // with a valid filter: score isGreater 10
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookup with filter',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: base1table2.id,
+          lookupFieldId: base1table2.fields[0].id,
+          linkFieldId: linkField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: numberField.id,
+                operator: 'isGreater',
+                value: 10,
+              },
+            ],
+          },
+        },
+      };
+      const lookupField = await createField(base1table1.id, lookupFieldRo);
+
+      // Verify no issues initially
+      const integrity1 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity1.data.hasIssues).toEqual(false);
+
+      // Directly inject an invalid operator ("contains" is not valid for number fields)
+      const fieldRow = await prisma.txClient().field.findFirstOrThrow({
+        where: { id: lookupField.id },
+      });
+      const lookupOptions = JSON.parse(fieldRow.lookupOptions!);
+      lookupOptions.filter.filterSet[0].operator = 'contains';
+      await prisma.txClient().field.update({
+        where: { id: lookupField.id },
+        data: { lookupOptions: JSON.stringify(lookupOptions) },
+      });
+
+      // Check should detect the invalid operator
+      const integrity2 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity2.data.hasIssues).toEqual(true);
+      const issues = integrity2.data.linkFieldIssues.flatMap((i) => i.issues);
+      expect(issues.some((i) => i.type === IntegrityIssueType.InvalidFilterOperator)).toEqual(true);
+
+      // Fix should remove the invalid filter item
+      await fixBaseIntegrity(baseId1, base1table1.id);
+
+      // After fix, no more issues
+      const integrity3 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity3.data.hasIssues).toEqual(false);
+
+      // Verify the filter was cleaned up in DB
+      const fieldRowAfter = await prisma.txClient().field.findFirstOrThrow({
+        where: { id: lookupField.id },
+      });
+      const lookupOptionsAfter = JSON.parse(fieldRowAfter.lookupOptions!);
+      // The invalid filter item was removed, filterSet should be empty or filter null
+      expect(lookupOptionsAfter.filter).toBeNull();
+    });
+  });
+
   describe('fix empty string cell value', () => {
     let baseId1: string;
     let base1table: ITableFullVo;
