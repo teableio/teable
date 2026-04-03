@@ -46,6 +46,8 @@ type ActionTriggerPayload = {
   tableId?: string;
   fieldIds?: unknown;
   field?: unknown;
+  recordIds?: unknown;
+  skipRealtime?: unknown;
 };
 
 type ActionTrigger = {
@@ -59,6 +61,19 @@ type ActionTriggerFieldPayload = {
   options?: unknown;
   dbFieldType?: unknown;
   type?: unknown;
+};
+
+type DeleteRecordActionPayload = ActionTriggerPayload & {
+  tableId: string;
+  recordIds: string[];
+  skipRealtime: true;
+};
+
+type LargeProjectedMutationPayload = ActionTriggerPayload & {
+  tableId: string;
+  skipRealtime: true;
+  totalChunkCount?: number;
+  chunkIndex?: number;
 };
 
 const schemaRefreshFieldProperties = new Set([
@@ -266,6 +281,120 @@ const isSchemaRefreshAction = (tableId: string, batch: unknown): boolean => {
   });
 };
 
+const toDeleteRecordActionPayload = (
+  tableId: string,
+  payload: ActionTriggerPayload | undefined
+): DeleteRecordActionPayload | undefined => {
+  if (payload?.tableId !== tableId || payload?.skipRealtime !== true) {
+    return undefined;
+  }
+
+  if (!Array.isArray(payload.recordIds)) {
+    return undefined;
+  }
+
+  const recordIds = payload.recordIds.filter(
+    (recordId): recordId is string => typeof recordId === 'string' && recordId.length > 0
+  );
+
+  if (!recordIds.length) {
+    return undefined;
+  }
+
+  return {
+    ...payload,
+    tableId,
+    recordIds,
+    skipRealtime: true,
+  };
+};
+
+const getProjectedDeleteRecordIds = (tableId: string, batch: unknown): string[] | undefined => {
+  if (!Array.isArray(batch)) {
+    return undefined;
+  }
+
+  const deletedIds = new Set<string>();
+
+  for (const item of batch) {
+    if (!(item instanceof Object)) {
+      continue;
+    }
+
+    const action = item as ActionTrigger;
+    if (action.actionKey !== 'deleteRecord') {
+      continue;
+    }
+
+    const payload = toDeleteRecordActionPayload(tableId, action.payload);
+    if (!payload) {
+      continue;
+    }
+
+    for (const recordId of payload.recordIds) {
+      deletedIds.add(recordId);
+    }
+  }
+
+  return deletedIds.size ? [...deletedIds] : undefined;
+};
+
+const toLargeProjectedMutationPayload = (
+  tableId: string,
+  payload: ActionTriggerPayload | undefined
+): LargeProjectedMutationPayload | undefined => {
+  if (payload?.tableId !== tableId || payload?.skipRealtime !== true) {
+    return undefined;
+  }
+
+  return {
+    ...payload,
+    tableId,
+    skipRealtime: true,
+  };
+};
+
+const shouldRefreshAfterProjectedMutation = (
+  tableId: string,
+  batch: unknown,
+  actionKey: 'setRecord' | 'addRecord'
+) => {
+  if (!Array.isArray(batch)) {
+    return false;
+  }
+
+  for (const item of batch) {
+    if (!(item instanceof Object)) {
+      continue;
+    }
+
+    const action = item as ActionTrigger;
+    if (action.actionKey !== actionKey) {
+      continue;
+    }
+
+    const payload = toLargeProjectedMutationPayload(tableId, action.payload);
+    if (!payload) {
+      continue;
+    }
+
+    if (
+      typeof payload.chunkIndex === 'number' &&
+      typeof payload.totalChunkCount === 'number' &&
+      payload.totalChunkCount > 0
+    ) {
+      if (payload.chunkIndex === payload.totalChunkCount - 1) {
+        return true;
+      }
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+};
+
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
  * keep every instance the latest data
@@ -373,6 +502,33 @@ export function useInstances<T, R extends { id: string }>({
     [collection, queryParams, schemaRefreshCollectionTableId]
   );
 
+  const removeProjectedRecordsByIds = useCallback(
+    (recordIds: string[]) => {
+      if (!schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
+        return false;
+      }
+
+      const currentQuery = preQueryRef.current;
+      const currentDocs = (currentQuery?.results ?? []) as Doc<IRecord>[];
+      if (!currentDocs.length) {
+        return false;
+      }
+
+      const deletedIds = new Set(recordIds);
+      const docsToRemove = currentDocs.filter((doc) => deletedIds.has(doc.id));
+      if (!docsToRemove.length) {
+        return false;
+      }
+
+      const remainingDocs = currentDocs.filter((doc) => !deletedIds.has(doc.id));
+      currentQuery!.results = remainingDocs as unknown as Doc<T>[];
+      docsToRemove.forEach((doc) => opListeners.current.remove(doc as unknown as Doc<T>));
+      dispatch({ type: 'removeByIds', ids: [...deletedIds] });
+      return true;
+    },
+    [collection, schemaRefreshCollectionTableId]
+  );
+
   useEffect(() => {
     if (!connection || !schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
       return;
@@ -390,6 +546,20 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const receiveListener = (_id: string, batch: unknown) => {
+      const deletedRecordIds = getProjectedDeleteRecordIds(schemaRefreshCollectionTableId, batch);
+      if (deletedRecordIds?.length) {
+        removeProjectedRecordsByIds(deletedRecordIds);
+        return;
+      }
+
+      if (
+        shouldRefreshAfterProjectedMutation(schemaRefreshCollectionTableId, batch, 'setRecord') ||
+        shouldRefreshAfterProjectedMutation(schemaRefreshCollectionTableId, batch, 'addRecord')
+      ) {
+        setSchemaRefreshToken((current) => current + 1);
+        return;
+      }
+
       if (!isSchemaRefreshAction(schemaRefreshCollectionTableId, batch)) {
         return;
       }
@@ -416,7 +586,13 @@ export function useInstances<T, R extends { id: string }>({
         presence.destroy();
       }
     };
-  }, [collection, connection, refreshProjectedRecordFields, schemaRefreshCollectionTableId]);
+  }, [
+    collection,
+    connection,
+    refreshProjectedRecordFields,
+    removeProjectedRecordsByIds,
+    schemaRefreshCollectionTableId,
+  ]);
 
   const handleReady = useCallback((query: Query<T>) => {
     console.log(

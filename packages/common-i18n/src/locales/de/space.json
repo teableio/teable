@@ -140,8 +140,8 @@
     "empty": "Noch keine Bases"
   },
   "publishBase": {
-    "title": "Base in der Community veröffentlichen",
-    "description": "Veröffentlichen Sie Ihre Base mit einem Klick, Inspiration ist nicht länger einsam! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
+    "title": "Im Vorlagenzentrum veröffentlichen",
+    "description": "Veröffentlichen Sie Ihre Base mit einem Klick im Vorlagenzentrum! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
     "infoTitle": "Basisinformationen",
     "form": {
       "title": "Titel",
@@ -166,7 +166,7 @@
     "unPublish": "Veröffentlichung aufheben",
     "unPublishSuccess": "Veröffentlichung der Base erfolgreich aufgehoben!",
     "unPublishConfirmTitle": "Veröffentlichung aufheben bestätigen",
-    "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieser Base aufheben möchten? Sie wird nicht mehr im Vorlagen-Center der Community sichtbar sein.",
+    "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieser Base aufheben möchten? Sie wird nicht mehr im Vorlagenzentrum sichtbar sein.",
     "usageCount": "Nutzungsanzahl: ",
     "uploadCover": "Klicken, um Titelbild hochzuladen",
     "changeCover": "Klicken, um Titelbild zu ändern",
