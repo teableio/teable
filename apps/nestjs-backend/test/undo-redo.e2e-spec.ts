@@ -23,7 +23,9 @@ import {
   deleteRecord,
   deleteRecords,
   deleteSelection,
+  deleteSelectionStream,
   deleteView,
+  duplicateSelectionStream,
   getField,
   getFields,
   getRecord,
@@ -33,6 +35,7 @@ import {
   getView,
   getViewList,
   paste,
+  RangeType,
   redo,
   undo,
   updateRecord,
@@ -44,6 +47,7 @@ import {
   updateViewName,
   updateViewOrder,
   X_CANARY_HEADER,
+  ensureUndoRedoWindowIdHeader,
 } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -71,20 +75,21 @@ const waitForTableTrashCount = async (tableId: string, expectedCount: number, ma
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
+  let cookie: string;
   let table: ITableFullVo;
   let eventEmitterService: EventEmitterService;
   let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
+  let windowId: string;
   const baseId = globalThis.testConfig.baseId;
+  const windowIdHeader = 'X-Window-Id';
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    cookie = appCtx.cookie;
     eventEmitterService = app.get(EventEmitterService);
-    const windowId = 'win' + getRandomString(8);
-    axios.interceptors.request.use((config) => {
-      config.headers['X-Window-Id'] = windowId;
-      return config;
-    });
+    windowId = 'win' + getRandomString(8);
+    ensureUndoRedoWindowIdHeader(windowId);
     awaitWithEvent = isForceV2
       ? async <T>(action: () => Promise<T>) => await action()
       : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
@@ -258,6 +263,139 @@ describe('Undo Redo (e2e)', () => {
     expect(allRecordsAfterRedo.data.records).toHaveLength(3);
     expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
   });
+
+  it.skipIf(!canRunCanaryV2)(
+    'should undo streamed delete selection with the same window undo stack',
+    async () => {
+      const previousWindowId = windowId;
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      const streamWindowId = 'win' + getRandomString(8);
+
+      windowId = streamWindowId;
+      axios.defaults.headers.common[windowIdHeader] = streamWindowId;
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const record1 = (
+          await createRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: { [table.fields[0].id]: 'record1-stream' } }],
+            order: {
+              viewId: table.views[0].id,
+              anchorId: table.records[0].id,
+              position: 'after',
+            },
+          })
+        ).data.records[0];
+
+        const deleteResult = await deleteSelectionStream(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[1, 1]],
+          },
+          {
+            headers: {
+              Cookie: cookie,
+            },
+          }
+        );
+
+        expect(deleteResult.data.ids).toEqual([record1.id]);
+
+        const allRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecords.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+
+        const undoRes = await undo(table.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const allRecordsAfterUndo = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecordsAfterUndo.data.records.find((r) => r.id === record1.id)).toBeDefined();
+      } finally {
+        windowId = previousWindowId;
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        axios.defaults.headers.common[windowIdHeader] = previousWindowId;
+      }
+    }
+  );
+
+  it.skipIf(!canRunCanaryV2)(
+    'should undo streamed duplicate selection with the same window undo stack',
+    async () => {
+      const previousWindowId = windowId;
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      const streamWindowId = 'win' + getRandomString(8);
+
+      windowId = streamWindowId;
+      axios.defaults.headers.common[windowIdHeader] = streamWindowId;
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const beforeRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+
+        const duplicateResult = await duplicateSelectionStream(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 1]],
+          },
+          {
+            headers: {
+              Cookie: cookie,
+            },
+          }
+        );
+
+        expect(duplicateResult.errors).toHaveLength(0);
+        expect(duplicateResult.done.duplicatedCount).toBe(2);
+
+        const allRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecords.data.records).toHaveLength(beforeRecords.data.records.length + 2);
+
+        const undoRes = await undo(table.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const allRecordsAfterUndo = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecordsAfterUndo.data.records).toHaveLength(beforeRecords.data.records.length);
+        expect(
+          allRecordsAfterUndo.data.records.some((record) =>
+            duplicateResult.done.data.duplicatedRecordIds.includes(record.id)
+          )
+        ).toBe(false);
+      } finally {
+        windowId = previousWindowId;
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        axios.defaults.headers.common[windowIdHeader] = previousWindowId;
+      }
+    }
+  );
 
   it.skipIf(!canRunCanaryV2)(
     'should remove v2 record trash after undo restores deleted records',

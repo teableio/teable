@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
+import { Lock, Star, Trash } from '@teable/icons';
 import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
 import {
   useBaseId,
@@ -22,7 +22,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
-import { Unlock } from 'lucide-react';
+import { CopyPlus, Download, Pen, Unlock } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect, useMemo } from 'react';
@@ -253,13 +253,13 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
               onEdit(true);
             }}
           >
-            <Pencil className="size-4 shrink-0" />
+            <Pen className="size-4 shrink-0" />
             {t('view.action.rename')}
           </ContextMenuItem>
         )}
         {view.type === 'grid' && permission['table|export'] && (
           <ContextMenuItem onClick={() => trigger?.()}>
-            <Export className="size-4 shrink-0" />
+            <Download className="size-4 shrink-0" />
             {t('import.menu.downAsCsv')}
           </ContextMenuItem>
         )}
@@ -270,7 +270,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
             }}
             disabled={isDuplicateViewLoading}
           >
-            <Copy className="size-4 shrink-0" />
+            <CopyPlus className="size-4 shrink-0" />
             {t('view.action.duplicate')}
             {isDuplicateViewLoading && <Spin className="size-3 shrink-0" />}
           </ContextMenuItem>
@@ -305,7 +305,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
                 deleteView();
               }}
             >
-              <Trash2 className="size-4 shrink-0" />
+              <Trash className="size-4 shrink-0" />
               {t('view.action.delete')}
             </ContextMenuItem>
           </>

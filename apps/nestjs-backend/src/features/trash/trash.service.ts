@@ -2,7 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
 import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type {
   IResetTrashItemsRo,
   IResourceMapVo,
@@ -751,6 +751,7 @@ export class TrashService {
       tableId,
       resourceType,
       snapshot: originSnapshot,
+      createdTime,
     } = await this.prismaService.tableTrash
       .findUniqueOrThrow({
         where: { id: trashId },
@@ -758,6 +759,7 @@ export class TrashService {
           tableId: true,
           resourceType: true,
           snapshot: true,
+          createdTime: true,
         },
       })
       .catch(() => {
@@ -808,11 +810,43 @@ export class TrashService {
             break;
           }
           case TableTrashType.Record: {
-            const originRecords = await prisma.recordTrash.findMany({
-              where: { tableId, recordId: { in: snapshot } },
-              select: { snapshot: true },
+            const recordIds = snapshot as string[];
+            type IRecordTrashSnapshotRow = Prisma.RecordTrashGetPayload<{
+              select: {
+                id: true;
+                recordId: true;
+                snapshot: true;
+                createdTime: true;
+              };
+            }>;
+            const recordTrashRows = await prisma.recordTrash.findMany({
+              where: { tableId, recordId: { in: recordIds } },
+              select: {
+                id: true,
+                recordId: true,
+                snapshot: true,
+                createdTime: true,
+              },
+              orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
             });
-            const records = originRecords.map(({ snapshot }) => JSON.parse(snapshot));
+
+            // A record can be deleted, restored through undo, then deleted again with the same id.
+            // Restore should use the snapshot that belongs to this trash item, not every historical
+            // record_trash row for the same record id.
+            const latestSnapshotsByRecordId = recordTrashRows.reduce<
+              Map<string, IRecordTrashSnapshotRow>
+            >((acc, row) => {
+              if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
+                acc.set(row.recordId, row);
+              }
+              return acc;
+            }, new Map<string, IRecordTrashSnapshotRow>());
+
+            const matchedRecordTrashRows = recordIds
+              .map((recordId) => latestSnapshotsByRecordId.get(recordId))
+              .filter((row): row is IRecordTrashSnapshotRow => row != null);
+            const records = matchedRecordTrashRows.map(({ snapshot }) => JSON.parse(snapshot));
+
             await this.recordOpenApiService.multipleCreateRecords(
               tableId,
               {
@@ -823,7 +857,7 @@ export class TrashService {
               true
             );
             await prisma.recordTrash.deleteMany({
-              where: { tableId, recordId: { in: snapshot } },
+              where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
             });
             break;
           }

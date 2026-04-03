@@ -1,4 +1,5 @@
-import { Trash, Copy } from '@teable/icons';
+import { Trash } from '@teable/icons';
+import { CopyPlus } from 'lucide-react';
 import { deleteRecord, duplicateRecord } from '@teable/openapi';
 import { useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -64,7 +65,7 @@ export const EventMenu = () => {
       {
         type: MenuItemType.Duplicate,
         name: t('sdk:expandRecord.duplicateRecord'),
-        icon: <Copy className={iconClassName} />,
+        icon: <CopyPlus className={iconClassName} />,
         hidden: !permission.eventCreatable,
         onClick: async () => {
           if (!tableId || !viewId) return;

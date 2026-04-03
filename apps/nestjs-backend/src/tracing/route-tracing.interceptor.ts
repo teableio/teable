@@ -2,20 +2,10 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { trace, TraceFlags } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-
-const buildTraceLink = (traceId: string, baseUrl?: string) => {
-  const normalizedBaseUrl = baseUrl?.replace(/\/+$/, '');
-  if (!normalizedBaseUrl) return null;
-  return `${normalizedBaseUrl}/trace/${traceId}?uiEmbed=v0`;
-};
-
-const buildTraceparent = (traceId: string, spanId: string, traceFlags: TraceFlags) => {
-  const sampled = (traceFlags & TraceFlags.SAMPLED) === TraceFlags.SAMPLED;
-  return `00-${traceId}-${spanId}-${sampled ? '01' : '00'}`;
-};
+import { applyTraceResponseHeaders } from './trace-response-headers';
 
 @Injectable()
 export class RouteTracingInterceptor implements NestInterceptor {
@@ -53,17 +43,7 @@ export class RouteTracingInterceptor implements NestInterceptor {
 
       const spanName = `${httpMethod} ${route}`;
       span.updateName(spanName);
-
-      // Set trace response headers
-      const spanContext = span.spanContext();
-      response.setHeader(
-        'traceparent',
-        buildTraceparent(spanContext.traceId, spanContext.spanId, spanContext.traceFlags)
-      );
-      const traceLink = buildTraceLink(spanContext.traceId, this.traceLinkBaseUrl);
-      if (traceLink) {
-        response.setHeader('Link', `<${traceLink}>; rel="trace"`);
-      }
+      applyTraceResponseHeaders(response, this.traceLinkBaseUrl);
     }
 
     return next.handle().pipe(

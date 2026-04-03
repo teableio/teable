@@ -249,6 +249,15 @@ export class ComputedFieldSelectExpressionVisitor
     );
   }
 
+  private systemScalarColumn(
+    field: Field,
+    systemColumn: string
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return this.getColAlias(field).map((colAlias) =>
+      sql`${sql.ref(`${this.tableAlias}.${systemColumn}`)}`.as(colAlias)
+    );
+  }
+
   private userColumn(field: Field): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).map((colAlias) => {
       const colRef = sql.ref(`${this.tableAlias}.${colAlias}`);
@@ -374,19 +383,21 @@ export class ComputedFieldSelectExpressionVisitor
   visitCreatedTimeField(
     field: CreatedTimeField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.simpleColumn(field);
+    return this.systemScalarColumn(field, '__created_time');
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.simpleColumn(field);
+    return field.isTrackAll()
+      ? this.systemScalarColumn(field, '__last_modified_time')
+      : this.simpleColumn(field);
   }
 
   visitAutoNumberField(
     field: AutoNumberField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.simpleColumn(field);
+    return this.systemScalarColumn(field, '__auto_number');
   }
 
   visitCreatedByField(

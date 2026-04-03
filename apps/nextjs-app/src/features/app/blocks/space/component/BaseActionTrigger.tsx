@@ -1,16 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Info,
-  Copy,
   Database,
   Download,
   Export,
   Loader2,
-  Pencil,
-  Trash2,
   ArrowRight,
 } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
+import { CopyPlus, Pen, Trash } from 'lucide-react';
 import { exportBase, getSpaceList, moveBase } from '@teable/openapi';
 import type { IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -197,13 +195,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         >
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
-              <Pencil className="mr-2" />
+              <Pen className="mr-2" />
               {t('actions.rename')}
             </DropdownMenuItem>
           )}
           {showDuplicate && (
             <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
-              <Copy className="mr-2" />
+              <CopyPlus className="mr-2" />
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
@@ -231,7 +229,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-                <Trash2 className="mr-2" />
+                <Trash className="mr-2" />
                 {t('actions.delete')}
               </DropdownMenuItem>
             </>
@@ -261,10 +259,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         }
       />
 
-      <Dialog
-        open={exportConfirm}
-        onOpenChange={setExportConfirm}
-      >
+      <Dialog open={exportConfirm} onOpenChange={setExportConfirm}>
         <DialogContent
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
