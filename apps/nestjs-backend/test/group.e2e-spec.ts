@@ -695,3 +695,118 @@ describe('Lookup multiple select respects choice order when sorting groups', () 
     expect(recordCategories).toEqual([choiceOrder[0], choiceOrder[1], choiceOrder[2]]);
   });
 });
+
+describe('Single select grouping with special characters in choice names', () => {
+  const choiceOrder = ['Pending?', 'Done!', 'N/A'] as const;
+  const choiceDefinitions = choiceOrder.map((name, index) => ({
+    id: `sc-choice-${index}`,
+    name,
+    color: index === 0 ? Colors.Red : index === 1 ? Colors.Green : Colors.Blue,
+  }));
+  const statusFieldName = 'Status';
+  const itemFieldName = 'Item';
+
+  let table: ITableFullVo;
+  let statusField: IFieldRo;
+
+  beforeAll(async () => {
+    table = await createTable(baseId, {
+      name: 'group_special_char_choices',
+      fields: [
+        { name: itemFieldName, type: FieldType.SingleLineText },
+        {
+          name: statusFieldName,
+          type: FieldType.SingleSelect,
+          options: { choices: choiceDefinitions },
+        },
+      ],
+      records: [
+        { fields: { [itemFieldName]: 'r1', [statusFieldName]: 'Pending?' } },
+        { fields: { [itemFieldName]: 'r2', [statusFieldName]: 'Done!' } },
+        { fields: { [itemFieldName]: 'r3', [statusFieldName]: 'N/A' } },
+      ],
+    });
+    statusField = table.fields!.find(
+      ({ name, type }) => name === statusFieldName && type === FieldType.SingleSelect
+    ) as IFieldRo;
+  });
+
+  afterAll(async () => {
+    await permanentDeleteTable(baseId, table.id);
+  });
+
+  it('groups correctly when choice name contains ? character', async () => {
+    const query: IGetRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      groupBy: [{ fieldId: statusField.id!, order: SortFunc.Asc }],
+    };
+    const { records, extra } = await getRecords(table.id, query);
+
+    const headerValues =
+      extra?.groupPoints
+        ?.filter((point): point is IGroupHeaderPoint => point.type === GroupPointType.Header)
+        .map((point) => point.value as string) ?? [];
+
+    expect(headerValues).toEqual([...choiceOrder]);
+    expect(records).toHaveLength(3);
+
+    const statusSequence = records.map((record) => record.fields?.[statusField.id!] as string);
+    expect(statusSequence).toEqual([...choiceOrder]);
+  });
+});
+
+describe('Multiple select grouping with special characters in choice names', () => {
+  const choiceOrder = ['Alpha?', 'Beta!', 'Gamma'] as const;
+  const choiceDefinitions = choiceOrder.map((name, index) => ({
+    id: `ms-choice-${index}`,
+    name,
+    color: index === 0 ? Colors.Red : index === 1 ? Colors.Green : Colors.Blue,
+  }));
+  const tagFieldName = 'Tags';
+  const itemFieldName = 'Item';
+
+  let table: ITableFullVo;
+  let tagField: IFieldRo;
+
+  beforeAll(async () => {
+    table = await createTable(baseId, {
+      name: 'group_multi_select_special_char',
+      fields: [
+        { name: itemFieldName, type: FieldType.SingleLineText },
+        {
+          name: tagFieldName,
+          type: FieldType.MultipleSelect,
+          options: { choices: choiceDefinitions },
+        },
+      ],
+      records: [
+        { fields: { [itemFieldName]: 'r1', [tagFieldName]: ['Alpha?'] } },
+        { fields: { [itemFieldName]: 'r2', [tagFieldName]: ['Beta!'] } },
+        { fields: { [itemFieldName]: 'r3', [tagFieldName]: ['Gamma'] } },
+      ],
+    });
+    tagField = table.fields!.find(
+      ({ name, type }) => name === tagFieldName && type === FieldType.MultipleSelect
+    ) as IFieldRo;
+  });
+
+  afterAll(async () => {
+    await permanentDeleteTable(baseId, table.id);
+  });
+
+  it('groups correctly when multiple select choice name contains ? character', async () => {
+    const query: IGetRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      groupBy: [{ fieldId: tagField.id!, order: SortFunc.Asc }],
+    };
+    const { records, extra } = await getRecords(table.id, query);
+
+    const headerValues =
+      extra?.groupPoints
+        ?.filter((point): point is IGroupHeaderPoint => point.type === GroupPointType.Header)
+        .map((point) => point.value) ?? [];
+
+    expect(headerValues).toHaveLength(3);
+    expect(records).toHaveLength(3);
+  });
+});

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { LocalStorageKeys } from '../../../config';
+import type { IPersonalViewStoreApi } from './ShareSessionViewStore';
+import { useShareSessionViewStore } from './ShareSessionViewStore';
 
 interface IPersonalViewState {
   personalViewMap: Record<string, Record<string, unknown>>;
@@ -11,6 +13,16 @@ interface IPersonalViewState {
   ) => void;
   removePersonalView: (viewId: string) => void;
 }
+
+/**
+ * Checks for a session-only override (share mode) first,
+ * falls back to the Zustand localStorage store.
+ */
+export const useResolvedPersonalViewStore = (): IPersonalViewStoreApi => {
+  const sessionStore = useShareSessionViewStore();
+  const zustandStore = usePersonalViewStore();
+  return sessionStore ?? zustandStore;
+};
 
 export const usePersonalViewStore = create<IPersonalViewState>()(
   persist(

@@ -10,6 +10,7 @@ import type { EventType, IEventHandler } from '../EventHandler';
 import { getEventHandlerRole, getEventHandlerTokens } from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
+import { TeableSpanAttributes } from '../Tracer';
 
 export type AsyncEventBusScheduler = (task: () => Promise<void>) => void;
 
@@ -23,6 +24,7 @@ export type AsyncMemoryEventBusOptions = Readonly<{
   schedule?: AsyncEventBusScheduler;
   onError?: (error: AsyncEventBusError) => void;
   largeBatchProjectionSerialThreshold?: number;
+  recordPublishedEvents?: boolean;
 }>;
 
 const DEFAULT_LARGE_BATCH_PROJECTION_SERIAL_THRESHOLD = 1000;
@@ -83,6 +85,7 @@ export class AsyncMemoryEventBus implements IEventBus {
   private draining = false;
   private nextSeq = 0;
   private processedSeq = -1;
+  private readonly recordPublishedEvents: boolean;
 
   private shouldAwait(events: ReadonlyArray<IDomainEvent>): boolean {
     if (!events.length) return false;
@@ -102,7 +105,9 @@ export class AsyncMemoryEventBus implements IEventBus {
   constructor(
     private readonly handlerResolver: IHandlerResolver,
     private readonly options: AsyncMemoryEventBusOptions = {}
-  ) {}
+  ) {
+    this.recordPublishedEvents = options.recordPublishedEvents ?? true;
+  }
 
   private shouldDispatchProjectionGroupConcurrently(event: IDomainEvent): boolean {
     const threshold =
@@ -137,7 +142,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     const shouldAwait = this.shouldAwait([event]);
     const wasDraining = this.draining;
     this.enrichWithRequestId(context, event);
-    this.publishedEvents.push(event);
+    this.maybeRecordPublishedEvents([event]);
     const targetSeq = this.enqueue(context, [event]);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
@@ -157,7 +162,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     for (const event of events) {
       this.enrichWithRequestId(context, event);
     }
-    this.publishedEvents.push(...events);
+    this.maybeRecordPublishedEvents(events);
     const targetSeq = this.enqueue(context, events);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
@@ -169,6 +174,14 @@ export class AsyncMemoryEventBus implements IEventBus {
     if (context.requestId && !event.requestId) {
       (event as { requestId?: string }).requestId = context.requestId;
     }
+  }
+
+  private maybeRecordPublishedEvents(events: ReadonlyArray<IDomainEvent>): void {
+    if (!this.recordPublishedEvents || !events.length) {
+      return;
+    }
+
+    this.publishedEvents.push(...events);
   }
 
   private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): number {
@@ -254,16 +267,28 @@ export class AsyncMemoryEventBus implements IEventBus {
 
       const currentGroup = projectionGroup;
       projectionGroup = [];
-      if (shouldDispatchProjectionGroupConcurrently || currentGroup.length === 1) {
-        await Promise.all(
-          currentGroup.map((handlerToken) => this.dispatchToHandler(context, event, handlerToken))
-        );
-        return;
-      }
+      await this.traceProjectionGroup(
+        context,
+        event,
+        currentGroup,
+        shouldDispatchProjectionGroupConcurrently || currentGroup.length === 1
+          ? 'concurrent'
+          : 'serial',
+        async () => {
+          if (shouldDispatchProjectionGroupConcurrently || currentGroup.length === 1) {
+            await Promise.all(
+              currentGroup.map((handlerToken) =>
+                this.dispatchToHandler(context, event, handlerToken)
+              )
+            );
+            return;
+          }
 
-      for (const handlerToken of currentGroup) {
-        await this.dispatchToHandler(context, event, handlerToken);
-      }
+          for (const handlerToken of currentGroup) {
+            await this.dispatchToHandler(context, event, handlerToken);
+          }
+        }
+      );
     };
 
     for (const handlerToken of handlers as Array<IClassToken<IEventHandler<IDomainEvent>>>) {
@@ -277,6 +302,47 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
 
     await flushProjectionGroup();
+  }
+
+  private async traceProjectionGroup(
+    context: IExecutionContext,
+    event: IDomainEvent,
+    handlers: ReadonlyArray<IClassToken<IEventHandler<IDomainEvent>>>,
+    mode: 'concurrent' | 'serial',
+    callback: () => Promise<void>
+  ): Promise<void> {
+    const tracer = context.tracer;
+    if (!tracer) {
+      await callback();
+      return;
+    }
+
+    let span;
+    try {
+      span = tracer.startSpan('teable.AsyncMemoryEventBus.projectionGroup', {
+        [TeableSpanAttributes.VERSION]: 'v2',
+        [TeableSpanAttributes.COMPONENT]: 'projection',
+        [TeableSpanAttributes.HANDLER]: 'AsyncMemoryEventBus',
+        [TeableSpanAttributes.OPERATION]: 'AsyncMemoryEventBus.projectionGroup',
+        [TeableSpanAttributes.EVENT_NAME]: event.name.toString(),
+        [TeableSpanAttributes.EVENT_ROLE]: 'projection',
+        [TeableSpanAttributes.EVENT_GROUP_MODE]: mode,
+        [TeableSpanAttributes.EVENT_HANDLER_COUNT]: handlers.length,
+        [TeableSpanAttributes.EVENT_ASYNC]: true,
+        'teable.message': event.constructor.name,
+      });
+    } catch {
+      await callback();
+      return;
+    }
+
+    await tracer.withSpan(span, async () => {
+      try {
+        await callback();
+      } finally {
+        span.end();
+      }
+    });
   }
 
   private async dispatchToHandler(

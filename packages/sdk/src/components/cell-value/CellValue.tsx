@@ -63,7 +63,7 @@ const renderLongText: RenderFn = ({ value, className, plainLongText, options }) 
     const normalized = normalizeMarkdownValue(value);
     return <CellMarkdown value={normalized} className={className} />;
   }
-  const strValue = typeof value === 'string' ? value : '';
+  const strValue = normalizeMarkdownValue(value);
   if (plainLongText) {
     const stripped = isMarkdown ? stripMarkdown(strValue) : strValue;
     const plainTextValue = stripped ? normalizeLongTextPlainPreview(stripped) : stripped;

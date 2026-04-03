@@ -255,6 +255,7 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
 
     // Link input events
     linkInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
       if (e.key === 'Enter') {
         e.preventDefault();
         applyLink(view);
