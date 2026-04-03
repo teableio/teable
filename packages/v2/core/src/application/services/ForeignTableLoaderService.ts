@@ -16,9 +16,16 @@ export type ForeignTableLoaderInput = {
   references: ReadonlyArray<LinkForeignTableReference>;
 };
 
+export interface IForeignTableLoaderService {
+  load(
+    context: IExecutionContext,
+    input: ForeignTableLoaderInput
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>>;
+}
+
 @injectable()
 // Application service: loads foreign tables once per command and validates missing references.
-export class ForeignTableLoaderService {
+export class ForeignTableLoaderService implements IForeignTableLoaderService {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository
@@ -48,5 +55,11 @@ export class ForeignTableLoaderService {
       return ok(foreignTables);
     });
     return result;
+  }
+}
+
+export class NullForeignTableLoaderService implements IForeignTableLoaderService {
+  async load(): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    return ok([]);
   }
 }

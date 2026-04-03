@@ -573,7 +573,16 @@
         "chatModelDescription": "The chat model to use, Tips: tool calling is required for teable ai features",
         "chatModels": {
           "lg": "Advanced chat model",
-          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
+          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5",
+          "md": "Standard",
+          "mdDescription": "For daily conversations and general tasks",
+          "sm": "Lightweight",
+          "smDescription": "For simple queries and quick responses",
+          "inheritHint": "Same as primary ({{model}})",
+          "modelTiers": "Model tiers",
+          "modelTiersDescription": "Optionally assign different models for standard and lightweight tasks. Unset tiers use the primary model above.",
+          "allInheriting": "All tiers using primary model",
+          "customized": "{{count}} customized"
         },
         "actions": {
           "title": "AI Capabilities",

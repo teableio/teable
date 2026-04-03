@@ -383,8 +383,13 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     if (parsed.type === 'ids') {
       // Standard format: [{ id: 'recXxx', title?: string }]
+      // Pass foreignTableId so the resolver can look up missing titles
       return ok(
-        new SetLinkValueSpec(field.id(), CellValue.fromValidated(parsed.value as LinkItem[]))
+        new SetLinkValueSpec(
+          field.id(),
+          CellValue.fromValidated(parsed.value as LinkItem[]),
+          field.foreignTableId()
+        )
       );
     }
 

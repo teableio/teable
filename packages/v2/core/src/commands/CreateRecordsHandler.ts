@@ -3,6 +3,11 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from '../application/services/ForeignTableLoaderService';
+import { loadLinkTitleFillForeignTables } from '../application/services/loadLinkTitleFillForeignTables';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -32,6 +37,10 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
+import {
+  buildOperationBatchMutation,
+  withBatchMutation,
+} from './shared/batchMutationOrchestration';
 
 export class CreateRecordsResult {
   private constructor(
@@ -83,7 +92,9 @@ export class CreateRecordsHandler
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   @TraceSpan()
@@ -189,22 +200,38 @@ export class CreateRecordsHandler
             },
             DomainError
           >(async function* () {
+            const batchMutation = buildOperationBatchMutation(context, records.length);
+            const transactionContextWithBatchMutation = withBatchMutation(
+              transactionContext,
+              batchMutation
+            );
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
-                transactionContext,
+                transactionContextWithBatchMutation,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
             }
-            yield* await pluginExecution.beforePersist(transactionContext);
+            yield* await pluginExecution.beforePersist(transactionContextWithBatchMutation);
+            const fillLinkTitleForeignTables = command.typecast
+              ? yield* await loadLinkTitleFillForeignTables(
+                  transactionContextWithBatchMutation,
+                  handler.foreignTableLoaderService,
+                  mutateSpecs
+                )
+              : new Map();
             const mutation = yield* await handler.tableRecordRepository.insertMany(
-              transactionContext,
+              transactionContextWithBatchMutation,
               tableForCreate,
               records,
-              command.order ? { order: command.order } : undefined
+              {
+                ...(command.order ? { order: command.order } : {}),
+                ...(command.typecast ? { fillLinkTitles: true } : {}),
+                ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+              }
             );
             return ok({ mutation, tableEvents });
           });
@@ -239,6 +266,7 @@ export class CreateRecordsHandler
             orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
           })),
           source,
+          orchestration: buildOperationBatchMutation(context, records.length),
         });
         events = [batchEvent, ...otherEvents];
       } else {

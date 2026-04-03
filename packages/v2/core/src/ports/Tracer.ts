@@ -62,6 +62,16 @@ export const TeableSpanAttributes = {
   TARGET_KIND: 'teable.target_kind',
   /** Whether the current plugin context is transaction-bound */
   IS_TRANSACTION_BOUND: 'teable.is_transaction_bound',
+  /** Domain event name associated with the current span */
+  EVENT_NAME: 'teable.event.name',
+  /** Domain event handler role, such as projection */
+  EVENT_ROLE: 'teable.event.role',
+  /** Projection group dispatch mode, such as concurrent or serial */
+  EVENT_GROUP_MODE: 'teable.event.group_mode',
+  /** Number of handlers in the current event group */
+  EVENT_HANDLER_COUNT: 'teable.event.handler_count',
+  /** Whether the current event dispatch is asynchronously scheduled */
+  EVENT_ASYNC: 'teable.event.async',
 } as const;
 
 /**

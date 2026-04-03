@@ -19,6 +19,7 @@ export interface IShareBasePagePropsBase extends IBaseNodePageProps {
   shareNodeId?: string;
   allowSave?: boolean;
   allowCopy?: boolean;
+  allowEdit?: boolean;
 }
 
 export const getCurrentUser = async (ssrApi: SsrApi) => {
@@ -56,6 +57,7 @@ export const buildShareProps = async <T extends IShareBasePagePropsBase>(
       shareNodeId: shareData.shareMeta?.nodeId,
       allowSave: !!shareData?.shareMeta?.allowSave,
       allowCopy: !!shareData?.shareMeta?.allowCopy,
+      allowEdit: !!shareData?.shareMeta?.allowEdit,
       ...extraProps,
     } as T,
   };

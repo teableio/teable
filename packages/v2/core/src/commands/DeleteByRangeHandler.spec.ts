@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
@@ -15,9 +16,9 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -25,8 +26,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryOptions,
@@ -51,7 +52,7 @@ import {
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId };
+  return { actorId, requestId: 'req-delete-direct-test' };
 };
 
 const noopUndoRedoService = {
@@ -200,6 +201,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     if (this.failDelete) return err(this.failDelete);
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeEventBus implements IEventBus {
@@ -270,31 +275,48 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 }
 
+const createHandler = (args: {
+  tableRepository: FakeTableRepository;
+  recordRepository?: FakeTableRecordRepository;
+  queryRepository: FakeTableRecordQueryRepository;
+  eventBus?: FakeEventBus;
+  plugins?: ReturnType<typeof createTrackedRecordWritePlugin>['plugin'][];
+  unitOfWork?: FakeUnitOfWork;
+}) => {
+  const deleteByRangeApplicationService = new DeleteByRangeApplicationService(
+    new TableQueryService(args.tableRepository),
+    createRecordWritePluginRunner(args.plugins),
+    args.recordRepository ?? new FakeTableRecordRepository(),
+    args.queryRepository,
+    args.eventBus ?? new FakeEventBus(),
+    noopUndoRedoService,
+    args.unitOfWork ?? new FakeUnitOfWork()
+  );
+
+  return new DeleteByRangeHandler(deleteByRangeApplicationService);
+};
+
 describe('DeleteByRangeHandler', () => {
   it('deletes records in range and publishes event with record snapshots', async () => {
-    const { table, tableId, viewId } = buildTable();
+    const { table, tableId, viewId, textFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      { id: `rec${'a'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record B' }, version: 1 },
+      { id: `rec${'c'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record C' }, version: 1 },
     ];
     queryRepository.total = 3;
 
     const eventBus = new FakeEventBus();
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
-      new FakeTableRecordRepository(),
+    const handler = createHandler({
+      tableRepository,
       queryRepository,
       eventBus,
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     // Delete rows 0-1 (first two records)
     const commandResult = DeleteByRangeCommand.create({
@@ -319,7 +341,10 @@ describe('DeleteByRangeHandler', () => {
     );
     expect(deletedEvent?.recordSnapshots).toHaveLength(2);
     expect(deletedEvent?.recordSnapshots[0].id).toBe(`rec${'a'.repeat(16)}`);
-    expect(deletedEvent?.recordSnapshots[0].fields).toEqual({ title: 'Record A' });
+    expect(deletedEvent?.recordSnapshots[0].fields).toEqual({
+      [textFieldId.toString()]: 'Record A',
+    });
+    expect(deletedEvent?.recordSnapshots[0].displayName).toBe('Record A');
   });
 
   it('skips plugins that do not support deleteMany', async () => {
@@ -336,15 +361,12 @@ describe('DeleteByRangeHandler', () => {
     const eventBus = new FakeEventBus();
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner([plugin]),
-      new FakeTableRecordRepository(),
+    const handler = createHandler({
+      tableRepository,
       queryRepository,
       eventBus,
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+      plugins: [plugin],
+    });
 
     const command = DeleteByRangeCommand.create({
       tableId: tableId.toString(),
@@ -361,6 +383,49 @@ describe('DeleteByRangeHandler', () => {
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.deleteMany);
   });
 
+  it('passes operation-scope orchestration metadata to delete plugins', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+    ];
+    queryRepository.total = 2;
+    const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.deleteMany]);
+
+    const handler = createHandler({
+      tableRepository,
+      queryRepository,
+      plugins: [plugin],
+    });
+
+    const command = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 1]],
+      type: 'rows',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(calls.prepare).toHaveLength(1);
+    expect(calls.guard).toHaveLength(1);
+    expect(calls.beforePersist).toHaveLength(1);
+    expect(calls.afterCommit).toHaveLength(1);
+    expect(calls.prepare[0].payload.recordCount).toBe(2);
+    expect(calls.prepare[0].orchestration).toEqual({
+      mode: 'direct',
+      scope: 'operation',
+      operationId: 'req-delete-direct-test',
+      totalRecordCount: 2,
+      totalChunkCount: 1,
+    });
+  });
+
   it('returns empty result when no records in range', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -370,15 +435,10 @@ describe('DeleteByRangeHandler', () => {
     queryRepository.records = [];
     queryRepository.total = 0;
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
-      new FakeTableRecordRepository(),
+    const handler = createHandler({
+      tableRepository,
       queryRepository,
-      new FakeEventBus(),
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     const commandResult = DeleteByRangeCommand.create({
       tableId: tableId.toString(),
@@ -412,15 +472,11 @@ describe('DeleteByRangeHandler', () => {
 
     const eventBus = new FakeEventBus();
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
-      new FakeTableRecordRepository(),
+    const handler = createHandler({
+      tableRepository,
       queryRepository,
       eventBus,
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     // Delete rows 0-2 (type: rows)
     const commandResult = DeleteByRangeCommand.create({
@@ -452,15 +508,11 @@ describe('DeleteByRangeHandler', () => {
     queryRepository.total = recordCount;
 
     const recordRepository = new FakeTableRecordRepository();
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
+    const handler = createHandler({
+      tableRepository,
       recordRepository,
       queryRepository,
-      new FakeEventBus(),
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     const commandResult = DeleteByRangeCommand.create({
       tableId: tableId.toString(),
@@ -490,15 +542,12 @@ describe('DeleteByRangeHandler', () => {
     recordRepository.failDelete = domainError.notFound({ message: 'Record missing' });
     const eventBus = new FakeEventBus();
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
+    const handler = createHandler({
+      tableRepository,
       recordRepository,
       queryRepository,
       eventBus,
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     const commandResult = DeleteByRangeCommand.create({
       tableId: tableId.toString(),
@@ -528,15 +577,11 @@ describe('DeleteByRangeHandler', () => {
     const recordRepository = new FakeTableRecordRepository();
     recordRepository.failDelete = domainError.unexpected({ message: 'delete failed' });
 
-    const handler = new DeleteByRangeHandler(
-      new TableQueryService(tableRepository),
-      createRecordWritePluginRunner(),
+    const handler = createHandler({
+      tableRepository,
       recordRepository,
       queryRepository,
-      new FakeEventBus(),
-      noopUndoRedoService,
-      new FakeUnitOfWork()
-    );
+    });
 
     const commandResult = DeleteByRangeCommand.create({
       tableId: tableId.toString(),
