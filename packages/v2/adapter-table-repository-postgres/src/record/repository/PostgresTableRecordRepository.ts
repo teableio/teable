@@ -623,6 +623,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...(restoreValues?.autoNumber !== undefined
               ? { autoNumber: restoreValues.autoNumber }
               : {}),
+            ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+            ...(options?.fillLinkTitleForeignTables
+              ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+              : {}),
           },
         });
 
@@ -842,6 +846,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 : {}),
               ...(restoreValues?.autoNumber !== undefined
                 ? { autoNumber: restoreValues.autoNumber }
+                : {}),
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
                 : {}),
             },
           });
@@ -1079,7 +1087,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     recordId: core.RecordId,
-    mutateSpec: core.ICellValueSpec
+    mutateSpec: core.ICellValueSpec,
+    options?: core.UpdateOptions
   ): Promise<Result<RecordMutationResult, DomainError>> {
     return safeTry<RecordMutationResult, DomainError>(
       async function* (this: PostgresTableRecordRepository) {
@@ -1109,6 +1118,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               now,
               actorName: actorContext.actorName,
               actorEmail: actorContext.actorEmail,
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+                : {}),
             },
           });
         const { impactHint, extraSeedRecords, exclusivityConstraints } = impact;
@@ -1191,7 +1204,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
-    mutateSpec: core.ICellValueSpec
+    mutateSpec: core.ICellValueSpec,
+    options?: core.UpdateOptions
   ): Promise<Result<core.UpdateManyResult, DomainError>> {
     return safeTry<core.UpdateManyResult, DomainError>(
       async function* (this: PostgresTableRecordRepository) {
@@ -1211,6 +1225,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           now,
           actorName: actorContext.actorName,
           actorEmail: actorContext.actorEmail,
+          ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+          ...(options?.fillLinkTitleForeignTables
+            ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+            : {}),
         });
 
         yield* mutateSpec.accept(mutateVisitor);
@@ -1440,6 +1458,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               now,
               actorName: actorContext.actorName,
               actorEmail: actorContext.actorEmail,
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+                : {}),
             },
           });
           if (batchDataResult.isErr()) {
@@ -1693,7 +1715,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
-      await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+      await this.publishComputedUpdateEvents(
+        context,
+        table.baseId(),
+        executeResult.value,
+        resolveComputedRealtimeOrchestration(context, recordIds.length)
+      );
 
       return ok(undefined);
     }
@@ -1716,6 +1743,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       impact: normalizedImpact,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
@@ -1937,6 +1965,58 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     );
   }
 
+  async deleteManyStream(
+    context: core.IExecutionContext,
+    table: core.Table,
+    recordIdBatches:
+      | Iterable<ReadonlyArray<core.RecordId>>
+      | AsyncIterable<ReadonlyArray<core.RecordId>>,
+    options?: core.DeleteManyStreamOptions
+  ): Promise<Result<core.DeleteManyStreamResult, DomainError>> {
+    let totalDeleted = 0;
+    let batchIndex = 0;
+
+    const deleteBatch = async (batchRecordIds: ReadonlyArray<core.RecordId>) => {
+      const deleteResult = await this.deleteMany(
+        context,
+        table,
+        core.RecordByIdsSpec.create(batchRecordIds)
+      );
+      if (deleteResult.isErr() && !core.isNotFoundError(deleteResult.error)) {
+        return err(deleteResult.error);
+      }
+
+      totalDeleted += batchRecordIds.length;
+      options?.onBatchDeleted?.({
+        batchIndex,
+        deletedCount: batchRecordIds.length,
+        totalDeleted,
+      });
+      batchIndex += 1;
+      return ok(undefined);
+    };
+
+    if (Symbol.asyncIterator in recordIdBatches) {
+      for await (const batchRecordIds of recordIdBatches as AsyncIterable<
+        ReadonlyArray<core.RecordId>
+      >) {
+        const deleteResult = await deleteBatch(batchRecordIds);
+        if (deleteResult.isErr()) {
+          return err(deleteResult.error);
+        }
+      }
+    } else {
+      for (const batchRecordIds of recordIdBatches as Iterable<ReadonlyArray<core.RecordId>>) {
+        const deleteResult = await deleteBatch(batchRecordIds);
+        if (deleteResult.isErr()) {
+          return err(deleteResult.error);
+        }
+      }
+    }
+
+    return ok({ totalDeleted });
+  }
+
   private async touchTableMeta(
     db: Kysely<DynamicDB>,
     tableId: string,
@@ -2063,7 +2143,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, 1)
+        );
         return ok(executeResult.value);
       }
 
@@ -2092,6 +2177,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         : undefined,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, 1),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2201,7 +2287,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, recordIds.length)
+        );
         return ok(executeResult.value);
       }
 
@@ -2224,6 +2315,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       cyclePolicy: 'skip',
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2325,7 +2417,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, 1)
+        );
         return ok(executeResult.value);
       }
 
@@ -2354,6 +2451,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         : undefined,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, 1),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2385,13 +2483,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   private async publishComputedUpdateEvents(
     context: core.IExecutionContext,
     baseId: core.BaseId,
-    result: ComputedUpdateResult | undefined
+    result: ComputedUpdateResult | undefined,
+    orchestration?: core.IExecutionContext['batchMutation']
   ): Promise<void> {
     if (!result?.changesByStep.length) {
       return;
     }
 
-    const events = buildComputedUpdateEvents(result.changesByStep, baseId);
+    const events = buildComputedUpdateEvents(result.changesByStep, baseId, orchestration);
     if (!events.length) {
       return;
     }
@@ -2548,6 +2647,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       cyclePolicy: 'skip',
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2585,7 +2685,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
  */
 const buildComputedUpdateEvents = (
   changesByStep: ComputedUpdateResult['changesByStep'],
-  baseId: core.BaseId
+  baseId: core.BaseId,
+  orchestration?: core.IExecutionContext['batchMutation']
 ): core.RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) {
     return [];
@@ -2626,12 +2727,19 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }
 
   return events;
 };
+
+const resolveComputedRealtimeOrchestration = (
+  context: core.IExecutionContext,
+  recordCount: number
+): core.IExecutionContext['batchMutation'] =>
+  core.buildOperationBatchMutation(context, recordCount);
 
 const extractChangesForRecord = (
   result: ComputedUpdateResult | undefined,

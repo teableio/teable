@@ -4,16 +4,15 @@ import { FieldKeyType } from '@teable/core';
 import {
   ArrowDown,
   ArrowUp,
-  Copy,
   History,
   Image,
   Link,
   Maximize2,
   MessageSquare,
-  Trash2,
 } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
+import { CopyPlus, Trash } from 'lucide-react';
 import { CellValue } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
@@ -192,7 +191,7 @@ export const Card = (props: IKanbanCardProps) => {
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onClick={onDuplicate}>
-              <Copy className="size-4" />
+              <CopyPlus className="size-4" />
               {t('table:kanban.cardMenu.duplicateCard')}
             </ContextMenuItem>
           </>
@@ -222,7 +221,7 @@ export const Card = (props: IKanbanCardProps) => {
           <>
             <ContextMenuSeparator />
             <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
-              <Trash2 className="size-4" />
+              <Trash className="size-4" />
               {t('table:kanban.cardMenu.deleteCard')}
             </ContextMenuItem>
           </>

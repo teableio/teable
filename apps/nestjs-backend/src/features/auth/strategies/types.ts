@@ -9,6 +9,7 @@ export type IFromExtractor = (req: Request) => string | null;
 
 export interface IJwtAuthInfo {
   userId: string;
+  allowSystemUser?: boolean;
 }
 
 export enum JwtAuthInternalType {

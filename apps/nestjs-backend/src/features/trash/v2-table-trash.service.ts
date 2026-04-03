@@ -8,9 +8,7 @@ import {
   RecordsDeleted,
   TableRestored,
   TableTrashed,
-  TableQueryService,
   ok,
-  v2CoreTokens,
   type DomainError,
   type IEventHandler,
   type IExecutionContext,
@@ -20,15 +18,11 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
-import { TableTrashListener } from './listener/table-trash.listener';
-import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
+import { V2RecordTrashService } from './v2-record-trash.service';
 
 @ProjectionHandler(RecordsDeleted)
 export class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
-  constructor(
-    private readonly tableTrashListener: TableTrashListener,
-    private readonly tableQueryService: TableQueryService
-  ) {}
+  constructor(private readonly v2RecordTrashService: V2RecordTrashService) {}
 
   async handle(
     context: IExecutionContext,
@@ -38,43 +32,87 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
       return ok(undefined);
     }
 
-    const tableResult = await this.tableQueryService.getById(context, event.tableId);
-    const table = tableResult.isOk() ? tableResult.value : null;
+    const buildPayloadAttributes = {
+      teableTableId: event.tableId.toString(),
+      teableRecordCount: event.recordSnapshots.length,
+    } satisfies Record<string, string | number | boolean>;
 
-    const records: IDeleteRecordsPayload['records'] = event.recordSnapshots.map((snapshot) => {
-      const record: IDeleteRecordsPayload['records'][number] = {
-        id: snapshot.id,
-        fields: snapshot.fields as IRecord['fields'],
-        autoNumber: snapshot.autoNumber,
-        createdTime: snapshot.createdTime,
-        createdBy: snapshot.createdBy,
-        lastModifiedTime: snapshot.lastModifiedTime,
-        lastModifiedBy: snapshot.lastModifiedBy,
-        order: snapshot.orders,
-      };
+    const records = await this.runInSpan(
+      context,
+      'teable.V2RecordsDeletedTableTrashProjection.buildTrashPayload',
+      buildPayloadAttributes,
+      async () =>
+        event.recordSnapshots.map((snapshot) => {
+          const record: IDeleteRecordsPayload['records'][number] = {
+            id: snapshot.id,
+            fields: snapshot.fields as IRecord['fields'],
+            autoNumber: snapshot.autoNumber,
+            createdTime: snapshot.createdTime,
+            createdBy: snapshot.createdBy,
+            lastModifiedTime: snapshot.lastModifiedTime,
+            lastModifiedBy: snapshot.lastModifiedBy,
+            order: snapshot.orders,
+          };
 
-      if (table) {
-        const nameResult = resolveV2TrashRecordDisplayName(table, {
-          id: snapshot.id,
-          fields: snapshot.fields,
-        });
-        if (nameResult.isOk() && nameResult.value) {
-          record.name = nameResult.value;
-        }
-      }
+          if (snapshot.displayName) {
+            record.name = snapshot.displayName;
+          }
 
-      return record;
-    });
+          return record;
+        })
+    );
 
-    await this.tableTrashListener.recordDeleteListener({
-      operationId: generateOperationId(),
-      windowId: context.windowId,
-      tableId: event.tableId.toString(),
-      userId: context.actorId.toString(),
-      records,
-    });
+    const persistAttributes = {
+      teableTableId: event.tableId.toString(),
+      teableRecordCount: records.length,
+    } satisfies Record<string, string | number | boolean>;
+
+    await this.runInSpan(
+      context,
+      'teable.V2RecordsDeletedTableTrashProjection.persistDeletedRecords',
+      persistAttributes,
+      async () =>
+        this.v2RecordTrashService.persistDeletedRecords(
+          {
+            operationId: generateOperationId(),
+            windowId: context.windowId,
+            tableId: event.tableId.toString(),
+            userId: context.actorId.toString(),
+            records,
+          },
+          context
+        )
+    );
 
     return ok(undefined);
+  }
+
+  private async runInSpan<T>(
+    context: IExecutionContext,
+    name: `teable.${string}`,
+    attributes: Record<string, string | number | boolean>,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    const tracer = context.tracer;
+    const spanAttributes: Record<string, string | number | boolean> = {
+      teableVersion: 'v2',
+      teableComponent: 'projection',
+      teableOperation: name.replace(/^teable\./, ''),
+      ...attributes,
+    };
+    const span = tracer?.startSpan(name, spanAttributes);
+
+    if (!tracer || !span) {
+      return callback();
+    }
+
+    return tracer.withSpan(span, async () => {
+      try {
+        return await callback();
+      } finally {
+        span.end();
+      }
+    });
   }
 }
 
@@ -162,7 +200,7 @@ export class V2TableTrashService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2TableTrashService.name);
 
   constructor(
-    private readonly tableTrashListener: TableTrashListener,
+    private readonly v2RecordTrashService: V2RecordTrashService,
     private readonly attachmentsTableService: AttachmentsTableService,
     private readonly prisma: PrismaService
   ) {}
@@ -170,11 +208,9 @@ export class V2TableTrashService implements IV2ProjectionRegistrar {
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 trash projections');
 
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-
     container.registerInstance(
       V2RecordsDeletedTableTrashProjection,
-      new V2RecordsDeletedTableTrashProjection(this.tableTrashListener, tableQueryService)
+      new V2RecordsDeletedTableTrashProjection(this.v2RecordTrashService)
     );
 
     container.registerInstance(

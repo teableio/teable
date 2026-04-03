@@ -140,8 +140,8 @@
     "empty": "Nessuna base presente"
   },
   "publishBase": {
-    "title": "Pubblica Base nella community",
-    "description": "Pubblica la base con un clic, l'ispirazione non è più sola! Lascia che più persone vedano, usino e facciano Remix della tua creatività, costruendo insieme un business più potente",
+    "title": "Pubblica nel centro modelli",
+    "description": "Pubblica la base nel centro modelli con un clic! Lascia che più persone vedano, usino e facciano Remix della tua creatività, costruendo insieme un business più potente",
     "infoTitle": "Informazioni di base",
     "form": {
       "title": "Titolo",
@@ -164,7 +164,7 @@
     "unPublish": "Annulla pubblicazione",
     "unPublishSuccess": "Pubblicazione base annullata con successo!",
     "unPublishConfirmTitle": "Conferma annullamento pubblicazione",
-    "unPublishConfirmDescription": "Sei sicuro di voler annullare la pubblicazione di questa base? Non sarà più visibile nel centro modelli della community.",
+    "unPublishConfirmDescription": "Sei sicuro di voler annullare la pubblicazione di questa base? Non sarà più visibile nel centro modelli.",
     "usageCount": "Conteggio utilizzo: ",
     "uploadCover": "Clicca per caricare l'immagine di copertina",
     "changeCover": "Clicca per cambiare copertina",
