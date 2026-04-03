@@ -573,7 +573,16 @@
         "chatModelDescription": "The chat model to use, Tips: tool calling is required for teable ai features",
         "chatModels": {
           "lg": "Advanced chat model",
-          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
+          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5",
+          "md": "Standard",
+          "mdDescription": "For daily conversations and general tasks",
+          "sm": "Lightweight",
+          "smDescription": "For simple queries and quick responses",
+          "inheritHint": "Same as primary ({{model}})",
+          "modelTiers": "Model tiers",
+          "modelTiersDescription": "Optionally assign different models for standard and lightweight tasks. Unset tiers use the primary model above.",
+          "allInheriting": "All tiers using primary model",
+          "customized": "{{count}} customized"
         },
         "actions": {
           "title": "AI Capabilities",
@@ -1405,8 +1414,8 @@
   },
   "changelog": {
     "newUpdate": "NEW UPDATE",
-    "title": "App Custom Domain is Live",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "title": "New App Builder Engine is Beta",
+    "url": "https://help.teable.ai/en/changelog#apr-02-2026",
+    "id": "changelog-2026-04-02-new-app-builder-engine-is-beta"
   }
 }

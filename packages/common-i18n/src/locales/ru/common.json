@@ -1039,9 +1039,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "НОВОЕ ОБНОВЛЕНИЕ",
-    "title": "Собственный домен для App доступен",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "ОБНОВЛЕНИЕ",
+    "title": "Новый движок App Builder в бета-версии",
+    "url": "https://help.teable.ai/en/changelog#apr-02-2026",
+    "id": "changelog-2026-04-02-new-app-builder-engine-is-beta"
   }
 }

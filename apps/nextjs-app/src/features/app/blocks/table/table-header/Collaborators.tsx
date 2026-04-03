@@ -101,20 +101,23 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       {hiddenUser ? (
         <Popover>
           <PopoverTrigger asChild>
-            <div className="relative size-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
-              <p className="flex size-full items-center justify-center rounded-full border-2 text-center text-xs">
+            <div className="relative size-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border hover:bg-accent">
+              <p className="flex size-full items-center justify-center rounded-full text-center text-xs">
                 +{hiddenUser.length}
               </p>
             </div>
           </PopoverTrigger>
-          <PopoverContent className="max-h-64 w-36 overflow-y-auto">
+          <PopoverContent className="flex max-h-64 w-auto min-w-[120px] max-w-60 flex-col gap-1 overflow-y-auto rounded-md p-2">
             {hiddenUser.map(({ id, name, avatar, email }) => {
               const borderColor = contractColorForTheme(
                 ColorUtils.getRandomHexFromStr(`${tableId}_${id}`),
                 resolvedTheme
               );
               return (
-                <div key={id} className="flex items-center truncate p-1">
+                <div
+                  key={id}
+                  className="flex items-center gap-2 truncate rounded-sm p-1 hover:bg-accent"
+                >
                   <CollaboratorWithHoverCard
                     id={id}
                     name={name}
@@ -122,7 +125,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
                     email={email}
                     borderColor={borderColor}
                   />
-                  <div className="flex-1 truncate pl-1">{name}</div>
+                  <div className="flex-1 truncate text-sm">{name}</div>
                 </div>
               );
             })}

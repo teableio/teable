@@ -12,6 +12,8 @@ import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
 import type {
   BatchRecordMutationResult,
+  DeleteManyStreamOptions,
+  DeleteManyStreamResult,
   ITableRecordRepository,
   InsertManyStreamBatchInput,
   InsertManyStreamOptions,
@@ -143,5 +145,31 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
+  }
+
+  async deleteManyStream(
+    _context: IExecutionContext,
+    _table: Table,
+    recordIdBatches: Iterable<ReadonlyArray<RecordId>> | AsyncIterable<ReadonlyArray<RecordId>>,
+    options?: DeleteManyStreamOptions
+  ): Promise<Result<DeleteManyStreamResult, DomainError>> {
+    let totalDeleted = 0;
+    let batchIndex = 0;
+
+    if (Symbol.asyncIterator in recordIdBatches) {
+      for await (const recordIds of recordIdBatches as AsyncIterable<ReadonlyArray<RecordId>>) {
+        totalDeleted += recordIds.length;
+        options?.onBatchDeleted?.({ batchIndex, deletedCount: recordIds.length, totalDeleted });
+        batchIndex += 1;
+      }
+    } else {
+      for (const recordIds of recordIdBatches as Iterable<ReadonlyArray<RecordId>>) {
+        totalDeleted += recordIds.length;
+        options?.onBatchDeleted?.({ batchIndex, deletedCount: recordIds.length, totalDeleted });
+        batchIndex += 1;
+      }
+    }
+
+    return ok({ totalDeleted });
   }
 }

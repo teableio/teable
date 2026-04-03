@@ -1081,9 +1081,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "NOUVELLE MISE À JOUR",
-    "title": "Domaine personnalisé pour l'App disponible",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "MISE À JOUR",
+    "title": "Le nouveau moteur App Builder est en bêta",
+    "url": "https://help.teable.ai/en/changelog#apr-02-2026",
+    "id": "changelog-2026-04-02-new-app-builder-engine-is-beta"
   }
 }

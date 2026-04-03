@@ -5,6 +5,7 @@ export type IInstanceAction<T> =
   | { type: 'ready'; results: Doc<T>[]; extra: unknown }
   | { type: 'insert'; docs: Doc<T>[]; index: number }
   | { type: 'remove'; docs: Doc<T>[]; index: number }
+  | { type: 'removeByIds'; ids: string[] }
   | { type: 'move'; docs: Doc<T>[]; from: number; to: number }
   | { type: 'clear' }
   | { type: 'extra'; extra: unknown };
@@ -14,6 +15,10 @@ export interface IInstanceState<R> {
   extra: unknown;
 }
 
+const hasDocData = <T>(doc: Doc<T>): doc is Doc<T> & { data: T } => {
+  return doc.data != null;
+};
+
 export function instanceReducer<T, R extends { id: string }>(
   state: IInstanceState<R>,
   action: IInstanceAction<T>,
@@ -21,6 +26,10 @@ export function instanceReducer<T, R extends { id: string }>(
 ): IInstanceState<R> {
   switch (action.type) {
     case 'update': {
+      if (!hasDocData(action.doc)) {
+        return state;
+      }
+
       return {
         ...state,
         instances: state.instances.map((instance) => {
@@ -34,7 +43,7 @@ export function instanceReducer<T, R extends { id: string }>(
     case 'ready':
       return {
         ...state,
-        instances: action.results.map((r) => factory(r.data, r)),
+        instances: action.results.filter(hasDocData).map((r) => factory(r.data, r)),
         extra: action.extra,
       };
     case 'insert':
@@ -42,7 +51,7 @@ export function instanceReducer<T, R extends { id: string }>(
         ...state,
         instances: [
           ...state.instances.slice(0, action.index),
-          ...action.docs.map((doc) => factory(doc.data, doc)),
+          ...action.docs.filter(hasDocData).map((doc) => factory(doc.data, doc)),
           ...state.instances.slice(action.index),
         ],
       };
@@ -54,6 +63,13 @@ export function instanceReducer<T, R extends { id: string }>(
           ...state.instances.slice(action.index + action.docs.length),
         ],
       };
+    case 'removeByIds': {
+      const deletedIds = new Set(action.ids);
+      return {
+        ...state,
+        instances: state.instances.filter((instance) => !deletedIds.has(instance.id)),
+      };
+    }
     case 'move': {
       const { docs, from, to } = action;
       const newInstances = [...state.instances];

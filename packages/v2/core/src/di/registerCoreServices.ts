@@ -2,6 +2,8 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle } from '@teable/v2-di';
 
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
+import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
+import { DuplicateRecordsApplicationService } from '../application/services/DuplicateRecordsApplicationService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldCrossTableUpdateSideEffectService } from '../application/services/FieldCrossTableUpdateSideEffectService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
@@ -28,6 +30,7 @@ import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
+import { PasteStreamApplicationService } from '../commands/PasteHandler';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
@@ -221,6 +224,12 @@ export const registerV2CoreServices = (
     });
   }
 
+  if (!container.isRegistered(v2CoreTokens.pasteStreamApplicationService)) {
+    container.register(v2CoreTokens.pasteStreamApplicationService, PasteStreamApplicationService, {
+      lifecycle,
+    });
+  }
+
   // AttachmentValueResolverService - resolve attachment values
   if (!container.isRegistered(v2CoreTokens.attachmentValueResolverService)) {
     container.register(
@@ -312,6 +321,26 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.recordCreationService, RecordCreationService, {
       lifecycle,
     });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.deleteByRangeApplicationService)) {
+    container.register(
+      v2CoreTokens.deleteByRangeApplicationService,
+      DeleteByRangeApplicationService,
+      {
+        lifecycle,
+      }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.duplicateRecordsApplicationService)) {
+    container.register(
+      v2CoreTokens.duplicateRecordsApplicationService,
+      DuplicateRecordsApplicationService,
+      {
+        lifecycle,
+      }
+    );
   }
 
   // RecordOrderCalculator - default no-op (must be provided by adapter)

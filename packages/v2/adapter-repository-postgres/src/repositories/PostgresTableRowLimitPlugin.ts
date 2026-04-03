@@ -122,6 +122,7 @@ export class PostgresTableRowLimitPlugin
       case core.RecordWriteOperationKind.submit:
       case core.RecordWriteOperationKind.duplicate:
         return 1;
+      case core.RecordWriteOperationKind.duplicateStream:
       case core.RecordWriteOperationKind.createMany:
       case core.RecordWriteOperationKind.createStream:
       case core.RecordWriteOperationKind.importAppend:

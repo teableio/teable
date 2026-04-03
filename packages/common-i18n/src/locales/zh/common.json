@@ -573,7 +573,16 @@
         "chatModelDescription": "要使用的对话模型，提示：工具调用是 Teable AI 功能所必需的",
         "chatModels": {
           "lg": "高级对话模型",
-          "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5"
+          "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5",
+          "md": "标准",
+          "mdDescription": "用于日常对话和一般任务",
+          "sm": "轻量",
+          "smDescription": "用于简单查询和快速响应",
+          "inheritHint": "与主模型相同 ({{model}})",
+          "modelTiers": "模型分级",
+          "modelTiersDescription": "可为标准和轻量任务指定不同的模型，未设置的挡位将使用上方的主模型。",
+          "allInheriting": "所有挡位使用主模型",
+          "customized": "已自定义 {{count}} 个"
         },
         "actions": {
           "title": "AI 能力",
@@ -1404,9 +1413,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "最新更新",
-    "title": "App 自定义域名已上线",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "版本更新",
+    "title": "全新 App Builder 引擎 Beta 版上线",
+    "url": "https://help.teable.ai/en/changelog#apr-02-2026",
+    "id": "changelog-2026-04-02-new-app-builder-engine-is-beta"
   }
 }

@@ -21,10 +21,14 @@ import type { DynamicDB } from '../../query-builder';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import { toErrorLogFields } from '../errorLog';
 import type {
+  ComputedRealtimeOrchestrationDto,
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
-import { mergeBeforeImageRecordDtos } from './ComputedUpdateOutboxPayload';
+import {
+  mergeBeforeImageRecordDtos,
+  mergeComputedRealtimeOrchestration,
+} from './ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import { mergeSeedPayloads } from './ComputedUpdateSeedPayload';
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
@@ -176,6 +180,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             parseBeforeImageRecordDtos(existing.dirty_stats),
             task.beforeImageRecords
           );
+          const mergedOrchestration = mergeComputedRealtimeOrchestration(
+            parseRealtimeOrchestration(existing.dirty_stats),
+            task.orchestration
+          );
           const mergedOriginRunIds = mergeOriginRunIds(
             parseStringArray(existing.origin_run_ids),
             task.originRunIds
@@ -202,6 +210,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 beforeImageRecords: mergedBeforeImageRecords,
                 seedAllTableIds:
                   seedAllTableIds && seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
+                orchestration: mergedOrchestration,
               }),
               run_id: mergedRunId,
               origin_run_ids: mergedOriginRunIds,
@@ -417,6 +426,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 changeType: mergedPayload.changeType,
                 impact: mergedPayload.impact ?? null,
                 beforeImageRecords: mergedPayload.beforeImageRecords,
+                orchestration: mergedPayload.orchestration,
               }),
               next_run_at: now,
               updated_at: now,
@@ -905,6 +915,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           dirtyStats: task.dirtyStats,
           beforeImageRecords: task.beforeImageRecords,
           seedAllTableIds: seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
+          orchestration: task.orchestration,
         }),
         run_id: task.runId,
         origin_run_ids: task.originRunIds,
@@ -1107,6 +1118,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           changeType: task.changeType,
           impact: task.impact ?? null,
           beforeImageRecords: task.beforeImageRecords,
+          orchestration: task.orchestration,
         }),
         run_id: task.runId,
         origin_run_ids: [],
@@ -1163,6 +1175,7 @@ const toOutboxItem = (
     planHash: String(row.plan_hash),
     dirtyStats: parseDirtyStats(row.dirty_stats),
     seedAllTableIds: parseSeedAllTableIds(row.dirty_stats),
+    orchestration: parseRealtimeOrchestration(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     originRunIds: parseStringArray(row.origin_run_ids),
     runTotalSteps: Number(row.run_total_steps ?? 0),
@@ -1268,6 +1281,43 @@ const parseSeedAllTableIds = (value: unknown): string[] | undefined => {
   const raw = (parsed as { seedAllTableIds?: unknown }).seedAllTableIds;
   if (!Array.isArray(raw)) return undefined;
   return raw.filter((item): item is string => typeof item === 'string');
+};
+
+const parseRealtimeOrchestration = (
+  value: unknown
+): ComputedRealtimeOrchestrationDto | undefined => {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed) || parsed == null || typeof parsed !== 'object') return undefined;
+  const raw = (parsed as { orchestration?: unknown }).orchestration;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const orchestration = raw as {
+    operationId?: unknown;
+    groupId?: unknown;
+    totalRecordCount?: unknown;
+    totalChunkCount?: unknown;
+    chunkIndex?: unknown;
+    scope?: unknown;
+  };
+
+  if (
+    typeof orchestration.totalRecordCount !== 'number' ||
+    typeof orchestration.totalChunkCount !== 'number' ||
+    typeof orchestration.chunkIndex !== 'number' ||
+    (orchestration.scope !== 'operation' && orchestration.scope !== 'chunk')
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(typeof orchestration.operationId === 'string'
+      ? { operationId: orchestration.operationId }
+      : {}),
+    ...(typeof orchestration.groupId === 'string' ? { groupId: orchestration.groupId } : {}),
+    totalRecordCount: orchestration.totalRecordCount,
+    totalChunkCount: orchestration.totalChunkCount,
+    chunkIndex: orchestration.chunkIndex,
+    scope: orchestration.scope,
+  };
 };
 
 const parseSeedGroups = (value: unknown, seedTableId: string): SeedGroup[] => {
@@ -1594,6 +1644,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType,
     impact,
+    orchestration: parseRealtimeOrchestration(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
     status: String(row.status) as SeedOutboxItem['status'],
@@ -1626,6 +1677,7 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType: parseSeedChangeType(row.dirty_stats) ?? 'update',
     impact: parseSeedImpact(row.dirty_stats),
+    orchestration: parseRealtimeOrchestration(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
   };
@@ -1756,6 +1808,7 @@ const buildDeadLetterValues = (
         changeType: seedTask.changeType,
         impact: seedTask.impact ?? null,
         beforeImageRecords: seedTask.beforeImageRecords,
+        orchestration: seedTask.orchestration,
       }),
       origin_run_ids: [],
       run_total_steps: 0,
@@ -1779,6 +1832,7 @@ const buildDeadLetterValues = (
     dirty_stats: toJsonValue({
       dirtyStats: computedTask.dirtyStats,
       beforeImageRecords: computedTask.beforeImageRecords,
+      orchestration: computedTask.orchestration,
     }),
     origin_run_ids: computedTask.originRunIds,
     run_total_steps: computedTask.runTotalSteps,
