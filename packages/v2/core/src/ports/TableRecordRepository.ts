@@ -153,6 +153,25 @@ export interface UpdateManyStreamResult {
   }>;
 }
 
+export interface DeleteManyStreamProgress {
+  /** Current batch index (0-based) */
+  batchIndex: number;
+  /** Number of records deleted in this batch */
+  deletedCount: number;
+  /** Total number of records deleted so far */
+  totalDeleted: number;
+}
+
+export interface DeleteManyStreamOptions {
+  /** Callback invoked after each batch is deleted */
+  onBatchDeleted?: (progress: DeleteManyStreamProgress) => void;
+}
+
+export interface DeleteManyStreamResult {
+  /** Total number of records deleted */
+  totalDeleted: number;
+}
+
 export interface UpdateManyStreamBatch {
   /** Optional table snapshot for this batch when field metadata changed mid-stream. */
   table?: Table;
@@ -200,6 +219,13 @@ export interface InsertOptions {
    * the same transaction after the records are restored.
    */
   cleanupTrashRecordIds?: ReadonlyArray<string>;
+
+  /**
+   * When true, generate SQL to fill missing link titles by JOINing
+   * the foreign table's primary field. Used in typecast mode when
+   * API clients provide link IDs without titles.
+   */
+  fillLinkTitles?: boolean;
 }
 
 export interface ITableRecordRepository {
@@ -307,4 +333,11 @@ export interface ITableRecordRepository {
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>>;
+
+  deleteManyStream(
+    context: IExecutionContext,
+    table: Table,
+    recordIdBatches: Iterable<ReadonlyArray<RecordId>> | AsyncIterable<ReadonlyArray<RecordId>>,
+    options?: DeleteManyStreamOptions
+  ): Promise<Result<DeleteManyStreamResult, DomainError>>;
 }

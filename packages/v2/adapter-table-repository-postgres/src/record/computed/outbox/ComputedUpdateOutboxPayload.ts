@@ -53,6 +53,15 @@ export type ComputedBeforeImageRecordDto = {
   fieldValuesByDbName: Record<string, unknown>;
 };
 
+export type ComputedRealtimeOrchestrationDto = {
+  operationId?: string;
+  groupId?: string;
+  totalRecordCount: number;
+  totalChunkCount: number;
+  chunkIndex: number;
+  scope: 'operation' | 'chunk';
+};
+
 export const mergeBeforeImageRecordDtos = (
   existing: ReadonlyArray<ComputedBeforeImageRecordDto>,
   incoming: ReadonlyArray<ComputedBeforeImageRecordDto>
@@ -102,6 +111,7 @@ export type ComputedUpdateOutboxPayload = {
   stageDepth?: number;
   /** Table IDs where ALL records should be seeded as dirty (avoids storing individual record IDs) */
   seedAllTableIds?: string[];
+  orchestration?: ComputedRealtimeOrchestrationDto;
 };
 
 export type ComputedUpdateRunMeta = {
@@ -172,6 +182,7 @@ export const buildOutboxTaskInput = (params: {
   affectedTableIds?: string[];
   affectedFieldIds?: string[];
   stageDepth?: number;
+  orchestration?: ComputedRealtimeOrchestrationDto;
 }): ComputedUpdateOutboxTaskInput => {
   const payload = serializeComputedUpdatePlan(params.plan);
   const affectedTableIds = params.affectedTableIds ?? [
@@ -193,6 +204,31 @@ export const buildOutboxTaskInput = (params: {
     affectedFieldIds,
     syncMaxLevel: params.syncMaxLevel,
     stageDepth: params.stageDepth ?? 0,
+    orchestration: params.orchestration,
+  };
+};
+
+export const mergeComputedRealtimeOrchestration = (
+  existing: ComputedRealtimeOrchestrationDto | undefined,
+  incoming: ComputedRealtimeOrchestrationDto | undefined
+): ComputedRealtimeOrchestrationDto | undefined => {
+  if (!existing) return incoming ? { ...incoming } : undefined;
+  if (!incoming) return { ...existing };
+
+  const sameOperationId = existing.operationId && existing.operationId === incoming.operationId;
+  const sameGroupId = existing.groupId && existing.groupId === incoming.groupId;
+
+  if (!sameOperationId && !sameGroupId) {
+    return undefined;
+  }
+
+  return {
+    operationId: sameOperationId ? existing.operationId : undefined,
+    groupId: sameGroupId ? existing.groupId : undefined,
+    totalRecordCount: Math.max(existing.totalRecordCount, incoming.totalRecordCount),
+    totalChunkCount: Math.max(existing.totalChunkCount, incoming.totalChunkCount),
+    chunkIndex: Math.min(existing.chunkIndex, incoming.chunkIndex),
+    scope: existing.scope === 'operation' || incoming.scope === 'operation' ? 'operation' : 'chunk',
   };
 };
 

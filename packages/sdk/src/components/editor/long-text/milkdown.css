@@ -374,13 +374,12 @@
 
 /* Milkdown floating toolbar */
 .milkdown-floating-toolbar {
-  position: fixed;
+  position: absolute;
   left: -34px;
-  top: 8px;
-  z-index: 1200;
+  top: 0;
+  z-index: 1;
   pointer-events: auto;
   display: block;
-  transition: top 0.08s linear;
 }
 
 .milkdown-toolbar-toggle {

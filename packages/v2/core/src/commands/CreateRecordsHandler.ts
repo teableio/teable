@@ -32,6 +32,10 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
+import {
+  buildOperationBatchMutation,
+  withBatchMutation,
+} from './shared/batchMutationOrchestration';
 
 export class CreateRecordsResult {
   private constructor(
@@ -189,22 +193,30 @@ export class CreateRecordsHandler
             },
             DomainError
           >(async function* () {
+            const batchMutation = buildOperationBatchMutation(context, records.length);
+            const transactionContextWithBatchMutation = withBatchMutation(
+              transactionContext,
+              batchMutation
+            );
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
-                transactionContext,
+                transactionContextWithBatchMutation,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
             }
-            yield* await pluginExecution.beforePersist(transactionContext);
+            yield* await pluginExecution.beforePersist(transactionContextWithBatchMutation);
             const mutation = yield* await handler.tableRecordRepository.insertMany(
-              transactionContext,
+              transactionContextWithBatchMutation,
               tableForCreate,
               records,
-              command.order ? { order: command.order } : undefined
+              {
+                ...(command.order ? { order: command.order } : {}),
+                fillLinkTitles: command.typecast,
+              }
             );
             return ok({ mutation, tableEvents });
           });
@@ -239,6 +251,7 @@ export class CreateRecordsHandler
             orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
           })),
           source,
+          orchestration: buildOperationBatchMutation(context, records.length),
         });
         events = [batchEvent, ...otherEvents];
       } else {

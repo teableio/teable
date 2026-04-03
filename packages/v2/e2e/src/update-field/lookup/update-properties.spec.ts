@@ -815,6 +815,88 @@ describe('update-field: lookup property updates', () => {
     await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
   });
+
+  test('should keep lookup long text showAs cleared when API attempts to set markdown', async () => {
+    const foreignTableAfterLongText = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: {
+        type: 'longText',
+        name: 'Foreign Long Text',
+        options: {
+          showAs: { type: 'markdown' },
+        },
+      },
+    });
+    const foreignLongTextField = foreignTableAfterLongText.fields.find(
+      (f) => f.name === 'Foreign Long Text'
+    );
+    if (!foreignLongTextField) throw new Error('Foreign long text field not found');
+
+    const sourceWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'link',
+        name: 'Link Long Text',
+        options: {
+          foreignTableId,
+          relationship: 'manyMany',
+          lookupFieldId: foreignPrimaryFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = sourceWithLink.fields.find((f) => f.name === 'Link Long Text');
+    if (!linkField) throw new Error('Link field not found');
+
+    const sourceWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'lookup',
+        name: 'Lookup Long Text',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId,
+          lookupFieldId: foreignLongTextField.id,
+        },
+      },
+    });
+    const lookupField = sourceWithLookup.fields.find((f) => f.name === 'Lookup Long Text');
+    if (!lookupField) throw new Error('Lookup field not found');
+    expect(lookupField.options?.showAs).toBeFalsy();
+
+    await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        options: { showAs: null },
+      },
+    });
+
+    const clearedField = await ctx
+      .getTableById(sourceTableId)
+      .then((table) => table.fields.find((f) => f.id === lookupField.id));
+    expect(clearedField?.options?.showAs).toBeFalsy();
+
+    await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        options: { showAs: { type: 'markdown' } },
+      },
+    });
+
+    const persistedField = await ctx
+      .getTableById(sourceTableId)
+      .then((table) => table.fields.find((f) => f.id === lookupField.id));
+    expect(persistedField?.options?.showAs).toBeFalsy();
+
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
+    await ctx.deleteField({ tableId: foreignTableId, fieldId: foreignLongTextField.id });
+  });
 });
 
 describe('update-field: lookup conversions', () => {

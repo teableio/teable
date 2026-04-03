@@ -261,10 +261,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         }
       />
 
-      <Dialog
-        open={exportConfirm}
-        onOpenChange={setExportConfirm}
-      >
+      <Dialog open={exportConfirm} onOpenChange={setExportConfirm}>
         <DialogContent
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}

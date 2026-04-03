@@ -260,8 +260,25 @@ export class RecordCreationService {
       } as const;
     }
 
+    if (input.operationKind === RecordWriteOperationKind.submit) {
+      return {
+        kind: RecordWriteOperationKind.submit,
+        executionContext: context,
+        table: input.table,
+        payload: {
+          fieldValues,
+          fieldKeyType: input.fieldKeyType,
+          typecast: input.typecast,
+          source: input.source,
+          order: input.order,
+          recordCount: 1 as const,
+        },
+        isTransactionBound: false,
+      } as const;
+    }
+
     return {
-      kind: input.operationKind,
+      kind: RecordWriteOperationKind.createOne,
       executionContext: context,
       table: input.table,
       payload: {

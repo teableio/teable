@@ -30,6 +30,7 @@ interface IShareBaseLayoutProps {
   shareNodeId?: string;
   allowSave?: boolean;
   allowCopy?: boolean;
+  allowEdit?: boolean;
 }
 
 export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
@@ -41,6 +42,7 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
   shareNodeId,
   allowSave,
   allowCopy,
+  allowEdit,
 }) => {
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const sdkLocale = useSdkLocale();
@@ -69,8 +71,9 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
       nodeId: shareNodeId,
       allowSave,
       allowCopy,
+      allowEdit,
     }),
-    [shareId, shareNodeId, allowSave, allowCopy]
+    [shareId, shareNodeId, allowSave, allowCopy, allowEdit]
   );
 
   // If not a share context, just render children (fallback)

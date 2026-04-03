@@ -2,34 +2,36 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldKeyResolverService } from './FieldKeyResolverService';
-import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
-import { RecordWritePluginRunner } from './RecordWritePluginRunner';
-import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
-import { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
-import { TableUpdateFlow } from './TableUpdateFlow';
+import {
+  buildOperationBatchMutation,
+  withBatchMutation,
+} from '../../commands/shared/batchMutationOrchestration';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { DomainEventName } from '../../domain/shared/DomainEventName';
 import type { RecordCreated } from '../../domain/table/events/RecordCreated';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
+import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
-import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import type * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
-import type {
-  BatchRecordMutationResult,
-  ITableRecordRepository,
-} from '../../ports/TableRecordRepository';
+import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import { ITableRecordRepository } from '../../ports/TableRecordRepository';
+import type { BatchRecordMutationResult } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { UndoRedoCommandLeafData, UndoRedoRestoreRecord } from '../../ports/UndoRedoStore';
 import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
+import { FieldKeyResolverService } from './FieldKeyResolverService';
+import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { RecordWritePluginRunner } from './RecordWritePluginRunner';
+import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
+import { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
+import { TableUpdateFlow } from './TableUpdateFlow';
 
 export interface IRecordBatchCreationInput {
   readonly table: Table;
@@ -133,9 +135,12 @@ export class RecordBatchCreationService {
         tableEvents = tableFlowResult.events;
       }
 
-      yield* await pluginExecution.beforePersist(context);
+      const batchMutation = buildOperationBatchMutation(context, records.length);
+      const contextWithBatchMutation = withBatchMutation(context, batchMutation);
+
+      yield* await pluginExecution.beforePersist(contextWithBatchMutation);
       const mutationResult = yield* await service.tableRecordRepository.insertMany(
-        context,
+        contextWithBatchMutation,
         tableForCreate,
         records,
         input.order ? { order: input.order } : undefined
@@ -144,7 +149,8 @@ export class RecordBatchCreationService {
       const aggregateEvents = service.aggregateCreatedEvents(
         tableForCreate,
         mutationResult,
-        tableForCreate.pullDomainEvents()
+        tableForCreate.pullDomainEvents(),
+        batchMutation
       );
       const recordSnapshots = yield* await service.buildRecordSnapshots(
         context,
@@ -238,7 +244,8 @@ export class RecordBatchCreationService {
   private aggregateCreatedEvents(
     table: Table,
     mutationResult: BatchRecordMutationResult,
-    rawEvents: ReadonlyArray<IDomainEvent>
+    rawEvents: ReadonlyArray<IDomainEvent>,
+    orchestration?: IExecutionContext['batchMutation']
   ): ReadonlyArray<IDomainEvent> {
     const recordCreatedEvents: RecordCreated[] = [];
     const otherEvents: IDomainEvent[] = [];
@@ -266,6 +273,7 @@ export class RecordBatchCreationService {
           orders: mutationResult.recordOrders?.get(event.recordId.toString()),
         })),
         source,
+        orchestration,
       }),
       ...otherEvents,
     ];

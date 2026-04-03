@@ -5,7 +5,7 @@ import { generateLocalId, useGridCollapsedGroupStore } from '../../components';
 import { useTableId, useViews } from '../../hooks';
 import type { IViewInstance } from '../../model/view/factory';
 import { createViewInstance } from '../../model/view/factory';
-import { usePersonalViewStore } from './store';
+import { useResolvedPersonalViewStore } from './store';
 import { ViewContext } from './ViewContext';
 
 interface IPersonalViewProxyProps {
@@ -45,7 +45,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
   const views = useViews();
   const tableId = useTableId();
   const { setCollapsedGroupMap } = useGridCollapsedGroupStore();
-  const { personalViewMap, isPersonalView, setPersonalViewMap } = usePersonalViewStore();
+  const { personalViewMap, isPersonalView, setPersonalViewMap } = useResolvedPersonalViewStore();
 
   const generateProxyView = useCallback(
     (view: IViewInstance, serverData?: IViewVo[]) => {
