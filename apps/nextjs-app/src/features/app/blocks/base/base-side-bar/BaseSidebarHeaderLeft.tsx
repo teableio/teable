@@ -133,14 +133,16 @@ const BaseDropdownMenu = ({
             </div>
           </DropdownMenuItem>
         )}
-        <PublishBaseDialog onClose={() => setOpen(false)} closeOnSuccess={false}>
-          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-            <div className="flex w-full cursor-pointer items-center gap-2">
-              <Send className="size-4" />
-              {t('space:publishBase.publishToCommunity')}
-            </div>
-          </DropdownMenuItem>
-        </PublishBaseDialog>
+        {showRename && (
+          <PublishBaseDialog onClose={() => setOpen(false)} closeOnSuccess={false}>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <Send className="size-4" />
+                {t('space:publishBase.publishToCommunity')}
+              </div>
+            </DropdownMenuItem>
+          </PublishBaseDialog>
+        )}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

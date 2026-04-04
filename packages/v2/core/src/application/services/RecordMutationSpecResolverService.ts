@@ -10,7 +10,8 @@ import type {
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
-import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
+import type { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../domain/table/records/specs/values/SetUserValueSpec';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -65,7 +66,7 @@ class SpecResolutionCollector implements ICellValueSpecVisitor {
   visitSetDateValue(): Result<void, DomainError> {
     return ok(undefined);
   }
-  visitSetLinkValue(): Result<void, DomainError> {
+  visitSetLinkValue(_spec: SetLinkValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
   visitSetRowOrderValue(_spec: SetRowOrderValueSpec): Result<void, DomainError> {

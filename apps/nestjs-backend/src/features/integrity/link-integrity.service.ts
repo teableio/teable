@@ -2,11 +2,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   FieldType,
-  type ILinkFieldOptions,
   CellValueType,
   DbFieldType,
   Relationship,
   DriverClient,
+  getValidFilterOperators,
+  FieldOpBuilder,
+} from '@teable/core';
+import type {
+  IFilter,
+  IFilterItem,
+  IFilterSet,
+  ILinkFieldOptions,
+  IOtOperation,
 } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
@@ -16,6 +24,7 @@ import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { LinkFieldQueryService } from '../field/field-calculate/link-field-query.service';
+import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { TableDomainQueryService } from '../table-domain';
@@ -34,6 +43,7 @@ export class LinkIntegrityService {
     private readonly uniqueIndexService: UniqueIndexService,
     private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
+    private readonly fieldService: FieldService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -140,6 +150,15 @@ export class LinkIntegrityService {
           issues: checkEmptyString,
         });
       }
+    }
+
+    const filterIssues = await this.checkInvalidFilterOperators(baseId);
+    if (filterIssues.length > 0) {
+      linkFieldIssues.push({
+        baseId: mainBase.id,
+        baseName: mainBase.name,
+        issues: filterIssues,
+      });
     }
 
     return {
@@ -835,6 +854,11 @@ export class LinkIntegrityService {
             result && fixResults.push(result);
             break;
           }
+          case IntegrityIssueType.InvalidFilterOperator: {
+            const result = await this.fixInvalidFilterOperator(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
           default:
             break;
         }
@@ -929,5 +953,248 @@ export class LinkIntegrityService {
       fieldId,
       message: 'Empty string cell value fixed',
     };
+  }
+
+  private async checkInvalidFilterOperators(baseId: string): Promise<IIntegrityIssue[]> {
+    const issues: IIntegrityIssue[] = [];
+
+    const tableIds = await this.prismaService.tableMeta.findMany({
+      where: { baseId, deletedTime: null },
+      select: { id: true },
+    });
+
+    const allFields = await this.prismaService.field.findMany({
+      where: {
+        tableId: { in: tableIds.map((t) => t.id) },
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        cellValueType: true,
+        isMultipleCellValue: true,
+        options: true,
+        lookupOptions: true,
+        tableId: true,
+      },
+    });
+
+    const fieldMap = new Map(allFields.map((f) => [f.id, f]));
+
+    for (const field of allFields) {
+      const filters: { filter: IFilter; source: 'options' | 'lookupOptions' }[] = [];
+
+      if (field.options) {
+        try {
+          const options = JSON.parse(field.options);
+          if (options.filter?.filterSet) {
+            filters.push({ filter: options.filter, source: 'options' });
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      if (field.lookupOptions) {
+        try {
+          const lookupOptions = JSON.parse(field.lookupOptions);
+          if (lookupOptions.filter?.filterSet) {
+            filters.push({ filter: lookupOptions.filter, source: 'lookupOptions' });
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      for (const { filter } of filters) {
+        const invalidOps = this.findInvalidFilterOperators(filter, fieldMap);
+        if (invalidOps.length > 0) {
+          const details = invalidOps
+            .map((inv) => `"${inv.operator}" on "${inv.targetFieldName}"`)
+            .join(', ');
+          issues.push({
+            type: IntegrityIssueType.InvalidFilterOperator,
+            fieldId: field.id,
+            tableId: field.tableId,
+            message: `Field "${field.name}" has invalid filter operators: ${details}`,
+          });
+          break;
+        }
+      }
+    }
+
+    return issues;
+  }
+
+  private findInvalidFilterOperators(
+    filter: IFilter | IFilterSet,
+    fieldMap: Map<
+      string,
+      {
+        name: string;
+        type: string;
+        cellValueType: string | null;
+        isMultipleCellValue: boolean | null;
+      }
+    >
+  ): Array<{ targetFieldId: string; targetFieldName: string; operator: string }> {
+    const results: Array<{ targetFieldId: string; targetFieldName: string; operator: string }> = [];
+
+    if (!filter?.filterSet) return results;
+
+    for (const item of filter.filterSet) {
+      if ('filterSet' in item) {
+        results.push(...this.findInvalidFilterOperators(item as IFilterSet, fieldMap));
+        continue;
+      }
+
+      const filterItem = item as IFilterItem;
+      const targetField = fieldMap.get(filterItem.fieldId);
+      if (!targetField) continue;
+
+      const validOps = getValidFilterOperators({
+        cellValueType: targetField.cellValueType as CellValueType,
+        type: targetField.type as FieldType,
+        isMultipleCellValue: targetField.isMultipleCellValue ?? undefined,
+      });
+
+      if (!(validOps as string[]).includes(filterItem.operator as string)) {
+        results.push({
+          targetFieldId: filterItem.fieldId,
+          targetFieldName: targetField.name ?? filterItem.fieldId,
+          operator: filterItem.operator,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  private async fixInvalidFilterOperator(fieldId: string): Promise<IIntegrityIssue | undefined> {
+    const fieldRaw = await this.prismaService.field.findFirst({
+      where: { id: fieldId, deletedTime: null },
+    });
+
+    if (!fieldRaw) return;
+
+    // Get all fields in the same base to validate filter operators
+    const tableMeta = await this.prismaService.tableMeta.findFirst({
+      where: { id: fieldRaw.tableId, deletedTime: null },
+      select: { baseId: true },
+    });
+    if (!tableMeta) return;
+
+    const tablesInBase = await this.prismaService.tableMeta.findMany({
+      where: { baseId: tableMeta.baseId, deletedTime: null },
+      select: { id: true },
+    });
+
+    const allFields = await this.prismaService.field.findMany({
+      where: {
+        tableId: { in: tablesInBase.map((t) => t.id) },
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+        type: true,
+        cellValueType: true,
+        isMultipleCellValue: true,
+      },
+    });
+
+    const fieldMap = new Map(allFields.map((f) => [f.id, f]));
+    const ops: IOtOperation[] = [];
+
+    if (fieldRaw.options) {
+      try {
+        const options = JSON.parse(fieldRaw.options);
+        if (options.filter?.filterSet) {
+          const cleaned = this.removeInvalidFilterItems(options.filter, fieldMap);
+          const newFilter = cleaned?.filterSet?.length ? cleaned : null;
+          if (JSON.stringify(newFilter) !== JSON.stringify(options.filter)) {
+            ops.push(
+              FieldOpBuilder.editor.setFieldProperty.build({
+                key: 'options',
+                oldValue: options,
+                newValue: { ...options, filter: newFilter },
+              })
+            );
+          }
+        }
+      } catch {
+        /* skip */
+      }
+    }
+
+    if (fieldRaw.lookupOptions) {
+      try {
+        const lookupOptions = JSON.parse(fieldRaw.lookupOptions);
+        if (lookupOptions.filter?.filterSet) {
+          const cleaned = this.removeInvalidFilterItems(lookupOptions.filter, fieldMap);
+          const newFilter = cleaned?.filterSet?.length ? cleaned : null;
+          if (JSON.stringify(newFilter) !== JSON.stringify(lookupOptions.filter)) {
+            ops.push(
+              FieldOpBuilder.editor.setFieldProperty.build({
+                key: 'lookupOptions',
+                oldValue: lookupOptions,
+                newValue: { ...lookupOptions, filter: newFilter },
+              })
+            );
+          }
+        }
+      } catch {
+        /* skip */
+      }
+    }
+
+    if (!ops.length) return;
+
+    await this.fieldService.batchUpdateFields(fieldRaw.tableId, [{ fieldId, ops }]);
+
+    return {
+      type: IntegrityIssueType.InvalidFilterOperator,
+      fieldId,
+      message: `Removed invalid filter operators from field "${fieldRaw.name}"`,
+    };
+  }
+
+  private removeInvalidFilterItems(
+    filter: IFilterSet,
+    fieldMap: Map<
+      string,
+      {
+        type: string;
+        cellValueType: string | null;
+        isMultipleCellValue: boolean | null;
+      }
+    >
+  ): IFilterSet {
+    const filterSet: (IFilterItem | IFilterSet)[] = [];
+
+    for (const item of filter.filterSet) {
+      if ('filterSet' in item) {
+        const nested = this.removeInvalidFilterItems(item, fieldMap);
+        if (nested.filterSet.length > 0) {
+          filterSet.push(nested);
+        }
+        continue;
+      }
+
+      const targetField = fieldMap.get(item.fieldId);
+      if (!targetField) continue;
+
+      const validOps = getValidFilterOperators({
+        cellValueType: targetField.cellValueType as CellValueType,
+        type: targetField.type as FieldType,
+        isMultipleCellValue: targetField.isMultipleCellValue ?? undefined,
+      });
+
+      if ((validOps as string[]).includes(item.operator as string)) {
+        filterSet.push(item);
+      }
+    }
+
+    return { ...filter, filterSet };
   }
 }

@@ -55,7 +55,7 @@ export type PasteGroup = z.infer<typeof pasteGroupSchema>;
  * Parse clipboard text (tab-separated values) into a 2D array.
  * Handles both Unix and Windows line endings.
  */
-function parseClipboardText(content: string): string[][] {
+export function parseClipboardText(content: string): string[][] {
   const windowsNewline = '\r\n';
   const newline = '\n';
   const delimiter = '\t';

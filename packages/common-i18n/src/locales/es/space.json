@@ -140,8 +140,8 @@
     "empty": "No hay bases aún"
   },
   "publishBase": {
-    "title": "Publicar Base en la comunidad",
-    "description": "Publica la base con un clic, ¡la inspiración ya no es solitaria! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
+    "title": "Publicar en el centro de plantillas",
+    "description": "¡Publica la base en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
     "infoTitle": "Información básica",
     "form": {
       "title": "Título",
@@ -164,7 +164,7 @@
     "unPublish": "Despublicar",
     "unPublishSuccess": "¡Base despublicada con éxito!",
     "unPublishConfirmTitle": "Confirmar despublicación",
-    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar esta base? Ya no será visible en el centro de plantillas de la comunidad.",
+    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar esta base? Ya no será visible en el centro de plantillas.",
     "usageCount": "Recuento de uso: ",
     "uploadCover": "Clic para subir imagen de portada",
     "changeCover": "Clic para cambiar portada",

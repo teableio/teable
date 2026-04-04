@@ -232,6 +232,7 @@ export type UndoEntry = {
   readonly scope: UndoScope;
   readonly undoCommand: UndoRedoCommandData;
   readonly redoCommand: UndoRedoCommandData;
+  readonly groupId?: string;
   readonly recordVersionBefore?: number;
   readonly recordVersionAfter?: number;
   readonly createdAt: string;
