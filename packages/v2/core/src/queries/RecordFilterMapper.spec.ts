@@ -10,7 +10,7 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { RecordFilter } from './RecordFilterDto';
-import { buildRecordConditionSpec } from './RecordFilterMapper';
+import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
 
 const baseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const recordId = (seed: string) => RecordId.create(`rec${seed.repeat(16)}`)._unsafeUnwrap();
@@ -172,5 +172,39 @@ describe('RecordFilterMapper', () => {
 
     const invalidNode = buildRecordConditionSpec(table, { foo: 'bar' } as unknown as RecordFilter);
     expect(invalidNode._unsafeUnwrapErr().message).toContain('Invalid record filter node');
+  });
+
+  it('drops invalid filter conditions during sanitization', () => {
+    const table = buildTable();
+    const { statusField, titleField } = buildRecord(table);
+
+    const filter: RecordFilter = {
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: statusField.id().toString(),
+          operator: 'hasAnyOf',
+          value: ['Open'],
+        },
+        {
+          fieldId: titleField.id().toString(),
+          operator: 'contains',
+          value: 'Hello',
+        },
+      ],
+    };
+
+    const result = sanitizeRecordFilter(table, filter);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: titleField.id().toString(),
+          operator: 'contains',
+          value: 'Hello',
+        },
+      ],
+    });
   });
 });

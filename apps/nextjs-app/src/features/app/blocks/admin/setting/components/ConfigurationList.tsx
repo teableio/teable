@@ -20,9 +20,9 @@ export interface IList {
     | 'aiModelPool'
     | 'aiChatModel'
     | 'app'
-    | 'appBuilderV0'
     | 'appBuilderDomain'
     | 'appBuilderApiProxy'
+    | 'sandboxVercel'
     | 'email';
   anchor?: RefObject<HTMLDivElement>;
   values?: Record<string, string>;
