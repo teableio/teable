@@ -51,6 +51,7 @@ export const baseShareByNodeIdVoSchema = z.object({
   nodeId: z.string(),
   allowSave: z.boolean().nullable(),
   allowCopy: z.boolean().nullable(),
+  allowEdit: z.boolean().nullable(),
   enabled: z.boolean(),
 });
 

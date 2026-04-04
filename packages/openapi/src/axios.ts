@@ -182,6 +182,46 @@ export interface IAPIRequestConfig {
   enableUndoRedo?: boolean;
 }
 
+const UNDO_REDO_WINDOW_ID_HEADER = 'X-Window-Id';
+
+const hasToJson = (value: unknown): value is { toJSON: () => unknown } =>
+  typeof value === 'object' &&
+  value != null &&
+  'toJSON' in value &&
+  typeof (value as { toJSON?: unknown }).toJSON === 'function';
+
+const getHeaderValue = (headers: unknown, headerName: string): string | undefined => {
+  if (!headers || typeof headers !== 'object') {
+    return undefined;
+  }
+
+  const normalizedHeaders = hasToJson(headers)
+    ? (headers.toJSON() as Record<string, unknown>)
+    : (headers as Record<string, unknown>);
+
+  const matchedEntry = Object.entries(normalizedHeaders).find(
+    (entry): entry is [string, string] =>
+      entry[0].toLowerCase() === headerName.toLowerCase() && typeof entry[1] === 'string'
+  );
+
+  return matchedEntry?.[1];
+};
+
+export const ensureUndoRedoWindowIdHeader = (windowId = generateWindowId()): string => {
+  const currentAxios = getAxios();
+  const existingWindowId = getHeaderValue(
+    currentAxios.defaults.headers.common,
+    UNDO_REDO_WINDOW_ID_HEADER
+  );
+
+  if (existingWindowId) {
+    return existingWindowId;
+  }
+
+  currentAxios.defaults.headers.common[UNDO_REDO_WINDOW_ID_HEADER] = windowId;
+  return windowId;
+};
+
 /**
  * Configures the Axios instance with the provided options.
  * @param config - Configuration options
@@ -199,8 +239,7 @@ export const configApi = (config: IAPIRequestConfig) => {
 
   // Add windowId for undo/redo functionality if enabled
   if (enableUndoRedo) {
-    const windowId = generateWindowId();
-    defaultAxios.defaults.headers.common['X-Window-Id'] = windowId;
+    ensureUndoRedoWindowIdHeader();
   }
 
   return axios;

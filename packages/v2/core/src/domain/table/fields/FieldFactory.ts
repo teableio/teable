@@ -10,6 +10,7 @@ import type { FieldName } from './FieldName';
 import { AttachmentField } from './types/AttachmentField';
 import { AutoNumberField } from './types/AutoNumberField';
 import { ButtonField } from './types/ButtonField';
+import type { ButtonConfirm } from './types/ButtonConfirm';
 import type { ButtonLabel } from './types/ButtonLabel';
 import type { ButtonMaxCount } from './types/ButtonMaxCount';
 import type { ButtonResetCount } from './types/ButtonResetCount';
@@ -304,6 +305,7 @@ export const createButtonField = (params: {
   maxCount?: ButtonMaxCount;
   resetCount?: ButtonResetCount;
   workflow?: ButtonWorkflow;
+  confirm?: ButtonConfirm;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
