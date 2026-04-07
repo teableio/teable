@@ -245,6 +245,20 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('computed_update_pause_scope')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('scope_type', 'text', (col) => col.notNull())
+    .addColumn('scope_id', 'text', (col) => col.notNull())
+    .addColumn('paused_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('paused_by', 'text')
+    .addColumn('resume_at', 'timestamptz')
+    .addColumn('reason', 'text')
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('updated_by', 'text')
+    .execute();
+
+  await db.schema
     .createTable('computed_update_dead_letter')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -323,6 +337,21 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('computed_update_outbox_seed')
     .columns(['task_id', 'table_id', 'record_id'])
     .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_pause_scope_scope_type_scope_id_key')
+    .ifNotExists()
+    .on('computed_update_pause_scope')
+    .columns(['scope_type', 'scope_id'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_pause_scope_resume_at_idx')
+    .ifNotExists()
+    .on('computed_update_pause_scope')
+    .column('resume_at')
     .execute();
 
   await db.schema

@@ -1,6 +1,9 @@
 import { Command } from '@effect/cli';
 import {
+  computedPause,
+  computedPauses,
   computedReplay,
+  computedResume,
   computedRunTask,
   computedSummary,
   computedTask,
@@ -57,6 +60,9 @@ export const mock = Command.make('mock').pipe(
 export const computed = Command.make('computed').pipe(
   Command.withDescription('Operate computed outbox tasks'),
   Command.withSubcommands([
+    computedPause,
+    computedResume,
+    computedPauses,
     computedSummary,
     computedTasks,
     computedTask,

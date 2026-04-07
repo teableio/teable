@@ -2,8 +2,9 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { RecordCreated } from '../../events/RecordCreated';
-import { FieldType } from '../../fields/FieldType';
 import type { RecordCreateSource } from '../../events/RecordFieldValuesDTO';
+import type { Field } from '../../fields/Field';
+import { FieldType } from '../../fields/FieldType';
 import { FieldByKeySpec } from '../../fields/specs/FieldByKeySpec';
 import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValueVisitor';
 import { RecordCreateResult } from '../../records/RecordCreateResult';
@@ -13,6 +14,55 @@ import { recordToFieldValues } from '../../records/recordToFieldValues';
 import { TableRecord } from '../../records/TableRecord';
 import { TableRecordFields } from '../../records/TableRecordFields';
 import type { Table } from '../../Table';
+
+interface CreateRecordEditableFieldContext {
+  field: Field;
+  fieldId: string;
+  hasDefaultValue: boolean;
+  defaultValue: unknown;
+  isUserField: boolean;
+}
+
+export interface CreateRecordBuildContext {
+  readonly fieldByKey: ReadonlyMap<string, Field>;
+  readonly editableFields: ReadonlyArray<CreateRecordEditableFieldContext>;
+}
+
+export function createRecordBuildContext(table: Table): CreateRecordBuildContext {
+  const fieldByKey = new Map<string, Field>();
+  for (const field of table.getFields()) {
+    const fieldId = field.id().toString();
+    const fieldName = field.name().toString();
+    if (!fieldByKey.has(fieldId)) {
+      fieldByKey.set(fieldId, field);
+    }
+    if (!fieldByKey.has(fieldName)) {
+      fieldByKey.set(fieldName, field);
+    }
+  }
+
+  const defaultValueVisitor = FieldDefaultValueVisitor.create();
+  const editableFields = table.getEditableFields().map((field) => {
+    const defaultValueResult = field.accept(defaultValueVisitor);
+    const defaultValue =
+      defaultValueResult.isOk() && defaultValueResult.value !== undefined
+        ? defaultValueResult.value
+        : undefined;
+
+    return {
+      field,
+      fieldId: field.id().toString(),
+      hasDefaultValue: defaultValue !== undefined,
+      defaultValue,
+      isUserField: field.type().equals(FieldType.user()),
+    } satisfies CreateRecordEditableFieldContext;
+  });
+
+  return {
+    fieldByKey,
+    editableFields,
+  };
+}
 
 /**
  * Build a record with spec, supporting field keys that can be either fieldId or fieldName.
@@ -26,10 +76,22 @@ export function buildRecordWithSpec(
   this: Table,
   fieldValues: ReadonlyMap<string, unknown>,
   recordId?: RecordId,
-  options?: { typecast?: boolean; source?: RecordCreateSource }
+  options?: {
+    typecast?: boolean;
+    source?: RecordCreateSource;
+    buildContext?: CreateRecordBuildContext;
+    valuesAreValidated?: boolean;
+    emitRecordCreatedEvent?: boolean;
+  }
 ): Result<RecordCreateResult, DomainError> {
   const table = this;
-  const { typecast = false, source = { type: 'user' } } = options ?? {};
+  const {
+    typecast = false,
+    source = { type: 'user' },
+    buildContext,
+    valuesAreValidated = false,
+    emitRecordCreatedEvent = true,
+  } = options ?? {};
   return safeTry<RecordCreateResult, DomainError>(function* () {
     // 1. Generate a new record ID
     const resolvedRecordId = recordId ?? (yield* RecordId.generate());
@@ -40,8 +102,10 @@ export function buildRecordWithSpec(
     const resolvedFieldValues = new Map<string, unknown>();
 
     for (const [key, value] of fieldValues.entries()) {
-      const spec = FieldByKeySpec.create(key);
-      const fieldResult = table.getField(spec);
+      const cachedField = buildContext?.fieldByKey.get(key);
+      const fieldResult = cachedField
+        ? ok(cachedField)
+        : table.getField(FieldByKeySpec.create(key));
 
       if (fieldResult.isErr()) {
         return err(
@@ -60,31 +124,27 @@ export function buildRecordWithSpec(
 
     // 3. Build mutation specs from resolved field values with default value support
     const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
-    const fields = table.getEditableFields();
-    const defaultValueVisitor = FieldDefaultValueVisitor.create();
+    const fields = buildContext?.editableFields ?? createRecordBuildContext(table).editableFields;
 
     for (const field of fields) {
-      const fieldIdStr = field.id().toString();
+      const fieldIdStr = field.fieldId;
       const providedValue = resolvedFieldValues.get(fieldIdStr);
 
       // If value was explicitly provided (including null), use it
       if (resolvedFieldValues.has(fieldIdStr)) {
-        builder.set(field, providedValue);
-      } else {
-        // Otherwise, try to get the default value
-        const defaultValueResult = field.accept(defaultValueVisitor);
-        if (defaultValueResult.isOk()) {
-          const defaultValue = defaultValueResult.value;
-          if (defaultValue !== undefined) {
-            const isUserField = field.type().equals(FieldType.user());
-            if (isUserField && !typecast) {
-              builder.withTypecast(true);
-              builder.set(field, defaultValue);
-              builder.withTypecast(typecast);
-            } else {
-              builder.set(field, defaultValue);
-            }
-          }
+        if (valuesAreValidated) {
+          builder.setValidated(field.field, providedValue);
+        } else {
+          builder.set(field.field, providedValue);
+        }
+      } else if (field.hasDefaultValue) {
+        const defaultValue = field.defaultValue;
+        if (field.isUserField && !typecast) {
+          builder.withTypecast(true);
+          builder.set(field.field, defaultValue);
+          builder.withTypecast(typecast);
+        } else {
+          builder.set(field.field, defaultValue);
         }
       }
     }
@@ -107,30 +167,32 @@ export function buildRecordWithSpec(
       const mutateSpec = yield* builder.build();
       const record = yield* mutateSpec.mutate(emptyRecord);
 
-      // Add RecordCreated event to the Table aggregate root
-      table.addDomainEvent(
-        RecordCreated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          recordId: record.id(),
-          fieldValues: recordToFieldValues(record),
-          source,
-        })
-      );
+      if (emitRecordCreatedEvent) {
+        table.addDomainEvent(
+          RecordCreated.create({
+            tableId: table.id(),
+            baseId: table.baseId(),
+            recordId: record.id(),
+            fieldValues: recordToFieldValues(record),
+            source,
+          })
+        );
+      }
 
       return ok(RecordCreateResult.create(record, mutateSpec, fieldKeyMapping));
     }
 
-    // Add RecordCreated event even for empty record
-    table.addDomainEvent(
-      RecordCreated.create({
-        tableId: table.id(),
-        baseId: table.baseId(),
-        recordId: emptyRecord.id(),
-        fieldValues: recordToFieldValues(emptyRecord),
-        source,
-      })
-    );
+    if (emitRecordCreatedEvent) {
+      table.addDomainEvent(
+        RecordCreated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          recordId: emptyRecord.id(),
+          fieldValues: recordToFieldValues(emptyRecord),
+          source,
+        })
+      );
+    }
 
     return ok(RecordCreateResult.create(emptyRecord, null, fieldKeyMapping));
   });

@@ -3,6 +3,10 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from '../application/services/ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -93,7 +97,9 @@ export class UpdateRecordHandler
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   @TraceSpan()
@@ -208,11 +214,21 @@ export class UpdateRecordHandler
               tableEvents = tableFlowResult.events;
             }
             yield* await pluginExecution.beforePersist(transactionContext);
+            const fillLinkTitleForeignTables = command.typecast
+              ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
+                  transactionContext,
+                  [recordUpdateResult.mutateSpec ?? null]
+                )
+              : new Map();
             const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
               command.recordId,
-              mutateSpec
+              mutateSpec,
+              {
+                ...(command.typecast ? { fillLinkTitles: true } : {}),
+                ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+              }
             );
 
             let previousOrder: number | undefined;
@@ -400,9 +416,27 @@ export class UpdateRecordHandler
       }
       await pluginExecution.afterCommit();
 
+      const mergedRecord = yield* TableRecord.fromRawFieldValues({
+        id: command.recordId.toString(),
+        tableId: table.id(),
+        fields: {
+          ...Object.fromEntries(
+            Object.entries(currentRecord.fields).filter(
+              ([, value]) => value !== null && value !== undefined
+            )
+          ),
+          ...Object.fromEntries(
+            updatedRecord
+              .fields()
+              .entries()
+              .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+          ),
+        },
+      });
+
       return ok(
         UpdateRecordResult.create(
-          updatedRecord,
+          mergedRecord,
           events,
           extendedFieldKeyMapping,
           mutationResult.mutation.computedChanges
