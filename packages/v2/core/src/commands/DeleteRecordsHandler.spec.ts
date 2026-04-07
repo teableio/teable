@@ -81,7 +81,7 @@ const buildTable = () => {
     .done();
   builder.view().defaultGrid().done();
 
-  return { table: builder.build()._unsafeUnwrap(), baseId, tableId };
+  return { table: builder.build()._unsafeUnwrap(), baseId, tableId, textFieldId, numberFieldId };
 };
 
 class FakeTableRepository implements ITableRepository {
@@ -197,6 +197,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     if (this.failDelete) return err(this.failDelete);
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeEventBus implements IEventBus {
@@ -270,14 +274,14 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
 
 describe('DeleteRecordsHandler', () => {
   it('deletes records and publishes event with record snapshots', async () => {
-    const { table, tableId } = buildTable();
+    const { table, tableId, textFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      { id: `rec${'a'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record B' }, version: 1 },
     ];
 
     const eventBus = new FakeEventBus();
@@ -309,7 +313,10 @@ describe('DeleteRecordsHandler', () => {
     );
     expect(deletedEvent?.recordSnapshots).toHaveLength(2);
     expect(deletedEvent?.recordSnapshots[0].id).toBe(`rec${'a'.repeat(16)}`);
-    expect(deletedEvent?.recordSnapshots[0].fields).toEqual({ title: 'Record A' });
+    expect(deletedEvent?.recordSnapshots[0].fields).toEqual({
+      [textFieldId.toString()]: 'Record A',
+    });
+    expect(deletedEvent?.recordSnapshots[0].displayName).toBe('Record A');
   });
 
   it('skips plugins that do not support deleteMany', async () => {

@@ -10,6 +10,7 @@ import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
+import { runRealtimeTasks } from './runRealtimeTasks';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 
 @ProjectionHandler(RecordReordered)
@@ -29,7 +30,7 @@ export class RecordReorderedRealtimeProjection implements IEventHandler<RecordRe
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
       const rowOrderColumnName = event.viewId.toRowOrderColumnName();
-      const tasks: Array<Promise<Result<void, DomainError>>> = [];
+      const tasks: Array<() => Promise<Result<void, DomainError>>> = [];
 
       for (const recordId of event.recordIds) {
         const recordIdString = recordId.toString();
@@ -40,7 +41,7 @@ export class RecordReorderedRealtimeProjection implements IEventHandler<RecordRe
         }
 
         const docId = yield* RealtimeDocId.fromParts(collection, recordIdString).safeUnwrap();
-        tasks.push(
+        tasks.push(() =>
           realtimeEngine.applyChange(context, docId, {
             type: 'set',
             path: ['fields', rowOrderColumnName],
@@ -50,7 +51,7 @@ export class RecordReorderedRealtimeProjection implements IEventHandler<RecordRe
         );
       }
 
-      for (const result of await Promise.all(tasks)) {
+      for (const result of await runRealtimeTasks(tasks)) {
         yield* result.safeUnwrap();
       }
 
