@@ -57,6 +57,7 @@ type AppPropsWithLayout = AppProps<{
 const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, err: nextJsError, pageProps } = appProps;
   const { user, env = {}, err: pageError, httpError } = pageProps;
+  const appBuildVersion = env.buildVersion ?? process.env.APP_VERSION ?? 'develop';
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
   useEffect(() => {
@@ -80,7 +81,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.version="${process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'develop'}";
+              window.version=${JSON.stringify(appBuildVersion)};
               window.__TE__=${JSON.stringify(env)};
             `,
           }}

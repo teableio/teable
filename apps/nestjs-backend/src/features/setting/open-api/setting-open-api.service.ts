@@ -137,7 +137,7 @@ export class SettingOpenApiService {
         capabilities: aiConfig?.capabilities,
         gatewayModels: aiConfig?.gatewayModels,
       },
-      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      appGenerationEnabled: Boolean(appConfig?.vercelToken),
       availableIntegrationProviders,
     };
   }
@@ -850,7 +850,7 @@ export class SettingOpenApiService {
   }
 
   /**
-   * Test API key validity for AI Gateway or v0
+   * Test API key validity for AI Gateway
    * Optionally also tests attachment transfer modes (URL and Base64)
    * When testAttachment is true, results are automatically saved to appConfig
    */
@@ -877,8 +877,6 @@ export class SettingOpenApiService {
         ...keyResult,
         attachmentTest: attachmentResult,
       };
-    } else if (type === 'v0') {
-      return this.testV0Key(apiKey, baseUrl);
     } else if (type === 'vercel') {
       return this.testVercelToken(apiKey, baseUrl);
     }
@@ -1199,37 +1197,6 @@ export class SettingOpenApiService {
     return 'unknown';
   }
 
-  private async testV0Key(apiKey: string, baseUrl?: string): Promise<ITestApiKeyVo> {
-    const url = `${baseUrl || 'https://api.v0.dev/v1'}/projects`;
-
-    try {
-      await axios.get(url, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      return { success: true };
-    } catch (error) {
-      if (!axios.isAxiosError(error)) {
-        return this.parseApiKeyError(error, 'v0');
-      }
-
-      const status = error.response?.status;
-      const data = error.response?.data as {
-        error?: { type?: string; code?: string; message?: string };
-      };
-      const detailedMessage = data?.error?.message || error.message;
-
-      this.logger.error('v0 key test failed: status=%s, message=%s', status, detailedMessage);
-
-      // No response = network error
-      if (!error.response) {
-        return { success: false, error: { code: 'network_error', message: detailedMessage } };
-      }
-
-      const code = this.getV0ErrorCode(status, data, detailedMessage);
-      return { success: false, error: { code, message: detailedMessage } };
-    }
-  }
-
   private async testVercelToken(token: string, baseUrl?: string): Promise<ITestApiKeyVo> {
     const apiBase = baseUrl || 'https://api.vercel.com';
 
@@ -1258,30 +1225,6 @@ export class SettingOpenApiService {
 
       return { success: false, error: { code: 'unknown', message: detailedMessage } };
     }
-  }
-
-  private getV0ErrorCode(
-    status: number | undefined,
-    data: { error?: { type?: string; code?: string; message?: string } } | undefined,
-    message: string
-  ): 'unauthorized' | 'forbidden' | 'insufficient_quota' | 'unknown' {
-    if (status === 401) return 'unauthorized';
-    if (status === 403) return 'forbidden';
-
-    const errorType = data?.error?.type?.toLowerCase() || '';
-    const errorCode = data?.error?.code?.toLowerCase() || '';
-    const errorMsg = message.toLowerCase();
-
-    if (
-      errorType.includes('insufficient') ||
-      errorCode.includes('insufficient') ||
-      errorMsg.includes('insufficient') ||
-      errorMsg.includes('quota')
-    ) {
-      return 'insufficient_quota';
-    }
-
-    return 'unknown';
   }
 
   /**

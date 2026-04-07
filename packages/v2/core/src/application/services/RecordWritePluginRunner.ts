@@ -5,8 +5,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
-import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import * as LoggerPort from '../../ports/Logger';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
@@ -14,6 +14,7 @@ import type {
   IRecordWritePlugin,
   RecordWritePluginContext,
   RecordWritePluginEnforce,
+  RecordWriteScopedFieldIdsResolver,
   RecordWritePluginScope,
 } from '../../ports/RecordWritePlugin';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -112,12 +113,22 @@ const createRecordWritePluginTraceAttributes = (
   pluginName: string,
   phase: RecordWritePluginPhase
 ): SpanAttributes => {
+  return {
+    ...createRecordWritePluginBaseTraceAttributes(context, pluginName),
+    [TeableSpanAttributes.OPERATION]: `recordWritePlugin.${phase}`,
+    [TeableSpanAttributes.PLUGIN_PHASE]: phase,
+  };
+};
+
+const createRecordWritePluginBaseTraceAttributes = (
+  context: RecordWritePluginContext,
+  pluginName: string
+): SpanAttributes => {
   const tableId = getTableId(context.table);
 
-  return createTeableSpanAttributes('plugin', `recordWritePlugin.${phase}`, {
+  return createTeableSpanAttributes('plugin', 'recordWritePlugin.execution', {
     [TeableSpanAttributes.PLUGIN]: pluginName,
     [TeableSpanAttributes.PLUGIN_TYPE]: 'record_write',
-    [TeableSpanAttributes.PLUGIN_PHASE]: phase,
     [TeableSpanAttributes.OPERATION_KIND]: context.kind,
     [TeableSpanAttributes.IS_TRANSACTION_BOUND]: context.isTransactionBound,
     ...(tableId ? { [TeableSpanAttributes.TABLE_ID]: tableId } : {}),
@@ -139,6 +150,38 @@ const withRecordWritePluginTraceContext = (
       spanNamePrefix: `teable.recordWritePlugin.${pluginName}`,
       operationPrefix: `recordWritePlugin.${phase}`,
     }),
+  };
+};
+
+const intersectDefinedSets = (
+  sets: ReadonlyArray<ReadonlySet<string> | undefined>
+): ReadonlySet<string> | undefined => {
+  const definedSets = sets.filter((set): set is ReadonlySet<string> => set != null);
+  if (!definedSets.length) {
+    return undefined;
+  }
+
+  const [firstSet, ...restSets] = definedSets;
+  return new Set([...firstSet].filter((value) => restSets.every((set) => set.has(value))));
+};
+
+const composeUpdateFieldResolvers = (
+  resolvers: ReadonlyArray<RecordWriteScopedFieldIdsResolver | undefined>,
+  staticFieldIds: ReadonlySet<string> | undefined
+): RecordWriteScopedFieldIdsResolver | undefined => {
+  const definedResolvers = resolvers.filter(
+    (resolver): resolver is RecordWriteScopedFieldIdsResolver => resolver != null
+  );
+
+  if (!definedResolvers.length && !staticFieldIds) {
+    return undefined;
+  }
+
+  return (record) => {
+    const dynamicFieldIds = intersectDefinedSets(
+      definedResolvers.map((resolver) => resolver(record))
+    );
+    return intersectDefinedSets([staticFieldIds, dynamicFieldIds]);
   };
 };
 
@@ -171,6 +214,35 @@ const withRecordWritePluginSpan = async <T>(
   });
 };
 
+const withRecordWritePluginExecutionSpan = async <T>(
+  context: RecordWritePluginContext,
+  pluginName: string,
+  callback: () => Promise<T>
+): Promise<T> => {
+  const tracer = context.executionContext.tracer;
+  const span = tracer?.startSpan(
+    'teable.recordWritePlugin.execution',
+    createTeableSpanAttributes('plugin', 'recordWritePlugin.execution', {
+      ...createRecordWritePluginBaseTraceAttributes(context, pluginName),
+    })
+  );
+
+  if (!span || !tracer) {
+    return callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(describeError(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
 export class RecordWritePluginExecution {
   constructor(
     private readonly logger: LoggerPort.ILogger,
@@ -183,10 +255,7 @@ export class RecordWritePluginExecution {
     return this.runPhase('guard', this.context);
   }
 
-  getRecordSpec(): Result<
-    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    DomainError
-  > {
+  getScope(): Result<RecordWritePluginScope | undefined, DomainError> {
     const specs = this.preparedPlugins
       .map((entry) => entry.scope?.recordSpec)
       .filter(
@@ -194,7 +263,41 @@ export class RecordWritePluginExecution {
           spec != null
       );
 
-    return ok(composeAndSpecsOrUndefined(specs));
+    const recordSpec = composeAndSpecsOrUndefined(specs);
+    const updateFieldIds = intersectDefinedSets(
+      this.preparedPlugins.map((entry) => entry.scope?.updateFieldIds)
+    );
+    const createFieldIds = intersectDefinedSets(
+      this.preparedPlugins.map((entry) => entry.scope?.createFieldIds)
+    );
+    const resolveUpdateFieldIdsForRecord = composeUpdateFieldResolvers(
+      this.preparedPlugins.map((entry) => entry.scope?.resolveUpdateFieldIdsForRecord),
+      updateFieldIds
+    );
+
+    if (!recordSpec && !updateFieldIds && !createFieldIds && !resolveUpdateFieldIdsForRecord) {
+      return ok(undefined);
+    }
+
+    return ok({
+      ...(recordSpec ? { recordSpec } : {}),
+      ...(updateFieldIds ? { updateFieldIds } : {}),
+      ...(createFieldIds ? { createFieldIds } : {}),
+      ...(resolveUpdateFieldIdsForRecord ? { resolveUpdateFieldIdsForRecord } : {}),
+    });
+  }
+
+  getRecordSpec(): Result<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    DomainError
+  > {
+    return this.getScope().map((scope) => scope?.recordSpec);
+  }
+
+  getUpdateFieldIdsForRecord(
+    record: TableRecord
+  ): Result<ReadonlySet<string> | undefined, DomainError> {
+    return this.getScope().map((scope) => scope?.resolveUpdateFieldIdsForRecord?.(record));
   }
 
   async beforePersist(executionContext: IExecutionContext): Promise<Result<void, DomainError>> {
@@ -219,12 +322,17 @@ export class RecordWritePluginExecution {
               return;
             }
 
-            const result = await withRecordWritePluginSpan(
+            const result = await withRecordWritePluginExecutionSpan(
               pluginContextResult.value,
               entry.plugin.name,
-              'afterCommit',
-              async (pluginContext) =>
-                entry.plugin.afterCommit!.call(entry.plugin, pluginContext, entry.preparedState)
+              async () =>
+                withRecordWritePluginSpan(
+                  pluginContextResult.value,
+                  entry.plugin.name,
+                  'afterCommit',
+                  async (pluginContext) =>
+                    entry.plugin.afterCommit!.call(entry.plugin, pluginContext, entry.preparedState)
+                )
             );
             if (result.isErr()) {
               this.logAfterCommitError(entry.plugin.name, result.error);
@@ -244,6 +352,10 @@ export class RecordWritePluginExecution {
 
       await Promise.allSettled(tasks);
     }
+  }
+
+  getPreparedStateFor(plugin: IRecordWritePlugin<unknown>): unknown {
+    return this.preparedPlugins.find((entry) => entry.plugin === plugin)?.preparedState;
   }
 
   private async runPhase(
@@ -296,11 +408,16 @@ export class RecordWritePluginExecution {
     }
 
     try {
-      const result = await withRecordWritePluginSpan(
+      const result = await withRecordWritePluginExecutionSpan(
         pluginContextResult.value,
         plugin.name,
-        phase,
-        async (pluginContext) => hook.call(plugin, pluginContext, entry.preparedState)
+        async () =>
+          withRecordWritePluginSpan(
+            pluginContextResult.value,
+            plugin.name,
+            phase,
+            async (pluginContext) => hook.call(plugin, pluginContext, entry.preparedState)
+          )
       );
       if (result.isErr()) {
         return err(result.error);
@@ -341,7 +458,10 @@ export class RecordWritePluginRunner {
   ) {}
 
   async prepare(
-    context: RecordWritePluginContext
+    context: RecordWritePluginContext,
+    options?: {
+      previousExecution?: RecordWritePluginExecution;
+    }
   ): Promise<Result<RecordWritePluginExecution, DomainError>> {
     const preparedPlugins: PreparedPluginEntry[] = [];
     const matchedPluginsResult = this.resolvePlugins(context);
@@ -351,7 +471,15 @@ export class RecordWritePluginRunner {
     const matchedPlugins = matchedPluginsResult.value;
 
     for (const group of createEnforceGroups(matchedPlugins, (plugin) => plugin.enforce)) {
-      const results = await Promise.all(group.map((plugin) => this.preparePlugin(plugin, context)));
+      const results = await Promise.all(
+        group.map((plugin) =>
+          this.preparePlugin(
+            plugin,
+            context,
+            options?.previousExecution?.getPreparedStateFor(plugin)
+          )
+        )
+      );
 
       for (const result of results) {
         if (result.isErr()) {
@@ -371,7 +499,8 @@ export class RecordWritePluginRunner {
 
   private async preparePlugin(
     plugin: IRecordWritePlugin,
-    context: RecordWritePluginContext
+    context: RecordWritePluginContext,
+    previousPreparedState?: unknown
   ): Promise<Result<PreparedPluginEntry, DomainError>> {
     const pluginContextResult = sanitizeRecordWritePluginContext(context, this.tableMapper);
     if (pluginContextResult.isErr()) {
@@ -384,11 +513,17 @@ export class RecordWritePluginRunner {
 
     if (plugin.prepare) {
       try {
-        const result = await withRecordWritePluginSpan(
+        const result = await withRecordWritePluginExecutionSpan(
           pluginContext,
           plugin.name,
-          'prepare',
-          async (preparedContext) => plugin.prepare!.call(plugin, preparedContext)
+          async () =>
+            withRecordWritePluginSpan(
+              pluginContext,
+              plugin.name,
+              'prepare',
+              async (preparedContext) =>
+                plugin.prepare!.call(plugin, preparedContext, previousPreparedState)
+            )
         );
         if (result.isErr()) {
           return err(result.error);
@@ -411,11 +546,13 @@ export class RecordWritePluginRunner {
     let scope: RecordWritePluginScope | undefined;
     if (plugin.scope) {
       try {
-        const result = await withRecordWritePluginSpan(
+        const result = await withRecordWritePluginExecutionSpan(
           pluginContext,
           plugin.name,
-          'scope',
-          async (scopeContext) => plugin.scope!.call(plugin, scopeContext, preparedState)
+          async () =>
+            withRecordWritePluginSpan(pluginContext, plugin.name, 'scope', async (scopeContext) =>
+              plugin.scope!.call(plugin, scopeContext, preparedState)
+            )
         );
         if (result.isErr()) {
           return err(result.error);

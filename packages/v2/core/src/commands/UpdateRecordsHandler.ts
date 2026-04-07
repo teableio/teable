@@ -6,7 +6,9 @@ import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdat
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
+import type { TableRecord } from '../domain/table/records/TableRecord';
+import { type IExecutionContext } from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -15,11 +17,23 @@ import { UpdateRecordsCommand } from './UpdateRecordsCommand';
 export class UpdateRecordsResult {
   private constructor(
     readonly updatedCount: number,
-    readonly events: ReadonlyArray<IDomainEvent>
+    readonly events: ReadonlyArray<IDomainEvent>,
+    readonly records?: ReadonlyArray<TableRecord>,
+    readonly fieldKeyMapping: FieldKeyMapping = new Map()
   ) {}
 
-  static create(updatedCount: number, events: ReadonlyArray<IDomainEvent>) {
-    return new UpdateRecordsResult(updatedCount, [...events]);
+  static create(
+    updatedCount: number,
+    events: ReadonlyArray<IDomainEvent>,
+    records?: ReadonlyArray<TableRecord>,
+    fieldKeyMapping: FieldKeyMapping = new Map()
+  ) {
+    return new UpdateRecordsResult(
+      updatedCount,
+      [...events],
+      records ? [...records] : undefined,
+      fieldKeyMapping
+    );
   }
 }
 
@@ -55,7 +69,14 @@ export class UpdateRecordsHandler
         order: command.order,
       });
 
-      return ok(UpdateRecordsResult.create(result.updatedCount, result.events));
+      return ok(
+        UpdateRecordsResult.create(
+          result.updatedCount,
+          result.events,
+          result.records,
+          result.fieldKeyMapping ?? new Map()
+        )
+      );
     });
   }
 }

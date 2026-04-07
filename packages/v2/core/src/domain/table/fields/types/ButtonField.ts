@@ -8,6 +8,7 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import type { ButtonConfirm } from './ButtonConfirm';
 import { ButtonLabel } from './ButtonLabel';
 import type { ButtonMaxCount } from './ButtonMaxCount';
 import type { ButtonResetCount } from './ButtonResetCount';
@@ -22,7 +23,8 @@ export class ButtonField extends Field {
     private readonly colorValue: FieldColor,
     private readonly maxCountValue: ButtonMaxCount | undefined,
     private readonly resetCountValue: ButtonResetCount | undefined,
-    private readonly workflowValue: ButtonWorkflow | undefined
+    private readonly workflowValue: ButtonWorkflow | undefined,
+    private readonly confirmValue: ButtonConfirm | undefined
   ) {
     super(id, name, FieldType.button());
   }
@@ -35,6 +37,7 @@ export class ButtonField extends Field {
     maxCount?: ButtonMaxCount;
     resetCount?: ButtonResetCount;
     workflow?: ButtonWorkflow;
+    confirm?: ButtonConfirm;
   }): Result<ButtonField, DomainError> {
     return ok(
       new ButtonField(
@@ -44,7 +47,8 @@ export class ButtonField extends Field {
         params.color ?? FieldColor.from('teal'),
         params.maxCount,
         params.resetCount,
-        params.workflow
+        params.workflow,
+        params.confirm
       )
     );
   }
@@ -69,6 +73,10 @@ export class ButtonField extends Field {
     return this.workflowValue;
   }
 
+  confirm(): ButtonConfirm | undefined {
+    return this.confirmValue;
+  }
+
   duplicate(params: FieldDuplicateParams): Result<Field, DomainError> {
     return ButtonField.create({
       id: params.newId,
@@ -78,6 +86,7 @@ export class ButtonField extends Field {
       maxCount: this.maxCount(),
       resetCount: this.resetCount(),
       workflow: undefined,
+      confirm: this.confirm(),
     });
   }
 
