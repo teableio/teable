@@ -51,6 +51,7 @@ export class ColumnUniqueConstraintRule implements ISchemaRule {
       const columnName = yield* resolveColumnName(ctx.field);
       const schemaName = ctx.schema ?? 'public';
       const indexName = self.getIndexName(ctx.tableName, columnName);
+      const fieldName = self.field.name().toString();
 
       // Check for unique index
       const indexResult = await ctx.introspector.getIndex(ctx.schema, indexName);
@@ -71,12 +72,52 @@ export class ColumnUniqueConstraintRule implements ISchemaRule {
             missing: [
               `column "${schemaName}"."${ctx.tableName}"."${columnName}" should have UNIQUE constraint`,
             ],
+            missingItems: [
+              {
+                code: 'column_unique_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.columnUniqueMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `Field "${fieldName}" should be unique.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.columnUniqueMissingDescription',
+                  values: {
+                    fieldName,
+                  },
+                  fallback:
+                    'A unique index is missing, so duplicate values can be written for this field.',
+                },
+              },
+            ],
           });
         }
       } else if (!index.isUnique) {
         return ok({
           valid: false,
           missing: [`index "${indexName}" exists but is not unique`],
+          missingItems: [
+            {
+              code: 'column_unique_not_unique',
+              message: {
+                key: 'table:table.integrity.v2.detail.columnUniqueIndexMismatch',
+                values: {
+                  fieldName,
+                },
+                fallback: `Field "${fieldName}" is indexed, but the index is not unique.`,
+              },
+              description: {
+                key: 'table:table.integrity.v2.detail.columnUniqueIndexMismatchDescription',
+                values: {
+                  fieldName,
+                },
+                fallback:
+                  'This field expects uniqueness, but the current database index still allows duplicates.',
+              },
+            },
+          ],
         });
       }
 

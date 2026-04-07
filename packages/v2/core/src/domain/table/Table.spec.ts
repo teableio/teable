@@ -31,8 +31,8 @@ import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMeta
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
-import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { GridView } from './views/types/GridView';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { ViewId } from './views/ViewId';
 import { ViewName } from './views/ViewName';
 
@@ -1615,6 +1615,117 @@ describe('Table.createRecord with default values', () => {
     expect(record.fields().get(longTextFieldId._unsafeUnwrap())?.toValue()).toBe(
       'Default description text'
     );
+  });
+});
+
+describe('Table.createRecords with batch build context', () => {
+  it('supports mixing field ids and field names across a batch', () => {
+    const baseIdResult = createBaseId('m');
+    const titleFieldId = createFieldId('u');
+    const notesFieldId = createFieldId('v');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Batch Key Resolution')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(notesFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Notes')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const createResult = table.createRecords([
+      new Map<string, unknown>([
+        ['Title', 'by-name'],
+        ['Notes', 'first'],
+      ]),
+      new Map<string, unknown>([
+        [titleFieldId._unsafeUnwrap().toString(), 'by-id'],
+        [notesFieldId._unsafeUnwrap().toString(), 'second'],
+      ]),
+    ]);
+
+    const records = createResult._unsafeUnwrap().records;
+    expect(records).toHaveLength(2);
+    expect(records[0]?.fields().get(titleFieldId._unsafeUnwrap())?.toValue()).toBe('by-name');
+    expect(records[0]?.fields().get(notesFieldId._unsafeUnwrap())?.toValue()).toBe('first');
+    expect(records[1]?.fields().get(titleFieldId._unsafeUnwrap())?.toValue()).toBe('by-id');
+    expect(records[1]?.fields().get(notesFieldId._unsafeUnwrap())?.toValue()).toBe('second');
+  });
+
+  it('applies defaults for missing values across the batch', () => {
+    const baseIdResult = createBaseId('q');
+    const titleFieldId = createFieldId('w');
+    const notesFieldId = createFieldId('x');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Batch Defaults')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(notesFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Notes')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Notes')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const createResult = table.createRecords([
+      new Map<string, unknown>([[titleFieldId._unsafeUnwrap().toString(), 'first']]),
+      new Map<string, unknown>([['Title', 'second']]),
+    ]);
+
+    const records = createResult._unsafeUnwrap().records;
+    expect(records).toHaveLength(2);
+    expect(records[0]?.fields().get(notesFieldId._unsafeUnwrap())?.toValue()).toBe('Default Notes');
+    expect(records[1]?.fields().get(notesFieldId._unsafeUnwrap())?.toValue()).toBe('Default Notes');
+  });
+
+  it('can skip per-record created events for batch callers that aggregate later', () => {
+    const baseIdResult = createBaseId('r');
+    const titleFieldId = createFieldId('y');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Batch Event Skip')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table.pullDomainEvents();
+
+    const createResult = table.createRecords(
+      [new Map<string, unknown>([[titleFieldId._unsafeUnwrap().toString(), 'first']])],
+      { emitRecordCreatedEvents: false }
+    );
+
+    expect(createResult.isOk()).toBe(true);
+    expect(table.pullDomainEvents()).toEqual([]);
   });
 });
 

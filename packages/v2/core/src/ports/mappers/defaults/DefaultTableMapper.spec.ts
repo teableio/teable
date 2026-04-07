@@ -5,6 +5,7 @@ import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
+import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
@@ -152,6 +153,11 @@ const buildTable = () => {
     name: 'Deploy',
     isActive: true,
   })._unsafeUnwrap();
+  const buttonConfirm = ButtonConfirm.create({
+    title: 'Confirm deploy',
+    description: 'Ship this change?',
+    confirmText: 'Deploy',
+  })._unsafeUnwrap();
 
   const fields = [
     SingleLineTextField.create({
@@ -220,6 +226,7 @@ const buildTable = () => {
       maxCount: buttonMax,
       resetCount: buttonReset,
       workflow: buttonWorkflow,
+      confirm: buttonConfirm,
     })._unsafeUnwrap(),
   ];
 
@@ -353,6 +360,13 @@ describe('DefaultTableMapper', () => {
     expect(mapped.views().length).toBe(table.views().length);
     expect(mapped.views()[0]?.options()).toEqual(table.views()[0]?.options());
     expect(mapped.views()[5]?.options()).toEqual(table.views()[5]?.options());
+    const mappedButton = mapped
+      .getFields()
+      .find((field) => field.name().toString() === 'Action') as ButtonField | undefined;
+    const originalButton = table
+      .getFields()
+      .find((field) => field.name().toString() === 'Action') as ButtonField | undefined;
+    expect(mappedButton?.confirm()?.toDto()).toEqual(originalButton?.confirm()?.toDto());
     mapped.dbTableName()._unsafeUnwrap();
 
     const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
@@ -502,6 +516,56 @@ describe('DefaultTableMapper', () => {
 
     expect(conditionalLookupField).toBeInstanceOf(ConditionalLookupField);
     expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(true);
+  });
+
+  it('preserves lookup dbFieldName instead of inheriting the inner system column', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+
+    const lookupFieldId = `fld${'q'.repeat(16)}`;
+    const lookupDbFieldName = 'lookup_auto_number_q';
+
+    const withLookup = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: lookupFieldId,
+          name: 'Lookup Auto Number',
+          type: 'autoNumber' as const,
+          options: {
+            expression: 'AUTO_NUMBER()',
+          },
+          isLookup: true,
+          isComputed: true,
+          dbFieldName: lookupDbFieldName,
+          dbFieldType: 'INTEGER',
+          cellValueType: 'number' as const,
+          isMultipleCellValue: false,
+          lookupOptions: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            lookupFieldId: `fld${'d'.repeat(16)}`,
+            relationship: 'manyOne' as const,
+          },
+        },
+      ],
+    };
+
+    const mapped = mapper.toDomain(withLookup)._unsafeUnwrap();
+    const mappedLookupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(lookupFieldId)._unsafeUnwrap()));
+    expect(mappedLookupField).toBeInstanceOf(LookupField);
+    expect((mappedLookupField as LookupField).innerFieldType()._unsafeUnwrap().toString()).toBe(
+      'autoNumber'
+    );
+
+    const roundTripped = mapper.toDTO(mapped)._unsafeUnwrap();
+    const lookupField = roundTripped.fields.find((field) => field.id === lookupFieldId);
+
+    expect(lookupField?.dbFieldName).toBe(lookupDbFieldName);
+    expect(lookupField?.dbFieldName).not.toBe('__auto_number');
   });
 
   it('rehydrates conditional lookup inner formula when result type is provided', () => {

@@ -40,14 +40,14 @@ import {
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
 import {
-  getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
-  type GetOrderedVisibleFieldIdsOptions,
-} from './methods/getOrderedVisibleFieldIds';
-import {
   duplicate as duplicateMethod,
   type DuplicateMethodParams as TableDuplicateParams,
   type DuplicateMethodResult as TableDuplicateResult,
 } from './methods/duplicate';
+import {
+  getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
+  type GetOrderedVisibleFieldIdsOptions,
+} from './methods/getOrderedVisibleFieldIds';
 import {
   createRecord as createRecordMethod,
   createRecords as createRecordsMethod,
@@ -603,7 +603,11 @@ export class Table extends AggregateRoot<TableId> {
     recordsFieldValues: ReadonlyArray<
       ReadonlyMap<string, unknown> | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
     >,
-    options?: { typecast?: boolean }
+    options?: {
+      typecast?: boolean;
+      valuesAreValidated?: boolean;
+      emitRecordCreatedEvents?: boolean;
+    }
   ): Result<CreateRecordsMethodResult, DomainError> {
     return createRecordsMethod.call(this, recordsFieldValues, options);
   }

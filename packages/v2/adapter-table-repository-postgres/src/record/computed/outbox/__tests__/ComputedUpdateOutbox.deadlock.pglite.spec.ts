@@ -12,6 +12,7 @@ import {
 } from 'kysely';
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from 'vitest';
 
+import { ComputedUpdatePauseRegistry } from '../../pause/ComputedUpdatePauseRegistry';
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
 import { buildSeedTaskInput } from '../ComputedUpdateSeedPayload';
 import { defaultComputedUpdateOutboxConfig } from '../IComputedUpdateOutbox';
@@ -116,10 +117,25 @@ const createTestOutbox = (db: Kysely<V1TeableDatabase>) =>
     createLogger()
   );
 
+const createPauseRegistry = (db: Kysely<V1TeableDatabase>) =>
+  new ComputedUpdatePauseRegistry(db, createLogger());
+
+const PRIMARY_SPACE_ID = `spc${'s'.repeat(16)}`;
+const PRIMARY_BASE_ID = `bse${'a'.repeat(16)}`;
+const PRIMARY_SEED_TABLE_ID = `tbl${'b'.repeat(16)}`;
+const PRIMARY_TARGET_TABLE_ID = `tbl${'d'.repeat(16)}`;
+const SECONDARY_SPACE_ID = `spc${'t'.repeat(16)}`;
+const SECONDARY_BASE_ID = `bse${'e'.repeat(16)}`;
+const SECONDARY_SEED_TABLE_ID = `tbl${'f'.repeat(16)}`;
+const SECONDARY_TARGET_TABLE_ID = `tbl${'g'.repeat(16)}`;
+
 const insertOutboxRow = async (
   db: Kysely<V1TeableDatabase>,
   params: {
     id: string;
+    baseId?: string;
+    seedTableId?: string;
+    affectedTableIds?: string[];
     status: 'pending' | 'processing';
     lockedAt?: Date | null;
     lockedBy?: string | null;
@@ -133,9 +149,14 @@ const insertOutboxRow = async (
     .insertInto('computed_update_outbox')
     .values({
       id: params.id,
-      base_id: `bse${'a'.repeat(16)}`,
-      seed_table_id: `tbl${'b'.repeat(16)}`,
-      seed_record_ids: JSON.stringify([{ tableId: `tbl${'b'.repeat(16)}`, recordIds: ['rec1'] }]),
+      base_id: params.baseId ?? PRIMARY_BASE_ID,
+      seed_table_id: params.seedTableId ?? PRIMARY_SEED_TABLE_ID,
+      seed_record_ids: JSON.stringify([
+        {
+          tableId: params.seedTableId ?? PRIMARY_SEED_TABLE_ID,
+          recordIds: ['rec1'],
+        },
+      ]),
       change_type: 'update',
       steps: JSON.stringify([]),
       edges: JSON.stringify([]),
@@ -149,7 +170,7 @@ const insertOutboxRow = async (
       estimated_complexity: 1,
       plan_hash: `hash-${params.id}`,
       dirty_stats: JSON.stringify([]),
-      affected_table_ids: [`tbl${'b'.repeat(16)}`],
+      affected_table_ids: params.affectedTableIds ?? [params.seedTableId ?? PRIMARY_SEED_TABLE_ID],
       affected_field_ids: [`fld${'c'.repeat(16)}`],
       sync_max_level: 0,
       run_id: `run-${params.id}`,
@@ -162,6 +183,54 @@ const insertOutboxRow = async (
     .execute();
 };
 
+const insertMetadata = async (db: Kysely<V1TeableDatabase>) => {
+  await db
+    .insertInto('space')
+    .values([
+      { id: PRIMARY_SPACE_ID, name: 'Primary Space' },
+      { id: SECONDARY_SPACE_ID, name: 'Secondary Space' },
+    ])
+    .execute();
+
+  await db
+    .insertInto('base')
+    .values([
+      { id: PRIMARY_BASE_ID, space_id: PRIMARY_SPACE_ID, name: 'Primary Base' },
+      { id: SECONDARY_BASE_ID, space_id: SECONDARY_SPACE_ID, name: 'Secondary Base' },
+    ])
+    .execute();
+
+  await db
+    .insertInto('table_meta')
+    .values([
+      {
+        id: PRIMARY_SEED_TABLE_ID,
+        base_id: PRIMARY_BASE_ID,
+        name: 'Primary Seed',
+        deleted_time: null,
+      },
+      {
+        id: PRIMARY_TARGET_TABLE_ID,
+        base_id: PRIMARY_BASE_ID,
+        name: 'Primary Target',
+        deleted_time: null,
+      },
+      {
+        id: SECONDARY_SEED_TABLE_ID,
+        base_id: SECONDARY_BASE_ID,
+        name: 'Secondary Seed',
+        deleted_time: null,
+      },
+      {
+        id: SECONDARY_TARGET_TABLE_ID,
+        base_id: SECONDARY_BASE_ID,
+        name: 'Secondary Target',
+        deleted_time: null,
+      },
+    ])
+    .execute();
+};
+
 describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -171,6 +240,30 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     db = new Kysely<V1TeableDatabase>({
       dialect: new PGliteDialect(pglite),
     });
+
+    await db.schema
+      .createTable('space')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('name', 'text')
+      .execute();
+
+    await db.schema
+      .createTable('base')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('space_id', 'text', (col) => col.notNull())
+      .addColumn('name', 'text')
+      .execute();
+
+    await db.schema
+      .createTable('table_meta')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('base_id', 'text', (col) => col.notNull())
+      .addColumn('name', 'text')
+      .addColumn('deleted_time', 'timestamptz')
+      .execute();
 
     await db.schema
       .createTable('computed_update_outbox')
@@ -228,11 +321,35 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       ON "computed_update_outbox"("base_id", "seed_table_id", "plan_hash", "change_type")
       WHERE "status" = 'pending'
     `.execute(db);
+
+    await db.schema
+      .createTable('computed_update_pause_scope')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('scope_type', 'text', (col) => col.notNull())
+      .addColumn('scope_id', 'text', (col) => col.notNull())
+      .addColumn('paused_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('paused_by', 'text')
+      .addColumn('resume_at', 'timestamptz')
+      .addColumn('reason', 'text')
+      .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('updated_by', 'text')
+      .execute();
+
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS "computed_update_pause_scope_scope_type_scope_id_key"
+      ON "computed_update_pause_scope"("scope_type", "scope_id")
+    `.execute(db);
   });
 
   beforeEach(async () => {
+    await db.deleteFrom('computed_update_pause_scope').execute();
     await db.deleteFrom('computed_update_outbox_seed').execute();
     await db.deleteFrom('computed_update_outbox').execute();
+    await db.deleteFrom('table_meta').execute();
+    await db.deleteFrom('base').execute();
+    await db.deleteFrom('space').execute();
+    await insertMetadata(db);
   });
 
   afterAll(async () => {
@@ -373,5 +490,146 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(result2.isOk()).toBe(true);
     expect(result1._unsafeUnwrap()).toHaveLength(1);
     expect(result2._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('skips tasks whose base scope is paused', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-paused-base',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-unpaused-base',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      actor: 'tester',
+    });
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-base', limit: 10 });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-unpaused-base']);
+  });
+
+  it('skips tasks whose table scope is paused through affected_table_ids', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-paused-table',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      affectedTableIds: [PRIMARY_TARGET_TABLE_ID],
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-unpaused-table',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+      affectedTableIds: [SECONDARY_TARGET_TABLE_ID],
+    });
+
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'table',
+      scopeId: PRIMARY_TARGET_TABLE_ID,
+      actor: 'tester',
+    });
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-table', limit: 10 });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-unpaused-table']);
+  });
+
+  it('skips tasks whose space scope is paused', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-paused-space',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-unpaused-space',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'space',
+      scopeId: PRIMARY_SPACE_ID,
+      actor: 'tester',
+    });
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-space', limit: 10 });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-unpaused-space']);
+  });
+
+  it('lists active pause scopes with resolved metadata and supports resume', async () => {
+    const registry = createPauseRegistry(db);
+    const futureResumeAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    const paused = await registry.pauseScope({
+      scopeType: 'table',
+      scopeId: PRIMARY_SEED_TABLE_ID,
+      resumeAt: futureResumeAt,
+      reason: 'ops maintenance',
+      actor: 'tester',
+    });
+
+    expect(paused.isOk()).toBe(true);
+    expect(paused._unsafeUnwrap().scopeName).toBe('Primary Seed');
+    expect(paused._unsafeUnwrap().baseName).toBe('Primary Base');
+    expect(paused._unsafeUnwrap().spaceName).toBe('Primary Space');
+
+    const activeScopes = await registry.listScopes({ activeOnly: true });
+    expect(activeScopes.isOk()).toBe(true);
+    expect(activeScopes._unsafeUnwrap()).toHaveLength(1);
+    expect(activeScopes._unsafeUnwrap()[0].active).toBe(true);
+
+    const resumed = await registry.resumeScope({
+      scopeType: 'table',
+      scopeId: PRIMARY_SEED_TABLE_ID,
+    });
+    expect(resumed.isOk()).toBe(true);
+    expect(resumed._unsafeUnwrap()).toBe(true);
+
+    const remaining = await registry.listScopes({ activeOnly: false });
+    expect(remaining.isOk()).toBe(true);
+    expect(remaining._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('treats expired pause scopes as inactive in active-only listing', async () => {
+    const registry = createPauseRegistry(db);
+    const expiredResumeAt = new Date(Date.now() - 60 * 1000);
+
+    await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt: expiredResumeAt,
+      actor: 'tester',
+    });
+
+    const activeScopes = await registry.listScopes({ activeOnly: true });
+    const allScopes = await registry.listScopes({ activeOnly: false });
+
+    expect(activeScopes.isOk()).toBe(true);
+    expect(allScopes.isOk()).toBe(true);
+    expect(activeScopes._unsafeUnwrap()).toHaveLength(0);
+    expect(allScopes._unsafeUnwrap()).toHaveLength(1);
+    expect(allScopes._unsafeUnwrap()[0].active).toBe(false);
   });
 });

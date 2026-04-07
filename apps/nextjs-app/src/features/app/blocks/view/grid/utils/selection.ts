@@ -4,6 +4,11 @@ import { SelectionRegionType } from '@teable/sdk/components';
 import type { Field } from '@teable/sdk/model';
 import { isEqual, range } from 'lodash';
 
+export const DELETE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const PASTE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const CLEAR_SELECTION_STREAM_ROW_THRESHOLD = 200;
+
 export const selectionCoverAttachments = (selection: CombinedSelection, fields: Field[]) => {
   const { type, ranges } = selection;
   switch (type) {
@@ -135,4 +140,35 @@ export const getEffectRows = (selection: CombinedSelection, rowCount?: number | 
   }
 
   return 0;
+};
+
+export const shouldUseDeleteSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = DELETE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
+};
+
+export const shouldUseDuplicateSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
+};
+
+export const shouldUsePasteSelectionStream = (
+  rowCount: number,
+  threshold = PASTE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return rowCount > threshold;
+};
+
+export const shouldUseClearSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = CLEAR_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
 };
