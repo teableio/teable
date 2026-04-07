@@ -1,4 +1,4 @@
-import { Trash, Copy } from '@teable/icons';
+import { Trash } from '@teable/icons';
 import { deleteRecord, duplicateRecord } from '@teable/openapi';
 import { useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -12,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
+import { CopyPlus } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -64,7 +65,7 @@ export const EventMenu = () => {
       {
         type: MenuItemType.Duplicate,
         name: t('sdk:expandRecord.duplicateRecord'),
-        icon: <Copy className={iconClassName} />,
+        icon: <CopyPlus className={iconClassName} />,
         hidden: !permission.eventCreatable,
         onClick: async () => {
           if (!tableId || !viewId) return;

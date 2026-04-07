@@ -7,8 +7,8 @@ import type { FieldId } from '../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../domain/table/records/RecordInsertOrder';
-import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { SourceColumnMap } from './import/IImportSource';
@@ -20,6 +20,7 @@ export const RecordWriteOperationKind = {
   createStream: 'createStream',
   submit: 'submit',
   duplicate: 'duplicate',
+  duplicateStream: 'duplicateStream',
   updateOne: 'updateOne',
   updateMany: 'updateMany',
   deleteMany: 'deleteMany',
@@ -39,6 +40,7 @@ export const recordWriteOperationMayCreateRecords = (
     operation === RecordWriteOperationKind.createStream ||
     operation === RecordWriteOperationKind.submit ||
     operation === RecordWriteOperationKind.duplicate ||
+    operation === RecordWriteOperationKind.duplicateStream ||
     operation === RecordWriteOperationKind.importAppend ||
     operation === RecordWriteOperationKind.paste
   );
@@ -46,6 +48,29 @@ export const recordWriteOperationMayCreateRecords = (
 
 export type RecordWritePluginEnforce = 'pre' | 'post';
 export type RecordWriteFieldValues = ReadonlyMap<string, unknown>;
+export type RecordWritePluginExecutionMode = 'direct' | 'stream';
+export type RecordWritePluginExecutionScope = 'operation' | 'chunk';
+
+export interface RecordWritePluginOrchestration {
+  /**
+   * High-level transport/execution mode. `stream` means the public API is
+   * streaming progress while persistence may still happen chunk-by-chunk.
+   */
+  readonly mode: RecordWritePluginExecutionMode;
+  /**
+   * Whether the current hook invocation covers the whole logical operation or
+   * a single chunk within a larger streamed operation.
+   */
+  readonly scope: RecordWritePluginExecutionScope;
+  /** Stable identifier shared by all hook invocations for the same operation. */
+  readonly operationId: string;
+  /** Total target record count for the full logical operation. */
+  readonly totalRecordCount: number;
+  /** Total chunk count when the operation is chunked. */
+  readonly totalChunkCount?: number;
+  /** Zero-based chunk index when `scope === 'chunk'`. */
+  readonly chunkIndex?: number;
+}
 
 type RecordWritePluginHookResult<T> = Result<T, DomainError> | Promise<Result<T, DomainError>>;
 
@@ -54,6 +79,11 @@ interface IRecordWritePluginContextBase<TKind extends RecordWriteOperationKind, 
   readonly executionContext: IExecutionContext;
   readonly table: Table;
   readonly payload: TPayload;
+  /**
+   * Optional execution metadata for operations whose public API semantics differ
+   * from the concrete hook invocation boundary, such as streamed chunk execution.
+   */
+  readonly orchestration?: RecordWritePluginOrchestration;
   readonly trace?: PluginTraceContext;
   readonly isTransactionBound: boolean;
 }
@@ -86,6 +116,14 @@ export type RecordWriteDuplicatePayload = {
   readonly fieldValues: RecordWriteFieldValues;
   readonly order?: RecordInsertOrder;
   readonly recordCount: 1;
+};
+
+export type RecordWriteDuplicateStreamPayload = {
+  readonly sourceRecordIds: ReadonlyArray<RecordId>;
+  readonly recordsFieldValues: ReadonlyArray<RecordWriteFieldValues>;
+  readonly batchSize: number;
+  readonly order?: RecordInsertOrder;
+  readonly recordCount: number;
 };
 
 export type RecordWriteUpdateOnePayload = {
@@ -165,6 +203,10 @@ export type IRecordWriteDuplicateContext = IRecordWritePluginContextBase<
   'duplicate',
   RecordWriteDuplicatePayload
 >;
+export type IRecordWriteDuplicateStreamContext = IRecordWritePluginContextBase<
+  'duplicateStream',
+  RecordWriteDuplicateStreamPayload
+>;
 export type IRecordWriteUpdateOneContext = IRecordWritePluginContextBase<
   'updateOne',
   RecordWriteUpdateOnePayload
@@ -192,6 +234,7 @@ export type RecordWritePluginContextMap = {
   createStream: IRecordWriteCreateStreamContext;
   submit: IRecordWriteSubmitContext;
   duplicate: IRecordWriteDuplicateContext;
+  duplicateStream: IRecordWriteDuplicateStreamContext;
   updateOne: IRecordWriteUpdateOneContext;
   updateMany: IRecordWriteUpdateManyContext;
   deleteMany: IRecordWriteDeleteManyContext;
@@ -201,8 +244,15 @@ export type RecordWritePluginContextMap = {
 
 export type RecordWritePluginContext = RecordWritePluginContextMap[RecordWriteOperationKind];
 
+export type RecordWriteScopedFieldIdsResolver = (
+  record: TableRecord
+) => ReadonlySet<string> | undefined;
+
 export interface RecordWritePluginScope {
   readonly recordSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+  readonly updateFieldIds?: ReadonlySet<string>;
+  readonly createFieldIds?: ReadonlySet<string>;
+  readonly resolveUpdateFieldIdsForRecord?: RecordWriteScopedFieldIdsResolver;
 }
 
 export interface IRecordWritePlugin<TPreparedState = unknown> {
@@ -217,7 +267,10 @@ export interface IRecordWritePlugin<TPreparedState = unknown> {
 
   supports(operation: RecordWriteOperationKind): boolean;
 
-  prepare?(context: RecordWritePluginContext): RecordWritePluginHookResult<TPreparedState>;
+  prepare?(
+    context: RecordWritePluginContext,
+    previousPreparedState?: TPreparedState
+  ): RecordWritePluginHookResult<TPreparedState>;
 
   scope?(
     context: RecordWritePluginContext,
