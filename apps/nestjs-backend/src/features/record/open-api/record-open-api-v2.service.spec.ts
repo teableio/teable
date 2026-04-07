@@ -2,7 +2,10 @@ import { CellValueType, FieldKeyType, FieldType, SortFunc, TimeFormatting } from
 import {
   ListTableRecordsQuery,
   ListTableRecordsResult,
+  UpdateRecordResult,
   UpdateRecordsResult,
+  TableRecord,
+  TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +14,9 @@ import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 
 describe('RecordOpenApiV2Service', () => {
   const createdTimeIso = '2026-03-19T01:02:03.000Z';
+  const statusFieldId = `fld${'s'.repeat(16)}`;
+  const noteFieldId = `fld${'n'.repeat(16)}`;
+  const countFieldId = `fld${'c'.repeat(16)}`;
   const getDocIdsByQuery = vi.fn();
   const getSnapshotBulkWithPermission = vi.fn();
   const createContext = vi.fn();
@@ -25,6 +31,45 @@ describe('RecordOpenApiV2Service', () => {
   const cacheSetDetail = vi.fn();
 
   let service: RecordOpenApiV2Service;
+
+  const createUpdateRecordResult = (params: {
+    recordId: string;
+    tableId: string;
+    fields: Record<string, unknown>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const record = TableRecord.fromRawFieldValues({
+      id: params.recordId,
+      tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+      fields: params.fields,
+    })._unsafeUnwrap();
+
+    return UpdateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
+  };
+
+  const createUpdateRecordsResult = (params: {
+    tableId: string;
+    records: Array<{
+      id: string;
+      fields: Record<string, unknown>;
+    }>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const records = params.records.map(({ id, fields }) =>
+      TableRecord.fromRawFieldValues({
+        id,
+        tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+        fields,
+      })._unsafeUnwrap()
+    );
+
+    return UpdateRecordsResult.create(
+      records.length,
+      [],
+      records,
+      params.fieldKeyMapping ?? new Map()
+    );
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -283,16 +328,23 @@ describe('RecordOpenApiV2Service', () => {
   });
 
   it('routes explicit batch field updates through native v2 updateRecords', async () => {
-    getSnapshotBulkWithPermission.mockResolvedValue([
-      { data: { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } } },
-      { data: { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } } },
-    ]);
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+          { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+        ],
+        fieldKeyMapping: new Map([[statusFieldId, statusFieldId]]),
+      }),
+    });
 
     const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
       fieldKeyType: FieldKeyType.Id,
       records: [
-        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
-        { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+        { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
       ],
     });
 
@@ -301,14 +353,54 @@ describe('RecordOpenApiV2Service', () => {
     expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
       'rec1111111111111111'
     );
-    expect(commandExecute.mock.calls[0]?.[1].records?.[1]?.fieldValues.get('fldStatus')).toBe(
+    expect(commandExecute.mock.calls[0]?.[1].records?.[1]?.fieldValues.get(statusFieldId)).toBe(
       'Open'
     );
     expect(commandExecute.mock.calls[0]?.[1].order).toBeUndefined();
     expect(result).toEqual([
-      { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
-      { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+      { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
     ]);
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('returns the v2 updateRecord payload directly without reloading legacy snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: `tbl${'c'.repeat(16)}`,
+        fields: {
+          [`fld${'s'.repeat(16)}`]: 'Done',
+          [countFieldId]: '1',
+        },
+        fieldKeyMapping: new Map([
+          [`fld${'s'.repeat(16)}`, 'status'],
+          [countFieldId, countFieldId],
+        ]),
+      }),
+    });
+
+    const result = await service.updateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          status: 'Done',
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      id: 'rec1111111111111111',
+      fields: {
+        status: 'Done',
+        [countFieldId]: '1',
+      },
+    });
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(cacheDel).toHaveBeenCalledWith(
       `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
     );
@@ -334,16 +426,29 @@ describe('RecordOpenApiV2Service', () => {
   });
 
   it('merges duplicate record updates before calling native v2 updateRecords', async () => {
-    getSnapshotBulkWithPermission.mockResolvedValue([
-      { data: { id: 'rec1111111111111111', fields: { fldStatus: 'Done', fldNote: 'latest' } } },
-    ]);
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          {
+            id: 'rec1111111111111111',
+            fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' },
+          },
+        ],
+        fieldKeyMapping: new Map([
+          [statusFieldId, statusFieldId],
+          [noteFieldId, noteFieldId],
+        ]),
+      }),
+    });
 
     const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
       fieldKeyType: FieldKeyType.Id,
       records: [
-        { id: 'rec1111111111111111', fields: { fldStatus: 'Open', fldNote: 'first' } },
-        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
-        { id: 'rec1111111111111111', fields: { fldNote: 'latest' } },
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Open', [noteFieldId]: 'first' } },
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+        { id: 'rec1111111111111111', fields: { [noteFieldId]: 'latest' } },
       ],
     });
 
@@ -352,22 +457,15 @@ describe('RecordOpenApiV2Service', () => {
     expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
       'rec1111111111111111'
     );
-    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get('fldStatus')).toBe(
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get(statusFieldId)).toBe(
       'Done'
     );
-    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get('fldNote')).toBe(
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get(noteFieldId)).toBe(
       'latest'
     );
-    expect(getSnapshotBulkWithPermission).toHaveBeenCalledWith(
-      `tbl${'c'.repeat(16)}`,
-      ['rec1111111111111111'],
-      undefined,
-      FieldKeyType.Id,
-      undefined,
-      true
-    );
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(result).toEqual([
-      { id: 'rec1111111111111111', fields: { fldStatus: 'Done', fldNote: 'latest' } },
+      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' } },
     ]);
   });
 });

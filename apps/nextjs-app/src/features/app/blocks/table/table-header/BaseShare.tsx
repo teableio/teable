@@ -1,3 +1,5 @@
+import { hasPermission } from '@teable/core';
+import { useBase } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { ChevronRight, Send } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
@@ -5,6 +7,13 @@ import { PublishBaseDialog } from './publish-base/PublishBaseDialog';
 
 export const BaseShare = ({ onClose }: { onClose: () => void }) => {
   const { t } = useTranslation(['table', 'common', 'space']);
+  const base = useBase();
+  const hasUpdatePermission = hasPermission(base.role, 'base|update');
+
+  if (!hasUpdatePermission) {
+    return null;
+  }
+
   return (
     <PublishBaseDialog onClose={onClose} closeOnSuccess={false}>
       <Button

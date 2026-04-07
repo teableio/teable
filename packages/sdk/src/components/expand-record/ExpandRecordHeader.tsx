@@ -1,11 +1,9 @@
 import {
   ChevronDown,
   ChevronUp,
-  Copy,
   History,
   Link,
   MoreHorizontal,
-  Trash2,
   X,
   MessageSquare,
 } from '@teable/icons';
@@ -18,6 +16,7 @@ import {
   DropdownMenuTrigger,
   Separator,
 } from '@teable/ui-lib';
+import { CopyPlus, Trash } from 'lucide-react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useTablePermission } from '../../hooks';
@@ -173,7 +172,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                       setTimeout(() => onClose?.(), 100);
                     }}
                   >
-                    <Copy /> {t('expandRecord.duplicateRecord')}
+                    <CopyPlus /> {t('expandRecord.duplicateRecord')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -183,7 +182,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                     setTimeout(() => onClose?.(), 100);
                   }}
                 >
-                  <Trash2 /> {t('expandRecord.deleteRecord')}
+                  <Trash /> {t('expandRecord.deleteRecord')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -5,9 +5,12 @@ import type { Result } from 'neverthrow';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleI18nValue,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
 import {
   createForeignKeyConstraintStatement,
   dropConstraintStatement,
@@ -83,8 +86,13 @@ export class ForeignKeyRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
+    const self = this;
     const constraintName = this.constraintName;
     const localTable = this.getLocalTable(ctx);
+    const fieldName = this.field.name().toString();
+    const targetTableName = this.targetTableName;
+    const targetPhysicalTableName = this.targetTable.tableName;
+    const targetTableSchema = this.targetTable.schema;
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const existsResult = await ctx.introspector.foreignKeyExists(
         localTable.schema,
@@ -93,10 +101,227 @@ export class ForeignKeyRule implements ISchemaRule {
       );
       const exists = yield* existsResult;
 
+      if (!exists) {
+        const targetExistsResult = await ctx.introspector.tableExists(
+          targetTableSchema,
+          targetPhysicalTableName
+        );
+        const targetExists = yield* targetExistsResult;
+
+        if (!targetExists) {
+          return ok({
+            valid: false,
+            missing: [
+              `foreign key constraint ${constraintName}`,
+              `target table ${targetPhysicalTableName} does not exist`,
+            ],
+            missingItems: [
+              {
+                code: 'foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `Field "${fieldName}" is missing its foreign key constraint.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                  },
+                  fallback: `Without the foreign key constraint, "${fieldName}" can reference rows that no longer exist in ${targetTableName}.`,
+                },
+              },
+              {
+                code: 'foreign_key_target_table_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyTargetTableMissing',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                  },
+                  fallback: `The linked table for "${fieldName}" no longer exists.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyTargetTableMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                    targetPhysicalTableName,
+                  },
+                  fallback: `Automatic repair cannot recreate the foreign key because the target table "${targetPhysicalTableName}" is missing.`,
+                },
+              },
+            ],
+          });
+        }
+
+        const orphanCountResult = await countOrphanForeignKeyRows(
+          ctx.db,
+          localTable,
+          self.columnName,
+          self.targetTable,
+          '__id'
+        );
+        const orphanCount = yield* orphanCountResult;
+
+        if (orphanCount > 0) {
+          return ok({
+            valid: false,
+            missing: [
+              `foreign key constraint ${constraintName}`,
+              `${orphanCount} orphan rows in ${localTable.tableName}.${self.columnName}`,
+            ],
+            missingItems: [
+              {
+                code: 'foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `Field "${fieldName}" is missing its foreign key constraint.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                  },
+                  fallback: `Without the foreign key constraint, "${fieldName}" can reference rows that no longer exist in ${targetTableName}.`,
+                },
+              },
+              {
+                code: 'foreign_key_orphan_rows',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyOrphanRows',
+                  values: {
+                    fieldName,
+                    count: orphanCount,
+                  },
+                  fallback: `Field "${fieldName}" has ${orphanCount} rows pointing to missing linked records.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyOrphanRowsDescription',
+                  values: {
+                    fieldName,
+                    count: orphanCount,
+                    targetTableName,
+                  },
+                  fallback: `Automatic repair cannot restore the foreign key for "${fieldName}" until ${orphanCount} invalid references to ${targetTableName} are cleaned up.`,
+                },
+              },
+            ],
+          });
+        }
+      }
+
       return ok({
         valid: exists,
         missing: exists ? [] : [`foreign key constraint ${constraintName}`],
+        missingItems: exists
+          ? []
+          : [
+              {
+                code: 'foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `Field "${fieldName}" is missing its foreign key constraint.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.foreignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName,
+                  },
+                  fallback: `Without the foreign key constraint, "${fieldName}" can reference rows that no longer exist in ${targetTableName}.`,
+                },
+              },
+            ],
       });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    const targetTableMissing = validation.missingItems?.some(
+      (item) => item.code === 'foreign_key_target_table_missing'
+    );
+    const orphanRowsDetected = validation.missingItems?.some(
+      (item) => item.code === 'foreign_key_orphan_rows'
+    );
+
+    if (!targetTableMissing && !orphanRowsDetected) {
+      return ok(undefined);
+    }
+
+    const fieldName = this.field.name().toString();
+    const targetTableName = this.targetTableName;
+    const targetPhysicalTableName = this.targetTable.tableName;
+
+    if (targetTableMissing) {
+      return ok({
+        available: false,
+        mode: 'auto',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.foreignKeyTargetTableMissing',
+          values: {
+            fieldName,
+            targetTableName,
+          },
+          fallback: `Automatic repair is unavailable because the linked table for "${fieldName}" is missing.`,
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.description.foreignKeyTargetTableMissing',
+          values: {
+            fieldName,
+            targetTableName,
+            targetPhysicalTableName,
+          },
+          fallback: `Check whether the linked table "${targetPhysicalTableName}" was deleted or renamed. Recreate the table, or update/remove the link field configuration for "${fieldName}", then run the check again.`,
+        },
+      });
+    }
+
+    const orphanItem = validation.missingItems?.find(
+      (item) => item.code === 'foreign_key_orphan_rows'
+    );
+    const orphanCount =
+      typeof orphanItem?.message?.values?.count === 'number'
+        ? orphanItem.message.values.count
+        : undefined;
+    const orphanValues: Readonly<Record<string, SchemaRuleI18nValue>> =
+      orphanCount == null
+        ? {
+            fieldName,
+            targetTableName,
+          }
+        : {
+            fieldName,
+            targetTableName,
+            count: orphanCount,
+          };
+
+    return ok({
+      available: false,
+      mode: 'auto',
+      reason: {
+        key: 'table:table.integrity.v2.repairMeta.reason.foreignKeyOrphanRows',
+        values: orphanValues,
+        fallback: `Automatic repair is unavailable because "${fieldName}" still has invalid linked rows.`,
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.description.foreignKeyOrphanRows',
+        values: orphanValues,
+        fallback: `Clean up the invalid linked rows for "${fieldName}" before adding the foreign key constraint again.`,
+      },
     });
   }
 
