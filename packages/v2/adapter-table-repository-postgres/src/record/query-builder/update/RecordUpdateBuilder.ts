@@ -66,6 +66,8 @@ export interface RecordUpdateBuilderContext {
   now: string;
   actorName?: string;
   actorEmail?: string;
+  fillLinkTitles?: boolean;
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 export type RecordUpdateSeedGroup = {
@@ -128,6 +130,8 @@ export class RecordUpdateBuilder {
         now: context.now,
         actorName: context.actorName,
         actorEmail: context.actorEmail,
+        fillLinkTitles: context.fillLinkTitles,
+        fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
       });
 
       yield* mutateSpec.accept(mutateVisitor);

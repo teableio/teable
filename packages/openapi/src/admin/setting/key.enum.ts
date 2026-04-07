@@ -15,4 +15,6 @@ export enum SettingKey {
   ENABLE_CREDIT_REWARD = 'enableCreditReward',
   CANARY_CONFIG = 'canaryConfig',
   TRASH_CLEANUP_ENABLED_AT = 'trashCleanupEnabledAt',
+  SANDBOX_AGENT_CONFIG = 'sandboxAgentConfig',
+  IM_CONFIG = 'imConfig',
 }

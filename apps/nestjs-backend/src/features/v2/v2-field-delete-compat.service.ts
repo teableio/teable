@@ -1,13 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { FieldDeleted, ProjectionHandler, ok } from '@teable/v2-core';
 import type { DomainError, IEventHandler, IExecutionContext, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { ViewService } from '../view/view.service';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { Kysely } from 'kysely';
+import { V2ContainerService } from './v2-container.service';
 import { V2_FIELD_DELETE_COMPAT_CONTEXT_KEY } from './v2-field-delete-compat.constants';
 import type { IV2FieldDeleteCompatContext } from './v2-field-delete-compat.constants';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
+import { V2ViewCompatService } from './v2-view-compat.service';
+
+/* eslint-disable @typescript-eslint/naming-convention */
+type IV2FieldDeleteCompatDb = V1TeableDatabase & {
+  table_trash: {
+    id: string;
+    table_id: string;
+    resource_type: string;
+    snapshot: string;
+    created_by: string;
+  };
+};
+/* eslint-enable @typescript-eslint/naming-convention */
 
 const getFieldDeleteCompatContext = (
   context: IExecutionContext,
@@ -31,10 +46,10 @@ const getFieldDeleteCompatContext = (
 };
 
 @ProjectionHandler(FieldDeleted)
-class V2FieldDeletedCompatProjection implements IEventHandler<FieldDeleted> {
+export class V2FieldDeletedCompatProjection implements IEventHandler<FieldDeleted> {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly viewService: ViewService
+    private readonly v2ContainerService: V2ContainerService,
+    private readonly v2ViewCompatService: V2ViewCompatService
   ) {}
 
   async handle(
@@ -59,24 +74,28 @@ class V2FieldDeletedCompatProjection implements IEventHandler<FieldDeleted> {
     compatContext.completed = true;
 
     if (Object.keys(compatContext.frozenFieldOps).length > 0) {
-      await this.viewService.batchUpdateViewByOps(
+      await this.v2ViewCompatService.batchUpdateViewByOps(
         compatContext.tableId,
         compatContext.frozenFieldOps
       );
     }
 
-    await this.prisma.tableTrash.create({
-      data: {
+    const container = await this.v2ContainerService.getContainer();
+    const db = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2PostgresDbTokens.db);
+
+    await db
+      .insertInto('table_trash')
+      .values({
         id: compatContext.operationId,
-        tableId: compatContext.tableId,
-        createdBy: compatContext.userId,
-        resourceType: ResourceType.Field,
+        table_id: compatContext.tableId,
+        created_by: compatContext.userId,
+        resource_type: ResourceType.Field,
         snapshot: JSON.stringify({
           fields: compatContext.legacyDeletePayload.fields,
           records: compatContext.legacyDeletePayload.records,
         }),
-      },
-    });
+      })
+      .execute();
 
     return ok(undefined);
   }
@@ -88,15 +107,15 @@ export class V2FieldDeleteCompatService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2FieldDeleteCompatService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly viewService: ViewService
+    private readonly v2ContainerService: V2ContainerService,
+    private readonly v2ViewCompatService: V2ViewCompatService
   ) {}
 
   registerProjections(container: DependencyContainer): void {
     this.logger.debug('Registering V2 field delete compatibility projections');
     container.registerInstance(
       V2FieldDeletedCompatProjection,
-      new V2FieldDeletedCompatProjection(this.prisma, this.viewService)
+      new V2FieldDeletedCompatProjection(this.v2ContainerService, this.v2ViewCompatService)
     );
   }
 }

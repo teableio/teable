@@ -147,8 +147,8 @@
     "noBasesFound": "No bases found"
   },
   "publishBase": {
-    "title": "Publish Base to community",
-    "description": "One-click publish base, inspiration is no longer lonely! Let more people see, use, and Remix your creativity, and build a more powerful business together",
+    "title": "Publish to Template Center",
+    "description": "One-click publish base to the Template Center! Let more people see, use, and Remix your creativity, and build a more powerful business together",
     "infoTitle": "Basic info",
     "form": {
       "title": "Work title",
@@ -171,7 +171,7 @@
     "unPublish": "Unpublish",
     "unPublishSuccess": "Base unpublished successfully!",
     "unPublishConfirmTitle": "Confirm unpublish",
-    "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the community template center.",
+    "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the Template Center.",
     "usageCount": "Usage count: ",
     "uploadCover": "Click to upload cover image",
     "changeCover": "Click to change cover",

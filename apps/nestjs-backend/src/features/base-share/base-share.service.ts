@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { generateShareId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseShareRo, IUpdateBaseShareRo, IBaseShareVo } from '@teable/openapi';
+import { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
@@ -24,6 +25,30 @@ export class BaseShareService {
     await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
   }
 
+  private async isTableNode(nodeId: string): Promise<boolean> {
+    const node = await this.prismaService.baseNode.findFirst({
+      where: { id: nodeId },
+      select: { resourceType: true },
+    });
+    return node?.resourceType === BaseNodeResourceType.Table;
+  }
+
+  /**
+   * allowEdit and allowSave are mutually exclusive:
+   * allowEdit=true → allowSave must be false
+   * allowSave=true → allowEdit must be false
+   */
+  private resolveEditSaveFlags(
+    allowEdit: boolean | null | undefined,
+    allowSave: boolean | null | undefined
+  ): { allowEdit: boolean | null; allowSave: boolean | null } {
+    const edit = allowEdit ?? null;
+    const save = allowSave ?? null;
+    if (edit) return { allowEdit: true, allowSave: false };
+    if (save) return { allowEdit: false, allowSave: true };
+    return { allowEdit: edit, allowSave: save };
+  }
+
   private formatBaseShareVo(share: {
     baseId: string;
     shareId: string;
@@ -31,6 +56,7 @@ export class BaseShareService {
     nodeId: string;
     allowSave: boolean | null;
     allowCopy: boolean | null;
+    allowEdit: boolean | null;
     enabled: boolean;
   }): IBaseShareVo {
     return {
@@ -40,11 +66,20 @@ export class BaseShareService {
       nodeId: share.nodeId,
       allowSave: share.allowSave,
       allowCopy: share.allowCopy,
+      allowEdit: share.allowEdit,
       enabled: share.enabled,
     };
   }
 
   async createBaseShare(baseId: string, data: ICreateBaseShareRo): Promise<IBaseShareVo> {
+    // allowEdit is only valid for table nodes
+    if (data.allowEdit && !(await this.isTableNode(data.nodeId))) {
+      throw new CustomHttpException(
+        'allowEdit is only supported for table nodes',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+
     const userId = this.cls.get('user.id');
 
     // Check if a share already exists for this node
@@ -54,13 +89,25 @@ export class BaseShareService {
     if (existingShare) {
       // If existing share is disabled, re-enable it
       if (!existingShare.enabled) {
+        const resolvedEdit = data.allowEdit ?? existingShare.allowEdit;
+        if (resolvedEdit && !(await this.isTableNode(data.nodeId))) {
+          throw new CustomHttpException(
+            'allowEdit is only supported for table nodes',
+            HttpErrorCode.VALIDATION_ERROR
+          );
+        }
+        const { allowEdit, allowSave } = this.resolveEditSaveFlags(
+          resolvedEdit,
+          data.allowSave ?? existingShare.allowSave
+        );
         const updated = await this.prismaService.baseShare.update({
           where: { id: existingShare.id },
           data: {
             enabled: true,
             password: data.password || existingShare.password,
-            allowSave: data.allowSave ?? existingShare.allowSave,
+            allowSave,
             allowCopy: data.allowCopy ?? existingShare.allowCopy,
+            allowEdit,
           },
         });
         // Invalidate cache when re-enabling share
@@ -79,14 +126,16 @@ export class BaseShareService {
     }
 
     const shareId = generateShareId();
+    const { allowEdit, allowSave } = this.resolveEditSaveFlags(data.allowEdit, data.allowSave);
     const share = await this.prismaService.baseShare.create({
       data: {
         baseId,
         shareId,
         password: data.password || null,
         nodeId: data.nodeId,
-        allowSave: data.allowSave,
+        allowSave,
         allowCopy: data.allowCopy,
+        allowEdit,
         createdBy: userId,
       },
     });
@@ -144,12 +193,25 @@ export class BaseShareService {
       });
     }
 
+    if (data.allowEdit && !(await this.isTableNode(share.nodeId))) {
+      throw new CustomHttpException(
+        'allowEdit is only supported for table nodes',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+
+    const { allowEdit, allowSave } = this.resolveEditSaveFlags(
+      data.allowEdit !== undefined ? data.allowEdit : share.allowEdit,
+      data.allowSave !== undefined ? data.allowSave : share.allowSave
+    );
+
     const updated = await this.prismaService.baseShare.update({
       where: { id: share.id },
       data: {
         password: data.password !== undefined ? data.password : share.password,
-        allowSave: data.allowSave !== undefined ? data.allowSave : share.allowSave,
+        allowSave,
         allowCopy: data.allowCopy !== undefined ? data.allowCopy : share.allowCopy,
+        allowEdit,
         enabled: data.enabled !== undefined ? data.enabled : share.enabled,
       },
     });

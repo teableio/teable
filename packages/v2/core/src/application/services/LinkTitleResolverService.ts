@@ -22,8 +22,8 @@ import {
 import type { SetLongTextValueSpec } from '../../domain/table/records/specs/values/SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from '../../domain/table/records/specs/values/SetMultipleSelectValueSpec';
 import type { SetNumberValueSpec } from '../../domain/table/records/specs/values/SetNumberValueSpec';
-import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetRatingValueSpec } from '../../domain/table/records/specs/values/SetRatingValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetSingleLineTextValueSpec } from '../../domain/table/records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../domain/table/records/specs/values/SetSingleSelectValueSpec';
 import type { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
@@ -57,7 +57,7 @@ export interface LinkTitleResolveResult {
 }
 
 /**
- * Visitor that collects SetLinkValueByTitleSpec instances from a cell value spec.
+ * Visitor that collects link specs requiring title resolution from a cell value spec.
  */
 class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   private readonly collected: SetLinkValueByTitleSpec[] = [];
@@ -437,15 +437,12 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     const service = this;
 
     return safeTry<ICellValueSpec, DomainError>(async function* () {
-      // 1. Extract all SetLinkValueByTitleSpec
       const titleSpecs = yield* service.extractLinkTitleSpecs(spec);
 
-      // If no title specs, return original
       if (titleSpecs.length === 0) {
         return ok(spec);
       }
 
-      // 2. Build resolve requests
       const requestEntries: Array<{
         spec: SetLinkValueByTitleSpec;
         request: LinkTitleResolveRequest;
@@ -462,7 +459,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         });
       }
 
-      // 3. Resolve all titles
       const resolvedList =
         requestEntries.length > 0
           ? yield* await service.resolve(
@@ -476,7 +472,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         resolvedBySpec.set(requestEntries[i]!.spec, resolvedList[i]!);
       }
 
-      // 4. Replace specs recursively
       return ok(replaceSpecs(spec, resolvedBySpec));
     });
   }
@@ -489,30 +484,25 @@ function replaceSpecs(
   spec: ICellValueSpec,
   resolvedMap: Map<SetLinkValueByTitleSpec, LinkTitleResolveResult>
 ): ICellValueSpec {
-  // Check if this is an AndSpec
   if (spec instanceof AndSpec) {
     const left = replaceSpecs(spec.leftSpec() as ICellValueSpec, resolvedMap);
     const right = replaceSpecs(spec.rightSpec() as ICellValueSpec, resolvedMap);
     return new AndSpec<TableRecord, ICellValueSpecVisitor>(left, right);
   }
 
-  // Check if this is a SetLinkValueByTitleSpec
   if (spec instanceof SetLinkValueByTitleSpec) {
     const resolved = resolvedMap.get(spec);
 
-    // If no titles or empty result, create empty link value
     if (!resolved || resolved.resolvedIds.length === 0) {
       return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
     }
 
-    // Create SetLinkValueSpec with resolved IDs
-    const linkItems: LinkItem[] = resolved.resolvedIds.map((r) => ({
-      id: r.id,
-      title: r.title,
+    const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
     }));
     return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems));
   }
 
-  // Return other specs unchanged
   return spec;
 }

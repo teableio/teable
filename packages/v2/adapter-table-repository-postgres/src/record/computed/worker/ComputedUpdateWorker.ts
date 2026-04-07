@@ -32,6 +32,7 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxPayload,
@@ -41,7 +42,6 @@ import {
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
-import { toErrorLogFields } from '../errorLog';
 import type {
   AnyOutboxItem,
   ComputedUpdateOutboxConfig,
@@ -492,7 +492,8 @@ export class ComputedUpdateWorker {
 
       const events = buildComputedUpdateEvents(
         stageResult.value.changesByStep,
-        planResult.value.baseId
+        planResult.value.baseId,
+        computedTask.orchestration
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
@@ -558,6 +559,7 @@ export class ComputedUpdateWorker {
             runTotalSteps: nextTotalSteps,
             runCompletedStepsBefore: completedStepsAfter,
             stageDepth: currentStageDepth + 1,
+            orchestration: computedTask.orchestration,
           });
 
           failurePhase = 'enqueue_next_stage';
@@ -698,7 +700,6 @@ export class ComputedUpdateWorker {
     }
 
     if (fieldsToBackfill.length === 0) {
-      const message = `No fields found for backfill: ${task.fieldIds.join(', ')}`;
       this.logger.warn('computed:worker:field_backfill_no_fields', {
         taskId: task.id,
         ...runLogContext,
@@ -892,7 +893,11 @@ export class ComputedUpdateWorker {
       if (stageResult.isErr()) return err(stageResult.error);
 
       // Publish events for computed updates
-      const events = buildComputedUpdateEvents(stageResult.value.changesByStep, plan.baseId);
+      const events = buildComputedUpdateEvents(
+        stageResult.value.changesByStep,
+        plan.baseId,
+        task.orchestration
+      );
       if (events.length > 0) {
         failurePhase = 'publish_events';
         const publishResult = await this.eventBus.publishMany(txContext, events);
@@ -955,6 +960,7 @@ export class ComputedUpdateWorker {
           runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
           runCompletedStepsBefore: plan.steps.length,
           stageDepth: 1,
+          orchestration: task.orchestration,
         });
 
         failurePhase = 'enqueue_next_stage';
@@ -1115,7 +1121,8 @@ const collectSeedTableIds = (
  */
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
-  baseId: BaseId
+  baseId: BaseId,
+  orchestration?: ComputedUpdateOutboxItem['orchestration']
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 
@@ -1153,6 +1160,7 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }
