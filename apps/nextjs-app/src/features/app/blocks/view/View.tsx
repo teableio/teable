@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import type { Query } from 'sharedb';
+import { useShareEffectiveEdit } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarView } from './calendar/CalendarView';
 import { FormView } from './form/FormView';
@@ -27,13 +28,16 @@ export const View = (props: IViewBaseProps) => {
   const { connection } = useConnection();
   const tableId = useTableId();
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const isShareEditor = useShareEffectiveEdit();
   const { openPersonalView, isPersonalView } = usePersonalView();
 
+  // Auto-open personal view for read-only contexts:
+  // template, can-view share, or anonymous on can-edit share (no real edit permissions).
   useEffect(() => {
-    if (isReadOnlyPreview && !isPersonalView) {
+    if (isReadOnlyPreview && !isShareEditor && !isPersonalView) {
       openPersonalView?.();
     }
-  }, [isReadOnlyPreview, openPersonalView, isPersonalView]);
+  }, [isReadOnlyPreview, isShareEditor, openPersonalView, isPersonalView]);
 
   if (tableId && connection?.queries) {
     const query = Object.values(connection?.queries).find(

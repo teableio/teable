@@ -61,7 +61,7 @@ export class BaseShareOpenController {
     @Request() req: Express.Request & { baseShareInfo: IBaseShareInfo }
   ): Promise<IGetBaseShareVo> {
     const shareInfo = req.baseShareInfo;
-    const { baseId, nodeId, allowSave, allowCopy } = shareInfo;
+    const { baseId, nodeId, allowSave, allowCopy, allowEdit } = shareInfo;
 
     // Build default URL for redirect
     const defaultUrl = await this.buildDefaultUrl(baseId, nodeId);
@@ -73,6 +73,7 @@ export class BaseShareOpenController {
         nodeId,
         allowSave,
         allowCopy,
+        allowEdit,
       },
       defaultUrl,
     };

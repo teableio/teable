@@ -607,7 +607,6 @@
       },
       "app": {
         "domain": "Domain",
-        "v0ApiKey": "v0 API-Schlüssel",
         "customDomain": "Benutzerdefinierte Domain (Optional)",
         "customDomainDescription": "Legen Sie Ihre benutzerdefinierte Domain für die App-Bereitstellung fest, besuchen Sie <a>Vercel Domain</a> um eine benutzerdefinierte Domain zu erhalten",
         "vercelToken": "Vercel API Token",
@@ -645,11 +644,6 @@
           "title": "LLM API",
           "description": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden, <anchor>zu den Einstellungen gehen</anchor>",
           "errorTips": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden"
-        },
-        "app": {
-          "title": "App-Builder",
-          "description": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
-          "errorTips": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar"
         },
         "webSearch": {
           "title": "Websuche",
@@ -1076,9 +1070,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "NEUE AKTUALISIERUNG",
-    "title": "App-eigene Domain ist verfügbar",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "NEUES UPDATE",
+    "title": "Neue App Builder Engine ist in der Beta-Phase",
+    "url": "https://help.teable.ai/en/changelog#apr-02-2026",
+    "id": "changelog-2026-04-02-new-app-builder-engine-is-beta"
   }
 }

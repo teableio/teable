@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
-import type { IBaseNodeVo, IGetBaseShareVo } from '@teable/openapi';
+import type { IBaseNodeVo, IGetBaseShareVo, ITablePermissionVo } from '@teable/openapi';
 import {
   BASE_SHARE_AUTH,
   BASE_SHARE_ID_HEADER,
@@ -10,13 +10,16 @@ import {
   createBase,
   createBaseNode,
   createBaseShare,
+  CREATE_RECORD,
   createField,
   createSpace,
+  DELETE_RECORD_URL,
   deleteBaseShare,
   deleteSpace,
   GET_BASE_NODE_LIST,
   GET_BASE_NODE_TREE,
   GET_BASE_SHARE,
+  GET_TABLE_PERMISSION,
   getBaseNodeList,
   getBaseShareByNodeId,
   getFields,
@@ -24,10 +27,13 @@ import {
   listBaseShare,
   moveBaseNode,
   refreshBaseShare,
+  UPDATE_RECORD,
   updateBaseShare,
   urlBuilder,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import {
   createTable,
@@ -1277,6 +1283,255 @@ describe('BaseShareController (e2e)', () => {
       expect(nodeIds.has(childTableNodeId)).toBe(true);
       // Root table is outside the shared folder, should not be visible
       expect(nodeIds.has(rootTableNodeId)).toBe(false);
+    });
+  });
+
+  describe('BaseShare - allowEdit permission', () => {
+    let editBaseId: string;
+    let editTableId: string;
+    let editTableNodeId: string;
+    let editFolderNodeId: string;
+    let loggedInUser: AxiosInstance;
+    const createdShareIds: string[] = [];
+
+    beforeAll(async () => {
+      const base = await createBase({
+        name: 'allowEdit-e2e',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+      editBaseId = base.id;
+
+      const table = await createTable(editBaseId, { name: 'edit-table' });
+      editTableId = table.id;
+
+      const folder = await createBaseNode(editBaseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'edit-folder',
+      });
+      editFolderNodeId = folder.data.id;
+
+      const nodeList = await getBaseNodeList(editBaseId);
+      const tableNode = nodeList.data.find((n) => n.resourceId === editTableId);
+      if (!tableNode) throw new Error('Table node not found');
+      editTableNodeId = tableNode.id;
+
+      loggedInUser = await createNewUserAxios({
+        email: 'allow-edit-e2e@test.com',
+        password: 'TestPassword123!',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(editBaseId);
+    });
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(editBaseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    it('should create share with allowEdit for table node', async () => {
+      const res = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(res.data.shareId);
+      expect(res.status).toEqual(201);
+      expect(res.data.allowEdit).toBe(true);
+      // allowEdit implies allowSave is false (mutually exclusive)
+      expect(res.data.allowSave).toBe(false);
+    });
+
+    it('should reject allowEdit for folder node', async () => {
+      const error = await getError(() =>
+        createBaseShare(editBaseId, {
+          nodeId: editFolderNodeId,
+          allowEdit: true,
+        })
+      );
+      expect(error?.status).toEqual(400);
+    });
+
+    it('should enforce allowEdit/allowSave mutual exclusivity on create', async () => {
+      const res = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+        allowSave: true,
+      });
+      createdShareIds.push(res.data.shareId);
+      // allowEdit takes precedence
+      expect(res.data.allowEdit).toBe(true);
+      expect(res.data.allowSave).toBe(false);
+    });
+
+    it('should enforce allowEdit/allowSave mutual exclusivity on update', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: false,
+        allowSave: true,
+      });
+      createdShareIds.push(share.data.shareId);
+      expect(share.data.allowSave).toBe(true);
+      expect(share.data.allowEdit).toBe(false);
+
+      // Switch to allowEdit
+      const updated = await updateBaseShare(editBaseId, share.data.shareId, {
+        allowEdit: true,
+      });
+      expect(updated.data.allowEdit).toBe(true);
+      expect(updated.data.allowSave).toBe(false);
+    });
+
+    it('should re-enable soft-deleted share and inherit old settings', async () => {
+      // Create a share with specific settings
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+        allowCopy: true,
+      });
+      createdShareIds.push(share.data.shareId);
+      expect(share.data.allowEdit).toBe(true);
+      expect(share.data.allowCopy).toBe(true);
+
+      // Soft-delete it
+      await deleteBaseShare(editBaseId, share.data.shareId);
+
+      // Re-create with same nodeId — should re-enable and inherit old settings
+      const reEnabled = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+      });
+      createdShareIds.push(reEnabled.data.shareId);
+      expect(reEnabled.data.enabled).toBe(true);
+      expect(reEnabled.data.allowEdit).toBe(true);
+      expect(reEnabled.data.allowCopy).toBe(true);
+    });
+
+    it('should grant editor-level permissions to logged-in user with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      const permRes = await loggedInUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // Editor-level: can create/update/delete records
+      expect(permRes.data.record['record|create']).toBe(true);
+      expect(permRes.data.record['record|update']).toBe(true);
+      expect(permRes.data.record['record|delete']).toBe(true);
+      // Excluded: view|share must be denied
+      expect(permRes.data.view['view|share']).toBeFalsy();
+    });
+
+    it('should only grant read-only permissions to anonymous user even with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      const permRes = await anonymousUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // Anonymous user should NOT have write permissions
+      expect(permRes.data.record['record|create']).toBeFalsy();
+      expect(permRes.data.record['record|update']).toBeFalsy();
+      expect(permRes.data.record['record|delete']).toBeFalsy();
+    });
+
+    it('should allow logged-in user to create records via allowEdit share', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      const fields = await getFields(editTableId);
+      const firstField = fields.data[0];
+
+      const createRes = await loggedInUser.post(
+        urlBuilder(CREATE_RECORD, { tableId: editTableId }),
+        { records: [{ fields: { [firstField.id]: 'share-edit-test' } }], fieldKeyType: 'id' },
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(createRes.status).toEqual(201);
+      expect(createRes.data.records).toHaveLength(1);
+
+      const recordId = createRes.data.records[0].id;
+
+      // Update the record
+      const updateRes = await loggedInUser.patch(
+        urlBuilder(UPDATE_RECORD, { tableId: editTableId, recordId }),
+        { record: { fields: { [firstField.id]: 'updated-via-share' } }, fieldKeyType: 'id' },
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(updateRes.status).toEqual(200);
+
+      // Delete the record
+      const deleteRes = await loggedInUser.delete(
+        urlBuilder(DELETE_RECORD_URL, { tableId: editTableId, recordId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(deleteRes.status).toEqual(200);
+    });
+
+    it('should deny anonymous user record creation even with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      const fields = await getFields(editTableId);
+      const firstField = fields.data[0];
+
+      const error = await getError(() =>
+        anonymousUser.post(
+          urlBuilder(CREATE_RECORD, { tableId: editTableId }),
+          { records: [{ fields: { [firstField.id]: 'should-fail' } }], fieldKeyType: 'id' },
+          { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+        )
+      );
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should cap permissions at share level even for base owner', async () => {
+      // The default test user is the base owner
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      // Access via share header — should get editor-level, not owner-level
+      const permRes = await loggedInUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // view|share is excluded from share permissions, even though owner normally has it
+      expect(permRes.data.view['view|share']).toBeFalsy();
+    });
+
+    it('should include allowEdit in shareMeta via public API', async () => {
+      const share = await createBaseShare(editBaseId, {
+        nodeId: editTableNodeId,
+        allowEdit: true,
+      });
+      createdShareIds.push(share.data.shareId);
+
+      const res = await anonymousUser.get<IGetBaseShareVo>(
+        urlBuilder(GET_BASE_SHARE, { shareId: share.data.shareId })
+      );
+      expect(res.status).toEqual(200);
+      expect(res.data.shareMeta.allowEdit).toBe(true);
     });
   });
 });
