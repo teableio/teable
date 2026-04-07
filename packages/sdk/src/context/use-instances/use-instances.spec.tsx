@@ -340,6 +340,63 @@ describe('useInstances hook', () => {
     );
   });
 
+  it('ignores op-batch updates for docs whose data has been cleared before remove', () => {
+    const presenceController = createMockPresence();
+    const trackedDoc = createTrackedDoc({
+      data: { id: '1', name: 'Instance 1' },
+      collection: mockProps.collection,
+      id: '1',
+    });
+    const siblingDoc = createTrackedDoc({
+      data: { id: '2', name: 'Instance 2' },
+      collection: mockProps.collection,
+      id: '2',
+    });
+    const queryMethods = {
+      on: vi.fn(),
+      once: vi.fn(),
+      removeAllListeners: vi.fn(),
+      removeListener: vi.fn(),
+      destroy: vi.fn((cb?: () => void) => cb?.()),
+    };
+    const connection = {
+      createSubscribeQuery: vi.fn((collection: string, queryParams: unknown) => {
+        return {
+          collection,
+          query: queryParams,
+          results: [trackedDoc.doc, siblingDoc.doc],
+          ready: true,
+          sent: true,
+          ...queryMethods,
+        } as unknown as Query<any>;
+      }),
+      getPresence: vi.fn(() => presenceController.presence),
+    } as any;
+
+    const { result } = renderHook(() => useInstances(mockProps), {
+      wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+    });
+
+    act(() => {
+      trackedDoc.doc.data = undefined;
+      const opListener = result.current.instances[0].doc.on.mock.calls.find(
+        (args: any) => args[0] === 'op batch'
+      );
+      expect(() => opListener?.[1]([])).not.toThrow();
+    });
+
+    expect(result.current.instances).toHaveLength(2);
+    expect(result.current.instances[0]?.doc).toBe(trackedDoc.doc);
+
+    act(() => {
+      const removeListener = queryMethods.on.mock.calls.find((args: any) => args[0] === 'remove');
+      removeListener?.[1]([trackedDoc.doc], 0);
+    });
+
+    expect(result.current.instances).toHaveLength(1);
+    expect(result.current.instances[0]?.doc).toBe(siblingDoc.doc);
+  });
+
   it('recreates record queries on schema-driven setField presence with fieldIds', async () => {
     const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
       createMockConnection({
@@ -1073,6 +1130,163 @@ describe('useInstances hook', () => {
     });
 
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes projected record instances when deleteRecord presence carries record ids', () => {
+    const { connection, presenceController, collection, queryParams } = createMockConnection({
+      collection: 'rec_tblSchemaRefresh10',
+    });
+
+    const { result } = renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(result.current.instances.map((instance) => instance.id)).toEqual(['1', '2']);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'deleteRecord',
+          payload: {
+            tableId: 'tblSchemaRefresh10',
+            recordIds: ['2'],
+            skipRealtime: true,
+          },
+        },
+      ]);
+    });
+
+    expect(result.current.instances.map((instance) => instance.id)).toEqual(['1']);
+  });
+
+  it('refreshes the record query only when the final large setRecord chunk arrives', async () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh11',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setRecord',
+          payload: {
+            tableId: 'tblSchemaRefresh11',
+            recordIds: ['1', '2'],
+            skipRealtime: true,
+            totalChunkCount: 2,
+            chunkIndex: 0,
+          },
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setRecord',
+          payload: {
+            tableId: 'tblSchemaRefresh11',
+            recordIds: ['1', '2'],
+            skipRealtime: true,
+            totalChunkCount: 2,
+            chunkIndex: 1,
+          },
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes the record query only when the final large addRecord chunk arrives', async () => {
+    const { connection, createSubscribeQuery, presenceController, collection, queryParams } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh12',
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams,
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'addRecord',
+          payload: {
+            tableId: 'tblSchemaRefresh12',
+            recordIds: ['3'],
+            skipRealtime: true,
+            totalChunkCount: 3,
+            chunkIndex: 1,
+          },
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'addRecord',
+          payload: {
+            tableId: 'tblSchemaRefresh12',
+            recordIds: ['4'],
+            skipRealtime: true,
+            totalChunkCount: 3,
+            chunkIndex: 2,
+          },
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
   });
 
   it('ignores setField presence without schema refresh properties', () => {

@@ -236,6 +236,123 @@ describe('update-field: conditionalLookup property updates', () => {
     await ctx.deleteField({ tableId: hostTableId, fieldId });
   });
 
+  test('should clear sort and limit when condition update omits them', async () => {
+    const fieldId = createFieldId();
+    const foreignStatus = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: { type: 'singleLineText', name: `Status ${fieldId}` },
+    });
+    const statusField = foreignStatus.fields.find((f) => f.name === `Status ${fieldId}`);
+    if (!statusField) throw new Error('No foreign status field');
+
+    const hostFilter = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTableId,
+      field: { type: 'singleLineText', name: `Filter ${fieldId}` },
+    });
+    const hostFilterField = hostFilter.fields.find((f) => f.name === `Filter ${fieldId}`);
+    if (!hostFilterField) throw new Error('No host filter field');
+
+    const foreignRow1 = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: `row-1-${fieldId}`,
+      [statusField.id]: 'Active',
+      [foreignNumberFieldId]: 10,
+    });
+    const foreignRow2 = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: `row-2-${fieldId}`,
+      [statusField.id]: 'Active',
+      [foreignNumberFieldId]: 20,
+    });
+    const hostRow = await ctx.createRecord(hostTableId, {
+      [hostPrimaryFieldId]: `host-${fieldId}`,
+      [hostFilterField.id]: 'Active',
+    });
+
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'conditionalLookup',
+        id: fieldId,
+        name: `CL Clear Sort ${fieldId}`,
+        options: {
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: hostFilterField.id },
+                },
+              ],
+            },
+            sort: { fieldId: foreignNumberFieldId, order: 'desc' as const },
+            limit: 1,
+          },
+        },
+      },
+    });
+
+    const beforeRecords = await ctx.listRecords(hostTableId);
+    const beforeValue = beforeRecords.find((record) => record.id === hostRow.id)?.fields[
+      fieldId
+    ] as string[] | undefined;
+    expect(beforeValue).toEqual([foreignRow2.fields[foreignPrimaryFieldId]]);
+
+    const updatedTable = await ctx.updateField({
+      tableId: hostTableId,
+      fieldId,
+      field: {
+        options: {
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: hostFilterField.id },
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId) as
+      | {
+          conditionalLookupOptions?: {
+            condition?: {
+              sort?: { fieldId?: string; order?: string };
+              limit?: number;
+            };
+          };
+        }
+      | undefined;
+    expect(updatedField?.conditionalLookupOptions?.condition?.sort).toBeUndefined();
+    expect(updatedField?.conditionalLookupOptions?.condition?.limit).toBeUndefined();
+
+    const afterRecords = await ctx.listRecords(hostTableId);
+    const afterValue = afterRecords.find((record) => record.id === hostRow.id)?.fields[fieldId] as
+      | string[]
+      | undefined;
+    expect([...(afterValue ?? [])].sort()).toEqual([
+      foreignRow1.fields[foreignPrimaryFieldId],
+      foreignRow2.fields[foreignPrimaryFieldId],
+    ]);
+
+    await ctx.deleteField({ tableId: hostTableId, fieldId });
+    await ctx.deleteField({ tableId: hostTableId, fieldId: hostFilterField.id });
+    await ctx.deleteField({ tableId: foreignTableId, fieldId: statusField.id });
+  });
+
   test('should change lookupFieldId', async () => {
     const fieldId = createFieldId();
     await ctx.createField({

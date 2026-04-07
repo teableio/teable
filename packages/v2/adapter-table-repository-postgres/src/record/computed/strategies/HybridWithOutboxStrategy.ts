@@ -268,7 +268,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       allSyncChangesByStep.push(...syncResult.value.changesByStep);
 
       // Publish events for computed updates
-      const events = buildComputedUpdateEvents(syncResult.value.changesByStep, currentPlan.baseId);
+      const events = buildComputedUpdateEvents(
+        syncResult.value.changesByStep,
+        currentPlan.baseId,
+        context.batchMutation
+      );
       if (events.length > 0) {
         const publishResult = await this.eventBus.publishMany(context, events);
         if (publishResult.isErr()) {
@@ -319,6 +323,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           runCompletedStepsBefore: completedSteps,
           affectedFieldIds: stageFieldIds.map((id) => id.toString()),
           affectedTableIds: stageTableIds.map((id) => id.toString()),
+          orchestration: context.batchMutation,
         });
 
         const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
@@ -598,7 +603,8 @@ const splitStepsByPolicy = (
  */
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
-  baseId: BaseId
+  baseId: BaseId,
+  orchestration?: IExecutionContext['batchMutation']
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 
@@ -636,6 +642,7 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }

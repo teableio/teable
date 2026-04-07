@@ -68,6 +68,8 @@ export interface CellValueMutateContext {
   now: string;
   actorName?: string;
   actorEmail?: string;
+  fillLinkTitles?: boolean;
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 /**
@@ -567,12 +569,31 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       }
 
       // Parse link items
-      const linkItems: Array<{ id: string }> = [];
+      const linkItems: Array<{ id: string; title?: string }> = [];
       if (rawValue !== null && rawValue !== undefined) {
         const items = Array.isArray(rawValue)
-          ? (rawValue as Array<{ id: string }>)
-          : [rawValue as { id: string }];
+          ? (rawValue as Array<{ id: string; title?: string }>)
+          : [rawValue as { id: string; title?: string }];
         linkItems.push(...items.filter((item) => item && typeof item === 'object' && 'id' in item));
+      }
+
+      // Fill missing titles via SQL JOIN to foreign table's primary field.
+      // Only run when the spec carries foreignTableId (user-provided link values from API).
+      // Computed pipeline and system-generated link values already have titles resolved.
+      const hasMissingTitles =
+        visitor.ctx.fillLinkTitles &&
+        spec.foreignTableId != null &&
+        linkItems.some((item) => item.id && !item.title);
+      if (hasMissingTitles && linkItems.length > 0) {
+        const fillTitleResult = yield* visitor.buildFillLinkTitleStatement(
+          linkField,
+          linkItems,
+          fieldId,
+          visitor.ctx.fillLinkTitleForeignTables
+        );
+        if (fillTitleResult) {
+          visitor.additionalStatements.push(fillTitleResult);
+        }
       }
 
       const relationship = linkField.relationship().toString();
@@ -742,6 +763,83 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   // --- Link field by title (typecast mode) ---
+
+  /**
+   * Build an UPDATE statement that fills missing titles in a link field's JSON value
+   * by JOINing the foreign table's primary (lookup) field.
+   *
+   * For multiple-value links:
+   *   UPDATE main_table SET col = (
+   *     SELECT jsonb_agg(jsonb_build_object('id', elem->>'id', 'title', COALESCE(elem->>'title', ft."Lookup_Col")) ORDER BY idx)
+   *     FROM jsonb_array_elements(col::jsonb) WITH ORDINALITY AS arr(elem, idx)
+   *     LEFT JOIN "schema"."foreignTable" ft ON ft.__id = elem->>'id'
+   *   ) WHERE __id = $recordId
+   */
+  private buildFillLinkTitleStatement(
+    linkField: LinkField,
+    _linkItems: Array<{ id: string; title?: string }>,
+    fieldId: FieldId,
+    fillLinkTitleForeignTables?: ReadonlyMap<string, Table>
+  ): Result<CompiledQuery | null, DomainError> {
+    const visitor = this;
+
+    return safeTry<CompiledQuery | null, DomainError>(function* () {
+      const foreignTableIdStr = linkField.foreignTableId().toString();
+      const foreignTable = fillLinkTitleForeignTables?.get(foreignTableIdStr);
+      if (!foreignTable) return ok(null);
+
+      // Get the link field's own DB column name
+      const linkFieldObj = visitor.table.getField((f) => f.id().equals(fieldId))._unsafeUnwrap();
+      const linkDbFieldName = yield* visitor.resolveDbFieldName(linkFieldObj);
+      const foreignDbTableName = yield* foreignTable
+        .dbTableName()
+        .andThen((dbTableName) => dbTableName.value());
+      const lookupField = yield* foreignTable.getField((field) =>
+        field.id().equals(linkField.lookupFieldId())
+      );
+      const lookupDbFieldName = yield* lookupField
+        .dbFieldName()
+        .andThen((dbFieldName) => dbFieldName.value());
+
+      const isMultiple = linkField.isMultipleValue();
+
+      const fillSql = isMultiple
+        ? sql`UPDATE ${sql.table(visitor.tableName)} SET ${sql.ref(linkDbFieldName)} = sub.new_val
+          FROM (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', elem->>'id',
+                'title', COALESCE(
+                  elem->>'title',
+                  ${sql.ref(`ft.${lookupDbFieldName}`)}::text
+                )
+              )
+              ORDER BY elem_idx
+            ) as new_val
+            FROM jsonb_array_elements(
+              (SELECT ${sql.ref(linkDbFieldName)}::jsonb FROM ${sql.table(visitor.tableName)} WHERE __id = ${sql.value(visitor.ctx.recordId)})
+            ) WITH ORDINALITY AS arr(elem, elem_idx)
+            LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = (elem->>'id')
+          ) sub
+          WHERE ${sql.table(visitor.tableName)}.__id = ${sql.value(visitor.ctx.recordId)}`
+        : sql`UPDATE ${sql.table(visitor.tableName)} SET ${sql.ref(linkDbFieldName)} = sub.new_val
+          FROM (
+            SELECT jsonb_build_object(
+              'id', (src.${sql.ref(linkDbFieldName)}::jsonb)->>'id',
+              'title', COALESCE(
+                (src.${sql.ref(linkDbFieldName)}::jsonb)->>'title',
+                ${sql.ref(`ft.${lookupDbFieldName}`)}::text
+              )
+            ) as new_val
+            FROM ${sql.table(visitor.tableName)} src
+            LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = ((src.${sql.ref(linkDbFieldName)}::jsonb)->>'id')
+            WHERE src.__id = ${sql.value(visitor.ctx.recordId)}
+          ) sub
+          WHERE ${sql.table(visitor.tableName)}.__id = ${sql.value(visitor.ctx.recordId)}`;
+
+      return ok(fillSql.compile(visitor.db));
+    });
+  }
 
   /**
    * Handle SetLinkValueByTitleSpec - used when typecast mode provides titles instead of IDs.
