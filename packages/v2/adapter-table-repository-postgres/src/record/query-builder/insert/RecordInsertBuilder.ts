@@ -134,6 +134,10 @@ export interface RecordInsertBuilderContext {
   lastModifiedByName?: string;
   lastModifiedByEmail?: string;
   autoNumber?: number;
+  /** When true, generate SQL to fill missing link titles via JOIN */
+  fillLinkTitles?: boolean;
+  /** Foreign tables for missing-title link fill SQL. */
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 /**
@@ -353,6 +357,30 @@ export class RecordInsertBuilder {
                 entry.recordIds.set(recordId.toString(), recordId);
               }
               extraSeedRecordsMap.set(tableIdStr, entry);
+            }
+
+            // Fill missing titles by JOINing foreign table's primary field.
+            // Only when fillLinkTitles is enabled (typecast mode from API).
+            if (context.fillLinkTitles) {
+              const linkItems = Array.isArray(rawValue)
+                ? (rawValue as Array<{ id: string; title?: string }>)
+                : [];
+              const hasMissingTitles = linkItems.some(
+                (item: { id?: string; title?: string }) =>
+                  item && typeof item === 'object' && item.id && !item.title
+              );
+              if (hasMissingTitles && linkItems.length > 0) {
+                const fillResult = builder.buildFillLinkTitleSql(
+                  table,
+                  linkField,
+                  dbFieldName,
+                  context.recordId,
+                  context.fillLinkTitleForeignTables
+                );
+                if (fillResult.isOk() && fillResult.value) {
+                  additionalStatements.push(fillResult.value);
+                }
+              }
             }
           }
         } else {
@@ -610,8 +638,82 @@ export class RecordInsertBuilder {
   }
 
   /**
-   * Build an UPDATE statement to populate user fields after INSERT.
-   * This uses a subquery to fetch user info from the users table.
+   * Build an UPDATE SQL to fill missing link titles by JOINing the foreign table's primary field.
+   */
+  private buildFillLinkTitleSql(
+    table: Table,
+    linkField: LinkField,
+    linkDbFieldName: string,
+    recordId: string,
+    fillLinkTitleForeignTables?: ReadonlyMap<string, Table>
+  ): Result<CompiledSqlStatement | null, DomainError> {
+    const builder = this;
+    return safeTry<CompiledSqlStatement | null, DomainError>(function* () {
+      const foreignTableIdStr = linkField.foreignTableId().toString();
+      const foreignTable = fillLinkTitleForeignTables?.get(foreignTableIdStr);
+      if (!foreignTable) return ok(null);
+
+      const foreignDbTableName = yield* foreignTable
+        .dbTableName()
+        .andThen((dbTableName) => dbTableName.value());
+      const lookupField = yield* foreignTable.getField((field) =>
+        field.id().equals(linkField.lookupFieldId())
+      );
+      const lookupDbFieldName = yield* lookupField
+        .dbFieldName()
+        .andThen((dbFieldName) => dbFieldName.value());
+
+      // Derive table names
+      const dbTableNameResult = table.dbTableName();
+      if (dbTableNameResult.isErr()) return ok(null);
+      const dbTableNameValue = dbTableNameResult.value.value();
+      if (dbTableNameValue.isErr()) return ok(null);
+      const tableName = dbTableNameValue.value;
+
+      const isMultiple = linkField.isMultipleValue();
+
+      const fillSql = isMultiple
+        ? sql`UPDATE ${sql.table(tableName)} SET ${sql.ref(linkDbFieldName)} = sub.new_val
+            FROM (
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'id', elem->>'id',
+                  'title', COALESCE(
+                    elem->>'title',
+                    ${sql.ref(`ft.${lookupDbFieldName}`)}::text
+                  )
+                )
+                ORDER BY elem_idx
+              ) as new_val
+              FROM jsonb_array_elements(
+                (SELECT ${sql.ref(linkDbFieldName)}::jsonb FROM ${sql.table(tableName)} WHERE __id = ${sql.value(recordId)})
+              ) WITH ORDINALITY AS arr(elem, elem_idx)
+              LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = (elem->>'id')
+            ) sub
+            WHERE ${sql.table(tableName)}.__id = ${sql.value(recordId)}`
+        : sql`UPDATE ${sql.table(tableName)} SET ${sql.ref(linkDbFieldName)} = sub.new_val
+            FROM (
+              SELECT jsonb_build_object(
+              'id', (src.${sql.ref(linkDbFieldName)}::jsonb)->>'id',
+              'title', COALESCE(
+                (src.${sql.ref(linkDbFieldName)}::jsonb)->>'title',
+                ${sql.ref(`ft.${lookupDbFieldName}`)}::text
+              )
+            ) as new_val
+              FROM ${sql.table(tableName)} src
+              LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = ((src.${sql.ref(linkDbFieldName)}::jsonb)->>'id')
+              WHERE src.__id = ${sql.value(recordId)}
+            ) sub
+            WHERE ${sql.table(tableName)}.__id = ${sql.value(recordId)}`;
+
+      return ok({
+        description: `Fill missing link titles for field ${linkDbFieldName}`,
+        compiled: fillSql.compile(builder.db),
+      });
+    });
+  }
+
+  /**
    *
    * @param tableName - The fully qualified table name (schema.table)
    * @param recordId - The record ID to update

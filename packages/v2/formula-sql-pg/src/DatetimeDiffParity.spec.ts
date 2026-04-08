@@ -49,19 +49,19 @@ describe('DATETIME_DIFF parity', () => {
     await container.dispose();
   });
 
-  it('defaults DATETIME_DIFF unit to day when omitted', async () => {
+  it('defaults DATETIME_DIFF unit to second when omitted', async () => {
     const [defaultContext, explicitDayContext] = await Promise.all([
       buildFormulaSnapshotContext(testTable, 'DiffDefaultUnit'),
       buildFormulaSnapshotContext(testTable, 'DiffExplicitDay'),
     ]);
 
-    expect(defaultContext.sql).toContain('/ 86400');
+    expect(defaultContext.sql).toContain('EXTRACT(EPOCH FROM');
 
     const defaultValue = parseNumericResult(defaultContext.result);
     const explicitDayValue = parseNumericResult(explicitDayContext.result);
 
-    expect(defaultValue).toBeCloseTo(2, 10);
-    expect(defaultValue).toBeCloseTo(explicitDayValue, 10);
+    expect(defaultValue).toBeCloseTo(172800, 10);
+    expect(explicitDayValue).toBeCloseTo(2, 10);
   });
 
   it('returns zero for day unit when datetime difference is sub-second', async () => {

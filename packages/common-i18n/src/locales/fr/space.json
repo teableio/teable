@@ -140,8 +140,8 @@
     "empty": "Aucune base pour le moment"
   },
   "publishBase": {
-    "title": "Publier la Base dans la communauté",
-    "description": "Publiez votre base en un clic, l'inspiration n'est plus solitaire ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "title": "Publier dans le centre de modèles",
+    "description": "Publiez votre base dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
     "infoTitle": "Infos de base",
     "form": {
       "title": "Titre",
@@ -164,7 +164,7 @@
     "unPublish": "Dépublier",
     "unPublishSuccess": "Base dépubliée avec succès !",
     "unPublishConfirmTitle": "Confirmer la dépublication",
-    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles de la communauté.",
+    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles.",
     "usageCount": "Nombre d'utilisations : ",
     "uploadCover": "Cliquez pour télécharger l'image de couverture",
     "changeCover": "Cliquez pour changer la couverture",

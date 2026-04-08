@@ -115,10 +115,10 @@ export const SettingPage = (props: ISettingPageProps) => {
         path: '/admin/ai-setting?anchor=llm',
       },
       {
-        title: t('admin.configuration.list.app.title'),
+        title: t('admin.configuration.list.appBuilderDomain.title'),
         key: 'app' as const,
         isRequired: true,
-        isComplete: Boolean(setting?.appConfig?.apiKey),
+        isComplete: Boolean(setting?.appConfig?.vercelToken),
         group: 'appBuilder' as const,
         path: '/admin/ai-setting?anchor=app',
       },
