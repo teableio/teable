@@ -9,12 +9,13 @@ import { ViewModule } from '../view/view.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import { V2ContainerService } from './v2-container.service';
-import { V2Controller } from './v2.controller';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
 import { V2OpenApiController } from './v2-openapi.controller';
 import { V2RecordHistoryService } from './v2-record-history.service';
 import { V2UserRenamePropagationService } from './v2-user-rename-propagation.service';
+import { V2ViewCompatService } from './v2-view-compat.service';
+import { V2Controller } from './v2.controller';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -105,6 +106,7 @@ const toErrorMessage = (body: unknown): string => {
     V2UserRenamePropagationService,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,
+    V2ViewCompatService,
     UndoRedoStackService,
   ],
   exports: [V2ContainerService, V2ExecutionContextFactory, V2UserRenamePropagationService],

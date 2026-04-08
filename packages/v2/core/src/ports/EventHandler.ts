@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { IExecutionContext } from './ExecutionContext';
+import { TeableSpanAttributes } from './Tracer';
 import { TraceSpan, isTraceSpanWrapped } from './TraceSpan';
 
 export interface IEventHandler<TEvent extends IDomainEvent> {
@@ -39,7 +40,21 @@ export const EventHandler =
       typeof descriptor.value === 'function' &&
       !isTraceSpanWrapped(descriptor.value)
     ) {
-      TraceSpan()(target.prototype, 'handle', descriptor);
+      const role = options.role;
+      TraceSpan({
+        component: role === 'projection' ? 'projection' : 'handler',
+        attributes: (_context, payload) => ({
+          [TeableSpanAttributes.EVENT_NAME]:
+            typeof payload === 'object' &&
+            payload != null &&
+            'name' in payload &&
+            typeof (payload as { name?: { toString?: () => string } }).name?.toString === 'function'
+              ? (payload as { name: { toString: () => string } }).name.toString()
+              : event.name,
+          [TeableSpanAttributes.EVENT_ROLE]: role ?? 'handler',
+          [TeableSpanAttributes.EVENT_ASYNC]: role === 'projection',
+        }),
+      })(target.prototype, 'handle', descriptor);
       Object.defineProperty(target.prototype, 'handle', descriptor);
     }
     if (options.role) {

@@ -65,6 +65,14 @@ export class V2IndicatorInterceptor implements NestInterceptor {
 
   constructor(private readonly cls: ClsService<IClsStore>) {}
 
+  private setHeaderIfPossible(response: Response, name: string, value: string) {
+    if (response.headersSent || response.writableEnded || response.destroyed) {
+      return;
+    }
+
+    response.setHeader(name, value);
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const useV2 = this.cls.get('useV2');
     const v2Reason = this.cls.get('v2Reason');
@@ -75,12 +83,12 @@ export class V2IndicatorInterceptor implements NestInterceptor {
 
     // Add V2 indicator headers regardless of useV2 value
     // This allows clients to understand why V2 was or wasn't used
-    response.setHeader(X_TEABLE_V2_HEADER, useV2 ? 'true' : 'false');
+    this.setHeaderIfPossible(response, X_TEABLE_V2_HEADER, useV2 ? 'true' : 'false');
     if (v2Reason) {
-      response.setHeader(X_TEABLE_V2_REASON_HEADER, v2Reason);
+      this.setHeaderIfPossible(response, X_TEABLE_V2_REASON_HEADER, v2Reason);
     }
     if (v2Feature) {
-      response.setHeader(X_TEABLE_V2_FEATURE_HEADER, v2Feature);
+      this.setHeaderIfPossible(response, X_TEABLE_V2_FEATURE_HEADER, v2Feature);
     }
 
     // Mirror V2 indicators into Sentry tags so issue search can distinguish v1/v2 requests.

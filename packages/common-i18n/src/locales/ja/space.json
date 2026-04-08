@@ -140,8 +140,8 @@
     "empty": "まだBaseがありません"
   },
   "publishBase": {
-    "title": "コミュニティにBaseを公開",
-    "description": "ワンクリックでBaseを公開、インスピレーションはもう孤独ではありません！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
+    "title": "テンプレートセンターに公開",
+    "description": "ワンクリックでテンプレートセンターにBaseを公開！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
     "infoTitle": "基本情報",
     "form": {
       "title": "タイトル",
@@ -164,7 +164,7 @@
     "unPublish": "公開停止",
     "unPublishSuccess": "Baseの公開を停止しました！",
     "unPublishConfirmTitle": "公開停止の確認",
-    "unPublishConfirmDescription": "本当にこのBaseの公開を停止しますか？コミュニティのテンプレートセンターに表示されなくなります。",
+    "unPublishConfirmDescription": "本当にこのBaseの公開を停止しますか？テンプレートセンターに表示されなくなります。",
     "usageCount": "使用回数: ",
     "uploadCover": "クリックしてカバー画像をアップロード",
     "changeCover": "クリックしてカバーを変更",

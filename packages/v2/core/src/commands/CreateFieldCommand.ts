@@ -60,7 +60,13 @@ export class CreateFieldCommand extends TableUpdateCommand {
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
         (tableId) =>
-          new CreateFieldCommand(baseId, tableId, parsed.data.field, parsed.data.viewId, parsed.data.order)
+          new CreateFieldCommand(
+            baseId,
+            tableId,
+            parsed.data.field,
+            parsed.data.viewId,
+            parsed.data.order
+          )
       )
     );
   }
