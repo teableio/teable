@@ -1,6 +1,8 @@
 import type { Table } from '@teable/v2-core';
 
 import { executeTableSchemaStatements } from '../../../shared/db';
+import type { SchemaRuleManualRepairValues } from '../core';
+import { getRuleRepairHint } from '../core/RuleRepairMetadata';
 import {
   createSchemaRulePlanner,
   getSchemaRulePlanningStageDescription,
@@ -20,6 +22,8 @@ export interface SchemaRepairerParams extends SchemaRulePlannerParams {}
 
 export interface SchemaRepairOptions {
   readonly dryRun?: boolean;
+  readonly manualRepairValues?: SchemaRuleManualRepairValues;
+  readonly targetStatuses?: ReadonlyArray<'warn' | 'error'>;
 }
 
 export class SchemaRepairer {
@@ -110,6 +114,14 @@ export class SchemaRepairer {
         yield runningResult(pending);
 
         try {
+          const currentStatus: 'warn' | 'error' = rule.required ? 'error' : 'warn';
+
+          if (options?.targetStatuses?.length && !options.targetStatuses.includes(currentStatus)) {
+            yield skippedResult(pending, 'Skipped: status not selected for repair');
+            repairedRules.set(rule.id, false);
+            continue;
+          }
+
           const validationResult = await rule.isValid(ctx);
           if (validationResult.isErr()) {
             yield errorResult(pending, validationResult.error.message);
@@ -126,36 +138,125 @@ export class SchemaRepairer {
 
           const details = {
             missing: validation.missing,
+            missingItems: validation.missingItems,
             extra: validation.extra,
+            extraItems: validation.extraItems,
           };
+          const repairResult = getRuleRepairHint(rule, ctx, validation);
+          const repair = repairResult.isOk() ? repairResult.value : undefined;
 
           if (rule.repairMode === 'manual') {
-            yield warnResult(pending, 'Rule requires manual repair', 'manual', details);
+            if (!options?.manualRepairValues) {
+              yield {
+                ...warnResult(pending, 'Rule requires manual repair', 'manual', details),
+                repair,
+              };
+              repairedRules.set(rule.id, false);
+              continue;
+            }
+
+            if (!rule.manualRepair) {
+              yield {
+                ...errorResult(pending, 'Manual repair executor is not implemented', details),
+                repair,
+              };
+              repairedRules.set(rule.id, false);
+              continue;
+            }
+
+            const manualRepairResult = await rule.manualRepair(ctx, options.manualRepairValues, {
+              dryRun: options.dryRun,
+            });
+
+            if (manualRepairResult.isErr()) {
+              yield {
+                ...errorResult(pending, manualRepairResult.error.message, details),
+                repair,
+              };
+              repairedRules.set(rule.id, false);
+              continue;
+            }
+
+            if (options?.dryRun) {
+              yield {
+                ...successResult(pending, 'Dry run: manual repair ready', 'repaired', details),
+                repair,
+              };
+              repairedRules.set(rule.id, true);
+              continue;
+            }
+
+            const revalidationResult = await rule.isValid(ctx);
+            if (revalidationResult.isErr()) {
+              yield {
+                ...errorResult(pending, revalidationResult.error.message, details),
+                repair,
+              };
+              repairedRules.set(rule.id, false);
+              continue;
+            }
+
+            if (!revalidationResult.value.valid) {
+              yield {
+                ...errorResult(pending, 'Repair executed but schema is still invalid', {
+                  missing: revalidationResult.value.missing,
+                  missingItems: revalidationResult.value.missingItems,
+                  extra: revalidationResult.value.extra,
+                  extraItems: revalidationResult.value.extraItems,
+                }),
+                repair,
+              };
+              repairedRules.set(rule.id, false);
+              continue;
+            }
+
+            yield {
+              ...successResult(pending, 'Schema repaired successfully', 'repaired'),
+              repair,
+            };
+            repairedRules.set(rule.id, true);
+            continue;
+          }
+
+          if (repair && !repair.available && repair.mode === 'auto') {
+            yield {
+              ...skippedResult(pending, 'Skipped: repair unavailable', details),
+              repair,
+            };
             repairedRules.set(rule.id, false);
             continue;
           }
 
           const statementsResult = rule.up(ctx);
           if (statementsResult.isErr()) {
-            yield errorResult(pending, statementsResult.error.message, details);
+            yield {
+              ...errorResult(pending, statementsResult.error.message, details),
+              repair,
+            };
             repairedRules.set(rule.id, false);
             continue;
           }
 
           const statements = statementsResult.value;
           if (statements.length === 0) {
-            yield warnResult(pending, 'No repair statements available', 'manual', details);
+            yield {
+              ...warnResult(pending, 'No repair statements available', 'manual', details),
+              repair,
+            };
             repairedRules.set(rule.id, false);
             continue;
           }
 
           if (options?.dryRun) {
-            yield successResult(
-              pending,
-              `Dry run: ${statements.length} statements ready`,
-              'repaired',
-              { ...details, statementCount: statements.length }
-            );
+            yield {
+              ...successResult(
+                pending,
+                `Dry run: ${statements.length} statements ready`,
+                'repaired',
+                { ...details, statementCount: statements.length }
+              ),
+              repair,
+            };
             repairedRules.set(rule.id, true);
             continue;
           }
@@ -164,33 +265,47 @@ export class SchemaRepairer {
 
           const revalidationResult = await rule.isValid(ctx);
           if (revalidationResult.isErr()) {
-            yield errorResult(pending, revalidationResult.error.message, {
-              ...details,
-              statementCount: statements.length,
-            });
+            yield {
+              ...errorResult(pending, revalidationResult.error.message, {
+                ...details,
+                statementCount: statements.length,
+              }),
+              repair,
+            };
             repairedRules.set(rule.id, false);
             continue;
           }
 
           if (!revalidationResult.value.valid) {
-            yield errorResult(pending, 'Repair executed but schema is still invalid', {
-              missing: revalidationResult.value.missing,
-              extra: revalidationResult.value.extra,
-              statementCount: statements.length,
-            });
+            yield {
+              ...errorResult(pending, 'Repair executed but schema is still invalid', {
+                missing: revalidationResult.value.missing,
+                missingItems: revalidationResult.value.missingItems,
+                extra: revalidationResult.value.extra,
+                extraItems: revalidationResult.value.extraItems,
+                statementCount: statements.length,
+              }),
+              repair,
+            };
             repairedRules.set(rule.id, false);
             continue;
           }
 
-          yield successResult(pending, 'Schema repaired successfully', 'repaired', {
-            statementCount: statements.length,
-          });
+          yield {
+            ...successResult(pending, 'Schema repaired successfully', 'repaired', {
+              statementCount: statements.length,
+            }),
+            repair,
+          };
           repairedRules.set(rule.id, true);
         } catch (error) {
-          yield errorResult(
-            pending,
-            error instanceof Error ? error.message : 'Unknown error during repair'
-          );
+          yield {
+            ...errorResult(
+              pending,
+              error instanceof Error ? error.message : 'Unknown error during repair'
+            ),
+            repair: undefined,
+          };
           repairedRules.set(rule.id, false);
         }
       }

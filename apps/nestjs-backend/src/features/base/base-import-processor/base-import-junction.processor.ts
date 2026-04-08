@@ -21,10 +21,12 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
 import { BatchProcessor } from '../BatchProcessor.class';
 
 interface IBaseImportJunctionCsvJob {
   path: string;
+  tableIdMap: Record<string, string>;
   fieldIdMap: Record<string, string>;
   structure: IBaseJson;
 }
@@ -39,6 +41,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE)
@@ -57,10 +60,11 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
     this.processedJobs.add(jobId);
 
-    const { path, fieldIdMap, structure } = job.data;
+    const { path, tableIdMap, fieldIdMap, structure } = job.data;
 
     try {
       await this.importJunctionChunk(path, fieldIdMap, structure);
+      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
     } catch (error) {
       this.logger.error(
         `Process base import junction csv failed: ${(error as Error)?.message}`,
@@ -191,7 +195,6 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
             })
             .on('end', () => {
               this.logger.log(`csv ${junctionTableName} finished`);
-              resolve({ success: true });
             });
         } else {
           entry.autodrain();
