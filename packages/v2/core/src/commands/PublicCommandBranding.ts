@@ -40,6 +40,10 @@ declare module './DeleteByRangeCommand' {
   interface DeleteByRangeCommand extends IPublicCommand {}
 }
 
+declare module './DeleteByRangeStreamCommand' {
+  interface DeleteByRangeStreamCommand extends IPublicCommand {}
+}
+
 declare module './DeleteRecordsCommand' {
   interface DeleteRecordsCommand extends IPublicCommand {}
 }
@@ -50,6 +54,14 @@ declare module './DeleteTableCommand' {
 
 declare module './DuplicateRecordCommand' {
   interface DuplicateRecordCommand extends IPublicCommand {}
+}
+
+declare module './DuplicateRecordsStreamCommand' {
+  interface DuplicateRecordsStreamCommand extends IPublicCommand {}
+}
+
+declare module './PasteStreamCommand' {
+  interface PasteStreamCommand extends IPublicCommand {}
 }
 
 declare module './DuplicateTableCommand' {

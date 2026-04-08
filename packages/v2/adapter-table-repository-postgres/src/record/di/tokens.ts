@@ -12,6 +12,9 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.computedUpdateHybridConfig'
   ),
   computedUpdateOutbox: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateOutbox'),
+  computedUpdatePauseRegistry: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedUpdatePauseRegistry'
+  ),
   computedUpdateOutboxConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateOutboxConfig'
   ),

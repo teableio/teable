@@ -48,7 +48,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Check, ChevronDown, ChevronRight, Eye, HelpCircle } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
@@ -403,42 +403,68 @@ export const NodeShareContent = ({
       {isShareEnabled && share && (
         <>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{t('table:baseShare.linkHolderLabel')}</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-0.5 text-blue-500 hover:text-blue-600">
-                    {share.allowSave
-                      ? t('table:baseShare.linkHolderCanCopyAndSave')
-                      : t('table:baseShare.linkHolderCanView')}
-                    <ChevronDown className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem
-                    className={!share.allowSave ? 'text-blue-500' : ''}
-                    onClick={() => handleUpdateSetting({ allowSave: false })}
-                  >
-                    {!share.allowSave ? (
-                      <Check className="mr-2 size-4" />
-                    ) : (
-                      <span className="mr-2 size-4" />
-                    )}
-                    {t('table:baseShare.linkHolderCanView')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className={share.allowSave ? 'text-blue-500' : ''}
-                    onClick={() => handleUpdateSetting({ allowSave: true })}
-                  >
-                    {share.allowSave ? (
-                      <Check className="mr-2 size-4" />
-                    ) : (
-                      <span className="mr-2 size-4" />
-                    )}
-                    {t('table:baseShare.linkHolderCanCopyAndSave')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="text-muted-foreground">
+                  {t('table:baseShare.linkHolderLabel')}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
+                      {share.allowEdit
+                        ? t('table:baseShare.linkHolderCanEdit')
+                        : share.allowSave
+                          ? t('table:baseShare.linkHolderCanCopyAndSave')
+                          : t('table:baseShare.linkHolderCanView')}
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    {[
+                      {
+                        active: !share.allowSave && !share.allowEdit,
+                        label: t('table:baseShare.linkHolderCanView'),
+                        desc: t('table:baseShare.linkHolderCanViewDesc'),
+                        onClick: () => handleUpdateSetting({ allowSave: false, allowEdit: false }),
+                      },
+                      node.resourceType === BaseNodeResourceType.Table && {
+                        active: !!share.allowEdit,
+                        label: t('table:baseShare.linkHolderCanEdit'),
+                        desc: t('table:baseShare.linkHolderCanEditDesc'),
+                        onClick: () => handleUpdateSetting({ allowEdit: true, allowSave: false }),
+                      },
+                      {
+                        active: !!share.allowSave,
+                        label: t('table:baseShare.linkHolderCanCopyAndSave'),
+                        desc: t('table:baseShare.linkHolderCanCopyAndSaveDesc'),
+                        onClick: () => handleUpdateSetting({ allowSave: true, allowEdit: false }),
+                      },
+                    ]
+                      .filter((item): item is Exclude<typeof item, false> => Boolean(item))
+                      .map((item) => (
+                        <DropdownMenuItem
+                          key={item.label}
+                          className={item.active ? 'text-blue-500' : ''}
+                          onClick={item.onClick}
+                        >
+                          <div className="flex items-start gap-1.5">
+                            {item.active ? (
+                              <Check className="mt-0.5 size-4 shrink-0" />
+                            ) : (
+                              <span className="mt-0.5 size-4 shrink-0" />
+                            )}
+                            <div className="flex flex-col">
+                              <span>{item.label}</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {item.desc}
+                              </span>
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Input className="min-w-0 flex-1" value={shareUrl} readOnly />

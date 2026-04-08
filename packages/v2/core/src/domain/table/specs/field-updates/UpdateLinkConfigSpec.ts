@@ -148,18 +148,21 @@ export class UpdateLinkConfigSpec<
 
       const configResult = nextConfig.hasDbConfig()
         ? ok(nextConfig)
-        : LinkField.create({
-            id: field.id(),
-            name: field.name(),
-            config: nextConfig,
-            meta,
-          }).andThen((updatedField) =>
-            updatedField
-              .ensureDbConfig({
-                baseId: t.baseId(),
-                hostTableId: t.id(),
-              })
-              .map(() => updatedField.config())
+        : t.dbTableName().andThen((hostTableDbTableName) =>
+            LinkField.create({
+              id: field.id(),
+              name: field.name(),
+              config: nextConfig,
+              meta,
+            }).andThen((updatedField) =>
+              updatedField
+                .ensureDbConfig({
+                  baseId: t.baseId(),
+                  hostTableId: t.id(),
+                  hostTableDbTableName,
+                })
+                .map(() => updatedField.config())
+            )
           );
       if (configResult.isErr()) return err(configResult.error);
 

@@ -9,13 +9,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
   instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
   onChange: (value: { disableActions: string[] }) => void;
 }
 
@@ -48,7 +49,7 @@ const TooltipWrap = ({
 };
 
 const SwitchList = (props: SwitchListProps) => {
-  const { onChange, disableActions, instanceDisableActions = [] } = props;
+  const { onChange, disableActions, instanceDisableActions = [], sandboxConfigured } = props;
   const { t } = useTranslation('common');
 
   const AIFeatureListNameMap = useMemo(() => {
@@ -105,6 +106,11 @@ const SwitchList = (props: SwitchListProps) => {
         <TooltipWrap description={description}>
           <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
         </TooltipWrap>
+        {key === AIActions.AIChat && sandboxConfigured === false && (
+          <TooltipWrap description={t('admin.setting.ai.actions.aiChat.sandboxWarning')}>
+            <TriangleAlert className="size-4 cursor-pointer text-yellow-500" />
+          </TooltipWrap>
+        )}
       </div>
       <Switch
         id={key}
@@ -121,10 +127,12 @@ const SwitchList = (props: SwitchListProps) => {
 export const AIControlCard = ({
   disableActions,
   instanceDisableActions,
+  sandboxConfigured,
   onChange,
 }: {
   disableActions: string[];
   instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
   onChange: (value: { disableActions: string[] }) => void;
 }) => {
   const { t } = useTranslation('common');
@@ -138,6 +146,7 @@ export const AIControlCard = ({
             onChange={onChange}
             disableActions={disableActions}
             instanceDisableActions={instanceDisableActions}
+            sandboxConfigured={sandboxConfigured}
           />
         </div>
       </CardContent>

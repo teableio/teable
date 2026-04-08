@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { LinkForeignTableReference } from '../../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
+import { CellValue } from '../../domain/table/records/values/CellValue';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
@@ -73,5 +76,26 @@ describe('ForeignTableLoaderService', () => {
     });
 
     expect(result._unsafeUnwrapErr().message).toBe('Foreign tables not found');
+  });
+
+  it('loads link-title fill foreign tables directly from mutate specs', async () => {
+    const table = buildTable('f', 'g');
+    const repo = new MemoryTableRepository();
+    const context = createContext();
+    await repo.insert(context, table);
+
+    const service = new ForeignTableLoaderService(repo);
+    const fieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+    const spec = new SetLinkValueSpec(
+      fieldId,
+      CellValue.fromValidated([{ id: `rec${'i'.repeat(16)}` }]),
+      table.id()
+    );
+
+    const result = await service.loadForLinkTitleFill(context, [spec]);
+
+    expect(result._unsafeUnwrap().get(table.id().toString())?.id().toString()).toBe(
+      table.id().toString()
+    );
   });
 });

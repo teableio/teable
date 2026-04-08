@@ -26,6 +26,7 @@ import {
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
@@ -53,8 +54,11 @@ import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { type TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { TableId } from '../domain/table/TableId';
+import type { ViewId } from '../domain/table/views/ViewId';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -67,7 +71,9 @@ import {
   type UndoRedoCommandLeafData,
 } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import type { RecordFilter } from '../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import {
   dateFormattingSchema,
@@ -78,12 +84,18 @@ import {
 import type { ITableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { PasteCommand } from './PasteCommand';
-import type { SourceFieldMeta } from './PasteCommand';
+import type { PasteGroup, PasteSort, SourceFieldMeta } from './PasteCommand';
+import type { NormalizedRanges, RangeType } from './RangeUtils';
+import {
+  buildOperationBatchMutation,
+  withBatchMutation,
+} from './shared/batchMutationOrchestration';
 import {
   mergeOrderByWithViewRowTieBreaker,
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from './shared/orderBy';
+import { resolveSelectionStreamBatchSize } from './shared/streamBatchSize';
 import { toTableRecord } from './shared/toTableRecord';
 import type { ICreateTableFieldSpec } from './TableFieldSpecs';
 import {
@@ -128,6 +140,11 @@ interface UpdateOperation {
   type: 'update';
   existingRecord: TableRecordReadModel;
   rowData: ReadonlyArray<unknown>;
+  /**
+   * Per-record editable columns after plugin scoping. `undefined` means this
+   * operation still uses the shared update column set for the paste request.
+   */
+  editableColumns?: ReadonlyArray<EditableColumn>;
 }
 
 /** Represents a create operation for a new record */
@@ -158,11 +175,95 @@ type PendingCreatedRecord = {
 
 type PasteOperationStreamState = {
   iterator: AsyncIterator<Result<PasteOperation, DomainError>>;
+  pendingUpdateOperation?: UpdateOperation;
   pendingCreateOperation?: CreateOperation;
   tableForMutations: Table;
   accumulatedSideEffects: RecordWriteSideEffect[];
   resolvedLinkValues: ResolvedLinkValueLookupMap;
 };
+
+type PasteStreamCommandLike = {
+  readonly tableId: TableId;
+  readonly viewId: ViewId;
+  readonly rawRanges: ReadonlyArray<readonly [number, number]>;
+  readonly rangeType: RangeType;
+  readonly content: ReadonlyArray<ReadonlyArray<unknown>>;
+  readonly filter: RecordFilter | undefined;
+  readonly updateFilter: RecordFilter | undefined;
+  readonly search: RecordSearch | undefined;
+  readonly sourceFields: ReadonlyArray<SourceFieldMeta> | undefined;
+  readonly typecast: boolean;
+  readonly projection: ReadonlyArray<string> | undefined;
+  readonly sort: ReadonlyArray<PasteSort> | undefined;
+  readonly groupBy: ReadonlyArray<PasteGroup> | undefined;
+  readonly ignoreViewQuery: boolean;
+  readonly batchSize?: number;
+  normalizeRanges(totalRows: number, totalCols: number): NormalizedRanges;
+};
+
+type PreparedPasteStreamPlan = {
+  readonly persistedTable: Table;
+  readonly tableForPaste: Table;
+  readonly editableColumns: ReadonlyArray<EditableColumn>;
+  readonly plannedColumnExpansion?: PlannedColumnExpansion;
+  readonly typecast: boolean;
+  readonly operationsStream: AsyncIterable<Result<PasteOperation, DomainError>>;
+  readonly totalCount: number;
+  readonly totalChunkCount: number;
+  readonly batchSize: number;
+};
+
+type PasteChunkPersistResult = {
+  readonly table: Table;
+  readonly eventData: CollectedEventData;
+  readonly updatedCount: number;
+  readonly createdCount: number;
+  readonly createdRecordIds: ReadonlyArray<string>;
+};
+
+export interface PasteStreamProgressEvent {
+  id: 'progress';
+  phase: 'preparing' | 'pasting';
+  batchIndex: number;
+  totalCount: number;
+  processedCount: number;
+  updatedCount: number;
+  createdCount: number;
+  batchProcessedCount: number;
+}
+
+export interface PasteStreamDoneEvent {
+  id: 'done';
+  totalCount: number;
+  processedCount: number;
+  updatedCount: number;
+  createdCount: number;
+  data: {
+    updatedCount: number;
+    createdCount: number;
+    createdRecordIds: string[];
+  };
+}
+
+export interface PasteStreamErrorEvent {
+  id: 'error';
+  phase: 'preparing' | 'guarding' | 'pasting' | 'publishing' | 'finalizing';
+  batchIndex: number;
+  totalCount: number;
+  processedCount: number;
+  updatedCount: number;
+  createdCount: number;
+  recordIds: string[];
+  message: string;
+  code?: string;
+}
+
+export type PasteStreamEvent =
+  | PasteStreamProgressEvent
+  | PasteStreamDoneEvent
+  | PasteStreamErrorEvent;
+
+const MAX_PASTE_STREAM_BUFFERED_EVENTS = 64;
 
 type LooseFieldInput = {
   type: string;
@@ -175,33 +276,33 @@ type LooseFieldInput = {
 export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
-    private readonly tableQueryService: TableQueryService,
+    protected readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableUpdateFlow)
-    private readonly tableUpdateFlow: TableUpdateFlow,
+    protected readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
-    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    protected readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    protected readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.tableRecordRepository)
-    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    protected readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
-    private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
+    protected readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
-    private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    protected readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.pasteLinkAutoResolveService)
-    private readonly pasteLinkAutoResolveService: PasteLinkAutoResolveService,
+    protected readonly pasteLinkAutoResolveService: PasteLinkAutoResolveService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
-    private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
+    protected readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
-    private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
+    protected readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.recordWritePluginRunner)
-    private readonly recordWritePluginRunner: RecordWritePluginRunner,
+    protected readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    protected readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    protected readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
   @TraceSpan()
@@ -362,6 +463,36 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         updateFilterSpec
       );
       const collectedOperations = yield* await handler.collectPasteOperations(operationsStream);
+      const initialPluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.paste,
+        executionContext: context,
+        table: persistedTable,
+        payload: yield* handler.buildPastePluginPayload(
+          command.typecast,
+          editableColumns,
+          editableColumns,
+          collectedOperations.updateOperations,
+          collectedOperations.createOperations
+        ),
+        isTransactionBound: false,
+      });
+      const pluginScope = yield* initialPluginExecution.getScope();
+      const expandedFieldIds = new Set(
+        plannedColumnExpansion?.newFieldIds.map((fieldId) => fieldId.toString()) ?? []
+      );
+      const scopedUpdateOperations = yield* handler.scopeUpdateOperations(
+        persistedTable,
+        collectedOperations.updateOperations,
+        editableColumns,
+        pluginScope?.recordSpec,
+        initialPluginExecution,
+        expandedFieldIds
+      );
+      const scopedCreateColumns = handler.filterCreateColumns(
+        editableColumns,
+        pluginScope?.createFieldIds,
+        expandedFieldIds
+      );
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.paste,
         executionContext: context,
@@ -369,12 +500,23 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         payload: yield* handler.buildPastePluginPayload(
           command.typecast,
           editableColumns,
-          collectedOperations.updateOperations,
+          scopedCreateColumns,
+          scopedUpdateOperations,
           collectedOperations.createOperations
         ),
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
+      const executableUpdateOperations = scopedUpdateOperations;
+      const executableCreateOperations =
+        scopedCreateColumns.length > 0 ? collectedOperations.createOperations : [];
+      if (executableUpdateOperations.length === 0 && executableCreateOperations.length === 0) {
+        return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
+      }
+      const batchMutation = buildOperationBatchMutation(
+        context,
+        executableUpdateOperations.length + executableCreateOperations.length
+      );
 
       // 12. Execute paste within transaction
       const eventData: CollectedEventData = {
@@ -387,14 +529,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
+        const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
         return handler.executePasteStream(
-          txContext,
+          txContextWithBatchMutation,
           tableForPaste,
-          collectedOperations.updateOperations,
-          collectedOperations.createOperations,
+          executableUpdateOperations,
+          executableCreateOperations,
           pluginExecution,
           command.typecast,
           editableColumns,
+          scopedCreateColumns,
           eventData,
           plannedColumnExpansion
         );
@@ -410,6 +554,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             baseId: persistedTable.baseId(),
             updates: eventData.updates,
             source: 'user',
+            orchestration: batchMutation,
           })
         );
       }
@@ -420,6 +565,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             tableId: persistedTable.id(),
             baseId: persistedTable.baseId(),
             records: eventData.createdRecords,
+            orchestration: batchMutation,
           })
         );
       }
@@ -509,7 +655,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     });
   }
 
-  private async planColumnExpansion(
+  protected async planColumnExpansion(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     params: {
@@ -595,7 +741,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     });
   }
 
-  private sourceFieldToInput(field?: SourceFieldMeta): ITableFieldInput {
+  protected sourceFieldToInput(field?: SourceFieldMeta): ITableFieldInput {
     if (!field?.type) {
       return { type: 'singleLineText' } as ITableFieldInput;
     }
@@ -638,7 +784,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return baseField as ITableFieldInput;
   }
 
-  private optionsRoToVoByCvType(
+  protected optionsRoToVoByCvType(
     cellValueType?: string,
     options?: Record<string, unknown>
   ): LooseFieldInput {
@@ -687,7 +833,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private lookupOptionsRoToVo(field?: SourceFieldMeta): LooseFieldInput {
+  protected lookupOptionsRoToVo(field?: SourceFieldMeta): LooseFieldInput {
     if (!field?.type) {
       return { type: 'singleLineText' };
     }
@@ -721,7 +867,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
    * If updateFilterSpec is provided, records are checked in-memory using spec.isSatisfiedBy();
    * only records that satisfy the spec will be updated.
    */
-  private async *generatePasteOperations(
+  protected async *generatePasteOperations(
     existingRecordsStream: AsyncIterable<Result<TableRecordReadModel, DomainError>>,
     content: ReadonlyArray<ReadonlyArray<unknown>>,
     table: Table,
@@ -756,6 +902,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           type: 'update' as const,
           existingRecord: readModel,
           rowData: content[rowIndex]!,
+          editableColumns: undefined,
         });
       }
       // Always increment rowIndex to consume the content row (even if skipping update)
@@ -771,7 +918,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private async collectPasteOperations(
+  protected async collectPasteOperations(
     operationsStream: AsyncIterable<Result<PasteOperation, DomainError>>
   ): Promise<Result<CollectedPasteOperations, DomainError>> {
     const updateOperations: UpdateOperation[] = [];
@@ -792,9 +939,87 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return ok({ updateOperations, createOperations });
   }
 
-  private buildPastePluginPayload(
-    typecast: boolean,
+  private filterUpdateColumns(
     editableColumns: ReadonlyArray<EditableColumn>,
+    allowedFieldIds: ReadonlySet<string> | undefined,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): ReadonlyArray<EditableColumn> {
+    if (!allowedFieldIds) {
+      return editableColumns;
+    }
+
+    return editableColumns.filter((column) => {
+      const fieldId = column.fieldId.toString();
+      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
+    });
+  }
+
+  private filterCreateColumns(
+    editableColumns: ReadonlyArray<EditableColumn>,
+    allowedFieldIds: ReadonlySet<string> | undefined,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): ReadonlyArray<EditableColumn> {
+    if (!allowedFieldIds) {
+      return editableColumns;
+    }
+
+    if (allowedFieldIds.size === 0) {
+      return [];
+    }
+
+    return editableColumns.filter((column) => {
+      const fieldId = column.fieldId.toString();
+      return allowedFieldIds.has(fieldId) || extraAllowedFieldIds.has(fieldId);
+    });
+  }
+
+  private scopeUpdateOperations(
+    table: Table,
+    updateOperations: ReadonlyArray<UpdateOperation>,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    recordSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    pluginExecution: RecordWritePluginExecution,
+    extraAllowedFieldIds: ReadonlySet<string>
+  ): Result<ReadonlyArray<UpdateOperation>, DomainError> {
+    const authorizedOperations: UpdateOperation[] = [];
+    for (const operation of updateOperations) {
+      const tableRecord = toTableRecord(table, operation.existingRecord);
+      if (tableRecord.isErr()) {
+        return err(tableRecord.error);
+      }
+      if (recordSpec && !recordSpec.isSatisfiedBy(tableRecord.value)) {
+        continue;
+      }
+
+      const allowedFieldIdsResult = pluginExecution.getUpdateFieldIdsForRecord(tableRecord.value);
+      if (allowedFieldIdsResult.isErr()) {
+        return err(allowedFieldIdsResult.error);
+      }
+
+      const operationEditableColumns = this.filterUpdateColumns(
+        editableColumns,
+        allowedFieldIdsResult.value,
+        extraAllowedFieldIds
+      );
+      if (!operationEditableColumns.length) {
+        continue;
+      }
+
+      authorizedOperations.push({
+        ...operation,
+        editableColumns: operationEditableColumns,
+      });
+    }
+
+    return ok(authorizedOperations);
+  }
+
+  protected buildPastePluginPayload(
+    typecast: boolean,
+    // Columns shared by the entire update side of the paste request before per-record scoping.
+    updateColumns: ReadonlyArray<EditableColumn>,
+    // Columns that remain createable after plugin scoping and field expansion allowances.
+    createColumns: ReadonlyArray<EditableColumn>,
     updateOperations: ReadonlyArray<UpdateOperation>,
     createOperations: ReadonlyArray<CreateOperation>
   ): Result<
@@ -819,15 +1044,28 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return err(recordIdResult.error);
       }
       updateRecordIds.push(recordIdResult.value);
-      updateRecordsFieldValues.push(this.rowDataToFieldValues(operation.rowData, editableColumns));
+      const operationEditableColumns = operation.editableColumns ?? updateColumns;
+      updateRecordsFieldValues.push(
+        this.rowDataToFieldValues(operation.rowData, operationEditableColumns)
+      );
+    }
+
+    const editableFieldIds = new Map<string, FieldId>();
+    for (const operation of updateOperations) {
+      for (const column of operation.editableColumns ?? updateColumns) {
+        editableFieldIds.set(column.fieldId.toString(), column.fieldId);
+      }
+    }
+    for (const column of createColumns) {
+      editableFieldIds.set(column.fieldId.toString(), column.fieldId);
     }
 
     return ok({
-      editableFieldIds: editableColumns.map((column) => column.fieldId),
+      editableFieldIds: [...editableFieldIds.values()],
       updateRecordIds,
       updateRecordsFieldValues,
       createRecordsFieldValues: createOperations.map((operation) =>
-        this.rowDataToFieldValues(operation.rowData, editableColumns)
+        this.rowDataToFieldValues(operation.rowData, createColumns)
       ),
       typecast,
       updateRecordCount: updateOperations.length,
@@ -836,7 +1074,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     });
   }
 
-  private rowDataToFieldValues(
+  protected rowDataToFieldValues(
     rowData: ReadonlyArray<unknown>,
     editableColumns: ReadonlyArray<EditableColumn>
   ): ReadonlyMap<string, unknown> {
@@ -851,14 +1089,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
    * Execute paste operations using streaming.
    * Consumes update/create operations lazily and only keeps the current batch in memory.
    */
-  private async executePasteStream(
+  protected async executePasteStream(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     updateOperations: ReadonlyArray<UpdateOperation>,
     createOperations: ReadonlyArray<CreateOperation>,
     pluginExecution: RecordWritePluginExecution,
     typecast: boolean,
-    editableColumns: ReadonlyArray<EditableColumn>,
+    updateColumns: ReadonlyArray<EditableColumn>,
+    createColumns: ReadonlyArray<EditableColumn>,
     eventData: CollectedEventData,
     plannedColumnExpansion?: PlannedColumnExpansion
   ): Promise<Result<void, DomainError>> {
@@ -926,7 +1165,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               context,
               streamState,
               typecast,
-              editableColumns,
+              updateColumns,
               batchSize,
               eventData
             )
@@ -953,7 +1192,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               context,
               streamState,
               typecast,
-              editableColumns,
+              createColumns,
               batchSize,
               createdRecordBatches,
               eventData
@@ -1003,7 +1242,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private async *createResolvedUpdateBatchStream(
+  protected async *createResolvedUpdateBatchStream(
     context: ExecutionContextPort.IExecutionContext,
     streamState: PasteOperationStreamState,
     typecast: boolean,
@@ -1022,13 +1261,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       if (!updateOperations) {
         return;
       }
+      const batchEditableColumns = updateOperations[0]?.editableColumns ?? editableColumns;
 
       const sideEffectResult = await this.prepareMutationChunk(
         context,
         streamState,
         updateOperations,
         typecast,
-        editableColumns,
+        batchEditableColumns,
         eventData
       );
       if (sideEffectResult.isErr()) {
@@ -1041,7 +1281,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         context,
         typecast,
         batchTable,
-        editableColumns,
+        batchEditableColumns,
         updateOperations.map((operation) => operation.rowData),
         streamState.resolvedLinkValues
       );
@@ -1059,7 +1299,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
 
       const linkTitleMapResult = typecast
-        ? await this.buildLinkTitleMap(context, batchTable, editableColumns, updateOperations)
+        ? await this.buildLinkTitleMap(context, batchTable, batchEditableColumns, updateOperations)
         : ok(new Map());
       if (linkTitleMapResult.isErr()) {
         yield err(linkTitleMapResult.error);
@@ -1081,7 +1321,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const oldValues = new Map<string, unknown>();
         const fieldValues = this.buildEditableFieldValues(
           op.rowData,
-          editableColumns,
+          batchEditableColumns,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
             return this.hydrateLinkValue(
@@ -1130,7 +1370,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             return;
           }
 
-          const changes: RecordFieldChangeDTO[] = editableColumns.map((column) => {
+          const changes: RecordFieldChangeDTO[] = batchEditableColumns.map((column) => {
             const fieldId = column.fieldId;
             const fieldIdStr = fieldId.toString();
             const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
@@ -1155,7 +1395,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private async *createRecordBatchStream(
+  protected async *createRecordBatchStream(
     context: ExecutionContextPort.IExecutionContext,
     streamState: PasteOperationStreamState,
     typecast: boolean,
@@ -1230,14 +1470,13 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         )
       );
 
-      const createResult = batchTable.createRecords(createFieldValues, { typecast });
+      const createResult = batchTable.createRecords(createFieldValues, {
+        typecast,
+        emitRecordCreatedEvents: false,
+      });
       if (createResult.isErr()) {
         throw createResult.error;
       }
-      // `createRecords` emits per-record RecordCreated events on the aggregate root. Paste
-      // replaces those with a single RecordsBatchCreated event after persistence, so discard
-      // the per-record aggregate events here to avoid duplicate publication and linear growth.
-      batchTable.pullDomainEvents();
 
       const resolvedRecordsResult = await this.resolveCreatedRecords(
         context,
@@ -1267,7 +1506,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private async resolveUpdateBatch(
+  protected async resolveUpdateBatch(
     context: ExecutionContextPort.IExecutionContext,
     batch: ReadonlyArray<RecordUpdateResult>,
     typecast: boolean
@@ -1296,7 +1535,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     );
   }
 
-  private async resolveCreatedRecords(
+  protected async resolveCreatedRecords(
     context: ExecutionContextPort.IExecutionContext,
     records: ReadonlyArray<TableRecord>,
     mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
@@ -1331,7 +1570,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return ok(resolvedRecords);
   }
 
-  private async readNextUpdateChunk(
+  protected async readNextUpdateChunk(
     streamState: PasteOperationStreamState,
     batchSize: number
   ): Promise<Result<ReadonlyArray<UpdateOperation> | null, DomainError>> {
@@ -1340,6 +1579,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     const batch: UpdateOperation[] = [];
+    let expectedSignature: string | undefined;
+
+    if (streamState.pendingUpdateOperation) {
+      batch.push(streamState.pendingUpdateOperation);
+      expectedSignature = this.getEditableColumnSignature(
+        streamState.pendingUpdateOperation.editableColumns
+      );
+      streamState.pendingUpdateOperation = undefined;
+    }
 
     while (batch.length < batchSize) {
       const next = await streamState.iterator.next();
@@ -1357,16 +1605,32 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         break;
       }
 
+      const signature = this.getEditableColumnSignature(operation.editableColumns);
+      if (expectedSignature && signature !== expectedSignature) {
+        streamState.pendingUpdateOperation = operation;
+        break;
+      }
+
+      expectedSignature = signature;
       batch.push(operation);
     }
 
     return ok(batch.length > 0 ? batch : null);
   }
 
-  private async readNextCreateChunk(
+  protected async readNextCreateChunk(
     streamState: PasteOperationStreamState,
     batchSize: number
   ): Promise<Result<ReadonlyArray<CreateOperation> | null, DomainError>> {
+    if (streamState.pendingUpdateOperation) {
+      return err(
+        domainError.unexpected({
+          code: 'paste.create_stream.pending_update',
+          message: 'Create stream must not start while update operations are still pending',
+        })
+      );
+    }
+
     const batch: CreateOperation[] = [];
 
     if (streamState.pendingCreateOperation) {
@@ -1400,7 +1664,19 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return ok(batch.length > 0 ? batch : null);
   }
 
-  private async prepareMutationChunk(
+  /**
+   * Group only contiguous update operations with the same scoped columns. In the worst case,
+   * alternating per-record permissions can reduce batching to single-row updates.
+   */
+  private getEditableColumnSignature(
+    editableColumns: ReadonlyArray<EditableColumn> | undefined
+  ): string {
+    return (editableColumns ?? [])
+      .map((column) => `${column.fieldId.toString()}:${column.columnIndex}`)
+      .join('|');
+  }
+
+  protected async prepareMutationChunk(
     context: ExecutionContextPort.IExecutionContext,
     streamState: PasteOperationStreamState,
     operations: ReadonlyArray<PasteOperation>,
@@ -1452,7 +1728,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return ok(undefined);
   }
 
-  private buildEditableFieldValues(
+  protected buildEditableFieldValues(
     rowData: ReadonlyArray<unknown>,
     editableColumns: ReadonlyArray<EditableColumn>,
     transform?: (fieldId: string, rawValue: unknown) => unknown
@@ -1466,7 +1742,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return fieldValues;
   }
 
-  private async resolvePasteLinkAutoCreate(
+  protected async resolvePasteLinkAutoCreate(
     context: ExecutionContextPort.IExecutionContext,
     typecast: boolean,
     table: Table,
@@ -1486,7 +1762,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     });
   }
 
-  private createEmptyPasteLinkAutoResolveResult(): IPasteLinkAutoResolveResult {
+  protected createEmptyPasteLinkAutoResolveResult(): IPasteLinkAutoResolveResult {
     return {
       resolvedValues: new Map(),
       tableEvents: [],
@@ -1496,7 +1772,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     };
   }
 
-  private mergeResolvedLinkValues(
+  protected mergeResolvedLinkValues(
     target: ResolvedLinkValueLookupMap,
     source: ResolvedLinkValueLookupMap
   ): void {
@@ -1510,7 +1786,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private hydrateLinkValue(
+  protected hydrateLinkValue(
     value: unknown,
     linkTitleMap: Map<string, string> | undefined,
     resolvedLinkValueMap?: ResolvedLinkValueMap
@@ -1581,7 +1857,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     return hydrateItem(value);
   }
 
-  private async buildLinkTitleMap(
+  protected async buildLinkTitleMap(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     editableColumns: ReadonlyArray<EditableColumn>,
@@ -1692,7 +1968,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
   }
 
-  private extractLinkIds(value: unknown): string[] {
+  protected extractLinkIds(value: unknown): string[] {
     if (value == null) return [];
 
     const values = Array.isArray(value) ? value : [value];
@@ -1718,6 +1994,952 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     }
 
     return ids;
+  }
+}
+
+@injectable()
+export class PasteStreamApplicationService extends PasteHandler {
+  createStream(
+    context: ExecutionContextPort.IExecutionContext,
+    command: PasteStreamCommandLike
+  ): AsyncIterable<PasteStreamEvent> {
+    const queue = new AsyncIterableQueue<PasteStreamEvent>({
+      maxBufferedItems: MAX_PASTE_STREAM_BUFFERED_EVENTS,
+    });
+    void this.runPasteStream(context, command, queue);
+    return queue;
+  }
+
+  private async runPasteStream(
+    context: ExecutionContextPort.IExecutionContext,
+    command: PasteStreamCommandLike,
+    queue: AsyncIterableQueue<PasteStreamEvent>
+  ) {
+    queue.push(this.createProgressEvent('preparing', 0, 0, 0, 0, -1, 0));
+
+    try {
+      const planResult = await this.preparePasteStreamPlan(context, command);
+      if (planResult.isErr()) {
+        queue.push(
+          this.createErrorEvent(planResult.error, {
+            phase: 'preparing',
+            batchIndex: -1,
+            totalCount: 0,
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+            recordIds: [],
+          })
+        );
+        return;
+      }
+
+      const plan = planResult.value;
+      queue.push(this.createProgressEvent('preparing', plan.totalCount, 0, 0, 0, -1, 0));
+
+      if (!plan.totalCount) {
+        queue.push(
+          this.createDoneEvent(
+            {
+              totalCount: 0,
+              processedCount: 0,
+              updatedCount: 0,
+              createdCount: 0,
+              createdRecordIds: [],
+            },
+            0
+          )
+        );
+        return;
+      }
+
+      const operationId = context.requestId ?? generateUuid();
+      const operationPluginExecutionResult = await this.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.paste,
+        executionContext: context,
+        table: plan.persistedTable,
+        payload: this.buildOperationPastePluginPayload(
+          plan.typecast,
+          plan.editableColumns,
+          plan.totalCount
+        ),
+        orchestration: {
+          mode: 'stream',
+          scope: 'operation',
+          operationId,
+          totalRecordCount: plan.totalCount,
+          totalChunkCount: plan.totalChunkCount,
+        },
+        isTransactionBound: false,
+      });
+      if (operationPluginExecutionResult.isErr()) {
+        queue.push(
+          this.createErrorEvent(operationPluginExecutionResult.error, {
+            phase: 'guarding',
+            batchIndex: -1,
+            totalCount: plan.totalCount,
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+            recordIds: [],
+          })
+        );
+        return;
+      }
+      const operationPluginExecution = operationPluginExecutionResult.value;
+      const operationGuardResult = await operationPluginExecution.guard();
+      if (operationGuardResult.isErr()) {
+        queue.push(
+          this.createErrorEvent(operationGuardResult.error, {
+            phase: 'guarding',
+            batchIndex: -1,
+            totalCount: plan.totalCount,
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+            recordIds: [],
+          })
+        );
+        return;
+      }
+
+      let currentTable = plan.tableForPaste;
+      let pendingColumnExpansion = plan.plannedColumnExpansion;
+      let processedCount = 0;
+      let updatedCount = 0;
+      let createdCount = 0;
+      const createdRecordIds: string[] = [];
+      const iterator = plan.operationsStream[Symbol.asyncIterator]();
+      let batchIndex = 0;
+      let previousPluginExecution = operationPluginExecution;
+
+      for (;;) {
+        const chunkResult = await this.readNextOperationChunk(iterator, plan.batchSize);
+        if (chunkResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(chunkResult.error, {
+              phase: 'pasting',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: [],
+            })
+          );
+          break;
+        }
+
+        const operations = chunkResult.value;
+        if (!operations) {
+          break;
+        }
+
+        const chunkPluginPayloadResult = this.buildPastePluginPayload(
+          plan.typecast,
+          plan.editableColumns,
+          plan.editableColumns,
+          operations.filter(
+            (operation): operation is UpdateOperation => operation.type === 'update'
+          ),
+          operations.filter(
+            (operation): operation is CreateOperation => operation.type === 'create'
+          )
+        );
+        if (chunkPluginPayloadResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(chunkPluginPayloadResult.error, {
+              phase: 'guarding',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: [],
+            })
+          );
+          batchIndex += 1;
+          continue;
+        }
+
+        const chunkPluginExecutionResult = await this.recordWritePluginRunner.prepare(
+          {
+            kind: RecordWriteOperationKind.paste,
+            executionContext: context,
+            table: currentTable,
+            payload: chunkPluginPayloadResult.value,
+            orchestration: {
+              mode: 'stream',
+              scope: 'chunk',
+              operationId,
+              totalRecordCount: plan.totalCount,
+              totalChunkCount: plan.totalChunkCount,
+              chunkIndex: batchIndex,
+            },
+            isTransactionBound: false,
+          },
+          { previousExecution: previousPluginExecution }
+        );
+        if (chunkPluginExecutionResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(chunkPluginExecutionResult.error, {
+              phase: 'guarding',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: chunkPluginPayloadResult.value.updateRecordIds.map((recordId) =>
+                recordId.toString()
+              ),
+            })
+          );
+          batchIndex += 1;
+          continue;
+        }
+
+        const guardResult = await chunkPluginExecutionResult.value.guard();
+        if (guardResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(guardResult.error, {
+              phase: 'guarding',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: chunkPluginPayloadResult.value.updateRecordIds.map((recordId) =>
+                recordId.toString()
+              ),
+            })
+          );
+          batchIndex += 1;
+          continue;
+        }
+        previousPluginExecution = chunkPluginExecutionResult.value;
+
+        const chunkPersistResult = await this.executePasteChunk(context, {
+          table: currentTable,
+          persistedTable: plan.persistedTable,
+          editableColumns: plan.editableColumns,
+          operations,
+          typecast: plan.typecast,
+          pluginExecution: chunkPluginExecutionResult.value,
+          batchMutation: {
+            operationId,
+            groupId: operationId,
+            totalRecordCount: plan.totalCount,
+            totalChunkCount: plan.totalChunkCount,
+            chunkIndex: batchIndex,
+            scope: 'chunk',
+          },
+          plannedColumnExpansion: pendingColumnExpansion,
+        });
+        if (chunkPersistResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(chunkPersistResult.error, {
+              phase: 'pasting',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: chunkPluginPayloadResult.value.updateRecordIds.map((recordId) =>
+                recordId.toString()
+              ),
+            })
+          );
+          batchIndex += 1;
+          continue;
+        }
+
+        pendingColumnExpansion = undefined;
+        currentTable = chunkPersistResult.value.table;
+        processedCount += operations.length;
+        updatedCount += chunkPersistResult.value.updatedCount;
+        createdCount += chunkPersistResult.value.createdCount;
+        createdRecordIds.push(...chunkPersistResult.value.createdRecordIds);
+        queue.push(
+          this.createProgressEvent(
+            'pasting',
+            plan.totalCount,
+            processedCount,
+            updatedCount,
+            createdCount,
+            batchIndex,
+            operations.length
+          )
+        );
+
+        const publishResult = await this.publishPasteChunkEvents(
+          context,
+          plan.persistedTable,
+          chunkPersistResult.value.eventData,
+          {
+            operationId,
+            totalRecordCount: plan.totalCount,
+            totalChunkCount: plan.totalChunkCount,
+            chunkIndex: batchIndex,
+          }
+        );
+        if (publishResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(publishResult.error, {
+              phase: 'publishing',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: [],
+            })
+          );
+        }
+
+        const undoRedoResult = await this.recordPasteChunkUndoRedoEntry(
+          context,
+          plan.persistedTable,
+          chunkPersistResult.value.eventData,
+          operationId
+        );
+        if (undoRedoResult.isErr()) {
+          queue.push(
+            this.createErrorEvent(undoRedoResult.error, {
+              phase: 'finalizing',
+              batchIndex,
+              totalCount: plan.totalCount,
+              processedCount,
+              updatedCount,
+              createdCount,
+              recordIds: [],
+            })
+          );
+        }
+
+        await chunkPluginExecutionResult.value.afterCommit();
+        for (const afterCommitHandler of chunkPersistResult.value.eventData.afterCommitHandlers) {
+          await afterCommitHandler();
+        }
+        batchIndex += 1;
+      }
+
+      queue.push(
+        this.createDoneEvent(
+          {
+            totalCount: plan.totalCount,
+            processedCount,
+            updatedCount,
+            createdCount,
+            createdRecordIds,
+          },
+          plan.totalCount
+        )
+      );
+    } catch (error) {
+      queue.push(
+        this.createErrorEvent(
+          domainError.fromUnknown(error, {
+            code: 'paste_stream.failed',
+          }),
+          {
+            phase: 'pasting',
+            batchIndex: -1,
+            totalCount: 0,
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+            recordIds: [],
+          }
+        )
+      );
+    } finally {
+      queue.close();
+    }
+  }
+
+  private async preparePasteStreamPlan(
+    context: ExecutionContextPort.IExecutionContext,
+    command: PasteStreamCommandLike
+  ): Promise<Result<PreparedPasteStreamPlan, DomainError>> {
+    const persistedTableResult = await this.tableQueryService.getById(context, command.tableId);
+    if (persistedTableResult.isErr()) {
+      return err(persistedTableResult.error);
+    }
+    const persistedTable = persistedTableResult.value;
+    let tableForPaste = persistedTable;
+
+    let orderedFieldIds = await persistedTable.getOrderedVisibleFieldIds(
+      command.viewId.toString(),
+      {
+        projection: command.projection,
+      }
+    );
+    if (orderedFieldIds.isErr()) {
+      return err(orderedFieldIds.error);
+    }
+
+    const viewResult = await persistedTable.getView(command.viewId);
+    if (viewResult.isErr()) {
+      return err(viewResult.error);
+    }
+    const viewDefaultsResult = await viewResult.value.queryDefaults();
+    if (viewDefaultsResult.isErr()) {
+      return err(viewDefaultsResult.error);
+    }
+
+    const mergedDefaults = viewDefaultsResult.value.merge({
+      filter: command.filter,
+      sort: command.sort,
+      group: command.groupBy,
+    });
+    const effectiveFilter = command.ignoreViewQuery
+      ? command.filter ?? undefined
+      : mergedDefaults.filter();
+    const effectiveSort = command.ignoreViewQuery
+      ? command.sort ?? undefined
+      : mergedDefaults.sort();
+
+    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
+    if (effectiveFilter) {
+      const filterSpecResult = await buildRecordConditionSpec(persistedTable, effectiveFilter);
+      if (filterSpecResult.isErr()) {
+        return err(filterSpecResult.error);
+      }
+      filterSpec = filterSpecResult.value;
+    }
+
+    const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds.value);
+
+    let totalRows = 0;
+    if (command.rangeType === 'columns' || command.rangeType === 'rows') {
+      const limitResult = PageLimit.create(1);
+      if (limitResult.isOk()) {
+        const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
+        const countResult = await this.tableRecordQueryRepository.find(
+          context,
+          persistedTable,
+          filterSpec,
+          { mode: 'stored', pagination, search: visibleRowSearch }
+        );
+        if (countResult.isErr()) {
+          return err(countResult.error);
+        }
+        totalRows = countResult.value.total;
+      }
+    }
+
+    const normalizedRanges = command.normalizeRanges(totalRows, orderedFieldIds.value.length);
+    const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
+    const targetRangeCols = endCol - startCol + 1;
+    const targetRangeRows = endRow - startRow + 1;
+    const expandedContent = expandPasteContent(command.content, targetRangeRows, targetRangeCols);
+
+    if (expandedContent.length === 0 || expandedContent[0]?.length === 0) {
+      return ok({
+        persistedTable,
+        tableForPaste,
+        editableColumns: [],
+        typecast: command.typecast,
+        operationsStream: createEmptyPasteOperationStream(),
+        totalCount: 0,
+        totalChunkCount: 0,
+        batchSize: command.batchSize ?? 1,
+      });
+    }
+
+    const expandedColCount = expandedContent[0]!.length;
+    const numColsToExpand = Math.max(0, startCol + expandedColCount - orderedFieldIds.value.length);
+    let plannedColumnExpansion: PlannedColumnExpansion | undefined;
+    if (numColsToExpand > 0) {
+      const expandResult = await this.planColumnExpansion(context, persistedTable, {
+        numColsToExpand,
+        sourceFields: command.sourceFields,
+      });
+      if (expandResult.isErr()) {
+        return err(expandResult.error);
+      }
+      plannedColumnExpansion = expandResult.value;
+      tableForPaste = expandResult.value.table;
+      if (plannedColumnExpansion.newFieldIds.length > 0) {
+        orderedFieldIds = ok([...orderedFieldIds.value, ...plannedColumnExpansion.newFieldIds]);
+      }
+    }
+
+    const targetFieldIds = orderedFieldIds.value.slice(startCol, startCol + expandedColCount);
+    const editableColumns: EditableColumn[] = [];
+    targetFieldIds.forEach((fieldId, columnIndex) => {
+      const fieldResult = tableForPaste.getField((f) => f.id().equals(fieldId));
+      if (fieldResult.isOk() && !fieldResult.value.computed().toBoolean()) {
+        editableColumns.push({ fieldId, columnIndex });
+      }
+    });
+
+    const effectiveGroup = command.ignoreViewQuery
+      ? command.groupBy ?? undefined
+      : mergedDefaults.group();
+    const groupByOrderByResult = await resolveGroupByToOrderBy(effectiveGroup);
+    if (groupByOrderByResult.isErr()) {
+      return err(groupByOrderByResult.error);
+    }
+    const sortOrderByResult = await resolveOrderBy(effectiveSort);
+    if (sortOrderByResult.isErr()) {
+      return err(sortOrderByResult.error);
+    }
+    const orderBy = mergeOrderByWithViewRowTieBreaker(
+      groupByOrderByResult.value,
+      sortOrderByResult.value,
+      command.viewId.toString()
+    );
+
+    let updateFilterSpec:
+      | ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+      | undefined = undefined;
+    if (command.updateFilter) {
+      const updateFilterSpecResult = await buildRecordConditionSpec(
+        persistedTable,
+        command.updateFilter
+      );
+      if (updateFilterSpecResult.isErr()) {
+        return err(updateFilterSpecResult.error);
+      }
+      updateFilterSpec = updateFilterSpecResult.value;
+    }
+
+    const existingRecordsStream = this.tableRecordQueryRepository.findStream(
+      context,
+      persistedTable,
+      filterSpec,
+      {
+        mode: 'stored',
+        pagination: {
+          offset: startRow,
+          limit: expandedContent.length,
+        },
+        orderBy,
+        search: visibleRowSearch,
+      }
+    );
+
+    const operationsStream = this.generatePasteOperations(
+      existingRecordsStream,
+      expandedContent,
+      persistedTable,
+      updateFilterSpec
+    );
+
+    const batchSize = resolveSelectionStreamBatchSize(expandedContent.length, command.batchSize);
+
+    return ok({
+      persistedTable,
+      tableForPaste,
+      editableColumns,
+      plannedColumnExpansion,
+      typecast: command.typecast,
+      operationsStream,
+      totalCount: expandedContent.length,
+      totalChunkCount: Math.max(1, Math.ceil(expandedContent.length / batchSize)),
+      batchSize,
+    });
+  }
+
+  private buildOperationPastePluginPayload(
+    typecast: boolean,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    totalCount: number
+  ) {
+    return {
+      editableFieldIds: editableColumns.map((column) => column.fieldId),
+      updateRecordIds: [] as RecordId[],
+      updateRecordsFieldValues: [] as ReadonlyMap<string, unknown>[],
+      createRecordsFieldValues: [] as ReadonlyMap<string, unknown>[],
+      typecast,
+      updateRecordCount: 0,
+      createRecordCount: totalCount,
+      recordCount: totalCount,
+    };
+  }
+
+  private async readNextOperationChunk(
+    iterator: AsyncIterator<Result<PasteOperation, DomainError>>,
+    batchSize: number
+  ): Promise<Result<ReadonlyArray<PasteOperation> | null, DomainError>> {
+    const operations: PasteOperation[] = [];
+
+    while (operations.length < batchSize) {
+      const next = await iterator.next();
+      if (next.done) {
+        break;
+      }
+
+      if (next.value.isErr()) {
+        return err(next.value.error);
+      }
+
+      operations.push(next.value.value);
+    }
+
+    return ok(operations.length ? operations : null);
+  }
+
+  private async executePasteChunk(
+    context: ExecutionContextPort.IExecutionContext,
+    params: {
+      table: Table;
+      persistedTable: Table;
+      editableColumns: ReadonlyArray<EditableColumn>;
+      operations: ReadonlyArray<PasteOperation>;
+      typecast: boolean;
+      pluginExecution: RecordWritePluginExecution;
+      batchMutation: ExecutionContextPort.IExecutionContextBatchMutation;
+      plannedColumnExpansion?: PlannedColumnExpansion;
+    }
+  ): Promise<Result<PasteChunkPersistResult, DomainError>> {
+    const chunkEventData: CollectedEventData = {
+      tableEvents: [],
+      updates: [],
+      createdRecords: [],
+      schemaUndoCommands: [],
+      schemaRedoCommands: [],
+      afterCommitHandlers: [],
+    };
+
+    let nextTable = params.table;
+    const persistResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      const txContextWithBatchMutation = withBatchMutation(txContext, params.batchMutation);
+      const beforePersistResult = await params.pluginExecution.beforePersist(
+        txContextWithBatchMutation
+      );
+      if (beforePersistResult.isErr()) {
+        return err(beforePersistResult.error);
+      }
+
+      let tableForChunk = params.table;
+      if (params.plannedColumnExpansion) {
+        const columnExpansionResult = await params.plannedColumnExpansion.apply(
+          txContextWithBatchMutation
+        );
+        if (columnExpansionResult.isErr()) {
+          return err(columnExpansionResult.error);
+        }
+        tableForChunk = columnExpansionResult.value.table;
+        chunkEventData.tableEvents.push(
+          ...columnExpansionResult.value.events,
+          ...columnExpansionResult.value.postPersistEvents
+        );
+        const fieldExpansionUndoRedoPlan =
+          await this.recordWriteUndoRedoPlanService.captureCreatedFields(
+            txContextWithBatchMutation,
+            tableForChunk,
+            params.plannedColumnExpansion.newFieldIds
+          );
+        if (fieldExpansionUndoRedoPlan.isErr()) {
+          return err(fieldExpansionUndoRedoPlan.error);
+        }
+        chunkEventData.schemaUndoCommands.push(...fieldExpansionUndoRedoPlan.value.undoCommands);
+        chunkEventData.schemaRedoCommands.push(...fieldExpansionUndoRedoPlan.value.redoCommands);
+      }
+
+      const streamState: PasteOperationStreamState = {
+        iterator: (async function* () {
+          for (const operation of params.operations) {
+            yield ok(operation);
+          }
+        })()[Symbol.asyncIterator](),
+        tableForMutations: tableForChunk,
+        accumulatedSideEffects: [],
+        resolvedLinkValues: new Map(),
+      };
+
+      const hasUpdates = params.operations.some((operation) => operation.type === 'update');
+      const hasCreates = params.operations.some((operation) => operation.type === 'create');
+
+      if (hasUpdates) {
+        const updateResult = await this.tableRecordRepository.updateManyStream(
+          txContextWithBatchMutation,
+          streamState.tableForMutations,
+          this.createResolvedUpdateBatchStream(
+            txContextWithBatchMutation,
+            streamState,
+            params.typecast,
+            params.editableColumns,
+            params.operations.length,
+            chunkEventData
+          )
+        );
+        if (updateResult.isErr()) {
+          return err(updateResult.error);
+        }
+      }
+
+      if (hasCreates) {
+        const createdRecordBatches: PendingCreatedRecord[][] = [];
+        const createResult = await this.tableRecordRepository.insertManyStream(
+          txContextWithBatchMutation,
+          streamState.tableForMutations,
+          this.createRecordBatchStream(
+            txContextWithBatchMutation,
+            streamState,
+            params.typecast,
+            params.editableColumns,
+            params.operations.length,
+            createdRecordBatches,
+            chunkEventData
+          ),
+          {
+            onBatchInserted: (progress) => {
+              const records = createdRecordBatches[progress.batchIndex] ?? [];
+              for (const record of records) {
+                chunkEventData.createdRecords.push({
+                  recordId: record.recordId,
+                  fields: record.fields,
+                  orders: progress.recordOrders?.get(record.recordId),
+                });
+              }
+            },
+          }
+        );
+        if (createResult.isErr()) {
+          return err(createResult.error);
+        }
+      }
+
+      if (streamState.accumulatedSideEffects.length > 0) {
+        const sideEffectUndoRedoPlan =
+          await this.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
+            txContextWithBatchMutation,
+            tableForChunk,
+            streamState.tableForMutations,
+            streamState.accumulatedSideEffects
+          );
+        if (sideEffectUndoRedoPlan.isErr()) {
+          return err(sideEffectUndoRedoPlan.error);
+        }
+        chunkEventData.schemaUndoCommands.push(...sideEffectUndoRedoPlan.value.undoCommands);
+        chunkEventData.schemaRedoCommands.push(...sideEffectUndoRedoPlan.value.redoCommands);
+      }
+
+      nextTable = streamState.tableForMutations;
+      return ok(undefined);
+    });
+    if (persistResult.isErr()) {
+      return err(persistResult.error);
+    }
+
+    return ok({
+      table: nextTable,
+      eventData: chunkEventData,
+      updatedCount: chunkEventData.updates.length,
+      createdCount: chunkEventData.createdRecords.length,
+      createdRecordIds: chunkEventData.createdRecords.map((record) => record.recordId),
+    });
+  }
+
+  private async publishPasteChunkEvents(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    eventData: CollectedEventData,
+    orchestration: {
+      operationId: string;
+      totalRecordCount: number;
+      totalChunkCount: number;
+      chunkIndex: number;
+    }
+  ): Promise<Result<void, DomainError>> {
+    const events: IDomainEvent[] = [...eventData.tableEvents];
+
+    if (eventData.updates.length > 0) {
+      events.push(
+        RecordsBatchUpdated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          updates: eventData.updates,
+          source: 'user',
+          orchestration: {
+            operationId: orchestration.operationId,
+            groupId: orchestration.operationId,
+            totalRecordCount: orchestration.totalRecordCount,
+            totalChunkCount: orchestration.totalChunkCount,
+            chunkIndex: orchestration.chunkIndex,
+            scope: 'chunk',
+          },
+        })
+      );
+    }
+
+    if (eventData.createdRecords.length > 0) {
+      events.push(
+        RecordsBatchCreated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          records: eventData.createdRecords,
+          orchestration: {
+            operationId: orchestration.operationId,
+            groupId: orchestration.operationId,
+            totalRecordCount: orchestration.totalRecordCount,
+            totalChunkCount: orchestration.totalChunkCount,
+            chunkIndex: orchestration.chunkIndex,
+            scope: 'chunk',
+          },
+        })
+      );
+    }
+
+    if (!events.length) {
+      return ok(undefined);
+    }
+
+    return this.eventBus.publishMany(context, events);
+  }
+
+  private async recordPasteChunkUndoRedoEntry(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    eventData: CollectedEventData,
+    groupId: string
+  ): Promise<Result<void, DomainError>> {
+    const undoCommands: UndoRedoCommandLeafData[] = [];
+    const redoCommands: UndoRedoCommandLeafData[] = [];
+
+    if (eventData.createdRecords.length > 0) {
+      undoCommands.push(
+        createUndoRedoCommand('DeleteRecords', {
+          tableId: table.id().toString(),
+          recordIds: eventData.createdRecords.map((record) => record.recordId),
+        })
+      );
+
+      redoCommands.push(
+        createUndoRedoCommand('RestoreRecords', {
+          tableId: table.id().toString(),
+          records: eventData.createdRecords.map((record) => {
+            const fields: Record<string, unknown> = {};
+            for (const field of record.fields) {
+              fields[field.fieldId] = field.value;
+            }
+
+            return {
+              recordId: record.recordId,
+              fields,
+              orders: record.orders,
+            };
+          }),
+        })
+      );
+    }
+
+    for (const update of eventData.updates) {
+      const oldFields: Record<string, unknown> = {};
+      const newFields: Record<string, unknown> = {};
+      for (const change of update.changes) {
+        oldFields[change.fieldId] = change.oldValue;
+        newFields[change.fieldId] = change.newValue;
+      }
+
+      undoCommands.push(
+        createUndoRedoCommand('UpdateRecord', {
+          tableId: table.id().toString(),
+          recordId: update.recordId,
+          fields: oldFields,
+          fieldKeyType: 'id',
+          typecast: false,
+        })
+      );
+      redoCommands.push(
+        createUndoRedoCommand('UpdateRecord', {
+          tableId: table.id().toString(),
+          recordId: update.recordId,
+          fields: newFields,
+          fieldKeyType: 'id',
+          typecast: false,
+        })
+      );
+    }
+
+    if (
+      !undoCommands.length &&
+      !redoCommands.length &&
+      !eventData.schemaUndoCommands.length &&
+      !eventData.schemaRedoCommands.length
+    ) {
+      return ok(undefined);
+    }
+
+    return this.undoRedoService.recordEntry(context, table.id(), {
+      groupId,
+      undoCommand: composeUndoRedoCommands([...undoCommands, ...eventData.schemaUndoCommands]),
+      redoCommand: composeUndoRedoCommands([...eventData.schemaRedoCommands, ...redoCommands]),
+    });
+  }
+
+  private createProgressEvent(
+    phase: PasteStreamProgressEvent['phase'],
+    totalCount: number,
+    processedCount: number,
+    updatedCount: number,
+    createdCount: number,
+    batchIndex: number,
+    batchProcessedCount: number
+  ): PasteStreamProgressEvent {
+    return {
+      id: 'progress',
+      phase,
+      batchIndex,
+      totalCount,
+      processedCount,
+      updatedCount,
+      createdCount,
+      batchProcessedCount,
+    };
+  }
+
+  private createDoneEvent(
+    summary: {
+      totalCount: number;
+      processedCount: number;
+      updatedCount: number;
+      createdCount: number;
+      createdRecordIds: string[];
+    },
+    totalCount: number
+  ): PasteStreamDoneEvent {
+    return {
+      id: 'done',
+      totalCount,
+      processedCount: summary.processedCount,
+      updatedCount: summary.updatedCount,
+      createdCount: summary.createdCount,
+      data: {
+        updatedCount: summary.updatedCount,
+        createdCount: summary.createdCount,
+        createdRecordIds: summary.createdRecordIds,
+      },
+    };
+  }
+
+  private createErrorEvent(
+    error: DomainError,
+    summary: {
+      phase: PasteStreamErrorEvent['phase'];
+      batchIndex: number;
+      totalCount: number;
+      processedCount: number;
+      updatedCount: number;
+      createdCount: number;
+      recordIds: string[];
+    }
+  ): PasteStreamErrorEvent {
+    return {
+      id: 'error',
+      phase: summary.phase,
+      batchIndex: summary.batchIndex,
+      totalCount: summary.totalCount,
+      processedCount: summary.processedCount,
+      updatedCount: summary.updatedCount,
+      createdCount: summary.createdCount,
+      recordIds: summary.recordIds,
+      message: error.message,
+      code: error.code,
+    };
   }
 }
 
@@ -1753,4 +2975,10 @@ function expandPasteContent(
       (_, colIdx) => content[rowIdx % contentRows]![colIdx % contentCols]
     )
   );
+}
+
+async function* createEmptyPasteOperationStream(): AsyncIterable<
+  Result<PasteOperation, DomainError>
+> {
+  yield* [];
 }
