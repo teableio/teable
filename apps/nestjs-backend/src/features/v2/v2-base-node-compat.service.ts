@@ -3,6 +3,9 @@ import type { IBaseNodePresenceFlushPayload } from '@teable/openapi';
 import {
   ProjectionHandler,
   TableCreated,
+  TableDeleted,
+  TableRestored,
+  TableTrashed,
   ok,
   type DomainError,
   type IEventHandler,
@@ -17,7 +20,12 @@ import { presenceHandler } from '../base-node/helper';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 @ProjectionHandler(TableCreated)
-class V2TableCreatedBaseNodeProjection implements IEventHandler<TableCreated> {
+@ProjectionHandler(TableTrashed)
+@ProjectionHandler(TableDeleted)
+@ProjectionHandler(TableRestored)
+export class V2TableBaseNodeProjection
+  implements IEventHandler<TableCreated | TableTrashed | TableDeleted | TableRestored>
+{
   constructor(
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly shareDbService: ShareDbService
@@ -25,7 +33,7 @@ class V2TableCreatedBaseNodeProjection implements IEventHandler<TableCreated> {
 
   async handle(
     _context: IExecutionContext,
-    event: TableCreated
+    event: TableCreated | TableTrashed | TableDeleted | TableRestored
   ): Promise<Result<void, DomainError>> {
     const baseId = event.baseId.toString();
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
@@ -58,8 +66,8 @@ export class V2BaseNodeCompatService implements IV2ProjectionRegistrar {
     this.logger.log('Registering V2 base-node compatibility projections');
 
     container.registerInstance(
-      V2TableCreatedBaseNodeProjection,
-      new V2TableCreatedBaseNodeProjection(this.performanceCacheService, this.shareDbService)
+      V2TableBaseNodeProjection,
+      new V2TableBaseNodeProjection(this.performanceCacheService, this.shareDbService)
     );
   }
 }

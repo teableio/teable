@@ -132,6 +132,81 @@ export const createForeignKeyConstraintStatement = (
 };
 
 /**
+ * Creates a FK constraint statement that resolves the target physical table from table_meta.
+ * This is needed for legacy/custom db_table_name values that do not match logical table ids.
+ */
+export const createForeignKeyConstraintStatementFromTableMeta = (
+  sourceTable: TableIdentifier,
+  constraintName: string,
+  columnName: string,
+  targetTableMetaId: string,
+  targetColumn: string,
+  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
+  fallbackTargetTable?: TableIdentifier
+): TableSchemaStatementBuilder => {
+  const sourceTableFull = quoteTableIdentifier(sourceTable);
+  const fallbackTargetSchema = fallbackTargetTable?.schema ?? 'public';
+  const fallbackTargetName = fallbackTargetTable?.tableName ?? '';
+
+  return sql.raw(
+    compressSql(`
+      DO $$
+      DECLARE
+        target_tbl text;
+        target_schema text;
+        target_name text;
+      BEGIN
+        IF to_regclass('public.table_meta') IS NULL THEN
+          target_schema := ${quoteLiteral(fallbackTargetSchema)};
+          target_name := ${quoteLiteral(fallbackTargetName)};
+        ELSE
+          SELECT db_table_name INTO target_tbl
+          FROM table_meta
+          WHERE id = ${quoteLiteral(targetTableMetaId)} AND deleted_time IS NULL
+          LIMIT 1;
+
+          IF target_tbl IS NULL THEN
+            target_schema := ${quoteLiteral(fallbackTargetSchema)};
+            target_name := ${quoteLiteral(fallbackTargetName)};
+          ELSIF strpos(target_tbl, '.') > 0 THEN
+            target_schema := split_part(target_tbl, '.', 1);
+            target_name := split_part(target_tbl, '.', 2);
+          ELSE
+            target_schema := 'public';
+            target_name := target_tbl;
+          END IF;
+        END IF;
+
+        IF target_name IS NULL OR target_name = '' THEN
+          RETURN;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = target_schema
+            AND table_name = target_name
+        ) THEN
+          BEGIN
+            EXECUTE format(
+              'ALTER TABLE ${sourceTableFull} ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I.%I (%I) ON DELETE ${onDelete}',
+              ${quoteLiteral(constraintName)},
+              ${quoteLiteral(columnName)},
+              target_schema,
+              target_name,
+              ${quoteLiteral(targetColumn)}
+            );
+          EXCEPTION WHEN duplicate_object THEN
+            NULL;
+          END;
+        END IF;
+      END
+      $$;
+    `)
+  );
+};
+
+/**
  * Creates an ADD GENERATED COLUMN statement.
  */
 export const addGeneratedColumnStatement = (

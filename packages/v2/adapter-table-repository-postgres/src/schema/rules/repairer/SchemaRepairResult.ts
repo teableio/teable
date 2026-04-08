@@ -1,10 +1,14 @@
+import type { SchemaRuleDetailItem, SchemaRuleRepairHint } from '../core/ISchemaRule';
+
 export type SchemaRepairStatus = 'success' | 'error' | 'warn' | 'pending' | 'running' | 'skipped';
 
 export type SchemaRepairOutcome = 'repaired' | 'unchanged' | 'manual' | 'skipped';
 
 export interface SchemaRepairDetails {
   missing?: ReadonlyArray<string>;
+  missingItems?: ReadonlyArray<SchemaRuleDetailItem>;
   extra?: ReadonlyArray<string>;
+  extraItems?: ReadonlyArray<SchemaRuleDetailItem>;
   statementCount?: number;
 }
 
@@ -18,6 +22,7 @@ export interface SchemaRepairResult {
   outcome?: SchemaRepairOutcome;
   message?: string;
   details?: SchemaRepairDetails;
+  repair?: SchemaRuleRepairHint;
   required: boolean;
   timestamp: number;
   dependencies: ReadonlyArray<string>;

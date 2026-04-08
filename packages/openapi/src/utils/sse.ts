@@ -2,6 +2,12 @@ import { axios } from '../axios';
 
 const defaultIgnoredResultIds = new Set(['connect', 'complete']);
 
+const hasToJson = (headers: unknown): headers is { toJSON: () => unknown } =>
+  typeof headers === 'object' &&
+  headers != null &&
+  'toJSON' in headers &&
+  typeof (headers as { toJSON?: unknown }).toJSON === 'function';
+
 const toHeaderRecord = (
   headers?: RequestInit['headers'] | Record<string, unknown>
 ): Record<string, string> => {
@@ -9,8 +15,16 @@ const toHeaderRecord = (
     return {};
   }
 
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+
   if (Array.isArray(headers)) {
     return Object.fromEntries(headers);
+  }
+
+  if (hasToJson(headers)) {
+    return toHeaderRecord(headers.toJSON() as Record<string, unknown>);
   }
 
   return Object.fromEntries(
@@ -21,10 +35,23 @@ const toHeaderRecord = (
 };
 
 export const buildSSERequestHeaders = (
+  method?: string,
   headers?: RequestInit['headers']
 ): Record<string, string> => {
+  const resolvedMethod = method?.toLowerCase() ?? 'get';
+  const methodHeaders =
+    resolvedMethod in axios.defaults.headers
+      ? toHeaderRecord(
+          (axios.defaults.headers as Record<string, unknown>)[resolvedMethod] as
+            | RequestInit['headers']
+            | Record<string, unknown>
+            | undefined
+        )
+      : {};
+
   return {
     ...toHeaderRecord(axios.defaults.headers.common),
+    ...methodHeaders,
     Accept: 'text/event-stream',
     ...toHeaderRecord(headers),
   };
@@ -103,7 +130,7 @@ export const streamSSE = async <T extends { id: string }>(
   const response = await fetch(input, {
     ...init,
     credentials: 'include',
-    headers: buildSSERequestHeaders(init.headers),
+    headers: buildSSERequestHeaders(init.method, init.headers),
   });
 
   if (!response.ok) {
