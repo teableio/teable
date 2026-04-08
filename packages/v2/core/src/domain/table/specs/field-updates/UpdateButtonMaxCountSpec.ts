@@ -60,6 +60,7 @@ export class UpdateButtonMaxCountSpec<
       maxCount: this.nextMaxCountValue,
       resetCount: field.resetCount(),
       workflow: field.workflow(),
+      confirm: field.confirm(),
     });
     if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
 

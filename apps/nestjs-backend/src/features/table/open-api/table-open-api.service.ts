@@ -763,14 +763,21 @@ export class TableOpenApiService {
 
   async getPermission(baseId: string, tableId: string): Promise<ITablePermissionVo> {
     const baseShare = this.cls.get('baseShare');
-    if (
-      this.cls.get('template') ||
-      this.cls.get('template.baseId') === baseId ||
-      baseShare?.baseId === baseId
-    ) {
+    if (this.cls.get('template') || this.cls.get('template.baseId') === baseId) {
       return this.getPermissionByPermissionMap(
         TemplateRolePermission as Record<BasePermission, boolean>
       );
+    }
+    if (baseShare?.baseId === baseId) {
+      const clsPermissions = new Set(this.cls.get('permissions'));
+      // Build permission map from CLS permissions (already curated by permission service)
+      const permissionMap = { ...TemplateRolePermission } as Record<BasePermission, boolean>;
+      for (const perm of Object.keys(permissionMap) as BasePermission[]) {
+        if (clsPermissions.has(perm)) {
+          permissionMap[perm as BasePermission] = true;
+        }
+      }
+      return this.getPermissionByPermissionMap(permissionMap);
     }
     let role: IRole | null = await this.permissionService.getRoleByBaseId(baseId);
     if (!role) {

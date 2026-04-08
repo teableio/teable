@@ -16,6 +16,10 @@ import {
   type IFilterSet,
 } from '@teable/core';
 import type {
+  IClearSelectionStreamEvent,
+  IDeleteSelectionStreamEvent,
+  IDuplicateSelectionStreamEvent,
+  IPasteSelectionStreamEvent,
   IUpdateRecordRo,
   IFormSubmitRo,
   IRecord,
@@ -30,6 +34,7 @@ import type {
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import { RangeType } from '@teable/openapi';
+import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   executeCreateRecordsEndpoint,
   executeSubmitRecordEndpoint,
@@ -40,21 +45,29 @@ import {
   executeUpdateRecordEndpoint,
   executeUpdateRecordsEndpoint,
   executeDuplicateRecordEndpoint,
-  executeReorderRecordsEndpoint,
   executeListTableRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
-import type {
-  ICommandBus,
-  IExecutionContext,
-  IListTableRecordsQueryInput,
-  IQueryBus,
-  RecordFilter,
-  RecordFilterDateValue,
-  RecordFilterGroup,
-  RecordFilterNode,
-  RecordFilterOperator,
-  RecordFilterValue,
+import {
+  ClearStreamCommand,
+  DeleteByRangeStreamCommand,
+  DuplicateRecordsStreamCommand,
+  PasteStreamCommand,
+  type ClearStreamResult,
+  type DeleteByRangeStreamResult,
+  type DuplicateRecordsStreamResult,
+  type ICommandBus,
+  type IExecutionContext,
+  type IListTableRecordsQueryInput,
+  type IPasteCommandInput,
+  type IQueryBus,
+  type PasteStreamResult,
+  type RecordFilter,
+  type RecordFilterDateValue,
+  type RecordFilterGroup,
+  type RecordFilterNode,
+  type RecordFilterOperator,
+  type RecordFilterValue,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
@@ -142,6 +155,23 @@ export class RecordOpenApiV2Service {
     await this.cacheService.del(key);
   }
 
+  private wrapStreamAndClearPreference<T extends { id: string }>(
+    stream: AsyncIterable<T>,
+    tableId: string
+  ): AsyncIterable<T> {
+    const clearUndoRedoEnginePreference = this.clearUndoRedoEnginePreference.bind(this);
+    return {
+      async *[Symbol.asyncIterator]() {
+        for await (const event of stream) {
+          if (event.id === 'done') {
+            await clearUndoRedoEnginePreference(tableId).catch(() => undefined);
+          }
+          yield event;
+        }
+      },
+    };
+  }
+
   private mergeDuplicateRecordUpdates(
     records: NonNullable<IUpdateRecordsRo['records']>
   ): NonNullable<IUpdateRecordsRo['records']> {
@@ -203,7 +233,8 @@ export class RecordOpenApiV2Service {
     const snapshotProjection = await this.resolveSnapshotProjection(
       tableId,
       query,
-      requestedFieldKeyType
+      requestedFieldKeyType,
+      enabledFieldIds
     );
     const normalizedFilter = await this.normalizeFilterForV2(tableId, query.filter);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(
@@ -303,7 +334,9 @@ export class RecordOpenApiV2Service {
     }
 
     const sortedFieldIdSet = new Set(sortedFieldIds);
-    const fields = await this.fieldService.getFieldsByQuery(tableId);
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
+      projection: Array.from(sortedFieldIdSet),
+    });
     const formatters = fields.flatMap((field) => {
       if (!sortedFieldIdSet.has(field.id)) {
         return [];
@@ -382,13 +415,34 @@ export class RecordOpenApiV2Service {
   private async resolveSnapshotProjection(
     tableId: string,
     query: IGetRecordsRo,
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    enabledFieldIds?: string[]
   ): Promise<Record<string, boolean> | undefined> {
     const explicitProjection = this.toProjectionMap(
       query.projection as unknown as string | string[]
     );
     if (explicitProjection) {
       return explicitProjection;
+    }
+
+    if (enabledFieldIds?.length) {
+      if (fieldKeyType === FieldKeyType.Id) {
+        return this.toProjectionMap(enabledFieldIds);
+      }
+
+      const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
+        projection: enabledFieldIds,
+      });
+      const projectionKeys = visibleFields
+        .map((field) => {
+          if (fieldKeyType === FieldKeyType.Name) {
+            return field.name;
+          }
+          return field.dbFieldName || field.name;
+        })
+        .filter((key): key is string => Boolean(key));
+
+      return this.toProjectionMap(projectionKeys);
     }
 
     if (query.ignoreViewQuery || !query.viewId) {
@@ -526,7 +580,7 @@ export class RecordOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
 
-    if (hasFields) {
+    if (hasFields || (hasOrder && order)) {
       // Convert v1 input format to v2 format
       // v1: { record: { fields: { fieldKey: value } } }
       // v2: { tableId, recordId, fields: { fieldId: value } }
@@ -558,47 +612,8 @@ export class RecordOpenApiV2Service {
       }
 
       await this.clearUndoRedoEnginePreference(tableId);
-    }
 
-    if (!hasFields && hasOrder && order) {
-      const reorderResult = await executeReorderRecordsEndpoint(
-        context,
-        {
-          tableId,
-          recordIds: [recordId],
-          order: {
-            viewId: order.viewId,
-            anchorId: order.anchorId,
-            position: order.position,
-          },
-        },
-        commandBus
-      );
-      if (!(reorderResult.status === 200 && reorderResult.body.ok)) {
-        if (!reorderResult.body.ok) {
-          this.throwV2Error(reorderResult.body.error, reorderResult.status);
-        }
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      await this.clearUndoRedoEnginePreference(tableId);
-    }
-
-    if (hasFields || hasOrder) {
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        [recordId],
-        undefined,
-        updateRecordRo.fieldKeyType || FieldKeyType.Name,
-        undefined,
-        true
-      );
-
-      if (snapshots.length === 1) {
-        return snapshots[0].data as IRecord;
-      }
-
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      return result.body.data.record;
     }
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
@@ -653,36 +668,21 @@ export class RecordOpenApiV2Service {
 
     await this.clearUndoRedoEnginePreference(tableId);
 
-    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-      tableId,
-      recordIds,
-      undefined,
-      updateRecordsRo.fieldKeyType || FieldKeyType.Name,
-      undefined,
-      true
+    if (!updateResult.body.data.records) {
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    routeSpan?.setAttribute(
+      'record.update.response.recordCount',
+      updateResult.body.data.records.length
     );
-
-    if (snapshots.length !== recordIds.length) {
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    const snapshotMap = new Map(snapshots.map((snapshot) => [snapshot.data.id, snapshot.data]));
-    const resultRecords = recordIds
-      .map((recordId) => snapshotMap.get(recordId))
-      .filter((record): record is IRecord => Boolean(record));
-
-    if (resultRecords.length !== recordIds.length) {
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    routeSpan?.setAttribute('record.update.response.recordCount', resultRecords.length);
-    return resultRecords;
+    return updateResult.body.data.records;
   }
 
   async createRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
-    isAiInternal?: string
+    _isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -705,35 +705,9 @@ export class RecordOpenApiV2Service {
 
     if (result.status === 201 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
-
-      const recordIds = result.body.data.records.map((record) => record.id);
-      if (recordIds.length === 0) {
-        return { records: [] };
-      }
-
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        recordIds,
-        undefined,
-        createRecordsRo.fieldKeyType || FieldKeyType.Name,
-        undefined,
-        true
-      );
-
-      if (snapshots.length !== recordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      const snapshotMap = new Map(snapshots.map((snapshot) => [snapshot.data.id, snapshot.data]));
-      const resultRecords = recordIds
-        .map((recordId) => snapshotMap.get(recordId))
-        .filter((record): record is IRecord => Boolean(record));
-
-      if (resultRecords.length !== recordIds.length) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      return { records: resultRecords };
+      return {
+        records: result.body.data.records as IRecord[],
+      };
     }
 
     if (!result.body.ok) {
@@ -761,22 +735,7 @@ export class RecordOpenApiV2Service {
 
     if (result.status === 201 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
-
-      const recordId = result.body.data.record.id;
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        [recordId],
-        undefined,
-        FieldKeyType.Id,
-        undefined,
-        true
-      );
-
-      if (snapshots.length !== 1) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      return snapshots[0].data as IRecord;
+      return result.body.data.record as IRecord;
     }
 
     if (!result.body.ok) {
@@ -804,15 +763,122 @@ export class RecordOpenApiV2Service {
         [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
       }
     )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
-    const windowId = options?.windowId;
-    const tracer = trace.getTracer('default');
+    const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
+    const result = await executePasteEndpoint(context, preparedPaste.commandInput, commandBus);
 
-    // Convert v1 input format to v2 format
-    // v1 ranges format depends on type:
-    // - default (cell range): [[startCol, startRow], [endCol, endRow]]
-    // - columns: [[startCol, endCol]] - single element array
-    // - rows: [[startRow, endRow]] - single element array
-    // v2 now supports type parameter directly and handles the conversion internally
+    if (result.status === 200 && result.body.ok) {
+      await this.clearUndoRedoEnginePreference(tableId);
+
+      // V2 returns { updatedCount, createdCount, createdRecordIds }
+      // V1 expects { ranges: [[startCol, startRow], [endCol, endRow]] }
+      // Use truncatedRows (content size) for range calculation, not operation count,
+      // because some rows may be skipped due to permission filters
+      const finalCols = preparedPaste.finalContent[0]?.length ?? 1;
+
+      // Note: Record creation and schema expansion undo/redo are handled by V2.
+
+      // Best-effort: normalize v1 range formats (cell/rows/columns) into a cell range.
+      // v1 "ranges" uses `cellSchema` for all modes:
+      // - default: [col, row]
+      // - columns: [startCol, endCol]
+      // - rows: [startRow, endRow]
+      if (preparedPaste.type === 'columns') {
+        const endCol = preparedPaste.startCol + finalCols - 1;
+        return {
+          ranges: [
+            [preparedPaste.startCol, 0],
+            [endCol, Math.max(preparedPaste.truncatedRows - 1, 0)],
+          ],
+        };
+      }
+
+      if (preparedPaste.type === 'rows') {
+        const endRow = preparedPaste.ranges[0]![1];
+        return {
+          ranges: [
+            [0, preparedPaste.startRow],
+            [Math.max(finalCols - 1, 0), endRow],
+          ],
+        };
+      }
+
+      const endRow = preparedPaste.startRow + Math.max(preparedPaste.truncatedRows - 1, 0);
+      const endCol = preparedPaste.startCol + finalCols - 1;
+      return {
+        ranges: [
+          [preparedPaste.startCol, preparedPaste.startRow],
+          [endCol, Math.max(endRow, preparedPaste.startRow)],
+        ],
+      };
+    }
+
+    if (!result.body.ok) {
+      this.throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async pasteStream(
+    tableId: string,
+    pasteRo: IPasteRo,
+    options?: {
+      updateFilter?: IFilterSet | null;
+      windowId?: string;
+      allowFieldExpansion?: boolean;
+      allowRecordExpansion?: boolean;
+    }
+  ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext();
+    (
+      context as IExecutionContext & {
+        [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
+      }
+    )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
+
+    const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
+    const commandResult = PasteStreamCommand.create(preparedPaste.commandInput);
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<PasteStreamCommand, PasteStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  private async preparePasteCommandInput(
+    tableId: string,
+    pasteRo: IPasteRo,
+    options?: {
+      updateFilter?: IFilterSet | null;
+      allowFieldExpansion?: boolean;
+      allowRecordExpansion?: boolean;
+    }
+  ): Promise<{
+    commandInput: IPasteCommandInput;
+    finalContent: unknown[][];
+    startCol: number;
+    startRow: number;
+    truncatedRows: number;
+    type: IPasteRo['type'];
+    ranges: IPasteRo['ranges'];
+  }> {
+    const tracer = trace.getTracer('default');
     const {
       ranges,
       content,
@@ -828,26 +894,17 @@ export class RecordOpenApiV2Service {
       ignoreViewQuery,
     } = pasteRo;
 
-    let v2Input: unknown;
-    let finalContent: unknown[][] = [];
-    let startCol = 0;
-    let startRow = 0;
-    let truncatedRows = 0;
-
-    await tracer.startActiveSpan('teable.paste.v2.prepare', async (span) => {
+    return tracer.startActiveSpan('teable.paste.v2.prepare', async (span) => {
       try {
-        // Parse content if it's a string (tab-separated values)
         let parsedContent: unknown[][] =
           typeof content === 'string' ? this.parseCopyContent(content) : content;
 
-        // Get permissions to check for field|create and record|create
         const permissions = this.cls.get('permissions') ?? [];
         const hasFieldCreatePermission =
           options?.allowFieldExpansion ?? permissions.includes('field|create');
         const hasRecordCreatePermission =
           options?.allowRecordExpansion ?? permissions.includes('record|create');
 
-        // Get table size to calculate expansion needs
         const rangeQuery = await this.normalizeRangeQuery(tableId, {
           viewId,
           filter,
@@ -877,22 +934,19 @@ export class RecordOpenApiV2Service {
           tableId,
           queryRo
         );
-
         const tableSize: [number, number] = [fields.length, rowCountInView];
 
-        // Calculate start cell based on range type
+        let startCol = 0;
+        let startRow = 0;
         if (type === 'columns') {
           startCol = ranges[0]![0];
-          startRow = 0;
         } else if (type === 'rows') {
-          startCol = 0;
           startRow = ranges[0]![0];
         } else {
           startCol = ranges[0]![0];
           startRow = ranges[0]![1];
         }
 
-        // Expand paste content to fill selection (matches V1 behavior)
         parsedContent = this.expandPasteContent(
           parsedContent,
           type,
@@ -905,23 +959,16 @@ export class RecordOpenApiV2Service {
 
         const contentCols = parsedContent[0]?.length ?? 0;
         const contentRows = parsedContent.length;
-
-        // Calculate expansion needs
         const numColsToExpand = Math.max(0, startCol + contentCols - tableSize[0]);
         const numRowsToExpand = Math.max(0, startRow + contentRows - tableSize[1]);
-
-        // Apply permission-based limits (like V1's calculateExpansion)
         const effectiveColsToExpand = hasFieldCreatePermission ? numColsToExpand : 0;
         const effectiveRowsToExpand = hasRecordCreatePermission ? numRowsToExpand : 0;
-
-        // Truncate content if expansion is not allowed
-        finalContent = parsedContent;
         const maxCols = tableSize[0] - startCol + effectiveColsToExpand;
         const maxRows = tableSize[1] - startRow + effectiveRowsToExpand;
 
-        // Track if we need to adjust ranges due to truncation
         let truncatedCols = contentCols;
-        truncatedRows = contentRows;
+        let truncatedRows = contentRows;
+        let finalContent = parsedContent;
 
         if (contentCols > maxCols || contentRows > maxRows) {
           truncatedRows = Math.min(contentRows, maxRows);
@@ -931,19 +978,14 @@ export class RecordOpenApiV2Service {
             .map((row) => row.slice(0, truncatedCols));
         }
 
-        // Adjust ranges to match truncated content (prevents V2 core from re-expanding)
         let adjustedRanges = ranges;
         if (type === undefined && finalContent.length > 0 && finalContent[0]?.length > 0) {
-          // For cell type, adjust end position to match truncated content
-          const adjustedEndCol = startCol + truncatedCols - 1;
-          const adjustedEndRow = startRow + truncatedRows - 1;
           adjustedRanges = [
             [startCol, startRow],
-            [adjustedEndCol, adjustedEndRow],
+            [startCol + truncatedCols - 1, startRow + truncatedRows - 1],
           ];
         }
 
-        // Convert header to sourceFields format if provided
         const sourceFields = header?.map((field) => ({
           name: field.name,
           type: field.type,
@@ -953,7 +995,6 @@ export class RecordOpenApiV2Service {
           isMultipleCellValue: field.isMultipleCellValue,
           options: field.options,
         }));
-
         const normalizedFilter = await this.normalizeFilterForV2(tableId, queryRo.filter);
         const normalizedUpdateFilter = options?.updateFilter
           ? await this.normalizeFilterForV2(tableId, options.updateFilter)
@@ -962,89 +1003,38 @@ export class RecordOpenApiV2Service {
           rangeQuery.groupBy,
           rangeQuery.orderBy
         );
-        v2Input = {
-          tableId,
-          viewId: rangeQuery.viewId,
-          ranges: adjustedRanges,
-          content: finalContent,
-          typecast: true,
-          sourceFields,
-          type, // Pass type to v2 for internal handling
-          projection,
-          // Let v2 core interpret the legacy search tuple via RecordSearch so
-          // search-aware row mapping and field/operator compatibility stay aligned.
-          filter: normalizedFilter,
-          search: rangeQuery.search,
-          updateFilter: normalizedUpdateFilter,
-          sort: sortWithGroupFallback,
-          groupBy: rangeQuery.groupBy?.map((item) => ({
-            fieldId: item.fieldId,
-            order: item.order,
-          })),
-          ignoreViewQuery: rangeQuery.ignoreViewQuery,
+
+        return {
+          commandInput: {
+            tableId,
+            viewId: rangeQuery.viewId,
+            ranges: adjustedRanges,
+            content: finalContent,
+            typecast: true,
+            sourceFields,
+            type,
+            projection,
+            filter: normalizedFilter,
+            search: rangeQuery.search,
+            updateFilter: normalizedUpdateFilter,
+            sort: sortWithGroupFallback,
+            groupBy: rangeQuery.groupBy?.map((item) => ({
+              fieldId: item.fieldId,
+              order: item.order,
+            })),
+            ignoreViewQuery: rangeQuery.ignoreViewQuery,
+          },
+          finalContent,
+          startCol,
+          startRow,
+          truncatedRows,
+          type,
+          ranges,
         };
       } finally {
         span.end();
       }
     });
-
-    if (!v2Input) {
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    const result = await executePasteEndpoint(context, v2Input, commandBus);
-
-    if (result.status === 200 && result.body.ok) {
-      await this.clearUndoRedoEnginePreference(tableId);
-
-      // V2 returns { updatedCount, createdCount, createdRecordIds }
-      // V1 expects { ranges: [[startCol, startRow], [endCol, endRow]] }
-      // Use truncatedRows (content size) for range calculation, not operation count,
-      // because some rows may be skipped due to permission filters
-      const finalCols = finalContent[0]?.length ?? 1;
-
-      // Note: Record creation and schema expansion undo/redo are handled by V2.
-
-      // Best-effort: normalize v1 range formats (cell/rows/columns) into a cell range.
-      // v1 "ranges" uses `cellSchema` for all modes:
-      // - default: [col, row]
-      // - columns: [startCol, endCol]
-      // - rows: [startRow, endRow]
-      if (type === 'columns') {
-        const endCol = startCol + finalCols - 1;
-        return {
-          ranges: [
-            [startCol, 0],
-            [endCol, Math.max(truncatedRows - 1, 0)],
-          ],
-        };
-      }
-
-      if (type === 'rows') {
-        const endRow = ranges[0]![1];
-        return {
-          ranges: [
-            [0, startRow],
-            [Math.max(finalCols - 1, 0), endRow],
-          ],
-        };
-      }
-
-      const endRow = startRow + Math.max(truncatedRows - 1, 0);
-      const endCol = startCol + finalCols - 1;
-      return {
-        ranges: [
-          [startCol, startRow],
-          [endCol, Math.max(endRow, startRow)],
-        ],
-      };
-    }
-
-    if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
-    }
-
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   /**
@@ -1144,6 +1134,54 @@ export class RecordOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async clearStream(
+    tableId: string,
+    rangesRo: IRangesRo
+  ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext();
+
+    const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
+    const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = ClearStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: rangesRo.ranges,
+      type: rangesRo.type,
+      projection: rangesRo.projection,
+      filter: normalizedFilter,
+      search: rangeQuery.search,
+      sort: sortWithGroupFallback,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<ClearStreamCommand, ClearStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
   }
 
   /**
@@ -1271,6 +1309,104 @@ export class RecordOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async deleteByRangeStream(
+    tableId: string,
+    rangesRo: IRangesRo
+  ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext();
+
+    const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = DeleteByRangeStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: rangesRo.ranges,
+      type: rangesRo.type,
+      filter: await this.normalizeFilterForV2(tableId, rangeQuery.filter),
+      sort: sortWithGroupFallback?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      search: rangeQuery.search,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  async duplicateByRangeStream(
+    tableId: string,
+    rangesRo: IRangesRo
+  ): Promise<AsyncIterable<IDuplicateSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext();
+
+    const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = DuplicateRecordsStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: rangesRo.ranges,
+      type: rangesRo.type,
+      filter: await this.normalizeFilterForV2(tableId, rangeQuery.filter),
+      sort: sortWithGroupFallback?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      search: rangeQuery.search,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<
+      DuplicateRecordsStreamCommand,
+      DuplicateRecordsStreamResult
+    >(context, commandResult.value);
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
   }
 
   async deleteRecords(
@@ -1848,24 +1984,7 @@ export class RecordOpenApiV2Service {
 
     if (result.status === 201 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
-
-      const duplicatedRecordId = result.body.data.record.id;
-
-      // Use V1 to get the full record with proper field key mapping
-      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        [duplicatedRecordId],
-        undefined,
-        FieldKeyType.Name,
-        undefined,
-        true
-      );
-
-      if (snapshots.length !== 1 || !snapshots[0]) {
-        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      return snapshots[0].data as IRecord;
+      return result.body.data.record as IRecord;
     }
 
     if (!result.body.ok) {

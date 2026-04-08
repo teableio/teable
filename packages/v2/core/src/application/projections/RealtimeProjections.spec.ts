@@ -18,8 +18,8 @@ import { TableCreated } from '../../domain/table/events/TableCreated';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
@@ -29,8 +29,8 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
+import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
 import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
@@ -45,6 +45,7 @@ import { RecordsBatchCreatedRealtimeProjection } from './RecordsBatchCreatedReal
 import { RecordsBatchUpdatedRealtimeProjection } from './RecordsBatchUpdatedRealtimeProjection';
 import { RecordsDeletedRealtimeProjection } from './RecordsDeletedRealtimeProjection';
 import { RecordUpdatedRealtimeProjection } from './RecordUpdatedRealtimeProjection';
+import { REALTIME_TASK_CONCURRENCY_LIMIT } from './runRealtimeTasks';
 import { TableCreatedRealtimeProjection } from './TableCreatedRealtimeProjection';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 import { ViewColumnMetaUpdatedRealtimeProjection } from './ViewColumnMetaUpdatedRealtimeProjection';
@@ -411,6 +412,159 @@ describe('Realtime projections', () => {
     });
   });
 
+  it('skips per-record realtime creates for large batch creations when orchestration carries total count', async () => {
+    const table = buildTable('1', '2', '3');
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+
+    const event = RecordsBatchCreated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      records: [
+        {
+          recordId: `rec${'a'.repeat(16)}`,
+          fields: [{ fieldId: table.primaryFieldId().toString(), value: 'Record A' }],
+        },
+      ],
+      orchestration: {
+        totalRecordCount: 2000,
+        totalChunkCount: 4,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+  });
+
+  it('skips per-record realtime creates when streamed orchestration reaches the total threshold', async () => {
+    const table = buildTable('1', '2', '3');
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+
+    const event = RecordsBatchCreated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      records: [
+        {
+          recordId: `rec${'a'.repeat(16)}`,
+          fields: [{ fieldId: table.primaryFieldId().toString(), value: 'Record A' }],
+        },
+      ],
+      orchestration: {
+        totalRecordCount: 1000,
+        totalChunkCount: 5,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+  });
+
+  it('dispatches record creations without serially awaiting each realtime ensure', async () => {
+    const table = buildTable('1', '2', '3');
+    const startOrder: string[] = [];
+    const resolvers: Array<() => void> = [];
+    const engine: IRealtimeEngine = {
+      ensure: async (_context, docId) => {
+        startOrder.push(docId.toString());
+        await new Promise<void>((resolve) => {
+          resolvers.push(resolve);
+        });
+        return ok(undefined);
+      },
+      applyChange: async () => ok(undefined),
+      delete: async () => ok(undefined),
+    };
+    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+
+    const event = RecordsBatchCreated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      records: [
+        {
+          recordId: `rec${'a'.repeat(16)}`,
+          fields: [{ fieldId: table.primaryFieldId().toString(), value: 'Record A' }],
+        },
+        {
+          recordId: `rec${'b'.repeat(16)}`,
+          fields: [{ fieldId: table.primaryFieldId().toString(), value: 'Record B' }],
+        },
+      ],
+    });
+
+    const handlePromise = projection.handle(createContext(), event);
+    while (startOrder.length < 2) {
+      await Promise.resolve();
+    }
+
+    expect(startOrder).toHaveLength(2);
+
+    for (const resolve of resolvers) {
+      resolve();
+    }
+
+    const result = await handlePromise;
+    result._unsafeUnwrap();
+  });
+
+  it('bounds batch record creation realtime concurrency', async () => {
+    const table = buildTable('1', '2', '3');
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let block = true;
+    const resolvers = new Map<string, () => void>();
+    const engine: IRealtimeEngine = {
+      ensure: async (_context, docId) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+
+        if (block) {
+          await new Promise<void>((resolve) => {
+            resolvers.set(docId.toString(), resolve);
+          });
+        }
+
+        inFlight -= 1;
+        return ok(undefined);
+      },
+      applyChange: async () => ok(undefined),
+      delete: async () => ok(undefined),
+    };
+    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+
+    const event = RecordsBatchCreated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      records: Array.from({ length: REALTIME_TASK_CONCURRENCY_LIMIT + 8 }, (_, index) => ({
+        recordId: `rec${index.toString().padStart(16, '0')}`,
+        fields: [{ fieldId: table.primaryFieldId().toString(), value: `Record ${index}` }],
+      })),
+    });
+
+    const handlePromise = projection.handle(createContext(), event);
+    while (resolvers.size < REALTIME_TASK_CONCURRENCY_LIMIT) {
+      await Promise.resolve();
+    }
+
+    expect(maxInFlight).toBe(REALTIME_TASK_CONCURRENCY_LIMIT);
+
+    block = false;
+    for (const resolve of resolvers.values()) {
+      resolve();
+    }
+
+    const result = await handlePromise;
+    result._unsafeUnwrap();
+  });
+
   it('projects record deletions', async () => {
     const table = buildTable('l', 'm', 'n');
     const engine = new FakeRealtimeEngine();
@@ -433,6 +587,178 @@ describe('Realtime projections', () => {
     result._unsafeUnwrap();
 
     expect(engine.deletes).toHaveLength(2);
+  });
+
+  it('skips per-record realtime deletes for large record deletions', async () => {
+    const table = buildTable('l', 'm', 'n');
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsDeletedRealtimeProjection(engine);
+
+    const recordIds = Array.from({ length: 1001 }, (_, index) =>
+      RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
+    );
+    const event = RecordsDeleted.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      recordIds,
+      recordSnapshots: recordIds.map((recordId) => ({
+        id: recordId.toString(),
+        fields: { Title: recordId.toString() },
+      })),
+      orchestration: {
+        totalRecordCount: recordIds.length,
+        totalChunkCount: 3,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.deletes).toHaveLength(0);
+  });
+
+  it('skips per-record realtime deletes when streamed orchestration reaches the total threshold', async () => {
+    const table = buildTable('l', 'm', 'n');
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsDeletedRealtimeProjection(engine);
+
+    const recordIds = Array.from({ length: 250 }, (_, index) =>
+      RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
+    );
+    const event = RecordsDeleted.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      recordIds,
+      recordSnapshots: recordIds.map((recordId) => ({
+        id: recordId.toString(),
+        fields: { Title: recordId.toString() },
+      })),
+      orchestration: {
+        totalRecordCount: 1000,
+        totalChunkCount: 5,
+        chunkIndex: 1,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.deletes).toHaveLength(0);
+  });
+
+  it('dispatches record deletions without serially awaiting each realtime delete', async () => {
+    const table = buildTable('l', 'm', 'n');
+    const startOrder: string[] = [];
+    const resolvers: Array<() => void> = [];
+    const engine: IRealtimeEngine = {
+      ensure: async () => ok(undefined),
+      applyChange: async () => ok(undefined),
+      delete: async (_context, docId) => {
+        startOrder.push(docId.toString());
+        await new Promise<void>((resolve) => {
+          resolvers.push(resolve);
+        });
+        return ok(undefined);
+      },
+    };
+    const projection = new RecordsDeletedRealtimeProjection(engine);
+
+    const event = RecordsDeleted.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      recordIds: [
+        RecordId.create(`rec${'o'.repeat(16)}`)._unsafeUnwrap(),
+        RecordId.create(`rec${'p'.repeat(16)}`)._unsafeUnwrap(),
+      ],
+      recordSnapshots: [
+        { id: `rec${'o'.repeat(16)}`, fields: { Title: 'Record O' } },
+        { id: `rec${'p'.repeat(16)}`, fields: { Title: 'Record P' } },
+      ],
+    });
+
+    const handlePromise = projection.handle(createContext(), event);
+    while (startOrder.length < 2) {
+      await Promise.resolve();
+    }
+
+    expect(startOrder).toHaveLength(2);
+
+    for (const resolve of resolvers) {
+      resolve();
+    }
+
+    const result = await handlePromise;
+    result._unsafeUnwrap();
+  });
+
+  it('bounds batch record update realtime concurrency while preserving per-record order', async () => {
+    const table = buildTable('h', 'i', 'j');
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const started: string[] = [];
+    let block = true;
+    const resolvers = new Map<string, () => void>();
+    const engine: IRealtimeEngine = {
+      ensure: async () => ok(undefined),
+      delete: async () => ok(undefined),
+      applyChange: async (_context, docId) => {
+        const key = docId.toString();
+        started.push(key);
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+
+        if (block) {
+          await new Promise<void>((resolve) => {
+            resolvers.set(key, resolve);
+          });
+        }
+
+        inFlight -= 1;
+        return ok(undefined);
+      },
+    };
+    const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
+
+    const updates = Array.from({ length: REALTIME_TASK_CONCURRENCY_LIMIT + 5 }, (_, index) => ({
+      recordId: `rec${index.toString().padStart(16, '0')}`,
+      oldVersion: 1,
+      newVersion: 2,
+      changes: [
+        {
+          fieldId: table.primaryFieldId().toString(),
+          oldValue: `Old-${index}`,
+          newValue: `New-${index}`,
+        },
+      ],
+    }));
+
+    const handlePromise = projection.handle(
+      createContext(),
+      RecordsBatchUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        source: 'user',
+        updates,
+      })
+    );
+
+    while (resolvers.size < REALTIME_TASK_CONCURRENCY_LIMIT) {
+      await Promise.resolve();
+    }
+
+    expect(maxInFlight).toBe(REALTIME_TASK_CONCURRENCY_LIMIT);
+    expect(started).toHaveLength(REALTIME_TASK_CONCURRENCY_LIMIT);
+
+    block = false;
+    for (const resolve of resolvers.values()) {
+      resolve();
+    }
+
+    const result = await handlePromise;
+    result._unsafeUnwrap();
   });
 
   it('projects table creation and field snapshots', async () => {

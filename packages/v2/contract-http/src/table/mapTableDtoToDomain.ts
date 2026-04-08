@@ -1,5 +1,6 @@
 import {
   BaseId,
+  ButtonConfirm,
   ButtonLabel,
   ButtonMaxCount,
   ButtonResetCount,
@@ -399,15 +400,18 @@ const mapBaseFieldDtoToDomain = (
             optional(options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
               optional(options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
                 workflowResult.andThen((workflow) =>
-                  createButtonField({
-                    id,
-                    name,
-                    label,
-                    color,
-                    maxCount,
-                    resetCount,
-                    workflow,
-                  })
+                  optional(options?.confirm, ButtonConfirm.create).andThen((confirm) =>
+                    createButtonField({
+                      id,
+                      name,
+                      label,
+                      color,
+                      maxCount,
+                      resetCount,
+                      workflow,
+                      confirm,
+                    })
+                  )
                 )
               )
             )

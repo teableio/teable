@@ -117,6 +117,24 @@ export class ReferenceRule implements ISchemaRule {
       return ok({
         valid: false,
         missing: missingRefs,
+        missingItems: missingRefs.map((missingRef) => ({
+          code: 'reference_missing',
+          message: {
+            key: 'table:table.integrity.v2.detail.referenceMissing',
+            values: {
+              fieldName: this.field.name().toString(),
+            },
+            fallback: `A dependency reference is missing for "${this.field.name().toString()}".`,
+          },
+          description: {
+            key: 'table:table.integrity.v2.detail.referenceMissingDescription',
+            values: {
+              fieldName: this.field.name().toString(),
+              reference: missingRef,
+            },
+            fallback: missingRef,
+          },
+        })),
       });
     }
 
