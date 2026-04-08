@@ -97,12 +97,19 @@ export type IButtonWorkflowDTO = {
   isActive?: boolean;
 };
 
+export type IButtonConfirmDTO = {
+  title?: string;
+  description?: string;
+  confirmText?: string;
+};
+
 export type IButtonFieldOptionsDTO = {
   label?: string;
   color?: string;
   maxCount?: number;
   resetCount?: boolean;
   workflow?: IButtonWorkflowDTO | null;
+  confirm?: IButtonConfirmDTO | null;
 };
 
 export type IFormulaFieldFormattingDTO =

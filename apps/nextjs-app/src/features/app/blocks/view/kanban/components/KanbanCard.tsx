@@ -1,16 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { DraggableProvided } from '@hello-pangea/dnd';
 import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  History,
-  Link,
-  Maximize2,
-  MessageSquare,
-  Trash2,
-} from '@teable/icons';
+import { ArrowDown, ArrowUp, History, Link, Maximize2, MessageSquare } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -24,6 +15,7 @@ import {
   ContextMenuTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
+import { CopyPlus, Trash } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -190,7 +182,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onClick={onDuplicate}>
-              <Copy className="size-4" />
+              <CopyPlus className="size-4" />
               {t('table:kanban.cardMenu.duplicateCard')}
             </ContextMenuItem>
           </>
@@ -220,7 +212,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
           <>
             <ContextMenuSeparator />
             <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
-              <Trash2 className="size-4" />
+              <Trash className="size-4" />
               {t('table:kanban.cardMenu.deleteCard')}
             </ContextMenuItem>
           </>

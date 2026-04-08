@@ -20,7 +20,6 @@ type DynamicDb = V1TeableDatabase & Record<string, Record<string, unknown>>;
 
 describe('CreateRecordHandler (db)', () => {
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
     setV2NodeTestContainer(await createV2NodeTestContainer());
   });
 

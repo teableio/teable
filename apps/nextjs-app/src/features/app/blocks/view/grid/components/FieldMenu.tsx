@@ -3,8 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
 import { FieldType, getValidFilterOperators } from '@teable/core';
 import {
-  Trash2,
-  Edit,
   EyeOff,
   ArrowLeft,
   ArrowRight,
@@ -12,7 +10,7 @@ import {
   Filter,
   LayoutList,
   ArrowUpDown,
-  Copy,
+  Edit,
   MagicAi,
   Download,
 } from '@teable/icons';
@@ -46,6 +44,7 @@ import {
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { CopyPlus, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -213,7 +212,7 @@ export const FieldMenu = () => {
       {
         type: MenuItemType.Duplicate,
         name: t('table:menu.duplicateField'),
-        icon: <Copy className={iconClassName} />,
+        icon: <CopyPlus className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !menuFieldPermission['field|update'],
         onClick: async () => {
           if (!tableId) return;
@@ -412,7 +411,7 @@ export const FieldMenu = () => {
           fieldIds.length > 1
             ? t('table:menu.deleteAllSelectedFields')
             : t('table:menu.deleteField'),
-        icon: <Trash2 className={iconClassName} />,
+        icon: <Trash className={iconClassName} />,
         hidden: !menuFieldPermission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',

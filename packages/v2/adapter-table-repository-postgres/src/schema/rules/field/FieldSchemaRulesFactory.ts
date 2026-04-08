@@ -256,6 +256,7 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           orderColumnName,
           sourceTable: currentTable,
           foreignTable,
+          foreignTableMetaId: foreignTableId,
           withIndexes: relationship === 'manyMany', // Only ManyMany gets indexes
         };
 
@@ -303,7 +304,8 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
             fkColumnRule,
             referencedTableName,
             onDelete,
-            fkHostTable
+            fkHostTable,
+            relationship === 'oneMany' ? undefined : foreignTableId
           )
         );
 
