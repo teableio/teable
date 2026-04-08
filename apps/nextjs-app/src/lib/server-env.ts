@@ -1,6 +1,9 @@
 import React from 'react';
 
 export interface IServerEnv {
+  buildVersion?: string;
+  gitCommitSha?: string;
+  previewTag?: string;
   driver?: string;
   brandName?: string;
   brandLogo?: string;
@@ -38,7 +41,6 @@ export interface IServerEnv {
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
-  enableSandboxAgent?: boolean;
   task?: {
     maxTaskRows?: number;
   };

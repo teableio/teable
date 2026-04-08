@@ -3,7 +3,11 @@ import type {
   IV2BaseSchemaIntegrityRepairRo,
   IV2SchemaIntegrityFilterStatus,
   IV2SchemaIntegrityCheckResult,
+  IV2SchemaIntegrityI18nMessage,
+  IV2SchemaIntegrityManualRepairSchema,
+  IV2SchemaIntegrityManualRepairSchemaProperty,
   IV2SchemaIntegrityRepairResult,
+  IV2SchemaIntegrityRepairCapability,
   IV2SchemaIntegrityRepairRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
@@ -13,6 +17,7 @@ import {
   PostgresSchemaIntrospector,
   type SchemaCheckResult,
   type SchemaRepairResult,
+  type SchemaRuleRepairHint,
 } from '@teable/v2-adapter-table-repository-postgres';
 import {
   BaseId,
@@ -67,6 +72,8 @@ export class IntegrityV2Service {
         table,
         repairer.repairRule(table, repairRo.fieldId, repairRo.ruleId, {
           dryRun: repairRo.dryRun,
+          manualRepairValues: repairRo.manualRepairValues,
+          targetStatuses: repairRo.targetStatuses,
         }),
         repairRo.statuses
       );
@@ -77,6 +84,7 @@ export class IntegrityV2Service {
         table,
         repairer.repairField(table, repairRo.fieldId, {
           dryRun: repairRo.dryRun,
+          targetStatuses: repairRo.targetStatuses,
         }),
         repairRo.statuses
       );
@@ -86,6 +94,7 @@ export class IntegrityV2Service {
       table,
       repairer.repairTable(table, {
         dryRun: repairRo.dryRun,
+        targetStatuses: repairRo.targetStatuses,
       }),
       repairRo.statuses
     );
@@ -206,7 +215,10 @@ export class IntegrityV2Service {
     for (const table of tables) {
       yield* this.decorateRepairStream(
         table,
-        repairer.repairTable(table, { dryRun: repairRo.dryRun }),
+        repairer.repairTable(table, {
+          dryRun: repairRo.dryRun,
+          targetStatuses: repairRo.targetStatuses,
+        }),
         repairRo.statuses
       );
     }
@@ -261,9 +273,12 @@ export class IntegrityV2Service {
       details: result.details
         ? {
             missing: this.toMutableArray(result.details.missing),
+            missingItems: this.toMutableDetailItems(result.details.missingItems),
             extra: this.toMutableArray(result.details.extra),
+            extraItems: this.toMutableDetailItems(result.details.extraItems),
           }
         : undefined,
+      repair: result.repair ? this.toMutableRepairHint(result.repair) : undefined,
       required: result.required,
       timestamp: result.timestamp,
       dependencies: result.dependencies.map((depId) => this.createScopedResultId(table, depId)),
@@ -289,10 +304,13 @@ export class IntegrityV2Service {
       details: result.details
         ? {
             missing: this.toMutableArray(result.details.missing),
+            missingItems: this.toMutableDetailItems(result.details.missingItems),
             extra: this.toMutableArray(result.details.extra),
+            extraItems: this.toMutableDetailItems(result.details.extraItems),
             statementCount: result.details.statementCount,
           }
         : undefined,
+      repair: result.repair ? this.toMutableRepairHint(result.repair) : undefined,
       required: result.required,
       timestamp: result.timestamp,
       dependencies: result.dependencies.map((depId) => this.createScopedResultId(table, depId)),
@@ -306,6 +324,127 @@ export class IntegrityV2Service {
 
   private toMutableArray(values?: ReadonlyArray<string>): string[] | undefined {
     return values ? [...values] : undefined;
+  }
+
+  private toMutableDetailItems(
+    items?: ReadonlyArray<{
+      code?: string;
+      message: {
+        key?: string;
+        values?: Readonly<Record<string, string | number | boolean>>;
+        fallback?: string;
+      };
+      description?: {
+        key?: string;
+        values?: Readonly<Record<string, string | number | boolean>>;
+        fallback?: string;
+      };
+    }>
+  ) {
+    return items?.map((item) => ({
+      code: item.code,
+      message: {
+        key: item.message.key,
+        values: item.message.values ? { ...item.message.values } : undefined,
+        fallback: item.message.fallback,
+      },
+      description: item.description
+        ? {
+            key: item.description.key,
+            values: item.description.values ? { ...item.description.values } : undefined,
+            fallback: item.description.fallback,
+          }
+        : undefined,
+    }));
+  }
+
+  private toMutableRepairHint(result: SchemaRuleRepairHint) {
+    const toMutableMessage = (message?: {
+      key?: string;
+      values?: Readonly<Record<string, string | number | boolean>>;
+      fallback?: string;
+    }): IV2SchemaIntegrityI18nMessage | undefined => {
+      if (!message) {
+        return undefined;
+      }
+
+      return {
+        key: message.key,
+        values: message.values ? { ...message.values } : undefined,
+        fallback: message.fallback,
+      };
+    };
+
+    const toMutableManualRepairProperty = (property: {
+      type: 'string' | 'boolean';
+      widget?: 'select' | 'text' | 'textarea' | 'checkbox';
+      title?: {
+        key?: string;
+        values?: Readonly<Record<string, string | number | boolean>>;
+        fallback?: string;
+      };
+      description?: {
+        key?: string;
+        values?: Readonly<Record<string, string | number | boolean>>;
+        fallback?: string;
+      };
+      options?: ReadonlyArray<{
+        value: string;
+        label: {
+          key?: string;
+          values?: Readonly<Record<string, string | number | boolean>>;
+          fallback?: string;
+        };
+        description?: {
+          key?: string;
+          values?: Readonly<Record<string, string | number | boolean>>;
+          fallback?: string;
+        };
+      }>;
+      defaultValue?: string | boolean;
+    }): IV2SchemaIntegrityManualRepairSchemaProperty => ({
+      type: property.type,
+      widget: property.widget,
+      title: toMutableMessage(property.title),
+      description: toMutableMessage(property.description),
+      options: property.options?.map((option) => ({
+        value: option.value,
+        label: {
+          key: option.label.key,
+          values: option.label.values ? { ...option.label.values } : undefined,
+          fallback: option.label.fallback,
+        },
+        description: toMutableMessage(option.description),
+      })),
+      defaultValue: property.defaultValue,
+    });
+
+    const manualRepairSchema: IV2SchemaIntegrityManualRepairSchema | undefined =
+      result.manualRepairSchema
+        ? {
+            type: result.manualRepairSchema.type,
+            title: toMutableMessage(result.manualRepairSchema.title),
+            description: toMutableMessage(result.manualRepairSchema.description),
+            submitLabel: toMutableMessage(result.manualRepairSchema.submitLabel),
+            required: result.manualRepairSchema.required
+              ? [...result.manualRepairSchema.required]
+              : undefined,
+            properties: Object.fromEntries(
+              Object.entries(result.manualRepairSchema.properties).map(([key, property]) => [
+                key,
+                toMutableManualRepairProperty(property),
+              ])
+            ),
+          }
+        : undefined;
+
+    return {
+      available: result.available,
+      mode: result.mode,
+      reason: toMutableMessage(result.reason),
+      description: toMutableMessage(result.description),
+      manualRepairSchema,
+    } satisfies IV2SchemaIntegrityRepairCapability;
   }
 
   private createStatusFilterSet(statuses?: IV2SchemaIntegrityFilterStatus[]) {

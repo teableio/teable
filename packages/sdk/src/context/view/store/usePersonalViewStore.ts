@@ -1,6 +1,10 @@
+import { useContext } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { LocalStorageKeys } from '../../../config';
+import { AppContext } from '../../app/AppContext';
+import type { IPersonalViewStoreApi } from './ShareSessionViewStore';
+import { useShareSessionViewStore } from './ShareSessionViewStore';
 
 interface IPersonalViewState {
   personalViewMap: Record<string, Record<string, unknown>>;
@@ -11,6 +15,17 @@ interface IPersonalViewState {
   ) => void;
   removePersonalView: (viewId: string) => void;
 }
+
+/**
+ * In share/template mode, use the non-persisted session store (memory only).
+ * Otherwise, use the localStorage-persisted store.
+ */
+export const useResolvedPersonalViewStore = (): IPersonalViewStoreApi => {
+  const { shareId, template } = useContext(AppContext) || {};
+  const sessionStore = useShareSessionViewStore();
+  const zustandStore = usePersonalViewStore();
+  return shareId || template ? sessionStore : zustandStore;
+};
 
 export const usePersonalViewStore = create<IPersonalViewState>()(
   persist(

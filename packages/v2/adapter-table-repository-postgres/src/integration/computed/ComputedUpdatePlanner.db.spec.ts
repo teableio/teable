@@ -29,7 +29,12 @@ import {
 } from '@teable/v2-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { getV2NodeTestContainer, setV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
+import {
+  getV2NodeTestContainer,
+  peekV2NodeTestContainer,
+  resetV2NodeTestContainer,
+  setV2NodeTestContainer,
+} from '../testkit/v2NodeTestContainer';
 
 // =============================================================================
 // Test helpers
@@ -318,13 +323,30 @@ const createCrossTableLookupChain = async (
 // =============================================================================
 
 describe('ComputedUpdatePlanner (db)', () => {
+  const createContainerWithRetry = async () => {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await createV2NodeTestContainer();
+      } catch (error) {
+        lastError = error;
+        if (attempt === 3) break;
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
+    }
+
+    throw lastError;
+  };
+
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
-    setV2NodeTestContainer(await createV2NodeTestContainer());
+    setV2NodeTestContainer(await createContainerWithRetry());
   });
 
   afterEach(async () => {
-    await getV2NodeTestContainer().dispose();
+    const current = peekV2NodeTestContainer();
+    await current?.dispose();
+    resetV2NodeTestContainer();
   });
 
   describe('plan steps generation', () => {

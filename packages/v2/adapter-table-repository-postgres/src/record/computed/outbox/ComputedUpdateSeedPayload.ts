@@ -16,9 +16,13 @@ import type {
 } from '../ComputedUpdatePlanner';
 import type {
   ComputedBeforeImageRecordDto,
+  ComputedRealtimeOrchestrationDto,
   ComputedUpdateSeedGroupDto,
 } from './ComputedUpdateOutboxPayload';
-import { mergeBeforeImageRecordDtos } from './ComputedUpdateOutboxPayload';
+import {
+  mergeBeforeImageRecordDtos,
+  mergeComputedRealtimeOrchestration,
+} from './ComputedUpdateOutboxPayload';
 
 /**
  * Impact hint for seed tasks - describes which fields changed.
@@ -45,6 +49,7 @@ export type ComputedUpdateSeedPayload = {
   changeType: 'insert' | 'update' | 'delete';
   impact?: SeedImpactHintDto;
   cyclePolicy?: ComputedUpdateCyclePolicy;
+  orchestration?: ComputedRealtimeOrchestrationDto;
 };
 
 /**
@@ -89,6 +94,7 @@ export const serializeSeedPayload = (params: {
     linkFieldIds: ReadonlyArray<FieldId>;
   };
   cyclePolicy?: ComputedUpdateCyclePolicy;
+  orchestration?: ComputedRealtimeOrchestrationDto;
 }): ComputedUpdateSeedPayload => ({
   taskType: 'seed',
   baseId: params.baseId.toString(),
@@ -111,6 +117,7 @@ export const serializeSeedPayload = (params: {
       }
     : undefined,
   cyclePolicy: params.cyclePolicy,
+  orchestration: params.orchestration ? { ...params.orchestration } : undefined,
 });
 
 /**
@@ -288,6 +295,7 @@ export const buildSeedTaskInput = (params: {
   cyclePolicy?: ComputedUpdateCyclePolicy;
   hasher: IHasher;
   runId: string;
+  orchestration?: ComputedRealtimeOrchestrationDto;
 }): ComputedUpdateSeedTaskInput => {
   const payload = serializeSeedPayload({
     baseId: params.baseId,
@@ -299,6 +307,7 @@ export const buildSeedTaskInput = (params: {
     changeType: params.changeType,
     impact: params.impact,
     cyclePolicy: params.cyclePolicy,
+    orchestration: params.orchestration,
   });
 
   return {
@@ -395,5 +404,9 @@ export const mergeSeedPayloads = (
     changeType: existing.changeType, // Keep the existing changeType
     impact: mergedImpact,
     cyclePolicy: mergedCyclePolicy,
+    orchestration: mergeComputedRealtimeOrchestration(
+      existing.orchestration,
+      incoming.orchestration
+    ),
   };
 };

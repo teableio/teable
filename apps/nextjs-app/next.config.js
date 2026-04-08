@@ -297,7 +297,6 @@ const nextConfig = {
   env: {
     APP_NAME: packageJson.name ?? 'not-in-package.json',
     APP_VERSION: packageJson.version ?? 'not-in-package.json',
-    BUILD_TIME: new Date().toISOString(),
     // Note: Sentry debug/tracing variables are handled via webpack DefinePlugin
     // and cannot be set via Next.js env config (reserved key format)
   },
