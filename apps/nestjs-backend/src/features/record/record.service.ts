@@ -2120,20 +2120,19 @@ export class RecordService {
             return searchArr.includes(field.id);
           })
           .filter((field) => {
-            if (
-              [CellValueType.Boolean, CellValueType.DateTime].includes(field.cellValueType) &&
-              isSearchAllFields
-            ) {
+            if (field.type === FieldType.Button) {
               return false;
             }
             if (field.cellValueType === CellValueType.Boolean) {
               return false;
             }
-            return true;
-          })
-          .filter((field) => {
-            if (field.type === FieldType.Button) {
-              return false;
+            if (isSearchAllFields) {
+              if (field.cellValueType === CellValueType.DateTime) {
+                return false;
+              }
+              if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
+                return false;
+              }
             }
             return true;
           })

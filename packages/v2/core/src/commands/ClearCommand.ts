@@ -109,7 +109,7 @@ export const clearCommandInputSchema = z.object({
 export type IClearCommandInput = z.input<typeof clearCommandInputSchema>;
 
 export class ClearCommand {
-  private constructor(
+  protected constructor(
     readonly tableId: TableId,
     readonly viewId: ViewId,
     readonly rawRanges: ReadonlyArray<readonly [number, number]>,

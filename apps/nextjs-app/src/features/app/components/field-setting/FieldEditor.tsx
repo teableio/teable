@@ -1,16 +1,20 @@
+import { useQuery } from '@tanstack/react-query';
 import type { IFieldOptionsRo, IFieldVo } from '@teable/core';
 import {
   FieldType,
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
   isConditionalLookupOptions,
+  isLinkLookupOptions,
 } from '@teable/core';
 import { Plus } from '@teable/icons';
+import { getField } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
+import { useFields } from '@teable/sdk/hooks';
 import { Button, Textarea } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsEE } from '../../hooks/useIsEE';
@@ -18,6 +22,7 @@ import { FieldAiConfig } from './field-ai-config';
 import { FieldValidation } from './field-validation/FieldValidation';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
+import { hydrateLookupFieldState } from './hooks/hydrateLookupFieldState';
 import { useUpdateConditionalLookupOptions } from './hooks/useUpdateConditionalLookupOptions';
 import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
@@ -27,6 +32,31 @@ import { SystemInfo } from './SystemInfo';
 import { FieldOperator } from './type';
 import type { IFieldEditorRo } from './type';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
+
+const useSelectedLookupField = (field: Partial<IFieldEditorRo>) => {
+  const fields = useFields({ withHidden: true, withDenied: true });
+  const lookupOptions = isLinkLookupOptions(field.lookupOptions) ? field.lookupOptions : undefined;
+  const lookupFieldId = lookupOptions?.lookupFieldId;
+  const foreignTableId = lookupOptions?.foreignTableId;
+
+  const localLookupField = useMemo(() => {
+    if (!lookupFieldId) return undefined;
+    return fields.find((candidate) => candidate.id === lookupFieldId);
+  }, [fields, lookupFieldId]);
+
+  const shouldFetchLookupField = Boolean(field.isLookup && foreignTableId && lookupFieldId);
+
+  const { data: remoteLookupField } = useQuery({
+    queryKey: ['field-editor-lookup-field', foreignTableId, lookupFieldId],
+    queryFn: async () => {
+      const res = await getField(foreignTableId!, lookupFieldId!);
+      return res.data;
+    },
+    enabled: shouldFetchLookupField && !localLookupField,
+  });
+
+  return localLookupField ?? remoteLookupField;
+};
 
 export const FieldEditor = (props: {
   isPrimary?: boolean;
@@ -45,7 +75,9 @@ export const FieldEditor = (props: {
   );
   const getFieldSubtitle = useFieldTypeSubtitle();
   const getFieldStatic = useFieldStaticGetter();
+  const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const selectedLookupField = useSelectedLookupField(field);
 
   const isEE = useIsEE();
   const isCloud = useIsCloud();
@@ -129,6 +161,29 @@ export const FieldEditor = (props: {
 
   const updateLookupOptions = useUpdateLookupOptions(field, setFieldFn);
   const updateConditionalLookupOptions = useUpdateConditionalLookupOptions(field, setFieldFn);
+
+  useEffect(() => {
+    if (!field.isLookup || field.isConditionalLookup || !selectedLookupField) {
+      return;
+    }
+
+    const lookupOptions = isLinkLookupOptions(field.lookupOptions)
+      ? field.lookupOptions
+      : undefined;
+    const linkField = lookupOptions?.linkFieldId
+      ? fields.find((candidate) => candidate.id === lookupOptions.linkFieldId)
+      : undefined;
+
+    const hydratedField = hydrateLookupFieldState({
+      field: field as IFieldEditorRo,
+      lookupField: selectedLookupField,
+      linkField,
+    });
+
+    if (hydratedField) {
+      setFieldFn(hydratedField);
+    }
+  }, [field, fields, selectedLookupField, setFieldFn]);
 
   const getUnionOptions = () => {
     if (field.isLookup) {

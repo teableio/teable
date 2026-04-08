@@ -42,8 +42,8 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -54,13 +54,13 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { UpdateRecordCommand } from './UpdateRecordCommand';
-import { UpdateRecordHandler } from './UpdateRecordHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordCommand } from './UpdateRecordCommand';
+import { UpdateRecordHandler } from './UpdateRecordHandler';
 
 const createContext = (config?: IExecutionContext['config']): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -279,6 +279,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
@@ -379,9 +383,14 @@ class FakeUndoRedoService {
 
 describe('UpdateRecordHandler', () => {
   it('updates record and publishes event', async () => {
-    const { table, tableId, textFieldId } = buildTable();
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordResult = table
-      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      .createRecord(
+        new Map([
+          [textFieldId.toString(), 'Old Title'],
+          [numberFieldId.toString(), 1],
+        ])
+      )
       ._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
@@ -392,7 +401,10 @@ describe('UpdateRecordHandler', () => {
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.record = {
       id: recordResult.record.id().toString(),
-      fields: { [textFieldId.toString()]: 'Old Title' },
+      fields: {
+        [textFieldId.toString()]: 'Old Title',
+        [numberFieldId.toString()]: 1,
+      },
       version: 1,
     };
 
@@ -424,6 +436,7 @@ describe('UpdateRecordHandler', () => {
     const payload = result._unsafeUnwrap();
 
     expect(payload.record.fields().get(textFieldId)?.toValue()).toBe('New Title');
+    expect(payload.record.fields().get(numberFieldId)?.toValue()).toBe(1);
     expect(recordRepository.lastRecordId?.equals(recordResult.record.id())).toBe(true);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
     expect(eventBus.published.some((event) => event instanceof RecordUpdated)).toBe(true);

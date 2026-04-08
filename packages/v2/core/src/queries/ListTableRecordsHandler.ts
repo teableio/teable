@@ -5,20 +5,20 @@ import type { Result } from 'neverthrow';
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import { type ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
+import { RecordId } from '../domain/table/records/RecordId';
 import { IncomingLinkCandidateSpec } from '../domain/table/records/specs/IncomingLinkCandidateSpec';
 import { IncomingLinkSelectedSpec } from '../domain/table/records/specs/IncomingLinkSelectedSpec';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { RecordConditionSpecBuilder } from '../domain/table/records/specs/RecordConditionSpecBuilder';
-import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import { TableByIncomingReferenceToTableSpec } from '../domain/table/specs/TableByIncomingReferenceToTableSpec';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
+import { TableByIncomingReferenceToTableSpec } from '../domain/table/specs/TableByIncomingReferenceToTableSpec';
 import type { Table } from '../domain/table/Table';
-import { type ISpecification } from '../domain/shared/specification/ISpecification';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -27,7 +27,6 @@ import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { ListTableRecordsQuery, type RecordSortValue } from './ListTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
-import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
 import {
   isRecordFilterCondition,
   isRecordFilterFieldReferenceValue,
@@ -37,7 +36,8 @@ import {
   type RecordFilterCondition,
   type RecordFilterNode,
 } from './RecordFilterDto';
-import { buildRecordConditionSpec } from './RecordFilterMapper';
+import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
+import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -368,8 +368,12 @@ export class ListTableRecordsHandler
           const effectiveQueryDefaults = effectiveView
             ? yield* effectiveView.queryDefaults()
             : undefined;
+          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(
+            table,
+            effectiveQueryDefaults?.filter()
+          );
           const effectiveFilter = sanitizeFilterByEnabledFieldIds(
-            mergeFilterWithViewDefaults(effectiveQueryDefaults?.filter(), resolvedFilter),
+            mergeFilterWithViewDefaults(sanitizedDefaultFilter, resolvedFilter),
             enabledFieldIds
           );
           const effectiveSort = mergeSortWithViewDefaults(
