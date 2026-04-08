@@ -18,6 +18,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe application layer scope.
 - `services/FieldCreationSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field creation.
 - `services/FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field deletion.
+- `services/DeleteByRangeApplicationService.ts` - Role: application service; Purpose: share range-based delete planning, persistence, undo/redo, and progress streaming for delete-by-range handlers.
 - `services/ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and validate missing references.
 - `services/RecordCreationService.ts` - Role: application service; Purpose: shared single-record creation workflow reused by multiple handlers.
 - `services/RecordWritePluginRunner.ts` - Role: application service; Purpose: run typed record-write plugins across prepare/guard/beforePersist/afterCommit phases.

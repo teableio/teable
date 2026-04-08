@@ -97,6 +97,16 @@ export class RedisNativeService {
   }
 
   /**
+   * Get remaining TTL (in seconds) for a key.
+   * Redis semantics:
+   * - -2: key does not exist
+   * - -1: key exists but has no associated expire
+   */
+  async ttl(key: string): Promise<number> {
+    return this.client.ttl(key);
+  }
+
+  /**
    * Delete a key.
    * @param key - Redis key to delete
    */

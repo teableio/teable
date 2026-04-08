@@ -72,6 +72,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore() {
+    return ok(undefined);
+  }
+
   async delete() {
     return ok(undefined);
   }
@@ -110,7 +114,7 @@ describe('LinkTitleResolverService', () => {
     expect(extracted).toHaveLength(1);
     expect(service.needsResolution(spec)).toBe(true);
 
-    const idSpec = new SetLinkValueSpec(fieldId, CellValue.fromValidated([]));
+    const idSpec = new SetLinkValueSpec(fieldId, CellValue.fromValidated([]), foreignTableId);
     expect(service.needsResolution(idSpec)).toBe(false);
   });
 

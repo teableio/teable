@@ -23,7 +23,7 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
@@ -104,6 +104,17 @@ export const sanitizeLookupOptions = (
 
   return undefined;
 };
+
+const toFieldEditorState = (originField?: IFieldVo): IFieldEditorRo =>
+  originField
+    ? {
+        ...originField,
+        options: getOptionsSchema(originField.type).parse(originField.options),
+        lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
+      }
+    : {
+        type: FieldType.SingleLineText,
+      };
 
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
@@ -374,23 +385,20 @@ export const FieldSetting = (props: IFieldSetting) => {
   );
 };
 
-const FieldSettingBase = (props: IFieldSettingBase) => {
+export const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const [field, setField] = useState<IFieldEditorRo>(
-    originField
-      ? {
-          ...originField,
-          options: getOptionsSchema(originField.type).parse(originField.options),
-          lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
-        }
-      : {
-          type: FieldType.SingleLineText,
-        }
-  );
+  const [field, setField] = useState<IFieldEditorRo>(() => toFieldEditorState(originField));
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (updateCount > 0) {
+      return;
+    }
+    setField(toFieldEditorState(originField));
+  }, [originField, updateCount]);
 
   const onOpenChange = (open?: boolean) => {
     if (open) {

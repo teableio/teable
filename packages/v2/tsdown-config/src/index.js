@@ -1,11 +1,15 @@
+const disableDts = process.env.TEABLE_TSDOWN_DISABLE_DTS === '1';
+
 export const v2TsdownBaseConfig = {
   entry: ['src/index.ts'],
   outDir: 'dist',
   format: ['esm', 'cjs'],
   external: [/^@teable\/v2-/, /^@teable\/formula$/],
-  dts: {
-    sourcemap: true,
-  },
+  dts: disableDts
+    ? false
+    : {
+        sourcemap: true,
+      },
   clean: true,
   sourcemap: false,
   minify: false,

@@ -6,20 +6,24 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { RecordCreateSource } from '../../domain/table/events/RecordFieldValuesDTO';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from './ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
@@ -72,7 +76,9 @@ export class RecordCreationService {
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   async create(
@@ -153,11 +159,21 @@ export class RecordCreationService {
                 transactionTableEvents = tableFlowResult.events;
               }
               yield* await pluginExecution.beforePersist(transactionContext);
+              const fillLinkTitleForeignTables = input.typecast
+                ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                    transactionContext,
+                    [createResult.mutateSpec ?? null]
+                  )
+                : new Map();
               const mutation = yield* await service.tableRecordRepository.insert(
                 transactionContext,
                 tableForCreate,
                 record,
-                input.order ? { order: input.order } : undefined
+                {
+                  ...(input.order ? { order: input.order } : {}),
+                  ...(input.typecast ? { fillLinkTitles: true } : {}),
+                  ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                }
               );
               return ok({ mutation, tableEvents: transactionTableEvents });
             });
@@ -260,8 +276,25 @@ export class RecordCreationService {
       } as const;
     }
 
+    if (input.operationKind === RecordWriteOperationKind.submit) {
+      return {
+        kind: RecordWriteOperationKind.submit,
+        executionContext: context,
+        table: input.table,
+        payload: {
+          fieldValues,
+          fieldKeyType: input.fieldKeyType,
+          typecast: input.typecast,
+          source: input.source,
+          order: input.order,
+          recordCount: 1 as const,
+        },
+        isTransactionBound: false,
+      } as const;
+    }
+
     return {
-      kind: input.operationKind,
+      kind: RecordWriteOperationKind.createOne,
       executionContext: context,
       table: input.table,
       payload: {

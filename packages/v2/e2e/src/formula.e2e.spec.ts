@@ -8343,7 +8343,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:DATETIME_DIFF default unit
      * Formula:DATETIME_DIFF({date1}, {date2})
-     * Expect: defaults to day unit and keeps sign when end precedes start
+     * Expect: defaults to second unit and keeps sign when end precedes start
      */
     it('should get datetime diff with default unit - DATETIME_DIFF({date1}, {date2})', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -8419,7 +8419,7 @@ describe('v2 http formula (e2e)', () => {
       const diffValue = record.fields[formulaFieldId];
       expect(typeof diffValue).toBe('number');
       if (typeof diffValue !== 'number') return;
-      expect(diffValue).toBeCloseTo(2, 6);
+      expect(diffValue).toBeCloseTo(172800, 6);
     });
 
     /**

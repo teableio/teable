@@ -24,9 +24,97 @@ export type IV2SchemaIntegrityDecisionVo = z.infer<typeof v2SchemaIntegrityDecis
 
 export const v2SchemaIntegrityDetailsSchema = z.object({
   missing: z.array(z.string()).optional(),
+  missingItems: z
+    .array(
+      z.object({
+        code: z.string().optional(),
+        message: z.object({
+          key: z.string().optional(),
+          values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+          fallback: z.string().optional(),
+        }),
+        description: z
+          .object({
+            key: z.string().optional(),
+            values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+            fallback: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
+    .optional(),
   extra: z.array(z.string()).optional(),
+  extraItems: z
+    .array(
+      z.object({
+        code: z.string().optional(),
+        message: z.object({
+          key: z.string().optional(),
+          values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+          fallback: z.string().optional(),
+        }),
+        description: z
+          .object({
+            key: z.string().optional(),
+            values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+            fallback: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
+    .optional(),
   statementCount: z.number().optional(),
 });
+
+export const v2SchemaIntegrityI18nMessageSchema = z.object({
+  key: z.string().optional(),
+  values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  fallback: z.string().optional(),
+});
+export type IV2SchemaIntegrityI18nMessage = z.infer<typeof v2SchemaIntegrityI18nMessageSchema>;
+
+export const v2SchemaIntegrityManualRepairSchemaPropertySchema = z.object({
+  type: z.enum(['string', 'boolean']),
+  widget: z.enum(['select', 'text', 'textarea', 'checkbox']).optional(),
+  title: v2SchemaIntegrityI18nMessageSchema.optional(),
+  description: v2SchemaIntegrityI18nMessageSchema.optional(),
+  options: z
+    .array(
+      z.object({
+        value: z.string(),
+        label: v2SchemaIntegrityI18nMessageSchema,
+        description: v2SchemaIntegrityI18nMessageSchema.optional(),
+      })
+    )
+    .optional(),
+  defaultValue: z.union([z.string(), z.boolean()]).optional(),
+});
+export type IV2SchemaIntegrityManualRepairSchemaProperty = z.infer<
+  typeof v2SchemaIntegrityManualRepairSchemaPropertySchema
+>;
+
+export const v2SchemaIntegrityManualRepairSchemaSchema = z.object({
+  type: z.literal('object'),
+  title: v2SchemaIntegrityI18nMessageSchema.optional(),
+  description: v2SchemaIntegrityI18nMessageSchema.optional(),
+  submitLabel: v2SchemaIntegrityI18nMessageSchema.optional(),
+  required: z.array(z.string()).optional(),
+  properties: z.record(z.string(), v2SchemaIntegrityManualRepairSchemaPropertySchema),
+});
+export type IV2SchemaIntegrityManualRepairSchema = z.infer<
+  typeof v2SchemaIntegrityManualRepairSchemaSchema
+>;
+
+export const v2SchemaIntegrityRepairCapabilitySchema = z.object({
+  available: z.boolean(),
+  mode: z.enum(['auto', 'manual']),
+  reason: v2SchemaIntegrityI18nMessageSchema.optional(),
+  description: v2SchemaIntegrityI18nMessageSchema.optional(),
+  manualRepairSchema: v2SchemaIntegrityManualRepairSchemaSchema.optional(),
+});
+export type IV2SchemaIntegrityRepairCapability = z.infer<
+  typeof v2SchemaIntegrityRepairCapabilitySchema
+>;
 
 export const v2SchemaIntegrityFilterStatusSchema = z.enum(['success', 'error', 'warn', 'skipped']);
 
@@ -59,6 +147,7 @@ export const v2SchemaIntegrityCheckResultSchema = z.object({
   status: v2SchemaIntegrityCheckStatusSchema,
   message: z.string().optional(),
   details: v2SchemaIntegrityDetailsSchema.optional(),
+  repair: v2SchemaIntegrityRepairCapabilitySchema.optional(),
   required: z.boolean(),
   timestamp: z.number(),
   dependencies: z.array(z.string()).optional(),
@@ -95,6 +184,7 @@ export const v2SchemaIntegrityRepairResultSchema = z.object({
   outcome: v2SchemaIntegrityRepairOutcomeSchema.optional(),
   message: z.string().optional(),
   details: v2SchemaIntegrityDetailsSchema.optional(),
+  repair: v2SchemaIntegrityRepairCapabilitySchema.optional(),
   required: z.boolean(),
   timestamp: z.number(),
   dependencies: z.array(z.string()).optional(),
@@ -109,6 +199,8 @@ export const v2SchemaIntegrityRepairRoSchema = z
     ruleId: z.string().optional(),
     dryRun: z.boolean().optional(),
     statuses: z.array(v2SchemaIntegrityFilterStatusSchema).optional(),
+    targetStatuses: z.array(z.enum(['warn', 'error'])).optional(),
+    manualRepairValues: z.record(z.string(), z.union([z.string(), z.boolean()])).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.ruleId && !value.fieldId) {
@@ -125,6 +217,7 @@ export type IV2SchemaIntegrityRepairRo = z.infer<typeof v2SchemaIntegrityRepairR
 export const v2BaseSchemaIntegrityRepairRoSchema = z.object({
   dryRun: z.boolean().optional(),
   statuses: z.array(v2SchemaIntegrityFilterStatusSchema).optional(),
+  targetStatuses: z.array(z.enum(['warn', 'error'])).optional(),
 });
 
 export type IV2BaseSchemaIntegrityRepairRo = z.infer<typeof v2BaseSchemaIntegrityRepairRoSchema>;
