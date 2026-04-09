@@ -24,6 +24,7 @@ import {
   ComputedUpdateDrainService,
   defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
+  ComputedUpdatePauseRegistry,
   ComputedUpdatePlanner,
   ComputedUpdatePollingService,
   ExternalComputedRefreshService,
@@ -54,7 +55,7 @@ import {
 } from '../schema/config';
 import { v2PostgresDdlTokens } from '../schema/di/tokens';
 import { PostgresTableSchemaRepository } from '../schema/repositories/PostgresTableSchemaRepository';
-import { assertTypeValidationPolyfill, hasPgInputIsValid } from '../utils';
+import { hasPgInputIsValid } from '../utils';
 
 // Combined config for unified table repository postgres adapter
 export interface IV2TableRepositoryPostgresConfig {
@@ -221,6 +222,13 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateOutbox, ComputedUpdateOutbox, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry,
+    ComputedUpdatePauseRegistry,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateWorker, ComputedUpdateWorker, {
     lifecycle: Lifecycle.Singleton,
   });

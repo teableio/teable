@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
+import type { RecordSortValue } from '../queries/ListTableRecordsQuery';
 import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
   flexibleRangesSchema,
@@ -26,8 +27,7 @@ const recordGroupBySchema = z.object({
   order: z.enum(['asc', 'desc']),
 });
 
-// Types are exported from queries/ListTableRecordsQuery.ts
-type RecordSortValue = z.infer<typeof recordSortSchema>;
+// RecordSortValue is exported from queries/ListTableRecordsQuery.ts
 export type RecordGroupByValue = z.infer<typeof recordGroupBySchema>;
 
 export const deleteByRangeCommandInputSchema = z.object({

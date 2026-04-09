@@ -12,6 +12,9 @@ describe('recordWriteOperationMayCreateRecords', () => {
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.createStream)).toBe(true);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.submit)).toBe(true);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.duplicate)).toBe(true);
+    expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.duplicateStream)).toBe(
+      true
+    );
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.importAppend)).toBe(true);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.paste)).toBe(true);
   });

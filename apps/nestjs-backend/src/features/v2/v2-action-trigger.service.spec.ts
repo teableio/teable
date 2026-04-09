@@ -4,7 +4,10 @@ import {
   FieldCreated,
   FieldId,
   FieldUpdated,
+  RecordId,
+  RecordsBatchCreated,
   RecordsBatchUpdated,
+  RecordsDeleted,
   TableActionTriggerRequested,
   TableId,
   type IExecutionContext,
@@ -20,6 +23,7 @@ type IPresencePayload = Array<{ actionKey: string; payload?: Record<string, unkn
 const defaultTimeZone = 'UTC';
 const defaultDateFormat = 'YYYY-MM-DD';
 const sourceFieldId = 'fldSource0000000001';
+const streamedDeleteOperationId = 'req-delete-stream-test';
 
 const waitForPresenceFlush = async () => {
   await new Promise<void>((resolve) => {
@@ -294,6 +298,160 @@ describe('V2ActionTriggerService', () => {
     ]);
   });
 
+  it('emits deleteRecord payload with record ids when large delete skips realtime fan-out', async () => {
+    let submitted: IPresencePayload | undefined;
+
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({
+            submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+              submitted = data;
+              cb?.();
+            },
+          }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+
+    const service = new V2ActionTriggerService(shareDbService);
+    service.registerProjections(container);
+
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2RecordsDeletedActionTriggerProjection'
+    )?.instance as IEventHandler<RecordsDeleted> | undefined;
+
+    expect(projection).toBeDefined();
+
+    const { baseId, tableId } = createIds();
+    const recordIds = Array.from({ length: 1001 }, (_, index) =>
+      RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
+    );
+    const event = RecordsDeleted.create({
+      baseId,
+      tableId,
+      recordIds,
+      recordSnapshots: recordIds.map((recordId) => ({
+        id: recordId.toString(),
+        fields: {},
+      })),
+      orchestration: {
+        operationId: streamedDeleteOperationId,
+        groupId: streamedDeleteOperationId,
+        totalRecordCount: recordIds.length,
+        totalChunkCount: 3,
+        chunkIndex: 1,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection?.handle({} as IExecutionContext, event);
+    expect(result?.isOk()).toBe(true);
+    await waitForPresenceFlush();
+
+    expect(submitted).toEqual([
+      {
+        actionKey: 'deleteRecord',
+        payload: {
+          tableId: tableId.toString(),
+          recordIds: recordIds.map((recordId) => recordId.toString()),
+          skipRealtime: true,
+          operationId: streamedDeleteOperationId,
+          groupId: streamedDeleteOperationId,
+          totalRecordCount: recordIds.length,
+          totalChunkCount: 3,
+          chunkIndex: 1,
+          scope: 'chunk',
+        },
+      },
+    ]);
+  });
+
+  it('emits addRecord payload with record ids when streamed create reaches the total threshold', async () => {
+    let submitted: IPresencePayload | undefined;
+
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({
+            submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+              submitted = data;
+              cb?.();
+            },
+          }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+
+    const service = new V2ActionTriggerService(shareDbService);
+    service.registerProjections(container);
+
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2RecordsBatchCreatedActionTriggerProjection'
+    )?.instance as IEventHandler<RecordsBatchCreated> | undefined;
+
+    expect(projection).toBeDefined();
+
+    const { baseId, tableId } = createIds();
+    const event = RecordsBatchCreated.create({
+      baseId,
+      tableId,
+      records: Array.from({ length: 200 }, (_, index) => ({
+        recordId: `rec${index.toString().padStart(16, '0')}`,
+        fields: [],
+      })),
+      orchestration: {
+        operationId: 'streamed-create-operation',
+        groupId: 'streamed-create-group',
+        totalRecordCount: 1000,
+        totalChunkCount: 5,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection?.handle({} as IExecutionContext, event);
+    expect(result?.isOk()).toBe(true);
+    await waitForPresenceFlush();
+
+    expect(submitted).toEqual([
+      {
+        actionKey: 'addRecord',
+        payload: {
+          tableId: tableId.toString(),
+          recordIds: event.records.map((record) => record.recordId),
+          skipRealtime: true,
+          operationId: 'streamed-create-operation',
+          groupId: 'streamed-create-group',
+          totalRecordCount: 1000,
+          totalChunkCount: 5,
+          chunkIndex: 0,
+          scope: 'chunk',
+        },
+      },
+    ]);
+  });
+
   it('does not emit setField action for unrelated field property updates', async () => {
     let submitted: IPresencePayload | undefined;
 
@@ -474,6 +632,14 @@ describe('V2ActionTriggerService', () => {
           },
         ],
       })),
+      orchestration: {
+        operationId: 'large-update-operation',
+        groupId: 'large-update-group',
+        totalRecordCount: 1001,
+        totalChunkCount: 3,
+        chunkIndex: 1,
+        scope: 'chunk',
+      },
     });
 
     const result = await projection?.handle({} as IExecutionContext, event);
@@ -487,6 +653,99 @@ describe('V2ActionTriggerService', () => {
         payload: {
           tableId: tableId.toString(),
           fieldIds: [fieldId.toString()],
+          recordIds: event.updates.map((update) => update.recordId),
+          skipRealtime: true,
+          operationId: 'large-update-operation',
+          groupId: 'large-update-group',
+          totalRecordCount: 1001,
+          totalChunkCount: 3,
+          chunkIndex: 1,
+          scope: 'chunk',
+        },
+      },
+    ]);
+  });
+
+  it('emits setRecord presence payload with fieldIds when streamed updates reach the total threshold', async () => {
+    let submitted: IPresencePayload | undefined;
+
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({
+            submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+              submitted = data;
+              cb?.();
+            },
+          }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+
+    const service = new V2ActionTriggerService(shareDbService);
+    service.registerProjections(container);
+
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2RecordsBatchUpdatedActionTriggerProjection'
+    )?.instance as IEventHandler<RecordsBatchUpdated> | undefined;
+
+    expect(projection).toBeDefined();
+
+    const { baseId, tableId, fieldId } = createIds();
+    const event = RecordsBatchUpdated.create({
+      baseId,
+      tableId,
+      source: 'user',
+      updates: Array.from({ length: 200 }, (_, index) => ({
+        recordId: `rec${index.toString().padStart(16, '0')}`,
+        oldVersion: 1,
+        newVersion: 2,
+        changes: [
+          {
+            fieldId: fieldId.toString(),
+            oldValue: `old-${index}`,
+            newValue: `new-${index}`,
+          },
+        ],
+      })),
+      orchestration: {
+        operationId: 'streamed-update-operation',
+        groupId: 'streamed-update-group',
+        totalRecordCount: 1000,
+        totalChunkCount: 5,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+    });
+
+    const result = await projection?.handle({} as IExecutionContext, event);
+    expect(result?.isOk()).toBe(true);
+    await waitForPresenceFlush();
+
+    expect(submitted).toEqual([
+      {
+        actionKey: 'setRecord',
+        payload: {
+          tableId: tableId.toString(),
+          fieldIds: [fieldId.toString()],
+          recordIds: event.updates.map((update) => update.recordId),
+          skipRealtime: true,
+          operationId: 'streamed-update-operation',
+          groupId: 'streamed-update-group',
+          totalRecordCount: 1000,
+          totalChunkCount: 5,
+          chunkIndex: 0,
+          scope: 'chunk',
         },
       },
     ]);

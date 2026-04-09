@@ -5,7 +5,12 @@ import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentItem, IConditionalRollupFieldOptions, IFilter } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IImportBaseSSEEvent, INotifyVo, ITableFullVo } from '@teable/openapi';
+import type {
+  IImportBaseSSEEvent,
+  INotifyVo,
+  ITableFullVo,
+  IV2SchemaIntegrityCheckResult,
+} from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -29,6 +34,11 @@ import {
   moveBaseNode,
   BaseNodeResourceType,
   IMPORT_BASE_STREAM,
+  createSpace,
+  permanentDeleteSpace,
+  getV2SchemaIntegrityDecision,
+  updateSetting,
+  SettingKey,
 } from '@teable/openapi';
 import { pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
@@ -36,6 +46,7 @@ import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
+import { IntegrityV2Service } from '../src/features/integrity/integrity-v2.service';
 import { replaceStringByMap } from '../src/features/base/utils';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -52,6 +63,7 @@ import {
   getRecord,
   deleteField,
   convertField,
+  runWithTestUser,
 } from './utils/init-app';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -495,9 +507,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       });
 
       const attachmentService = getAttachmentService(app);
-      const clsService = app.get(ClsService);
+      const uploadClsService = app.get(ClsService);
 
-      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+      const notify = await uploadClsService.runWith<Promise<IAttachmentItem>>(
         {
           user: {
             id: userId,
@@ -847,6 +859,144 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
           ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
           : primaryFieldRaw.meta ?? {};
       expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
+    });
+  });
+
+  describe('canary base import', () => {
+    let canarySpaceId: string | undefined;
+    let canarySourceBaseId: string | undefined;
+    let importedCanaryBaseId: string | undefined;
+
+    afterEach(async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: false,
+          spaceIds: [],
+        },
+      });
+
+      if (importedCanaryBaseId) {
+        await permanentDeleteBase(importedCanaryBaseId);
+        importedCanaryBaseId = undefined;
+      }
+      if (canarySourceBaseId) {
+        await permanentDeleteBase(canarySourceBaseId);
+        canarySourceBaseId = undefined;
+      }
+      if (canarySpaceId) {
+        await permanentDeleteSpace(canarySpaceId);
+        canarySpaceId = undefined;
+      }
+    });
+
+    it('keeps v2 schema integrity clean for computed fields after importing into a canary space', async () => {
+      const space = await createSpace({ name: 'canary_import_space' });
+      canarySpaceId = space.data.id;
+
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [canarySpaceId],
+        },
+      });
+
+      const sourceBase = (
+        await createBase({
+          name: 'canary_formula_source',
+          spaceId: canarySpaceId,
+          icon: '🧪',
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const table = await createTable(sourceBase.id, {
+        name: 'Formula Table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Minutes', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'Row 1', Minutes: 2 } },
+          { fields: { Name: 'Row 2', Minutes: 4 } },
+        ],
+      });
+
+      const minutesField = table.fields.find((field) => field.name === 'Minutes')!;
+      await createField(table.id, {
+        name: 'Hours',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${minutesField.id}} / 2`,
+        },
+      });
+
+      const awaitExportWithPreview = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+
+      const { previewUrl } = await awaitExportWithPreview(async () => {
+        await exportBase(canarySourceBaseId!);
+      });
+
+      const attachmentService = getAttachmentService(app);
+      const clsService = app.get(ClsService);
+
+      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await attachmentService.uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+
+      const { base: importedBase } = (
+        await importBase({
+          notify: notify as unknown as INotifyVo,
+          spaceId: canarySpaceId,
+        })
+      ).data;
+      importedCanaryBaseId = importedBase.id;
+
+      const integrityDecision = await getV2SchemaIntegrityDecision(importedCanaryBaseId);
+      expect(integrityDecision.data.useV2).toBe(true);
+
+      const integrityV2Service = app.get(IntegrityV2Service);
+      const integrityResults: IV2SchemaIntegrityCheckResult[] = [];
+      const integrityClsService = app.get(ClsService);
+      await runWithTestUser(integrityClsService, async () => {
+        const integrityStream = await integrityV2Service.createBaseCheckStream(
+          importedCanaryBaseId,
+          ['warn', 'error']
+        );
+        for await (const result of integrityStream) {
+          integrityResults.push(result);
+        }
+      });
+
+      expect(integrityResults).toEqual([]);
+
+      const importedTableMeta = (await getTableList(importedCanaryBaseId)).data.find(
+        (item) => item.name === 'Formula Table'
+      )!;
+      const importedTable = await getTable(importedCanaryBaseId, importedTableMeta.id, {
+        includeContent: true,
+      });
+      const importedHoursField = importedTable.fields?.find((field) => field.name === 'Hours')!;
+
+      const importedRecords = await getRecords(importedTableMeta.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      expect(
+        importedRecords.records.map((record) => record.fields?.[importedHoursField.id])
+      ).toEqual([1, 2]);
     });
   });
 

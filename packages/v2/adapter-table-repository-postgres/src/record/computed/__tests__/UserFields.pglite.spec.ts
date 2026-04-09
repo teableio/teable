@@ -60,7 +60,9 @@ class PGliteDriver {
 
   async releaseConnection() {}
 
-  async destroy() {}
+  async destroy() {
+    await this.#client.close();
+  }
 }
 
 class PGliteConnection {
@@ -158,7 +160,6 @@ describe('UserFields PGlite E2E integration', () => {
 
   afterAll(async () => {
     await db.destroy();
-    await pglite.close();
   });
 
   it('should populate user fields with complete user object directly in INSERT via subquery', async () => {

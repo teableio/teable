@@ -560,7 +560,6 @@
       },
       "app": {
         "domain": "Домен",
-        "v0ApiKey": "Ключ API v0",
         "customDomain": "Користувацький домен (необов'язково)",
         "customDomainDescription": "Налаштуйте свій користувацький домен для розгортання застосунку, перейдіть до <a>домену Vercel</a> для отримання користувацького домену",
         "vercelToken": "Токен API Vercel",
@@ -598,11 +597,6 @@
           "title": "LLM API",
           "description": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися, <anchor>перейти до налаштувань</anchor>",
           "errorTips": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися"
-        },
-        "app": {
-          "title": "Конструктор додатків",
-          "description": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна, <anchor>перейти до налаштувань</anchor>",
-          "errorTips": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна"
         },
         "webSearch": {
           "title": "Веб-пошук",
@@ -1061,8 +1055,8 @@
   },
   "changelog": {
     "newUpdate": "НОВЕ ОНОВЛЕННЯ",
-    "title": "Власний домен для App доступний",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "title": "Підтримка Markdown у полях довгого тексту",
+    "url": "https://help.teable.ai/en/changelog#apr-08-2026",
+    "id": "changelog-2026-04-08-markdown-support-in-long-text-field"
   }
 }

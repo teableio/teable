@@ -132,6 +132,33 @@ describe('lookupOptionsVoSchema validation', () => {
     expect(result.data.visibleFieldIds).toEqual(['fldYYY', 'fldZZZ']);
   });
 
+  it('should accept persisted lookup metadata extensions used by realtime field payloads', () => {
+    const persistedLookup = {
+      baseId: 'bseXXX',
+      foreignTableId: 'tblXXX',
+      lookupFieldId: 'fldYYY',
+      linkFieldId: 'fldZZZ',
+      relationship: 'oneMany',
+      fkHostTableName: 'base.table',
+      selfKeyName: '__fk_self',
+      foreignKeyName: '__id',
+      filterByViewId: 'viwActive',
+      isOneWay: false,
+      symmetricFieldId: 'fldSymmetric',
+    };
+
+    const result = lookupOptionsVoSchema.safeParse(persistedLookup);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect(result.data).toMatchObject({
+      isOneWay: false,
+      symmetricFieldId: 'fldSymmetric',
+    });
+  });
+
   it('should provide helpful error when expression is misplaced', () => {
     const wrongStructure = {
       linkFieldId: 'fldXXX',

@@ -222,6 +222,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ) {
     return ok(undefined);
   }
+
+  async deleteManyStream() {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeEventBus implements IEventBus {

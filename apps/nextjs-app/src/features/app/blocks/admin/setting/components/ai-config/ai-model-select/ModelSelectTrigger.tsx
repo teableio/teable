@@ -40,7 +40,9 @@ export const ModelSelectTrigger = forwardRef<HTMLButtonElement, IModelSelectTrig
       >
         <div className="flex flex-1 items-center truncate">
           {!currentModel ? (
-            placeholder ?? t('admin.setting.ai.selectModel')
+            <span className="text-muted-foreground">
+              {placeholder ?? t('admin.setting.ai.selectModel')}
+            </span>
           ) : (
             <>
               {Icon && <Icon className="mr-1.5 size-4 shrink-0" />}

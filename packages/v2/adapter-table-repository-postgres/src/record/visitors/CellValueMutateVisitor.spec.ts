@@ -10,6 +10,7 @@ import {
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { MAX_FILLED_LINK_VALUE_ITEMS } from '../buildFilledLinkValueExpression';
 import { createTestDb } from '../../schema/visitors/__tests__/helpers/createTestDb';
 import { CellValueMutateVisitor } from './CellValueMutateVisitor';
 
@@ -50,6 +51,8 @@ const createLinkField = (params: {
   relationship: 'manyMany' | 'oneMany' | 'manyOne' | 'oneOne';
   isOneWay?: boolean;
   isMultipleValue?: boolean;
+  foreignTableId?: string;
+  lookupFieldId?: string;
   hostTableName?: string;
   selfKeyName?: string;
   foreignKeyName?: string;
@@ -68,6 +71,8 @@ const createLinkField = (params: {
     isMultipleValue: () =>
       params.isMultipleValue ??
       (params.relationship === 'manyMany' || params.relationship === 'oneMany'),
+    foreignTableId: () => mkTableId(params.foreignTableId ?? 'foreign'),
+    lookupFieldId: () => mkFieldId(params.lookupFieldId ?? 'lookup'),
     fkHostTableName: () => ({
       split: () => {
         const raw = params.hostTableName ?? 'public.link_host';
@@ -148,6 +153,31 @@ const createVisitor = (...fields: Array<ReturnType<typeof createField>>) =>
     }
   );
 
+const createForeignTable = (params: {
+  tableId?: string;
+  dbTableName: string;
+  lookupFieldId?: string;
+  lookupDbFieldName: string;
+}) => ({
+  id: () => mkTableId(params.tableId ?? 'foreign'),
+  dbTableName: () =>
+    ok({
+      value: () => ok(params.dbTableName),
+    }),
+  getField: (predicate: (field: ReturnType<typeof createField>) => boolean) => {
+    const expectedFieldId = mkFieldId(params.lookupFieldId ?? 'lookup');
+    const field = createField({
+      fieldId: params.lookupFieldId ?? 'lookup',
+      type: 'singleLineText',
+      dbFieldName: params.lookupDbFieldName,
+    });
+    if (!predicate({ ...field, id: () => expectedFieldId })) {
+      return err(domainError.notFound({ message: 'Lookup field not found' }));
+    }
+    return ok(field);
+  },
+});
+
 describe('CellValueMutateVisitor', () => {
   it('returns an error when user identifiers are not pre-resolved', () => {
     const visitor = createVisitor();
@@ -217,7 +247,7 @@ describe('CellValueMutateVisitor', () => {
 
     expect(result.isOk()).toBe(true);
     const raw = visitor.getSetClausesRaw();
-    expect(raw.setClauses.link_json).toBeNull();
+    expect(raw.setClauses.link_json).toBe(JSON.stringify([]));
     expect(raw.additionalStatements).toHaveLength(1);
     expect(normalizeSql(raw.additionalStatements[0].sql)).toContain(
       'delete from "public"."junction_links" where "__fk_source" = $1'
@@ -265,6 +295,98 @@ describe('CellValueMutateVisitor', () => {
     expect(raw.setClauses.link_json).toBe(JSON.stringify({ id: mkRecordId('foreignA') }));
     expect(raw.setClauses.__fk_target).toBe(mkRecordId('foreignA'));
     expect(raw.additionalStatements).toHaveLength(0);
+  });
+
+  it('fills missing link titles using the foreign table dbTableName instead of tableId', () => {
+    const linkField = createLinkField({
+      fieldId: 'manyOneField',
+      dbFieldName: 'link_json',
+      relationship: 'manyOne',
+      isMultipleValue: false,
+      foreignTableId: 'legacyForeign',
+      lookupFieldId: 'legacyLookup',
+      foreignKeyName: '__fk_target',
+    });
+    const foreignTable = createForeignTable({
+      tableId: 'legacyForeign',
+      dbTableName: 'bseLegacy.Legacy_Name',
+      lookupFieldId: 'legacyLookup',
+      lookupDbFieldName: 'Primary_Field',
+    });
+    const visitor = CellValueMutateVisitor.create(
+      createTestDb() as never,
+      createTable(linkField) as never,
+      'public.records',
+      {
+        recordId: mkRecordId('source'),
+        actorId: 'usrActor000000001',
+        now: '2025-01-01T00:00:00.000Z',
+        fillLinkTitles: true,
+        fillLinkTitleForeignTables: new Map([
+          [foreignTable.id().toString(), foreignTable as never],
+        ]),
+      }
+    );
+    const spec = new SetLinkValueSpec(
+      linkField.id(),
+      CellValue.fromValidated([{ id: mkRecordId('foreignA') }]),
+      foreignTable.id()
+    );
+
+    const result = visitor.visitSetLinkValue(spec);
+
+    expect(result.isOk()).toBe(true);
+    const built = visitor.build()._unsafeUnwrap();
+    expect(built.additionalStatements).toHaveLength(0);
+    expect(normalizeSql(built.mainUpdate.sql)).toContain('LEFT JOIN "bseLegacy"."Legacy_Name" ft');
+    expect(normalizeSql(built.mainUpdate.sql)).toContain('"ft"."Primary_Field"');
+    expect(normalizeSql(built.mainUpdate.sql)).not.toContain(`"${foreignTable.id().toString()}"`);
+  });
+
+  it('rejects oversized multi-link title fill writes before compiling SQL', () => {
+    const linkField = createLinkField({
+      fieldId: 'manyManyField',
+      dbFieldName: 'link_json',
+      relationship: 'manyMany',
+      isMultipleValue: true,
+      foreignTableId: 'legacyForeign',
+      lookupFieldId: 'legacyLookup',
+    });
+    const foreignTable = createForeignTable({
+      tableId: 'legacyForeign',
+      dbTableName: 'bseLegacy.Legacy_Name',
+      lookupFieldId: 'legacyLookup',
+      lookupDbFieldName: 'Primary_Field',
+    });
+    const visitor = CellValueMutateVisitor.create(
+      createTestDb() as never,
+      createTable(linkField) as never,
+      'public.records',
+      {
+        recordId: mkRecordId('source'),
+        actorId: 'usrActor000000001',
+        now: '2025-01-01T00:00:00.000Z',
+        fillLinkTitles: true,
+        fillLinkTitleForeignTables: new Map([
+          [foreignTable.id().toString(), foreignTable as never],
+        ]),
+      }
+    );
+    const oversizedItems = Array.from({ length: MAX_FILLED_LINK_VALUE_ITEMS + 1 }, (_, index) => ({
+      id: mkRecordId(`foreign${index}`),
+    }));
+    const spec = new SetLinkValueSpec(
+      linkField.id(),
+      CellValue.fromValidated(oversizedItems),
+      foreignTable.id()
+    );
+
+    const result = visitor.visitSetLinkValue(spec);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.field.link_title_fill_limit_exceeded',
+    });
   });
 
   it('builds symmetric clear/update statements when the foreign table owns the fk', () => {
