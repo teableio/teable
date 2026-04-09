@@ -34,6 +34,9 @@ export class RealtimeMetricsService {
   private readonly connectionErrors = this.meter.createCounter('realtime.connections.errors', {
     description: 'Total number of WebSocket connection errors',
   });
+  private readonly sessionsActive = this.meter.createUpDownCounter('realtime.sessions.active', {
+    description: 'Number of active user sessions (deduplicated by user)',
+  });
 
   recordConnectionOpen(): void {
     this.connectionsActive.add(1);
@@ -62,5 +65,15 @@ export class RealtimeMetricsService {
 
   recordOpsPublished(count: number): void {
     this.publishTotal.add(count);
+  }
+
+  recordSessionStart(planLevel?: string): void {
+    const attributes = planLevel ? { plan_level: planLevel } : {};
+    this.sessionsActive.add(1, attributes);
+  }
+
+  recordSessionEnd(planLevel?: string): void {
+    const attributes = planLevel ? { plan_level: planLevel } : {};
+    this.sessionsActive.add(-1, attributes);
   }
 }

@@ -6,7 +6,7 @@ import type { RecordId } from '../../records/RecordId';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../records/TableRecord';
 import type { Table } from '../../Table';
-import { buildRecordWithSpec } from './recordBuilders';
+import { buildRecordWithSpec, createRecordBuildContext } from './recordBuilders';
 
 export interface CreateRecordsMethodResult {
   records: ReadonlyArray<TableRecord>;
@@ -19,11 +19,20 @@ export function createRecords(
   recordsFieldValues: ReadonlyArray<
     ReadonlyMap<string, unknown> | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
   >,
-  options?: { typecast?: boolean }
+  options?: {
+    typecast?: boolean;
+    valuesAreValidated?: boolean;
+    emitRecordCreatedEvents?: boolean;
+  }
 ): Result<CreateRecordsMethodResult, DomainError> {
   const table = this;
-  const { typecast = false } = options ?? {};
+  const {
+    typecast = false,
+    valuesAreValidated = false,
+    emitRecordCreatedEvents = true,
+  } = options ?? {};
   return safeTry<CreateRecordsMethodResult, DomainError>(function* () {
+    const buildContext = createRecordBuildContext(table);
     const records: TableRecord[] = [];
     const mutateSpecs: (ICellValueSpec | null)[] = [];
     // Combined fieldKeyMapping from all records
@@ -40,7 +49,12 @@ export function createRecords(
       const { fieldValues, recordId } = isSeedRecord(input)
         ? { fieldValues: input.fieldValues, recordId: input.id }
         : { fieldValues: input, recordId: undefined };
-      const result = yield* buildRecordWithSpec.call(table, fieldValues, recordId, { typecast });
+      const result = yield* buildRecordWithSpec.call(table, fieldValues, recordId, {
+        typecast,
+        buildContext,
+        valuesAreValidated,
+        emitRecordCreatedEvent: emitRecordCreatedEvents,
+      });
       records.push(result.record);
       mutateSpecs.push(result.mutateSpec);
       // Merge fieldKeyMapping (all records should have the same mapping for the same fields)

@@ -1,34 +1,53 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ProjectionHandler,
   RecordsDeleted,
   TableRestored,
   TableTrashed,
-  TableQueryService,
   ok,
-  v2CoreTokens,
   type DomainError,
   type IEventHandler,
   type IExecutionContext,
   type Result,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { Kysely } from 'kysely';
+import { nanoid } from 'nanoid';
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
+import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
-import { TableTrashListener } from './listener/table-trash.listener';
-import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
+import { V2RecordTrashService } from './v2-record-trash.service';
+
+/* eslint-disable @typescript-eslint/naming-convention */
+type IAttachmentsTableDb = V1TeableDatabase & {
+  attachments_table: {
+    table_id: string;
+    record_id: string;
+  };
+  table_meta: {
+    id: string;
+    base_id: string;
+    deleted_time: Date | null;
+  };
+  trash: {
+    id: string;
+    resource_id: string;
+    resource_type: string;
+    parent_id: string | null;
+    deleted_time: Date;
+    deleted_by: string;
+  };
+};
+/* eslint-enable @typescript-eslint/naming-convention */
 
 @ProjectionHandler(RecordsDeleted)
 export class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
-  constructor(
-    private readonly tableTrashListener: TableTrashListener,
-    private readonly tableQueryService: TableQueryService
-  ) {}
+  constructor(private readonly v2RecordTrashService: V2RecordTrashService) {}
 
   async handle(
     context: IExecutionContext,
@@ -38,49 +57,93 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
       return ok(undefined);
     }
 
-    const tableResult = await this.tableQueryService.getById(context, event.tableId);
-    const table = tableResult.isOk() ? tableResult.value : null;
+    const buildPayloadAttributes = {
+      teableTableId: event.tableId.toString(),
+      teableRecordCount: event.recordSnapshots.length,
+    } satisfies Record<string, string | number | boolean>;
 
-    const records: IDeleteRecordsPayload['records'] = event.recordSnapshots.map((snapshot) => {
-      const record: IDeleteRecordsPayload['records'][number] = {
-        id: snapshot.id,
-        fields: snapshot.fields as IRecord['fields'],
-        autoNumber: snapshot.autoNumber,
-        createdTime: snapshot.createdTime,
-        createdBy: snapshot.createdBy,
-        lastModifiedTime: snapshot.lastModifiedTime,
-        lastModifiedBy: snapshot.lastModifiedBy,
-        order: snapshot.orders,
-      };
+    const records = await this.runInSpan(
+      context,
+      'teable.V2RecordsDeletedTableTrashProjection.buildTrashPayload',
+      buildPayloadAttributes,
+      async () =>
+        event.recordSnapshots.map((snapshot) => {
+          const record: IDeleteRecordsPayload['records'][number] = {
+            id: snapshot.id,
+            fields: snapshot.fields as IRecord['fields'],
+            autoNumber: snapshot.autoNumber,
+            createdTime: snapshot.createdTime,
+            createdBy: snapshot.createdBy,
+            lastModifiedTime: snapshot.lastModifiedTime,
+            lastModifiedBy: snapshot.lastModifiedBy,
+            order: snapshot.orders,
+          };
 
-      if (table) {
-        const nameResult = resolveV2TrashRecordDisplayName(table, {
-          id: snapshot.id,
-          fields: snapshot.fields,
-        });
-        if (nameResult.isOk() && nameResult.value) {
-          record.name = nameResult.value;
-        }
-      }
+          if (snapshot.displayName) {
+            record.name = snapshot.displayName;
+          }
 
-      return record;
-    });
+          return record;
+        })
+    );
 
-    await this.tableTrashListener.recordDeleteListener({
-      operationId: generateOperationId(),
-      windowId: context.windowId,
-      tableId: event.tableId.toString(),
-      userId: context.actorId.toString(),
-      records,
-    });
+    const persistAttributes = {
+      teableTableId: event.tableId.toString(),
+      teableRecordCount: records.length,
+    } satisfies Record<string, string | number | boolean>;
+
+    await this.runInSpan(
+      context,
+      'teable.V2RecordsDeletedTableTrashProjection.persistDeletedRecords',
+      persistAttributes,
+      async () =>
+        this.v2RecordTrashService.persistDeletedRecords(
+          {
+            operationId: generateOperationId(),
+            windowId: context.windowId,
+            tableId: event.tableId.toString(),
+            userId: context.actorId.toString(),
+            records,
+          },
+          context
+        )
+    );
 
     return ok(undefined);
+  }
+
+  private async runInSpan<T>(
+    context: IExecutionContext,
+    name: `teable.${string}`,
+    attributes: Record<string, string | number | boolean>,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    const tracer = context.tracer;
+    const spanAttributes: Record<string, string | number | boolean> = {
+      teableVersion: 'v2',
+      teableComponent: 'projection',
+      teableOperation: name.replace(/^teable\./, ''),
+      ...attributes,
+    };
+    const span = tracer?.startSpan(name, spanAttributes);
+
+    if (!tracer || !span) {
+      return callback();
+    }
+
+    return tracer.withSpan(span, async () => {
+      try {
+        return await callback();
+      } finally {
+        span.end();
+      }
+    });
   }
 }
 
 @ProjectionHandler(RecordsDeleted)
 export class V2RecordsDeletedAttachmentProjection implements IEventHandler<RecordsDeleted> {
-  constructor(private readonly attachmentsTableService: AttachmentsTableService) {}
+  constructor(private readonly v2ContainerService: V2ContainerService) {}
 
   async handle(
     _context: IExecutionContext,
@@ -90,10 +153,18 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
       return ok(undefined);
     }
 
-    await this.attachmentsTableService.deleteRecords(
-      event.tableId.toString(),
-      event.recordIds.map((id) => id.toString())
-    );
+    const container = await this.v2ContainerService.getContainer();
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+
+    await db
+      .deleteFrom('attachments_table')
+      .where('table_id', '=', event.tableId.toString())
+      .where(
+        'record_id',
+        'in',
+        event.recordIds.map((id) => id.toString())
+      )
+      .execute();
 
     return ok(undefined);
   }
@@ -101,37 +172,41 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
 
 @ProjectionHandler(TableTrashed)
 export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly v2ContainerService: V2ContainerService) {}
 
   async handle(
     context: IExecutionContext,
     event: TableTrashed
   ): Promise<Result<void, DomainError>> {
-    const table = await this.prisma.tableMeta.findUnique({
-      where: { id: event.tableId.toString() },
-      select: { baseId: true, deletedTime: true },
-    });
+    const container = await this.v2ContainerService.getContainer();
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+    const table = await db
+      .selectFrom('table_meta')
+      .where('id', '=', event.tableId.toString())
+      .select(['base_id', 'deleted_time'])
+      .executeTakeFirst();
 
-    if (!table?.deletedTime) {
+    if (!table?.deleted_time) {
       return ok(undefined);
     }
 
-    await this.prisma.trash.deleteMany({
-      where: {
-        resourceId: event.tableId.toString(),
-        resourceType: ResourceType.Table,
-      },
-    });
+    await db
+      .deleteFrom('trash')
+      .where('resource_id', '=', event.tableId.toString())
+      .where('resource_type', '=', ResourceType.Table)
+      .execute();
 
-    await this.prisma.trash.create({
-      data: {
-        resourceId: event.tableId.toString(),
-        resourceType: ResourceType.Table,
-        parentId: table.baseId,
-        deletedTime: table.deletedTime,
-        deletedBy: context.actorId.toString(),
-      },
-    });
+    await db
+      .insertInto('trash')
+      .values({
+        id: nanoid(),
+        resource_id: event.tableId.toString(),
+        resource_type: ResourceType.Table,
+        parent_id: table.base_id,
+        deleted_time: table.deleted_time,
+        deleted_by: context.actorId.toString(),
+      })
+      .execute();
 
     return ok(undefined);
   }
@@ -139,18 +214,19 @@ export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
 
 @ProjectionHandler(TableRestored)
 export class V2TableRestoredProjection implements IEventHandler<TableRestored> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly v2ContainerService: V2ContainerService) {}
 
   async handle(
     _context: IExecutionContext,
     event: TableRestored
   ): Promise<Result<void, DomainError>> {
-    await this.prisma.trash.deleteMany({
-      where: {
-        resourceId: event.tableId.toString(),
-        resourceType: ResourceType.Table,
-      },
-    });
+    const container = await this.v2ContainerService.getContainer();
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+    await db
+      .deleteFrom('trash')
+      .where('resource_id', '=', event.tableId.toString())
+      .where('resource_type', '=', ResourceType.Table)
+      .execute();
 
     return ok(undefined);
   }
@@ -162,29 +238,29 @@ export class V2TableTrashService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2TableTrashService.name);
 
   constructor(
-    private readonly tableTrashListener: TableTrashListener,
-    private readonly attachmentsTableService: AttachmentsTableService,
-    private readonly prisma: PrismaService
+    private readonly v2RecordTrashService: V2RecordTrashService,
+    private readonly v2ContainerService: V2ContainerService
   ) {}
 
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 trash projections');
 
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-
     container.registerInstance(
       V2RecordsDeletedTableTrashProjection,
-      new V2RecordsDeletedTableTrashProjection(this.tableTrashListener, tableQueryService)
+      new V2RecordsDeletedTableTrashProjection(this.v2RecordTrashService)
     );
 
     container.registerInstance(
       V2RecordsDeletedAttachmentProjection,
-      new V2RecordsDeletedAttachmentProjection(this.attachmentsTableService)
+      new V2RecordsDeletedAttachmentProjection(this.v2ContainerService)
     );
-    container.registerInstance(V2TableTrashedProjection, new V2TableTrashedProjection(this.prisma));
+    container.registerInstance(
+      V2TableTrashedProjection,
+      new V2TableTrashedProjection(this.v2ContainerService)
+    );
     container.registerInstance(
       V2TableRestoredProjection,
-      new V2TableRestoredProjection(this.prisma)
+      new V2TableRestoredProjection(this.v2ContainerService)
     );
   }
 }

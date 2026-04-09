@@ -173,6 +173,7 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
+    const confirm = field.confirm();
     const options: Record<string, unknown> = {
       label: field.label().toString(),
       color: field.color().toString(),
@@ -180,6 +181,7 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
     if (maxCount) options.maxCount = maxCount.toNumber();
     if (resetCount) options.resetCount = resetCount.toBoolean();
     if (workflow) options.workflow = workflow.toDto();
+    if (confirm) options.confirm = confirm.toDto();
     return ok(options);
   }
 

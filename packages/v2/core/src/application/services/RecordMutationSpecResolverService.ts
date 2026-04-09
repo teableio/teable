@@ -10,7 +10,8 @@ import type {
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
-import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
+import type { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../domain/table/records/specs/values/SetUserValueSpec';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -65,7 +66,7 @@ class SpecResolutionCollector implements ICellValueSpecVisitor {
   visitSetDateValue(): Result<void, DomainError> {
     return ok(undefined);
   }
-  visitSetLinkValue(): Result<void, DomainError> {
+  visitSetLinkValue(_spec: SetLinkValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
   visitSetRowOrderValue(_spec: SetRowOrderValueSpec): Result<void, DomainError> {
@@ -169,20 +170,10 @@ export class RecordMutationSpecResolverService {
     return ok(replaceSpecs(spec, replacements));
   }
 
-  /**
-   * Batch resolve multiple specs at once.
-   * This collects all sub-specs across ALL input specs and resolves them in a single batch,
-   * avoiding N+1 queries when resolving user/link/attachment fields for many records.
-   *
-   * @param context Execution context
-   * @param specs Array of specs to resolve (one per record, can contain nulls)
-   * @returns Array of resolved specs in the same order as input
-   */
   async resolveAndReplaceMany(
     context: IExecutionContext,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
-    // Collect all sub-specs across ALL input specs, tracking ownership per record
     const collectedSpecs = new Map<
       ICellValueSpecResolver,
       { specs: ICellValueSpec[]; owners: number[] }
@@ -205,12 +196,10 @@ export class RecordMutationSpecResolverService {
       }
     }
 
-    // If nothing needs resolution, return original specs
     if (collectedSpecs.size === 0) {
       return ok(specs);
     }
 
-    // Resolve ALL collected specs in batch (single query per resolver type)
     const perSpecReplacements = specs.map(() => new Map<string, ICellValueSpec>());
     for (const [resolver, batch] of collectedSpecs) {
       const result = await resolver.resolveSpecs(context, batch.specs);
@@ -233,15 +222,15 @@ export class RecordMutationSpecResolverService {
       }
     }
 
-    // Apply replacements to each original spec
     const resolvedSpecs: (ICellValueSpec | null)[] = [];
     for (let i = 0; i < specs.length; i++) {
       const spec = specs[i];
       if (spec === null) {
         resolvedSpecs.push(null);
-      } else {
-        resolvedSpecs.push(replaceSpecs(spec, perSpecReplacements[i]!));
+        continue;
       }
+      const replacements = perSpecReplacements[i]!;
+      resolvedSpecs.push(replacements.size > 0 ? replaceSpecs(spec, replacements) : spec);
     }
 
     return ok(resolvedSpecs);
