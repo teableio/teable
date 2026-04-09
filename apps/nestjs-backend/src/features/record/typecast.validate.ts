@@ -258,7 +258,12 @@ export class TypeCastAndValidate {
 
     if (preventAutoNewOptions) {
       return newCellValues
-        ? newCellValues.map((v) => (existsChoicesNameMap[v] ? v : null))
+        ? newCellValues.map((v) => {
+            if (v === undefined) {
+              return undefined;
+            }
+            return existsChoicesNameMap[v] ? v : null;
+          })
         : newCellValues;
     }
 

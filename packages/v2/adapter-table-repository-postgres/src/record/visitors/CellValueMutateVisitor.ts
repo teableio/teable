@@ -38,7 +38,9 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
+import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
 
 // System columns
@@ -53,6 +55,8 @@ const VERSION_COLUMN = '__version';
 export interface MutationStatements {
   /** The main UPDATE statement for the record table */
   mainUpdate: CompiledQuery;
+  /** Raw SET clauses for rebuilding UPDATE ... RETURNING in repositories */
+  setClauses: Record<string, unknown>;
   /** Additional SQL statements (junction table operations, FK updates for link fields) */
   additionalStatements: CompiledQuery[];
   /** Field IDs that were changed (for computed field propagation) */
@@ -68,6 +72,8 @@ export interface CellValueMutateContext {
   now: string;
   actorName?: string;
   actorEmail?: string;
+  fillLinkTitles?: boolean;
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 /**
@@ -130,6 +136,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
 
     return ok({
       mainUpdate,
+      setClauses: { ...this.setClauses },
       additionalStatements: this.additionalStatements,
       changedFieldIds: this.changedFieldIds,
     });
@@ -556,23 +563,40 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
 
       const linkField = field as LinkField;
 
-      const storedValue = linkField.isMultipleValue()
-        ? rawValue
-        : Array.isArray(rawValue)
-          ? rawValue[0] ?? null
-          : rawValue;
-      const jsonResult = visitor.addJsonValue(fieldId, storedValue);
-      if (jsonResult.isErr()) {
-        return err(jsonResult.error);
+      const result = visitor.getFieldAndDbName(fieldId.toString());
+      if (result.isErr()) return err(result.error);
+      const { dbFieldName } = result.value;
+
+      const skipResult = visitor.shouldSkipComputed(field);
+      if (skipResult.isErr()) return err(skipResult.error);
+      if (skipResult.value) {
+        return ok(undefined);
       }
 
-      // Parse link items
-      const linkItems: Array<{ id: string }> = [];
-      if (rawValue !== null && rawValue !== undefined) {
-        const items = Array.isArray(rawValue)
-          ? (rawValue as Array<{ id: string }>)
-          : [rawValue as { id: string }];
-        linkItems.push(...items.filter((item) => item && typeof item === 'object' && 'id' in item));
+      const linkItems = normalizeStoredLinkItems(rawValue);
+      const hasMissingTitles =
+        visitor.ctx.fillLinkTitles &&
+        spec.foreignTableId != null &&
+        linkItems.some((item) => item.id && !item.title);
+      const storedValue = linkField.isMultipleValue()
+        ? linkItems
+        : linkItems[0] ?? (rawValue == null ? null : rawValue);
+
+      visitor.changedFieldIds.push(fieldId);
+      if (hasMissingTitles && linkItems.length > 0) {
+        const filledValueResult = yield* buildFilledLinkValueExpression({
+          linkField,
+          linkItems,
+          fillLinkTitleForeignTables: visitor.ctx.fillLinkTitleForeignTables,
+        });
+        if (filledValueResult) {
+          visitor.setClauses[dbFieldName] = filledValueResult;
+        } else {
+          visitor.setClauses[dbFieldName] = JSON.stringify(storedValue);
+        }
+      } else {
+        visitor.setClauses[dbFieldName] =
+          storedValue === null || storedValue === undefined ? null : JSON.stringify(storedValue);
       }
 
       const relationship = linkField.relationship().toString();

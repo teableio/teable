@@ -15,6 +15,8 @@ import {
   updateAccessTokenRoSchema,
   RefreshAccessTokenRo,
 } from '@teable/openapi';
+import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
+import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AccessTokenService } from './access-token.service';
 
@@ -23,6 +25,7 @@ export class AccessTokenController {
   constructor(private readonly accessTokenService: AccessTokenService) {}
 
   @Post()
+  @EmitControllerEvent(Events.ACCESS_TOKEN_CREATE)
   async createAccessToken(
     @Body(new ZodValidationPipe(createAccessTokenRoSchema)) body: CreateAccessTokenRo
   ): Promise<CreateAccessTokenVo> {
@@ -38,6 +41,7 @@ export class AccessTokenController {
   }
 
   @Delete(':accessTokenId')
+  @EmitControllerEvent(Events.ACCESS_TOKEN_DELETE)
   async deleteAccessToken(@Param('accessTokenId') accessTokenId: string) {
     return await this.accessTokenService.deleteAccessToken(accessTokenId);
   }

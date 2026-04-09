@@ -15,6 +15,14 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
   private sockjsServer: sockjs.Server | null = null;
   private readonly activeConnections = new Set<sockjs.Connection>();
 
+  // Track user → connections for session lifecycle metrics
+  private readonly userConnectionMap = new Map<string, Set<sockjs.Connection>>();
+  // Track connection → { userId, connectTime } for duration calculation
+  private readonly connectionMeta = new Map<
+    sockjs.Connection,
+    { userId: string; connectTime: number }
+  >();
+
   constructor(
     private readonly shareDb: ShareDbService,
     private readonly httpAdapterHost: HttpAdapterHost,
@@ -59,6 +67,10 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
     conn.on('close', () => {
       this.activeConnections.delete(conn);
       this.realtimeMetrics?.recordConnectionClose();
+
+      // Track user session end
+      this.handleUserDisconnect(conn);
+
       this.logger.log(`sockjs:on:close (active: ${this.activeConnections.size})`);
     });
 
@@ -71,6 +83,10 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
       const request = this.getRequestFromConnection(conn);
 
       this.shareDb.listen(stream, request);
+
+      // After listen, the ShareDB agent will have custom.userId set by auth middleware
+      // We defer userId binding to allow the auth middleware to resolve
+      this.deferUserBinding(conn);
     } catch (error) {
       this.logger.error('Connection error', error);
       this.realtimeMetrics?.recordConnectionError();
@@ -79,6 +95,66 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
       this.activeConnections.delete(conn);
     }
   };
+
+  /**
+   * Defer user binding since ShareDB auth middleware resolves userId asynchronously.
+   */
+  private deferUserBinding(conn: sockjs.Connection) {
+    setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const session = (conn as any)?._session;
+      const userId = session?.agent?.custom?.userId;
+
+      if (userId) {
+        this.handleUserConnect(conn, userId);
+      }
+    }, 100);
+  }
+
+  private handleUserConnect(conn: sockjs.Connection, userId: string) {
+    this.connectionMeta.set(conn, { userId, connectTime: Date.now() });
+
+    let userConns = this.userConnectionMap.get(userId);
+    if (!userConns) {
+      userConns = new Set();
+      this.userConnectionMap.set(userId, userConns);
+
+      // First connection for this user → OTEL session metric
+      this.realtimeMetrics?.recordSessionStart();
+    }
+    userConns.add(conn);
+  }
+
+  private handleUserDisconnect(conn: sockjs.Connection) {
+    const meta = this.connectionMeta.get(conn);
+    this.connectionMeta.delete(conn);
+
+    if (!meta) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userId = (conn as any)?._session?.agent?.custom?.userId;
+      if (!userId) return;
+      const userConns = this.userConnectionMap.get(userId);
+      if (userConns) {
+        userConns.delete(conn);
+        if (userConns.size === 0) {
+          this.userConnectionMap.delete(userId);
+          this.realtimeMetrics?.recordSessionEnd();
+        }
+      }
+      return;
+    }
+
+    const { userId } = meta;
+    const userConns = this.userConnectionMap.get(userId);
+    if (!userConns) return;
+
+    userConns.delete(conn);
+
+    if (userConns.size === 0) {
+      this.userConnectionMap.delete(userId);
+      this.realtimeMetrics?.recordSessionEnd();
+    }
+  }
 
   /**
    * Extract HTTP request from SockJS connection.
@@ -117,6 +193,14 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
     } as unknown as Request;
   }
 
+  getActiveUserCount(): number {
+    return this.userConnectionMap.size;
+  }
+
+  getUserConnectionCount(userId: string): number {
+    return this.userConnectionMap.get(userId)?.size ?? 0;
+  }
+
   async onModuleDestroy() {
     try {
       this.logger.log('Starting graceful shutdown...');
@@ -130,6 +214,8 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
         }
       }
       this.activeConnections.clear();
+      this.userConnectionMap.clear();
+      this.connectionMeta.clear();
 
       // Close ShareDb
       await new Promise<void>((resolve, reject) => {

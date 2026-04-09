@@ -1,12 +1,15 @@
 import type { DomainError, Field, Table } from '@teable/v2-core';
 import { domainError, ok } from '@teable/v2-core';
-import type { CompiledQuery, Kysely } from 'kysely';
-import { sql } from 'kysely';
+import { CompiledQuery, type CompiledQuery as KyselyCompiledQuery, type Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
+
+type CompilableSqlExpression = {
+  compile(db: Kysely<DynamicDB>): KyselyCompiledQuery;
+};
 
 /**
  * Parameters for building batch UPDATE SQL.
@@ -115,16 +118,21 @@ export function buildBatchUpdateSql(
       columnValueMaps.set(columnName, valueMap);
     }
 
-    // Separate constant-NULL columns from varying columns
-    // A column is constant-NULL if all records have null/undefined for it
+    // Separate constant-NULL columns from varying columns.
+    // A column is constant-NULL only when every record in the batch explicitly
+    // provides that column with a nullish value. Missing values must preserve
+    // the current stored cell instead of being coerced into clears.
     const constantNullColumns: string[] = [];
     const varyingColumnFields: Array<{ name: string; field: Field | null }> = [];
 
     for (const colField of allColumnFields) {
       const valueMap = columnValueMaps.get(colField.name);
       const allNull =
-        !valueMap ||
+        !!valueMap &&
         recordIds.every((recId) => {
+          if (!valueMap.has(recId)) {
+            return false;
+          }
           const v = valueMap.get(recId);
           return v === null || v === undefined;
         });
@@ -167,20 +175,29 @@ WHERE "__id" = ANY(ARRAY[${idList}])
 RETURNING "__id" AS "record_id", "__version" AS "new_version"
       `.trim();
 
-      const query = sql.raw(updateSql);
-      return ok(query.compile(db));
+      return ok(CompiledQuery.raw(updateSql));
     }
 
-    // Case 2 & 3: Some or no constant-NULL columns — use VALUES for varying columns
-    // columns for VALUES: [__id, varying_cols..., __last_modified_time, __last_modified_by]
+    // Case 2 & 3: Some or no constant-NULL columns — use VALUES for varying columns.
+    // Each varying column gets a companion presence flag so omitted values keep
+    // the existing stored value while explicit null still clears the column.
+    const varyingColumns = varyingColumnFields.map((colField, index) => ({
+      ...colField,
+      presenceAlias: `__has_${index}`,
+    }));
+
+    // columns for VALUES:
+    // [__id, presence/value pairs..., __last_modified_time, __last_modified_by]
     const columns: string[] = ['__id'];
-    for (const { name } of varyingColumnFields) {
+    for (const { name, presenceAlias } of varyingColumns) {
+      columns.push(presenceAlias);
       columns.push(name);
     }
     columns.push('__last_modified_time');
     columns.push('__last_modified_by');
 
     // Build VALUES rows
+    const parameters: unknown[] = [];
     const valueRows: string[] = [];
     for (const recordId of recordIds) {
       const rowValues: string[] = [];
@@ -189,11 +206,16 @@ RETURNING "__id" AS "record_id", "__version" AS "new_version"
       rowValues.push(escapeAndQuoteSqlValue(recordId));
 
       // Add varying field values using FieldSqlLiteralVisitor
-      for (const { name, field } of varyingColumnFields) {
+      for (const { name, field, presenceAlias: _presenceAlias } of varyingColumns) {
         const valueMap = columnValueMaps.get(name);
-        const value = valueMap?.get(recordId) ?? null;
+        const hasValue = valueMap?.has(recordId) ?? false;
+        const value = hasValue ? valueMap?.get(recordId) : null;
 
-        if (field) {
+        rowValues.push(hasValue ? 'TRUE' : 'FALSE');
+
+        if (isCompilableSqlExpression(value)) {
+          rowValues.push(compileValueExpression(value, db, parameters.length, parameters));
+        } else if (field) {
           // Use FieldSqlLiteralVisitor for proper type-aware SQL literal generation
           const visitor = FieldSqlLiteralVisitor.create(value);
           const literalResult = field.accept(visitor);
@@ -222,9 +244,12 @@ RETURNING "__id" AS "record_id", "__version" AS "new_version"
     const columnAliases = columns.map((col) => escapeSqlIdentifier(col)).join(', ');
 
     // Add varying field SET clauses (values from VALUES subquery)
-    for (const { name } of varyingColumnFields) {
+    for (const { name, presenceAlias } of varyingColumns) {
       const columnAlias = escapeSqlIdentifier(name);
-      setClauses.push(`${columnAlias} = v.${columnAlias}`);
+      const presenceIdentifier = escapeSqlIdentifier(presenceAlias);
+      setClauses.push(
+        `${columnAlias} = CASE WHEN v.${presenceIdentifier} THEN v.${columnAlias} ELSE t.${columnAlias} END`
+      );
     }
 
     // Add system column SET clauses
@@ -253,10 +278,36 @@ RETURNING t.__id AS record_id, t.__version AS new_version
     `.trim();
 
     // Compile using kysely's sql tag for proper parameter handling
-    const query = sql.raw(updateSql);
-
-    return ok(query.compile(db));
+    return ok(CompiledQuery.raw(updateSql, parameters));
   });
+}
+
+function isCompilableSqlExpression(value: unknown): value is CompilableSqlExpression {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'compile' in value &&
+    typeof value.compile === 'function'
+  );
+}
+
+function compileValueExpression(
+  expression: CompilableSqlExpression,
+  db: Kysely<DynamicDB>,
+  placeholderOffset: number,
+  parameters: unknown[]
+): string {
+  const compiled = expression.compile(db);
+  parameters.push(...compiled.parameters);
+  return rebaseSqlPlaceholders(compiled.sql, placeholderOffset);
+}
+
+function rebaseSqlPlaceholders(sqlText: string, placeholderOffset: number): string {
+  if (placeholderOffset === 0) {
+    return sqlText;
+  }
+
+  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + placeholderOffset}`);
 }
 
 /**

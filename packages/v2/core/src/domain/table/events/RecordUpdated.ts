@@ -1,4 +1,5 @@
 import type { BaseId } from '../../base/BaseId';
+import { createDomainEventGuard } from '../../shared/DomainEvent';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
 import type { RecordId } from '../records/RecordId';
@@ -42,3 +43,8 @@ export class RecordUpdated extends AbstractTableUpdatedEvent {
     );
   }
 }
+
+const RECORD_UPDATED_EVENT_NAME = DomainEventName.recordUpdated();
+
+export const isRecordUpdatedEvent =
+  createDomainEventGuard<RecordUpdated>(RECORD_UPDATED_EVENT_NAME);

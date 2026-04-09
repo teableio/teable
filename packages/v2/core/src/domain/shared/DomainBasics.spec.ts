@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ActorId } from './ActorId';
 import { AggregateRoot } from './AggregateRoot';
-import type { IDomainEvent } from './DomainEvent';
+import { createDomainEventGuard, hasDomainEventName, type IDomainEvent } from './DomainEvent';
 import { DomainEventName } from './DomainEventName';
 import { OccurredAt } from './OccurredAt';
 import { RehydratedValueObject } from './RehydratedValueObject';
@@ -80,6 +80,19 @@ describe('DomainEventName', () => {
 
   it('rejects invalid event names', () => {
     DomainEventName.create('')._unsafeUnwrapErr();
+  });
+
+  it('supports typed event guards', () => {
+    type TestEvent = IDomainEvent & { value: number };
+    const event: TestEvent = {
+      name: DomainEventName.tableCreated(),
+      occurredAt: OccurredAt.now(),
+      value: 1,
+    };
+    const guard = createDomainEventGuard<TestEvent>(DomainEventName.tableCreated());
+
+    expect(hasDomainEventName(event, DomainEventName.tableCreated())).toBe(true);
+    expect(guard(event)).toBe(true);
   });
 });
 

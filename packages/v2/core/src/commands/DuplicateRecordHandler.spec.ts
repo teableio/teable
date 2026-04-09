@@ -235,6 +235,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
@@ -514,6 +518,72 @@ describe('DuplicateRecordHandler', () => {
 
     expect(textValue).toBe('Test Title');
     expect(numberValue).toBe(42);
+  });
+
+  it('trims duplicate fields to the plugin create scope', async () => {
+    const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    recordQueryRepository.records.set(sourceRecordId, {
+      id: sourceRecordId,
+      fields: {
+        [textFieldId]: 'Visible value',
+        [numberFieldId]: 42,
+      },
+      version: 1,
+    });
+
+    const plugin = {
+      name: 'duplicate-create-scope',
+      supports(operation: RecordWriteOperationKind) {
+        return operation === RecordWriteOperationKind.duplicate;
+      },
+      async prepare() {
+        return ok({});
+      },
+      scope() {
+        return ok({
+          createFieldIds: new Set([textFieldId]),
+        });
+      },
+      async guard(context) {
+        expect([...context.payload.fieldValues.keys()]).toEqual([textFieldId]);
+        return ok(undefined);
+      },
+    };
+
+    const handler = new DuplicateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      createFakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner([plugin]),
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = DuplicateRecordCommand.create({
+      tableId,
+      recordId: sourceRecordId,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const { record } = result._unsafeUnwrap();
+
+    expect(record.fields().get(FieldId.create(textFieldId)._unsafeUnwrap())?.toValue()).toBe(
+      'Visible value'
+    );
+    expect(record.fields().get(FieldId.create(numberFieldId)._unsafeUnwrap())).toBeUndefined();
   });
 
   it('duplicates record when source date field value is a Date instance', async () => {

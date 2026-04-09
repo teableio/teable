@@ -102,4 +102,16 @@ export enum Events {
 
   // record source
   TABLE_RECORD_CREATE_RELATIVE = 'table.record.create.relative',
+
+  // Invitation funnel
+  INVITATION_EMAIL_SEND = 'invitation.email.send',
+  INVITATION_LINK_CREATE = 'invitation.link.create',
+  INVITATION_ACCEPT = 'invitation.accept',
+
+  // Access token lifecycle
+  ACCESS_TOKEN_CREATE = 'access-token.create',
+  ACCESS_TOKEN_DELETE = 'access-token.delete',
+
+  // Table export
+  TABLE_EXPORT = 'table.export',
 }
