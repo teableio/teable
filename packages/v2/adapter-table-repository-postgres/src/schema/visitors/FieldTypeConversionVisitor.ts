@@ -2,8 +2,10 @@ import {
   AbstractFieldVisitor,
   CellValueType,
   DateTimeFormatting,
+  NumberFormatting,
   domainError,
 } from '@teable/v2-core';
+import { formatNumberStringSql } from '@teable/v2-formula-sql-pg';
 import {
   type FormulaField,
   type AttachmentField,
@@ -1418,7 +1420,7 @@ export class FieldTypeConversionVisitorFactory extends AbstractFieldVisitor<Base
   }
 
   visitNumberField(_field: NumberField): Result<BaseFieldConversionVisitor, DomainError> {
-    return ok(new NumberFieldConversionVisitor(this.params));
+    return ok(new NumberFieldConversionVisitor(this.params, _field));
   }
 
   visitRatingField(_field: RatingField): Result<BaseFieldConversionVisitor, DomainError> {
@@ -1844,10 +1846,20 @@ class LongTextFieldConversionVisitor extends TextFieldConversionVisitor {
  * Source DB type: double precision
  */
 class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
+  constructor(
+    params: FieldConversionParams,
+    private readonly sourceField?: NumberField
+  ) {
+    super(params);
+  }
+
   private buildNumberToTextExpression(): string {
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
-    return `CASE WHEN ${col} IS NOT NULL THEN round(${col}::numeric, 2)::text ELSE NULL END`;
+    return `CASE WHEN ${col} IS NOT NULL THEN ${formatNumberStringSql(
+      col,
+      this.sourceField?.formatting() ?? NumberFormatting.default()
+    )} ELSE NULL END`;
   }
 
   visitSingleLineTextField(

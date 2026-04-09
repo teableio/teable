@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
 import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
@@ -19,6 +19,7 @@ import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
+import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
 import { BatchProcessor } from '../BatchProcessor.class';
 import { EXCLUDE_SYSTEM_FIELDS } from '../constant';
 import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
@@ -53,6 +54,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly baseImportJunctionCsvQueueProcessor: BaseImportJunctionCsvQueueProcessor,
+    private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
@@ -94,7 +96,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     csvStream.pipe(parser);
     let totalRecordsCount = 0;
 
-    return new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
@@ -226,6 +228,21 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         reject(error);
       });
     });
+
+    if (!this.hasJunctionImports(structure)) {
+      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+    }
+  }
+
+  private hasJunctionImports(structure: IBaseJson) {
+    return structure.tables
+      .flatMap(({ fields }) => fields)
+      .filter((field) => field.type === FieldType.Link && !field.isLookup)
+      .some((field) =>
+        ((field.options as ILinkFieldOptions | undefined)?.fkHostTableName || '').includes(
+          'junction_'
+        )
+      );
   }
 
   private async handleChunk(
@@ -451,17 +468,21 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
-    const { fieldIdMap, path, structure, userId } = job.data;
+    const { tableIdMap, fieldIdMap, path, structure, userId } = job.data;
+    if (!this.hasJunctionImports(structure)) {
+      return;
+    }
+
     await this.baseImportJunctionCsvQueueProcessor.queue.add(
       'import_base_junction_csv',
       {
+        tableIdMap,
         fieldIdMap,
         path,
         structure,
       },
       {
         jobId: `import_base_junction_csv_${path}_${userId}`,
-        delay: 2000,
       }
     );
   }

@@ -12,6 +12,7 @@ import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 export interface IDeletedRecordSnapshot {
   readonly id: string;
   readonly fields: Record<string, unknown>;
+  readonly displayName?: string;
   readonly autoNumber?: number;
   readonly createdTime?: string;
   readonly createdBy?: string;
@@ -19,6 +20,15 @@ export interface IDeletedRecordSnapshot {
   readonly lastModifiedBy?: string;
   /** View order values: viewId -> order number. Used for undo/redo. */
   readonly orders?: Record<string, number>;
+}
+
+export interface IRecordsDeletedOrchestration {
+  readonly operationId?: string;
+  readonly groupId?: string;
+  readonly totalRecordCount: number;
+  readonly totalChunkCount: number;
+  readonly chunkIndex: number;
+  readonly scope: 'operation' | 'chunk';
 }
 
 export class RecordsDeleted extends AbstractTableUpdatedEvent {
@@ -29,7 +39,8 @@ export class RecordsDeleted extends AbstractTableUpdatedEvent {
     tableId: TableId,
     baseId: BaseId,
     readonly recordIds: ReadonlyArray<RecordId>,
-    readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>
+    readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
+    readonly orchestration?: IRecordsDeletedOrchestration
   ) {
     super(tableId, baseId);
   }
@@ -39,12 +50,14 @@ export class RecordsDeleted extends AbstractTableUpdatedEvent {
     baseId: BaseId;
     recordIds: ReadonlyArray<RecordId>;
     recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
+    orchestration?: IRecordsDeletedOrchestration;
   }): RecordsDeleted {
     return new RecordsDeleted(
       params.tableId,
       params.baseId,
       params.recordIds,
-      params.recordSnapshots
+      params.recordSnapshots,
+      params.orchestration
     );
   }
 }

@@ -601,7 +601,13 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'db_field_type',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
-                .orderBy('order');
+                // Keep the hydrated field array aligned with the existing field list API.
+                // Selection range column indexes depend on this fallback order when the
+                // view has no explicit columnMeta.order entries.
+                .orderBy(sql`${sql.ref('is_primary')} is null`, 'asc')
+                .orderBy('is_primary')
+                .orderBy('order')
+                .orderBy('created_time');
               if (effectiveState === 'active') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
@@ -712,7 +718,10 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'db_field_type',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
-                .orderBy('order');
+                .orderBy(sql`${sql.ref('is_primary')} is null`, 'asc')
+                .orderBy('is_primary')
+                .orderBy('order')
+                .orderBy('created_time');
               if (effectiveState === 'active') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {

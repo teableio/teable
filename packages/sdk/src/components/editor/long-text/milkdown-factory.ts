@@ -8,7 +8,7 @@ import {
 import { clipboard } from '@milkdown/plugin-clipboard';
 import { history } from '@milkdown/plugin-history';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { commonmark } from '@milkdown/preset-commonmark';
+import { commonmark, linkSchema } from '@milkdown/preset-commonmark';
 import { gfm } from '@milkdown/preset-gfm';
 import type { MutableRefObject } from 'react';
 import { exitCodeBlockPlugin } from './milkdown-exit-code-plugin';
@@ -18,6 +18,15 @@ import { noImagePastePlugin } from './milkdown-no-image-plugin';
 import { createSelectionToolbarPlugin } from './milkdown-selection-toolbar-plugin';
 import { createFloatingToolbarPlugin } from './milkdown-toolbar-plugin';
 import { sanitizeMarkdownBreaks } from './utils';
+
+/**
+ * Override the link mark schema to set `inclusive: false`.
+ * This prevents text typed at link boundaries from being absorbed into the link.
+ */
+const nonInclusiveLinkSchema = linkSchema.extendSchema((prev) => (ctx) => ({
+  ...prev(ctx),
+  inclusive: false,
+}));
 
 export interface IMilkdownEditorOptions {
   value: string;
@@ -81,7 +90,7 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
     ]);
   });
 
-  editor.use(commonmark).use(gfm);
+  editor.use(commonmark).use(gfm).use(nonInclusiveLinkSchema);
   if (!readonly) {
     editor.use(clipboard).use(history).use(listener);
   }
