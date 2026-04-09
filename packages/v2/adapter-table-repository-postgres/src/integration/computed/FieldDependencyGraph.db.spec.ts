@@ -191,7 +191,6 @@ const createLookupScenario = async (
 
 describe('FieldDependencyGraph (db)', () => {
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
     setV2NodeTestContainer(await createV2NodeTestContainer());
   });
 

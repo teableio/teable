@@ -5,6 +5,7 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  sql,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
@@ -412,5 +413,60 @@ describe('buildBatchUpdateSql', () => {
     // Single quotes should be escaped as ''
     expect(result.value.sql).toContain("'O''Brien'");
     expect(result.value.sql).toContain("'It''s a test'");
+  });
+
+  it('rebases parameters for raw SQL expressions embedded in VALUES rows', () => {
+    const db = createTestDb();
+    const table = createTable({
+      name: 'LinkTable',
+      fields: [{ type: 'attachment', name: 'Links', dbFieldName: 'col_links' }],
+    });
+
+    const result = buildBatchUpdateSql({
+      tableName: 'test_table',
+      columnUpdateData: new Map([
+        [
+          'col_links',
+          [
+            {
+              recordId: 'rec_expr_1',
+              value: sql`(
+                SELECT jsonb_build_array(
+                  jsonb_build_object('id', ${'rec_foreign_1'}, 'title', ${'Target A'})
+                )
+              )`,
+            },
+            {
+              recordId: 'rec_expr_2',
+              value: sql`(
+                SELECT jsonb_build_array(
+                  jsonb_build_object('id', ${'rec_foreign_2'}, 'title', ${'Target B'})
+                )
+              )`,
+            },
+          ],
+        ],
+      ]),
+      systemColumns: {
+        lastModifiedTime: '2025-01-17T00:00:00.000Z',
+        lastModifiedBy: 'usr_test',
+        versionIncrement: true,
+      },
+      table,
+      db,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(result.value.sql).toContain('SELECT jsonb_build_array');
+    expect(result.value.sql).toContain('$1');
+    expect(result.value.sql).toContain('$4');
+    expect(result.value.parameters).toEqual([
+      'rec_foreign_1',
+      'Target A',
+      'rec_foreign_2',
+      'Target B',
+    ]);
   });
 });

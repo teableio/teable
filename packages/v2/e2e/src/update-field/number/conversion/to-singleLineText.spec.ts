@@ -138,4 +138,49 @@ describe('update-field: number -> singleLineText conversion', () => {
       await ctx.deleteTable(table.id).catch(() => undefined);
     }
   });
+
+  test('should preserve configured number formatting when converting to singleLineText', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'NumberToText Formatting Preservation',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'number',
+          name: 'Amount',
+          options: {
+            formatting: { type: 'decimal', precision: 0 },
+          },
+        },
+      ],
+    });
+
+    try {
+      const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id;
+      const numberFieldId = table.fields.find((field) => field.name === 'Amount')?.id;
+      if (!primaryFieldId || !numberFieldId) {
+        throw new Error('Missing required ids for formatting preservation test');
+      }
+
+      const record = await ctx.createRecord(table.id, {
+        [primaryFieldId]: 'r1',
+        [numberFieldId]: 345,
+      });
+
+      const updatedTable = await ctx.updateField({
+        tableId: table.id,
+        fieldId: numberFieldId,
+        field: { type: 'singleLineText' },
+      });
+
+      const updatedField = updatedTable.fields.find((field) => field.id === numberFieldId);
+      expect(updatedField?.type).toBe('singleLineText');
+
+      const records = await ctx.listRecords(table.id);
+      const convertedValue = records.find((row) => row.id === record.id)?.fields[numberFieldId];
+      expect(convertedValue).toBe('345');
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
 });

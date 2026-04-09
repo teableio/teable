@@ -23,8 +23,11 @@ import {
   CellValueMultiplicity,
   DateTimeFormatting,
   DateFormattingPreset,
+  NumberFormatting,
+  NumberFormattingType,
   TimeFormatting,
   TimeZone,
+  createNumberField,
 } from '@teable/v2-core';
 import type { Field } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
@@ -121,6 +124,19 @@ const mkSrcCheckField = () =>
   createCheckField('srcChk', 'Source Checkbox', DB_FIELD_NAME)._unsafeUnwrap();
 const mkSrcNumField = () =>
   createNumField('srcNum', 'Source Number', DB_FIELD_NAME)._unsafeUnwrap();
+const mkSrcNumFieldWithFormatting = (formatting: {
+  type: string;
+  precision: number;
+  symbol?: string;
+}) => {
+  const field = createNumberField({
+    id: mkFieldId('srcNumFmt'),
+    name: mkFieldName('Source Number Formatted'),
+    formatting: NumberFormatting.create(formatting)._unsafeUnwrap(),
+  })._unsafeUnwrap();
+  field.setDbFieldName(DbFieldName.rehydrate(DB_FIELD_NAME)._unsafeUnwrap())._unsafeUnwrap();
+  return field;
+};
 const mkSrcDateField = () => createDtField('srcDt', 'Source Date', DB_FIELD_NAME)._unsafeUnwrap();
 const mkSrcMultiSelField = () =>
   createMultiSelField('srcMsel', 'Source MultiSel', DB_FIELD_NAME)._unsafeUnwrap();
@@ -359,11 +375,24 @@ describe('FieldTypeConversionVisitor', () => {
 
   describe('NumberFieldConversionVisitor', () => {
     describe('number -> text', () => {
-      it('should generate SQL with simple cast to text', () => {
+      it('should generate SQL with the source number formatting', () => {
         const sqls = getVisitorSqls(mkSrcNumField(), mkTextField());
         expect(sqls).toHaveLength(1);
         expect(sqls[0]).toContain('TYPE text');
-        expect(sqls[0]).toContain('::text');
+        expect(sqls[0]).toContain('trim(to_char');
+        expect(sqls[0]).toContain('999999990D00');
+        expect(sqls[0]).not.toContain('round(');
+      });
+
+      it('should honor zero-decimal formatting when converting to text', () => {
+        const sqls = getVisitorSqls(
+          mkSrcNumFieldWithFormatting({ type: NumberFormattingType.Decimal, precision: 0 }),
+          mkTextField()
+        );
+        expect(sqls).toHaveLength(1);
+        expect(sqls[0]).toContain('TYPE text');
+        expect(sqls[0]).toContain('999999990');
+        expect(sqls[0]).not.toContain('D00');
       });
     });
 

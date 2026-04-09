@@ -11,11 +11,14 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import type { ITableRecordDto } from './recordDto';
+import { tableRecordDtoSchema } from './recordDto';
 
 export type IUpdateRecordsRequestDto = IUpdateRecordsCommandInput;
 
 export interface IUpdateRecordsResponseDataDto {
   updatedCount: number;
+  records?: Array<ITableRecordDto>;
 }
 
 export type IUpdateRecordsResponseDto = IApiResponseDto<IUpdateRecordsResponseDataDto>;
@@ -29,6 +32,7 @@ export type IUpdateRecordsEndpointResult =
 
 export const updateRecordsResponseDataSchema = z.object({
   updatedCount: z.number().int().min(0),
+  records: z.array(tableRecordDtoSchema).optional(),
 });
 
 export const updateRecordsOkResponseSchema = apiOkResponseDtoSchema(
@@ -40,7 +44,22 @@ export const updateRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
 export const mapUpdateRecordsResultToDto = (
   result: UpdateRecordsResult
 ): Result<IUpdateRecordsResponseDataDto, DomainError> => {
+  const recordDtos = result.records?.map((record) => ({
+    id: record.id().toString(),
+    fields: Object.fromEntries(
+      record
+        .fields()
+        .entries()
+        .map((entry) => {
+          const fieldIdStr = entry.fieldId.toString();
+          const key = result.fieldKeyMapping.get(fieldIdStr) ?? fieldIdStr;
+          return [key, entry.value.toValue()];
+        })
+    ),
+  }));
+
   return ok({
     updatedCount: result.updatedCount,
+    ...(recordDtos ? { records: recordDtos } : {}),
   });
 };
