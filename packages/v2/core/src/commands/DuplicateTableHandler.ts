@@ -8,11 +8,10 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { LinkField } from '../domain/table/fields/types/LinkField';
-import { DomainEventName } from '../domain/shared/DomainEventName';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
-import { RecordCreated } from '../domain/table/events/RecordCreated';
+import { RecordCreated, isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import type { ITableMapper } from '../ports/mappers/TableMapper';
 import * as EventBusPort from '../ports/EventBus';
@@ -260,9 +259,7 @@ const aggregateDuplicateTableEvents = (
   table: Table,
   restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>
 ): ReadonlyArray<IDomainEvent> => {
-  const recordCreatedEvents = rawEvents.filter((event): event is RecordCreated =>
-    event.name.equals(DomainEventName.recordCreated())
-  );
+  const recordCreatedEvents = rawEvents.filter(isRecordCreatedEvent);
 
   if (!recordCreatedEvents.length) {
     return [...rawEvents];
@@ -283,7 +280,7 @@ const aggregateDuplicateTableEvents = (
   let batchInserted = false;
 
   for (const event of rawEvents) {
-    if (event.name.equals(DomainEventName.recordCreated())) {
+    if (isRecordCreatedEvent(event)) {
       if (!batchInserted) {
         aggregatedEvents.push(batchEvent);
         batchInserted = true;

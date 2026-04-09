@@ -5,6 +5,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
 import { useSharedNodeIds } from '@/features/app/blocks/base/base-side-bar/BaseNodeShareIndicator';
+import { useShareEffectiveEdit } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
 import { SearchButton } from '../search/SearchButton';
 import { PersonalViewSwitch } from './components';
@@ -107,6 +108,8 @@ const OthersMenu = ({ className }: { className?: string }) => {
 
 export const Others: React.FC = () => {
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const isShareEditor = useShareEffectiveEdit();
+  const showControls = !isReadOnlyPreview || isShareEditor;
   return (
     <div
       className={cn(
@@ -116,16 +119,22 @@ export const Others: React.FC = () => {
       )}
     >
       <SearchButton className="size-7 shrink-0" />
-      {!isReadOnlyPreview && (
+      {showControls && (
         <>
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
           <UndoRedoButtons />
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-          <OthersList
-            className="hidden @md/toolbar:flex"
-            classNames={{ textClassName: '@2xl/toolbar:inline' }}
-          />
-          <OthersMenu className="@md/toolbar:hidden" />
+          {isShareEditor ? (
+            <PersonalViewSwitch />
+          ) : (
+            <>
+              <OthersList
+                className="hidden @md/toolbar:flex"
+                classNames={{ textClassName: '@2xl/toolbar:inline' }}
+              />
+              <OthersMenu className="@md/toolbar:hidden" />
+            </>
+          )}
         </>
       )}
     </div>

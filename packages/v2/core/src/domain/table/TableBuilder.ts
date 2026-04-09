@@ -12,6 +12,7 @@ import { validateForeignTablesForFields } from './fields/ForeignTableRelatedFiel
 import { AttachmentField } from './fields/types/AttachmentField';
 import { AutoNumberField } from './fields/types/AutoNumberField';
 import { ButtonField } from './fields/types/ButtonField';
+import type { ButtonConfirm } from './fields/types/ButtonConfirm';
 import { ButtonLabel } from './fields/types/ButtonLabel';
 import type { ButtonMaxCount } from './fields/types/ButtonMaxCount';
 import type { ButtonResetCount } from './fields/types/ButtonResetCount';
@@ -263,6 +264,16 @@ export class TableBuilder {
       this.tableId = id;
       return id;
     });
+  }
+
+  resolveDbTableName(): Result<DbTableName, DomainError> {
+    return this.requireBaseId().andThen((baseId) =>
+      this.ensureTableId().andThen((id) =>
+        this.dbTableName
+          ? ok(this.dbTableName)
+          : DbTableName.rehydrate(`${baseId.toString()}.${id.toString()}`)
+      )
+    );
   }
 
   requireBaseId(): Result<BaseId, DomainError> {
@@ -1772,6 +1783,7 @@ export class ButtonFieldBuilder {
   private maxCount: ButtonMaxCount | undefined;
   private resetCount: ButtonResetCount | undefined;
   private workflow: ButtonWorkflow | undefined;
+  private confirm: ButtonConfirm | undefined;
   private notNull: FieldNotNull = FieldNotNull.optional();
   private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
@@ -1816,6 +1828,11 @@ export class ButtonFieldBuilder {
     return this;
   }
 
+  withConfirm(confirm: ButtonConfirm): ButtonFieldBuilder {
+    this.confirm = confirm;
+    return this;
+  }
+
   withNotNull(notNull: FieldNotNull): ButtonFieldBuilder {
     this.notNull = notNull;
     return this;
@@ -1847,6 +1864,7 @@ export class ButtonFieldBuilder {
         maxCount: this.maxCount,
         resetCount: this.resetCount,
         workflow: this.workflow,
+        confirm: this.confirm,
       })
         .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
         .andThen((field) => {
@@ -1930,6 +1948,11 @@ export class LinkFieldBuilder {
       this.sink.addError(tableIdResult.error);
       return this.parent;
     }
+    const dbTableNameResult = this.parent.resolveDbTableName();
+    if (dbTableNameResult.isErr()) {
+      this.sink.addError(dbTableNameResult.error);
+      return this.parent;
+    }
 
     const result = resolveFieldId(this.id).andThen((id) =>
       createNewLinkField({
@@ -1939,6 +1962,7 @@ export class LinkFieldBuilder {
         meta: this.meta,
         baseId: baseIdResult.value,
         hostTableId: tableIdResult.value,
+        hostTableDbTableName: dbTableNameResult.value,
       })
         .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
         .andThen((field) => {

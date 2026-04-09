@@ -139,6 +139,21 @@ const getFieldStorage = async (ctx: SharedTestContext, fieldId: string) => {
   };
 };
 
+const getDbTableName = async (ctx: SharedTestContext, tableId: string) => {
+  const result = await sql<{ db_table_name: string | null }>`
+    SELECT "db_table_name"
+    FROM "table_meta"
+    WHERE "id" = ${tableId}
+  `.execute(ctx.testContainer.db);
+
+  const dbTableName = result.rows.at(0)?.db_table_name;
+  if (!dbTableName) {
+    throw new Error(`Missing table storage metadata for ${tableId}`);
+  }
+
+  return dbTableName;
+};
+
 const setRawFieldValue = async (
   ctx: SharedTestContext,
   tableId: string,
@@ -768,6 +783,95 @@ describe('duplicateTable (e2e)', () => {
       expect(viewIdByType.get('grid')).toBeTruthy();
       expect(duplicatedNormalized).toHaveLength(sourceNormalized.length);
       expect(duplicatedNormalized).toEqual(sourceNormalized);
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
+  it('duplicates records when the source table has persisted view row orders', async () => {
+    const cleanupTableIds: string[] = [];
+
+    const nameFieldId = createFieldId();
+
+    try {
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-row-orders'),
+        fields: [{ id: nameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+        records: [{ fields: { [nameFieldId]: 'Alpha' } }, { fields: { [nameFieldId]: 'Beta' } }],
+      });
+      cleanupTableIds.push(source.id);
+
+      const sourceViewId = source.views[0]?.id;
+      if (!sourceViewId) {
+        throw new Error('Missing source default view');
+      }
+
+      const sourceDbTableName = await getDbTableName(ctx, source.id);
+      const sourceOrderColumn = `__row_${sourceViewId}`;
+      await sql`
+        ALTER TABLE ${sql.table(sourceDbTableName)}
+        ADD COLUMN ${sql.id(sourceOrderColumn)} double precision
+      `.execute(ctx.testContainer.db);
+
+      const sourceRecords = await ctx.listRecords(source.id, { limit: 100 });
+      const alphaRecord = sourceRecords.find((record) => record.fields[nameFieldId] === 'Alpha');
+      const betaRecord = sourceRecords.find((record) => record.fields[nameFieldId] === 'Beta');
+      if (!alphaRecord || !betaRecord) {
+        throw new Error('Missing source records for row-order duplication test');
+      }
+
+      await sql`
+        UPDATE ${sql.table(sourceDbTableName)}
+        SET ${sql.id(sourceOrderColumn)} = CASE
+          WHEN "__id" = ${alphaRecord.id} THEN 10
+          WHEN "__id" = ${betaRecord.id} THEN 20
+          ELSE ${sql.id(sourceOrderColumn)}
+        END
+      `.execute(ctx.testContainer.db);
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: source.id,
+        name: nextName('v2-duplicate-row-orders-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+
+      const duplicatedViewId = duplicated.viewIdMap[sourceViewId];
+      if (!duplicatedViewId) {
+        throw new Error('Missing duplicated default view id');
+      }
+
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      const duplicatedAlpha = duplicatedRecords.find(
+        (record) => record.fields[duplicated.fieldIdMap[nameFieldId]] === 'Alpha'
+      );
+      const duplicatedBeta = duplicatedRecords.find(
+        (record) => record.fields[duplicated.fieldIdMap[nameFieldId]] === 'Beta'
+      );
+      if (!duplicatedAlpha || !duplicatedBeta) {
+        throw new Error('Missing duplicated records for row-order duplication test');
+      }
+
+      const duplicatedDbTableName = await getDbTableName(ctx, duplicated.table.id);
+      const duplicatedOrderColumn = `__row_${duplicatedViewId}`;
+      const orderRows = await sql<{ __id: string; order_value: number | null }>`
+        SELECT "__id", ${sql.id(duplicatedOrderColumn)} AS order_value
+        FROM ${sql.table(duplicatedDbTableName)}
+        ORDER BY ${sql.id(duplicatedOrderColumn)} ASC
+      `.execute(ctx.testContainer.db);
+
+      expect(orderRows.rows).toEqual([
+        { __id: duplicatedAlpha.id, order_value: 10 },
+        { __id: duplicatedBeta.id, order_value: 20 },
+      ]);
     } finally {
       for (const tableId of cleanupTableIds.reverse()) {
         try {

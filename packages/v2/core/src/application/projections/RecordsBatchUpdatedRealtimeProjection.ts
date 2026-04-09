@@ -9,9 +9,12 @@ import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
-import { isLargeRecordBatchMutation } from './BatchRecordRefreshPolicy';
+import { teableSpanName } from '../../ports/Tracer';
+import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
 import { ProjectionHandler } from './Projection';
+import { runRealtimeTasks } from './runRealtimeTasks';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
+import { buildRealtimeFanoutSpanAttributes, withRealtimeFanoutSpan } from './traceRealtimeFanout';
 
 @ProjectionHandler(RecordsBatchUpdated)
 @injectable()
@@ -26,18 +29,34 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
     const { realtimeEngine } = this;
+    const orchestration = event.orchestration;
+    const totalRecordCount = orchestration?.totalRecordCount ?? event.updates.length;
+    const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
+    const fanoutAttributes = buildRealtimeFanoutSpanAttributes({
+      totalRecordCount,
+      chunkRecordCount: event.updates.length,
+      fanoutCount: event.updates.length,
+      skipRealtime,
+      orchestration,
+    });
 
     // Large batch updates are better served by a single table-level refresh
     // trigger; applying per-record realtime ops multiplies memory pressure and
     // negates the gains from the streaming paste path.
-    if (isLargeRecordBatchMutation(event.updates.length)) {
+    if (skipRealtime) {
+      await withRealtimeFanoutSpan(
+        context,
+        teableSpanName('teable.RecordsBatchUpdatedRealtimeProjection.realtimeFanout'),
+        fanoutAttributes,
+        async () => ok(undefined)
+      );
       return ok(undefined);
     }
 
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
 
-      const tasksByRecord = new Map<string, Promise<Result<void, DomainError>>>();
+      const tasksByRecord = new Map<string, () => Promise<Result<void, DomainError>>>();
       const docIds = new Map<string, RealtimeDocId>();
 
       for (const update of event.updates) {
@@ -59,19 +78,37 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
 
         if (batchedChanges.length === 0) continue;
 
-        const previous = tasksByRecord.get(update.recordId) ?? Promise.resolve(ok(undefined));
-        const next = previous.then(async (previousResult) => {
-          if (previousResult.isErr()) return previousResult;
+        const previous = tasksByRecord.get(update.recordId);
+        const next = async () => {
+          if (previous) {
+            const previousResult = await previous();
+            if (previousResult.isErr()) return previousResult;
+          }
+
           return realtimeEngine.applyChange(context, docId, batchedChanges, {
             version: update.oldVersion,
           });
-        });
+        };
         tasksByRecord.set(update.recordId, next);
       }
 
-      for (const result of await Promise.all(tasksByRecord.values())) {
-        yield* result.safeUnwrap();
-      }
+      yield* (
+        await withRealtimeFanoutSpan(
+          context,
+          teableSpanName('teable.RecordsBatchUpdatedRealtimeProjection.realtimeFanout'),
+          {
+            ...fanoutAttributes,
+            'teable.fanout_count': tasksByRecord.size,
+          },
+          async () => {
+            for (const result of await runRealtimeTasks(Array.from(tasksByRecord.values()))) {
+              result._unsafeUnwrap();
+            }
+
+            return ok(undefined);
+          }
+        )
+      ).safeUnwrap();
 
       return ok(undefined);
     });

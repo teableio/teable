@@ -13,6 +13,7 @@ import { ViewModule } from '../view/view.module';
 import { TableTrashListener } from './listener/table-trash.listener';
 import { TrashController } from './trash.controller';
 import { TrashService } from './trash.service';
+import { V2RecordTrashService } from './v2-record-trash.service';
 import { V2TableTrashService } from './v2-table-trash.service';
 
 @Module({
@@ -30,7 +31,7 @@ import { V2TableTrashService } from './v2-table-trash.service';
     ViewModule,
   ],
   controllers: [TrashController],
-  providers: [TrashService, TableTrashListener, V2TableTrashService],
+  providers: [TrashService, TableTrashListener, V2RecordTrashService, V2TableTrashService],
   exports: [TrashService],
 })
 export class TrashModule {}

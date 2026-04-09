@@ -20,6 +20,8 @@ export interface AttachmentItem {
   presignedUrl?: string;
   width?: number;
   height?: number;
+  smThumbnailUrl?: string;
+  lgThumbnailUrl?: string;
 }
 
 /**
