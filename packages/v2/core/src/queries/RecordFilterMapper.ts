@@ -101,10 +101,70 @@ const buildSpecFromNode = (
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
 
+const sanitizeNode = (
+  table: Table,
+  node: RecordFilterNode
+): Result<RecordFilterNode | null, DomainError> => {
+  if (isRecordFilterCondition(node)) {
+    const fieldResult = resolveField(table, node.fieldId);
+    if (fieldResult.isErr()) return ok(null);
+
+    const valueResult = buildConditionValue(table, node.value);
+    if (valueResult.isErr()) return ok(null);
+
+    const specResult = fieldResult.value.spec().create({
+      operator: node.operator,
+      value: valueResult.value,
+    });
+    if (specResult.isErr()) return ok(null);
+
+    return ok(node);
+  }
+
+  if (isRecordFilterNot(node)) {
+    return sanitizeNode(table, node.not).map((sanitized) =>
+      sanitized ? { not: sanitized } : null
+    );
+  }
+
+  if (isRecordFilterGroup(node)) {
+    const items: RecordFilterNode[] = [];
+    for (const item of node.items) {
+      const sanitized = sanitizeNode(table, item);
+      if (sanitized.isErr()) return err(sanitized.error);
+      if (sanitized.value) {
+        items.push(sanitized.value);
+      }
+    }
+
+    if (items.length === 0) {
+      return ok(null);
+    }
+
+    return ok({
+      conjunction: node.conjunction,
+      items,
+    });
+  }
+
+  return err(domainError.validation({ message: 'Invalid record filter node' }));
+};
+
 export const buildRecordConditionSpec = (
   table: Table,
   filter: RecordFilter
 ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
   if (!filter) return err(domainError.validation({ message: 'Filter is empty' }));
   return buildSpecFromNode(table, filter);
+};
+
+export const sanitizeRecordFilter = (
+  table: Table,
+  filter: RecordFilter | null | undefined
+): Result<RecordFilter | null | undefined, DomainError> => {
+  if (filter === undefined || filter === null) {
+    return ok(filter);
+  }
+
+  return sanitizeNode(table, filter).map((sanitized) => sanitized ?? null);
 };

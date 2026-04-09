@@ -13,6 +13,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
@@ -63,6 +64,15 @@ const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
 
+const noopRecordChangedValueDecoratorService = {
+  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
+    ok(changedFields),
+  decorateChangedFieldsByRecord: async (
+    _table: Table,
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+  ) => ok(changedFieldsByRecord),
+};
+
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
   eventBus: FakeEventBus,
@@ -84,6 +94,7 @@ const createHandler = (
     recordRepository,
     new FakeTableRecordQueryRepository(recordRepository as FakeTableRecordRepository),
     recordMutationSpecResolver,
+    noopRecordChangedValueDecoratorService,
     recordWritePluginRunner,
     new RecordWriteSideEffectService(),
     noopRecordWriteUndoRedoPlanService,
@@ -261,6 +272,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
+  }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
   }
 }
 
@@ -555,7 +570,7 @@ describe('CreateRecordsHandler', () => {
       ],
     })._unsafeUnwrap();
 
-    const result = await handler.handle(createContext(), command);
+    const result = await handler.handle({ ...createContext(), requestId: 'req-123' }, command);
     result._unsafeUnwrap();
 
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.createMany);
@@ -629,6 +644,55 @@ describe('CreateRecordsHandler', () => {
     result._unsafeUnwrap();
 
     expect(recordRepository.records.length).toBe(2);
+  });
+
+  it('aggregates record created events with operation orchestration metadata', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: { [textFieldId]: 'A' } }, { fields: { [textFieldId]: 'B' } }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle({ ...createContext(), requestId: 'req-123' }, command);
+    result._unsafeUnwrap();
+
+    const publishedBatchEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+
+    expect(publishedBatchEvent?.orchestration).toEqual({
+      operationId: 'req-123',
+      groupId: 'req-123',
+      totalRecordCount: 2,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    });
+    expect(recordRepository.lastContext?.batchMutation).toEqual({
+      operationId: 'req-123',
+      groupId: 'req-123',
+      totalRecordCount: 2,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    });
   });
 
   it('returns error when table not found', async () => {

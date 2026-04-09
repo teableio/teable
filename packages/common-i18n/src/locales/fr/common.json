@@ -612,7 +612,6 @@
       },
       "app": {
         "domain": "Domaine",
-        "v0ApiKey": "Clé API v0",
         "customDomain": "Domaine Personnalisé (Optionnel)",
         "customDomainDescription": "Définissez votre domaine personnalisé pour le déploiement de l'application, accédez au <a>domaine Vercel</a> pour obtenir un domaine personnalisé",
         "vercelToken": "Token API Vercel",
@@ -650,11 +649,6 @@
           "title": "LLM API",
           "description": "Vous n'avez pas encore configuré l'API LLM AI, AI Chat/automatisation AI ne pourra pas être utilisé, <anchor>aller aux paramètres</anchor>",
           "errorTips": "Vous n'avez pas encore configuré l'API LLM AI, AI Chat/automatisation AI ne pourra pas être utilisé"
-        },
-        "app": {
-          "title": "Générateur d'application",
-          "description": "Vous n'avez pas encore configuré l'API v0, la fonction Générateur d'application ne sera pas disponible, <anchor>aller aux paramètres</anchor>",
-          "errorTips": "Vous n'avez pas encore configuré l'API v0, la fonction Générateur d'application ne sera pas disponible"
         },
         "webSearch": {
           "title": "Recherche web",
@@ -1082,8 +1076,8 @@
   },
   "changelog": {
     "newUpdate": "NOUVELLE MISE À JOUR",
-    "title": "Domaine personnalisé pour l'App disponible",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "title": "Prise en charge du Markdown dans les champs texte long",
+    "url": "https://help.teable.ai/en/changelog#apr-08-2026",
+    "id": "changelog-2026-04-08-markdown-support-in-long-text-field"
   }
 }

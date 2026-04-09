@@ -55,7 +55,6 @@ type V1Db = V1TeableDatabase & {
 
 describe('CreateFieldHandler (db)', () => {
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
     setV2NodeTestContainer(await createV2NodeTestContainer());
   });
 

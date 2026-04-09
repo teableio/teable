@@ -20,6 +20,7 @@ export const createRecordWritePluginRunner = (
 export interface ITrackedRecordWritePluginCalls {
   readonly supports: RecordWriteOperationKind[];
   readonly prepare: RecordWritePluginContext[];
+  readonly prepareStates: unknown[];
   readonly guard: RecordWritePluginContext[];
   readonly beforePersist: RecordWritePluginContext[];
   readonly afterCommit: RecordWritePluginContext[];
@@ -34,12 +35,14 @@ export const createTrackedRecordWritePlugin = (
   const calls: {
     supports: RecordWriteOperationKind[];
     prepare: RecordWritePluginContext[];
+    prepareStates: unknown[];
     guard: RecordWritePluginContext[];
     beforePersist: RecordWritePluginContext[];
     afterCommit: RecordWritePluginContext[];
   } = {
     supports: [],
     prepare: [],
+    prepareStates: [],
     guard: [],
     beforePersist: [],
     afterCommit: [],
@@ -52,8 +55,9 @@ export const createTrackedRecordWritePlugin = (
         calls.supports.push(operation);
         return supportedOperations.includes(operation);
       },
-      async prepare(context) {
+      async prepare(context, previousPreparedState) {
         calls.prepare.push(context);
+        calls.prepareStates.push(previousPreparedState);
         return ok(undefined);
       },
       async guard(context) {
@@ -79,6 +83,7 @@ export const expectRecordWritePluginToBeSkipped = (
 ): void => {
   expect(calls.supports).toEqual([actualOperation]);
   expect(calls.prepare).toHaveLength(0);
+  expect(calls.prepareStates).toHaveLength(0);
   expect(calls.guard).toHaveLength(0);
   expect(calls.beforePersist).toHaveLength(0);
   expect(calls.afterCommit).toHaveLength(0);

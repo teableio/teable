@@ -1,12 +1,15 @@
 import type { DomainError, Field, Table } from '@teable/v2-core';
 import { domainError, ok } from '@teable/v2-core';
-import type { CompiledQuery, Kysely } from 'kysely';
-import { sql } from 'kysely';
+import { CompiledQuery, type CompiledQuery as KyselyCompiledQuery, type Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
+
+type CompilableSqlExpression = {
+  compile(db: Kysely<DynamicDB>): KyselyCompiledQuery;
+};
 
 /**
  * Parameters for building batch UPDATE SQL.
@@ -167,8 +170,7 @@ WHERE "__id" = ANY(ARRAY[${idList}])
 RETURNING "__id" AS "record_id", "__version" AS "new_version"
       `.trim();
 
-      const query = sql.raw(updateSql);
-      return ok(query.compile(db));
+      return ok(CompiledQuery.raw(updateSql));
     }
 
     // Case 2 & 3: Some or no constant-NULL columns — use VALUES for varying columns
@@ -181,6 +183,7 @@ RETURNING "__id" AS "record_id", "__version" AS "new_version"
     columns.push('__last_modified_by');
 
     // Build VALUES rows
+    const parameters: unknown[] = [];
     const valueRows: string[] = [];
     for (const recordId of recordIds) {
       const rowValues: string[] = [];
@@ -193,7 +196,9 @@ RETURNING "__id" AS "record_id", "__version" AS "new_version"
         const valueMap = columnValueMaps.get(name);
         const value = valueMap?.get(recordId) ?? null;
 
-        if (field) {
+        if (isCompilableSqlExpression(value)) {
+          rowValues.push(compileValueExpression(value, db, parameters.length, parameters));
+        } else if (field) {
           // Use FieldSqlLiteralVisitor for proper type-aware SQL literal generation
           const visitor = FieldSqlLiteralVisitor.create(value);
           const literalResult = field.accept(visitor);
@@ -253,10 +258,36 @@ RETURNING t.__id AS record_id, t.__version AS new_version
     `.trim();
 
     // Compile using kysely's sql tag for proper parameter handling
-    const query = sql.raw(updateSql);
-
-    return ok(query.compile(db));
+    return ok(CompiledQuery.raw(updateSql, parameters));
   });
+}
+
+function isCompilableSqlExpression(value: unknown): value is CompilableSqlExpression {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'compile' in value &&
+    typeof value.compile === 'function'
+  );
+}
+
+function compileValueExpression(
+  expression: CompilableSqlExpression,
+  db: Kysely<DynamicDB>,
+  placeholderOffset: number,
+  parameters: unknown[]
+): string {
+  const compiled = expression.compile(db);
+  parameters.push(...compiled.parameters);
+  return rebaseSqlPlaceholders(compiled.sql, placeholderOffset);
+}
+
+function rebaseSqlPlaceholders(sqlText: string, placeholderOffset: number): string {
+  if (placeholderOffset === 0) {
+    return sqlText;
+  }
+
+  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + placeholderOffset}`);
 }
 
 /**

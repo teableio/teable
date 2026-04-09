@@ -278,7 +278,7 @@ describe('ComputedUpdateOutbox', () => {
       const createSelectChain = (rows: unknown[]) => ({
         selectAll: vi.fn().mockReturnValue({
           where: vi.fn().mockImplementation((col, _op, val) => {
-            if (col === 'status') statuses.push(String(val));
+            if (String(col).endsWith('status')) statuses.push(String(val));
             return {
               where: vi.fn().mockReturnThis(),
               orderBy: vi.fn().mockReturnThis(),
@@ -347,8 +347,9 @@ describe('ComputedUpdateOutbox', () => {
 
       const createSelectChain = (rows: unknown[]) => ({
         selectAll: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation(() => {
+            const chain = {
+              where: vi.fn().mockReturnThis(),
               orderBy: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnValue({
                 forUpdate: vi.fn().mockReturnValue({
@@ -357,7 +358,8 @@ describe('ComputedUpdateOutbox', () => {
                   }),
                 }),
               }),
-            }),
+            };
+            return chain;
           }),
         }),
       });

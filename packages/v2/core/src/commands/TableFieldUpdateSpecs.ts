@@ -14,6 +14,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
 import { AutoNumberField } from '../domain/table/fields/types/AutoNumberField';
 import { ButtonField } from '../domain/table/fields/types/ButtonField';
+import { ButtonConfirm } from '../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonWorkflow } from '../domain/table/fields/types/ButtonWorkflow';
@@ -3037,6 +3038,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
     private readonly maxCountValue: ButtonMaxCount | undefined,
     private readonly shouldClearMaxCount: boolean,
     private readonly workflowClearable: ClearableResult<ButtonWorkflow | undefined>,
+    private readonly confirmClearable: ClearableResult<ButtonConfirm | undefined>,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -3048,6 +3050,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       color?: unknown;
       maxCount?: unknown;
       workflow?: unknown;
+      confirm?: unknown;
     };
     notNull?: unknown;
     unique?: unknown;
@@ -3062,26 +3065,35 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       typeof input.options === 'object' &&
       Object.prototype.hasOwnProperty.call(input.options, 'workflow');
 
+    const confirmWasProvided =
+      input.options != null &&
+      typeof input.options === 'object' &&
+      Object.prototype.hasOwnProperty.call(input.options, 'confirm');
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.label, ButtonLabel.create).andThen((label) =>
         optional(input.options?.color, FieldColor.create).andThen((color) =>
           optional(input.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
             clearable(input.options?.workflow, workflowWasProvided, ButtonWorkflow.create).andThen(
               (workflowResult) =>
-                optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-                  optional(input.unique, FieldUnique.create).map(
-                    (unique) =>
-                      new UpdateButtonFieldSpec(
-                        name,
-                        label,
-                        color,
-                        maxCount,
-                        !maxCountWasProvided,
-                        workflowResult,
-                        notNull,
-                        unique
+                clearable(input.options?.confirm, confirmWasProvided, ButtonConfirm.create).andThen(
+                  (confirmResult) =>
+                    optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                      optional(input.unique, FieldUnique.create).map(
+                        (unique) =>
+                          new UpdateButtonFieldSpec(
+                            name,
+                            label,
+                            color,
+                            maxCount,
+                            !maxCountWasProvided,
+                            workflowResult,
+                            confirmResult,
+                            notNull,
+                            unique
+                          )
                       )
-                  )
+                    )
                 )
             )
           )
@@ -3133,23 +3145,31 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       }
     }
 
-    if (this.workflowClearable.shouldClear) {
-      // Workflow explicitly set to null - clear it
-      const currentWorkflow = currentField.workflow();
-      if (currentWorkflow !== undefined) {
-        specs.push(UpdateButtonWorkflowSpec.create(currentField.id(), currentWorkflow, undefined));
-      }
-    } else if (this.workflowClearable.value !== undefined) {
-      const currentWorkflow = currentField.workflow();
-      if (!currentWorkflow || !this.workflowClearable.value.equals(currentWorkflow)) {
-        specs.push(
-          UpdateButtonWorkflowSpec.create(
-            currentField.id(),
-            currentWorkflow,
-            this.workflowClearable.value
-          )
-        );
-      }
+    const currentWorkflow = currentField.workflow();
+    const currentConfirm = currentField.confirm();
+    const workflowChanged = this.workflowClearable.shouldClear
+      ? currentWorkflow !== undefined
+      : this.workflowClearable.value !== undefined &&
+        (!currentWorkflow || !this.workflowClearable.value.equals(currentWorkflow));
+    const confirmChanged = this.confirmClearable.shouldClear
+      ? currentConfirm !== undefined
+      : this.confirmClearable.value !== undefined &&
+        (!currentConfirm || !this.confirmClearable.value.equals(currentConfirm));
+
+    if (workflowChanged || confirmChanged) {
+      specs.push(
+        UpdateButtonWorkflowSpec.create(
+          currentField.id(),
+          currentWorkflow,
+          this.workflowClearable.shouldClear
+            ? undefined
+            : this.workflowClearable.value ?? currentWorkflow,
+          currentConfirm,
+          this.confirmClearable.shouldClear
+            ? undefined
+            : this.confirmClearable.value ?? currentConfirm
+        )
+      );
     }
 
     const constraintsSpec = buildConstraintsSpec(currentField, this.notNullValue, this.uniqueValue);
@@ -3677,6 +3697,8 @@ const parseTypeConversion = (
       isPrimary: false,
       executionContext: options?.executionContext,
       bypassSelectFieldOptionLimit: true,
+      hostTable: options?.hostTable,
+      foreignTables: options?.foreignTables,
     } // Type conversion doesn't change primary status
   );
 

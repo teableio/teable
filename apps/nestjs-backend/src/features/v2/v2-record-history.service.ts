@@ -4,7 +4,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType as CoreFieldType, generateRecordHistoryId } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   FieldId,
   FieldValueTypeVisitor,
@@ -26,14 +26,15 @@ import type {
   SingleSelectField,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { Knex } from 'knex';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { ColumnType, Kysely } from 'kysely';
 import { isEqual, isString } from 'lodash';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { V2ContainerService } from './v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const SELECT_FIELD_TYPE_SET = new Set([CoreFieldType.SingleSelect, CoreFieldType.MultipleSelect]);
@@ -55,6 +56,30 @@ interface IFieldHistoryMeta {
   cellValueType: string;
   isComputed: boolean;
 }
+
+type IRecordHistoryDb = V1TeableDatabase & {
+  record_history: IRecordHistoryEntry & {
+    created_time: ColumnType<Date, Date | undefined, never>;
+  };
+};
+
+const getRecordHistoryDb = async (
+  v2ContainerService: V2ContainerService
+): Promise<Kysely<IRecordHistoryDb>> => {
+  const container = await v2ContainerService.getContainer();
+  return container.resolve<Kysely<IRecordHistoryDb>>(v2PostgresDbTokens.db);
+};
+
+const insertRecordHistoryEntries = async (
+  db: Kysely<IRecordHistoryDb>,
+  recordHistoryList: IRecordHistoryEntry[]
+): Promise<void> => {
+  if (!recordHistoryList.length) {
+    return;
+  }
+
+  await db.insertInto('record_history').values(recordHistoryList).execute();
+};
 
 /**
  * Visitor to extract field options for record history.
@@ -214,12 +239,11 @@ const buildHistoryValue = (
  * V2 projection handler that writes record history for individual record update events.
  */
 @ProjectionHandler(RecordUpdated)
-class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpdated> {
+export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpdated> {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly v2ContainerService: V2ContainerService,
     private readonly cls: ClsService<IClsStore>,
     private readonly baseConfig: IBaseConfig,
-    private readonly knex: Knex,
     private readonly tableQueryService: TableQueryService,
     private readonly eventEmitterService: EventEmitterService
   ) {}
@@ -291,10 +315,8 @@ class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpdated> {
     }
 
     // Insert history records
-    if (recordHistoryList.length > 0) {
-      const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
-      await this.prisma.$executeRawUnsafe(query);
-    }
+    const db = await getRecordHistoryDb(this.v2ContainerService);
+    await insertRecordHistoryEntries(db, recordHistoryList);
 
     // Emit RECORD_HISTORY_CREATE event for compatibility
     this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
@@ -310,12 +332,11 @@ class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpdated> {
  * RecordsBatchUpdated is used by paste operations.
  */
 @ProjectionHandler(RecordsBatchUpdated)
-class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<RecordsBatchUpdated> {
+export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<RecordsBatchUpdated> {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly v2ContainerService: V2ContainerService,
     private readonly cls: ClsService<IClsStore>,
     private readonly baseConfig: IBaseConfig,
-    private readonly knex: Knex,
     private readonly tableQueryService: TableQueryService,
     private readonly eventEmitterService: EventEmitterService
   ) {}
@@ -401,12 +422,10 @@ class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<RecordsBat
     }
 
     // Insert history records in batches
+    const db = await getRecordHistoryDb(this.v2ContainerService);
     for (let i = 0; i < recordHistoryList.length; i += batchSize) {
       const batch = recordHistoryList.slice(i, i + batchSize);
-      if (batch.length > 0) {
-        const query = this.knex.insert(batch).into('record_history').toQuery();
-        await this.prisma.$executeRawUnsafe(query);
-      }
+      await insertRecordHistoryEntries(db, batch);
     }
 
     // Emit RECORD_HISTORY_CREATE event for compatibility
@@ -430,10 +449,9 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2RecordHistoryService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly v2ContainerService: V2ContainerService,
     private readonly cls: ClsService<IClsStore>,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly eventEmitterService: EventEmitterService
   ) {}
 
@@ -450,10 +468,9 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
     container.registerInstance(
       V2RecordUpdatedHistoryProjection,
       new V2RecordUpdatedHistoryProjection(
-        this.prisma,
+        this.v2ContainerService,
         this.cls,
         this.baseConfig,
-        this.knex,
         tableQueryService,
         this.eventEmitterService
       )
@@ -462,10 +479,9 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
     container.registerInstance(
       V2RecordsBatchUpdatedHistoryProjection,
       new V2RecordsBatchUpdatedHistoryProjection(
-        this.prisma,
+        this.v2ContainerService,
         this.cls,
         this.baseConfig,
-        this.knex,
         tableQueryService,
         this.eventEmitterService
       )
