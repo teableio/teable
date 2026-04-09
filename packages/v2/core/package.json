@@ -27,7 +27,7 @@
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-core.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test-unit": "vitest run --silent",
+    "test-unit": "vitest run --silent --bail 1",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },

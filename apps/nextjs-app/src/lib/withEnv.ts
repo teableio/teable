@@ -37,6 +37,9 @@ export default function withEnv<P extends { [key: string]: any }>(
     };
     const env = omitBy(
       {
+        buildVersion: process.env.BUILD_VERSION,
+        gitCommitSha: process.env.GIT_COMMIT_SHA,
+        previewTag: process.env.PREVIEW_TAG,
         driver,
         templateSiteLink: process.env.TEMPLATE_SITE_LINK,
         microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
@@ -56,7 +59,6 @@ export default function withEnv<P extends { [key: string]: any }>(
             : envMaxSearchFieldCount,
         publicOrigin: process.env.PUBLIC_ORIGIN,
         enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true' ? true : undefined,
-        enableSandboxAgent: process.env.ENABLE_SANDBOX_AGENT === 'true' ? true : undefined,
         task,
         trash,
       },

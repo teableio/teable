@@ -52,4 +52,6 @@ export const sanitizeMarkdownBreaks = (markdown: string): string =>
   markdown
     .replace(/\\\n/g, '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/\n{3,}/g, '\n\n');
+    .replace(/\n{3,}/g, '\n\n')
+    // Convert autolinks <url> to explicit [url](url) syntax
+    .replace(/<(https?:\/\/[^>]+)>/g, '[$1]($1)');

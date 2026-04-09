@@ -3,7 +3,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from '../application/services/ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { type IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -80,6 +85,8 @@ export class UpdateRecordHandler
     private readonly recordOrderCalculator: IRecordOrderCalculator,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
@@ -93,7 +100,9 @@ export class UpdateRecordHandler
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   @TraceSpan()
@@ -208,11 +217,21 @@ export class UpdateRecordHandler
               tableEvents = tableFlowResult.events;
             }
             yield* await pluginExecution.beforePersist(transactionContext);
+            const fillLinkTitleForeignTables = command.typecast
+              ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
+                  transactionContext,
+                  [recordUpdateResult.mutateSpec ?? null]
+                )
+              : new Map();
             const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
               command.recordId,
-              mutateSpec
+              mutateSpec,
+              {
+                ...(command.typecast ? { fillLinkTitles: true } : {}),
+                ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+              }
             );
 
             let previousOrder: number | undefined;
@@ -277,15 +296,20 @@ export class UpdateRecordHandler
 
       // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
       const changes: RecordFieldChangeDTO[] = [];
-      const updatedFieldValues = new Map<string, unknown>();
+      const fallbackUpdatedFieldValues = new Map<string, unknown>();
       for (const entry of updatedRecord.fields().entries()) {
-        updatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
+        fallbackUpdatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
       }
+      const updatedFieldValues =
+        yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
+          tableForUpdate,
+          mutationResult.mutation.changedFields
+        );
       for (const [fieldId] of recordUpdateResult.fieldKeyMapping) {
         changes.push({
           fieldId,
           oldValue: currentRecord.fields[fieldId],
-          newValue: updatedFieldValues.get(fieldId), // use updated record values
+          newValue: updatedFieldValues?.get(fieldId) ?? fallbackUpdatedFieldValues.get(fieldId),
         });
       }
       // 3. Create and publish RecordUpdated event
@@ -400,9 +424,27 @@ export class UpdateRecordHandler
       }
       await pluginExecution.afterCommit();
 
+      const mergedRecord = yield* TableRecord.fromRawFieldValues({
+        id: command.recordId.toString(),
+        tableId: table.id(),
+        fields: {
+          ...Object.fromEntries(
+            Object.entries(currentRecord.fields).filter(
+              ([, value]) => value !== null && value !== undefined
+            )
+          ),
+          ...Object.fromEntries(
+            updatedRecord
+              .fields()
+              .entries()
+              .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+          ),
+        },
+      });
+
       return ok(
         UpdateRecordResult.create(
-          updatedRecord,
+          mergedRecord,
           events,
           extendedFieldKeyMapping,
           mutationResult.mutation.computedChanges

@@ -8,6 +8,7 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
+import { SessionHandleService } from '../features/auth/session/session-handle.service';
 import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
@@ -51,6 +52,7 @@ export class ShareDbService extends ShareDBClass {
     private readonly repairAttachmentOpService: RepairAttachmentOpService,
     @CacheConfig() private readonly cacheConfig: ICacheConfig,
     private readonly performanceCacheService: PerformanceCacheService,
+    private readonly sessionHandleService: SessionHandleService,
     @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {
     super({
@@ -71,7 +73,7 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
-    authMiddleware(this);
+    authMiddleware(this, this.sessionHandleService);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client

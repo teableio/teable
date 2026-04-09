@@ -5,6 +5,7 @@ import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { ButtonConfirm } from '../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonWorkflow } from '../domain/table/fields/types/ButtonWorkflow';
@@ -73,6 +74,11 @@ const BUTTON_WORKFLOW = ButtonWorkflow.create({
   id: 'wfl12345678901234',
   name: 'Deploy',
   isActive: true,
+})._unsafeUnwrap();
+const BUTTON_CONFIRM = ButtonConfirm.create({
+  title: 'Confirm deploy',
+  description: 'Ship this change?',
+  confirmText: 'Deploy',
 })._unsafeUnwrap();
 const BUTTON_COLOR_TEAL = FieldColor.from('teal');
 const FORMULA_NUMBER_FORMATTING = NumberFormatting.create({
@@ -625,6 +631,7 @@ const sameTypeCases: SameTypeCase[] = [
           .withColor(BUTTON_COLOR_TEAL)
           .withMaxCount(BUTTON_MAX_THREE)
           .withWorkflow(BUTTON_WORKFLOW)
+          .withConfirm(BUTTON_CONFIRM)
           .done();
       });
       setStableDbFieldName(currentField, 'stable_button_column');
@@ -637,6 +644,11 @@ const sameTypeCases: SameTypeCase[] = [
             label: 'Ship',
             color: 'blue',
             workflow: null,
+            confirm: {
+              title: 'Confirm ship',
+              description: 'Ship now?',
+              confirmText: 'Ship',
+            },
           },
           notNull: true,
           unique: true,
@@ -664,6 +676,12 @@ const sameTypeCases: SameTypeCase[] = [
           expect(workflowSpec).toBeDefined();
           expect(workflowSpec?.previousWorkflow()).toEqual(BUTTON_WORKFLOW);
           expect(workflowSpec?.nextWorkflow()).toBeUndefined();
+          expect(workflowSpec?.previousConfirm()).toEqual(BUTTON_CONFIRM);
+          expect(workflowSpec?.nextConfirm()?.toDto()).toEqual({
+            title: 'Confirm ship',
+            description: 'Ship now?',
+            confirmText: 'Ship',
+          });
         },
       };
     },

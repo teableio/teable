@@ -9,6 +9,7 @@ import { ComputedDependencyCollectorService } from './services/computed-dependen
 import { ComputedEvaluatorService } from './services/computed-evaluator.service';
 import { ComputedOrchestratorService } from './services/computed-orchestrator.service';
 import { LinkCascadeResolver } from './services/link-cascade-resolver';
+import { PersistedComputedBackfillService } from './services/persisted-computed-backfill.service';
 import { RecordComputedUpdateService } from './services/record-computed-update.service';
 
 @Module({
@@ -27,7 +28,8 @@ import { RecordComputedUpdateService } from './services/record-computed-update.s
     ComputedOrchestratorService,
     RecordComputedUpdateService,
     LinkCascadeResolver,
+    PersistedComputedBackfillService,
   ],
-  exports: [ComputedOrchestratorService],
+  exports: [ComputedOrchestratorService, PersistedComputedBackfillService],
 })
 export class ComputedModule {}

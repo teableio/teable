@@ -17,6 +17,12 @@ import type { IExecutionContext } from './ExecutionContext';
  */
 export interface RecordMutationResult {
   /**
+   * Final stored values for fields changed by this operation.
+   * Map of fieldId -> persisted newValue.
+   */
+  changedFields?: ReadonlyMap<string, unknown>;
+
+  /**
    * Computed field values that were updated during this operation.
    * Map of fieldId -> newValue.
    * Undefined if no computed fields were updated or if computed updates
@@ -30,6 +36,12 @@ export interface RecordMutationResult {
  * Contains computed field values for each record that was updated.
  */
 export interface BatchRecordMutationResult {
+  /**
+   * Map of recordId -> changed field values persisted for that record.
+   * Each entry contains fieldId -> newValue mappings for fields changed by the operation.
+   */
+  changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+
   /**
    * Map of recordId -> computed field changes.
    * Each entry contains fieldId -> newValue mappings for that record.
@@ -138,6 +150,17 @@ export interface UpdateManyStreamProgress {
 export interface UpdateManyStreamOptions {
   /** Callback invoked after each batch is updated */
   onBatchUpdated?: (progress: UpdateManyStreamProgress) => void;
+
+  /**
+   * When true, generate SQL to fill missing link titles by JOINing
+   * the foreign table's primary field.
+   */
+  fillLinkTitles?: boolean;
+
+  /**
+   * Foreign tables referenced by missing-title link payloads.
+   */
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 /**
@@ -151,6 +174,25 @@ export interface UpdateManyStreamResult {
     recordId: RecordId;
     newVersion: number;
   }>;
+}
+
+export interface DeleteManyStreamProgress {
+  /** Current batch index (0-based) */
+  batchIndex: number;
+  /** Number of records deleted in this batch */
+  deletedCount: number;
+  /** Total number of records deleted so far */
+  totalDeleted: number;
+}
+
+export interface DeleteManyStreamOptions {
+  /** Callback invoked after each batch is deleted */
+  onBatchDeleted?: (progress: DeleteManyStreamProgress) => void;
+}
+
+export interface DeleteManyStreamResult {
+  /** Total number of records deleted */
+  totalDeleted: number;
 }
 
 export interface UpdateManyStreamBatch {
@@ -200,6 +242,33 @@ export interface InsertOptions {
    * the same transaction after the records are restored.
    */
   cleanupTrashRecordIds?: ReadonlyArray<string>;
+
+  /**
+   * When true, generate SQL to fill missing link titles by JOINing
+   * the foreign table's primary field. Used in typecast mode when
+   * API clients provide link IDs without titles.
+   */
+  fillLinkTitles?: boolean;
+
+  /**
+   * Foreign tables referenced by missing-title link payloads.
+   * Repository adapters use the real foreign db_table_name/db_field_name
+   * instead of assuming physical names match table ids.
+   */
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
+}
+
+export interface UpdateOptions {
+  /**
+   * When true, generate SQL to fill missing link titles by JOINing
+   * the foreign table's primary field.
+   */
+  fillLinkTitles?: boolean;
+
+  /**
+   * Foreign tables referenced by missing-title link payloads.
+   */
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 export interface ITableRecordRepository {
@@ -255,7 +324,8 @@ export interface ITableRecordRepository {
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    mutateSpec: ICellValueSpec
+    mutateSpec: ICellValueSpec,
+    options?: UpdateOptions
   ): Promise<Result<RecordMutationResult, DomainError>>;
 
   /**
@@ -274,7 +344,8 @@ export interface ITableRecordRepository {
     context: IExecutionContext,
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    mutateSpec: ICellValueSpec
+    mutateSpec: ICellValueSpec,
+    options?: UpdateOptions
   ): Promise<Result<UpdateManyResult, DomainError>>;
 
   /**
@@ -307,4 +378,11 @@ export interface ITableRecordRepository {
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>>;
+
+  deleteManyStream(
+    context: IExecutionContext,
+    table: Table,
+    recordIdBatches: Iterable<ReadonlyArray<RecordId>> | AsyncIterable<ReadonlyArray<RecordId>>,
+    options?: DeleteManyStreamOptions
+  ): Promise<Result<DeleteManyStreamResult, DomainError>>;
 }

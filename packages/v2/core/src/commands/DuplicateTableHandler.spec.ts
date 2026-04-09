@@ -9,8 +9,8 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { RecordCreated } from '../domain/table/events/RecordCreated';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -353,6 +353,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeEventBus implements IEventBus {
@@ -463,10 +467,8 @@ describe('DuplicateTableHandler', () => {
     expect(tableSchemaRepository.insertedTables).toHaveLength(1);
     expect(tableRecordRepository.insertedRecords).toHaveLength(2);
     expect(eventBus.published.length).toBeGreaterThan(0);
-    expect(eventBus.published.some((event) => event instanceof RecordCreated)).toBe(false);
-    const batchCreatedEvent = eventBus.published.find(
-      (event): event is RecordsBatchCreated => event instanceof RecordsBatchCreated
-    );
+    expect(eventBus.published.some(isRecordCreatedEvent)).toBe(false);
+    const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
     expect(batchCreatedEvent?.records).toHaveLength(2);
     expect(eventBus.publishedContexts.at(-1)?.duplicateTable).toMatchObject({
       sourceTableId,
