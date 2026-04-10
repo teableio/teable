@@ -62,6 +62,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   const onCalendarChange = (dateStr?: string | null) => {
     if (dateStr == dateTime) return;
 
+    setInputValue(formatDisplayValue(dateStr || '', formatting));
     record.updateCell(field.id, dateStr ?? null, { t });
 
     if (timeFormatting === TimeFormatting.None) {
@@ -98,7 +99,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
       />
       <DateEditorMain
         ref={editorRef}
-        className="absolute rounded-md border bg-background"
+        className="absolute rounded-md border bg-background shadow-md"
         style={{
           ...style,
           ...attachStyle,

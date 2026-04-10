@@ -112,12 +112,19 @@ export const buttonWorkflowSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+export const buttonConfirmSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  confirmText: z.string().optional(),
+});
+
 export const buttonOptionsSchema = z.object({
   label: z.string().optional(),
   color: fieldColorSchema.optional(),
   maxCount: z.number().optional(),
   resetCount: z.boolean().optional(),
   workflow: buttonWorkflowSchema.optional().nullable(),
+  confirm: buttonConfirmSchema.optional().nullable(),
 });
 
 export const formulaOptionsSchema = z.object({

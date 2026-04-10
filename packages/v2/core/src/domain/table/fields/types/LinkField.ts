@@ -85,6 +85,8 @@ export class LinkField
     config: LinkFieldConfig;
     baseId: BaseId;
     hostTableId: TableId;
+    hostTableDbTableName?: DbTableName;
+    foreignTableDbTableName?: DbTableName;
     meta?: LinkFieldMeta;
   }): Result<LinkField, DomainError> {
     const metaResult = params.meta
@@ -100,7 +102,12 @@ export class LinkField
           meta,
         }).andThen((field) =>
           field
-            .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
+            .ensureDbConfig({
+              baseId: params.baseId,
+              hostTableId: params.hostTableId,
+              hostTableDbTableName: params.hostTableDbTableName,
+              foreignTableDbTableName: params.foreignTableDbTableName,
+            })
             .map(() => field)
         )
       )
@@ -583,7 +590,12 @@ export class LinkField
     });
   }
 
-  ensureDbConfig(params: { baseId: BaseId; hostTableId: TableId }): Result<void, DomainError> {
+  ensureDbConfig(params: {
+    baseId: BaseId;
+    hostTableId: TableId;
+    hostTableDbTableName?: DbTableName;
+    foreignTableDbTableName?: DbTableName;
+  }): Result<void, DomainError> {
     const symmetricFieldIdResult = (() => {
       if (this.isOneWay()) return ok(this.symmetricFieldId());
       if (this.symmetricFieldId()) return ok(this.symmetricFieldId());
@@ -601,6 +613,8 @@ export class LinkField
     return this.resolveFkHostTableName({
       baseId: params.baseId,
       hostTableId: params.hostTableId,
+      hostTableDbTableName: params.hostTableDbTableName,
+      foreignTableDbTableName: params.foreignTableDbTableName,
       symmetricFieldId,
     }).andThen((fkHostTableName) =>
       LinkFieldConfig.buildDbConfig({
@@ -625,6 +639,8 @@ export class LinkField
   private resolveFkHostTableName = (params: {
     baseId: BaseId;
     hostTableId: TableId;
+    hostTableDbTableName?: DbTableName;
+    foreignTableDbTableName?: DbTableName;
     symmetricFieldId?: FieldId;
   }): Result<DbTableName, DomainError> => {
     const relationship = this.relationship().toString();
@@ -632,11 +648,17 @@ export class LinkField
       return this.buildJunctionTableName(params.baseId, params.symmetricFieldId);
     }
     if (relationship === 'manyOne' || relationship === 'oneOne') {
+      if (params.hostTableDbTableName) {
+        return ok(params.hostTableDbTableName);
+      }
       return DbTableName.rehydrate(`${params.baseId.toString()}.${params.hostTableId.toString()}`);
     }
     if (relationship === 'oneMany') {
       if (this.isOneWay()) {
         return this.buildJunctionTableName(params.baseId, params.symmetricFieldId);
+      }
+      if (params.foreignTableDbTableName) {
+        return ok(params.foreignTableDbTableName);
       }
       return DbTableName.rehydrate(
         `${params.baseId.toString()}.${this.foreignTableId().toString()}`

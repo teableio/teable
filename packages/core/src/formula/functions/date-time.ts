@@ -407,7 +407,7 @@ export class DatetimeDiff extends DateTimeFunc {
   eval(params: TypedValue<string | boolean | null>[], context: IFormulaContext): number | null {
     const startDate = getDayjs(params[0].value as string, context.timeZone);
     const endDate = getDayjs(params[1].value as string, context.timeZone);
-    const unit = (params[2]?.value ?? 'day') as UnitType;
+    const unit = (params[2]?.value ?? 'second') as UnitType;
     const isFloat = Boolean(params[3]?.value ?? false);
     if (startDate == null || endDate == null) return null;
     const diffCount = startDate.diff(endDate, unit, isFloat);

@@ -3,13 +3,18 @@
 import { Zap, MessageSquare, Star, HelpCircle } from '@teable/icons';
 import {
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
+import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { IModelOption } from './AiModelSelect';
 import { AIModelSelect } from './AiModelSelect';
 
@@ -33,6 +38,18 @@ export function DefaultModelsStep({
   disabled,
 }: IDefaultModelsStepProps) {
   const { t } = useTranslation('common');
+  const [tiersOpen, setTiersOpen] = useState(
+    () =>
+      Boolean(chatModel?.md && chatModel.md !== chatModel?.lg) ||
+      Boolean(chatModel?.sm && chatModel.sm !== chatModel?.lg)
+  );
+
+  const customizedCount = useMemo(() => {
+    let count = 0;
+    if (chatModel?.md && chatModel.md !== chatModel?.lg) count++;
+    if (chatModel?.sm && chatModel.sm !== chatModel?.lg) count++;
+    return count;
+  }, [chatModel?.lg, chatModel?.md, chatModel?.sm]);
 
   // Filter to only text models (not image models)
   const textModels = models.filter((m) => !m.isImageModel);
@@ -40,27 +57,49 @@ export function DefaultModelsStep({
   // Find a recommended default (first gateway model, or first model)
   const recommendedDefault = textModels.find((m) => m.isGateway) || textModels[0];
 
+  const lgModelLabel = useMemo(() => {
+    if (!chatModel?.lg) return '';
+    const m = textModels.find((m) => m.modelKey === chatModel.lg);
+    return m?.label || chatModel.lg;
+  }, [chatModel?.lg, textModels]);
+
+  const inheritPlaceholder = useMemo(
+    () => t('admin.setting.ai.chatModels.inheritHint', { model: lgModelLabel }),
+    [t, lgModelLabel]
+  );
+
   const handleUseRecommended = useCallback(() => {
     if (recommendedDefault) {
-      // Set the same model for all sizes
       onChange({
+        ...chatModel,
         lg: recommendedDefault.modelKey,
-        md: recommendedDefault.modelKey,
-        sm: recommendedDefault.modelKey,
       });
     }
-  }, [recommendedDefault, onChange]);
+  }, [recommendedDefault, chatModel, onChange]);
 
-  const handleModelChange = useCallback(
+  const handleLgChange = useCallback(
     (value: string) => {
-      // Set all sizes to the same model for simplicity
-      onChange({
-        lg: value,
-        md: value,
-        sm: value,
-      });
+      const next: IChatModel = { ...chatModel, lg: value };
+      // Clear md/sm if they were inheriting from the old lg
+      if (chatModel?.md === chatModel?.lg) next.md = undefined;
+      if (chatModel?.sm === chatModel?.lg) next.sm = undefined;
+      onChange(next);
     },
-    [onChange]
+    [chatModel, onChange]
+  );
+
+  const handleMdChange = useCallback(
+    (value: string) => {
+      onChange({ ...chatModel, md: value || undefined });
+    },
+    [chatModel, onChange]
+  );
+
+  const handleSmChange = useCallback(
+    (value: string) => {
+      onChange({ ...chatModel, sm: value || undefined });
+    },
+    [chatModel, onChange]
   );
 
   if (disabled) {
@@ -107,7 +146,7 @@ export function DefaultModelsStep({
         </div>
       )}
 
-      {/* Model Selection - simplified to one model */}
+      {/* Model Selection */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <MessageSquare className="size-4" />
@@ -126,10 +165,70 @@ export function DefaultModelsStep({
 
         <AIModelSelect
           value={chatModel?.lg || ''}
-          onValueChange={handleModelChange}
+          onValueChange={handleLgChange}
           options={textModels}
           className="w-full"
         />
+
+        {/* Model tiers - collapsible */}
+        {chatModel?.lg && (
+          <Collapsible open={tiersOpen} onOpenChange={setTiersOpen}>
+            <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <ChevronRight
+                className={cn('size-4 shrink-0 transition-transform', tiersOpen && 'rotate-90')}
+              />
+              <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
+              {!tiersOpen && (
+                <span className="ml-1 text-xs opacity-60">
+                  {customizedCount > 0
+                    ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
+                    : t('admin.setting.ai.chatModels.allInheriting')}
+                </span>
+              )}
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {t('admin.setting.ai.chatModels.modelTiersDescription')}
+              </div>
+              <div className="mt-3 flex flex-col gap-4 rounded-md border bg-muted/30 p-4">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-medium">
+                      {t('admin.setting.ai.chatModels.md')}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('admin.setting.ai.chatModels.mdDescription')}
+                    </span>
+                  </div>
+                  <AIModelSelect
+                    value={chatModel?.md || ''}
+                    onValueChange={handleMdChange}
+                    options={textModels}
+                    className="w-full"
+                    placeholder={inheritPlaceholder}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-medium">
+                      {t('admin.setting.ai.chatModels.sm')}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('admin.setting.ai.chatModels.smDescription')}
+                    </span>
+                  </div>
+                  <AIModelSelect
+                    value={chatModel?.sm || ''}
+                    onValueChange={handleSmChange}
+                    options={textModels}
+                    className="w-full"
+                    placeholder={inheritPlaceholder}
+                  />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
 
       {/* Status */}

@@ -48,13 +48,14 @@ export const SchemaCheckerLive = Layer.effect(
             if (tableResult.isErr()) throw tableResult.error;
             const table = tableResult.value;
             if (!table) throw new Error(`Table "${tableId}" not found`);
+            const schema = table.baseId().toString();
 
             // Create schema checker
             const introspector = new PostgresSchemaIntrospector(db);
             const checker = createSchemaChecker({
               db,
               introspector,
-              schema: 'public',
+              schema,
             });
 
             // Collect results
@@ -115,13 +116,14 @@ export const SchemaCheckerLive = Layer.effect(
             if (tableResult.isErr()) throw tableResult.error;
             const table = tableResult.value;
             if (!table) throw new Error(`Table "${tableId}" not found`);
+            const schema = table.baseId().toString();
 
             // Create schema checker
             const introspector = new PostgresSchemaIntrospector(db);
             const checker = createSchemaChecker({
               db,
               introspector,
-              schema: 'public',
+              schema,
             });
 
             // Collect results

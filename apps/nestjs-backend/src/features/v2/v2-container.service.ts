@@ -18,9 +18,11 @@ import { PinoLogger } from 'nestjs-pino';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
 import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
+import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
 import {
   V2_PROJECTION_REGISTRAR_METADATA,
@@ -38,6 +40,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     private readonly pinoLogger: PinoLogger,
     private readonly shareDbService: ShareDbService,
     private readonly cacheService: CacheService,
+    private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly reflector: Reflector,
     private readonly discoveryService: DiscoveryService
@@ -81,6 +84,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     registerV2ShareDbRealtime(container, {
       publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
     });
+    container.registerInstance(
+      v2CoreTokens.recordChangedValueDecoratorService,
+      new V2RecordChangedValueDecoratorService(this.attachmentsStorageService)
+    );
     container.registerInstance(
       v2CoreTokens.undoRedoStore,
       new KeyvUndoRedoStore(this.cacheService.getKeyv(), {

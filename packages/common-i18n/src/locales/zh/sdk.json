@@ -319,7 +319,8 @@
     "showHiddenFields": "显示 {{count}} 个隐藏字段",
     "hideHiddenFields": "隐藏 {{count}} 个隐藏字段",
     "showMore": "显示更多",
-    "showLess": "收起"
+    "showLess": "收起",
+    "recordFrom": "记录来自"
   },
   "sort": {
     "label": "排序",
@@ -686,15 +687,15 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "以指定的单位返回日期时间之间的差异。默认单位为 \"day\"。\n支持的单位：\"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\n日期时间之间的差异是通过从 [date1] 减去 [date2] 来确定的。这意味着如果 [date2] 晚于 [date1]，结果值将为负数。",
-      "example": "DATETIME_DIFF(\"2026-03-09\", \"2026-03-13\", \"day\") => -4\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+      "summary": "以指定的单位返回日期时间之间的差异。默认单位为 \"second\"。\n支持的单位：\"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\nDATETIME_DIFF 始终按第一个参数减去第二个参数（`date1 - date2`）。如果你想计算从开始日期到更晚结束日期的经过时间，请使用 `DATETIME_DIFF(endDate, startDate, unit)`。",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
     },
     "WORKDAY": {
       "summary": "返回从起始日期开始的工作日，不包括指定的节假日",
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "返回从 [date1] 之后到 [date2]（包含 [date2]）之间的工作日数。工作日不包括周末和可选的节假日列表，格式为以逗号分隔的 ISO 日期字符串。如果 [date2] 早于 [date1]，结果会是负数，并且 WORKDAY_DIFF(date, WORKDAY(date, n)) 会返回 n。",
+      "summary": "返回从 [startDate] 之后到 [endDate]（包含 [endDate]）之间的工作日数。这是工作日差值，不是自然日差值，因此会排除周末和可选的节假日列表。若要计算自然日经过时间，请使用 `DATETIME_DIFF(endDate, startDate, \"day\")`。如果 [endDate] 早于 [startDate]，结果会是负数，并且 WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) 会返回 n。",
       "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
     },
     "IS_SAME": {

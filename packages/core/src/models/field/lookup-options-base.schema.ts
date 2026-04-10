@@ -34,6 +34,14 @@ const lookupLinkOptionsVoSchema = z.object({
   visibleFieldIds: z.array(z.string()).nullable().optional().meta({
     description: 'Optional foreign fields shown when presenting lookup-linked records.',
   }),
+  isOneWay: z.boolean().optional().meta({
+    description:
+      'Whether the underlying relationship is stored as one-way. Present in some persisted lookup payloads.',
+  }),
+  symmetricFieldId: z.string().optional().meta({
+    description:
+      'Optional symmetric link field id preserved on some lookup payloads for compatibility.',
+  }),
   filter: filterSchema.optional(),
   linkFieldId: z.string().meta({
     description: 'The id of Linked record field to use for lookup',
