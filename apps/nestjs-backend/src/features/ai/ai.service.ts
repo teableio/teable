@@ -64,6 +64,27 @@ export class AiService {
   }
 
   /**
+   * Resolve the model key by matching a body model ID against chatModel lg/md/sm values.
+   * Model keys are in format type@modelId@name — we compare the modelId segment.
+   * Falls back to lg if no match is found.
+   */
+  public resolveModelKeyFromBody(
+    chatModel: { lg?: string; md?: string; sm?: string } | undefined,
+    bodyModel?: string
+  ): string | undefined {
+    if (bodyModel) {
+      const sizes = ['lg', 'md', 'sm'] as const;
+      for (const size of sizes) {
+        const key = chatModel?.[size];
+        if (key && this.parseModelKey(key).model === bodyModel) {
+          return key;
+        }
+      }
+    }
+    return chatModel?.lg;
+  }
+
+  /**
    * Check if modelKey is an AI Gateway model
    * Format: aiGateway@<modelId>@teable
    */
@@ -359,20 +380,6 @@ export class AiService {
     };
   }
 
-  async getToolApiKeys(baseId: string) {
-    const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
-    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
-      where: { id: baseId },
-    });
-    const aiIntegration = await this.prismaService.integration.findFirst({
-      where: { resourceId: spaceId, type: IntegrationType.AI },
-    });
-    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    return {
-      v0ApiKey: aiIntegrationConfig?.appConfig?.apiKey || appConfig?.apiKey,
-    };
-  }
-
   async getSimplifiedAIConfig(baseId: string) {
     try {
       const config = await this.getAIConfig(baseId);
@@ -554,6 +561,8 @@ export class AiService {
       ability: chatModel?.ability,
       isInstance,
       lgModelKey: chatModel.lg,
+      mdModelKey: chatModel.md,
+      smModelKey: chatModel.sm,
     };
   }
 

@@ -1,16 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import {
-  MoreHorizontal,
-  Pencil,
-  Settings,
-  Trash2,
-  Export,
-  Import,
-  FileCsv,
-  FileExcel,
-  Copy,
-} from '@teable/icons';
+import { MoreHorizontal, Settings, Export, Import, FileCsv, FileExcel } from '@teable/icons';
 import { duplicateTable, SUPPORTEDTYPE } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useBasePermission, useTables } from '@teable/sdk/hooks';
@@ -31,6 +21,7 @@ import {
   DialogFooter,
   Button,
 } from '@teable/ui-lib/shadcn';
+import { CopyPlus, Pen, Trash } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -135,7 +126,7 @@ export const TableOperation = (props: ITableOperationProps) => {
         >
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pencil className="mr-2" />
+              <Pen className="mr-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
@@ -147,13 +138,13 @@ export const TableOperation = (props: ITableOperationProps) => {
               }}
               title={t('common:noun.design')}
             >
-              <Settings className="mr-2" />
+              <Settings className="mr-2 size-4" />
               {t('common:noun.design')}
             </Link>
           </DropdownMenuItem>
           {menuPermission.duplicateTable && (
             <DropdownMenuItem onClick={() => setDuplicateSetting(true)}>
-              <Copy className="mr-2" />
+              <CopyPlus className="mr-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
@@ -163,14 +154,14 @@ export const TableOperation = (props: ITableOperationProps) => {
                 trigger?.();
               }}
             >
-              <Export className="mr-2" />
+              <Export className="mr-2 size-4" />
               {t('table:import.menu.downAsCsv')}
             </DropdownMenuItem>
           )}
           {menuPermission.importTable && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <Import className="mr-2" />
+                <Import className="mr-2 size-4" />
                 <span>{t('table:import.menu.importData')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -199,7 +190,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           )}
           {menuPermission.deleteTable && (
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-              <Trash2 className="mr-2" />
+              <Trash className="mr-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}

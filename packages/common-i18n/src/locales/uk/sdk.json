@@ -285,7 +285,8 @@
     "showHiddenFields": "Показати {{count}} прихованих поля",
     "hideHiddenFields": "Приховати {{count}} прихованих поля",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "recordFrom": "Запис з"
   },
   "sort": {
     "label": "Сортування",

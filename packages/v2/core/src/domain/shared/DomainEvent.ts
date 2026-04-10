@@ -10,3 +10,15 @@ export interface IDomainEvent {
    */
   requestId?: string;
 }
+
+export type DomainEventGuard<TEvent extends IDomainEvent> = (
+  event: IDomainEvent
+) => event is TEvent;
+
+export const hasDomainEventName = (event: IDomainEvent, eventName: DomainEventName): boolean =>
+  event.name.equals(eventName);
+
+export const createDomainEventGuard =
+  <TEvent extends IDomainEvent>(eventName: DomainEventName): DomainEventGuard<TEvent> =>
+  (event: IDomainEvent): event is TEvent =>
+    hasDomainEventName(event, eventName);

@@ -14,11 +14,13 @@ import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdat
 import { FieldId } from '../../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
+import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
+import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
@@ -45,6 +47,10 @@ import { IUnitOfWork } from '../../ports/UnitOfWork';
 import { type RecordFilterNode } from '../../queries/RecordFilterDto';
 import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from './ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
@@ -71,6 +77,8 @@ type BulkUpdateExecutionResult = {
   readonly orderUndoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly orderRedoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly pluginExecution: RecordWritePluginExecution;
+  readonly records?: ReadonlyArray<TableRecord>;
+  readonly fieldKeyMapping?: FieldKeyMapping;
 };
 
 type ExplicitResolvedUpdate = {
@@ -131,6 +139,8 @@ type ExplicitUpdateSummary = {
 export interface IRecordBulkUpdateResult {
   readonly updatedCount: number;
   readonly events: ReadonlyArray<IDomainEvent>;
+  readonly records?: ReadonlyArray<TableRecord>;
+  readonly fieldKeyMapping?: FieldKeyMapping;
 }
 
 const emptyUndoRedoPlan = (): RecordWriteUndoRedoPlan => ({
@@ -211,7 +221,9 @@ export class RecordBulkUpdateService {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: IUnitOfWork
+    private readonly unitOfWork: IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   async update(
@@ -309,6 +321,10 @@ export class RecordBulkUpdateService {
       return ok({
         updatedCount: executionResult.updatedCount,
         events,
+        ...(executionResult.records ? { records: executionResult.records } : {}),
+        ...(executionResult.fieldKeyMapping
+          ? { fieldKeyMapping: executionResult.fieldKeyMapping }
+          : {}),
       });
     });
   }
@@ -381,11 +397,21 @@ export class RecordBulkUpdateService {
               }
 
               yield* await pluginExecution.beforePersist(transactionContext);
+              const fillLinkTitleForeignTables = input.typecast
+                ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                    transactionContext,
+                    [specBuildResult.mutateSpec]
+                  )
+                : new Map();
               const mutationResult = yield* await service.tableRecordRepository.updateMany(
                 transactionContext,
                 preparedWrite.tableForWrite,
                 filterSpec,
-                mutateSpec
+                mutateSpec,
+                {
+                  ...(input.typecast ? { fillLinkTitles: true } : {}),
+                  ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                }
               );
 
               if (mutationResult.updatedRecordIds.length === 0) {
@@ -515,6 +541,7 @@ export class RecordBulkUpdateService {
           orderUndoCommands: [],
           orderRedoCommands: [],
           pluginExecution,
+          records: [],
         });
       }
 
@@ -547,6 +574,7 @@ export class RecordBulkUpdateService {
               let updatedCount = reorderResult.updatedCount;
               const pendingEventData: PendingExplicitEventData[] = [];
               const eventData: RecordUpdateDTO[] = [];
+              const updatedRecordMap = new Map<string, TableRecord>();
 
               if (fieldUpdateTargets.length > 0) {
                 const updateBatches = preparedWrite.tableForWrite.updateRecordsStream(
@@ -558,6 +586,7 @@ export class RecordBulkUpdateService {
                 );
 
                 const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];
+                const fillLinkTitleSpecs: ICellValueSpec[] = [];
                 let resolvedIndex = 0;
                 let maxBatchSize = 0;
 
@@ -570,6 +599,10 @@ export class RecordBulkUpdateService {
                     transactionContext,
                     batchResult.value
                   );
+
+                  for (const updateResult of batchResult.value) {
+                    fillLinkTitleSpecs.push(updateResult.mutateSpec);
+                  }
 
                   persistedBatches.push(
                     ok({
@@ -599,6 +632,25 @@ export class RecordBulkUpdateService {
                       oldVersion: pending.currentRecord.version,
                       changes,
                     });
+                    const mergedFields = {
+                      ...Object.fromEntries(
+                        Object.entries(pending.currentRecord.fields).filter(
+                          ([, value]) => value !== null && value !== undefined
+                        )
+                      ),
+                      ...Object.fromEntries(
+                        updateResult.record
+                          .fields()
+                          .entries()
+                          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+                      ),
+                    };
+                    const mergedRecord = yield* TableRecord.fromRawFieldValues({
+                      id: pending.recordId.toString(),
+                      tableId: input.table.id(),
+                      fields: mergedFields,
+                    });
+                    updatedRecordMap.set(pending.recordId.toString(), mergedRecord);
                     resolvedIndex += 1;
                   }
                 }
@@ -631,10 +683,20 @@ export class RecordBulkUpdateService {
                   );
                 }
 
+                const fillLinkTitleForeignTables = input.typecast
+                  ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                      transactionContext,
+                      fillLinkTitleSpecs
+                    )
+                  : new Map();
                 const persistResult = yield* await service.tableRecordRepository.updateManyStream(
                   transactionContext,
                   preparedWrite.tableForWrite,
-                  service.createSyncUpdateBatchesGenerator(persistedBatches)
+                  service.createSyncUpdateBatchesGenerator(persistedBatches),
+                  {
+                    ...(input.typecast ? { fillLinkTitles: true } : {}),
+                    ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                  }
                 );
                 const persistedVersions = new Map(
                   (persistResult.updatedRecords ?? []).map((record) => [
@@ -673,6 +735,26 @@ export class RecordBulkUpdateService {
                     )
                   : preparedWrite;
 
+              const materializedRecords: TableRecord[] = [];
+              for (const update of authorizedUpdates) {
+                const updatedRecord = updatedRecordMap.get(update.recordId.toString());
+                if (updatedRecord) {
+                  materializedRecords.push(updatedRecord);
+                  continue;
+                }
+
+                const currentRecordEntity = yield* TableRecord.fromRawFieldValues({
+                  id: update.currentRecord.id,
+                  tableId: input.table.id(),
+                  fields: Object.fromEntries(
+                    Object.entries(update.currentRecord.fields).filter(
+                      ([, value]) => value !== null && value !== undefined
+                    )
+                  ),
+                });
+                materializedRecords.push(currentRecordEntity);
+              }
+
               return ok({
                 updatedCount,
                 tableEvents: committedWrite.tableEvents,
@@ -681,12 +763,25 @@ export class RecordBulkUpdateService {
                 sideEffectUndoRedoPlan: committedWrite.sideEffectUndoRedoPlan,
                 orderUndoCommands: reorderResult.undoCommands,
                 orderRedoCommands: reorderResult.redoCommands,
+                records: materializedRecords,
               });
             }
           )
       );
 
-      return ok({ ...transactionResult, pluginExecution });
+      const fieldKeyMapping =
+        input.fieldKeyType === 'id'
+          ? undefined
+          : new Map(
+              input.table
+                .getFields()
+                .map((field) => [
+                  field.id().toString(),
+                  FieldKeyResolverService.getFieldKey(field, input.fieldKeyType),
+                ])
+            );
+
+      return ok({ ...transactionResult, pluginExecution, fieldKeyMapping });
     });
   }
 

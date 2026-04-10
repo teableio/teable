@@ -882,10 +882,20 @@ export class FieldDependencyGraph {
 
           UNION
 
-          -- 2. Lookup/rollup dependency on linkFieldId - uses field_lookup_options_link_field_id_idx
+          -- 2. Lookup/rollup dependency on linkFieldId - prefer field_lookup_linked_field_id_idx
           SELECT f.id AS field_id
           FROM field f
           WHERE f.deleted_time IS NULL
+            AND (f.type = 'rollup' OR f.is_lookup = true)
+            AND f.lookup_linked_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 2b. Fallback for stale rows where JSON has linkFieldId but lookup_linked_field_id is null
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.lookup_linked_field_id IS NULL
             AND f.lookup_options IS NOT NULL
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND (f.lookup_options::jsonb)->>'linkFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))

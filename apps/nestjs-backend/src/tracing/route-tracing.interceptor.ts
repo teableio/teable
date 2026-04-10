@@ -2,26 +2,25 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { trace, TraceFlags } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
+import { ClsService } from 'nestjs-cls';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-
-const buildTraceLink = (traceId: string, baseUrl?: string) => {
-  const normalizedBaseUrl = baseUrl?.replace(/\/+$/, '');
-  if (!normalizedBaseUrl) return null;
-  return `${normalizedBaseUrl}/trace/${traceId}?uiEmbed=v0`;
-};
-
-const buildTraceparent = (traceId: string, spanId: string, traceFlags: TraceFlags) => {
-  const sampled = (traceFlags & TraceFlags.SAMPLED) === TraceFlags.SAMPLED;
-  return `00-${traceId}-${spanId}-${sampled ? '01' : '00'}`;
-};
+import type { IClsStore } from '../types/cls';
+import { applyTraceResponseHeaders } from './trace-response-headers';
+import { USER_CONTEXT_SERVICE, IUserContextService } from './user-context.interface';
 
 @Injectable()
 export class RouteTracingInterceptor implements NestInterceptor {
   private readonly traceLinkBaseUrl?: string;
 
-  constructor(@Optional() @Inject(ConfigService) configService?: ConfigService) {
+  constructor(
+    @Optional() @Inject(ConfigService) configService?: ConfigService,
+    @Optional() @Inject(ClsService) private readonly cls?: ClsService<IClsStore>,
+    @Optional()
+    @Inject(USER_CONTEXT_SERVICE)
+    private readonly userContextService?: IUserContextService
+  ) {
     this.traceLinkBaseUrl =
       configService?.get<string>('TRACE_LINK_BASE_URL') ?? process.env.TRACE_LINK_BASE_URL;
   }
@@ -39,6 +38,11 @@ export class RouteTracingInterceptor implements NestInterceptor {
       const url = request.url;
       const route = request.route?.path || this.extractRouteFromUrl(url);
 
+      // User context from CLS (set by auth middleware)
+      const userId = this.cls?.get('user.id');
+      const origin = this.cls?.get('origin');
+      const appId = this.cls?.get('appId');
+
       span.setAttributes({
         'http.method': httpMethod,
         'http.route': route,
@@ -49,21 +53,15 @@ export class RouteTracingInterceptor implements NestInterceptor {
         'teable.route.full': `${httpMethod} ${route}`,
         'teable.route.controller': controllerClass.name,
         'teable.route.handler': handlerName.name,
+        'teable.user.id': userId || 'anonymous',
+        'teable.user.is_api': origin?.byApi || false,
+        'teable.user.is_app': !!appId,
+        'teable.app.id': appId || '',
       });
 
       const spanName = `${httpMethod} ${route}`;
       span.updateName(spanName);
-
-      // Set trace response headers
-      const spanContext = span.spanContext();
-      response.setHeader(
-        'traceparent',
-        buildTraceparent(spanContext.traceId, spanContext.spanId, spanContext.traceFlags)
-      );
-      const traceLink = buildTraceLink(spanContext.traceId, this.traceLinkBaseUrl);
-      if (traceLink) {
-        response.setHeader('Link', `<${traceLink}>; rel="trace"`);
-      }
+      applyTraceResponseHeaders(response, this.traceLinkBaseUrl);
     }
 
     return next.handle().pipe(
@@ -73,8 +71,30 @@ export class RouteTracingInterceptor implements NestInterceptor {
             'http.status_code': response.statusCode,
             responseStatusCode: response.statusCode.toString(),
           });
+
+          // After handler execution, spaceId may be set by PermissionService
+          this.setSpaceAttributes(span);
         }
       })
+    );
+  }
+
+  private setSpaceAttributes(span: ReturnType<typeof trace.getActiveSpan>) {
+    if (!span || !this.cls || !this.userContextService) return;
+
+    const spaceId = this.cls.get('spaceId');
+    if (!spaceId) return;
+
+    span.setAttribute('teable.space.id', spaceId);
+
+    // Resolve plan level asynchronously — fire-and-forget for the span
+    this.userContextService.getPlanLevel(spaceId).then(
+      (planLevel) => {
+        span.setAttribute('teable.space.plan', planLevel);
+      },
+      () => {
+        span.setAttribute('teable.space.plan', 'error');
+      }
     );
   }
 

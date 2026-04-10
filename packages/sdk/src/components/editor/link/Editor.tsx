@@ -7,7 +7,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import { LinkViewProvider, RowCountProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
-import { ExpandRecorder } from '../../expand-record';
+import { ExpandRecorder, isLinkedRecordOpen } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
 import { LinkListType } from './interface';
@@ -71,7 +71,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   const updateExpandRecordId = (recordId?: string) => {
     if (recordId) {
-      const existed = document.getElementById(`${foreignTableId}-${recordId}`);
+      const existed = isLinkedRecordOpen(foreignTableId, recordId);
       if (existed) {
         toast.warning(t('editor.link.alreadyOpen'));
         return;
@@ -168,6 +168,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
             tableId={foreignTableId}
             recordId={expandRecordId}
             recordIds={recordIds}
+            isLinkedRecord
             onUpdateRecordIdCallback={updateExpandRecordId}
             onClose={() => updateExpandRecordId(undefined)}
           />

@@ -38,7 +38,6 @@ import {
   type IntegrityPhase,
   type IntegrityResult,
   type IntegrityScope,
-  type IntegritySummary,
   type Translate,
   upsertResult,
 } from './integrityV2Utils';
@@ -54,6 +53,7 @@ export const IntegrityV2Dialog = ({
   tableId?: string;
   tableName?: string;
 }) => {
+  type ManualRepairValues = Record<string, string | boolean>;
   const { t } = useTranslation(['table', 'common']);
   const scope: IntegrityScope = tableId ? 'table' : 'base';
   const [open, setOpen] = useState(false);
@@ -62,15 +62,16 @@ export const IntegrityV2Dialog = ({
   const [hasRun, setHasRun] = useState(false);
   const [results, setResults] = useState<IntegrityResult[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [lastCheckSummary, setLastCheckSummary] = useState<IntegritySummary | null>(null);
   const [selectedStatuses, setSelectedStatuses] =
     useState<IntegrityFilterStatus[]>(integrityFilterStatuses);
+  const [activeRepairResultId, setActiveRepairResultId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const stopStream = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     setIsRunning(false);
+    setActiveRepairResultId(null);
   }, []);
 
   const runCheck = useCallback(async () => {
@@ -107,8 +108,6 @@ export const IntegrityV2Dialog = ({
           onResult,
         });
       }
-
-      setLastCheckSummary(createSummary(nextResults));
     } catch (error) {
       if (!controller.signal.aborted) {
         const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
@@ -123,58 +122,117 @@ export const IntegrityV2Dialog = ({
     }
   }, [baseId, scope, stopStream, t, tableId]);
 
-  const runRepair = useCallback(async () => {
-    if (!baseId) {
-      return;
-    }
+  const runRepair = useCallback(
+    async (targetStatuses: Array<'warn' | 'error'> = ['warn']) => {
+      if (!baseId) {
+        return;
+      }
 
-    stopStream();
-    const controller = new AbortController();
-    abortRef.current = controller;
+      stopStream();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-    setPhase('repair');
-    setHasRun(true);
-    setIsRunning(true);
-    setStreamError(null);
-    setResults([]);
+      setPhase('repair');
+      setHasRun(true);
+      setIsRunning(true);
+      setActiveRepairResultId(null);
+      setStreamError(null);
+      setResults([]);
 
-    try {
-      const onResult = (result: IntegrityResult) => {
-        setResults((currentResults) => upsertResult(currentResults, result));
-      };
+      try {
+        const onResult = (result: IntegrityResult) => {
+          setResults((currentResults) => upsertResult(currentResults, result));
+        };
 
-      if (scope === 'table' && tableId) {
+        if (scope === 'table' && tableId) {
+          await streamV2TableSchemaIntegrityRepair(
+            tableId,
+            { targetStatuses },
+            {
+              signal: controller.signal,
+              onResult,
+            }
+          );
+        } else {
+          await streamV2BaseSchemaIntegrityRepair(
+            baseId,
+            { targetStatuses },
+            {
+              signal: controller.signal,
+              onResult,
+            }
+          );
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          setStreamError(message);
+          toast.error(message);
+        }
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsRunning(false);
+          setActiveRepairResultId(null);
+        }
+      }
+    },
+    [baseId, scope, stopStream, t, tableId]
+  );
+
+  const runRuleRepair = useCallback(
+    async (result: IntegrityResult, manualRepairValues?: ManualRepairValues) => {
+      if (!result.tableId || !result.fieldId) {
+        return false;
+      }
+
+      stopStream();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setPhase('repair');
+      setHasRun(true);
+      setIsRunning(true);
+      setActiveRepairResultId(result.id);
+      setStreamError(null);
+
+      try {
+        const onResult = (nextResult: IntegrityResult) => {
+          setResults((currentResults) => upsertResult(currentResults, nextResult));
+        };
+
         await streamV2TableSchemaIntegrityRepair(
-          tableId,
-          {},
+          result.tableId,
+          {
+            fieldId: result.fieldId,
+            ruleId: result.ruleId,
+            targetStatuses: ['warn', 'error'],
+            manualRepairValues,
+          },
           {
             signal: controller.signal,
             onResult,
           }
         );
-      } else {
-        await streamV2BaseSchemaIntegrityRepair(
-          baseId,
-          {},
-          {
-            signal: controller.signal,
-            onResult,
-          }
-        );
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          setStreamError(message);
+          toast.error(message);
+          return false;
+        }
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsRunning(false);
+          setActiveRepairResultId(null);
+        }
       }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
-        setStreamError(message);
-        toast.error(message);
-      }
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        setIsRunning(false);
-      }
-    }
-  }, [baseId, scope, stopStream, t, tableId]);
+
+      return true;
+    },
+    [stopStream, t]
+  );
 
   useEffect(() => {
     if (!open) {
@@ -203,8 +261,18 @@ export const IntegrityV2Dialog = ({
   const filteredResults = filterResultsByStatuses(results, selectedStatuses);
   const groupedResults = groupResults(filteredResults);
   const tableGroups = groupResultsByTable(filteredResults);
-  const canRepair = Boolean(
-    baseId && !isRunning && lastCheckSummary && lastCheckSummary.issueCount > 0
+  const canRepairWarnings = Boolean(
+    baseId &&
+      !isRunning &&
+      results.some((result) => result.status === 'warn' && result.repair?.available)
+  );
+  const canRepairAny = Boolean(
+    baseId &&
+      !isRunning &&
+      results.some(
+        (result) =>
+          (result.status === 'warn' || result.status === 'error') && result.repair?.available
+      )
   );
   const hasFilteredOutAll = filteredResults.length === 0 && results.length > 0;
 
@@ -245,11 +313,12 @@ export const IntegrityV2Dialog = ({
             <IntegrityActions
               canRun={Boolean(baseId)}
               hasRun={hasRun}
-              canRepair={canRepair}
+              canRepairWarnings={canRepairWarnings}
+              canRepairAny={canRepairAny}
               isRunning={isRunning}
               phase={phase}
               onCheck={() => void runCheck()}
-              onRepair={() => void runRepair()}
+              onRepair={(targetStatuses) => void runRepair(targetStatuses)}
             />
             <IntegrityStatusFilters
               summary={summary}
@@ -275,6 +344,8 @@ export const IntegrityV2Dialog = ({
             phase={phase}
             hasTarget={Boolean(baseId)}
             hasFilteredOutAll={hasFilteredOutAll}
+            activeRepairResultId={activeRepairResultId}
+            onRepairRule={runRuleRepair}
           />
         </ScrollArea>
 

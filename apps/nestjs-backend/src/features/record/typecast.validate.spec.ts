@@ -353,6 +353,40 @@ describe('TypeCastAndValidate', () => {
       expect(typeCastAndValidate['createOptionsIfNotExists']).toBeCalledWith(['value']);
       expect(result).toEqual('value');
     });
+
+    it('preserves omitted values when preventAutoNewOptions is enabled', async () => {
+      const field = mockDeep<SingleSelectFieldDto>({
+        id: 'fldxxxx',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ id: '1', name: 'Open', color: Colors.Blue }],
+          preventAutoNewOptions: true,
+        },
+      });
+      const typeCastAndValidate = new TypeCastAndValidate({
+        services,
+        field,
+        tableId,
+        typecast: true,
+      });
+      (typeCastAndValidate as any).cache.choicesMap = {
+        Open: { id: '1', name: 'Open', color: Colors.Blue },
+      };
+
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockReturnValue([
+        undefined,
+        'Open',
+        'Missing',
+      ]);
+
+      const result = await typeCastAndValidate['castToSingleSelect']([
+        undefined,
+        'Open',
+        'Missing',
+      ]);
+
+      expect(result).toEqual([undefined, 'Open', null]);
+    });
   });
 
   describe('castToMultipleSelect', () => {
