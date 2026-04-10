@@ -11,7 +11,14 @@ export {
 } from './context';
 
 // Core interfaces
-export type { ISchemaRule, SchemaRuleValidationResult, TableSchemaStatementBuilder } from './core';
+export type {
+  ISchemaRule,
+  SchemaRuleManualRepairOptions,
+  SchemaRuleManualRepairValues,
+  SchemaRuleRepairHint,
+  SchemaRuleValidationResult,
+  TableSchemaStatementBuilder,
+} from './core';
 
 // Field rules
 export {

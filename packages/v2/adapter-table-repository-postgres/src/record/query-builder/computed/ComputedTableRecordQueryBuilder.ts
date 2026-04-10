@@ -1108,6 +1108,67 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
+  private buildSystemUserJsonExpr(tableAlias: string, systemColumn: string): RawBuilder<unknown> {
+    const systemColRef = sql.ref(`${tableAlias}.${systemColumn}`);
+    const avatarPrefix = '/api/attachments/read/public/avatar/';
+
+    return sql`(
+      select jsonb_build_object(
+        'id', u.id,
+        'title', u.name,
+        'email', u.email,
+        'avatarUrl', ${avatarPrefix} || u.id
+      )
+      from public.users u
+      where u.id = ${systemColRef}
+    )`;
+  }
+
+  private getFieldSourceExpr(
+    field: {
+      type: () => FieldType;
+      dbFieldName: () => Result<{ value: () => Result<string, DomainError> }, DomainError>;
+    },
+    tableAlias: string
+  ): Result<{ expr: RawBuilder<unknown>; isJsonbStorage?: boolean }, DomainError> {
+    if (field.type().equals(FieldType.autoNumber())) {
+      return ok({ expr: sql.ref(`${tableAlias}.__auto_number`) });
+    }
+
+    if (field.type().equals(FieldType.createdTime())) {
+      return ok({ expr: sql.ref(`${tableAlias}.__created_time`) });
+    }
+
+    if (field.type().equals(FieldType.createdBy())) {
+      return ok({
+        expr: this.buildSystemUserJsonExpr(tableAlias, '__created_by'),
+        isJsonbStorage: true,
+      });
+    }
+
+    if (
+      field.type().equals(FieldType.lastModifiedTime()) &&
+      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+    ) {
+      return ok({ expr: sql.ref(`${tableAlias}.__last_modified_time`) });
+    }
+
+    if (
+      field.type().equals(FieldType.lastModifiedBy()) &&
+      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+    ) {
+      return ok({
+        expr: this.buildSystemUserJsonExpr(tableAlias, '__last_modified_by'),
+        isJsonbStorage: true,
+      });
+    }
+
+    return field
+      .dbFieldName()
+      .andThen((dbFieldName) => dbFieldName.value())
+      .map((columnName) => ({ expr: sql.ref(`${tableAlias}.${columnName}`) }));
+  }
+
   private getForeignColRef(
     foreignTable: Table,
     foreignFieldId: FieldId,
@@ -1116,10 +1177,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return foreignTable
       .getField((f) => f.id().equals(foreignFieldId))
       .andThen((field) =>
-        field
-          .dbFieldName()
-          .andThen((dbFieldName) => dbFieldName.value())
-          .map((columnName) => sql`${sql.ref(`${tableAlias}.${columnName}`)}`)
+        this.getFieldSourceExpr(field, tableAlias).map(({ expr }) => sql`${expr}`)
       );
   }
 
@@ -1235,11 +1293,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return foreignTable
       .getField((f) => f.id().equals(foreignFieldId))
       .andThen((foreignField) =>
-        foreignField
-          .dbFieldName()
-          .andThen((dbFieldName) => dbFieldName.value())
-          .andThen((columnName) => {
-            const colRef = sql.ref(`${tableAlias}.${columnName}`);
+        this.getFieldSourceExpr(foreignField, tableAlias).andThen(
+          ({ expr: colRef, isJsonbStorage: sourceIsJsonb }) => {
             // Build orderBy expression - handle both LinkOrderBy and simple format
             const orderByExpr = orderBy
               ? 'source' in orderBy
@@ -1253,7 +1308,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             // Don't assume lookup/link fields are always JSONB - they might be TEXT if looking up text values
             const dbFieldTypeResult = foreignField.dbFieldType().andThen((t) => t.value());
             const isJsonbStorage =
-              dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
+              sourceIsJsonb ??
+              (dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON');
 
             if (isJsonbStorage) {
               const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
@@ -1296,7 +1352,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             return ok(
               isMultiValue ? aggExpr.as(outputAlias) : sql`${aggExpr} -> 0`.as(outputAlias)
             );
-          })
+          }
+        )
       );
   }
 

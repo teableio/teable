@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { DbTableName } from '../domain/table/DbTableName';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -1965,6 +1966,87 @@ describe('TableFieldUpdateSpecs', () => {
     expect(newFieldResult.value.type().toString()).toBe('link');
     expect((newFieldResult.value as LinkField).lookupFieldId().equals(foreignPrimaryFieldId)).toBe(
       true
+    );
+  });
+
+  it('uses the host table dbTableName when converting text to manyOne link', () => {
+    const baseId = createBaseId('g');
+    const hostTableId = createTableId('g');
+    const foreignTableId = createTableId('h');
+    const targetFieldId = createFieldId('i');
+    const foreignPrimaryFieldId = createFieldId('j');
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withDbTableName(DbTableName.rehydrate(`${baseId.toString()}.enrollments`)._unsafeUnwrap())
+      .withName(TableName.create('Enrollments')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('k'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(targetFieldId)
+      .withName(FieldName.create('Student')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withDbTableName(DbTableName.rehydrate(`${baseId.toString()}.students`)._unsafeUnwrap())
+      .withName(TableName.create('Students')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: foreignTableId.toString(),
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const newField = typeSpec.newField() as LinkField;
+    expect(newField.fkHostTableNameString()._unsafeUnwrap()).toBe(
+      `${baseId.toString()}.enrollments`
     );
   });
 

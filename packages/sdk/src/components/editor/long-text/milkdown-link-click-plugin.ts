@@ -42,12 +42,24 @@ export function createLinkClickPlugin(readonly: boolean): Plugin {
     const tooltipHeight = tooltip.offsetHeight || 28;
     const tooltipWidth = tooltip.offsetWidth || 200;
 
+    // Hide tooltip if the anchor is scrolled outside the visible editor area
+    if (scrollWrapEl) {
+      const wrapRect = scrollWrapEl.getBoundingClientRect();
+      if (anchorRect.bottom < wrapRect.top || anchorRect.top > wrapRect.bottom) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+    }
+
     // Position below the link
     let top = anchorRect.bottom + 4;
     let left = anchorRect.left;
 
-    // If would go below viewport, show above
-    if (top + tooltipHeight > window.innerHeight - 8) {
+    // If would go below scroll container or viewport, show above
+    const clipBottom = scrollWrapEl
+      ? scrollWrapEl.getBoundingClientRect().bottom
+      : window.innerHeight - 8;
+    if (top + tooltipHeight > clipBottom) {
       top = anchorRect.top - tooltipHeight - 4;
     }
 

@@ -59,6 +59,12 @@ type BulkUpdateTrackedField = {
   oldValueAlias: string;
 };
 
+type ChangedFieldColumn = {
+  fieldId: core.FieldId;
+  dbFieldName: string;
+  alias: string;
+};
+
 type BeforeImageCapturePlan = {
   needsBeforeImage: boolean;
   trackedFields: ReadonlyArray<BulkUpdateTrackedField>;
@@ -310,6 +316,56 @@ const splitSchemaQualifiedTableName = (
   };
 };
 
+async function checkOrderColumnExists(
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  orderColumnName: string
+): Promise<boolean> {
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  const result = await sql<{ column_name: string }>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = ${schemaName ?? 'public'}
+    AND table_name = ${plainTableName}
+    AND column_name = ${orderColumnName}
+  `.execute(db);
+
+  return result.rows.length > 0;
+}
+
+async function ensureViewOrderColumnsExist(
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  viewIds: ReadonlyArray<string>
+): Promise<void> {
+  const { plainTableName } = splitSchemaQualifiedTableName(tableName);
+  const uniqueViewIds = [...new Set(viewIds.filter(Boolean))];
+
+  for (const viewId of uniqueViewIds) {
+    const orderColumnName = `__row_${viewId}`;
+    const exists = await checkOrderColumnExists(db, tableName, orderColumnName);
+
+    if (!exists) {
+      await sql`
+        ALTER TABLE ${sql.table(tableName)}
+        ADD COLUMN ${sql.id(orderColumnName)} double precision
+      `.execute(db);
+
+      await sql`
+        UPDATE ${sql.table(tableName)}
+        SET ${sql.id(orderColumnName)} = __auto_number
+        WHERE ${sql.id(orderColumnName)} IS NULL
+      `.execute(db);
+
+      const indexName = `idx_${plainTableName}_${orderColumnName}`;
+      await sql`
+        CREATE INDEX ${sql.id(indexName)}
+        ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
+      `.execute(db);
+    }
+  }
+}
+
 const toSqlTableRef = (tableName: string) => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
   return schemaName ? sql.id(schemaName, plainTableName) : sql.id(plainTableName);
@@ -383,6 +439,47 @@ const toBulkUpdateTrackedFields = (
     }
     return ok(trackedFields);
   });
+
+const toChangedFieldColumns = (
+  table: core.Table,
+  changedFieldIds: ReadonlyArray<core.FieldId>
+): Result<ReadonlyArray<ChangedFieldColumn>, DomainError> =>
+  safeTry(function* () {
+    const changedColumns: ChangedFieldColumn[] = [];
+    for (const [index, fieldId] of changedFieldIds.entries()) {
+      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+      const dbFieldName = yield* field.dbFieldName();
+      changedColumns.push({
+        fieldId,
+        dbFieldName: yield* dbFieldName.value(),
+        alias: `changed_${index}`,
+      });
+    }
+    return ok(changedColumns);
+  });
+
+const buildChangedFieldReturningSelects = (columns: ReadonlyArray<ChangedFieldColumn>) =>
+  columns.map(({ dbFieldName, alias }) => sql.ref(dbFieldName).as(alias));
+
+const toChangedFieldsMap = (
+  row: Record<string, unknown> | undefined,
+  columns: ReadonlyArray<ChangedFieldColumn>,
+  allowedFieldIds?: ReadonlySet<string>
+): ReadonlyMap<string, unknown> | undefined => {
+  if (!row || columns.length === 0) {
+    return undefined;
+  }
+
+  const changedFields = new Map<string, unknown>();
+  for (const { fieldId, alias } of columns) {
+    const fieldIdStr = fieldId.toString();
+    if (allowedFieldIds && !allowedFieldIds.has(fieldIdStr)) {
+      continue;
+    }
+    changedFields.set(fieldIdStr, row[alias]);
+  }
+  return changedFields.size > 0 ? changedFields : undefined;
+};
 
 const buildBeforeImageFromTrackedValues = (
   recordId: core.RecordId,
@@ -623,10 +720,17 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...(restoreValues?.autoNumber !== undefined
               ? { autoNumber: restoreValues.autoNumber }
               : {}),
+            ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+            ...(options?.fillLinkTitleForeignTables
+              ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+              : {}),
           },
         });
 
         // Add view order columns (default: append to end).
+        if (restoreValues?.orders) {
+          await ensureViewOrderColumnsExist(db, tableName, Object.keys(restoreValues.orders));
+        }
         let viewOrderValues = restoreValues?.orders
           ? buildSnapshotViewOrderValues(restoreValues.orders)
           : {};
@@ -660,6 +764,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           ...values,
           ...viewOrderValues,
         };
+        const requestedChangedFieldIds = record
+          .fields()
+          .entries()
+          .map((entry) => entry.fieldId);
+        const changedFieldColumns = yield* toChangedFieldColumns(table, requestedChangedFieldIds);
 
         // Convert InsertExtraSeedGroup to ExtraSeedRecordGroup
         const extraSeedRecordGroups: ExtraSeedRecordGroup[] = extraSeedRecords.map((group) => ({
@@ -673,8 +782,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         this.logger.debug(`insert:table=${tableName}`, { values: valuesWithViewOrder });
 
         try {
-          // Execute the main insert
-          await db.insertInto(tableName).values(valuesWithViewOrder).execute();
+          const insertedRow =
+            changedFieldColumns.length > 0
+              ? ((await db
+                  .insertInto(tableName)
+                  .values(valuesWithViewOrder)
+                  .returning(buildChangedFieldReturningSelects(changedFieldColumns))
+                  .executeTakeFirst()) as Record<string, unknown> | undefined)
+              : (await db.insertInto(tableName).values(valuesWithViewOrder).execute(), undefined);
           if (restoreValues?.autoNumber !== undefined) {
             await syncAutoNumberSequence(db, tableName);
           }
@@ -697,7 +812,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           // Extract computed changes for this specific record
           await this.touchTableMeta(db, table.id().toString(), actorId);
           const computedChanges = extractChangesForRecord(computedResult, record.id().toString());
-          return ok({ computedChanges });
+          const changedFields = toChangedFieldsMap(insertedRow, changedFieldColumns);
+          return ok({ changedFields, computedChanges });
         } catch (error) {
           return err(
             wrapDatabaseError(error, 'insert', { tableName, fields: table.getFields() }, context.$t)
@@ -760,6 +876,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Get view order info for all views in the table
         const views = table.views();
         const viewOrderInfo = await getViewOrderInfo(db, tableName, views);
+        const restoreViewIds = options?.restoreRecordsById
+          ? [...options.restoreRecordsById.values()].flatMap((value) =>
+              Object.keys(value.orders ?? {})
+            )
+          : [];
+        if (restoreViewIds.length > 0) {
+          await ensureViewOrderColumnsExist(db, tableName, restoreViewIds);
+        }
 
         // Pre-calculate order values if ordering is specified
         let calculatedOrderValues: number[] | undefined;
@@ -794,6 +918,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Collect order values per record for undo/redo support
         const recordOrdersMap = new Map<string, Record<string, number>>();
         let hasExplicitAutoNumberRestore = false;
+        const requestedChangedFieldIdsByRecord = new Map<string, ReadonlySet<string>>();
 
         let recordIndex = 0;
         for (const record of records) {
@@ -843,6 +968,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               ...(restoreValues?.autoNumber !== undefined
                 ? { autoNumber: restoreValues.autoNumber }
                 : {}),
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+                : {}),
             },
           });
 
@@ -885,6 +1014,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           if (Object.keys(ordersByViewId).length > 0) {
             recordOrdersMap.set(recordId, ordersByViewId);
           }
+          requestedChangedFieldIdsByRecord.set(
+            recordId,
+            new Set(
+              record
+                .fields()
+                .entries()
+                .map((entry) => entry.fieldId.toString())
+            )
+          );
 
           allValues.push(valuesWithViewOrder);
           allAdditionalStatements.push(...insertDataResult.value.additionalStatements);
@@ -925,9 +1063,46 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         try {
           // Execute batch inserts to stay under PG parameter limit
           const batchSize = PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+          const requestedChangedFieldIds = [...requestedChangedFieldIdsByRecord.values()].flatMap(
+            (fieldIds) => [...fieldIds]
+          );
+          const uniqueChangedFieldIds: core.FieldId[] = [];
+          const uniqueChangedFieldIdSet = new Set<string>();
+          for (const fieldIdStr of requestedChangedFieldIds) {
+            if (uniqueChangedFieldIdSet.has(fieldIdStr)) {
+              continue;
+            }
+            const fieldId = yield* core.FieldId.create(fieldIdStr);
+            uniqueChangedFieldIds.push(fieldId);
+            uniqueChangedFieldIdSet.add(fieldIdStr);
+          }
+          const changedFieldColumns = yield* toChangedFieldColumns(table, uniqueChangedFieldIds);
+          const changedFieldsByRecord = new Map<string, ReadonlyMap<string, unknown>>();
           for (let i = 0; i < allValues.length; i += batchSize) {
             const batch = allValues.slice(i, i + batchSize);
-            await db.insertInto(tableName).values(batch).execute();
+            if (changedFieldColumns.length > 0) {
+              const rows = (await db
+                .insertInto(tableName)
+                .values(batch)
+                .returning([
+                  sql.ref(RECORD_ID_COLUMN).as('record_id'),
+                  ...buildChangedFieldReturningSelects(changedFieldColumns),
+                ])
+                .execute()) as Array<Record<string, unknown>>;
+              for (const row of rows) {
+                const recordId = asString(row.record_id);
+                if (!recordId) {
+                  continue;
+                }
+                const allowedFieldIds = requestedChangedFieldIdsByRecord.get(recordId);
+                const changedFields = toChangedFieldsMap(row, changedFieldColumns, allowedFieldIds);
+                if (changedFields) {
+                  changedFieldsByRecord.set(recordId, changedFields);
+                }
+              }
+            } else {
+              await db.insertInto(tableName).values(batch).execute();
+            }
           }
           await analyzeSeededTable(db, tableName, tableWasEmpty);
           if (hasExplicitAutoNumberRestore) {
@@ -964,6 +1139,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(db, table.id().toString(), actorId);
           const computedChangesByRecord = extractChangesForAllRecords(computedResult);
           return ok({
+            changedFieldsByRecord:
+              changedFieldsByRecord.size > 0 ? changedFieldsByRecord : undefined,
             computedChangesByRecord,
             recordOrders: recordOrdersMap.size > 0 ? recordOrdersMap : undefined,
           });
@@ -1079,7 +1256,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     recordId: core.RecordId,
-    mutateSpec: core.ICellValueSpec
+    mutateSpec: core.ICellValueSpec,
+    options?: core.UpdateOptions
   ): Promise<Result<RecordMutationResult, DomainError>> {
     return safeTry<RecordMutationResult, DomainError>(
       async function* (this: PostgresTableRecordRepository) {
@@ -1098,8 +1276,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
-        const { mainUpdate, additionalStatements, impact, linkedRecordLocks } =
-          yield* await updateBuilder.build({
+        const { setClauses, changedFieldIds, additionalStatements, impact, linkedRecordLocks } =
+          yield* await updateBuilder.buildMutationPlan({
             table,
             tableName,
             mutateSpec,
@@ -1109,9 +1287,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               now,
               actorName: actorContext.actorName,
               actorEmail: actorContext.actorEmail,
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+                : {}),
             },
           });
         const { impactHint, extraSeedRecords, exclusivityConstraints } = impact;
+        const changedFieldColumns = yield* toChangedFieldColumns(table, changedFieldIds);
         const normalizedImpact = this.normalizeImpactHint(impactHint);
         const expandedChangedFieldIds = this.expandComputedSeedFieldIds(
           table,
@@ -1143,8 +1326,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         yield* await validateLinkExclusivityConstraints(context, db, exclusivityConstraints);
 
         try {
-          // Execute main UPDATE statement
-          await db.executeQuery(mainUpdate.compiled);
+          const updateQuery = db
+            .updateTable(tableName)
+            .set(setClauses)
+            .where(RECORD_ID_COLUMN, '=', recordIdStr);
+          const updatedRow =
+            changedFieldColumns.length > 0
+              ? ((await updateQuery
+                  .returning(buildChangedFieldReturningSelects(changedFieldColumns))
+                  .executeTakeFirst()) as Record<string, unknown> | undefined)
+              : (await updateQuery.executeTakeFirst(), undefined);
 
           // Acquire advisory locks for linked records to prevent deadlocks
           const baseId = table.baseId().toString();
@@ -1168,7 +1359,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           // Extract computed changes for this specific record
           await this.touchTableMeta(db, table.id().toString(), actorId);
           const computedChanges = extractChangesForRecord(computedResult, recordIdStr);
-          return ok({ computedChanges });
+          const changedFields = toChangedFieldsMap(updatedRow, changedFieldColumns);
+          return ok({ changedFields, computedChanges });
         } catch (error) {
           return err(
             wrapDatabaseError(
@@ -1191,7 +1383,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     table: core.Table,
     spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
-    mutateSpec: core.ICellValueSpec
+    mutateSpec: core.ICellValueSpec,
+    options?: core.UpdateOptions
   ): Promise<Result<core.UpdateManyResult, DomainError>> {
     return safeTry<core.UpdateManyResult, DomainError>(
       async function* (this: PostgresTableRecordRepository) {
@@ -1211,6 +1404,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           now,
           actorName: actorContext.actorName,
           actorEmail: actorContext.actorEmail,
+          ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+          ...(options?.fillLinkTitleForeignTables
+            ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+            : {}),
         });
 
         yield* mutateSpec.accept(mutateVisitor);
@@ -1440,6 +1637,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               now,
               actorName: actorContext.actorName,
               actorEmail: actorContext.actorEmail,
+              ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
+              ...(options?.fillLinkTitleForeignTables
+                ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
+                : {}),
             },
           });
           if (batchDataResult.isErr()) {
@@ -1693,7 +1894,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
-      await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+      await this.publishComputedUpdateEvents(
+        context,
+        table.baseId(),
+        executeResult.value,
+        resolveComputedRealtimeOrchestration(context, recordIds.length)
+      );
 
       return ok(undefined);
     }
@@ -1716,6 +1922,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       impact: normalizedImpact,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
@@ -1937,6 +2144,58 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     );
   }
 
+  async deleteManyStream(
+    context: core.IExecutionContext,
+    table: core.Table,
+    recordIdBatches:
+      | Iterable<ReadonlyArray<core.RecordId>>
+      | AsyncIterable<ReadonlyArray<core.RecordId>>,
+    options?: core.DeleteManyStreamOptions
+  ): Promise<Result<core.DeleteManyStreamResult, DomainError>> {
+    let totalDeleted = 0;
+    let batchIndex = 0;
+
+    const deleteBatch = async (batchRecordIds: ReadonlyArray<core.RecordId>) => {
+      const deleteResult = await this.deleteMany(
+        context,
+        table,
+        core.RecordByIdsSpec.create(batchRecordIds)
+      );
+      if (deleteResult.isErr() && !core.isNotFoundError(deleteResult.error)) {
+        return err(deleteResult.error);
+      }
+
+      totalDeleted += batchRecordIds.length;
+      options?.onBatchDeleted?.({
+        batchIndex,
+        deletedCount: batchRecordIds.length,
+        totalDeleted,
+      });
+      batchIndex += 1;
+      return ok(undefined);
+    };
+
+    if (Symbol.asyncIterator in recordIdBatches) {
+      for await (const batchRecordIds of recordIdBatches as AsyncIterable<
+        ReadonlyArray<core.RecordId>
+      >) {
+        const deleteResult = await deleteBatch(batchRecordIds);
+        if (deleteResult.isErr()) {
+          return err(deleteResult.error);
+        }
+      }
+    } else {
+      for (const batchRecordIds of recordIdBatches as Iterable<ReadonlyArray<core.RecordId>>) {
+        const deleteResult = await deleteBatch(batchRecordIds);
+        if (deleteResult.isErr()) {
+          return err(deleteResult.error);
+        }
+      }
+    }
+
+    return ok({ totalDeleted });
+  }
+
   private async touchTableMeta(
     db: Kysely<DynamicDB>,
     tableId: string,
@@ -2063,7 +2322,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, 1)
+        );
         return ok(executeResult.value);
       }
 
@@ -2092,6 +2356,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         : undefined,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, 1),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2201,7 +2466,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, recordIds.length)
+        );
         return ok(executeResult.value);
       }
 
@@ -2224,6 +2494,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       cyclePolicy: 'skip',
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2325,7 +2596,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(context, table.baseId(), executeResult.value);
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, 1)
+        );
         return ok(executeResult.value);
       }
 
@@ -2354,6 +2630,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         : undefined,
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, 1),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2385,13 +2662,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   private async publishComputedUpdateEvents(
     context: core.IExecutionContext,
     baseId: core.BaseId,
-    result: ComputedUpdateResult | undefined
+    result: ComputedUpdateResult | undefined,
+    orchestration?: core.IExecutionContext['batchMutation']
   ): Promise<void> {
     if (!result?.changesByStep.length) {
       return;
     }
 
-    const events = buildComputedUpdateEvents(result.changesByStep, baseId);
+    const events = buildComputedUpdateEvents(result.changesByStep, baseId, orchestration);
     if (!events.length) {
       return;
     }
@@ -2548,6 +2826,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       cyclePolicy: 'skip',
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -2585,7 +2864,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
  */
 const buildComputedUpdateEvents = (
   changesByStep: ComputedUpdateResult['changesByStep'],
-  baseId: core.BaseId
+  baseId: core.BaseId,
+  orchestration?: core.IExecutionContext['batchMutation']
 ): core.RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) {
     return [];
@@ -2626,12 +2906,19 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }
 
   return events;
 };
+
+const resolveComputedRealtimeOrchestration = (
+  context: core.IExecutionContext,
+  recordCount: number
+): core.IExecutionContext['batchMutation'] =>
+  core.buildOperationBatchMutation(context, recordCount);
 
 const extractChangesForRecord = (
   result: ComputedUpdateResult | undefined,

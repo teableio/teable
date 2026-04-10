@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SessionHandleModule } from '../features/auth/session/session-handle.module';
 import { FieldModule } from '../features/field/field.module';
 import { TableModule } from '../features/table/table.module';
 import { RealtimeMetricsModule } from './metrics/realtime-metrics.module';
@@ -14,6 +15,7 @@ import { ShareDbService } from './share-db.service';
     ReadonlyModule,
     RepairAttachmentOpModule,
     RealtimeMetricsModule,
+    SessionHandleModule,
   ],
   providers: [ShareDbService, ShareDbAdapter],
   exports: [ShareDbService, RealtimeMetricsModule],

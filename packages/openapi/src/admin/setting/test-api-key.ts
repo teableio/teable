@@ -5,7 +5,7 @@ import { registerRoute } from '../../utils';
 import { attachmentModeTestResultSchema, attachmentTransferModeSchema } from './update';
 
 export const testApiKeyRoSchema = z.object({
-  type: z.enum(['aiGateway', 'v0', 'vercel']),
+  type: z.enum(['aiGateway', 'vercel']),
   apiKey: z.string(),
   baseUrl: z.string().optional(),
   // Whether to also test attachment transfer modes (URL and Base64)
@@ -54,8 +54,7 @@ export const TEST_API_KEY = '/admin/setting/test-api-key';
 export const TestApiKeyRoute: RouteConfig = registerRoute({
   method: 'post',
   path: TEST_API_KEY,
-  description:
-    'Test API key validity for AI Gateway or v0, optionally test attachment transfer modes',
+  description: 'Test API key validity for AI Gateway, optionally test attachment transfer modes',
   request: {
     body: {
       content: {

@@ -13,6 +13,7 @@ import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { AutoNumberField } from '../../../domain/table/fields/types/AutoNumberField';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
+import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
@@ -573,12 +574,14 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
+    const confirm = field.confirm();
     const options: IButtonFieldOptionsDTO = {
       label: field.label().toString(),
       color: field.color().toString(),
       ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
       ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
       ...(workflow ? { workflow: workflow.toDto() } : {}),
+      ...(confirm ? { confirm: confirm.toDto() } : {}),
     };
 
     return ok({
@@ -695,6 +698,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
 
         return {
           ...innerDto,
+          ...baseDto,
           id: field.id().toString(),
           name: field.name().toString(),
           isLookup: true,
@@ -1260,15 +1264,18 @@ export class DefaultTableMapper implements ITableMapper {
                   optional(options.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
                     optional(options.resetCount, ButtonResetCount.create).andThen((resetCount) =>
                       optional(options.workflow, ButtonWorkflow.create).andThen((workflow) =>
-                        ButtonField.create({
-                          id,
-                          name,
-                          label,
-                          color,
-                          maxCount,
-                          resetCount,
-                          workflow,
-                        })
+                        optional(options.confirm, ButtonConfirm.create).andThen((confirm) =>
+                          ButtonField.create({
+                            id,
+                            name,
+                            label,
+                            color,
+                            maxCount,
+                            resetCount,
+                            workflow,
+                            confirm,
+                          })
+                        )
                       )
                     )
                   )

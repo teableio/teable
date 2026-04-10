@@ -2,30 +2,37 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
+import { isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { RecordCreated, isRecordCreatedEvent } from '../../domain/table/events/RecordCreated';
 import type { RecordCreateSource } from '../../domain/table/events/RecordFieldValuesDTO';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from './ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { type IRecordChangedValueDecoratorService } from './RecordChangedValueDecoratorService';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
 import { TableUpdateFlow } from './TableUpdateFlow';
 import { UndoRedoService } from './UndoRedoService';
+import { mergeRecordFieldValues } from './recordEventFieldValues';
 
 type RecordCreationOperationKind =
   | typeof RecordWriteOperationKind.createOne
@@ -59,6 +66,8 @@ export class RecordCreationService {
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
@@ -72,7 +81,9 @@ export class RecordCreationService {
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   async create(
@@ -153,11 +164,21 @@ export class RecordCreationService {
                 transactionTableEvents = tableFlowResult.events;
               }
               yield* await pluginExecution.beforePersist(transactionContext);
+              const fillLinkTitleForeignTables = input.typecast
+                ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+                    transactionContext,
+                    [createResult.mutateSpec ?? null]
+                  )
+                : new Map();
               const mutation = yield* await service.tableRecordRepository.insert(
                 transactionContext,
                 tableForCreate,
                 record,
-                input.order ? { order: input.order } : undefined
+                {
+                  ...(input.order ? { order: input.order } : {}),
+                  ...(input.typecast ? { fillLinkTitles: true } : {}),
+                  ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                }
               );
               return ok({ mutation, tableEvents: transactionTableEvents });
             });
@@ -176,14 +197,43 @@ export class RecordCreationService {
         createRecordSpan?.end();
       }
 
-      const events = [...tableEvents, ...tableForCreate.pullDomainEvents()];
+      const decoratedChangedFields =
+        yield* await service.recordChangedValueDecoratorService.decorateChangedFields(
+          tableForCreate,
+          mutationResult?.changedFields
+        );
+      const domainEvents = tableForCreate.pullDomainEvents().map((event) =>
+        isRecordCreatedEvent(event)
+          ? RecordCreated.create({
+              tableId: event.tableId,
+              baseId: event.baseId,
+              recordId: event.recordId,
+              fieldValues: mergeRecordFieldValues(event.fieldValues, decoratedChangedFields),
+              source: event.source,
+            })
+          : event
+      );
+      const events = [...tableEvents, ...domainEvents];
       yield* await service.eventBus.publishMany(context, events);
-      const restoreSnapshot = yield* await service.tableRecordQueryRepository.findOne(
+      const restoreSnapshotResult = await service.tableRecordQueryRepository.findOne(
         context,
         tableForCreate,
         record.id(),
         { mode: 'stored', includeOrders: true }
       );
+      const restoreSnapshot =
+        restoreSnapshotResult.isOk() || !isNotFoundError(restoreSnapshotResult.error)
+          ? yield* restoreSnapshotResult
+          : {
+              id: record.id().toString(),
+              fields: Object.fromEntries(
+                record
+                  .fields()
+                  .entries()
+                  .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+              ),
+              version: 1,
+            };
 
       yield* await service.undoRedoService.recordEntry(context, input.table.id(), {
         undoCommand: composeUndoRedoCommands([
@@ -260,8 +310,25 @@ export class RecordCreationService {
       } as const;
     }
 
+    if (input.operationKind === RecordWriteOperationKind.submit) {
+      return {
+        kind: RecordWriteOperationKind.submit,
+        executionContext: context,
+        table: input.table,
+        payload: {
+          fieldValues,
+          fieldKeyType: input.fieldKeyType,
+          typecast: input.typecast,
+          source: input.source,
+          order: input.order,
+          recordCount: 1 as const,
+        },
+        isTransactionBound: false,
+      } as const;
+    }
+
     return {
-      kind: input.operationKind,
+      kind: RecordWriteOperationKind.createOne,
       executionContext: context,
       table: input.table,
       payload: {
