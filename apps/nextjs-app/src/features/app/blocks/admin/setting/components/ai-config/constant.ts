@@ -54,6 +54,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.OPENROUTER]: OpenRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: Openai,
   [LLMProviderType.AI_GATEWAY]: Zap, // AI Gateway uses Zap icon
+  [LLMProviderType.CLAUDE_CODE]: Anthropic,
 };
 
 export const LLM_PROVIDERS = [
@@ -169,6 +170,13 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.openai.com/v1',
     modelsPlaceholder: 'gpt-4.1,o3,gpt-4.1-mini',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENAI_COMPATIBLE],
+  },
+  {
+    value: LLMProviderType.CLAUDE_CODE,
+    label: 'Claude Code',
+    baseUrlPlaceholder: 'https://api.anthropic.com/v1',
+    modelsPlaceholder: 'claude-sonnet-4-6,claude-opus-4-6',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.CLAUDE_CODE],
   },
 ] as const;
 

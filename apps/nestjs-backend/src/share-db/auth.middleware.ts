@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import url from 'url';
 import type ShareDBClass from 'sharedb';
+import type { SessionHandleService } from '../features/auth/session/session-handle.service';
 
-export const authMiddleware = (shareDB: ShareDBClass) => {
+export const authMiddleware = (
+  shareDB: ShareDBClass,
+  sessionHandleService?: SessionHandleService
+) => {
   const runWithCls = async (context: ShareDBClass.middleware.QueryContext, callback: any) => {
     const cookie = context.agent.custom.cookie;
     const shareId = context.agent.custom.shareId;
@@ -34,6 +38,20 @@ export const authMiddleware = (shareDB: ShareDBClass) => {
     context.agent.custom.templateHeader = templateHeader;
     context.agent.custom.shareId = shareId;
     context.agent.custom.baseShareId = baseShareId;
+
+    // Resolve userId from session cookie for WS tracking
+    if (sessionHandleService && cookie) {
+      try {
+        const sessionId = await sessionHandleService.getSessionIdFromRequest(context.req as any);
+        if (sessionId) {
+          const userId = await sessionHandleService.getUserId(sessionId);
+          context.agent.custom.userId = userId;
+        }
+      } catch {
+        // Non-critical: userId extraction failure doesn't block the connection
+      }
+    }
+
     callback();
   });
 

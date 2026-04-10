@@ -285,7 +285,8 @@
     "showHiddenFields": "Show {{count}} hidden fields",
     "hideHiddenFields": "Hide {{count}} hidden fields",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "recordFrom": "Registro de"
   },
   "sort": {
     "label": "Clasificar",

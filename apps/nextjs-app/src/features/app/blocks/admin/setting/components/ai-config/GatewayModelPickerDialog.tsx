@@ -6,7 +6,6 @@ import type {
   GatewayModelType,
   IModelPricing,
 } from '@teable/openapi';
-import { USD_PER_CREDIT, TOKENS_PER_RATE_UNIT } from '@teable/openapi';
 import {
   Badge,
   cn,
@@ -17,9 +16,14 @@ import {
   ScrollArea,
 } from '@teable/ui-lib/shadcn';
 import Fuse from 'fuse.js';
-import { Check, DollarSign, Loader2, Search, Coins } from 'lucide-react';
+import { Check, Loader2, Search } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  calculateMultiplier,
+  formatMultiplier,
+  formatPriceToCredits,
+} from './ai-model-select/utils';
 import { GATEWAY_PROVIDER_ICONS } from './constant';
 
 // Capability labels for display
@@ -49,7 +53,7 @@ export interface IPickerModel {
   pricing?: IModelPricing;
 }
 
-export type PriceDisplayMode = 'usd' | 'credits' | 'none';
+export type PriceDisplayMode = 'usd' | 'multiplier' | 'none';
 
 interface IGatewayModelPickerDialogProps {
   open: boolean;
@@ -78,40 +82,6 @@ interface IGatewayModelPickerDialogProps {
    * Empty state message when no models found
    */
   emptyMessage?: string;
-}
-
-/**
- * Convert USD per token to credits per 1M tokens
- * Formula: credits/1M = (USD/token * 1M) / USD_PER_CREDIT
- */
-function usdToCreditsPerMillion(usdPerToken: string | undefined): number | undefined {
-  if (!usdPerToken) return undefined;
-  const usd = parseFloat(usdPerToken);
-  if (isNaN(usd) || usd === 0) return 0;
-  return (usd * TOKENS_PER_RATE_UNIT) / USD_PER_CREDIT;
-}
-
-/**
- * Format credit rate for display (per 1M tokens)
- */
-function formatCreditRate(credits: number | undefined, freeLabel: string): string {
-  if (credits === undefined) return '-';
-  if (credits === 0) return freeLabel;
-  if (credits < 1) return credits.toFixed(2);
-  if (credits < 100) return credits.toFixed(1);
-  return Math.round(credits).toString();
-}
-
-// Helper to format USD price for display (per 1M tokens)
-function formatUsdPriceShort(price: string | undefined, freeLabel: string): string {
-  if (!price) return '-';
-  const num = parseFloat(price);
-  if (isNaN(num) || num === 0) return freeLabel;
-  // Convert to per-million rate for readability
-  const perMillion = num * TOKENS_PER_RATE_UNIT;
-  if (perMillion < 1) return `$${perMillion.toFixed(2)}/M`;
-  if (perMillion < 100) return `$${perMillion.toFixed(1)}/M`;
-  return `$${Math.round(perMillion)}/M`;
 }
 
 // Generate display label from model ID
@@ -147,7 +117,6 @@ export function GatewayModelPickerDialog({
 }: IGatewayModelPickerDialogProps) {
   const { t } = useTranslation('common');
   const freeLabel = t('level.free');
-  const creditsLabel = t('noun.credits');
   const [searchQuery, setSearchQuery] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -185,10 +154,10 @@ export function GatewayModelPickerDialog({
         ignoreLocation: true,
       });
       const results = fuse.search(searchQuery);
-      return results.map((r) => r.item).slice(0, 50);
+      return results.map((r) => r.item);
     }
 
-    return filtered.slice(0, 100);
+    return filtered;
   }, [models, searchQuery]);
 
   // Render price badge based on mode
@@ -200,49 +169,42 @@ export function GatewayModelPickerDialog({
     const isImage = detectIsImageModel(model);
 
     if (priceMode === 'usd') {
-      // Show USD pricing from API (per 1M tokens for text, per image for images)
-      if (!pricing || (!pricing.input && !pricing.output && !pricing.image)) return null;
-
+      if (isImage) {
+        const creditLabel = formatPriceToCredits(pricing) || freeLabel;
+        return (
+          <Badge variant="outline" className="text-[10px]">
+            {creditLabel}
+          </Badge>
+        );
+      }
+      if (!pricing || (!pricing.input && !pricing.output)) return null;
+      const ratio = calculateMultiplier(pricing);
+      const label = formatMultiplier(ratio);
+      if (!label) return null;
       return (
         <Badge variant="outline" className="text-[10px]">
-          <DollarSign className="mr-0.5 size-2.5" />
-          {isImage && pricing.image
-            ? t('admin.setting.ai.imageOutput', { credits: `$${pricing.image}/img` })
-            : `${t('admin.setting.ai.input', {
-                ratio: formatUsdPriceShort(pricing.input, freeLabel),
-              })} / ${t('admin.setting.ai.output', {
-                ratio: formatUsdPriceShort(pricing.output, freeLabel),
-              })}`}
+          {label}
         </Badge>
       );
     }
 
-    if (priceMode === 'credits') {
-      // Calculate credits from pricing (USD per token -> credits per 1M tokens)
-      // Priority: pricing field > legacy rates field
-      if (pricing && (pricing.input || pricing.output || pricing.image)) {
-        const inputCredits = usdToCreditsPerMillion(pricing.input);
-        const outputCredits = usdToCreditsPerMillion(pricing.output);
-        const imageUsd = pricing.image ? parseFloat(pricing.image) : undefined;
-        // Image price is per image, convert to credits: USD / USD_PER_CREDIT
-        const imageCredits = imageUsd ? imageUsd / USD_PER_CREDIT : undefined;
-
+    if (priceMode === 'multiplier') {
+      if (isImage) {
+        const creditLabel = formatPriceToCredits(pricing) || freeLabel;
         return (
           <Badge variant="outline" className="text-[10px]">
-            <Coins className="mr-0.5 size-2.5" />
-            {isImage && imageCredits !== undefined
-              ? `${t('admin.setting.ai.imageOutput', {
-                  credits: formatCreditRate(imageCredits, freeLabel),
-                })} ${creditsLabel}`
-              : `${t('admin.setting.ai.input', {
-                  ratio: `${formatCreditRate(inputCredits, freeLabel)}/${'M'} ${creditsLabel}`,
-                })} / ${t('admin.setting.ai.output', {
-                  ratio: `${formatCreditRate(outputCredits, freeLabel)}/${'M'} ${creditsLabel}`,
-                })}`}
+            {creditLabel}
           </Badge>
         );
       }
-      return null;
+      const ratio = calculateMultiplier(pricing);
+      const label = formatMultiplier(ratio) ?? freeLabel;
+
+      return (
+        <Badge variant="outline" className="text-[10px]">
+          {label}
+        </Badge>
+      );
     }
 
     return null;

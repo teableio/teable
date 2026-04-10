@@ -85,6 +85,8 @@ describe('AttachmentValueResolverService', () => {
       path: '/stored/path',
       size: 10,
       mimetype: 'text/plain',
+      width: 640,
+      height: 480,
     };
 
     const spec = new SetAttachmentValueSpec(
@@ -106,6 +108,8 @@ describe('AttachmentValueResolverService', () => {
         path: '/stored/path',
         size: 10,
         mimetype: 'text/plain',
+        width: 640,
+        height: 480,
       },
     ]);
   });

@@ -1,10 +1,11 @@
+import { useTheme } from '@teable/next-themes';
 import { useIsAnonymous, useIsHydrated, useShareId, useTemplate } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useRef } from 'react';
-import { useShareAllowSave } from '../context/ShareContext';
+import { useShareAllowEdit, useShareAllowSave } from '../context/ShareContext';
 import { useIsInIframe } from '../hooks/useIsInIframe';
 import type { IShareSelectSpaceDialogRef } from './ShareSelectSpaceDialog';
 import { ShareSelectSpaceDialog } from './ShareSelectSpaceDialog';
@@ -18,15 +19,43 @@ export const PublicOperateButton = () => {
   const isTemplate = !!template;
   const isShare = !!shareId;
   const allowSave = useShareAllowSave();
-  const { t } = useTranslation(['common']);
+  const allowEdit = useShareAllowEdit();
+  const { t } = useTranslation(['common', 'table']);
   const router = useRouter();
   const isInIframe = useIsInIframe();
   const templateRef = useRef<ITemplateSelectSpaceDialogRef>(null);
   const shareRef = useRef<IShareSelectSpaceDialogRef>(null);
   const isHydrated = useIsHydrated();
 
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
   if (isInIframe || !isHydrated) {
     return <></>;
+  }
+
+  // For share mode with allowEdit, show login card for anonymous users
+  if (isShare && allowEdit && isAnonymous) {
+    const handleLoginClick = () => {
+      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.href)}`);
+    };
+
+    return (
+      <div className="flex w-full flex-col items-center">
+        <Image
+          src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
+          alt=""
+          width={120}
+          height={120}
+        />
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t('table:baseShare.editRequiresLogin')}
+        </p>
+        <Button size={'sm'} className="w-full text-[13px] font-normal" onClick={handleLoginClick}>
+          {t('common:actions.login')}
+        </Button>
+      </div>
+    );
   }
 
   // For share mode, show "Copy to my space" button if allowSave is enabled

@@ -16,3 +16,7 @@ export const getV2NodeTestContainer = (): IV2NodeTestContainer => {
   }
   return current;
 };
+
+export const peekV2NodeTestContainer = (): IV2NodeTestContainer | undefined => {
+  return current;
+};

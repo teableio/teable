@@ -25,6 +25,8 @@ import { FormulaField } from '../../domain/table/fields/types/FormulaField';
 import { LinkField } from '../../domain/table/fields/types/LinkField';
 import { LookupField } from '../../domain/table/fields/types/LookupField';
 import { RollupField } from '../../domain/table/fields/types/RollupField';
+import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
+import { FieldDeletionSideEffectVisitor } from '../../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
@@ -41,8 +43,7 @@ import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
-import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
-import { FieldDeletionSideEffectVisitor } from '../../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
+import type { RecordFilter } from '../../queries/RecordFilterDto';
 import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
 import { LinkFieldUpdateSideEffectService } from './LinkFieldUpdateSideEffectService';
 import { TableUpdateFlow } from './TableUpdateFlow';
@@ -276,11 +277,10 @@ export class FieldUpdateSideEffectService {
         allSpecs.push(...newSpecs);
       }
 
-      const viewQueryCleanupSpecResult = service.buildViewQueryCleanupSpecs(
-        currentTable,
-        updatedField,
-        updateSpecs
-      );
+      const viewQueryCleanupSpecResult = service.buildViewQueryCleanupSpecs(currentTable, [
+        ...updateSpecs,
+        ...allSpecs,
+      ]);
       if (viewQueryCleanupSpecResult.isErr()) return err(viewQueryCleanupSpecResult.error);
       const viewQueryCleanupSpec = viewQueryCleanupSpecResult.value;
 
@@ -298,8 +298,7 @@ export class FieldUpdateSideEffectService {
 
       const viewColumnMetaCleanupSpecResult = service.buildViewColumnMetaCleanupSpecs(
         currentTable,
-        updatedField,
-        updateSpecs
+        [...updateSpecs, ...allSpecs]
       );
       if (viewColumnMetaCleanupSpecResult.isErr())
         return err(viewColumnMetaCleanupSpecResult.error);
@@ -512,15 +511,20 @@ export class FieldUpdateSideEffectService {
 
   private buildViewQueryCleanupSpecs(
     table: Table,
-    updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
-    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
-    if (!hasFieldFilterSyncPlanChanges(plan)) {
+    const updates: TableViewQueryDefaultsUpdate[] = [];
+    const filterSyncTargets = table
+      .getFields()
+      .map((field) => ({
+        fieldId: field.id().toString(),
+        plan: buildFieldFilterSyncPlan(field, updateSpecs),
+      }))
+      .filter(({ plan }) => hasFieldFilterSyncPlanChanges(plan));
+
+    if (filterSyncTargets.length === 0) {
       return ok(undefined);
     }
-
-    const updates: TableViewQueryDefaultsUpdate[] = [];
 
     for (const view of table.views()) {
       const queryDefaultsResult = view.queryDefaults();
@@ -528,11 +532,21 @@ export class FieldUpdateSideEffectService {
       const currentQueryDefaults = queryDefaultsResult.value;
       const currentFilter = currentQueryDefaults.filter();
       if (currentFilter == null) continue;
-      const updatedFieldId = updatedField.id().toString();
-      if (!hasFieldReferenceInRecordFilter(currentFilter, updatedFieldId)) continue;
+      let nextFilter: RecordFilter = currentFilter;
+      let changed = false;
 
-      const nextFilter = syncRecordFilterByFieldChanges(currentFilter, updatedFieldId, plan);
-      if (isEquivalentRecordFilter(currentFilter, nextFilter)) continue;
+      for (const { fieldId, plan } of filterSyncTargets) {
+        if (nextFilter == null) break;
+        if (!hasFieldReferenceInRecordFilter(nextFilter, fieldId)) continue;
+
+        const syncedFilter = syncRecordFilterByFieldChanges(nextFilter, fieldId, plan);
+        if (isEquivalentRecordFilter(nextFilter, syncedFilter)) continue;
+
+        nextFilter = syncedFilter;
+        changed = true;
+      }
+
+      if (!changed) continue;
 
       const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate({
         ...currentQueryDefaults.toDto(),
@@ -555,16 +569,22 @@ export class FieldUpdateSideEffectService {
 
   private buildViewColumnMetaCleanupSpecs(
     table: Table,
-    updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
-    const hasTypeConversion = updateSpecs.some(
-      (spec) =>
-        spec instanceof TableUpdateFieldTypeSpec &&
-        spec.isTypeConversion() &&
-        spec.oldField().id().equals(updatedField.id())
+    const convertedFieldIds = Array.from(
+      updateSpecs
+        .filter(
+          (spec): spec is TableUpdateFieldTypeSpec =>
+            spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
+        )
+        .reduce(
+          (acc, spec) => acc.set(spec.oldField().id().toString(), spec.oldField().id()),
+          new Map<string, FieldId>()
+        )
+        .values()
     );
-    if (!hasTypeConversion) {
+
+    if (convertedFieldIds.length === 0) {
       return ok(undefined);
     }
 
@@ -573,24 +593,36 @@ export class FieldUpdateSideEffectService {
       fieldId: FieldId;
       columnMeta: ViewColumnMeta;
     }> = [];
-    const updatedFieldId = updatedField.id().toString();
 
     for (const view of table.views()) {
       const columnMetaResult = view.columnMeta();
       if (columnMetaResult.isErr()) return err(columnMetaResult.error);
       const currentColumnMeta = columnMetaResult.value;
       const currentDto = currentColumnMeta.toDto();
-      const entry = currentDto[updatedFieldId];
-      if (!entry || entry.statisticFunc == null) {
+      const nextDto = { ...currentDto };
+      const changedFieldIds: FieldId[] = [];
+      let changed = false;
+
+      for (const fieldId of convertedFieldIds) {
+        const entry = nextDto[fieldId.toString()];
+        if (!entry || entry.statisticFunc == null) {
+          continue;
+        }
+
+        nextDto[fieldId.toString()] = {
+          ...entry,
+          statisticFunc: null,
+        };
+        changed = true;
+        changedFieldIds.push(fieldId);
+      }
+
+      if (!changed) {
         continue;
       }
 
       const nextColumnMetaResult = ViewColumnMeta.create({
-        ...currentDto,
-        [updatedFieldId]: {
-          ...entry,
-          statisticFunc: null,
-        },
+        ...nextDto,
       });
       if (nextColumnMetaResult.isErr()) return err(nextColumnMetaResult.error);
 
@@ -598,11 +630,13 @@ export class FieldUpdateSideEffectService {
         continue;
       }
 
-      updates.push({
-        viewId: view.id(),
-        fieldId: updatedField.id(),
-        columnMeta: nextColumnMetaResult.value,
-      });
+      for (const fieldId of changedFieldIds) {
+        updates.push({
+          viewId: view.id(),
+          fieldId,
+          columnMeta: nextColumnMetaResult.value,
+        });
+      }
     }
 
     if (!updates.length) {
