@@ -2,52 +2,41 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
-import type { RecordId } from '../domain/table/records/RecordId';
-import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
-import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopTableRecordRepository } from '../ports/defaults/NoopTableRecordRepository';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
-import type {
-  BatchRecordMutationResult,
-  InsertManyStreamOptions,
-  ITableRecordRepository,
-  RecordMutationResult,
-  UpdateManyStreamResult,
-} from '../ports/TableRecordRepository';
+import { type IFindOptions } from '../ports/RepositoryQuery';
+import type { InsertOptions } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RestoreRecordsCommand } from './RestoreRecordsCommand';
 import { RestoreRecordsHandler } from './RestoreRecordsHandler';
 
-const createContext = (): IExecutionContext => {
-  const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId };
-};
+const createContext = (): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+});
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'r'.repeat(16)}`)._unsafeUnwrap();
   const tableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
-  const tableName = TableName.create('Restore Records')._unsafeUnwrap();
+  const tableName = TableName.create('Restore Stream Table')._unsafeUnwrap();
   const textFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+  const numberFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
 
   const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
   builder
@@ -57,40 +46,22 @@ const buildTable = () => {
     .withName(FieldName.create('Title')._unsafeUnwrap())
     .primary()
     .done();
+  builder
+    .field()
+    .number()
+    .withId(numberFieldId)
+    .withName(FieldName.create('Amount')._unsafeUnwrap())
+    .done();
   builder.view().defaultGrid().done();
 
-  return {
-    table: builder.build()._unsafeUnwrap(),
-    textFieldId,
-  };
+  return { table: builder.build()._unsafeUnwrap(), tableId, textFieldId, numberFieldId };
 };
 
-const createCommand = (tableId: string, textFieldId: string, overrides?: Record<string, unknown>) =>
-  RestoreRecordsCommand.create({
-    tableId,
-    records: [
-      {
-        recordId: `rec${'u'.repeat(14)}01`,
-        fields: {
-          [textFieldId]: 'Restored value',
-        },
-        orders: {
-          [`viw${'v'.repeat(14)}01`]: 3,
-        },
-        autoNumber: 8,
-        createdTime: '2025-01-01T00:00:00.000Z',
-        createdBy: `usr${'w'.repeat(16)}`,
-        lastModifiedTime: '2025-01-02T00:00:00.000Z',
-        lastModifiedBy: `usr${'x'.repeat(16)}`,
-        ...overrides,
-      },
-    ],
-  })._unsafeUnwrap();
-
 class FakeTableRepository implements ITableRepository {
-  constructor(private readonly tables: Table[]) {}
+  tables: Table[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
+    this.tables.push(table);
     return ok(table);
   }
 
@@ -98,18 +69,16 @@ class FakeTableRepository implements ITableRepository {
     _: IExecutionContext,
     tables: ReadonlyArray<Table>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(tables);
+    this.tables.push(...tables);
+    return ok([...tables]);
   }
 
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
-    const table = this.tables.find((candidate) => spec.isSatisfiedBy(candidate));
-    if (!table) {
-      return err(domainError.notFound({ message: 'Table not found' }));
-    }
-    return ok(table);
+    const table = this.tables.find((item) => spec.isSatisfiedBy(item));
+    return table ? ok(table) : err(domainError.notFound({ message: 'Table not found' }));
   }
 
   async find(
@@ -120,86 +89,65 @@ class FakeTableRepository implements ITableRepository {
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
   }
 
-  async updateOne(): Promise<Result<void, DomainError>> {
+  async updateOne(
+    _: IExecutionContext,
+    __: Table,
+    ___: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
-  async delete(): Promise<Result<void, DomainError>> {
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
 
-class FakeTableRecordRepository implements ITableRecordRepository {
-  inserted: TableRecord[] = [];
-  lastInsertOptions: Parameters<ITableRecordRepository['insertMany']>[3] | undefined;
+class CapturingTableRecordRepository extends NoopTableRecordRepository {
+  batchSizes: number[] = [];
+  restoreMaps: Array<
+    ReadonlyMap<
+      string,
+      NonNullable<InsertOptions['restoreRecordsById']> extends ReadonlyMap<string, infer TValue>
+        ? TValue
+        : never
+    >
+  > = [];
+  cleanupTrashRecordIds: string[][] = [];
+  insertedRecords: TableRecord[] = [];
+  transactionKinds: Array<IExecutionContext['transaction']> = [];
 
-  async insert(): Promise<Result<RecordMutationResult, DomainError>> {
-    return ok({});
-  }
-
-  async insertMany(
-    _: IExecutionContext,
-    __: Table,
+  override async insertMany(
+    context: IExecutionContext,
+    _: Table,
     records: ReadonlyArray<TableRecord>,
-    options?: Parameters<ITableRecordRepository['insertMany']>[3]
-  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
-    this.inserted.push(...records);
-    this.lastInsertOptions = options;
+    options?: InsertOptions
+  ) {
+    this.batchSizes.push(records.length);
+    this.restoreMaps.push(new Map(options?.restoreRecordsById ?? []));
+    this.cleanupTrashRecordIds.push([...(options?.cleanupTrashRecordIds ?? [])]);
+    this.insertedRecords.push(...records);
+    this.transactionKinds.push(context.transaction);
     return ok({});
-  }
-
-  async insertManyStream(
-    _: IExecutionContext,
-    __: Table,
-    ___: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
-    ____?: InsertManyStreamOptions
-  ): Promise<Result<{ totalInserted: number }, DomainError>> {
-    return ok({ totalInserted: 0 });
-  }
-
-  async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: RecordId,
-    ____: ICellValueSpec
-  ): Promise<Result<RecordMutationResult, DomainError>> {
-    return ok({});
-  }
-
-  async updateMany(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    ____: ICellValueSpec
-  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
-    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
-  }
-
-  async updateManyStream(
-    _: IExecutionContext,
-    __: Table,
-    ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<UpdateManyStreamResult, DomainError>> {
-    return ok({ totalUpdated: 0 });
-  }
-
-  async deleteMany(): Promise<Result<void, DomainError>> {
-    return ok(undefined);
   }
 }
 
 class FakeEventBus implements IEventBus {
-  publishedMany: ReadonlyArray<IDomainEvent>[] = [];
+  events: IDomainEvent[] = [];
+  batchEventSizes: number[] = [];
 
-  async publish(_: IExecutionContext, __: IDomainEvent): Promise<Result<void, DomainError>> {
+  async publish(_: IExecutionContext, event: IDomainEvent) {
+    this.events.push(event);
+    this.batchEventSizes.push(1);
     return ok(undefined);
   }
 
-  async publishMany(
-    _: IExecutionContext,
-    events: ReadonlyArray<IDomainEvent>
-  ): Promise<Result<void, DomainError>> {
-    this.publishedMany.push(events);
+  async publishMany(_: IExecutionContext, events: ReadonlyArray<IDomainEvent>) {
+    this.events.push(...events);
+    this.batchEventSizes.push(events.length);
     return ok(undefined);
   }
 }
@@ -219,33 +167,50 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 describe('RestoreRecordsHandler', () => {
-  it('restores records with system metadata and publishes batch created', async () => {
-    const { table, textFieldId } = buildTable();
-    const tableQueryService = new TableQueryService(new FakeTableRepository([table]));
-    const tableRecordRepository = new FakeTableRecordRepository();
+  it('restores records with system metadata and publishes a batch created event', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new CapturingTableRecordRepository();
     const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
     const handler = new RestoreRecordsHandler(
-      tableQueryService,
-      tableRecordRepository,
-      {
-        execute: () => ok({ table, updateResult: undefined }),
-      } as unknown as RecordWriteSideEffectService,
-      {
-        execute: async () => ok({ table, events: [] }),
-      } as unknown as TableUpdateFlow,
+      new TableQueryService(tableRepository),
+      recordRepository,
       eventBus,
-      new FakeUnitOfWork()
+      unitOfWork
     );
 
-    const command = createCommand(table.id().toString(), textFieldId.toString());
-    const result = await handler.handle(createContext(), command);
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records: [
+        {
+          recordId: `rec${'u'.repeat(14)}01`,
+          fields: {
+            [textFieldId.toString()]: 'Restored value',
+            [numberFieldId.toString()]: 8,
+          },
+          orders: {
+            [`viw${'v'.repeat(14)}01`]: 3,
+          },
+          autoNumber: 8,
+          createdTime: '2025-01-01T00:00:00.000Z',
+          createdBy: `usr${'w'.repeat(16)}`,
+          lastModifiedTime: '2025-01-02T00:00:00.000Z',
+          lastModifiedBy: `usr${'x'.repeat(16)}`,
+        },
+      ],
+    })._unsafeUnwrap();
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().restoredCount).toBe(1);
-    expect(tableRecordRepository.inserted).toHaveLength(1);
-    expect(
-      tableRecordRepository.lastInsertOptions?.restoreRecordsById?.get(command.records[0]!.recordId)
-    ).toEqual({
+    const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.restoredCount).toBe(1);
+    expect(recordRepository.batchSizes).toEqual([1]);
+    expect(recordRepository.cleanupTrashRecordIds).toEqual([[command.records[0]!.recordId]]);
+    expect(recordRepository.insertedRecords).toHaveLength(1);
+    expect(recordRepository.restoreMaps[0]?.get(command.records[0]!.recordId)).toEqual({
       orders: command.records[0]!.orders,
       autoNumber: 8,
       createdTime: '2025-01-01T00:00:00.000Z',
@@ -253,119 +218,136 @@ describe('RestoreRecordsHandler', () => {
       lastModifiedTime: '2025-01-02T00:00:00.000Z',
       lastModifiedBy: `usr${'x'.repeat(16)}`,
     });
-    expect(tableRecordRepository.lastInsertOptions?.cleanupTrashRecordIds).toEqual([
-      command.records[0]!.recordId,
-    ]);
-    expect(eventBus.publishedMany).toHaveLength(1);
-    expect(eventBus.publishedMany[0]).toHaveLength(1);
-    expect(eventBus.publishedMany[0]?.[0]).toBeInstanceOf(RecordsBatchCreated);
+    expect(unitOfWork.transactions).toHaveLength(1);
+    expect(eventBus.events).toHaveLength(1);
+    expect(isRecordsBatchCreatedEvent(eventBus.events[0]!)).toBe(true);
   });
 
-  it('persists table side effects before restore and publishes both event groups', async () => {
-    const { table, textFieldId } = buildTable();
-    const tableQueryService = new TableQueryService(new FakeTableRepository([table]));
-    const tableRecordRepository = new FakeTableRecordRepository();
+  it('restores records in bounded batches, committing and publishing each batch separately', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordRepository = new CapturingTableRecordRepository();
     const eventBus = new FakeEventBus();
-    const sideEffectEvent = { type: 'restore.table.side-effect' } as IDomainEvent;
-    let tableUpdateFlowCalls = 0;
+    const unitOfWork = new FakeUnitOfWork();
 
     const handler = new RestoreRecordsHandler(
-      tableQueryService,
-      tableRecordRepository,
-      {
-        execute: () =>
-          ok({
-            table,
-            updateResult: {
-              table,
-              events: [sideEffectEvent],
-            },
-          }),
-      } as unknown as RecordWriteSideEffectService,
-      {
-        execute: async () => {
-          tableUpdateFlowCalls += 1;
-          return ok({ table, events: [sideEffectEvent] });
-        },
-      } as unknown as TableUpdateFlow,
+      new TableQueryService(tableRepository),
+      recordRepository,
       eventBus,
-      new FakeUnitOfWork()
-    );
-
-    const result = await handler.handle(
-      createContext(),
-      createCommand(table.id().toString(), textFieldId.toString(), {
-        orders: undefined,
-        autoNumber: undefined,
-      })
-    );
-
-    expect(result.isOk()).toBe(true);
-    expect(tableUpdateFlowCalls).toBe(1);
-    expect(eventBus.publishedMany).toHaveLength(1);
-    expect(eventBus.publishedMany[0]).toHaveLength(2);
-    expect(eventBus.publishedMany[0]?.[0]).toBe(sideEffectEvent);
-    expect(eventBus.publishedMany[0]?.[1]).toBeInstanceOf(RecordsBatchCreated);
-  });
-
-  it('fails before transaction when record ids are invalid', async () => {
-    const { table, textFieldId } = buildTable();
-    const tableQueryService = new TableQueryService(new FakeTableRepository([table]));
-    const tableRecordRepository = new FakeTableRecordRepository();
-    const unitOfWork = new FakeUnitOfWork();
-    const handler = new RestoreRecordsHandler(
-      tableQueryService,
-      tableRecordRepository,
-      {
-        execute: () => ok({ table, updateResult: undefined }),
-      } as unknown as RecordWriteSideEffectService,
-      {
-        execute: async () => ok({ table, events: [] }),
-      } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
       unitOfWork
     );
 
-    const command = createCommand(table.id().toString(), textFieldId.toString(), {
-      recordId: 'invalid-record-id',
-    });
+    const records = Array.from({ length: 1001 }, (_, index) => ({
+      recordId: `rec${index.toString().padStart(14, '0')}ab`,
+      fields: {
+        [textFieldId.toString()]: `Record ${index}`,
+        [numberFieldId.toString()]: index,
+      },
+      orders: { viwRestore: index + 1 },
+      autoNumber: index + 1,
+      createdTime: '2026-03-27T00:00:00.000Z',
+      createdBy: 'usrCreatedBy000001',
+      lastModifiedTime: '2026-03-27T00:00:00.000Z',
+      lastModifiedBy: 'usrModifiedBy00001',
+    }));
+
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records,
+    })._unsafeUnwrap();
+
     const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
 
-    expect(result.isErr()).toBe(true);
-    expect(tableRecordRepository.inserted).toHaveLength(0);
-    expect(unitOfWork.transactions).toHaveLength(0);
+    expect(payload.restoredCount).toBe(1001);
+    expect(recordRepository.batchSizes).toEqual([500, 500, 1]);
+    expect(recordRepository.cleanupTrashRecordIds).toEqual([
+      records.slice(0, 500).map((record) => record.recordId),
+      records.slice(500, 1000).map((record) => record.recordId),
+      [records[1000]!.recordId],
+    ]);
+    expect(unitOfWork.transactions).toHaveLength(3);
+    expect(
+      recordRepository.transactionKinds.every(
+        (transaction) => transaction?.kind === 'unitOfWorkTransaction'
+      )
+    ).toBe(true);
+    expect(eventBus.events).toHaveLength(3);
+    expect(eventBus.batchEventSizes).toEqual([1, 1, 1]);
+    expect(payload.events).toHaveLength(3);
+
+    const firstBatchFirstRecord = recordRepository.restoreMaps[0]?.get(records[0]!.recordId);
+    expect(firstBatchFirstRecord).toMatchObject({
+      orders: { viwRestore: 1 },
+      autoNumber: 1,
+      createdTime: '2026-03-27T00:00:00.000Z',
+      createdBy: 'usrCreatedBy000001',
+      lastModifiedTime: '2026-03-27T00:00:00.000Z',
+      lastModifiedBy: 'usrModifiedBy00001',
+    });
+
+    const lastBatchRecord = recordRepository.restoreMaps[2]?.get(records[1000]!.recordId);
+    expect(lastBatchRecord).toMatchObject({
+      orders: { viwRestore: 1001 },
+      autoNumber: 1001,
+    });
+
+    const firstEvent = eventBus.events.find(isRecordsBatchCreatedEvent);
+    const lastEvent = [...eventBus.events].reverse().find(isRecordsBatchCreatedEvent);
+    expect(firstEvent).toBeDefined();
+    expect(lastEvent).toBeDefined();
+    expect(firstEvent!.records).toHaveLength(500);
+    expect(lastEvent!.records).toHaveLength(1);
+    expect(lastEvent!.records[0]?.recordId).toBe(records[1000]!.recordId);
   });
 
-  it('propagates side effect failures without attempting restore', async () => {
-    const { table, textFieldId } = buildTable();
-    const tableQueryService = new TableQueryService(new FakeTableRepository([table]));
-    const tableRecordRepository = new FakeTableRecordRepository();
+  it('scales restore batches up for very large undos while keeping per-batch transactions and events', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordRepository = new CapturingTableRecordRepository();
+    const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
-    const restoreError = domainError.validation({
-      code: 'restore.side_effect_failed',
-      message: 'side effect failed',
-    });
+
     const handler = new RestoreRecordsHandler(
-      tableQueryService,
-      tableRecordRepository,
-      {
-        execute: () => err(restoreError),
-      } as unknown as RecordWriteSideEffectService,
-      {
-        execute: async () => ok({ table, events: [] }),
-      } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
+      new TableQueryService(tableRepository),
+      recordRepository,
+      eventBus,
       unitOfWork
     );
 
-    const result = await handler.handle(
-      createContext(),
-      createCommand(table.id().toString(), textFieldId.toString())
-    );
+    const totalRecords = 11_000;
+    const records = Array.from({ length: totalRecords }, (_, index) => ({
+      recordId: `rec${index.toString().padStart(14, '0')}xy`,
+      fields: {
+        [textFieldId.toString()]: `Record ${index}`,
+        [numberFieldId.toString()]: index,
+      },
+      orders: { viwRestore: index + 1 },
+    }));
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('restore.side_effect_failed');
-    expect(tableRecordRepository.inserted).toHaveLength(0);
-    expect(unitOfWork.transactions).toHaveLength(0);
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.restoredCount).toBe(totalRecords);
+    expect(recordRepository.batchSizes).toHaveLength(20);
+    expect(new Set(recordRepository.batchSizes)).toEqual(new Set([550]));
+    expect(unitOfWork.transactions).toHaveLength(20);
+    expect(eventBus.events).toHaveLength(20);
+    expect(payload.events).toHaveLength(20);
+    const firstEvent = eventBus.events.find(isRecordsBatchCreatedEvent);
+    const lastEvent = [...eventBus.events].reverse().find(isRecordsBatchCreatedEvent);
+    expect(firstEvent).toBeDefined();
+    expect(lastEvent).toBeDefined();
+    expect(firstEvent!.records).toHaveLength(550);
+    expect(lastEvent!.records).toHaveLength(550);
   });
 });

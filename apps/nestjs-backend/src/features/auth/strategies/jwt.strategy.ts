@@ -90,7 +90,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
       throw new UnauthorizedException('Your account has been deactivated by the administrator');
     }
 
-    if (user.isSystem) {
+    if (user.isSystem && payload.allowSystemUser !== true) {
       throw new UnauthorizedException('User is system user');
     }
 

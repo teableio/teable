@@ -1,15 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Info,
-  Copy,
-  Database,
-  Download,
-  Export,
-  Loader2,
-  Pencil,
-  Trash2,
-  ArrowRight,
-} from '@teable/icons';
+import { Info, Database, Download, Export, Loader2, ArrowRight } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import { exportBase, getSpaceList, moveBase } from '@teable/openapi';
 import type { IGetBaseVo } from '@teable/openapi';
@@ -30,6 +20,7 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { CopyPlus, Pen, Trash } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
@@ -197,13 +188,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         >
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
-              <Pencil className="mr-2" />
+              <Pen className="mr-2 size-4" />
               {t('actions.rename')}
             </DropdownMenuItem>
           )}
           {showDuplicate && (
             <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
-              <Copy className="mr-2" />
+              <CopyPlus className="mr-2 size-4" />
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
@@ -213,7 +204,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 setExportConfirm(true);
               }}
             >
-              <Export className="mr-2" />
+              <Export className="mr-2 size-4" />
               {t('actions.export')}
             </DropdownMenuItem>
           )}
@@ -223,7 +214,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 setMoveConfirm(true);
               }}
             >
-              <ArrowRight className="mr-2" />
+              <ArrowRight className="mr-2 size-4" />
               {t('actions.move')}
             </DropdownMenuItem>
           )}
@@ -231,7 +222,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-                <Trash2 className="mr-2" />
+                <Trash className="mr-2 size-4" />
                 {t('actions.delete')}
               </DropdownMenuItem>
             </>
@@ -261,10 +252,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         }
       />
 
-      <Dialog
-        open={exportConfirm}
-        onOpenChange={setExportConfirm}
-      >
+      <Dialog open={exportConfirm} onOpenChange={setExportConfirm}>
         <DialogContent
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}

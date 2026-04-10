@@ -1,5 +1,4 @@
-import { generateWindowId } from '@teable/core';
-import { axios } from '@teable/openapi';
+import { ensureUndoRedoWindowIdHeader } from '@teable/openapi';
 import { useIsTouchDevice } from '@teable/sdk/hooks';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useMount } from 'react-use';
@@ -14,11 +13,7 @@ export const AppLayout: FC<PropsWithChildren> = (props) => {
   useAutoFavicon();
 
   useMount(() => {
-    const windowId = generateWindowId();
-    axios.interceptors.request.use((config) => {
-      config.headers['X-Window-Id'] = windowId;
-      return config;
-    });
+    ensureUndoRedoWindowIdHeader();
   });
 
   // Solve the problem that the page will be pushed up after the input is focused on touch devices

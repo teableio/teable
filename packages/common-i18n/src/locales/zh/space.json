@@ -146,8 +146,8 @@
     "noBasesFound": "未找到数据库"
   },
   "publishBase": {
-    "title": "发布数据库到社区",
-    "description": "一键发布数据库，灵感不再孤单！让更多人看到、使用和 Remix 你的创意，一起构建更强大的业务",
+    "title": "发布到模版中心",
+    "description": "一键发布数据库到模版中心！让更多人看到、使用和 Remix 你的创意，一起构建更强大的业务",
     "infoTitle": "基本信息",
     "form": {
       "title": "作品名称",
@@ -170,7 +170,7 @@
     "unPublish": "取消发布",
     "unPublishSuccess": "取消发布成功！",
     "unPublishConfirmTitle": "确认取消发布",
-    "unPublishConfirmDescription": "确定要取消发布此数据库吗？取消发布后，该数据库将不再在社区模板中心显示。",
+    "unPublishConfirmDescription": "确定要取消发布此数据库吗？取消发布后，该数据库将不再在模版中心显示。",
     "usageCount": "使用次数：",
     "uploadCover": "点击上传封面图片",
     "changeCover": "点击更换封面",

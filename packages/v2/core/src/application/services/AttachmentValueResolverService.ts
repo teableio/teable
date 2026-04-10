@@ -55,6 +55,8 @@ const resolveItem = (
     path: stored.path,
     size: stored.size,
     mimetype: stored.mimetype,
+    width: stored.width ?? item.width,
+    height: stored.height ?? item.height,
   };
 };
 

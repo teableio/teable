@@ -14,21 +14,17 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
-import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
-import type { IModelOption } from '../../../admin/setting/components/ai-config/AiModelSelect';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
 import type { IModelTestResult } from '../../../admin/setting/components/ai-config/LlmproviderManage';
-import {
-  generateModelKeyList,
-  generateGatewayModelKeyList,
-  parseModelKey,
-} from '../../../admin/setting/components/ai-config/utils';
+import { parseModelKey } from '../../../admin/setting/components/ai-config/utils';
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
   onChange: (value: IAIIntegrationConfig) => void;
 }
+
+const emptyArray: never[] = [];
 
 export const AIConfig = (props: IAIConfigProps) => {
   const { config, onChange } = props;
@@ -48,7 +44,7 @@ export const AIConfig = (props: IAIConfigProps) => {
     resolver: zodResolver(aiConfigVoSchema),
     defaultValues: defaultValues,
   });
-  const llmProviders = form.watch('llmProviders') ?? [];
+  const llmProviders = form.watch('llmProviders') ?? emptyArray;
   const { reset } = form;
   const { t } = useTranslation('common');
 
@@ -57,35 +53,6 @@ export const AIConfig = (props: IAIConfigProps) => {
     queryKey: ['public-setting'],
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
-
-  // Generate combined model list: space models, gateway models, instance models
-  const models = useMemo((): IModelOption[] => {
-    const providerModels = generateModelKeyList(llmProviders);
-
-    // Get gateway models from public settings (enabled models only)
-    const publicGatewayModels = setting?.aiConfig?.gatewayModels || [];
-    const gatewayModels = generateGatewayModelKeyList(publicGatewayModels);
-
-    // Get instance-level providers from public settings
-    const instanceProviders = setting?.aiConfig?.llmProviders || [];
-    const instanceModelsFromSetting = generateModelKeyList(instanceProviders);
-
-    // Separate space and instance models from space integration
-    const spaceModels = providerModels.filter((m) => !m.isInstance);
-
-    // Combine in order: space models, gateway models, instance models
-    return [...spaceModels, ...gatewayModels, ...instanceModelsFromSetting];
-  }, [llmProviders, setting?.aiConfig?.gatewayModels, setting?.aiConfig?.llmProviders]);
-
-  const defaultModelPlaceholder = useMemo(() => {
-    const defaultModelKey = setting?.aiConfig?.chatModel?.lg;
-    if (!defaultModelKey) return t('admin.setting.ai.selectModel');
-    const defaultModel = models.find(
-      (m) => m.modelKey.toLowerCase() === defaultModelKey.toLowerCase()
-    );
-    const name = defaultModel?.label || parseModelKey(defaultModelKey).model;
-    return name ? t('admin.setting.ai.defaultModel', { name }) : t('admin.setting.ai.selectModel');
-  }, [setting?.aiConfig?.chatModel?.lg, models, t]);
 
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
@@ -205,7 +172,8 @@ export const AIConfig = (props: IAIConfigProps) => {
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
           instanceDisableActions={instanceAIDisableActions}
           onChange={(value: { disableActions: string[] }) => {
-            form.setValue('capabilities', value);
+            const current = form.getValues('capabilities') ?? {};
+            form.setValue('capabilities', { ...current, ...value });
             onSubmit(form.getValues());
           }}
         />
@@ -241,19 +209,6 @@ export const AIConfig = (props: IAIConfigProps) => {
               }}
             />
           }
-        />
-        <AIModelPreferencesCard
-          control={form.control}
-          models={models}
-          onChange={() => onSubmit(form.getValues())}
-          needGroup={true}
-          hideEmbeddingModel
-          title={t('admin.setting.ai.modelPreferences')}
-          modelPlaceholder={defaultModelPlaceholder}
-          onReset={() => {
-            form.setValue('chatModel', null);
-            onSubmit(form.getValues());
-          }}
         />
       </form>
     </Form>

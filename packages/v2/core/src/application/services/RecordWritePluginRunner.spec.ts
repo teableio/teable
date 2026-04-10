@@ -72,6 +72,34 @@ const createContext = (tracer?: ITracer): RecordWritePluginContextMap['createOne
   isTransactionBound: false,
 });
 
+const createDeleteStreamContext = (
+  scope: 'operation' | 'chunk',
+  options?: {
+    recordCount?: number;
+    chunkIndex?: number;
+    totalChunkCount?: number;
+  }
+): RecordWritePluginContextMap['deleteMany'] => ({
+  kind: RecordWriteOperationKind.deleteMany,
+  executionContext: {
+    actorId: ActorId.create('system')._unsafeUnwrap(),
+  } as IExecutionContext,
+  table: createTable('tblTraceDeleteWrite'),
+  payload: {
+    recordIds: [],
+    recordCount: options?.recordCount ?? 3,
+  },
+  orchestration: {
+    mode: 'stream',
+    scope,
+    operationId: 'oprPluginLifecycle',
+    totalRecordCount: options?.recordCount ?? 3,
+    totalChunkCount: options?.totalChunkCount ?? 2,
+    ...(options?.chunkIndex != null ? { chunkIndex: options.chunkIndex } : {}),
+  },
+  isTransactionBound: false,
+});
+
 class FakeLogger implements ILogger {
   readonly errors: Array<{ message: string; context?: LogContext }> = [];
 
@@ -262,6 +290,104 @@ describe('RecordWritePluginRunner', () => {
       { plugin: 'alpha', state: { token: 'alpha-state' } },
       { plugin: 'beta', state: { token: 'beta-state' } },
     ]);
+  });
+
+  it('passes the previous prepared state back into a later prepare call', async () => {
+    const prepareCalls: Array<{ scope: string | undefined; previousPreparedState: unknown }> = [];
+    const guardStates: unknown[] = [];
+    const runner = new RecordWritePluginRunner(
+      [
+        {
+          name: 'stream-lifecycle',
+          supports: () => true,
+          prepare: (context, previousPreparedState) => {
+            prepareCalls.push({
+              scope: context.orchestration?.scope,
+              previousPreparedState,
+            });
+
+            if (context.orchestration?.scope === 'operation') {
+              return ok({ cached: 'operation-policy' });
+            }
+
+            return ok({
+              ...(previousPreparedState as { cached?: string } | undefined),
+              chunkIndex: context.orchestration?.chunkIndex,
+            });
+          },
+          guard: (_context, preparedState) => {
+            guardStates.push(preparedState);
+            return ok(undefined);
+          },
+        },
+      ],
+      new FakeLogger(),
+      tableMapper
+    );
+
+    const operationExecution = (
+      await runner.prepare(createDeleteStreamContext('operation'))
+    )._unsafeUnwrap();
+    expect((await operationExecution.guard()).isOk()).toBe(true);
+
+    const chunkExecution = (
+      await runner.prepare(createDeleteStreamContext('chunk', { chunkIndex: 0 }), {
+        previousExecution: operationExecution,
+      })
+    )._unsafeUnwrap();
+    expect((await chunkExecution.guard()).isOk()).toBe(true);
+
+    expect(prepareCalls).toEqual([
+      { scope: 'operation', previousPreparedState: undefined },
+      { scope: 'chunk', previousPreparedState: { cached: 'operation-policy' } },
+    ]);
+    expect(guardStates).toEqual([
+      { cached: 'operation-policy' },
+      { cached: 'operation-policy', chunkIndex: 0 },
+    ]);
+  });
+
+  it('lets an operation-only plugin fast-path chunk prepare by reusing the previous state', async () => {
+    let heavyPrepareCount = 0;
+    let chunkFastPathCount = 0;
+    const runner = new RecordWritePluginRunner(
+      [
+        {
+          name: 'operation-only',
+          supports: () => true,
+          prepare: (context, previousPreparedState) => {
+            if (context.orchestration?.scope === 'operation') {
+              heavyPrepareCount += 1;
+              return ok({ cached: 'operation-only' });
+            }
+
+            chunkFastPathCount += 1;
+            return ok(previousPreparedState);
+          },
+          guard: () => ok(undefined),
+        },
+      ],
+      new FakeLogger(),
+      tableMapper
+    );
+
+    const operationExecution = (
+      await runner.prepare(createDeleteStreamContext('operation'))
+    )._unsafeUnwrap();
+    const firstChunkExecution = (
+      await runner.prepare(createDeleteStreamContext('chunk', { chunkIndex: 0 }), {
+        previousExecution: operationExecution,
+      })
+    )._unsafeUnwrap();
+    const secondChunkExecution = (
+      await runner.prepare(createDeleteStreamContext('chunk', { chunkIndex: 1 }), {
+        previousExecution: firstChunkExecution,
+      })
+    )._unsafeUnwrap();
+
+    expect((await secondChunkExecution.guard()).isOk()).toBe(true);
+    expect(heavyPrepareCount).toBe(1);
+    expect(chunkFastPathCount).toBe(2);
   });
 
   it('returns the first guard error in group order and skips later enforce groups', async () => {
@@ -687,14 +813,32 @@ describe('RecordWritePluginRunner', () => {
     ]);
     expect(tracer.spans.map((span) => span.name)).toEqual([
       'teable.recordWritePlugin.supports',
+      'teable.recordWritePlugin.execution',
       'teable.recordWritePlugin.prepare',
       'teable.recordWritePlugin.traceable.customPrepare',
+      'teable.recordWritePlugin.execution',
       'teable.recordWritePlugin.guard',
       'teable.recordWritePlugin.traceable.customGuard',
+      'teable.recordWritePlugin.execution',
       'teable.recordWritePlugin.beforePersist',
+      'teable.recordWritePlugin.execution',
       'teable.recordWritePlugin.afterCommit',
       'teable.recordWritePlugin.traceable.customAfterCommit',
     ]);
+
+    const executionSpans = tracer.spans.filter(
+      (span) => span.name === 'teable.recordWritePlugin.execution'
+    );
+    expect(executionSpans).toHaveLength(4);
+    expect(executionSpans[0]?.attributes).toMatchObject({
+      [TeableSpanAttributes.COMPONENT]: 'plugin',
+      [TeableSpanAttributes.OPERATION]: 'recordWritePlugin.execution',
+      [TeableSpanAttributes.PLUGIN]: 'traceable',
+      [TeableSpanAttributes.PLUGIN_TYPE]: 'record_write',
+      [TeableSpanAttributes.OPERATION_KIND]: RecordWriteOperationKind.createOne,
+      [TeableSpanAttributes.TABLE_ID]: 'tblTraceRecordWrite',
+      [TeableSpanAttributes.IS_TRANSACTION_BOUND]: false,
+    });
 
     const guardSpan = tracer.spans.find((span) => span.name === 'teable.recordWritePlugin.guard');
     expect(guardSpan?.attributes).toMatchObject({

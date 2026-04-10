@@ -215,6 +215,8 @@ export class BatchRecordUpdateBuilder {
           now: context.now,
           actorName: context.actorName,
           actorEmail: context.actorEmail,
+          fillLinkTitles: context.fillLinkTitles,
+          fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
         });
 
         // Accept the mutation spec

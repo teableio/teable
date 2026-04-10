@@ -239,6 +239,13 @@ export function GatewayModelsStep({
     [gatewayModels, onChange]
   );
 
+  const handleUpdateI18nDescription = useCallback(
+    (modelId: string, i18nDescription: { en?: string; zh?: string }) => {
+      onChange(gatewayModels.map((m) => (m.id === modelId ? { ...m, i18nDescription } : m)));
+    },
+    [gatewayModels, onChange]
+  );
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -320,6 +327,7 @@ export function GatewayModelsStep({
                     showPricing={showPricing}
                     onToggleEnabled={handleToggleEnabled}
                     onRemove={handleRemoveModel}
+                    onUpdateI18nDescription={handleUpdateI18nDescription}
                   />
                 ))}
               </div>

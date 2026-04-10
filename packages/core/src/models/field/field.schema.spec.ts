@@ -279,6 +279,62 @@ describe('field Schema Test', () => {
     });
   });
 
+  it('should parse persisted lookup formula field VO with extended link metadata', () => {
+    const fieldVo = {
+      id: 'fldLookupFormulaCfg',
+      name: '正式坐席数量',
+      type: FieldType.Formula,
+      options: {
+        expression: '1',
+        timeZone: 'Asia/Shanghai',
+        formatting: {
+          type: 'decimal',
+          precision: 0,
+        },
+      },
+      isLookup: true,
+      lookupOptions: {
+        baseId: 'bseForeign',
+        relationship: Relationship.OneMany,
+        foreignTableId: 'tblForeign',
+        lookupFieldId: 'fldForeign',
+        fkHostTableName: 'bseForeign.table_foreign',
+        selfKeyName: '__fk_lookup',
+        foreignKeyName: '__id',
+        filterByViewId: 'viwForeign',
+        isOneWay: false,
+        symmetricFieldId: 'fldSymmetric',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus', operator: 'is', value: '有效' }],
+        },
+        linkFieldId: 'fldLink',
+      },
+      unique: false,
+      isComputed: true,
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: true,
+      dbFieldType: DbFieldType.Json,
+      dbFieldName: 'lookup_formula',
+      recordRead: false,
+      recordCreate: false,
+    };
+
+    const result = fieldVoSchema.safeParse(fieldVo);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect(result.data.isLookup).toBe(true);
+    expect(result.data.type).toBe(FieldType.Formula);
+    expect(result.data.lookupOptions).toMatchObject({
+      isOneWay: false,
+      symmetricFieldId: 'fldSymmetric',
+      linkFieldId: 'fldLink',
+    });
+  });
+
   it('should parse representative persisted field VOs for other system field types', () => {
     const fieldVos = [
       {
