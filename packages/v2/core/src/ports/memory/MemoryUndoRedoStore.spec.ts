@@ -74,4 +74,29 @@ describe('MemoryUndoRedoStore', () => {
     const list = (await store.list(scope))._unsafeUnwrap();
     expect(list.map((entry) => redoRecordId(entry))).toEqual([redoRecordId(entry3)]);
   });
+
+  it('undos and redoes contiguous grouped entries as a single batch', async () => {
+    const store = new MemoryUndoRedoStore();
+    const scope = buildScope();
+
+    const entry1 = { ...buildEntry(scope, `rec${'1'.repeat(16)}`), groupId: 'grp-1' };
+    const entry2 = { ...buildEntry(scope, `rec${'2'.repeat(16)}`), groupId: 'grp-1' };
+
+    (await store.append(scope, entry1))._unsafeUnwrap();
+    (await store.append(scope, entry2))._unsafeUnwrap();
+
+    const undoEntry = (await store.undo(scope))._unsafeUnwrap();
+    expect(undoEntry?.undoCommand.type).toBe('Batch');
+    expect(undoEntry?.redoCommand.type).toBe('Batch');
+    expect(
+      undoEntry?.undoCommand.type === 'Batch' ? undoEntry.undoCommand.payload : []
+    ).toHaveLength(2);
+
+    const redoEntry = (await store.redo(scope))._unsafeUnwrap();
+    expect(redoEntry?.undoCommand.type).toBe('Batch');
+    expect(redoEntry?.redoCommand.type).toBe('Batch');
+    expect(
+      redoEntry?.redoCommand.type === 'Batch' ? redoEntry.redoCommand.payload : []
+    ).toHaveLength(2);
+  });
 });

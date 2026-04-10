@@ -19,7 +19,6 @@ import { getV2NodeTestContainer, setV2NodeTestContainer } from '../testkit/v2Nod
 
 describe('DuplicateFieldHandler (db)', () => {
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
     setV2NodeTestContainer(await createV2NodeTestContainer());
   });
 

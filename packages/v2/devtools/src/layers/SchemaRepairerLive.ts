@@ -92,12 +92,13 @@ export const SchemaRepairerLive = Layer.effect(
       ) => AsyncGenerator<SchemaRepairResult, void, unknown>
     ): Promise<SchemaRepairSummary> => {
       const table = await loadTable(tableId);
+      const schema = table.baseId().toString();
       const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
       const introspector = new PostgresSchemaIntrospector(db);
       const repairer = createSchemaRepairer({
         db,
         introspector,
-        schema: 'public',
+        schema,
       });
 
       const results: SchemaRepairResult[] = [];

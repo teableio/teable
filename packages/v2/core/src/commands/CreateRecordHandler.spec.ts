@@ -14,7 +14,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { RecordCreated } from '../domain/table/events/RecordCreated';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
@@ -60,6 +60,15 @@ const noopUndoRedoService = {
 const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
+
+const noopRecordChangedValueDecoratorService = {
+  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
+    ok(changedFields),
+  decorateChangedFieldsByRecord: async (
+    _table: Table,
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+  ) => ok(changedFieldsByRecord),
+};
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -240,9 +249,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
+  failFindOne: DomainError | undefined;
+
   constructor(private readonly recordRepository: FakeTableRecordRepository) {}
 
   async find() {
@@ -254,6 +269,9 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _table: Table,
     recordId: RecordId
   ): Promise<Result<TableRecordReadModel, DomainError>> {
+    if (this.failFindOne) {
+      return err(this.failFindOne);
+    }
     const record = this.recordRepository.records.find((entry) => entry.id().equals(recordId));
     if (!record) {
       return err(domainError.notFound({ message: 'Record not found' }));
@@ -411,14 +429,16 @@ const createHandler = (
   recordRepository: FakeTableRecordRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork | RollbackFakeUnitOfWork,
-  recordWritePluginRunner = createRecordWritePluginRunner()
+  recordWritePluginRunner = createRecordWritePluginRunner(),
+  recordQueryRepository = new FakeTableRecordQueryRepository(recordRepository)
 ) =>
   new CreateRecordHandler(
     tableQueryService,
     new RecordCreationService(
       recordRepository,
-      new FakeTableRecordQueryRepository(recordRepository),
+      recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
+      noopRecordChangedValueDecoratorService,
       recordWritePluginRunner,
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -467,9 +487,7 @@ describe('CreateRecordHandler', () => {
     expect(savedRecord.tableId().equals(table.id())).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
-    const createdEvent = value.events.find(
-      (event): event is RecordCreated => event instanceof RecordCreated
-    );
+    const createdEvent = value.events.find(isRecordCreatedEvent);
     expect(createdEvent?.source).toEqual({ type: 'user' });
   });
 
@@ -533,6 +551,38 @@ describe('CreateRecordHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
+    expect(recordRepository.records.length).toBe(1);
+  });
+
+  it('falls back when restore snapshot reload returns not found', async () => {
+    const { table } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository(recordRepository);
+    recordQueryRepository.failFindOne = domainError.notFound({ message: 'Record not found' });
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      createRecordWritePluginRunner(),
+      recordQueryRepository
+    );
+
+    const commandResult = CreateRecordCommand.create({
+      tableId,
+      fields: {},
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(result.isOk()).toBe(true);
     expect(recordRepository.records.length).toBe(1);
   });
 

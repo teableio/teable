@@ -808,7 +808,8 @@ export class TableMetaUpdateVisitor
   visitUpdateRollupConfig(
     spec: UpdateRollupConfigSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return this.buildFieldOptionsUpdate(spec.fieldId());
+    // Rollup config changes also derive lookup metadata from linkFieldId.
+    return this.buildFieldStorageMetadataUpdate(spec.fieldId());
   }
 
   visitUpdateRollupExpression(

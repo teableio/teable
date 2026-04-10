@@ -254,12 +254,19 @@ const buttonWorkflowSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const buttonConfirmSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  confirmText: z.string().optional(),
+});
+
 const buttonOptionsSchema = z.object({
   label: z.string().optional(),
   color: fieldColorSchema.optional(),
   maxCount: z.number().optional(),
   resetCount: z.boolean().optional(),
   workflow: buttonWorkflowSchema.optional().nullable(),
+  confirm: buttonConfirmSchema.optional().nullable(),
 });
 
 const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
@@ -780,12 +787,14 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
+    const confirm = field.confirm();
     const options: ButtonOptionsDto = {
       label: field.label().toString(),
       color: field.color().toString() as ButtonOptionsDto['color'],
       ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
       ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
       ...(workflow ? { workflow: workflow.toDto() } : {}),
+      ...(confirm ? { confirm: confirm.toDto() } : {}),
     };
 
     return ok({

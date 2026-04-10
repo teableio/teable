@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { AddPassword } from './account/AddPassword';
 import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
@@ -23,6 +24,9 @@ export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
   const { t } = useTranslation('common');
   const isTouchDevice = useIsTouchDevice();
+  const { buildVersion, gitCommitSha, previewTag } = useEnv();
+  const shortGitCommitSha = gitCommitSha?.slice(0, 12);
+  const displayBuildVersion = buildVersion ?? process.env.APP_VERSION ?? 'develop';
 
   const updateUserAvatarMutation = useMutation({
     mutationFn: updateUserAvatar,
@@ -74,8 +78,14 @@ export const Account: React.FC = () => {
     <SettingTabShell
       header={<SettingTabHeader title={t('settings.account.title')} />}
       footer={
-        <div className="flex w-full items-center justify-center text-xs text-muted-foreground">
-          {`${t('settings.setting.version')}: ${process.env.NEXT_PUBLIC_BUILD_VERSION}`}
+        <div className="flex w-full flex-col items-center justify-center gap-1 text-center text-xs text-muted-foreground">
+          <div>{`${t('settings.setting.version')}: ${displayBuildVersion}`}</div>
+          {previewTag && (
+            <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+              <span>{`preview: ${previewTag}`}</span>
+              {shortGitCommitSha && <span>{`commit: ${shortGitCommitSha}`}</span>}
+            </div>
+          )}
         </div>
       }
     >

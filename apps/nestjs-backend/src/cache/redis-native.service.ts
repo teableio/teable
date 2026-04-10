@@ -77,6 +77,17 @@ export class RedisNativeService {
   }
 
   /**
+   * Get multiple field values from a hash in a single round-trip.
+   * @param key - Redis hash key
+   * @param fields - Field names to fetch
+   * @returns Array of values in the same order as fields (null for missing fields)
+   */
+  async hmget(key: string, ...fields: string[]): Promise<(string | null)[]> {
+    if (fields.length === 0) return [];
+    return this.client.hmget(key, ...fields);
+  }
+
+  /**
    * Delete one or more fields from a hash. No-op if fields list is empty.
    * @param key - Redis hash key
    * @param fields - Field names to delete
@@ -94,6 +105,16 @@ export class RedisNativeService {
    */
   async expire(key: string, seconds: number): Promise<void> {
     await this.client.expire(key, seconds);
+  }
+
+  /**
+   * Get remaining TTL (in seconds) for a key.
+   * Redis semantics:
+   * - -2: key does not exist
+   * - -1: key exists but has no associated expire
+   */
+  async ttl(key: string): Promise<number> {
+    return this.client.ttl(key);
   }
 
   /**

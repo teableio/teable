@@ -17,7 +17,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
-import { RecordUpdated } from '../domain/table/events/RecordUpdated';
+import { isRecordUpdatedEvent } from '../domain/table/events/RecordUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
@@ -42,8 +42,8 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -54,13 +54,13 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { UpdateRecordCommand } from './UpdateRecordCommand';
-import { UpdateRecordHandler } from './UpdateRecordHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordCommand } from './UpdateRecordCommand';
+import { UpdateRecordHandler } from './UpdateRecordHandler';
 
 const createContext = (config?: IExecutionContext['config']): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -76,6 +76,15 @@ const createTableUpdateFlow = (
 const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
+
+const noopRecordChangedValueDecoratorService = {
+  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
+    ok(changedFields),
+  decorateChangedFieldsByRecord: async (
+    _table: Table,
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+  ) => ok(changedFieldsByRecord),
+};
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
@@ -279,6 +288,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
@@ -379,9 +392,14 @@ class FakeUndoRedoService {
 
 describe('UpdateRecordHandler', () => {
   it('updates record and publishes event', async () => {
-    const { table, tableId, textFieldId } = buildTable();
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordResult = table
-      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      .createRecord(
+        new Map([
+          [textFieldId.toString(), 'Old Title'],
+          [numberFieldId.toString(), 1],
+        ])
+      )
       ._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
@@ -392,7 +410,10 @@ describe('UpdateRecordHandler', () => {
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.record = {
       id: recordResult.record.id().toString(),
-      fields: { [textFieldId.toString()]: 'Old Title' },
+      fields: {
+        [textFieldId.toString()]: 'Old Title',
+        [numberFieldId.toString()]: 1,
+      },
       version: 1,
     };
 
@@ -405,6 +426,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -424,9 +446,10 @@ describe('UpdateRecordHandler', () => {
     const payload = result._unsafeUnwrap();
 
     expect(payload.record.fields().get(textFieldId)?.toValue()).toBe('New Title');
+    expect(payload.record.fields().get(numberFieldId)?.toValue()).toBe(1);
     expect(recordRepository.lastRecordId?.equals(recordResult.record.id())).toBe(true);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
-    expect(eventBus.published.some((event) => event instanceof RecordUpdated)).toBe(true);
+    expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
   });
 
@@ -458,6 +481,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -517,6 +541,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([scopedPlugin]),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -569,6 +594,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -618,6 +644,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -665,7 +692,7 @@ describe('UpdateRecordHandler', () => {
     expect(eventBus.published).toHaveLength(3);
     expect(eventBus.published[0]).toBeInstanceOf(FieldOptionsAdded);
     expect(eventBus.published[1]).toBeInstanceOf(FieldOptionsAdded);
-    expect(eventBus.published[eventBus.published.length - 1]).toBeInstanceOf(RecordUpdated);
+    expect(isRecordUpdatedEvent(eventBus.published[eventBus.published.length - 1]!)).toBe(true);
   });
 
   it('rejects auto-created select options when update exceeds configured max', async () => {
@@ -695,6 +722,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -744,6 +772,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -808,6 +837,7 @@ describe('UpdateRecordHandler', () => {
       recordQueryRepository,
       new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner(),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -829,12 +859,12 @@ describe('UpdateRecordHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
-    const recordUpdatedEvent = eventBus.published.find(
-      (e) => e instanceof RecordUpdated
-    ) as RecordUpdated;
+    const recordUpdatedEvent = eventBus.published.find(isRecordUpdatedEvent);
     expect(recordUpdatedEvent).toBeDefined();
 
-    const userChange = recordUpdatedEvent.changes.find((c) => c.fieldId === userFieldId.toString());
+    const userChange = recordUpdatedEvent!.changes.find(
+      (c) => c.fieldId === userFieldId.toString()
+    );
     expect(userChange).toBeDefined();
     expect(userChange!.newValue).toEqual({
       id: 'usr-1',
@@ -877,6 +907,7 @@ describe('UpdateRecordHandler', () => {
         recordQueryRepository,
         new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
@@ -935,6 +966,7 @@ describe('UpdateRecordHandler', () => {
         recordQueryRepository,
         new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,
@@ -985,6 +1017,7 @@ describe('UpdateRecordHandler', () => {
         recordQueryRepository,
         new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopRecordChangedValueDecoratorService,
         createRecordWritePluginRunner(),
         new RecordWriteSideEffectService(),
         noopRecordWriteUndoRedoPlanService,

@@ -13,6 +13,7 @@
     "update": "更新",
     "create": "创建",
     "delete": "删除",
+    "clear": "清除",
     "cancel": "取消",
     "zoomIn": "放大",
     "zoomOut": "缩小",
@@ -573,7 +574,16 @@
         "chatModelDescription": "要使用的对话模型，提示：工具调用是 Teable AI 功能所必需的",
         "chatModels": {
           "lg": "高级对话模型",
-          "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5"
+          "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5",
+          "md": "标准",
+          "mdDescription": "用于日常对话和一般任务",
+          "sm": "轻量",
+          "smDescription": "用于简单查询和快速响应",
+          "inheritHint": "与主模型相同 ({{model}})",
+          "modelTiers": "模型分级",
+          "modelTiersDescription": "可为标准和轻量任务指定不同的模型，未设置的挡位将使用上方的主模型。",
+          "allInheriting": "所有挡位使用主模型",
+          "customized": "已自定义 {{count}} 个"
         },
         "actions": {
           "title": "AI 能力",
@@ -583,7 +593,8 @@
           },
           "aiChat": {
             "title": "AI 聊天",
-            "description": "AI 聊天侧边栏及所有 Agent 功能"
+            "description": "AI 聊天侧边栏及所有 Agent 功能",
+            "sandboxWarning": "需要配置下方 AI 聊天运行环境才能使用"
           }
         },
         "chatModelTest": {
@@ -851,14 +862,12 @@
       },
       "app": {
         "domain": "域名",
-        "v0ApiKey": "v0 API 密钥",
         "customDomain": "自定义域名 (可选)",
         "customDomainDescription": "设置应用部署的自定义域名，访问 <a>Vercel 域名</a> 获取自定义域名",
         "vercelToken": "Vercel API 密钥",
         "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥",
         "apiProxy": "API 代理 (可选)",
-        "apiProxyDescription": "配置 v0 和 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
-        "v0BaseUrl": "v0 API 代理地址",
+        "apiProxyDescription": "配置 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
         "vercelBaseUrl": "Vercel API 代理地址",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
@@ -911,7 +920,7 @@
         },
         "aiEnable": {
           "title": "AI 服务（聊天 / AI 字段）",
-          "description": "开启后可使用 AI Chat、AI 字段与自动化能力，<anchor>前往设置</anchor>"
+          "description": "开启后可使用 AI 聊天、AI 字段与自动化能力，<anchor>前往设置</anchor>"
         },
         "aiLlmApi": {
           "title": "AI：配置 LLM API",
@@ -923,24 +932,18 @@
         },
         "aiChatModel": {
           "title": "AI：设置聊天模型",
-          "description": "为侧边栏 AI Chat 选择一个默认模型，<anchor>前往设置</anchor>"
-        },
-        "app": {
-          "title": "应用构建器",
-          "description": "您尚未配置 v0 API，应用构建器功能将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "您尚未配置 v0 API，应用构建器功能将无法使用"
-        },
-        "appBuilderV0": {
-          "title": "应用构建器：启用 v0",
-          "description": "配置 v0 API Key 后即可使用应用构建器，<anchor>前往设置</anchor>"
+          "description": "为侧边栏 AI 聊天选择一个默认模型，<anchor>前往设置</anchor>"
         },
         "appBuilderDomain": {
           "title": "应用构建器：自定义域名",
           "description": "如需使用自定义域名发布应用，请配置域名与 Vercel Token，<anchor>前往设置</anchor>"
         },
         "appBuilderApiProxy": {
-          "title": "应用构建器：API 代理",
-          "description": "如需通过代理访问 v0/Vercel API，请配置代理地址，<anchor>前往设置</anchor>"
+          "title": "应用构建器：API 代理"
+        },
+        "sandboxVercel": {
+          "title": "AI 聊天运行环境",
+          "description": "配置 AI 聊天的沙箱运行环境，<anchor>前往设置</anchor>"
         },
         "email": {
           "title": "邮箱",
@@ -1258,12 +1261,6 @@
     "createResource": "创建",
     "noPermissionToCreateResource": "您没有权限创建，请联系管理员"
   },
-  "app": {
-    "title": "应用构建器",
-    "description": "配置 v0 API 密钥以启用应用构建器功能，访问 <a>v0 设置</a> 获取 API 密钥",
-    "previewAppError": "应用运行报错",
-    "sendErrorToAI": "将错误发送给 AI"
-  },
   "credit": {
     "title": "算力",
     "leftAmount": "剩余算力",
@@ -1368,7 +1365,7 @@
     "serverError": "服务端发生错误",
     "serverErrorHint": "请新建对话重试",
     "sandboxBusy": "Cuppy 正在另一个对话中执行，请稍候。",
-    "sandboxCapacityFull": "同时运行的对话数已达上限，请等待一个对话完成。",
+    "sandboxCapacityFull": "最多同时运行 {{max}} 个对话，请等待一个对话完成。",
     "sandboxTransient": "Cuppy 正在准备中，请稍后重试。"
   },
   "system": {
@@ -1404,9 +1401,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "最新更新",
-    "title": "App 自定义域名已上线",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "新更新",
+    "title": "多行文本支持 Markdown",
+    "url": "https://help.teable.ai/en/changelog#apr-08-2026",
+    "id": "changelog-2026-04-08-markdown-support-in-long-text-field"
   }
 }
