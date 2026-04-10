@@ -23,6 +23,8 @@ export enum LLMProviderType {
   OPENAI_COMPATIBLE = 'openaiCompatible',
   // Vercel AI Gateway - unified model access via modelId
   AI_GATEWAY = 'aiGateway',
+  // Claude Code
+  CLAUDE_CODE = 'claudeCode',
 }
 
 // Gateway model type from API (language, embedding, image)
@@ -398,6 +400,13 @@ export const gatewayModelSchema = z.object({
   maxTokens: z.number().optional(),
   // Model description
   description: z.string().optional(),
+  // Admin-curated i18n description (e.g., "Most capable for ambitious work")
+  i18nDescription: z
+    .object({
+      en: z.string().optional(),
+      zh: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type IGatewayModel = z.infer<typeof gatewayModelSchema>;
@@ -598,6 +607,7 @@ export const aiConfigSchema = z.object({
   capabilities: z
     .object({
       disableActions: z.array(z.string()).optional(),
+      disableModelSelection: z.boolean().optional(),
     })
     .optional(),
   // Vercel AI Gateway configuration
@@ -625,12 +635,9 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
 });
 
 export const appConfigSchema = z.object({
-  apiKey: z.string().optional(),
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
-  creditCount: z.number().min(0).optional(),
-  // Proxy URLs for v0 and Vercel API (Cloudflare Workers reverse proxy)
-  v0BaseUrl: z.url().optional(),
+  // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
 });
 
@@ -681,6 +688,48 @@ export type ICanaryConfig = z.infer<typeof canaryConfigSchema>;
 // Header name for canary release override
 export const X_CANARY_HEADER = 'x-teable-canary';
 
+export const sandboxAgentModelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export type ISandboxAgentModel = z.infer<typeof sandboxAgentModelSchema>;
+
+export const sandboxAgentConfigSchema = z.object({
+  spaceIds: z.array(z.string()).default([]),
+  forceAll: z.boolean().optional(),
+  defaultAgent: z.enum(['claude']).default('claude').optional(),
+  models: z.record(z.string(), z.array(sandboxAgentModelSchema)).optional().default({}),
+  maxDuration: z.number().min(1).max(1440).default(300).optional(),
+  maxIdleTime: z.number().min(60).max(7200).default(1800).optional(),
+  maxConcurrentChats: z.number().min(1).max(10).default(3).optional(),
+  activeSnapshotId: z.string().optional(),
+  activeAppBuilderSnapshotId: z.string().optional(),
+  defaultEffort: z.enum(['auto', 'low', 'medium', 'high', 'max']).default('auto').optional(),
+});
+
+export type ISandboxAgentConfig = z.infer<typeof sandboxAgentConfigSchema>;
+
+export const X_SANDBOX_AGENT_HEADER = 'x-teable-sandbox-agent';
+
+export const imTelegramConfigSchema = z.object({
+  botToken: z.string(),
+  botUsername: z.string(),
+});
+
+export const imFeishuConfigSchema = z.object({
+  appId: z.string(),
+  appSecret: z.string(),
+  botName: z.string().optional(),
+});
+
+export const imConfigSchema = z.object({
+  telegram: imTelegramConfigSchema.nullable().optional(),
+  feishu: imFeishuConfigSchema.nullable().optional(),
+});
+
+export type IImConfig = z.infer<typeof imConfigSchema>;
+
 export const updateSettingRoSchema = z.object({
   disallowSignUp: z.boolean().optional(),
   disallowSpaceCreation: z.boolean().optional(),
@@ -692,8 +741,10 @@ export const updateSettingRoSchema = z.object({
   appConfig: appConfigSchema.optional(),
   brandName: z.string().optional(),
   canaryConfig: canaryConfigSchema.optional(),
+  sandboxAgentConfig: sandboxAgentConfigSchema.optional(),
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
+  imConfig: imConfigSchema.nullable().optional(),
 });
 
 export type IUpdateSettingRo = z.infer<typeof updateSettingRoSchema>;

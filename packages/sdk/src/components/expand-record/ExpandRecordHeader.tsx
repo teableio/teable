@@ -1,11 +1,9 @@
 import {
   ChevronDown,
   ChevronUp,
-  Copy,
   History,
   Link,
   MoreHorizontal,
-  Trash2,
   X,
   MessageSquare,
 } from '@teable/icons';
@@ -18,6 +16,7 @@ import {
   DropdownMenuTrigger,
   Separator,
 } from '@teable/ui-lib';
+import { CopyPlus, Trash } from 'lucide-react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useTablePermission } from '../../hooks';
@@ -30,6 +29,7 @@ interface IExpandRecordHeader {
   title?: string;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
+  foreignTableName?: string;
   disabledPrev?: boolean;
   disabledNext?: boolean;
   onClose?: () => void;
@@ -40,6 +40,7 @@ interface IExpandRecordHeader {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  onForeignTableClick?: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -54,6 +55,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     title,
     recordHistoryVisible,
     commentVisible,
+    foreignTableName,
     disabledPrev,
     disabledNext,
     onPrev,
@@ -64,6 +66,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    onForeignTableClick,
   } = props;
 
   const permission = useTablePermission();
@@ -80,7 +83,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     <div
       ref={ref}
       className={cn(
-        'w-full h-12 flex items-center gap-4 px-4 border-b border-solid border-border',
+        'w-full flex items-center gap-4 px-4 border-b border-solid border-border',
+        foreignTableName ? 'h-14' : 'h-12',
         { 'justify-between': !showTitle }
       )}
     >
@@ -109,12 +113,29 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </TooltipWrap>
       </div>
       {showTitle && (
-        <h4
-          title={title}
-          className="flex-1 scroll-m-20 truncate text-xl font-semibold tracking-tight"
+        <div
+          className="min-w-0 flex-1"
+          data-link-highlight-target={foreignTableName ? tableId : undefined}
         >
-          {title || t('common.unnamedRecord')}
-        </h4>
+          <h4 title={title} className="scroll-m-20 truncate text-xl font-semibold tracking-tight">
+            {title || t('common.unnamedRecord')}
+          </h4>
+          {foreignTableName && (
+            <p className="truncate text-xs text-muted-foreground">
+              {t('expandRecord.recordFrom')}{' '}
+              {onForeignTableClick ? (
+                <button
+                  className="cursor-pointer text-primary hover:underline"
+                  onClick={onForeignTableClick}
+                >
+                  {foreignTableName}
+                </button>
+              ) : (
+                <span>{foreignTableName}</span>
+              )}
+            </p>
+          )}
+        </div>
       )}
       {showOperator && (
         <div className="flex items-center gap-1">
@@ -173,7 +194,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                       setTimeout(() => onClose?.(), 100);
                     }}
                   >
-                    <Copy /> {t('expandRecord.duplicateRecord')}
+                    <CopyPlus /> {t('expandRecord.duplicateRecord')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -183,7 +204,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                     setTimeout(() => onClose?.(), 100);
                   }}
                 >
-                  <Trash2 /> {t('expandRecord.deleteRecord')}
+                  <Trash /> {t('expandRecord.deleteRecord')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

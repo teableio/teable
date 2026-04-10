@@ -7,6 +7,7 @@ import { domainError } from '../domain/shared/DomainError';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldName } from '../domain/table/fields/FieldName';
+import type { LinkFieldConfigValue } from '../domain/table/fields/types/LinkFieldConfig';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { RecordId } from '../domain/table/records/RecordId';
@@ -54,7 +55,8 @@ const buildTable = () => {
 
 const buildHostTableReferencing = (
   foreignTable: Table,
-  relationship: 'manyMany' | 'oneMany' = 'oneMany'
+  relationship: 'manyMany' | 'oneMany' = 'oneMany',
+  extraConfig?: Partial<Pick<LinkFieldConfigValue, 'filter' | 'filterByViewId'>>
 ) => {
   const builder = Table.builder()
     .withBaseId(foreignTable.baseId())
@@ -76,6 +78,7 @@ const buildHostTableReferencing = (
         foreignTableId: foreignTable.id().toString(),
         lookupFieldId: foreignTable.primaryFieldId().toString(),
         isOneWay: true,
+        ...extraConfig,
       })._unsafeUnwrap()
     )
     .done();
@@ -1017,6 +1020,114 @@ describe('ListTableRecordsHandler', () => {
         },
       },
     ]);
+  });
+
+  // T3109: link field filter/filterByViewId must be applied in v2 candidate queries
+  // (mirrors v1 getFormLinkRecords behaviour for share-form link picker)
+  it('applies link field custom filter to candidate query (T3109)', async () => {
+    const table = buildTable();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    // manyMany → no candidateSpec; without the fix, spec would be undefined entirely
+    // filter uses the v1 IFilter format: { conjunction, filterSet: [...items] }
+    const hostTable = buildHostTableReferencing(table, 'manyMany', {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusField.id().toString(),
+            operator: 'is',
+            value: 'Open',
+          },
+        ],
+      } as unknown as LinkFieldConfigValue['filter'],
+    });
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    await tableRepository.insert(createContext(), hostTable);
+    const hostLinkField = hostTable
+      .getField((field) => field.name().toString() === 'Incoming Link')
+      ._unsafeUnwrap();
+
+    const captured: { spec?: unknown } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, spec) => {
+        captured.spec = spec;
+        return ok({ records: [], total: 0 });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      fieldKeyType: FieldKeyType.Id,
+      filterLinkCellCandidate: hostLinkField.id().toString(),
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    // The link field's custom filter must produce a spec even though manyMany has no candidateSpec
+    expect(captured.spec).toBeDefined();
+  });
+
+  it('applies filterByViewId from link field as effective view when no viewId in query (T3109)', async () => {
+    const table = buildTable();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const view = table.views()[0]!;
+    // Give the view a default filter — the handler should pick it up via filterByViewId
+    const tableWithDefaults = TableUpdateViewQueryDefaultsSpec.create([
+      {
+        viewId: view.id(),
+        queryDefaults: ViewQueryDefaults.create({
+          filter: {
+            fieldId: statusField.id().toString(),
+            operator: 'is',
+            value: 'Open',
+          },
+          sort: [],
+          manualSort: false,
+        })._unsafeUnwrap(),
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    const hostTable = buildHostTableReferencing(table, 'manyMany', {
+      filterByViewId: view.id().toString(),
+    });
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), tableWithDefaults);
+    await tableRepository.insert(createContext(), hostTable);
+    const hostLinkField = hostTable
+      .getField((field) => field.name().toString() === 'Incoming Link')
+      ._unsafeUnwrap();
+
+    const captured: { spec?: unknown } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, spec) => {
+        captured.spec = spec;
+        return ok({ records: [], total: 0 });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: tableWithDefaults.id().toString(),
+      fieldKeyType: FieldKeyType.Id,
+      filterLinkCellCandidate: hostLinkField.id().toString(),
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    // The view's default filter should be applied via filterByViewId
+    expect(captured.spec).toBeDefined();
   });
 
   it('passes an explicit empty visible-field list when the view hides every searchable field', async () => {

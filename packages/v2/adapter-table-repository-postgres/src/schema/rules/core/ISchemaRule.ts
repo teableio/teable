@@ -12,6 +12,58 @@ export type TableSchemaStatementBuilder = {
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
 };
 
+export type SchemaRuleI18nValue = string | number | boolean;
+
+export interface SchemaRuleI18nMessage {
+  key?: string;
+  values?: Readonly<Record<string, SchemaRuleI18nValue>>;
+  fallback?: string;
+}
+
+export interface SchemaRuleDetailItem {
+  code?: string;
+  message: SchemaRuleI18nMessage;
+  description?: SchemaRuleI18nMessage;
+}
+
+export interface SchemaRuleManualRepairOption {
+  value: string;
+  label: SchemaRuleI18nMessage;
+  description?: SchemaRuleI18nMessage;
+}
+
+export interface SchemaRuleManualRepairSchemaProperty {
+  type: 'string' | 'boolean';
+  widget?: 'select' | 'text' | 'textarea' | 'checkbox';
+  title?: SchemaRuleI18nMessage;
+  description?: SchemaRuleI18nMessage;
+  options?: ReadonlyArray<SchemaRuleManualRepairOption>;
+  defaultValue?: string | boolean;
+}
+
+export interface SchemaRuleManualRepairSchema {
+  type: 'object';
+  title?: SchemaRuleI18nMessage;
+  description?: SchemaRuleI18nMessage;
+  submitLabel?: SchemaRuleI18nMessage;
+  required?: ReadonlyArray<string>;
+  properties: Readonly<Record<string, SchemaRuleManualRepairSchemaProperty>>;
+}
+
+export interface SchemaRuleRepairHint {
+  available: boolean;
+  mode: 'auto' | 'manual';
+  reason?: SchemaRuleI18nMessage;
+  description?: SchemaRuleI18nMessage;
+  manualRepairSchema?: SchemaRuleManualRepairSchema;
+}
+
+export type SchemaRuleManualRepairValues = Readonly<Record<string, SchemaRuleI18nValue>>;
+
+export interface SchemaRuleManualRepairOptions {
+  readonly dryRun?: boolean;
+}
+
 /**
  * Result of validating a schema rule against the current database state.
  */
@@ -20,8 +72,12 @@ export type SchemaRuleValidationResult = {
   valid: boolean;
   /** Descriptions of missing schema objects (columns, indexes, etc.) */
   missing?: ReadonlyArray<string>;
+  /** Structured, localizable descriptions of missing schema objects */
+  missingItems?: ReadonlyArray<SchemaRuleDetailItem>;
   /** Descriptions of extra/unexpected schema objects */
   extra?: ReadonlyArray<string>;
+  /** Structured, localizable descriptions of extra schema objects */
+  extraItems?: ReadonlyArray<SchemaRuleDetailItem>;
 };
 
 /**
@@ -70,6 +126,26 @@ export interface ISchemaRule {
    * Rules that need human intervention should mark themselves as `manual`.
    */
   readonly repairMode?: 'auto' | 'manual';
+
+  /**
+   * Optional structured repair metadata for UI consumers.
+   * Manual rules can return a reason and a form-like schema describing
+   * the user choices needed to proceed with repair.
+   */
+  getRepairHint?(
+    ctx: SchemaRuleContext,
+    validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError>;
+
+  /**
+   * Executes a rule-specific manual repair path when auto repair is not sufficient.
+   * Backend services should only orchestrate/dispatch into this hook.
+   */
+  manualRepair?(
+    ctx: SchemaRuleContext,
+    values: SchemaRuleManualRepairValues | undefined,
+    options?: SchemaRuleManualRepairOptions
+  ): Promise<Result<void, DomainError>>;
 
   /**
    * Validates whether the current database state satisfies this rule.

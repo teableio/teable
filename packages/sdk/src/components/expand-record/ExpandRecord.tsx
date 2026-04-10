@@ -31,6 +31,8 @@ interface IExpandRecordProps {
   serverData?: IRecord;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
+  foreignTableName?: string;
+  onForeignTableClick?: () => void;
   onClose?: () => void;
   onPrev?: (recordId: string) => void;
   onNext?: (recordId: string) => void;
@@ -53,6 +55,8 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     serverData,
     recordHistoryVisible,
     commentVisible,
+    foreignTableName,
+    onForeignTableClick,
     onPrev,
     onNext,
     onClose,
@@ -151,6 +155,8 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             title={record?.title}
             recordHistoryVisible={recordHistoryVisible}
             commentVisible={commentVisible}
+            foreignTableName={foreignTableName}
+            onForeignTableClick={onForeignTableClick}
             disabledPrev={disabledPrev}
             disabledNext={disabledNext}
             onClose={onClose}

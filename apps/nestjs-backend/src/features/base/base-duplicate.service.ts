@@ -19,7 +19,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { ComputedOrchestratorService } from '../record/computed/services/computed-orchestrator.service';
+import { PersistedComputedBackfillService } from '../record/computed/services/persisted-computed-backfill.service';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService } from './base-import.service';
@@ -36,7 +36,7 @@ export class BaseDuplicateService {
     private readonly baseImportService: BaseImportService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly computedOrchestrator: ComputedOrchestratorService,
+    private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService
   ) {}
@@ -110,7 +110,7 @@ export class BaseDuplicateService {
       // Persist computed/link/lookup/rollup columns for duplicated data so that
       // reads via useQueryModel (tableCache/raw table) return correct values.
       // This mirrors what the computed pipeline does during regular record writes.
-      await this.recomputeComputedColumnsForDuplicatedBase(tableIdMap);
+      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
     }
 
     return { base, tableIdMap, fieldIdMap, viewIdMap, recordsLength, ...rest };
@@ -658,53 +658,6 @@ export class BaseDuplicateService {
       allowCrossBase,
       disconnectedLinkFieldIds
     );
-  }
-
-  /**
-   * After duplicating raw table rows and link junctions, recompute and persist
-   * values for computed fields (Lookup/Rollup/Formula when persisted) and Link
-   * display columns on all duplicated tables. This ensures immediate consistency
-   * when reading via table cache or raw table without CTEs (useQueryModel=true).
-   */
-  private async recomputeComputedColumnsForDuplicatedBase(tableIdMap: Record<string, string>) {
-    const prisma = this.prismaService.txClient();
-    const targetTableIds = Object.values(tableIdMap);
-    if (!targetTableIds.length) return;
-
-    // Collect candidate fields on the duplicated tables: include link fields and
-    // any computed fields so their values are (re)materialized into physical columns.
-    const fields = await prisma.field.findMany({
-      where: {
-        tableId: { in: targetTableIds },
-        deletedTime: null,
-      },
-      select: { id: true, tableId: true, type: true, isLookup: true, isComputed: true },
-    });
-
-    // Group by table and select fields that should be persisted via updateFromSelect
-    const byTable = new Map<string, string[]>();
-    for (const f of fields) {
-      // Link fields (non-lookup) have persisted display JSON; include them
-      const isLink = f.type === FieldType.Link && !f.isLookup;
-      // Computed fields (lookup/rollup/formula-not-generated) are marked isComputed
-      const isComputed = !!f.isComputed;
-      if (!isLink && !isComputed) continue;
-      const list = byTable.get(f.tableId) || [];
-      list.push(f.id);
-      byTable.set(f.tableId, list);
-    }
-
-    if (!byTable.size) return;
-
-    const sources = Array.from(byTable.entries()).map(([tableId, fieldIds]) => ({
-      tableId,
-      fieldIds,
-    }));
-
-    // No-op update; we only want to evaluate and persist computed values.
-    await this.computedOrchestrator.computeCellChangesForFieldsAfterCreate(sources, async () => {
-      return;
-    });
   }
 
   async emitBaseDuplicateAuditLog(baseId: string, recordsLength?: number) {

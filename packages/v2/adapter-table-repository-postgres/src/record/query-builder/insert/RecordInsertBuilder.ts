@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-this-alias */
 import type { Table, DomainError, LinkField, FieldId, TableId, RecordId } from '@teable/v2-core';
-import { FieldType, ok, RecordId as RecordIdVO } from '@teable/v2-core';
+import { err, FieldType, ok, RecordId as RecordIdVO } from '@teable/v2-core';
 import type { Kysely, CompiledQuery } from 'kysely';
 import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
+import { normalizeStoredLinkItems } from '../../normalizeLinkItems';
 
 import { FieldInsertValueVisitor, type FieldInsertResult } from '../../visitors';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -134,6 +136,10 @@ export interface RecordInsertBuilderContext {
   lastModifiedByName?: string;
   lastModifiedByEmail?: string;
   autoNumber?: number;
+  /** When true, generate SQL to fill missing link titles via JOIN */
+  fillLinkTitles?: boolean;
+  /** Foreign tables for missing-title link fill SQL. */
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 /**
@@ -353,6 +359,23 @@ export class RecordInsertBuilder {
                 entry.recordIds.set(recordId.toString(), recordId);
               }
               extraSeedRecordsMap.set(tableIdStr, entry);
+            }
+
+            const normalizedLinkItems = normalizeStoredLinkItems(rawValue);
+            const hasMissingTitles =
+              context.fillLinkTitles && normalizedLinkItems.some((item) => item.id && !item.title);
+            if (hasMissingTitles) {
+              const filledValueResult = buildFilledLinkValueExpression({
+                linkField,
+                linkItems: normalizedLinkItems,
+                fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
+              });
+              if (filledValueResult.isErr()) {
+                return err(filledValueResult.error);
+              }
+              if (filledValueResult.value) {
+                values[dbFieldName] = filledValueResult.value;
+              }
             }
           }
         } else {
@@ -610,8 +633,6 @@ export class RecordInsertBuilder {
   }
 
   /**
-   * Build an UPDATE statement to populate user fields after INSERT.
-   * This uses a subquery to fetch user info from the users table.
    *
    * @param tableName - The fully qualified table name (schema.table)
    * @param recordId - The record ID to update

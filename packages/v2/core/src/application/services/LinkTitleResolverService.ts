@@ -4,8 +4,13 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
+import { OrSpec } from '../../domain/shared/specification/OrSpec';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldType } from '../../domain/table/fields/FieldType';
+import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import type { ClearFieldValueSpec } from '../../domain/table/records/specs/values/ClearFieldValueSpec';
 import type {
   ICellValueSpec,
@@ -22,8 +27,8 @@ import {
 import type { SetLongTextValueSpec } from '../../domain/table/records/specs/values/SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from '../../domain/table/records/specs/values/SetMultipleSelectValueSpec';
 import type { SetNumberValueSpec } from '../../domain/table/records/specs/values/SetNumberValueSpec';
-import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetRatingValueSpec } from '../../domain/table/records/specs/values/SetRatingValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import type { SetSingleLineTextValueSpec } from '../../domain/table/records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../domain/table/records/specs/values/SetSingleSelectValueSpec';
 import type { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
@@ -39,26 +44,17 @@ import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { ICellValueSpecResolver } from './SpecResolver';
 
-/**
- * Input for resolving link titles to record IDs.
- */
 export interface LinkTitleResolveRequest {
   readonly fieldId: FieldId;
   readonly foreignTableId: TableId;
   readonly titles: ReadonlyArray<string>;
 }
 
-/**
- * Result of resolving link titles to record IDs.
- */
 export interface LinkTitleResolveResult {
   readonly fieldId: FieldId;
   readonly resolvedIds: ReadonlyArray<{ id: string; title: string }>;
 }
 
-/**
- * Visitor that collects SetLinkValueByTitleSpec instances from a cell value spec.
- */
 class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   private readonly collected: SetLinkValueByTitleSpec[] = [];
 
@@ -145,22 +141,6 @@ class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   }
 }
 
-/**
- * Service that resolves link field titles to record IDs.
- *
- * This service is used in typecast mode when users provide record titles
- * instead of record IDs for link fields. It queries the foreign table's
- * primary field to find matching record IDs.
- *
- * @example
- * ```typescript
- * const resolver = container.get(LinkTitleResolverService);
- * const result = await resolver.resolve(context, baseId, [
- *   { fieldId, foreignTableId, titles: ['Project A', 'Project B'] }
- * ]);
- * // Returns: [{ fieldId, resolvedIds: [{ id: 'recXxx', title: 'Project A' }, ...] }]
- * ```
- */
 @injectable()
 export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkValueByTitleSpec> {
   constructor(
@@ -170,9 +150,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     private readonly recordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository
   ) {}
 
-  /**
-   * Extract SetLinkValueByTitleSpec instances from a cell value spec.
-   */
   extractLinkTitleSpecs(
     spec: ICellValueSpec
   ): Result<ReadonlyArray<SetLinkValueByTitleSpec>, DomainError> {
@@ -184,13 +161,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     return ok(visitor.getCollected());
   }
 
-  /**
-   * Resolve link titles to record IDs by querying foreign tables.
-   *
-   * @param context - Execution context
-   * @param requests - Array of resolve requests (fieldId, foreignTableId, titles)
-   * @returns Array of resolve results aligned to the input order
-   */
   async resolve(
     context: IExecutionContext,
     requests: ReadonlyArray<LinkTitleResolveRequest>
@@ -203,8 +173,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       }
 
       const results: LinkTitleResolveResult[] = new Array(requests.length);
-
-      // Group requests by foreign table ID for efficiency
       const byForeignTable = new Map<
         string,
         Array<{ index: number; request: LinkTitleResolveRequest }>
@@ -217,13 +185,10 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         byForeignTable.set(tableIdStr, existing);
       }
 
-      // Process each foreign table
       for (const [foreignTableIdStr, tableRequests] of byForeignTable) {
-        // Load the foreign table
         const foreignTableId = tableRequests[0]!.request.foreignTableId;
         const foreignTableResult = yield* await service.loadForeignTable(context, foreignTableId);
 
-        // Get primary field for title matching
         const primaryFieldId = foreignTableResult.primaryFieldId();
         const primaryFieldResult = foreignTableResult.getField((f) =>
           f.id().equals(primaryFieldId)
@@ -236,16 +201,14 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           );
         }
 
-        // Collect all unique titles for this table
         const allTitles = new Set<string>();
         for (const entry of tableRequests) {
           for (const title of entry.request.titles) {
-            allTitles.add(title);
+            if (title) allTitles.add(title);
           }
         }
 
         if (allTitles.size === 0) {
-          // No titles to resolve, set empty results
           for (const entry of tableRequests) {
             results[entry.index] = {
               fieldId: entry.request.fieldId,
@@ -255,7 +218,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           continue;
         }
 
-        // Query records with matching titles
         const titleToId = yield* await service.queryRecordsByTitles(
           context,
           foreignTableResult,
@@ -263,7 +225,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           [...allTitles]
         );
 
-        // Build results for each request
         for (const entry of tableRequests) {
           const resolvedIds: Array<{ id: string; title: string }> = [];
           for (const title of entry.request.titles) {
@@ -271,7 +232,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
             if (recordId) {
               resolvedIds.push({ id: recordId, title });
             }
-            // If title not found, skip it (typecast mode ignores missing)
           }
           results[entry.index] = {
             fieldId: entry.request.fieldId,
@@ -284,9 +244,93 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     });
   }
 
-  /**
-   * Check if a spec contains any SetLinkValueByTitleSpec that needs resolution.
-   */
+  private async loadForeignTable(
+    context: IExecutionContext,
+    foreignTableId: TableId
+  ): Promise<Result<Table, DomainError>> {
+    return this.tableRepository.findOne(context, TableByIdSpec.create(foreignTableId));
+  }
+
+  private async queryRecordsByTitles(
+    context: IExecutionContext,
+    table: Table,
+    primaryFieldId: FieldId,
+    titles: ReadonlyArray<string>
+  ): Promise<Result<Map<string, string>, DomainError>> {
+    const service = this;
+
+    return safeTry<Map<string, string>, DomainError>(async function* () {
+      const primaryFieldResult = table.getField((f) => f.id().equals(primaryFieldId));
+      if (primaryFieldResult.isErr()) {
+        return err(primaryFieldResult.error);
+      }
+      const primaryField = primaryFieldResult.value;
+
+      if (!primaryField.type().equals(FieldType.singleLineText())) {
+        return err(
+          domainError.validation({
+            message: 'Primary field must be a single line text field for title resolution',
+          })
+        );
+      }
+
+      const querySpec = yield* service.buildTitleQuerySpec(primaryField, titles);
+      const queryResult = yield* await service.recordQueryRepository.find(
+        context,
+        table,
+        querySpec,
+        { mode: 'stored' }
+      );
+
+      const titlesSet = new Set(titles);
+      const titleToId = new Map<string, string>();
+      for (const record of queryResult.records) {
+        const primaryValue = record.fields[primaryFieldId.toString()];
+        if (primaryValue !== null && primaryValue !== undefined) {
+          const titleStr = String(primaryValue);
+          if (titlesSet.has(titleStr) && !titleToId.has(titleStr)) {
+            titleToId.set(titleStr, record.id);
+          }
+        }
+      }
+
+      return ok(titleToId);
+    });
+  }
+
+  private buildTitleQuerySpec(
+    primaryField: Field,
+    titles: ReadonlyArray<string>
+  ): Result<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    DomainError
+  > {
+    const uniqueTitles = [...new Set(titles.filter(Boolean))];
+    if (uniqueTitles.length === 0) {
+      return ok(undefined);
+    }
+
+    let querySpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
+    for (const title of uniqueTitles) {
+      const titleValue = RecordConditionLiteralValue.create(title);
+      if (titleValue.isErr()) {
+        return err(titleValue.error);
+      }
+
+      const titleSpec = primaryField.spec().create({
+        operator: 'is',
+        value: titleValue.value,
+      });
+      if (titleSpec.isErr()) {
+        return err(titleSpec.error);
+      }
+
+      querySpec = querySpec ? new OrSpec(querySpec, titleSpec.value) : titleSpec.value;
+    }
+
+    return ok(querySpec);
+  }
+
   needsResolution(spec: ICellValueSpec): boolean {
     const extractResult = this.extractLinkTitleSpecs(spec);
     if (extractResult.isErr()) return false;
@@ -358,78 +402,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     });
   }
 
-  private async loadForeignTable(
-    context: IExecutionContext,
-    foreignTableId: TableId
-  ): Promise<Result<Table, DomainError>> {
-    const spec = TableByIdSpec.create(foreignTableId);
-    return this.tableRepository.findOne(context, spec);
-  }
-
-  private async queryRecordsByTitles(
-    context: IExecutionContext,
-    table: Table,
-    primaryFieldId: FieldId,
-    titles: ReadonlyArray<string>
-  ): Promise<Result<Map<string, string>, DomainError>> {
-    const service = this;
-
-    return safeTry<Map<string, string>, DomainError>(async function* () {
-      // Get the primary field for building the condition
-      const primaryFieldResult = table.getField((f) => f.id().equals(primaryFieldId));
-      if (primaryFieldResult.isErr()) {
-        return err(primaryFieldResult.error);
-      }
-      const primaryField = primaryFieldResult.value;
-
-      // Primary field must be a text field for title matching
-      if (!primaryField.type().equals(FieldType.singleLineText())) {
-        return err(
-          domainError.validation({
-            message: 'Primary field must be a single line text field for title resolution',
-          })
-        );
-      }
-
-      // Query all records and filter in memory
-      // TODO: Optimize with SQL-level filtering when the repository supports it
-      const queryResult = yield* await service.recordQueryRepository.find(
-        context,
-        table,
-        undefined, // No filter - get all records
-        { mode: 'stored' }
-      );
-
-      // Build title -> recordId map
-      const titlesSet = new Set(titles);
-      const titleToId = new Map<string, string>();
-      for (const record of queryResult.records) {
-        const primaryValue = record.fields[primaryFieldId.toString()];
-        if (primaryValue !== null && primaryValue !== undefined) {
-          const titleStr = String(primaryValue);
-          // Only take the first match for each title (in case of duplicates)
-          if (titlesSet.has(titleStr) && !titleToId.has(titleStr)) {
-            titleToId.set(titleStr, record.id);
-          }
-        }
-      }
-
-      return ok(titleToId);
-    });
-  }
-
-  /**
-   * Resolve link titles in a spec and replace SetLinkValueByTitleSpec with SetLinkValueSpec.
-   *
-   * This method:
-   * 1. Extracts all SetLinkValueByTitleSpec from the spec
-   * 2. Resolves titles to record IDs by querying foreign tables
-   * 3. Replaces SetLinkValueByTitleSpec with SetLinkValueSpec containing resolved IDs
-   *
-   * @param context - Execution context
-   * @param spec - The spec to process
-   * @returns A new spec with all title-based specs replaced with ID-based specs
-   */
   async resolveAndReplace(
     context: IExecutionContext,
     spec: ICellValueSpec
@@ -437,15 +409,12 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     const service = this;
 
     return safeTry<ICellValueSpec, DomainError>(async function* () {
-      // 1. Extract all SetLinkValueByTitleSpec
       const titleSpecs = yield* service.extractLinkTitleSpecs(spec);
 
-      // If no title specs, return original
       if (titleSpecs.length === 0) {
         return ok(spec);
       }
 
-      // 2. Build resolve requests
       const requestEntries: Array<{
         spec: SetLinkValueByTitleSpec;
         request: LinkTitleResolveRequest;
@@ -462,7 +431,6 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         });
       }
 
-      // 3. Resolve all titles
       const resolvedList =
         requestEntries.length > 0
           ? yield* await service.resolve(
@@ -476,43 +444,34 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         resolvedBySpec.set(requestEntries[i]!.spec, resolvedList[i]!);
       }
 
-      // 4. Replace specs recursively
       return ok(replaceSpecs(spec, resolvedBySpec));
     });
   }
 }
 
-/**
- * Recursively replace SetLinkValueByTitleSpec with SetLinkValueSpec in a spec tree.
- */
 function replaceSpecs(
   spec: ICellValueSpec,
   resolvedMap: Map<SetLinkValueByTitleSpec, LinkTitleResolveResult>
 ): ICellValueSpec {
-  // Check if this is an AndSpec
   if (spec instanceof AndSpec) {
     const left = replaceSpecs(spec.leftSpec() as ICellValueSpec, resolvedMap);
     const right = replaceSpecs(spec.rightSpec() as ICellValueSpec, resolvedMap);
     return new AndSpec<TableRecord, ICellValueSpecVisitor>(left, right);
   }
 
-  // Check if this is a SetLinkValueByTitleSpec
   if (spec instanceof SetLinkValueByTitleSpec) {
     const resolved = resolvedMap.get(spec);
 
-    // If no titles or empty result, create empty link value
     if (!resolved || resolved.resolvedIds.length === 0) {
       return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
     }
 
-    // Create SetLinkValueSpec with resolved IDs
-    const linkItems: LinkItem[] = resolved.resolvedIds.map((r) => ({
-      id: r.id,
-      title: r.title,
+    const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
     }));
     return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems));
   }
 
-  // Return other specs unchanged
   return spec;
 }

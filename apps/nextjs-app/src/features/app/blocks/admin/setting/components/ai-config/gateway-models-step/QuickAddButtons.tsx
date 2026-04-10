@@ -11,9 +11,14 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import type { TFunction } from 'next-i18next';
+import {
+  calculateMultiplier,
+  formatMultiplier,
+  formatPriceToCredits,
+} from '../ai-model-select/utils';
 import { GATEWAY_PROVIDER_ICONS } from '../constant';
 import type { IGatewayModelAPI } from './types';
-import { formatUsdPriceShort, generateLabelFromId, getPricingFromApiModel } from './utils';
+import { detectIsImageModel, generateLabelFromId, getPricingFromApiModel } from './utils';
 
 // Extract provider from model ID (e.g., "anthropic/claude-sonnet-4.5" -> "anthropic")
 function getProviderFromModelId(modelId: string): GatewayModelProvider | undefined {
@@ -76,8 +81,9 @@ export function QuickAddButtons({
                       <div>{modelId}</div>
                       {showPricing && pricing && (
                         <div className="text-muted-foreground">
-                          In: {formatUsdPriceShort(pricing.input)} / Out:{' '}
-                          {formatUsdPriceShort(pricing.output)}
+                          {detectIsImageModel(modelId, apiModel)
+                            ? formatPriceToCredits(pricing)
+                            : formatMultiplier(calculateMultiplier(pricing)) || ''}
                         </div>
                       )}
                     </div>

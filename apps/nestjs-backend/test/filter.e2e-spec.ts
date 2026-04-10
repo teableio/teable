@@ -15,6 +15,20 @@ afterAll(async () => {
   await app.close();
 });
 
+const withForceV2All = async <T>(callback: () => Promise<T>) => {
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  process.env.FORCE_V2_ALL = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  }
+};
+
 async function updateViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   try {
     const result = await apiSetViewFilter(tableId, viewId, filterRo);
@@ -80,18 +94,17 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
 });
 
 // V1 does not normalize is/isNot+null through the domain FieldConditionSpecBuilder,
-// so this test only applies to V2.
-describe.skipIf(process.env.FORCE_V2_ALL !== 'true')(
-  'View filter with is/isNot null value (e2e)',
-  () => {
-    let tableId: string;
-    let viewId: string;
+// so this test must force the V2 path explicitly inside the single integration run.
+describe('View filter with is/isNot null value (e2e)', () => {
+  let tableId: string;
+  let viewId: string;
 
-    afterAll(async () => {
-      await permanentDeleteTable(baseId, tableId);
-    });
+  afterAll(async () => {
+    await permanentDeleteTable(baseId, tableId);
+  });
 
-    it('should apply view filter with is+null (checkbox) and isNotEmpty via API viewId query', async () => {
+  it('should apply view filter with is+null (checkbox) and isNotEmpty via API viewId query', async () => {
+    await withForceV2All(async () => {
       // Create table with checkbox and text fields
       const table = await createTable(baseId, {
         name: 'View Filter Null Test',
@@ -144,5 +157,5 @@ describe.skipIf(process.env.FORCE_V2_ALL !== 'true')(
       const names = records.map((r) => r.fields.Name).sort();
       expect(names).toEqual(['row2', 'row3']);
     });
-  }
-);
+  });
+});

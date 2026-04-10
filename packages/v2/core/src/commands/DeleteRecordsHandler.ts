@@ -21,6 +21,7 @@ import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
+import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
 import { composeRecordConditionSpecs } from './shared/recordWriteScope';
 import { toTableRecord } from './shared/toTableRecord';
 
@@ -88,16 +89,9 @@ export class DeleteRecordsHandler
         { mode: 'stored', includeOrders: true }
       );
 
-      const recordSnapshots: IDeletedRecordSnapshot[] = queryResult.records.map((record) => ({
-        id: record.id,
-        fields: record.fields,
-        autoNumber: record.autoNumber,
-        createdTime: record.createdTime,
-        createdBy: record.createdBy,
-        lastModifiedTime: record.lastModifiedTime,
-        lastModifiedBy: record.lastModifiedBy,
-        orders: record.orders,
-      }));
+      const recordSnapshots: IDeletedRecordSnapshot[] = queryResult.records.map((record) =>
+        buildDeletedRecordSnapshot(table, record)
+      );
 
       const existingRecordIds = queryResult.records.map((record) => record.id);
       if (pluginRecordSpec && existingRecordIds.length > 0) {
@@ -152,6 +146,13 @@ export class DeleteRecordsHandler
           baseId: table.baseId(),
           recordIds: command.recordIds,
           recordSnapshots,
+          orchestration: {
+            operationId: context.requestId,
+            totalRecordCount: command.recordIds.length,
+            totalChunkCount: 1,
+            chunkIndex: 0,
+            scope: 'operation',
+          },
         }),
       ];
       yield* await handler.eventBus.publishMany(context, events);

@@ -1,18 +1,30 @@
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
-import { useEffect, useState, type FC, type PropsWithChildren } from 'react';
+import { useEffect, useMemo, useState, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../hooks';
-import { useBaseId, useRecordOperations, useTableId, useTablePermission } from '../../hooks';
+import {
+  useBaseId,
+  useRecordOperations,
+  useTableId,
+  useTablePermission,
+  useTables,
+} from '../../hooks';
 import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
+import { useExpandRecordNavigation } from './ExpandRecordNavigationContext';
 import type { ExpandRecordModel } from './type';
 
 const { toast } = sonner;
+
+const openLinkedRecordKeys = new Set<string>();
+
+export const isLinkedRecordOpen = (tableId: string, recordId: string) =>
+  openLinkedRecordKeys.has(`${tableId}-${recordId}`);
 const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const { tableId, children } = props;
   const currentTableId = useTableId();
@@ -36,6 +48,7 @@ interface IExpandRecorderProps {
   recordIds?: string[];
   model?: ExpandRecordModel;
   serverData?: IRecord;
+  isLinkedRecord?: boolean;
   onClose?: () => void;
   onUpdateRecordIdCallback?: (recordId: string) => void;
   buttonClickStatusHook?: IButtonClickStatusHook;
@@ -59,10 +72,43 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     showHistory,
     showComment,
     onAttachmentDownload,
+    isLinkedRecord,
   } = props;
   const { t } = useTranslation();
+  const tables = useTables();
+  const currentTableId = useTableId();
+  const { onHighlightTable, navigateToTable } = useExpandRecordNavigation();
   const permission = useTablePermission();
   const { duplicateRecord } = useRecordOperations();
+
+  const isForeignTable = isLinkedRecord || (Boolean(currentTableId) && tableId !== currentTableId);
+  const foreignTableName = useMemo(() => {
+    if (!isForeignTable) return undefined;
+    return tables.find((table) => table.id === tableId)?.name;
+  }, [isForeignTable, tables, tableId]);
+
+  useEffect(() => {
+    if (!isLinkedRecord || !recordId) return;
+    const key = `${tableId}-${recordId}`;
+    openLinkedRecordKeys.add(key);
+    return () => {
+      openLinkedRecordKeys.delete(key);
+    };
+  }, [isLinkedRecord, tableId, recordId]);
+
+  useEffect(() => {
+    if (isForeignTable && recordId) {
+      onHighlightTable?.(tableId);
+      window.dispatchEvent(
+        new CustomEvent('teable:highlight-table', { detail: { tableId, action: 'push' } })
+      );
+      return () => {
+        window.dispatchEvent(
+          new CustomEvent('teable:highlight-table', { detail: { tableId, action: 'pop' } })
+        );
+      };
+    }
+  }, [isForeignTable, tableId, recordId, onHighlightTable]);
   const editable = Boolean(permission['record|update']);
   const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
@@ -147,6 +193,12 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           serverData={serverData?.id === recordId ? serverData : undefined}
           recordHistoryVisible={editable && recordHistoryVisible}
           commentVisible={canRead && commentVisible}
+          foreignTableName={foreignTableName}
+          onForeignTableClick={
+            isForeignTable && tableId !== currentTableId
+              ? () => navigateToTable?.(tableId)
+              : undefined
+          }
           onClose={onClose}
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}

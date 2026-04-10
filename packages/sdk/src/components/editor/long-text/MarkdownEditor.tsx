@@ -89,6 +89,14 @@ const MarkdownEditorInner = ({
           <ExpandMarkdownEditor value={latestValueRef.current} onChange={onChange} />
         </div>
       )}
+      {hideExpand && (
+        <span
+          className="absolute bottom-1.5 right-2 select-none rounded-sm bg-foreground/80 px-1 py-px text-[9px] font-semibold tracking-wide text-background backdrop-blur-sm"
+          title="Markdown enabled"
+        >
+          MD
+        </span>
+      )}
     </div>
   );
 };

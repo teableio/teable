@@ -4,10 +4,15 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DraggableHandle, Trash2, Image as ImageIcon } from '@teable/icons';
 import type { IGatewayModel, IModelAbility, GatewayModelProvider } from '@teable/openapi';
-import { Button, Switch, Badge, cn } from '@teable/ui-lib/shadcn';
+import { Button, Switch, Badge, Input, cn } from '@teable/ui-lib/shadcn';
+import { useState } from 'react';
+import {
+  calculateMultiplier,
+  formatMultiplier,
+  formatPriceToCredits,
+} from '../ai-model-select/utils';
 import { GATEWAY_PROVIDER_ICONS } from '../constant';
 import { CAPABILITY_LABELS } from '../GatewayModelPickerDialog';
-import { formatUsdPriceShort } from './utils';
 
 // Extract provider from model ID (e.g., "anthropic/claude-sonnet-4.5" -> "anthropic")
 function getProviderFromModelId(modelId: string): GatewayModelProvider | undefined {
@@ -23,9 +28,19 @@ interface IModelCardProps {
   showPricing: boolean;
   onToggleEnabled: (modelId: string, enabled: boolean) => void;
   onRemove: (modelId: string) => void;
+  onUpdateI18nDescription: (modelId: string, i18nDescription: { en?: string; zh?: string }) => void;
 }
 
-export function ModelCard({ model, showPricing, onToggleEnabled, onRemove }: IModelCardProps) {
+export function ModelCard({
+  model,
+  showPricing,
+  onToggleEnabled,
+  onRemove,
+  onUpdateI18nDescription,
+}: IModelCardProps) {
+  const [descEn, setDescEn] = useState(model.i18nDescription?.en ?? '');
+  const [descZh, setDescZh] = useState(model.i18nDescription?.zh ?? '');
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: model.id,
   });
@@ -66,20 +81,26 @@ export function ModelCard({ model, showPricing, onToggleEnabled, onRemove }: IMo
           <span className="font-medium">{model.label}</span>
           {/* Show pricing (only in Cloud) */}
           {showPricing &&
-            model.pricing &&
-            (model.pricing.input || model.pricing.output || model.pricing.image) && (
-              <Badge
-                variant="outline"
-                className={cn(
-                  'px-2 text-[11px]',
-                  model.enabled ? 'text-foreground' : 'text-muted-foreground'
-                )}
-              >
-                {model.modelType === 'image' && model.pricing.image
-                  ? `$${model.pricing.image}/img`
-                  : `${formatUsdPriceShort(model.pricing.input)}/${formatUsdPriceShort(model.pricing.output)}`}
-              </Badge>
-            )}
+            (() => {
+              const isImage =
+                model.modelType === 'image' ||
+                model.isImageModel ||
+                model.tags?.includes('image-generation');
+              const label = isImage
+                ? formatPriceToCredits(model.pricing) || undefined
+                : formatMultiplier(calculateMultiplier(model.pricing));
+              return label ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'px-2 text-[11px]',
+                    model.enabled ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {label}
+                </Badge>
+              ) : null;
+            })()}
           {/* Show Image badge based on modelType or isImageModel flag */}
           {(model.modelType === 'image' ||
             model.isImageModel ||
@@ -98,6 +119,23 @@ export function ModelCard({ model, showPricing, onToggleEnabled, onRemove }: IMo
         </div>
 
         <code className="text-xs text-muted-foreground">{model.id}</code>
+
+        <div className="flex gap-2">
+          <Input
+            className="h-7 text-xs"
+            placeholder="EN description"
+            value={descEn}
+            onChange={(e) => setDescEn(e.target.value)}
+            onBlur={() => onUpdateI18nDescription(model.id, { en: descEn, zh: descZh })}
+          />
+          <Input
+            className="h-7 text-xs"
+            placeholder="ZH 描述"
+            value={descZh}
+            onChange={(e) => setDescZh(e.target.value)}
+            onBlur={() => onUpdateI18nDescription(model.id, { en: descEn, zh: descZh })}
+          />
+        </div>
 
         {model.capabilities && (
           <div className="flex gap-1">
