@@ -79,6 +79,36 @@ export const formatPriceToCredits = (
   return `${inputCredits}/${outputCredits} credits/1M`;
 };
 
+const INPUT_WEIGHT = 0.75;
+const OUTPUT_WEIGHT = 0.25;
+// Claude Opus 4.6: input $5/M, output $25/M → weighted $10/M
+const BASELINE_WEIGHTED_COST = 5 * INPUT_WEIGHT + 25 * OUTPUT_WEIGHT; // 10
+
+/**
+ * Calculate price multiplier relative to Claude Opus 4.6 (1x baseline).
+ * Uses weighted average: 75% input + 25% output (reflects typical token distribution).
+ */
+export const calculateMultiplier = (
+  pricing: { input?: string; output?: string } | undefined
+): number | undefined => {
+  if (!pricing?.input || !pricing?.output) return undefined;
+  const inputPerM = parseFloat(pricing.input) * 1_000_000;
+  const outputPerM = parseFloat(pricing.output) * 1_000_000;
+  if (isNaN(inputPerM) || isNaN(outputPerM)) return undefined;
+  return (inputPerM * INPUT_WEIGHT + outputPerM * OUTPUT_WEIGHT) / BASELINE_WEIGHTED_COST;
+};
+
+export const formatMultiplier = (ratio: number | undefined): string | undefined => {
+  if (ratio === undefined) return undefined;
+  if (ratio === 0) return 'free';
+  if (ratio < 0.01) return '0.01x';
+  if (ratio < 0.1) return `${ratio.toFixed(2)}x`;
+  if (ratio < 1) return `${ratio.toFixed(1)}x`;
+  if (ratio === 1) return '1x';
+  if (ratio < 10) return `${ratio.toFixed(1)}x`;
+  return `${Math.round(ratio)}x`;
+};
+
 /**
  * Check if a model option is an image generation model
  */

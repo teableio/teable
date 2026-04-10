@@ -22,6 +22,7 @@ const publicAiConfigSchema = z.object({
   capabilities: z
     .object({
       disableActions: z.array(z.string()).optional(),
+      disableModelSelection: z.boolean().optional(),
     })
     .optional(),
   // Gateway models enabled by admin (for space-level AI config)

@@ -5,20 +5,21 @@ import type { Result } from 'neverthrow';
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import { type ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { FieldCondition } from '../domain/table/fields/types/FieldCondition';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
+import { RecordId } from '../domain/table/records/RecordId';
 import { IncomingLinkCandidateSpec } from '../domain/table/records/specs/IncomingLinkCandidateSpec';
 import { IncomingLinkSelectedSpec } from '../domain/table/records/specs/IncomingLinkSelectedSpec';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { RecordConditionSpecBuilder } from '../domain/table/records/specs/RecordConditionSpecBuilder';
-import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
-import { TableByIncomingReferenceToTableSpec } from '../domain/table/specs/TableByIncomingReferenceToTableSpec';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
+import { TableByIncomingReferenceToTableSpec } from '../domain/table/specs/TableByIncomingReferenceToTableSpec';
 import type { Table } from '../domain/table/Table';
-import { type ISpecification } from '../domain/shared/specification/ISpecification';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -27,7 +28,6 @@ import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { ListTableRecordsQuery, type RecordSortValue } from './ListTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
-import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
 import {
   isRecordFilterCondition,
   isRecordFilterFieldReferenceValue,
@@ -37,7 +37,8 @@ import {
   type RecordFilterCondition,
   type RecordFilterNode,
 } from './RecordFilterDto';
-import { buildRecordConditionSpec } from './RecordFilterMapper';
+import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
+import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -355,10 +356,28 @@ export class ListTableRecordsHandler
           const resolvedFilter = query.filter
             ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
             : undefined;
-          const effectiveView =
+
+          // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
+          const linkCandidatePlan = query.filterLinkCellCandidate
+            ? yield* await this.buildLinkCandidatePlan(
+                context,
+                table,
+                query.filterLinkCellCandidate
+              )
+            : undefined;
+
+          // query.viewId takes priority; fall back to the link field's filterByViewId.
+          let effectiveView =
             query.viewId && !query.ignoreViewQuery
               ? yield* table.getViewById(query.viewId)
               : undefined;
+          if (!effectiveView && linkCandidatePlan?.filterByViewId && !query.ignoreViewQuery) {
+            const fallbackViewResult = table.getViewById(linkCandidatePlan.filterByViewId);
+            if (fallbackViewResult.isOk()) {
+              effectiveView = fallbackViewResult.value;
+            }
+            // silently ignore if the view no longer exists
+          }
           const resolvedSort = yield* resolveSortValues(
             table,
             query.sort,
@@ -368,8 +387,12 @@ export class ListTableRecordsHandler
           const effectiveQueryDefaults = effectiveView
             ? yield* effectiveView.queryDefaults()
             : undefined;
+          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(
+            table,
+            effectiveQueryDefaults?.filter()
+          );
           const effectiveFilter = sanitizeFilterByEnabledFieldIds(
-            mergeFilterWithViewDefaults(effectiveQueryDefaults?.filter(), resolvedFilter),
+            mergeFilterWithViewDefaults(sanitizedDefaultFilter, resolvedFilter),
             enabledFieldIds
           );
           const effectiveSort = mergeSortWithViewDefaults(
@@ -386,7 +409,8 @@ export class ListTableRecordsHandler
             context,
             table,
             query,
-            effectiveFilter
+            effectiveFilter,
+            linkCandidatePlan
           );
 
           // 3. Resolve visible-row search through the repository
@@ -459,7 +483,12 @@ export class ListTableRecordsHandler
     context: IExecutionContext,
     table: Table,
     query: ListTableRecordsQuery,
-    resolvedFilter: RecordFilter | undefined
+    resolvedFilter: RecordFilter | undefined,
+    linkCandidatePlan?: {
+      candidateSpec?: IncomingLinkCandidateSpec;
+      linkFilterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null;
+      filterByViewId?: string;
+    }
   ): Promise<
     Result<
       {
@@ -492,13 +521,23 @@ export class ListTableRecordsHandler
         }
 
         if (query.filterLinkCellCandidate) {
-          const candidateSpec = yield* await this.buildIncomingLinkCandidateSpec(
-            context,
-            table,
-            query.filterLinkCellCandidate
-          );
-          if (candidateSpec) {
-            builder.addConditionSpec(candidateSpec);
+          // Use pre-resolved plan from handle() to avoid double DB lookup.
+          const plan =
+            linkCandidatePlan ??
+            (yield* await this.buildLinkCandidatePlan(
+              context,
+              table,
+              query.filterLinkCellCandidate
+            ));
+
+          if (plan.candidateSpec) {
+            builder.addConditionSpec(plan.candidateSpec);
+            hasSpec = true;
+          }
+
+          // Apply the link field's custom filter (equivalent to v1 getFormLinkRecords).
+          if (plan.linkFilterSpec) {
+            builder.addConditionSpec(plan.linkFilterSpec);
             hasSpec = true;
           }
         }
@@ -601,11 +640,20 @@ export class ListTableRecordsHandler
     );
   }
 
-  private async buildIncomingLinkCandidateSpec(
+  private async buildLinkCandidatePlan(
     context: IExecutionContext,
     table: Table,
     filterLinkCellCandidate: string | [string, string]
-  ): Promise<Result<IncomingLinkCandidateSpec | undefined, DomainError>> {
+  ): Promise<
+    Result<
+      {
+        candidateSpec?: IncomingLinkCandidateSpec;
+        linkFilterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null;
+        filterByViewId?: string;
+      },
+      DomainError
+    >
+  > {
     return safeTry(
       async function* (this: ListTableRecordsHandler) {
         const fieldId = Array.isArray(filterLinkCellCandidate)
@@ -620,26 +668,24 @@ export class ListTableRecordsHandler
         const fkHostTableName = yield* linkField.fkHostTableNameString();
         const foreignKeyName = yield* linkField.foreignKeyNameString();
 
+        // Build candidate exclusion spec (OneMany / OneOne relationships only).
+        let candidateSpec: IncomingLinkCandidateSpec | undefined;
         if (linkField.relationship().toString() === 'oneMany') {
-          return ok(
-            this.isJunctionTable(fkHostTableName)
-              ? IncomingLinkCandidateSpec.create({
-                  mode: 'junctionReferenceAvailable',
-                  selfKeyName,
-                  hostRecordId,
-                  fkHostTableName,
-                  foreignKeyName,
-                })
-              : IncomingLinkCandidateSpec.create({
-                  mode: 'currentColumnAvailable',
-                  selfKeyName,
-                  hostRecordId,
-                })
-          );
-        }
-
-        if (linkField.relationship().toString() === 'oneOne') {
-          return ok(
+          candidateSpec = this.isJunctionTable(fkHostTableName)
+            ? IncomingLinkCandidateSpec.create({
+                mode: 'junctionReferenceAvailable',
+                selfKeyName,
+                hostRecordId,
+                fkHostTableName,
+                foreignKeyName,
+              })
+            : IncomingLinkCandidateSpec.create({
+                mode: 'currentColumnAvailable',
+                selfKeyName,
+                hostRecordId,
+              });
+        } else if (linkField.relationship().toString() === 'oneOne') {
+          candidateSpec =
             selfKeyName === '__id'
               ? IncomingLinkCandidateSpec.create({
                   mode: 'hostReferenceAvailable',
@@ -652,11 +698,38 @@ export class ListTableRecordsHandler
                   mode: 'currentColumnAvailable',
                   selfKeyName,
                   hostRecordId,
-                })
-          );
+                });
         }
 
-        return ok(undefined);
+        // Extract the link field's custom filter (v1 IFilter format stored in options).
+        // This mirrors what v1's getFormLinkRecords does: apply the link field's configured filter.
+        let linkFilterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null =
+          null;
+        const rawFilter = linkField.config().filter();
+        if (rawFilter !== null && rawFilter !== undefined) {
+          const conditionResult = FieldCondition.create({ filter: rawFilter });
+          if (conditionResult.isOk()) {
+            const specResult = conditionResult.value.toRecordConditionSpec(table);
+            if (specResult.isOk()) {
+              linkFilterSpec = specResult.value;
+            } else {
+              this.logger.warn('Failed to build link field filter spec', {
+                fieldId,
+                error: specResult.error,
+              });
+            }
+          } else {
+            this.logger.warn('Failed to parse link field filter', {
+              fieldId,
+              error: conditionResult.error,
+            });
+          }
+        }
+
+        // Extract filterByViewId so handle() can use it as the effective view.
+        const filterByViewId = linkField.filterByViewId()?.toString() ?? undefined;
+
+        return ok({ candidateSpec, linkFilterSpec, filterByViewId });
       }.bind(this)
     );
   }

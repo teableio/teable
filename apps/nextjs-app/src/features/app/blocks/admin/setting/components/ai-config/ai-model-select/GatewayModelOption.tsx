@@ -9,9 +9,16 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { Check } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
 import { parseModelKey } from '../utils';
 import type { IModelOption } from './types';
-import { formatPriceToCredits, getModelIcon } from './utils';
+import {
+  calculateMultiplier,
+  checkIsImageModel,
+  formatMultiplier,
+  formatPriceToCredits,
+  getModelIcon,
+} from './utils';
 
 interface IGatewayModelOptionProps {
   option: IModelOption;
@@ -29,11 +36,18 @@ export function GatewayModelOption({
   showPrice,
   onSelect,
 }: IGatewayModelOptionProps) {
-  const { modelKey, label, pricing, contextWindow, maxTokens, tags, ownedBy } = option;
+  const { i18n } = useTranslation();
+  const { modelKey, label, pricing, contextWindow, maxTokens, tags, ownedBy, i18nDescription } =
+    option;
   const { model } = parseModelKey(modelKey);
   const displayName = label || model;
-  const hasPrice = pricing?.input || pricing?.output || pricing?.image;
+  const isImage = checkIsImageModel(option);
+  const priceLabel = isImage
+    ? formatPriceToCredits(pricing) || undefined
+    : formatMultiplier(calculateMultiplier(pricing));
   const Icon = getModelIcon(modelKey, ownedBy);
+  const descLocale = i18n.language?.startsWith('zh') ? 'zh' : 'en';
+  const localizedDescription = i18nDescription?.[descLocale];
 
   return (
     <TooltipProvider>
@@ -48,7 +62,14 @@ export function GatewayModelOption({
             <div className="flex items-center">
               <Check className={cn('mr-2 size-4', isSelected ? 'opacity-100' : 'opacity-0')} />
               {Icon && <Icon className="mr-1.5 size-4 shrink-0" />}
-              <span className="max-w-[280px] truncate font-medium">{displayName}</span>
+              <div className="flex flex-col">
+                <span className="truncate font-medium">{displayName}</span>
+                {localizedDescription && (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {localizedDescription}
+                  </span>
+                )}
+              </div>
             </div>
           </CommandItem>
         </TooltipTrigger>
@@ -72,10 +93,7 @@ export function GatewayModelOption({
                 ))}
               </div>
             )}
-            {/* Pricing (only show when showPrice is true - for Cloud) */}
-            {showPrice && hasPrice && (
-              <div className="text-muted-foreground">{formatPriceToCredits(pricing)}</div>
-            )}
+            {showPrice && priceLabel && <div className="text-muted-foreground">{priceLabel}</div>}
           </div>
         </TooltipContent>
       </Tooltip>

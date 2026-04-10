@@ -58,6 +58,19 @@ export interface RecordUpdateSqlResult {
   linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
+export interface RecordUpdateMutationPlan {
+  /** Raw SET clauses for repositories that need UPDATE ... RETURNING */
+  setClauses: Record<string, unknown>;
+  /** Additional SQL statements (junction table updates, FK updates for link fields) */
+  additionalStatements: CompiledSqlStatement[];
+  /** Field IDs that were changed (for computed field propagation) */
+  changedFieldIds: FieldId[];
+  /** Computed update impact (used for propagation planning) */
+  impact: RecordUpdateImpact;
+  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  linkedRecordLocks: LinkedRecordLockInfo[];
+}
+
 /**
  * Context for building update data.
  */
@@ -66,6 +79,8 @@ export interface RecordUpdateBuilderContext {
   now: string;
   actorName?: string;
   actorEmail?: string;
+  fillLinkTitles?: boolean;
+  fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
 export type RecordUpdateSeedGroup = {
@@ -117,17 +132,52 @@ export class RecordUpdateBuilder {
     context: RecordUpdateBuilderContext;
   }): Promise<Result<RecordUpdateSqlResult, DomainError>> {
     const { table, tableName, tableDisplayName, mutateSpec, recordId, context } = params;
-    const db = this.db;
     const builder = this;
 
     return safeTry<RecordUpdateSqlResult, DomainError>(async function* () {
-      // Use CellValueMutateVisitor to generate all SQL statements
+      const { setClauses, additionalStatements, changedFieldIds, impact, linkedRecordLocks } =
+        yield* await builder.buildMutationPlan(params);
+
+      const mainUpdate = builder.db
+        .updateTable(tableName)
+        .set(setClauses)
+        .where('__id', '=', recordId)
+        .compile();
+
+      // Wrap with descriptions for EXPLAIN analysis
+      return ok({
+        mainUpdate: {
+          description: `Update record in ${tableDisplayName ?? tableName}`,
+          compiled: mainUpdate,
+        },
+        additionalStatements,
+        changedFieldIds,
+        impact,
+        linkedRecordLocks,
+      });
+    });
+  }
+
+  async buildMutationPlan(params: {
+    table: Table;
+    tableName: string;
+    mutateSpec: ICellValueSpec;
+    recordId: string;
+    context: RecordUpdateBuilderContext;
+  }): Promise<Result<RecordUpdateMutationPlan, DomainError>> {
+    const { table, tableName, mutateSpec, recordId, context } = params;
+    const db = this.db;
+    const builder = this;
+
+    return safeTry<RecordUpdateMutationPlan, DomainError>(async function* () {
       const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
         recordId,
         actorId: context.actorId,
         now: context.now,
         actorName: context.actorName,
         actorEmail: context.actorEmail,
+        fillLinkTitles: context.fillLinkTitles,
+        fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
       });
 
       yield* mutateSpec.accept(mutateVisitor);
@@ -136,8 +186,7 @@ export class RecordUpdateBuilder {
         return err(statementsResult.error);
       }
 
-      const { mainUpdate, additionalStatements, changedFieldIds } = statementsResult.value;
-
+      const { setClauses, additionalStatements, changedFieldIds } = statementsResult.value;
       const impactResult = await builder.collectUpdateImpact({
         table,
         tableName,
@@ -149,12 +198,8 @@ export class RecordUpdateBuilder {
         return err(impactResult.error);
       }
 
-      // Wrap with descriptions for EXPLAIN analysis
       return ok({
-        mainUpdate: {
-          description: `Update record in ${tableDisplayName ?? tableName}`,
-          compiled: mainUpdate,
-        },
+        setClauses,
         additionalStatements: additionalStatements.map((stmt, index) => ({
           description: `Additional statement ${index + 1}`,
           compiled: stmt,

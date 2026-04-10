@@ -10,6 +10,12 @@ export interface AttachmentLookupRecord {
   path: string;
   size: number;
   mimetype: string;
+  width?: number;
+  height?: number;
+  thumbnailPath?: {
+    sm?: string;
+    lg?: string;
+  };
 }
 
 export interface IAttachmentLookupService {

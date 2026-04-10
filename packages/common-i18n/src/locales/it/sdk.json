@@ -285,7 +285,8 @@
     "showHiddenFields": "Mostra {{count}} campi nascosti",
     "hideHiddenFields": "Nascondi {{count}} campi nascosti",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "recordFrom": "Record da"
   },
   "sort": {
     "label": "Ordina",

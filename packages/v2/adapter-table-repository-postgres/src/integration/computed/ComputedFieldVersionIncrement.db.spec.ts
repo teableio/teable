@@ -45,7 +45,6 @@ describe('Computed Field Version Increment (db)', () => {
   let testContainer: IV2NodeTestContainer;
 
   beforeEach(async () => {
-    await getV2NodeTestContainer().dispose();
     testContainer = await createV2NodeTestContainer();
     setV2NodeTestContainer(testContainer);
     fieldIdCounter = 0;

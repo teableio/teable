@@ -3,6 +3,10 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
+import {
+  type IForeignTableLoaderService,
+  NullForeignTableLoaderService,
+} from '../application/services/ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -12,8 +16,11 @@ import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { DomainEventName } from '../domain/shared/DomainEventName';
 import type { RecordCreated } from '../domain/table/events/RecordCreated';
+import {
+  RecordCreated as RecordCreatedEvent,
+  isRecordCreatedEvent,
+} from '../domain/table/events/RecordCreated';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
@@ -29,9 +36,15 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import { type IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
+import { mergeRecordFieldValues } from '../application/services/recordEventFieldValues';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
+import {
+  buildOperationBatchMutation,
+  withBatchMutation,
+} from './shared/batchMutationOrchestration';
 
 export class CreateRecordsResult {
   private constructor(
@@ -70,6 +83,8 @@ export class CreateRecordsHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.recordWriteSideEffectService)
@@ -83,7 +98,9 @@ export class CreateRecordsHandler
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
   ) {}
 
   @TraceSpan()
@@ -189,22 +206,37 @@ export class CreateRecordsHandler
             },
             DomainError
           >(async function* () {
+            const batchMutation = buildOperationBatchMutation(context, records.length);
+            const transactionContextWithBatchMutation = withBatchMutation(
+              transactionContext,
+              batchMutation
+            );
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
-                transactionContext,
+                transactionContextWithBatchMutation,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
             }
-            yield* await pluginExecution.beforePersist(transactionContext);
+            yield* await pluginExecution.beforePersist(transactionContextWithBatchMutation);
+            const fillLinkTitleForeignTables = command.typecast
+              ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
+                  transactionContextWithBatchMutation,
+                  mutateSpecs
+                )
+              : new Map();
             const mutation = yield* await handler.tableRecordRepository.insertMany(
-              transactionContext,
+              transactionContextWithBatchMutation,
               tableForCreate,
               records,
-              command.order ? { order: command.order } : undefined
+              {
+                ...(command.order ? { order: command.order } : {}),
+                ...(command.typecast ? { fillLinkTitles: true } : {}),
+                ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+              }
             );
             return ok({ mutation, tableEvents });
           });
@@ -212,15 +244,33 @@ export class CreateRecordsHandler
       );
 
       // 5. Pull events from Table aggregate root and aggregate RecordCreated events
-      const rawEvents = tableForCreate.pullDomainEvents();
+      const decoratedChangedFieldsByRecord =
+        yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+          tableForCreate,
+          mutationResult.mutation.changedFieldsByRecord
+        );
+      const rawEvents = tableForCreate.pullDomainEvents().map((event) =>
+        isRecordCreatedEvent(event)
+          ? RecordCreatedEvent.create({
+              tableId: event.tableId,
+              baseId: event.baseId,
+              recordId: event.recordId,
+              fieldValues: mergeRecordFieldValues(
+                event.fieldValues,
+                decoratedChangedFieldsByRecord?.get(event.recordId.toString())
+              ),
+              source: event.source,
+            })
+          : event
+      );
 
       // Aggregate multiple RecordCreated events into a single RecordsBatchCreated event
       const recordCreatedEvents: RecordCreated[] = [];
       const otherEvents: IDomainEvent[] = [];
 
       for (const event of rawEvents) {
-        if (event.name.equals(DomainEventName.recordCreated())) {
-          recordCreatedEvents.push(event as RecordCreated);
+        if (isRecordCreatedEvent(event)) {
+          recordCreatedEvents.push(event);
         } else {
           otherEvents.push(event);
         }
@@ -239,6 +289,7 @@ export class CreateRecordsHandler
             orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
           })),
           source,
+          orchestration: buildOperationBatchMutation(context, records.length),
         });
         events = [batchEvent, ...otherEvents];
       } else {
