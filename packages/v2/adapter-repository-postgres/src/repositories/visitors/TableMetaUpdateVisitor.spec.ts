@@ -1,14 +1,24 @@
 import {
+  CellValueMultiplicity,
+  CellValueType,
   BaseId,
   DbFieldName,
   DefaultTableMapper,
   FieldHasError,
   FieldId,
   FieldName,
+  FormulaExpression,
+  FormulaField,
   LinkFieldConfig,
+  LookupField,
+  LookupOptions,
+  NumberFormatting,
+  RollupExpression,
+  RollupFieldConfig,
   Table,
   TableByNameSpec,
   TableId,
+  type ITableMapper,
   TableName,
   TableRenameSpec,
   TableUpdateFieldDbFieldNameSpec,
@@ -25,6 +35,7 @@ import {
   PostgresQueryCompiler,
   type CompiledQuery,
 } from 'kysely';
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableMetaUpdateVisitor, type TableUpdateBuilder } from './TableMetaUpdateVisitor';
@@ -57,6 +68,7 @@ const createTableFixture = () => {
   const linkFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
   const foreignTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
   const lookupFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+  const rollupFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
   const linkConfig = LinkFieldConfig.create({
     relationship: 'manyOne',
     foreignTableId: foreignTableId.toString(),
@@ -73,14 +85,33 @@ const createTableFixture = () => {
     .withName(FieldName.create('Related')._unsafeUnwrap())
     .withConfig(linkConfig)
     .done();
+  builder
+    .field()
+    .rollup()
+    .withId(rollupFieldId)
+    .withName(FieldName.create('Total')._unsafeUnwrap())
+    .withConfig(
+      RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+      })._unsafeUnwrap()
+    )
+    .withExpression(RollupExpression.create('sum({values})')._unsafeUnwrap())
+    .withResultType({
+      cellValueType: CellValueType.number(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    })
+    .done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap().clone(new DefaultTableMapper())._unsafeUnwrap();
   const titleField = table.getFields()[0]!;
   const linkField = table.getFields()[1]!;
+  const rollupField = table.getFields()[2]!;
   const view = table.views()[0]!;
 
-  return { table, titleField, linkField, view };
+  return { table, titleField, linkField, rollupField, view };
 };
 
 const createDetachedField = (name: string) => {
@@ -196,6 +227,111 @@ describe('TableMetaUpdateVisitor', () => {
 
     expect(addManyResult._unsafeUnwrap()).toHaveLength(2);
     expect(duplicateResult._unsafeUnwrap()).toHaveLength(1);
+  });
+
+  it('preserves lookup inner options in add-field statements when mapper DTO metadata is incomplete', () => {
+    class IncompleteLookupMapper extends DefaultTableMapper implements ITableMapper {
+      override toDTO(table: Table) {
+        const dto = super.toDTO(table)._unsafeUnwrap();
+        const lookupDto = dto.fields.find((field) => field.id === lookupFieldId.toString());
+        if (!lookupDto) {
+          throw new Error('Lookup DTO not found');
+        }
+        delete (lookupDto as { options?: unknown }).options;
+        delete (lookupDto as { lookupOptions?: unknown }).lookupOptions;
+        return ok(dto);
+      }
+    }
+
+    const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+    const innerFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Lookup Updates')._unsafeUnwrap());
+
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.addFieldFromResult(
+      LookupField.create({
+        id: lookupFieldId,
+        name: FieldName.create('Formula Lookup')._unsafeUnwrap(),
+        innerField: FormulaField.create({
+          id: innerFieldId,
+          name: FieldName.create('Amount Formula')._unsafeUnwrap(),
+          expression: FormulaExpression.create('1')._unsafeUnwrap(),
+          formatting: NumberFormatting.create({
+            type: 'currency',
+            precision: 2,
+            symbol: '¥',
+          })._unsafeUnwrap(),
+          resultType: {
+            cellValueType: CellValueType.number(),
+            isMultipleCellValue: CellValueMultiplicity.single(),
+          },
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: `fld${'t'.repeat(16)}`,
+          foreignTableId: `tbl${'t'.repeat(16)}`,
+          lookupFieldId: `fld${'u'.repeat(16)}`,
+        })._unsafeUnwrap(),
+      })
+    );
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap().clone(new DefaultTableMapper())._unsafeUnwrap();
+    const lookupField = table.getField((field) => field.id().equals(lookupFieldId))._unsafeUnwrap();
+    const db = createTestDb();
+    const visitor = new TableMetaUpdateVisitor({
+      db,
+      table,
+      tableMapper: new IncompleteLookupMapper(),
+      actorId: 'system',
+      now: new Date('2026-04-09T00:00:00.000Z'),
+      where: (eb) => eb.eb('id', '=', table.id().toString()),
+    });
+
+    const addResult = visitor.visitTableAddField({ field: () => lookupField } as never);
+    expect(addResult.isOk()).toBe(true);
+
+    const compiled = compileStatements(db, addResult._unsafeUnwrap())[0]!;
+    const jsonParameters = compiled.parameters.flatMap((parameter) => {
+      if (typeof parameter !== 'string' || !parameter.startsWith('{')) {
+        return [];
+      }
+
+      try {
+        return [JSON.parse(parameter) as Record<string, unknown>];
+      } catch {
+        return [];
+      }
+    });
+    const fieldOptions = jsonParameters.find((value) => value.expression === '1') as
+      | Record<string, unknown>
+      | undefined;
+    const lookupOptions = jsonParameters.find(
+      (value) => value.lookupFieldId === `fld${'u'.repeat(16)}`
+    ) as Record<string, unknown> | undefined;
+
+    expect(fieldOptions).toMatchObject({
+      expression: '1',
+      formatting: {
+        type: 'currency',
+        precision: 2,
+        symbol: '¥',
+      },
+    });
+    expect(lookupOptions).toMatchObject({
+      linkFieldId: `fld${'t'.repeat(16)}`,
+      foreignTableId: `tbl${'t'.repeat(16)}`,
+      lookupFieldId: `fld${'u'.repeat(16)}`,
+    });
   });
 
   it('updates field metadata columns and tracks touched field versions', () => {
@@ -362,7 +498,6 @@ describe('TableMetaUpdateVisitor', () => {
       'visitUpdateFormulaFormatting',
       'visitUpdateFormulaShowAs',
       'visitUpdateFormulaTimeZone',
-      'visitUpdateRollupConfig',
       'visitUpdateRollupExpression',
       'visitUpdateRollupFormatting',
       'visitUpdateRollupShowAs',
@@ -372,6 +507,7 @@ describe('TableMetaUpdateVisitor', () => {
       'visitUpdateFormulaExpression',
       'visitUpdateLinkRelationship',
       'visitUpdateLookupOptions',
+      'visitUpdateRollupConfig',
     ] as const;
 
     for (const method of optionMethods) {
@@ -419,6 +555,26 @@ describe('TableMetaUpdateVisitor', () => {
     expect(storageUpdate.isOk()).toBe(true);
     expect(compileStatements(db, optionOnly._unsafeUnwrap())[0]?.sql).toContain('"options" = $1');
     expect(compileStatements(db, storageUpdate._unsafeUnwrap())[0]?.sql).toContain('"meta" = $2');
+  });
+
+  it('uses storage metadata updates for rollup config changes', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const { linkField, rollupField } = fixture;
+
+    const result = visitor.visitUpdateRollupConfig({ fieldId: () => rollupField.id() } as never);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('"lookup_linked_field_id" =');
+    expect(compiled.sql).toContain('"lookup_options" =');
+    expect(compiled.parameters).toContain(linkField.id().toString());
+    expect(
+      compiled.parameters.some(
+        (parameter) =>
+          typeof parameter === 'string' && parameter.includes(`"linkFieldId":"${linkField.id()}"`)
+      )
+    ).toBe(true);
   });
 
   it('returns errors for unsupported selectors and missing fields, and clones cleanly', () => {

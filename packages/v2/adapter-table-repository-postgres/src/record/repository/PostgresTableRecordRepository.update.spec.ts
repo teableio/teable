@@ -515,7 +515,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "Alice",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -633,7 +633,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "Alice",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -970,7 +970,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],
@@ -1099,7 +1099,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],

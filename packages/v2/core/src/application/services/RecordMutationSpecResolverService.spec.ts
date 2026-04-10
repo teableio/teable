@@ -96,8 +96,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeRecordQueryRepository implements ITableRecordQueryRepository {
+  constructor(private readonly records: ReadonlyArray<TableRecordReadModel> = []) {}
+
   async find(_context: IExecutionContext, _table: Table, _spec?: unknown, _options?: unknown) {
-    return ok({ records: [] as TableRecordReadModel[], total: 0 });
+    return ok({ records: this.records, total: this.records.length });
   }
 
   async findOne(
@@ -246,7 +248,6 @@ describe('RecordMutationSpecResolverService', () => {
       avatarUrl: '/api/attachments/read/public/avatar/usr-1',
     });
   });
-
   it('resolveAndReplaceMany batches resolution for multiple specs', async () => {
     const userFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
     const userFieldId3 = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();

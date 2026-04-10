@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../../base/BaseId';
 import type { DomainError } from '../../../shared/DomainError';
 import { ForeignTable } from '../../ForeignTable';
+import { DbTableName } from '../../DbTableName';
 import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
 import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
@@ -437,6 +438,51 @@ describe('LinkField', () => {
         ._unsafeUnwrap()
         .startsWith(`${baseId.toString()}.junction_${linkFieldId.toString()}`)
     ).toBe(true);
+  });
+
+  it('prefers provided physical table names when building db config', () => {
+    const baseId = createBaseId('m')._unsafeUnwrap();
+    const hostTableId = createTableId('n')._unsafeUnwrap();
+    const foreignTableId = createTableId('o')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('p')._unsafeUnwrap();
+    const linkFieldId = createFieldId('q')._unsafeUnwrap();
+    const linkFieldName = FieldName.create('Link')._unsafeUnwrap();
+    const hostTableDbTableName = DbTableName.rehydrate(
+      `${baseId.toString()}.enrollments`
+    )._unsafeUnwrap();
+    const foreignTableDbTableName = DbTableName.rehydrate(
+      `${baseId.toString()}.students`
+    )._unsafeUnwrap();
+
+    const buildField = (relationship: string) =>
+      LinkFieldConfig.create({
+        relationship,
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+      }).andThen((config) =>
+        LinkField.create({
+          id: linkFieldId,
+          name: linkFieldName,
+          config,
+        }).andThen((field) =>
+          field
+            .ensureDbConfig({
+              baseId,
+              hostTableId,
+              hostTableDbTableName,
+              foreignTableDbTableName,
+            })
+            .map(() => field)
+        )
+      );
+
+    const manyOne = buildField('manyOne')._unsafeUnwrap();
+    const oneMany = buildField('oneMany')._unsafeUnwrap();
+
+    expect(manyOne.fkHostTableNameString()._unsafeUnwrap()).toBe(
+      `${baseId.toString()}.enrollments`
+    );
+    expect(oneMany.fkHostTableNameString()._unsafeUnwrap()).toBe(`${baseId.toString()}.students`);
   });
 
   it('ensures symmetricFieldId even when db config already exists', () => {

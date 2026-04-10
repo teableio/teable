@@ -380,4 +380,30 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
     `.execute(db);
     expect(Number(statsAfter.rows[0]?.count ?? '0')).toBeGreaterThan(0);
   });
+
+  it('inserts a record even when no explicit field values changed', async () => {
+    const { table, schemaName, tableName, viewOrderColumn } = await createTableWithStorage(
+      db,
+      'insert-empty-fields'
+    );
+    createdSchemas.push(schemaName);
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const context = { actorId };
+
+    const emptyRecord = table.createRecord(new Map())._unsafeUnwrap().record;
+    const insertResult = await repository.insert(context, table, emptyRecord);
+    expect(insertResult.isOk()).toBe(true);
+
+    const fullTableName = `${schemaName}.${tableName}`;
+    const rows = await sql<{ __id: string; order_value: number | null }>`
+      SELECT __id, ${sql.ref(viewOrderColumn)} as order_value
+      FROM ${sql.table(fullTableName)}
+    `.execute(db);
+
+    expect(rows.rows).toHaveLength(1);
+    expect(rows.rows[0]?.__id).toBe(emptyRecord.id().toString());
+    expect(rows.rows[0]?.order_value).toBe(1);
+  });
 });

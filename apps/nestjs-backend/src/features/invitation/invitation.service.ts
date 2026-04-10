@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IBaseRole, IRole } from '@teable/core';
 import { generateInvitationId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -19,6 +20,7 @@ import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
 import { CustomHttpException } from '../../custom.exception';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -35,7 +37,8 @@ export class InvitationService {
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
@@ -178,6 +181,13 @@ export class InvitationService {
         );
         result[sendUser.email] = { invitationId: id };
       }
+
+      this.eventEmitter.emit(Events.INVITATION_EMAIL_SEND, {
+        resourceId,
+        resourceType,
+        emailCount: emails.length,
+      });
+
       return result;
     });
   }
@@ -253,6 +263,12 @@ export class InvitationService {
       resourceType,
       type: 'link',
     });
+
+    this.eventEmitter.emit(Events.INVITATION_LINK_CREATE, {
+      resourceId,
+      resourceType,
+    });
+
     return {
       invitationId: id,
       role: role as IRole,
@@ -479,6 +495,13 @@ export class InvitationService {
         });
       });
     }
+    this.eventEmitter.emit(Events.INVITATION_ACCEPT, {
+      resourceId: spaceId || baseId,
+      resourceType: spaceId ? CollaboratorType.Space : CollaboratorType.Base,
+      accepterId: currentUserId,
+      inviterId: createdBy,
+    });
+
     return { baseId, spaceId };
   }
 

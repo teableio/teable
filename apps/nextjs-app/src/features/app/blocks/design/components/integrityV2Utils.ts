@@ -1,6 +1,7 @@
 import type {
   IV2SchemaIntegrityFilterStatus,
   IV2SchemaIntegrityCheckResult,
+  IV2SchemaIntegrityI18nMessage,
   IV2SchemaIntegrityRepairResult,
 } from '@teable/openapi';
 
@@ -45,6 +46,8 @@ export type Translate = {
   (key: string): string;
   (key: string, options: Record<string, unknown>): string;
 };
+
+type IntegrityI18nMessage = IV2SchemaIntegrityI18nMessage;
 
 export const integrityFilterStatuses: IntegrityFilterStatus[] = [
   'success',
@@ -333,6 +336,24 @@ const localizedMessageKeys: Record<string, string> = {
   'Base schema integrity check completed': 'table:table.integrity.v2.message.baseCheckCompleted',
   'Schema integrity repair completed': 'table:table.integrity.v2.message.repairCompleted',
   'Base schema integrity repair completed': 'table:table.integrity.v2.message.baseRepairCompleted',
+  'Skipped: status not selected for repair':
+    'table:table.integrity.v2.message.skippedStatusNotSelected',
+  'Skipped: repair unavailable': 'table:table.integrity.v2.message.skippedRepairUnavailable',
+};
+
+export const translateIntegrityMessage = (
+  t: Translate,
+  message?: IntegrityI18nMessage
+): string | undefined => {
+  if (!message) {
+    return undefined;
+  }
+
+  if (message.key) {
+    return t(message.key, message.values || {});
+  }
+
+  return message.fallback;
 };
 
 export const getLocalizedRuleDescription = (t: Translate, result: IntegrityResult) => {
@@ -422,11 +443,40 @@ export const getLocalizedResultMessage = (t: Translate, result: IntegrityResult)
 
 export const getLocalizedDetailItems = (
   t: Translate,
-  items?: ReadonlyArray<string>
+  items?: ReadonlyArray<
+    | string
+    | {
+        code?: string;
+        message: IntegrityI18nMessage;
+        description?: IntegrityI18nMessage;
+      }
+  >
 ): string[] | undefined => {
   if (!items?.length) {
     return undefined;
   }
 
-  return items.map((item) => localizeSystemDetail(t, item));
+  return items.flatMap((item) => {
+    if (typeof item === 'string') {
+      return [localizeSystemDetail(t, item)];
+    }
+
+    const message = translateIntegrityMessage(t, item.message);
+    const description = translateIntegrityMessage(t, item.description);
+
+    if (message && description) {
+      return [`${message}: ${description}`];
+    }
+
+    const localized = description || message || item.code;
+    return localized ? [localized] : [];
+  });
+};
+
+export const getLocalizedRepairReason = (t: Translate, result: IntegrityResult) => {
+  return translateIntegrityMessage(t, result.repair?.reason);
+};
+
+export const getLocalizedRepairDescription = (t: Translate, result: IntegrityResult) => {
+  return translateIntegrityMessage(t, result.repair?.description);
 };

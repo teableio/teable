@@ -571,7 +571,6 @@
       },
       "app": {
         "domain": "Alan Adı",
-        "v0ApiKey": "v0 API Anahtarı",
         "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
         "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
         "vercelToken": "Vercel API Token",
@@ -609,11 +608,6 @@
           "title": "LLM API",
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
           "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
-        },
-        "app": {
-          "title": "Uygulama Üretimi",
-          "description": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
-          "errorTips": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak"
         },
         "webSearch": {
           "title": "Web Araması",
@@ -1071,9 +1065,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "YENİ GÜNCELLEME",
-    "title": "Uygulama için Özel Alan Adı Kullanıma Sunuldu",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "10 Nisan Güncellemesi",
+    "title": "Yeni Teable Agent: Süper Zeki, Düşük Maliyet",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

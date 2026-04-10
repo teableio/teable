@@ -321,6 +321,75 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
     });
   });
 
+  describe('global search should skip number fields for non-numeric queries', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'number_skip_test',
+        fields: [
+          {
+            name: 'text',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'amount',
+            type: FieldType.Number,
+            options: {
+              formatting: { type: 'decimal', precision: 0 },
+            },
+          },
+        ],
+        records: [
+          { fields: { text: 'apple', amount: 100 } },
+          { fields: { text: 'banana', amount: 200 } },
+          { fields: { text: '100 items', amount: 300 } },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should not match number fields when searching non-numeric text globally', async () => {
+      const { records } = (
+        await apiGetRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+          search: ['apple', '', true],
+        })
+      ).data;
+      // should only match the text field, not scan number fields
+      expect(records.length).toBe(1);
+      expect(records[0].fields[table.fields[0].id]).toBe('apple');
+    });
+
+    it('should match number fields when searching numeric text globally', async () => {
+      const { records } = (
+        await apiGetRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+          search: ['100', '', true],
+        })
+      ).data;
+      // should match both text "100 items" and number 100
+      expect(records.length).toBe(2);
+    });
+
+    it('should still search number fields when targeting a specific field', async () => {
+      const numberFieldId = table.fields[1].id;
+      const { records } = (
+        await apiGetRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+          search: ['apple', numberFieldId, true],
+        })
+      ).data;
+      // no number value matches "apple"
+      expect(records.length).toBe(0);
+    });
+  });
+
   describe('search value with special characters', () => {
     let table: ITableFullVo;
     beforeAll(async () => {

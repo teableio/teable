@@ -1407,7 +1407,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private datetimeDiff(params: SqlExpr[]): SqlExpr {
     const start = params[0];
     const end = params[1];
-    const unit = params[2] ?? makeExpr(sqlStringLiteral('day'), 'string', false);
+    const unit = params[2] ?? makeExpr(sqlStringLiteral('second'), 'string', false);
     if (!start || !end) return makeExpr('NULL', 'number', false);
     const startDt = this.coerceToDatetime(start);
     const endDt = this.coerceToDatetime(end);

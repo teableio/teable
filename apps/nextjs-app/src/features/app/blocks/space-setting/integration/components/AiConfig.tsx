@@ -30,6 +30,8 @@ interface IAIConfigProps {
   onChange: (value: IAIIntegrationConfig) => void;
 }
 
+const emptyArray: never[] = [];
+
 export const AIConfig = (props: IAIConfigProps) => {
   const { config, onChange } = props;
   const router = useRouter();
@@ -48,7 +50,7 @@ export const AIConfig = (props: IAIConfigProps) => {
     resolver: zodResolver(aiConfigVoSchema),
     defaultValues: defaultValues,
   });
-  const llmProviders = form.watch('llmProviders') ?? [];
+  const llmProviders = form.watch('llmProviders') ?? emptyArray;
   const { reset } = form;
   const { t } = useTranslation('common');
 
@@ -204,8 +206,15 @@ export const AIConfig = (props: IAIConfigProps) => {
         <AIControlCard
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
           instanceDisableActions={instanceAIDisableActions}
+          allowModelSelection={!form.watch('capabilities.disableModelSelection')}
+          onAllowModelSelectionChange={(value) => {
+            const current = form.getValues('capabilities') ?? {};
+            form.setValue('capabilities', { ...current, disableModelSelection: !value });
+            onSubmit(form.getValues());
+          }}
           onChange={(value: { disableActions: string[] }) => {
-            form.setValue('capabilities', value);
+            const current = form.getValues('capabilities') ?? {};
+            form.setValue('capabilities', { ...current, ...value });
             onSubmit(form.getValues());
           }}
         />

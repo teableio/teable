@@ -18,9 +18,14 @@ import {
 } from '@teable/ui-lib/shadcn';
 import type { TFunction } from 'next-i18next';
 import { useEffect, useRef } from 'react';
+import {
+  calculateMultiplier,
+  formatMultiplier,
+  formatPriceToCredits,
+} from '../ai-model-select/utils';
 import { GATEWAY_PROVIDER_ICONS } from '../constant';
 import type { IGatewayModelAPI } from './types';
-import { formatUsdPriceShort, detectIsImageModel, getPricingFromApiModel } from './utils';
+import { detectIsImageModel, getPricingFromApiModel } from './utils';
 
 interface IModelSearchPopoverProps {
   open: boolean;
@@ -150,12 +155,16 @@ export function ModelSearchPopover({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {pricing && (pricing.input || pricing.output) && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {formatUsdPriceShort(pricing.input)}/
-                              {formatUsdPriceShort(pricing.output)}
-                            </Badge>
-                          )}
+                          {(() => {
+                            const label = isImage
+                              ? formatPriceToCredits(pricing) || undefined
+                              : formatMultiplier(calculateMultiplier(pricing));
+                            return label ? (
+                              <Badge variant="outline" className="text-[10px]">
+                                {label}
+                              </Badge>
+                            ) : null;
+                          })()}
                           {isAlreadyAdded && (
                             <Badge variant="secondary" className="text-[10px]">
                               Added

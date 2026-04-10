@@ -614,7 +614,6 @@
       },
       "app": {
         "domain": "ドメイン",
-        "v0ApiKey": "v0 APIキー",
         "customDomain": "カスタムドメイン（オプション）",
         "customDomainDescription": "アプリのデプロイ用のカスタムドメインを設定し、<a>Vercelドメイン</a>にアクセスしてカスタムドメインを取得してください",
         "vercelToken": "Vercel APIトークン",
@@ -652,11 +651,6 @@
           "title": "LLM API",
           "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",
           "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
-        },
-        "app": {
-          "title": "アプリビルダー",
-          "description": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません。<anchor>設定に移動</anchor>",
-          "errorTips": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません"
         },
         "webSearch": {
           "title": "ウェブ検索",
@@ -1083,9 +1077,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "新着アップデート",
-    "title": "アプリのカスタムドメインが利用可能に",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "4月10日アップデート",
+    "title": "新しい Teable Agent：超高性能、低コスト",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

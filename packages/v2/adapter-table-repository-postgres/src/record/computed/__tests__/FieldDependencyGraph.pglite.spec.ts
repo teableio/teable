@@ -107,6 +107,13 @@ describe('FieldDependencyGraph PGlite integration', () => {
   const priceFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
   const reportNameFieldId = FieldId.create(`fld${'g'.repeat(16)}`)._unsafeUnwrap();
   const conditionalRollupFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+  const reportLinkFieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
+  const reportLookupFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+  const reportFallbackLookupFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+  const logger = {
+    debug() {},
+    warn() {},
+  };
 
   beforeAll(async () => {
     pglite = await PGlite.create();
@@ -137,6 +144,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
       .addColumn('is_conditional_lookup', 'boolean')
       .addColumn('options', 'text')
       .addColumn('lookup_options', 'text')
+      .addColumn('lookup_linked_field_id', 'varchar')
       .addColumn('meta', 'text')
       .addColumn('deleted_time', 'timestamp')
       .execute();
@@ -226,6 +234,41 @@ describe('FieldDependencyGraph PGlite integration', () => {
           type: 'conditionalRollup',
           is_computed: true,
           options: conditionalRollupOptions,
+        },
+        {
+          id: reportLinkFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'link',
+          is_computed: false,
+          options: JSON.stringify({
+            foreignTableId: productsTableId.toString(),
+            lookupFieldId: productNameFieldId.toString(),
+          }),
+        },
+        {
+          id: reportLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          is_lookup: true,
+          lookup_options: JSON.stringify({
+            linkFieldId: reportLinkFieldId.toString(),
+            foreignTableId: productsTableId.toString(),
+            lookupFieldId: productNameFieldId.toString(),
+          }),
+          lookup_linked_field_id: reportLinkFieldId.toString(),
+        },
+        {
+          id: reportFallbackLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          is_lookup: true,
+          lookup_options: JSON.stringify({
+            linkFieldId: reportLinkFieldId.toString(),
+            foreignTableId: productsTableId.toString(),
+            lookupFieldId: productNameFieldId.toString(),
+          }),
         },
       ])
       .execute();
@@ -325,5 +368,39 @@ describe('FieldDependencyGraph PGlite integration', () => {
     console.log('  Boolean(row.is_conditional_lookup):', Boolean(row.is_conditional_lookup));
     console.log('  Would parse row.options:', !!row.options);
     console.log('  options.filter exists:', !!options.filter);
+  });
+
+  it('finds lookup dependents from seed link fields via lookup_linked_field_id with JSON fallback', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [reportLinkFieldId],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.has(reportLinkFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(reportLookupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(reportFallbackLookupFieldId.toString())).toBe(true);
+    expect(
+      result.value.edges.some(
+        (edge) =>
+          edge.fromFieldId.equals(reportLinkFieldId) &&
+          edge.toFieldId.equals(reportLookupFieldId) &&
+          edge.kind === 'same_record'
+      )
+    ).toBe(true);
+    expect(
+      result.value.edges.some(
+        (edge) =>
+          edge.fromFieldId.equals(reportLinkFieldId) &&
+          edge.toFieldId.equals(reportFallbackLookupFieldId) &&
+          edge.kind === 'same_record'
+      )
+    ).toBe(true);
   });
 });

@@ -6,12 +6,12 @@ import * as Sentry from '@sentry/nextjs';
 
 declare global {
   interface Window {
-    __TE__: { sentryDsn: string };
+    __TE__: { sentryDsn?: string; buildVersion?: string };
   }
 }
 
 Sentry.init({
-  release: process.env.NEXT_PUBLIC_BUILD_VERSION,
+  release: window.__TE__?.buildVersion ?? process.env.APP_VERSION,
   dsn: process.env.SENTRY_DSN || window.__TE__.sentryDsn,
   // Adjust this value in production, or use tracesSampler for greater control
   tracesSampleRate: 1,

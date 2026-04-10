@@ -612,7 +612,6 @@
       },
       "app": {
         "domain": "Dominio",
-        "v0ApiKey": "Chiave API v0",
         "customDomain": "Dominio Personalizzato (Opzionale)",
         "customDomainDescription": "Imposta il tuo dominio personalizzato per la distribuzione dell'app, accedi al <a>dominio Vercel</a> per ottenere il dominio personalizzato",
         "vercelToken": "Token API Vercel",
@@ -650,11 +649,6 @@
           "title": "LLM API",
           "description": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile, <anchor>vai alle impostazioni</anchor>",
           "errorTips": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile"
-        },
-        "app": {
-          "title": "Costruttore di app",
-          "description": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
-          "errorTips": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile"
         },
         "webSearch": {
           "title": "Ricerca web",
@@ -1081,9 +1075,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "NUOVO AGGIORNAMENTO",
-    "title": "Dominio personalizzato per l'App disponibile",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "Aggiornamento del 10 aprile",
+    "title": "Nuovo Teable Agent: Super intelligente, basso costo",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }
