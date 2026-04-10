@@ -9,7 +9,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
+import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
@@ -25,8 +25,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryStreamOptions,
@@ -45,7 +45,6 @@ import { ClearHandler } from './ClearHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
-  expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -241,6 +240,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
@@ -367,13 +370,140 @@ describe('ClearHandler', () => {
     const updatedValue = updated.fields().get(primaryFieldId)?.toValue();
     expect(updatedValue).toBeNull();
 
-    const event = eventBus.published.find((entry) => entry instanceof RecordsBatchUpdated) as
-      | RecordsBatchUpdated
-      | undefined;
+    const event = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(event).toBeDefined();
     expect(event!.updates[0]?.recordId).toBe(recordId);
     expect(event!.updates[0]?.oldVersion).toBe(existingVersion);
     expect(event!.updates[0]?.newVersion).toBe(existingVersion + 1);
+  });
+
+  it('trims clear targets to plugin-scoped update fields', async () => {
+    const { table, tableId, firstFieldId, secondFieldId } = buildProjectionTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'m'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [firstFieldId.toString()]: 100,
+          [secondFieldId.toString()]: 200,
+        },
+      },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository();
+    const handler = new ClearHandler(
+      tableQueryService,
+      createRecordWritePluginRunner([
+        {
+          name: 'scope-update-fields',
+          supports: (operation) => operation === RecordWriteOperationKind.updateMany,
+          scope: async () => ok({ updateFieldIds: new Set([firstFieldId.toString()]) }),
+          guard: async () => ok(undefined),
+        },
+      ]),
+      recordRepository,
+      recordQueryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 0],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updatedCount).toBe(1);
+    const updated = recordRepository.updatedRecords[0]!;
+    expect(updated.fields().get(firstFieldId)?.toValue()).toBeNull();
+    expect(updated.fields().get(secondFieldId)).toBeUndefined();
+  });
+
+  it('trims clear targets per record when plugin field scope varies by record', async () => {
+    const { table, tableId, firstFieldId, secondFieldId } = buildProjectionTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'x'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [firstFieldId.toString()]: 100,
+          [secondFieldId.toString()]: 200,
+        },
+      },
+      {
+        id: `rec${'y'.repeat(16)}`,
+        version: 1,
+        fields: {
+          [firstFieldId.toString()]: 300,
+          [secondFieldId.toString()]: 400,
+        },
+      },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository();
+    const handler = new ClearHandler(
+      tableQueryService,
+      createRecordWritePluginRunner([
+        {
+          name: 'scope-update-fields-per-record',
+          supports: (operation) => operation === RecordWriteOperationKind.updateMany,
+          scope: async () =>
+            ok({
+              updateFieldIds: new Set([firstFieldId.toString(), secondFieldId.toString()]),
+              resolveUpdateFieldIdsForRecord: (record) =>
+                record.fields().get(firstFieldId)?.toValue() === 100
+                  ? new Set([firstFieldId.toString()])
+                  : new Set([secondFieldId.toString()]),
+            }),
+          guard: async () => ok(undefined),
+        },
+      ]),
+      recordRepository,
+      recordQueryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 1],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updatedCount).toBe(2);
+    expect(recordRepository.updatedRecords).toHaveLength(2);
+    expect(recordRepository.updatedRecords[0]?.fields().get(firstFieldId)?.toValue()).toBeNull();
+    expect(recordRepository.updatedRecords[0]?.fields().get(secondFieldId)).toBeUndefined();
+    expect(recordRepository.updatedRecords[1]?.fields().get(firstFieldId)).toBeUndefined();
+    expect(recordRepository.updatedRecords[1]?.fields().get(secondFieldId)?.toValue()).toBeNull();
   });
 
   it('skips plugins that do not support updateMany', async () => {
@@ -421,7 +551,14 @@ describe('ClearHandler', () => {
     const result = await handler.handle(createContext(), command);
     result._unsafeUnwrap();
 
-    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.updateMany);
+    expect(calls.supports).toEqual([
+      RecordWriteOperationKind.updateMany,
+      RecordWriteOperationKind.updateMany,
+    ]);
+    expect(calls.prepare).toHaveLength(0);
+    expect(calls.guard).toHaveLength(0);
+    expect(calls.beforePersist).toHaveLength(0);
+    expect(calls.afterCommit).toHaveLength(0);
   });
 
   it('returns 0 when only computed columns are selected', async () => {

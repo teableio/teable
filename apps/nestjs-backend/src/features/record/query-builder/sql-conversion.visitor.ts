@@ -577,7 +577,7 @@ abstract class BaseSqlConversionVisitor<
           )
           .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
           .with(FunctionName.DatetimeDiff, () => {
-            const unitExpr = params[2] ?? `'day'`;
+            const unitExpr = params[2] ?? `'second'`;
             return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
           })
           .with(FunctionName.DatetimeFormat, () =>

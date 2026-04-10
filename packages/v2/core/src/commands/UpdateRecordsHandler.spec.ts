@@ -2,8 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordReorderService } from '../application/services/RecordReorderService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -17,11 +17,10 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { flattenAndSpecs } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { RecordReordered } from '../domain/table/events/RecordReordered';
-import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
+import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { RecordId } from '../domain/table/records/RecordId';
-import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
@@ -31,12 +30,12 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
-import { NoopLogger } from '../ports/defaults/NoopLogger';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type {
   ITableRecordRepository,
@@ -49,13 +48,13 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { UpdateRecordsCommand } from './UpdateRecordsCommand';
-import { UpdateRecordsHandler } from './UpdateRecordsHandler';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { UpdateRecordsCommand } from './UpdateRecordsCommand';
+import { UpdateRecordsHandler } from './UpdateRecordsHandler';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -308,6 +307,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    return ok({ totalDeleted: 0 });
+  }
 }
 
 class FakeRecordMutationSpecResolverService {
@@ -503,9 +506,7 @@ describe('UpdateRecordsHandler', () => {
     expect(unitOfWork.transactions).toHaveLength(1);
     expect(undoRedoService.entries).toHaveLength(1);
 
-    const batchEvent = eventBus.published.find((event) => event instanceof RecordsBatchUpdated) as
-      | RecordsBatchUpdated
-      | undefined;
+    const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(batchEvent).toBeDefined();
     expect(batchEvent?.updates).toHaveLength(2);
     expect(batchEvent?.updates[0]?.changes).toMatchObject([
@@ -617,7 +618,7 @@ describe('UpdateRecordsHandler', () => {
         .recordIds()
         .map((recordId) => recordId.toString())
     ).toEqual([recordIdA]);
-    expect(eventBus.published.some((event) => event instanceof RecordsBatchUpdated)).toBe(true);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(true);
     expect(undoRedoService.entries).toHaveLength(1);
   });
 
@@ -743,7 +744,35 @@ describe('UpdateRecordsHandler', () => {
       })._unsafeUnwrap()
     );
 
-    expect(result._unsafeUnwrap().updatedCount).toBe(2);
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.updatedCount).toBe(2);
+    expect(
+      payload.records?.map((record) => ({
+        id: record.id().toString(),
+        fields: Object.fromEntries(
+          record
+            .fields()
+            .entries()
+            .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+        ),
+      }))
+    ).toMatchObject([
+      {
+        id: recordIdA,
+        fields: {
+          [numberFieldId.toString()]: 99,
+          [textFieldId.toString()]: 'before-a',
+        },
+      },
+      {
+        id: recordIdB,
+        fields: {
+          [numberFieldId.toString()]: 2,
+          [textFieldId.toString()]: 'after-b',
+        },
+      },
+    ]);
     expect(recordRepository.updateManyCalls).toBe(0);
     expect(recordRepository.updateManyStreamCalls).toBe(1);
     expect(calls.prepare[0]?.payload).toMatchObject({
@@ -756,9 +785,7 @@ describe('UpdateRecordsHandler', () => {
     });
     expect(calls.prepare[0]?.payload).toHaveProperty('recordUpdates');
 
-    const batchEvent = eventBus.published.find((event) => event instanceof RecordsBatchUpdated) as
-      | RecordsBatchUpdated
-      | undefined;
+    const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(batchEvent?.updates.map((update) => update.changes)).toMatchObject([
       [
         {
@@ -818,9 +845,7 @@ describe('UpdateRecordsHandler', () => {
     );
 
     expect(result._unsafeUnwrap().updatedCount).toBe(1);
-    const batchEvent = eventBus.published.find((event) => event instanceof RecordsBatchUpdated) as
-      | RecordsBatchUpdated
-      | undefined;
+    const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(batchEvent?.updates[0]).toMatchObject({
       recordId,
       oldVersion: 3,
@@ -880,9 +905,7 @@ describe('UpdateRecordsHandler', () => {
 
     expect(result._unsafeUnwrap().updatedCount).toBe(1);
     expect(recordRepository.updateManyStreamCalls).toBe(1);
-    const batchEvent = eventBus.published.find((event) => event instanceof RecordsBatchUpdated) as
-      | RecordsBatchUpdated
-      | undefined;
+    const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(batchEvent?.updates).toHaveLength(1);
     expect(batchEvent?.updates[0]?.recordId).toBe(existingRecordId);
   });
@@ -1025,10 +1048,36 @@ describe('UpdateRecordsHandler', () => {
       })._unsafeUnwrap()
     );
 
-    expect(result._unsafeUnwrap().updatedCount).toBe(2);
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.updatedCount).toBe(2);
+    expect(
+      payload.records?.map((record) => ({
+        id: record.id().toString(),
+        fields: Object.fromEntries(
+          record
+            .fields()
+            .entries()
+            .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+        ),
+      }))
+    ).toMatchObject([
+      {
+        id: recordIdA,
+        fields: {
+          [numberFieldId.toString()]: 1,
+        },
+      },
+      {
+        id: recordIdB,
+        fields: {
+          [numberFieldId.toString()]: 2,
+        },
+      },
+    ]);
     expect(recordRepository.updateManyStreamCalls).toBe(1);
     expect(eventBus.published.some((event) => event instanceof RecordReordered)).toBe(true);
-    expect(eventBus.published.some((event) => event instanceof RecordsBatchUpdated)).toBe(false);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
     expect(undoRedoService.entries).toHaveLength(1);
   });
 
@@ -1079,7 +1128,7 @@ describe('UpdateRecordsHandler', () => {
 
     expect(result._unsafeUnwrap().updatedCount).toBe(1);
     expect(tableRepository.updated).toHaveLength(1);
-    expect(eventBus.published.some((event) => event instanceof RecordsBatchUpdated)).toBe(true);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(true);
   });
 
   it('returns early when the filter matches no records', async () => {
@@ -1116,7 +1165,7 @@ describe('UpdateRecordsHandler', () => {
     expect(result._unsafeUnwrap().updatedCount).toBe(0);
     expect(recordRepository.updateManyCalls).toBe(1);
     expect(tableRepository.updated).toHaveLength(0);
-    expect(eventBus.published.some((event) => event instanceof RecordsBatchUpdated)).toBe(false);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
     expect(undoRedoService.entries).toHaveLength(0);
   });
 });

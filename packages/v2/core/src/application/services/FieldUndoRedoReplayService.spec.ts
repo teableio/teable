@@ -32,7 +32,7 @@ import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import { CreateFieldCommand } from '../../commands/CreateFieldCommand';
 import { UpdateFieldCommand } from '../../commands/UpdateFieldCommand';
 import { ApplyFieldSnapshotCommand } from '../../commands/ApplyFieldSnapshotCommand';
-import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
+import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
 import { GridView } from '../../domain/table/views/types/GridView';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../domain/table/views/ViewId';
@@ -392,7 +392,7 @@ describe('FieldUndoRedoReplayService', () => {
     expect(command.field.notNull).toBe(false);
     expect(recordRepository.updatedBatches).toHaveLength(1);
     expect(eventBus.publishedMany).toHaveLength(1);
-    expect(eventBus.publishedMany[0]?.[0]).toBeInstanceOf(RecordsBatchUpdated);
+    expect(isRecordsBatchUpdatedEvent(eventBus.publishedMany[0]?.[0]!)).toBe(true);
     expect(tableUpdateFlow.calls).toBe(1);
   });
 });

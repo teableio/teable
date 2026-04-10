@@ -100,6 +100,7 @@ export const registerV2BrowserPgliteDependencies = async (
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
         const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);
@@ -171,6 +172,7 @@ export const registerV2BrowserNoopDependencies = (
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
         const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);

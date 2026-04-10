@@ -11,9 +11,14 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { PinoLogger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../attachments/attachments-storage.service', () => ({
+  AttachmentsStorageService: class AttachmentsStorageService {},
+}));
+
 import { CacheService } from '../../cache/cache.service';
 import { thresholdConfig } from '../../configs/threshold.config';
 import { ShareDbService } from '../../share-db/share-db.service';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 import { V2ContainerService } from './v2-container.service';
 
@@ -120,6 +125,10 @@ const createService = (providers: InstanceWrapper[] = []) => {
   };
   const shareDbService = { pubsub: { publish: vi.fn() } };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
+  const attachmentsStorageService = {
+    getPreviewUrlByPath: vi.fn(),
+    getTableThumbnailUrl: vi.fn(),
+  };
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -130,6 +139,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     {} as PinoLogger,
     shareDbService as never,
     cacheService as never,
+    attachmentsStorageService as never,
     { undoExpirationTime: 60, maxUndoStackSize: 20 } as never,
     reflector,
     discoveryService
@@ -140,6 +150,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     configService,
     shareDbService,
     cacheService,
+    attachmentsStorageService,
     discoveryService,
   };
 };
@@ -151,6 +162,10 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
   };
   const shareDbService = { pubsub: { publish: vi.fn() } };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
+  const attachmentsStorageService = {
+    getPreviewUrlByPath: vi.fn(),
+    getTableThumbnailUrl: vi.fn(),
+  };
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -163,6 +178,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
       { provide: PinoLogger, useValue: {} },
       { provide: ShareDbService, useValue: shareDbService },
       { provide: CacheService, useValue: cacheService },
+      { provide: AttachmentsStorageService, useValue: attachmentsStorageService },
       {
         provide: thresholdConfig.KEY,
         useValue: { undoExpirationTime: 60, maxUndoStackSize: 20 },
@@ -177,6 +193,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     configService,
     shareDbService,
     cacheService,
+    attachmentsStorageService,
     discoveryService,
   };
 };
@@ -197,6 +214,10 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(1);
     expect(mocks.registerV2ShareDbRealtime).toHaveBeenCalledTimes(1);
     expect(mocks.registerV2ImportServices).toHaveBeenCalledTimes(1);
+    expect(container.registerInstance).toHaveBeenCalledWith(
+      v2CoreTokens.recordChangedValueDecoratorService,
+      expect.any(Object)
+    );
     expect(discoveryService.getProviders).toHaveBeenCalledTimes(1);
     expect(registrar.registerProjections).toHaveBeenCalledTimes(1);
     expect(registrar.registerProjections).toHaveBeenCalledWith(container);
