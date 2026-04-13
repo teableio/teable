@@ -256,6 +256,8 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "share": string;
+            "clear": string;
             "download": string;
             "retry": string;
             "copyLink": string;
@@ -306,6 +308,35 @@ export type I18nTranslations = {
                 "newSpacePlaceholder": string;
                 "createSpace": string;
             };
+        };
+        "baseShare": {
+            "shareTitle": string;
+            "shareToWeb": string;
+            "linkHolderLabel": string;
+            "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
+            "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
+            "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "refreshLink": string;
+            "advanced": string;
+            "allowCopyData": string;
+            "restrictByPassword": string;
+            "embedConfig": string;
+            "embedPreview": string;
+            "copyCode": string;
+            "enterPassword": string;
+            "passwordTitle": string;
+            "deleteConfirmTitle": string;
+            "deleteConfirmDescription": string;
+            "createSuccess": string;
+            "createFailed": string;
+            "updateFailed": string;
+            "deleteSuccess": string;
+            "deleteFailed": string;
+            "refreshSuccess": string;
+            "refreshFailed": string;
         };
         "share": {
             "copyToSpaceDialog": {
@@ -678,6 +709,9 @@ export type I18nTranslations = {
                 "description": string;
                 "viewDetail": string;
             };
+            "app": {
+                "previewAppError": string;
+            };
         };
         "help": {
             "title": string;
@@ -773,6 +807,15 @@ export type I18nTranslations = {
                     "chatModels": {
                         "lg": string;
                         "lgDescription": string;
+                        "md": string;
+                        "mdDescription": string;
+                        "sm": string;
+                        "smDescription": string;
+                        "inheritHint": string;
+                        "modelTiers": string;
+                        "modelTiersDescription": string;
+                        "allInheriting": string;
+                        "customized": string;
                     };
                     "actions": {
                         "title": string;
@@ -781,6 +824,11 @@ export type I18nTranslations = {
                             "description": string;
                         };
                         "aiChat": {
+                            "title": string;
+                            "description": string;
+                            "sandboxWarning": string;
+                        };
+                        "modelSelection": {
                             "title": string;
                             "description": string;
                         };
@@ -847,6 +895,9 @@ export type I18nTranslations = {
                         "imageToImage": string;
                     };
                     "moreModels": string;
+                    "agentModelWarningTitle": string;
+                    "agentModelWarningDescription": string;
+                    "agentModelWarningConfirm": string;
                     "noModelsAvailable": string;
                     "testCompleteWithCount": string;
                     "allTestsFailed": string;
@@ -1056,14 +1107,12 @@ export type I18nTranslations = {
                 };
                 "app": {
                     "domain": string;
-                    "v0ApiKey": string;
                     "customDomain": string;
                     "customDomainDescription": string;
                     "vercelToken": string;
                     "vercelTokenDescription": string;
                     "apiProxy": string;
                     "apiProxyDescription": string;
-                    "v0BaseUrl": string;
                     "vercelBaseUrl": string;
                     "aiGateway": string;
                     "aiGatewayDescription": string;
@@ -1104,11 +1153,6 @@ export type I18nTranslations = {
                         "description": string;
                         "errorTips": string;
                     };
-                    "app": {
-                        "title": string;
-                        "description": string;
-                        "errorTips": string;
-                    };
                     "webSearch": {
                         "title": string;
                         "description": string;
@@ -1135,15 +1179,14 @@ export type I18nTranslations = {
                         "title": string;
                         "description": string;
                     };
-                    "appBuilderV0": {
-                        "title": string;
-                        "description": string;
-                    };
                     "appBuilderDomain": {
                         "title": string;
                         "description": string;
                     };
                     "appBuilderApiProxy": {
+                        "title": string;
+                    };
+                    "sandboxVercel": {
                         "title": string;
                         "description": string;
                     };
@@ -1610,18 +1653,18 @@ export type I18nTranslations = {
             "id": string;
         };
         "noPermissionToCreateBase": string;
-        "app": {
-            "title": string;
-            "description": string;
-            "previewAppError": string;
-            "sendErrorToAI": string;
-        };
         "chat": {
+            "responseInterrupted": string;
             "serverError": string;
             "serverErrorHint": string;
+            "modelNotSupported": string;
+            "byokModelNotSupported": string;
+            "modelServiceUnavailable": string;
+            "modelServiceError": string;
             "sandboxBusy": string;
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
+            "sandboxSnapshotNotFound": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -2168,6 +2211,7 @@ export type I18nTranslations = {
             "hideHiddenFields": string;
             "showMore": string;
             "showLess": string;
+            "recordFrom": string;
         };
         "sort": {
             "label": string;
@@ -4097,15 +4141,37 @@ export type I18nTranslations = {
                 "deleteFieldConfirmTitle": string;
                 "deleting": string;
                 "deleteSuccessful": string;
+                "deleteStream": {
+                    "preparing": string;
+                    "deleting": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "deleting": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
                 "pasteFileFailed": string;
                 "copyError": {
                     "noFocus": string;
                     "noPermission": string;
                 };
+                "clearFailed": string;
                 "clearConfirmTitle": string;
                 "clearConfirmDescription": string;
                 "deleteRecordConfirmTitle": string;
                 "deleteRecordConfirmDescription": string;
+                "duplicateRecordsConfirmTitle": string;
+                "duplicateRecordsConfirmDescription": string;
                 "pasteConfirmTitle": string;
                 "pasteConfirmDescription": string;
                 "expandCommonDescription": string;
@@ -4115,6 +4181,69 @@ export type I18nTranslations = {
                 "deleteRecord": string;
                 "clear": string;
                 "conjunction": string;
+                "duplicating": string;
+                "deleteFailed": string;
+                "duplicateFailed": string;
+                "duplicateSuccessful": string;
+                "duplicateRecords": string;
+                "duplicateStream": {
+                    "preparing": string;
+                    "duplicating": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
+                "pasteStream": {
+                    "preparing": string;
+                    "pasting": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
+                "clearStream": {
+                    "confirmDescription": string;
+                    "preparing": string;
+                    "clearing": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
                 "pasing": string;
             };
             "graph": {
@@ -4136,6 +4265,18 @@ export type I18nTranslations = {
                     "runCheck": string;
                     "recheck": string;
                     "repair": string;
+                    "repairWarnings": string;
+                    "repairWarningsAndErrors": string;
+                    "repairRule": string;
+                    "repairUnavailable": string;
+                    "manual": string;
+                    "manualRepairNotice": string;
+                    "manualRepairNoticeWithCount": string;
+                    "manualRepairDialogTitle": string;
+                    "manualRepairDialogDescription": string;
+                    "manualRepairDialogReason": string;
+                    "manualRepairDialogHint": string;
+                    "manualRepairDialogClose": string;
                     "checking": string;
                     "repairing": string;
                     "streamError": string;
@@ -4165,6 +4306,8 @@ export type I18nTranslations = {
                         "baseCheckCompleted": string;
                         "repairCompleted": string;
                         "baseRepairCompleted": string;
+                        "skippedStatusNotSelected": string;
+                        "skippedRepairUnavailable": string;
                     };
                     "rule": {
                         "column": string;
@@ -4204,6 +4347,31 @@ export type I18nTranslations = {
                         "systemColumnUnique": string;
                         "systemColumnPrimaryKey": string;
                         "systemColumnDefault": string;
+                        "foreignKeyOrphanRows": string;
+                        "foreignKeyOrphanRowsDescription": string;
+                        "junctionForeignKeyMissing": string;
+                        "junctionForeignKeyMissingDescription": string;
+                        "junctionForeignKeyTargetTableMissing": string;
+                        "junctionForeignKeyTargetTableMissingDescription": string;
+                        "junctionForeignKeyOrphanRows": string;
+                        "junctionForeignKeyOrphanRowsDescription": string;
+                        "columnUniqueMissing": string;
+                        "columnUniqueMissingDescription": string;
+                        "columnUniqueIndexMismatch": string;
+                        "columnUniqueIndexMismatchDescription": string;
+                        "foreignKeyMissing": string;
+                        "foreignKeyMissingDescription": string;
+                        "foreignKeyTargetTableMissing": string;
+                        "foreignKeyTargetTableMissingDescription": string;
+                        "referenceMissing": string;
+                        "referenceMissingDescription": string;
+                        "symmetricFieldTargetMissing": string;
+                        "symmetricFieldWrongType": string;
+                        "symmetricFieldInvalidOptions": string;
+                        "symmetricFieldMissingBackReference": string;
+                        "symmetricFieldWrongBackReference": string;
+                        "symmetricFieldDuplicateUsage": string;
+                        "symmetricFieldDuplicateUsageDescription": string;
                     };
                     "phase": {
                         "check": string;
@@ -4233,6 +4401,42 @@ export type I18nTranslations = {
                         "manual": string;
                         "skipped": string;
                     };
+                    "repairMeta": {
+                        "reason": {
+                            "alreadyValid": string;
+                            "manualRule": string;
+                            "statementGenerationFailed": string;
+                            "noStatements": string;
+                            "symmetricFieldConflict": string;
+                            "foreignKeyTargetTableMissing": string;
+                            "foreignKeyOrphanRows": string;
+                            "junctionForeignKeyTargetTableMissing": string;
+                            "junctionForeignKeyOrphanRows": string;
+                        };
+                        "description": {
+                            "symmetricFieldConflict": string;
+                            "foreignKeyTargetTableMissing": string;
+                            "foreignKeyOrphanRows": string;
+                            "junctionForeignKeyTargetTableMissing": string;
+                            "junctionForeignKeyOrphanRows": string;
+                        };
+                        "manual": {
+                            "apply": string;
+                            "symmetricField": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "keepCurrent": string;
+                                    "keepDuplicate": string;
+                                    "convertDuplicate": string;
+                                };
+                            };
+                        };
+                    };
+                    "manualRepairPreview": string;
+                    "manualRepairPreviewTip": string;
                 };
                 "type": string;
                 "message": string;
@@ -4247,6 +4451,7 @@ export type I18nTranslations = {
                     "ReferenceFieldNotFound": string;
                     "UniqueIndexNotFound": string;
                     "EmptyString": string;
+                    "InvalidFilterOperator": string;
                 };
             };
             "index": {
@@ -4452,6 +4657,7 @@ export type I18nTranslations = {
             "expandAllGroups": string;
             "collapseAllGroups": string;
             "addToChat": string;
+            "duplicateRecords": string;
             "duplicateField": string;
             "downloadAllAttachments": string;
         };
@@ -4535,8 +4741,12 @@ export type I18nTranslations = {
             "shareLink": string;
             "linkHolderLabel": string;
             "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
             "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
             "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "editRequiresLogin": string;
             "passwordProtection": string;
             "enterPassword": string;
             "selectNodes": string;
@@ -5077,6 +5287,7 @@ export type I18nTranslations = {
                     "toolsWithErrors": string;
                     "hasErrors": string;
                     "noDetails": string;
+                    "model": string;
                     "contextWindow": string;
                     "contextTooltip": string;
                     "contextTipNewChat": string;
@@ -5154,6 +5365,13 @@ export type I18nTranslations = {
                 "removeFromQueue": string;
                 "queueFull": string;
                 "messageQueued": string;
+            };
+            "effort": {
+                "title": string;
+                "low": string;
+                "medium": string;
+                "high": string;
+                "max": string;
             };
         };
         "download": {

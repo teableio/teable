@@ -28,7 +28,7 @@ import { omit } from 'lodash';
 import { ChevronRight, Eye } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -200,12 +200,22 @@ export const ShareViewContent: React.FC = () => {
   const [shareTheme, setShareTheme] = useState<string>('system');
   const [hideToolBar, setHideToolBar] = useState<boolean>();
 
+  // Optimistic toggle state: overrides view.enableShare until ShareDB syncs
+  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Reset optimistic override once ShareDB syncs the real state
+    setOptimisticEnabled(null);
+  }, [view?.enableShare]);
+
   const { mutate: enableShareFn, isPending: enableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.apiEnableShare(),
+    onSuccess: () => setOptimisticEnabled(true),
   });
 
   const { mutate: disableShareFn, isPending: disableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.disableShare(),
+    onSuccess: () => setOptimisticEnabled(false),
   });
 
   const shareUrl = useMemo(() => {
@@ -218,7 +228,8 @@ export const ShareViewContent: React.FC = () => {
     return null;
   }
 
-  const { enableShare, shareMeta } = view;
+  const { shareMeta } = view;
+  const enableShare = optimisticEnabled ?? view.enableShare;
 
   const setShareMeta = (shareMeta: IShareViewMeta) => {
     view.setShareMeta({ ...view.shareMeta, ...shareMeta });

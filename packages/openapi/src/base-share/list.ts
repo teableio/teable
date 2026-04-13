@@ -7,7 +7,7 @@ export const LIST_BASE_SHARE = '/base/{baseId}/share';
 
 // List only returns nodeId for marking which nodes have shares
 export const listBaseShareItemSchema = z.object({
-  nodeId: z.string(),
+  nodeId: z.string().nullable(),
 });
 
 export const listBaseShareVoSchema = z.array(listBaseShareItemSchema);

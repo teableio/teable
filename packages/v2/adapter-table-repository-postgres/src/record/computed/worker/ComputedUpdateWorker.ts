@@ -32,6 +32,7 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxPayload,
@@ -41,7 +42,6 @@ import {
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
-import { toErrorLogFields } from '../errorLog';
 import type {
   AnyOutboxItem,
   ComputedUpdateOutboxConfig,
@@ -57,6 +57,9 @@ import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputed
  * When this limit is reached, no more follow-up tasks are created.
  */
 const MAX_STAGE_DEPTH = 50;
+const maxComputedEventLogItems = 10;
+const maxComputedEventLogFieldIds = 20;
+const maxComputedEventLogRecordIds = 10;
 
 export type ComputedUpdateWorkerParams = {
   workerId: string;
@@ -492,7 +495,8 @@ export class ComputedUpdateWorker {
 
       const events = buildComputedUpdateEvents(
         stageResult.value.changesByStep,
-        planResult.value.baseId
+        planResult.value.baseId,
+        computedTask.orchestration
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
@@ -504,9 +508,8 @@ export class ComputedUpdateWorker {
             ...runLogContext,
           });
         } else {
-          this.logger.debug('computed:worker:events_published', {
-            eventCount: events.length,
-            tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
+          this.logger.info('computed:worker:events_published', {
+            ...buildComputedUpdateEventLogContext(events),
             ...runLogContext,
           });
         }
@@ -558,6 +561,7 @@ export class ComputedUpdateWorker {
             runTotalSteps: nextTotalSteps,
             runCompletedStepsBefore: completedStepsAfter,
             stageDepth: currentStageDepth + 1,
+            orchestration: computedTask.orchestration,
           });
 
           failurePhase = 'enqueue_next_stage';
@@ -698,7 +702,6 @@ export class ComputedUpdateWorker {
     }
 
     if (fieldsToBackfill.length === 0) {
-      const message = `No fields found for backfill: ${task.fieldIds.join(', ')}`;
       this.logger.warn('computed:worker:field_backfill_no_fields', {
         taskId: task.id,
         ...runLogContext,
@@ -892,7 +895,11 @@ export class ComputedUpdateWorker {
       if (stageResult.isErr()) return err(stageResult.error);
 
       // Publish events for computed updates
-      const events = buildComputedUpdateEvents(stageResult.value.changesByStep, plan.baseId);
+      const events = buildComputedUpdateEvents(
+        stageResult.value.changesByStep,
+        plan.baseId,
+        task.orchestration
+      );
       if (events.length > 0) {
         failurePhase = 'publish_events';
         const publishResult = await this.eventBus.publishMany(txContext, events);
@@ -903,9 +910,8 @@ export class ComputedUpdateWorker {
             ...runLogContext,
           });
         } else {
-          this.logger.debug('computed:worker:seed_events_published', {
-            eventCount: events.length,
-            tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
+          this.logger.info('computed:worker:seed_events_published', {
+            ...buildComputedUpdateEventLogContext(events),
             ...runLogContext,
           });
         }
@@ -955,6 +961,7 @@ export class ComputedUpdateWorker {
           runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
           runCompletedStepsBefore: plan.steps.length,
           stageDepth: 1,
+          orchestration: task.orchestration,
         });
 
         failurePhase = 'enqueue_next_stage';
@@ -1115,7 +1122,8 @@ const collectSeedTableIds = (
  */
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
-  baseId: BaseId
+  baseId: BaseId,
+  orchestration?: ComputedUpdateOutboxItem['orchestration']
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 
@@ -1153,9 +1161,30 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }
 
   return events;
 };
+
+const buildComputedUpdateEventLogContext = (events: ReadonlyArray<RecordsBatchUpdated>) => ({
+  eventCount: events.length,
+  tableIds: [...new Set(events.map((event) => event.tableId.toString()))],
+  events: events.slice(0, maxComputedEventLogItems).map((event) => {
+    const fieldIds = [
+      ...new Set(event.updates.flatMap((update) => update.changes.map((change) => change.fieldId))),
+    ];
+    const recordIds = event.updates.map((update) => update.recordId);
+    return {
+      tableId: event.tableId.toString(),
+      recordCount: event.updates.length,
+      recordIds: recordIds.slice(0, maxComputedEventLogRecordIds),
+      hasMoreRecordIds: recordIds.length > maxComputedEventLogRecordIds,
+      fieldIds: fieldIds.slice(0, maxComputedEventLogFieldIds),
+      hasMoreFieldIds: fieldIds.length > maxComputedEventLogFieldIds,
+    };
+  }),
+  hasMoreEvents: events.length > maxComputedEventLogItems,
+});

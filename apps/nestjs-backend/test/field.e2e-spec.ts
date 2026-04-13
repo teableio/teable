@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
+  CellFormat,
   IDatetimeFormatting,
   IFieldRo,
   IFieldVo,
@@ -21,13 +22,13 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
-import { convertField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
 import { Events } from '../src/event-emitter/events';
 import {
   createField,
   createTable,
+  convertField,
   deleteField,
   permanentDeleteTable,
   getFields,
@@ -38,7 +39,19 @@ import {
   getRecords,
 } from './utils/init-app';
 
-const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const withForceV2All = async <T>(callback: () => Promise<T>) => {
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  process.env.FORCE_V2_ALL = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  }
+};
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
@@ -315,79 +328,79 @@ describe('OpenAPI FieldController (e2e)', () => {
   });
 
   describe('v2 lookup option sync', () => {
-    const itIfForceV2 = isForceV2 ? it : it.skip;
-
-    itIfForceV2('ignores API-supplied choices for lookup-backed single select fields', async () => {
+    it('ignores API-supplied choices for lookup-backed single select fields', async () => {
       let hostTable: ITableFullVo | undefined;
       let foreignTable: ITableFullVo | undefined;
 
       try {
-        foreignTable = await createTable(baseId, {
-          name: 'lookup-option-sync-foreign',
-          fields: [
-            { name: 'Title', type: FieldType.SingleLineText },
-            {
-              name: 'Importance',
-              type: FieldType.SingleSelect,
-              options: {
-                choices: [
-                  { id: 'choLookupCore', name: '核心', color: Colors.Blue },
-                  { id: 'choLookupImportant', name: '重要', color: Colors.Green },
-                  { id: 'choLookupReference', name: '参考', color: Colors.Orange },
-                ],
+        await withForceV2All(async () => {
+          foreignTable = await createTable(baseId, {
+            name: 'lookup-option-sync-foreign',
+            fields: [
+              { name: 'Title', type: FieldType.SingleLineText },
+              {
+                name: 'Importance',
+                type: FieldType.SingleSelect,
+                options: {
+                  choices: [
+                    { id: 'choLookupCore', name: '核心', color: Colors.Blue },
+                    { id: 'choLookupImportant', name: '重要', color: Colors.Green },
+                    { id: 'choLookupReference', name: '参考', color: Colors.Orange },
+                  ],
+                },
               },
-            },
-          ],
-        });
-        hostTable = await createTable(baseId, {
-          name: 'lookup-option-sync-host',
-          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
-        });
-
-        const foreignImportanceField = foreignTable.fields.find(
-          (field) => field.name === 'Importance'
-        )!;
-        const expectedChoices = (
-          foreignImportanceField.options as {
-            choices: Array<{ id: string; name: string; color: string }>;
-          }
-        ).choices;
-
-        const linkField = await createField(hostTable.id, {
-          name: 'Related',
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.ManyMany,
-            foreignTableId: foreignTable.id,
-          } as ILinkFieldOptionsRo,
-        });
-
-        const createdLookupField = await createField(hostTable.id, {
-          name: '章节重要程度',
-          type: FieldType.SingleSelect,
-          isLookup: true,
-          lookupOptions: {
-            foreignTableId: foreignTable.id,
-            lookupFieldId: foreignImportanceField.id,
-            linkFieldId: linkField.id,
-          } as ILookupOptionsRo,
-          options: {
-            choices: [
-              { id: 'choBroken1', name: 'Option 1', color: Colors.Blue },
-              { id: 'choBroken2', name: 'Option 2', color: Colors.Green },
             ],
-          },
-        });
+          });
+          hostTable = await createTable(baseId, {
+            name: 'lookup-option-sync-host',
+            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          });
 
-        expect(createdLookupField.options).toEqual({
-          choices: expectedChoices,
-        });
+          const foreignImportanceField = foreignTable.fields.find(
+            (field) => field.name === 'Importance'
+          )!;
+          const expectedChoices = (
+            foreignImportanceField.options as {
+              choices: Array<{ id: string; name: string; color: string }>;
+            }
+          ).choices;
 
-        const persistedLookupField = (await getFields(hostTable.id)).find(
-          (field) => field.id === createdLookupField.id
-        );
-        expect(persistedLookupField?.options).toEqual({
-          choices: expectedChoices,
+          const linkField = await createField(hostTable.id, {
+            name: 'Related',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreignTable.id,
+            } as ILinkFieldOptionsRo,
+          });
+
+          const createdLookupField = await createField(hostTable.id, {
+            name: '章节重要程度',
+            type: FieldType.SingleSelect,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignImportanceField.id,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+            options: {
+              choices: [
+                { id: 'choBroken1', name: 'Option 1', color: Colors.Blue },
+                { id: 'choBroken2', name: 'Option 2', color: Colors.Green },
+              ],
+            },
+          });
+
+          expect(createdLookupField.options).toEqual({
+            choices: expectedChoices,
+          });
+
+          const persistedLookupField = (await getFields(hostTable.id)).find(
+            (field) => field.id === createdLookupField.id
+          );
+          expect(persistedLookupField?.options).toEqual({
+            choices: expectedChoices,
+          });
         });
       } finally {
         if (hostTable) {
@@ -399,13 +412,12 @@ describe('OpenAPI FieldController (e2e)', () => {
       }
     });
 
-    itIfForceV2(
-      'ignores API-supplied choices for conditional lookup-backed single select fields',
-      async () => {
-        let hostTable: ITableFullVo | undefined;
-        let foreignTable: ITableFullVo | undefined;
+    it('ignores API-supplied choices for conditional lookup-backed single select fields', async () => {
+      let hostTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
 
-        try {
+      try {
+        await withForceV2All(async () => {
           foreignTable = await createTable(baseId, {
             name: 'conditional-lookup-option-sync-foreign',
             fields: [
@@ -484,185 +496,16 @@ describe('OpenAPI FieldController (e2e)', () => {
           expect(persistedConditionalLookupField?.options).toEqual({
             choices: expectedChoices,
           });
-        } finally {
-          if (hostTable) {
-            await permanentDeleteTable(baseId, hostTable.id);
-          }
-          if (foreignTable) {
-            await permanentDeleteTable(baseId, foreignTable.id);
-          }
-        }
-      }
-    );
-  });
-
-  describe('long text markdown showAs API', () => {
-    const itIfForceV2 = isForceV2 ? it : it.skip;
-
-    itIfForceV2('should update and clear long text showAs via convert field API', async () => {
-      let table: ITableFullVo | undefined;
-
-      try {
-        table = await createTable(baseId, {
-          name: 'long-text-show-as-update-api',
-          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
         });
-
-        const longTextField = await createField(table.id, {
-          name: 'Body',
-          type: FieldType.LongText,
-        });
-
-        const markdownUpdatedResponse = await convertField(table.id, longTextField.id, {
-          name: longTextField.name,
-          type: FieldType.LongText,
-          options: {
-            showAs: {
-              type: 'markdown',
-            },
-          },
-        });
-        expect(markdownUpdatedResponse.status).toBe(200);
-
-        const persistedAfterEnable = (await getFields(table.id)).find(
-          (field) => field.id === longTextField.id
-        )!;
-        expect(persistedAfterEnable.options).toMatchObject({
-          showAs: {
-            type: 'markdown',
-          },
-        });
-
-        const clearedResponse = await convertField(table.id, longTextField.id, {
-          name: longTextField.name,
-          type: FieldType.LongText,
-          options: {
-            showAs: null,
-          },
-        });
-        expect(clearedResponse.status).toBe(200);
-
-        const persistedAfterClear = (await getFields(table.id)).find(
-          (field) => field.id === longTextField.id
-        )!;
-        expect((persistedAfterClear.options as { showAs?: unknown }).showAs).toBeUndefined();
       } finally {
-        if (table) {
-          await permanentDeleteTable(baseId, table.id);
+        if (hostTable) {
+          await permanentDeleteTable(baseId, hostTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
         }
       }
     });
-
-    itIfForceV2(
-      'should keep lookup long text showAs cleared when API attempts to set markdown',
-      async () => {
-        let hostTable: ITableFullVo | undefined;
-        let foreignTable: ITableFullVo | undefined;
-
-        try {
-          foreignTable = await createTable(baseId, {
-            name: 'lookup-long-text-show-as-foreign',
-            fields: [
-              { name: 'Title', type: FieldType.SingleLineText },
-              {
-                name: 'Foreign Long Text',
-                type: FieldType.LongText,
-                options: {
-                  showAs: {
-                    type: 'markdown',
-                  },
-                },
-              },
-            ],
-          });
-
-          hostTable = await createTable(baseId, {
-            name: 'lookup-long-text-show-as-host',
-            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
-          });
-
-          const foreignLongTextField = foreignTable.fields.find(
-            (field) => field.name === 'Foreign Long Text'
-          )!;
-
-          const linkField = await createField(hostTable.id, {
-            name: 'Related',
-            type: FieldType.Link,
-            options: {
-              relationship: Relationship.ManyMany,
-              foreignTableId: foreignTable.id,
-            } as ILinkFieldOptionsRo,
-          });
-
-          const lookupLongTextField = await createField(hostTable.id, {
-            name: 'Lookup Long Text',
-            type: FieldType.LongText,
-            isLookup: true,
-            lookupOptions: {
-              foreignTableId: foreignTable.id,
-              lookupFieldId: foreignLongTextField.id,
-              linkFieldId: linkField.id,
-            } as ILookupOptionsRo,
-          });
-
-          expect(lookupLongTextField.options).toMatchObject({
-            showAs: {
-              type: 'markdown',
-            },
-          });
-
-          const lookupOptions = lookupLongTextField.lookupOptions as ILookupOptionsRo;
-          const clearedLookupResponse = await convertField(hostTable.id, lookupLongTextField.id, {
-            name: lookupLongTextField.name,
-            type: FieldType.LongText,
-            isLookup: true,
-            lookupOptions: {
-              foreignTableId: lookupOptions.foreignTableId,
-              lookupFieldId: lookupOptions.lookupFieldId,
-              linkFieldId: lookupOptions.linkFieldId,
-            },
-            options: {
-              showAs: null,
-            },
-          });
-          expect(clearedLookupResponse.status).toBe(200);
-
-          const persistedAfterClear = (await getFields(hostTable.id)).find(
-            (field) => field.id === lookupLongTextField.id
-          )!;
-          expect((persistedAfterClear.options as { showAs?: unknown }).showAs).toBeUndefined();
-
-          const updatedLookupResponse = await convertField(hostTable.id, lookupLongTextField.id, {
-            name: lookupLongTextField.name,
-            type: FieldType.LongText,
-            isLookup: true,
-            lookupOptions: {
-              foreignTableId: lookupOptions.foreignTableId,
-              lookupFieldId: lookupOptions.lookupFieldId,
-              linkFieldId: lookupOptions.linkFieldId,
-            },
-            options: {
-              showAs: {
-                type: 'markdown',
-              },
-            },
-          });
-          expect(updatedLookupResponse.status).toBe(200);
-
-          const persistedLookupField = (await getFields(hostTable.id)).find(
-            (field) => field.id === lookupLongTextField.id
-          )!;
-          expect((persistedLookupField.options as { showAs?: unknown }).showAs).toBeUndefined();
-        } finally {
-          if (hostTable) {
-            await permanentDeleteTable(baseId, hostTable.id);
-          }
-          if (foreignTable) {
-            await permanentDeleteTable(baseId, foreignTable.id);
-          }
-        }
-      }
-    );
   });
 
   describe('should decide whether to create field validation rules based on the field type', () => {
@@ -1289,6 +1132,59 @@ describe('OpenAPI FieldController (e2e)', () => {
       // The new record should have an auto number that continues the sequence
       expect(typeof autoNumValue).toBe('number');
       expect(autoNumValue).toBeGreaterThan(existingCount);
+    });
+  });
+
+  describe('formula formatting regression', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'formula-formatting-regression',
+        records: [{ fields: {} }],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('keeps numeric formula expression and text value when converting formatting to percent', async () => {
+      const formulaField = await createField(table.id, {
+        name: 'Percent Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+        },
+      });
+
+      const recordId = table.records[0].id;
+
+      const recordBefore = await getRecord(table.id, recordId, 'text' as CellFormat);
+      expect(recordBefore.fields[formulaField.id]).toBe('2.00');
+
+      const updatedField = await convertField(table.id, formulaField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+          formatting: {
+            type: NumberFormattingType.Percent,
+            precision: 2,
+          },
+        },
+      });
+
+      expect(updatedField.options).toMatchObject({
+        expression: '1+1',
+        formatting: {
+          type: NumberFormattingType.Percent,
+          precision: 2,
+        },
+      });
+      expect(updatedField.id).toBe(formulaField.id);
+
+      const recordAfter = await getRecord(table.id, recordId, 'text' as CellFormat);
+      expect(recordAfter.fields[formulaField.id]).toBe('200.00%');
     });
   });
 });

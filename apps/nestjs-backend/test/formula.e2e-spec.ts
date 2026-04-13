@@ -5465,7 +5465,7 @@ describe('OpenAPI formula (e2e)', () => {
       }
     );
 
-    it('should evaluate DATETIME_DIFF default unit when end precedes start', async () => {
+    it('should evaluate DATETIME_DIFF default unit in seconds when end precedes start', async () => {
       const { records } = await createRecords(table1Id, {
         fieldKeyType: FieldKeyType.Name,
         records: [
@@ -5489,11 +5489,11 @@ describe('OpenAPI formula (e2e)', () => {
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const rawValue = recordAfterFormula.data.fields[diffField.name];
       if (typeof rawValue === 'number') {
-        expect(rawValue).toBeCloseTo(diffDays, 6);
+        expect(rawValue).toBeCloseTo(diffDays * 24 * 60 * 60, 6);
       } else {
         const numericValue = Number(rawValue);
         expect(Number.isFinite(numericValue)).toBe(true);
-        expect(numericValue).toBeCloseTo(diffDays, 6);
+        expect(numericValue).toBeCloseTo(diffDays * 24 * 60 * 60, 6);
       }
     });
 

@@ -438,6 +438,25 @@
       "deleteFieldConfirmTitle": "以下のフィールドを削除します",
       "deleting": "削除中...",
       "deleteSuccessful": "削除成功",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます",
       "copyError": {
         "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください"
@@ -462,6 +481,18 @@
         "runCheck": "チェック開始",
         "recheck": "再チェック",
         "repair": "修復",
+        "repairWarnings": "警告のみ修復",
+        "repairWarningsAndErrors": "警告とエラーを修復",
+        "repairRule": "このルールを修復",
+        "repairUnavailable": "このルールは自動修復できません",
+        "manual": "手動",
+        "manualRepairNotice": "この問題は手動で修復する必要があります",
+        "manualRepairNoticeWithCount": "{{count}} 件の問題は手動修復が必要です。各ルールの右側にある「手動」操作から修復ダイアログを開いてください。",
+        "manualRepairDialogTitle": "手動修復が必要です",
+        "manualRepairDialogDescription": "この問題は自動修復できません。以下の案内を確認し、どのように修復するか選択してください。",
+        "manualRepairDialogReason": "手動修復が必要な理由",
+        "manualRepairDialogHint": "このダイアログでは、現在はルールが要求する修復オプションのみを案内します。実行処理は後からこの契約の上に追加できます。",
+        "manualRepairDialogClose": "閉じる",
         "checking": "スキーマをチェックしています...",
         "repairing": "スキーマを修復しています...",
         "streamError": "スキーマ整合性ストリームに失敗しました。",
@@ -529,7 +560,15 @@
           "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
         },
         "phase": {
           "check": "チェック結果",
@@ -558,6 +597,40 @@
           "unchanged": "変更なし",
           "manual": "手動",
           "skipped": "スキップ"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
         }
       }
     },
@@ -750,11 +823,11 @@
     "dragToolTip": "自動並べ替えがオンになっており、手動ドラッグは利用できません",
     "insertToolTip": "自動並べ替えがオンになっているため、順序付き挿入は利用できません",
     "action": {
-      "rename": "ビューの名前を変更",
-      "duplicate": "ビューを複製",
-      "delete": "ビューの削除",
-      "lock": "ビューをロック",
-      "unlock": "ビューをロック解除",
+      "rename": "名前を変更",
+      "duplicate": "複製",
+      "delete": "削除",
+      "lock": "ロック",
+      "unlock": "ロック解除",
       "enable": "有効"
     },
     "category": {
@@ -807,8 +880,12 @@
     "shareLink": "共有リンク",
     "linkHolderLabel": "リンクを取得した人",
     "linkHolderCanView": "閲覧可能",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "編集可能",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "コピーとして保存可能",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "パスワード保護",
     "enterPassword": "パスワードを入力",
     "selectNodes": "テーブルを選択",
@@ -839,7 +916,10 @@
     "publishSuccess": "アプリが正常に公開されました",
     "publishFailed": "アプリの公開に失敗しました",
     "openLink": "リンクを開く",
-    "appPublished": "アプリが公開されました"
+    "appPublished": "アプリが公開されました",
+    "shareTableTab": "テーブルを共有",
+    "shareViewTab": "ビューを共有",
+    "shareNodeTab": "ノードを共有"
   },
   "aiChat": {
     "tool": {

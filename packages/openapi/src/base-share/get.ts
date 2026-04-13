@@ -48,9 +48,10 @@ export const baseShareByNodeIdVoSchema = z.object({
   baseId: z.string(),
   shareId: z.string(),
   password: z.boolean(), // Only indicates if password is set, not the actual value
-  nodeId: z.string(),
+  nodeId: z.string().nullable(),
   allowSave: z.boolean().nullable(),
   allowCopy: z.boolean().nullable(),
+  allowEdit: z.boolean().nullable(),
   enabled: z.boolean(),
 });
 
@@ -81,4 +82,11 @@ export const GetBaseShareByNodeIdRoute: RouteConfig = registerRoute({
 
 export const getBaseShareByNodeId = (baseId: string, nodeId: string) => {
   return axios.get<IBaseShareByNodeIdVo>(urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId }));
+};
+
+// Get base-level share (nodeId = null)
+export const GET_BASE_LEVEL_SHARE = '/base/{baseId}/share/node';
+
+export const getBaseLevelShare = (baseId: string) => {
+  return axios.get<IBaseShareByNodeIdVo | null>(urlBuilder(GET_BASE_LEVEL_SHARE, { baseId }));
 };

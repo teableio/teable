@@ -8,12 +8,22 @@ export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
 }
 
+export interface IExecutionContextBatchMutation {
+  readonly operationId?: string;
+  readonly groupId?: string;
+  readonly totalRecordCount: number;
+  readonly totalChunkCount: number;
+  readonly chunkIndex: number;
+  readonly scope: 'operation' | 'chunk';
+}
+
 export interface IExecutionContext {
   actorId: ActorId;
   transaction?: IUnitOfWorkTransaction;
   tracer?: ITracer;
   requestId?: string;
   windowId?: string;
+  batchMutation?: IExecutionContextBatchMutation;
   undoRedo?: { mode: 'undo' | 'redo' | 'normal' };
   duplicateTable?: {
     sourceTableId: string;

@@ -103,6 +103,10 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
   dispatchDelayMs: 50,
 };
 
+const maxComputedEventLogItems = 10;
+const maxComputedEventLogFieldIds = 20;
+const maxComputedEventLogRecordIds = 10;
+
 /**
  * Production-recommended config: external worker handles all async tasks.
  */
@@ -268,7 +272,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       allSyncChangesByStep.push(...syncResult.value.changesByStep);
 
       // Publish events for computed updates
-      const events = buildComputedUpdateEvents(syncResult.value.changesByStep, currentPlan.baseId);
+      const events = buildComputedUpdateEvents(
+        syncResult.value.changesByStep,
+        currentPlan.baseId,
+        context.batchMutation
+      );
       if (events.length > 0) {
         const publishResult = await this.eventBus.publishMany(context, events);
         if (publishResult.isErr()) {
@@ -277,10 +285,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
             eventCount: events.length,
           });
         } else {
-          runLogger.debug('computed:events:published', {
-            eventCount: events.length,
-            tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
-          });
+          runLogger.info('computed:events:published', buildComputedUpdateEventLogContext(events));
         }
       }
 
@@ -319,6 +324,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           runCompletedStepsBefore: completedSteps,
           affectedFieldIds: stageFieldIds.map((id) => id.toString()),
           affectedTableIds: stageTableIds.map((id) => id.toString()),
+          orchestration: context.batchMutation,
         });
 
         const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
@@ -598,7 +604,8 @@ const splitStepsByPolicy = (
  */
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
-  baseId: BaseId
+  baseId: BaseId,
+  orchestration?: IExecutionContext['batchMutation']
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 
@@ -636,9 +643,30 @@ const buildComputedUpdateEvents = (
         baseId,
         updates,
         source: 'computed',
+        orchestration,
       })
     );
   }
 
   return events;
 };
+
+const buildComputedUpdateEventLogContext = (events: ReadonlyArray<RecordsBatchUpdated>) => ({
+  eventCount: events.length,
+  tableIds: [...new Set(events.map((event) => event.tableId.toString()))],
+  events: events.slice(0, maxComputedEventLogItems).map((event) => {
+    const fieldIds = [
+      ...new Set(event.updates.flatMap((update) => update.changes.map((change) => change.fieldId))),
+    ];
+    const recordIds = event.updates.map((update) => update.recordId);
+    return {
+      tableId: event.tableId.toString(),
+      recordCount: event.updates.length,
+      recordIds: recordIds.slice(0, maxComputedEventLogRecordIds),
+      hasMoreRecordIds: recordIds.length > maxComputedEventLogRecordIds,
+      fieldIds: fieldIds.slice(0, maxComputedEventLogFieldIds),
+      hasMoreFieldIds: fieldIds.length > maxComputedEventLogFieldIds,
+    };
+  }),
+  hasMoreEvents: events.length > maxComputedEventLogItems,
+});

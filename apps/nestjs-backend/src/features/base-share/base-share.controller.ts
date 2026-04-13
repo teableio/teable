@@ -28,8 +28,14 @@ export class BaseShareController {
 
   @Get()
   @Permissions('base|read')
-  async list(@Param('baseId') baseId: string): Promise<{ nodeId: string }[]> {
+  async list(@Param('baseId') baseId: string): Promise<{ nodeId: string | null }[]> {
     return this.baseShareService.getBaseShareList(baseId);
+  }
+
+  @Get('node')
+  @Permissions('base|read')
+  async getBaseShare(@Param('baseId') baseId: string): Promise<IBaseShareVo | null> {
+    return this.baseShareService.getBaseShare(baseId);
   }
 
   @Get('node/:nodeId')

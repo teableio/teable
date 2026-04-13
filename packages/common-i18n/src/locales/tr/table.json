@@ -446,6 +446,25 @@
       "deleteFieldConfirmTitle": "Aşağıdaki alanları silmek üzeresiniz",
       "deleting": "Siliniyor...",
       "deleteSuccessful": "Silme başarılı",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
         "noFocus": "Lütfen pencereyi değiştirmeyin"
@@ -470,6 +489,18 @@
         "runCheck": "Kontrolü başlat",
         "recheck": "Tekrar kontrol et",
         "repair": "Onar",
+        "repairWarnings": "Yalnızca uyarıları onar",
+        "repairWarningsAndErrors": "Uyarıları ve hataları onar",
+        "repairRule": "Kuralı onar",
+        "repairUnavailable": "Bu kural otomatik olarak onarılamaz",
+        "manual": "Manuel",
+        "manualRepairNotice": "Bu sorun manuel onarım gerektiriyor",
+        "manualRepairNoticeWithCount": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
+        "manualRepairDialogTitle": "Manuel onarım gerekli",
+        "manualRepairDialogDescription": "Bu sorun otomatik olarak onarılamaz. Aşağıdaki yönlendirmeyi inceleyin ve nasıl düzeltileceğini seçin.",
+        "manualRepairDialogReason": "Neden manuel onarım gerekiyor",
+        "manualRepairDialogHint": "Bu pencere şu anda yalnızca kuralın istediği onarım seçeneklerini gösterir. Gerçek çalıştırma daha sonra bu sözleşmenin üzerine eklenebilir.",
+        "manualRepairDialogClose": "Kapat",
         "checking": "Şema kontrol ediliyor...",
         "repairing": "Şema onarılıyor...",
         "streamError": "Şema bütünlüğü sonuçları akış halinde alınamadı.",
@@ -537,7 +568,15 @@
           "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
         },
         "phase": {
           "check": "Kontrol sonuçları",
@@ -566,6 +605,40 @@
           "unchanged": "Değişmedi",
           "manual": "Manuel",
           "skipped": "Atlandı"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
         }
       }
     }
@@ -750,8 +823,8 @@
     "dragToolTip": "Otomatik sıralama açık, manuel sürükleme kullanılamaz",
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
-      "rename": "Görünümü yeniden adlandır",
-      "delete": "Görünümü sil",
+      "rename": "Yeniden adlandır",
+      "delete": "Sil",
       "enable": "Etkinleştir"
     },
     "category": {
@@ -836,8 +909,12 @@
     "shareLink": "Paylaşım bağlantısı",
     "linkHolderLabel": "Bağlantıyı alan kişi",
     "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "Şifre koruması",
     "enterPassword": "Şifre girin",
     "selectNodes": "Tabloları seç",
@@ -868,6 +945,9 @@
     "publishSuccess": "Uygulama başarıyla yayınlandı",
     "publishFailed": "Uygulama yayınlanamadı",
     "openLink": "Bağlantıyı aç",
-    "appPublished": "Uygulama yayınlandı"
+    "appPublished": "Uygulama yayınlandı",
+    "shareTableTab": "Tabloyu paylaş",
+    "shareViewTab": "Görünümü paylaş",
+    "shareNodeTab": "Düğümü paylaş"
   }
 }

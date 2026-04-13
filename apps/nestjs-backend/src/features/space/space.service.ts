@@ -289,11 +289,20 @@ export class SpaceService {
       },
     });
 
-    const userList = await this.prismaService.user.findMany({
-      where: { id: { in: baseList.map((base) => base.createdBy) } },
-      select: { id: true, name: true, avatar: true },
-    });
+    const baseIds = baseList.map((base) => base.id);
+
+    const [userList, sharedBaseList] = await Promise.all([
+      this.prismaService.user.findMany({
+        where: { id: { in: baseList.map((base) => base.createdBy) } },
+        select: { id: true, name: true, avatar: true },
+      }),
+      this.prismaService.baseShare.findMany({
+        where: { baseId: { in: baseIds }, nodeId: null, enabled: true },
+        select: { baseId: true },
+      }),
+    ]);
     const userMap = keyBy(userList, 'id');
+    const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
 
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
@@ -301,6 +310,7 @@ export class SpaceService {
       return {
         ...base,
         role,
+        isShared: sharedBaseIds.has(base.id),
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
         createdUser: createdUser

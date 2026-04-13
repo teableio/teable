@@ -6,6 +6,7 @@ import {
   buildOutboxTaskInput,
   deserializeComputedUpdatePlan,
   mergeBeforeImageRecordDtos,
+  mergeComputedRealtimeOrchestration,
 } from './ComputedUpdateOutboxPayload';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
@@ -134,5 +135,58 @@ describe('ComputedUpdateOutboxPayload', () => {
     expect(deserialized.value.extraSeedRecords[0].tableId.toString()).toBe(EXTRA_TABLE_ID);
     expect(deserialized.value.extraSeedRecords[0].recordIds[0].toString()).toBe(EXTRA_RECORD_ID);
     expect(deserialized.value.edges[0]?.allTargetRecordsReasons).toEqual(['conditional_delete']);
+  });
+
+  it('keeps orchestration when merging payloads from the same operation', () => {
+    expect(
+      mergeComputedRealtimeOrchestration(
+        {
+          operationId: 'req-a',
+          groupId: 'req-a',
+          totalRecordCount: 2000,
+          totalChunkCount: 4,
+          chunkIndex: 1,
+          scope: 'chunk',
+        },
+        {
+          operationId: 'req-a',
+          groupId: 'req-a',
+          totalRecordCount: 2000,
+          totalChunkCount: 4,
+          chunkIndex: 2,
+          scope: 'chunk',
+        }
+      )
+    ).toEqual({
+      operationId: 'req-a',
+      groupId: 'req-a',
+      totalRecordCount: 2000,
+      totalChunkCount: 4,
+      chunkIndex: 1,
+      scope: 'chunk',
+    });
+  });
+
+  it('drops orchestration when merging payloads from different operations', () => {
+    expect(
+      mergeComputedRealtimeOrchestration(
+        {
+          operationId: 'req-a',
+          groupId: 'req-a',
+          totalRecordCount: 2000,
+          totalChunkCount: 4,
+          chunkIndex: 0,
+          scope: 'operation',
+        },
+        {
+          operationId: 'req-b',
+          groupId: 'req-b',
+          totalRecordCount: 5,
+          totalChunkCount: 1,
+          chunkIndex: 0,
+          scope: 'operation',
+        }
+      )
+    ).toBeUndefined();
   });
 });

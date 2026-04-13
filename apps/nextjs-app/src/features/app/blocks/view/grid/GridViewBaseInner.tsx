@@ -24,6 +24,7 @@ import type {
   Record,
   IButtonCell,
   ICellError,
+  IUserData,
 } from '@teable/sdk';
 import {
   Grid,
@@ -42,6 +43,7 @@ import {
   useCommentCountMap,
   useGridIcons,
   useGridTooltipStore,
+  useUserInfoPopoverStore,
   hexToRGBA,
   emptySelection,
   useGridGroupCollection,
@@ -110,6 +112,10 @@ import type { IAiAutoFillDialogContainerRef } from './components';
 import {
   AiAutoFillDialogContainer,
   AiGenerateButton,
+  ClearSelectionProgressDialog,
+  DeleteSelectionProgressDialog,
+  DuplicateSelectionProgressDialog,
+  PasteSelectionProgressDialog,
   PrefillingRowContainer,
   PresortRowContainer,
 } from './components';
@@ -121,7 +127,12 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
-import { getEffectRows, generateSeriesForColumn, isEmptyValue } from './utils';
+import {
+  getEffectRows,
+  generateSeriesForColumn,
+  isEmptyValue,
+  shouldUseDeleteSelectionStream,
+} from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 
 /**
@@ -193,6 +204,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
+  const { openPopover: openUserPopover, closePopover: closeUserPopover } =
+    useUserInfoPopoverStore();
   const preTableId = usePrevious(tableId);
   const isTouchDevice = useIsTouchDevice();
   const sort = view?.sort;
@@ -285,7 +298,51 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
-  const { copy, paste, clear, deleteRecords, syncCopy, fill } = useSelectionOperation({
+  const {
+    copy,
+    paste,
+    clear,
+    deleteRecords,
+    duplicateRecords,
+    clearProgress,
+    clearSummary,
+    clearErrors,
+    clearProgressStatus,
+    clearDialogMode,
+    clearConfirmRecordCount,
+    isClearProgressOpen,
+    closeClearProgressDialog,
+    confirmClearSelection,
+    deleteProgress,
+    deleteSummary,
+    deleteErrors,
+    deleteProgressStatus,
+    deleteDialogMode,
+    deleteConfirmRecordCount,
+    isDeleteProgressOpen,
+    closeDeleteProgressDialog,
+    confirmDeleteSelection,
+    duplicateProgress,
+    duplicateSummary,
+    duplicateErrors,
+    duplicateProgressStatus,
+    duplicateDialogMode,
+    duplicateConfirmRecordCount,
+    isDuplicateProgressOpen,
+    closeDuplicateProgressDialog,
+    confirmDuplicateSelection,
+    pasteProgress,
+    pasteSummary,
+    pasteErrors,
+    pasteProgressStatus,
+    pasteDialogMode,
+    pasteConfirmRecordCount,
+    isPasteProgressOpen,
+    closePasteProgressDialog,
+    confirmPasteSelection,
+    syncCopy,
+    fill,
+  } = useSelectionOperation({
     collapsedGroupIds: viewQuery?.collapsedGroupIds
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
@@ -582,8 +639,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           },
           deleteRecords: async () => {
             const deleteRows = getEffectRows(selection, realRowCount);
+            const usesStreamDeleteDialog = shouldUseDeleteSelectionStream(selection, realRowCount);
 
-            if (deleteRows >= 10) {
+            if (!usesStreamDeleteDialog && deleteRows >= 10) {
               const confirmed = await confirm({
                 title: t('table:table.actionTips.deleteRecordConfirmTitle'),
                 description: t('table:table.actionTips.deleteRecordConfirmDescription', {
@@ -598,6 +656,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
+          },
+          duplicateRecord: async () => {
+            await duplicateRecords(selection);
           },
         });
       } else {
@@ -1119,7 +1180,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const componentId = useMemo(() => uniqueId('grid-view-'), []);
 
-  const onCellValueHovered = (bounds: IRectangle, cellItem: ICellItem) => {
+  const onCellValueHovered = (bounds: IRectangle, cellItem: ICellItem, data?: unknown) => {
     const cellInfo = getCellContent(cellItem);
     if (!cellInfo?.id) {
       return;
@@ -1140,13 +1201,28 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         position: bounds,
       });
     }
+
+    const userData = (data as { user?: IUserData } | undefined)?.user;
+    if (cellInfo.type === CellType.User && userData) {
+      openUserPopover({
+        id: componentId,
+        user: userData,
+        position: bounds,
+      });
+    }
   };
 
-  const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
+  const onItemHovered = (
+    type: RegionType,
+    bounds: IRectangle,
+    cellItem: ICellItem,
+    data?: unknown
+  ) => {
     const [columnIndex] = cellItem;
     const { description } = columns[columnIndex] ?? {};
 
     closeTooltip();
+    closeUserPopover();
 
     if (type === RegionType.ColumnDescription && description) {
       openTooltip({
@@ -1220,7 +1296,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
 
     if (type === RegionType.CellValue) {
-      onCellValueHovered(bounds, cellItem);
+      onCellValueHovered(bounds, cellItem, data);
     }
   };
 
@@ -1653,6 +1729,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           viewId={activeViewId}
           recordId={expandRecord.recordId}
           recordIds={[expandRecord.recordId]}
+          isLinkedRecord
           onClose={() => setExpandRecord(undefined)}
           buttonClickStatusHook={buttonClickStatusHook}
         />
@@ -1669,6 +1746,66 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         ref={aiAutoFillDialogRef}
         group={group}
         personalViewCommonQuery={personalViewCommonQuery}
+      />
+      <ClearSelectionProgressDialog
+        open={isClearProgressOpen}
+        mode={clearDialogMode ?? 'progress'}
+        progress={clearProgress}
+        summary={clearSummary}
+        errors={clearErrors}
+        status={clearProgressStatus}
+        confirmRecordCount={clearConfirmRecordCount}
+        onConfirm={confirmClearSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeClearProgressDialog();
+          }
+        }}
+      />
+      <DeleteSelectionProgressDialog
+        open={isDeleteProgressOpen}
+        mode={deleteDialogMode ?? 'progress'}
+        progress={deleteProgress}
+        summary={deleteSummary}
+        errors={deleteErrors}
+        status={deleteProgressStatus}
+        confirmRecordCount={deleteConfirmRecordCount}
+        onConfirm={confirmDeleteSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDeleteProgressDialog();
+          }
+        }}
+      />
+      <DuplicateSelectionProgressDialog
+        open={isDuplicateProgressOpen}
+        mode={duplicateDialogMode ?? 'progress'}
+        progress={duplicateProgress}
+        summary={duplicateSummary}
+        errors={duplicateErrors}
+        status={duplicateProgressStatus}
+        confirmRecordCount={duplicateConfirmRecordCount}
+        onConfirm={confirmDuplicateSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDuplicateProgressDialog();
+          }
+        }}
+      />
+      <PasteSelectionProgressDialog
+        open={isPasteProgressOpen}
+        mode={pasteDialogMode ?? 'progress'}
+        progress={pasteProgress}
+        summary={pasteSummary}
+        errors={pasteErrors}
+        status={pasteProgressStatus}
+        confirmRecordCount={pasteConfirmRecordCount}
+        onConfirm={confirmPasteSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePasteProgressDialog();
+          }
+        }}
       />
     </div>
   );

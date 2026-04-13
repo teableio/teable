@@ -118,7 +118,12 @@ export interface IGridExternalProps {
   /**
    * Triggered when the mouse hovers over the every type of region
    */
-  onItemHovered?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
+  onItemHovered?: (
+    type: RegionType,
+    bounds: IRectangle,
+    cellItem: ICellItem,
+    data?: unknown
+  ) => void;
 
   /**
    * Triggered when the mouse clicks the every type of region

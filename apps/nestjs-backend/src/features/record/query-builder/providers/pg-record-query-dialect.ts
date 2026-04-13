@@ -300,7 +300,8 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   buildUserJsonObjectById(idRef: string): string {
     return `(
-        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
+        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email) ||
+          CASE WHEN u.is_system = true THEN jsonb_build_object('isSystem', true) ELSE '{}'::jsonb END
         FROM users u
         WHERE u.id = ${idRef}
       )`;

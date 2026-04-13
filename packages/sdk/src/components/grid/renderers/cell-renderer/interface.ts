@@ -153,7 +153,9 @@ export interface IImageCell extends IEditableCell {
 export interface IUserData {
   id: string;
   name: string;
+  email?: string;
   avatarUrl?: string;
+  isSystem?: boolean;
 }
 
 export interface IUserCell extends IEditableCell {

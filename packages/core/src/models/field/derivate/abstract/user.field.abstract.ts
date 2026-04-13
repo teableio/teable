@@ -7,6 +7,7 @@ export const userCellValueSchema = z.object({
   title: z.string(),
   email: z.string().optional(),
   avatarUrl: z.string().optional().nullable(),
+  isSystem: z.boolean().optional(),
 });
 
 export type IUserCellValue = z.infer<typeof userCellValueSchema>;

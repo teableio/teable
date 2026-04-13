@@ -106,11 +106,11 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
   }
 
   buildUserJsonObjectById(idRef: string): string {
-    return `json_object(
-        'id', ${idRef},
-        'title', (SELECT name FROM users WHERE id = ${idRef}),
-        'email', (SELECT email FROM users WHERE id = ${idRef})
-      )`;
+    return `(SELECT CASE WHEN u.is_system = 1 THEN
+        json_object('id', u.id, 'title', u.name, 'email', u.email, 'isSystem', json('true'))
+      ELSE
+        json_object('id', u.id, 'title', u.name, 'email', u.email)
+      END FROM users u WHERE u.id = ${idRef})`;
   }
 
   flattenLookupCteValue(

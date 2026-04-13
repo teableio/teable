@@ -34,6 +34,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateRecordsHandler.ts` - Role: command handler; Purpose: create records, persist, publish.
 - `CreateRecordsStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streaming record inputs.
 - `CreateRecordsStreamHandler.ts` - Role: command handler; Purpose: stream-create records, persist, publish.
+- `DeleteByRangeCommand.ts` - Role: command DTO + schema; Purpose: validate range-based record deletion inputs.
+- `DeleteByRangeHandler.ts` - Role: command handler; Purpose: delegate range-based deletion to the shared delete application service.
+- `DeleteByRangeStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streaming range-deletion inputs and batch sizing.
+- `DeleteByRangeStreamHandler.ts` - Role: command handler; Purpose: expose range-based deletion as an async progress stream.
+- `DuplicateRecordsStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streamed range-based record duplication inputs and batch sizing.
+- `DuplicateRecordsStreamHandler.ts` - Role: command handler; Purpose: expose bulk row duplication as an async progress stream.
 - `DeleteFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deleting a field.
 - `DeleteFieldHandler.ts` - Role: command handler; Purpose: remove field metadata/schema and publish events.
 - `FieldValidation.ts` - Role: helper; Purpose: decide notNull/unique support by field type.

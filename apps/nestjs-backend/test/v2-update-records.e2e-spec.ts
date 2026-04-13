@@ -3,6 +3,7 @@ import { FieldKeyType, FieldType } from '@teable/core';
 import { updateRecordsOkResponseSchema } from '@teable/v2-contract-http';
 
 import {
+  convertField,
   createRecords,
   createTable,
   getRecords,
@@ -371,6 +372,225 @@ describe('V2Controller updateRecords (e2e)', () => {
       expect(statusByTitle.get('Alpha')).toBe('Done');
       expect(statusByTitle.get('Beta')).toBe('Open');
       expect(statusByTitle.get('Gamma')).toBe('Done');
+    } finally {
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
+
+  it('preserves omitted singleSelect values in sparse explicit batch updates', async () => {
+    const table = await createTable(baseId, {
+      name: 'v2 sparse update preserves omitted single select',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+        {
+          name: 'Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [{ name: 'Open' }, { name: 'Closed' }],
+            preventAutoNewOptions: true,
+          },
+        },
+        { name: 'Notes', type: FieldType.SingleLineText },
+      ],
+    });
+
+    try {
+      const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+      const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'Alpha',
+              [statusFieldId]: 'Open',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: 'Beta',
+              [statusFieldId]: 'Open',
+            },
+          },
+        ],
+      });
+
+      const response = await fetch(`${appUrl}/api/v2/tables/updateRecords`, {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          tableId: table.id,
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [notesFieldId]: 'Touched',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+          ],
+        }),
+      });
+
+      expect(response.status).toBe(200);
+
+      const rawBody = await response.json();
+      const parsed = updateRecordsOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+
+      expect(parsed.data.data.updatedCount).toBe(2);
+
+      const refreshed = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        skip: 0,
+        take: 100,
+      });
+      const recordsByTitle = new Map(
+        refreshed.records.map((record) => [record.fields[titleFieldId], record])
+      );
+
+      expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Open');
+      expect(recordsByTitle.get('Alpha')?.fields[notesFieldId]).toBe('Touched');
+      expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Closed');
+    } finally {
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
+
+  it('does not fail required singleSelect validation when omitted in another batch row', async () => {
+    const table = await createTable(baseId, {
+      name: 'v2 sparse update required single select',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+        {
+          name: 'Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [{ name: 'Open' }, { name: 'Closed' }],
+            preventAutoNewOptions: true,
+          },
+        },
+        { name: 'Notes', type: FieldType.SingleLineText },
+      ],
+    });
+
+    try {
+      const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+      const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+      const statusField = table.fields.find((field) => field.id === statusFieldId);
+
+      if (!statusField) {
+        throw new Error('Status field not found');
+      }
+
+      const initialRows = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        skip: 0,
+        take: 100,
+      });
+      const primeResponse = await fetch(`${appUrl}/api/v2/tables/updateRecords`, {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          tableId: table.id,
+          fieldKeyType: FieldKeyType.Id,
+          fields: {
+            [statusFieldId]: 'Open',
+          },
+          recordIds: initialRows.records.map((record) => record.id),
+        }),
+      });
+      expect(primeResponse.status).toBe(200);
+
+      await convertField(table.id, statusFieldId, {
+        name: statusField.name,
+        type: statusField.type,
+        dbFieldName: statusField.dbFieldName,
+        options: statusField.options,
+        notNull: true,
+      });
+
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'Alpha',
+              [statusFieldId]: 'Open',
+            },
+          },
+          {
+            fields: {
+              [titleFieldId]: 'Beta',
+              [statusFieldId]: 'Open',
+            },
+          },
+        ],
+      });
+
+      const response = await fetch(`${appUrl}/api/v2/tables/updateRecords`, {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          tableId: table.id,
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [notesFieldId]: 'Still open',
+              },
+            },
+          ],
+        }),
+      });
+
+      expect(response.status).toBe(200);
+
+      const rawBody = await response.json();
+      const parsed = updateRecordsOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+
+      expect(parsed.data.data.updatedCount).toBe(2);
+
+      const refreshed = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        skip: 0,
+        take: 100,
+      });
+      const recordsByTitle = new Map(
+        refreshed.records.map((record) => [record.fields[titleFieldId], record])
+      );
+
+      expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Closed');
+      expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Open');
+      expect(recordsByTitle.get('Beta')?.fields[notesFieldId]).toBe('Still open');
     } finally {
       await permanentDeleteTable(baseId, table.id);
     }

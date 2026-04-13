@@ -624,7 +624,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       const { type } = region;
 
       if (type === CellRegionType.Hover) {
-        const { x, y, width, height } = region.data as IRectangle;
+        const { x, y, width, height, ...extraData } = region.data as IRectangle & {
+          [key: string]: unknown;
+        };
         const offsetX = coordInstance.getColumnOffset(columnIndex);
         const offsetY = coordInstance.getRowOffset(rowIndex);
         onItemHovered?.(
@@ -638,7 +640,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
             width,
             height,
           },
-          [columnIndex, realIndex]
+          [columnIndex, realIndex],
+          extraData
         );
       }
 

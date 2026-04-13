@@ -187,6 +187,156 @@ describe('update-field: conditionalRollup property updates', () => {
     await ctx.deleteField({ tableId: hostTableId, fieldId });
   });
 
+  test('should update dynamic date filter condition', async () => {
+    const fieldId = createFieldId();
+    let tempForeignTableId = '';
+    let tempHostTableId = '';
+
+    try {
+      const tempForeignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `CR Dynamic Date Foreign ${fieldId}`,
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Hours' },
+          {
+            type: 'date',
+            name: 'Due Date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          },
+        ],
+      });
+      tempForeignTableId = tempForeignTable.id;
+      const tempForeignPrimaryFieldId = tempForeignTable.fields.find((f) => f.isPrimary)?.id;
+      const tempForeignNumberFieldId = tempForeignTable.fields.find((f) => f.name === 'Hours')?.id;
+      const tempForeignDateFieldId = tempForeignTable.fields.find((f) => f.name === 'Due Date')?.id;
+      if (!tempForeignPrimaryFieldId || !tempForeignNumberFieldId || !tempForeignDateFieldId) {
+        throw new Error('Failed to resolve temporary foreign fields');
+      }
+
+      const tempHostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `CR Dynamic Date Host ${fieldId}`,
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      tempHostTableId = tempHostTable.id;
+      const tempHostPrimaryFieldId = tempHostTable.fields.find((f) => f.isPrimary)?.id;
+      if (!tempHostPrimaryFieldId) {
+        throw new Error('Failed to resolve temporary host primary field');
+      }
+
+      const now = new Date();
+      const today = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0, 0)
+      );
+      const yesterday = new Date(today);
+      yesterday.setUTCDate(today.getUTCDate() - 1);
+
+      await ctx.createRecord(tempForeignTableId, {
+        [tempForeignPrimaryFieldId]: 'Today',
+        [tempForeignNumberFieldId]: 5,
+        [tempForeignDateFieldId]: today.toISOString(),
+      });
+      await ctx.createRecord(tempForeignTableId, {
+        [tempForeignPrimaryFieldId]: 'Yesterday',
+        [tempForeignNumberFieldId]: 7,
+        [tempForeignDateFieldId]: yesterday.toISOString(),
+      });
+      const hostRecord = await ctx.createRecord(tempHostTableId, {
+        [tempHostPrimaryFieldId]: 'Host',
+      });
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: tempHostTableId,
+        field: {
+          type: 'conditionalRollup',
+          id: fieldId,
+          name: 'CR Dynamic Date',
+          options: {
+            expression: 'sum({values})',
+            timeZone: 'utc',
+          },
+          config: {
+            foreignTableId: tempForeignTableId,
+            lookupFieldId: tempForeignNumberFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: tempForeignDateFieldId, operator: 'isNotEmpty' }],
+              },
+            },
+          },
+        },
+      });
+
+      const beforeRecords = await ctx.listRecords(tempHostTableId);
+      expect(beforeRecords.find((record) => record.id === hostRecord.id)?.fields[fieldId]).toBe(12);
+
+      const updatedTable = await ctx.updateField({
+        tableId: tempHostTableId,
+        fieldId,
+        field: {
+          config: {
+            foreignTableId: tempForeignTableId,
+            lookupFieldId: tempForeignNumberFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: tempForeignDateFieldId,
+                    operator: 'is',
+                    value: {
+                      mode: 'today',
+                      timeZone: 'utc',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      const updatedField = updatedTable.fields.find((f) => f.id === fieldId) as
+        | {
+            type?: string;
+            config?: {
+              condition?: {
+                filter?: {
+                  filterSet?: Array<{
+                    fieldId?: string;
+                    operator?: string;
+                    value?: { mode?: string; timeZone?: string };
+                  }>;
+                };
+              };
+            };
+          }
+        | undefined;
+      const filterItem = updatedField?.config?.condition?.filter?.filterSet?.[0];
+      expect(updatedField?.type).toBe('conditionalRollup');
+      expect(filterItem).toMatchObject({
+        fieldId: tempForeignDateFieldId,
+        operator: 'is',
+        value: { mode: 'today', timeZone: 'utc' },
+      });
+
+      const afterRecords = await ctx.listRecords(tempHostTableId);
+      expect(afterRecords.find((record) => record.id === hostRecord.id)?.fields[fieldId]).toBe(5);
+    } finally {
+      if (tempHostTableId) {
+        await ctx.deleteTable(tempHostTableId).catch(() => undefined);
+      }
+      if (tempForeignTableId) {
+        await ctx.deleteTable(tempForeignTableId).catch(() => undefined);
+      }
+    }
+  });
+
   test('should update sort and limit', async () => {
     const fieldId = createFieldId();
     await ctx.createField({
@@ -240,6 +390,127 @@ describe('update-field: conditionalRollup property updates', () => {
     expect(updatedField?.config?.condition?.limit).toBe(10);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
+  });
+
+  test('should clear sort and limit when condition update omits them', async () => {
+    const fieldId = createFieldId();
+    const foreignStatus = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: { type: 'singleLineText', name: `Status ${fieldId}` },
+    });
+    const statusField = foreignStatus.fields.find((f) => f.name === `Status ${fieldId}`);
+    if (!statusField) throw new Error('No foreign status field');
+
+    const hostFilter = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTableId,
+      field: { type: 'singleLineText', name: `Filter ${fieldId}` },
+    });
+    const hostFilterField = hostFilter.fields.find((f) => f.name === `Filter ${fieldId}`);
+    if (!hostFilterField) throw new Error('No host filter field');
+
+    const foreignRow1 = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: `row-1-${fieldId}`,
+      [statusField.id]: 'Active',
+      [foreignNumberFieldId]: 10,
+    });
+    const foreignRow2 = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: `row-2-${fieldId}`,
+      [statusField.id]: 'Active',
+      [foreignNumberFieldId]: 20,
+    });
+    const hostRow = await ctx.createRecord(hostTableId, {
+      [hostPrimaryFieldId]: `host-${fieldId}`,
+      [hostFilterField.id]: 'Active',
+    });
+
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'conditionalRollup',
+        id: fieldId,
+        name: `CR Clear Sort ${fieldId}`,
+        options: {
+          expression: 'array_compact({values})',
+          timeZone: 'utc',
+        },
+        config: {
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: hostFilterField.id },
+                },
+              ],
+            },
+            sort: { fieldId: foreignNumberFieldId, order: 'desc' as const },
+            limit: 1,
+          },
+        },
+      },
+    });
+
+    const beforeRecords = await ctx.listRecords(hostTableId);
+    const beforeValue = beforeRecords.find((record) => record.id === hostRow.id)?.fields[
+      fieldId
+    ] as string[] | undefined;
+    expect(beforeValue).toEqual([foreignRow2.fields[foreignPrimaryFieldId]]);
+
+    const updatedTable = await ctx.updateField({
+      tableId: hostTableId,
+      fieldId,
+      field: {
+        config: {
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: hostFilterField.id },
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId) as
+      | {
+          config?: {
+            condition?: {
+              sort?: { fieldId?: string; order?: string };
+              limit?: number;
+            };
+          };
+        }
+      | undefined;
+    expect(updatedField?.config?.condition?.sort).toBeUndefined();
+    expect(updatedField?.config?.condition?.limit).toBeUndefined();
+
+    const afterRecords = await ctx.listRecords(hostTableId);
+    const afterValue = afterRecords.find((record) => record.id === hostRow.id)?.fields[fieldId] as
+      | string[]
+      | undefined;
+    expect([...(afterValue ?? [])].sort()).toEqual([
+      foreignRow1.fields[foreignPrimaryFieldId],
+      foreignRow2.fields[foreignPrimaryFieldId],
+    ]);
+
+    await ctx.deleteField({ tableId: hostTableId, fieldId });
+    await ctx.deleteField({ tableId: hostTableId, fieldId: hostFilterField.id });
+    await ctx.deleteField({ tableId: foreignTableId, fieldId: statusField.id });
   });
 
   test('should change lookupFieldId', async () => {
