@@ -15,7 +15,7 @@ import {
   ProjectionHandler,
   ok,
   serializeFieldUpdatedValue,
-  isLargeRecordBatchMutation,
+  shouldSkipRealtimeBatchMutation,
 } from '@teable/v2-core';
 import type { IExecutionContext, IEventHandler, DomainError, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -169,7 +169,28 @@ class V2RecordsBatchCreatedActionTriggerProjection implements IEventHandler<Reco
     _context: IExecutionContext,
     event: RecordsBatchCreated
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'addRecord' }]);
+    const orchestration = event.orchestration;
+    const totalRecordCount = orchestration?.totalRecordCount ?? event.records.length;
+    const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
+
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      {
+        actionKey: 'addRecord',
+        payload: skipRealtime
+          ? {
+              tableId: event.tableId.toString(),
+              recordIds: event.records.map((record) => record.recordId),
+              skipRealtime: true,
+              operationId: orchestration?.operationId,
+              groupId: orchestration?.groupId,
+              totalRecordCount,
+              totalChunkCount: orchestration?.totalChunkCount,
+              chunkIndex: orchestration?.chunkIndex,
+              scope: orchestration?.scope,
+            }
+          : undefined,
+      },
+    ]);
     return ok(undefined);
   }
 }
@@ -201,7 +222,10 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
     _context: IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    if (isLargeRecordBatchMutation(event.updates.length)) {
+    const orchestration = event.orchestration;
+    const totalRecordCount = orchestration?.totalRecordCount ?? event.updates.length;
+
+    if (shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration)) {
       const fieldIds = collectChangedFieldIds(event.updates);
       emitActionTrigger(this.shareDbService, event.tableId.toString(), [
         {
@@ -209,6 +233,14 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
           payload: {
             tableId: event.tableId.toString(),
             fieldIds,
+            recordIds: event.updates.map((update) => update.recordId),
+            skipRealtime: true,
+            operationId: orchestration?.operationId,
+            groupId: orchestration?.groupId,
+            totalRecordCount,
+            totalChunkCount: orchestration?.totalChunkCount,
+            chunkIndex: orchestration?.chunkIndex,
+            scope: orchestration?.scope,
           },
         },
       ]);
@@ -247,8 +279,26 @@ class V2RecordsDeletedActionTriggerProjection implements IEventHandler<RecordsDe
     _context: IExecutionContext,
     event: RecordsDeleted
   ): Promise<Result<void, DomainError>> {
+    const orchestration = event.orchestration;
+    const totalRecordCount = orchestration?.totalRecordCount ?? event.recordIds.length;
+    const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
     emitActionTrigger(this.shareDbService, event.tableId.toString(), [
-      { actionKey: 'deleteRecord' },
+      {
+        actionKey: 'deleteRecord',
+        payload: skipRealtime
+          ? {
+              tableId: event.tableId.toString(),
+              recordIds: event.recordIds.map((recordId) => recordId.toString()),
+              skipRealtime: true,
+              operationId: orchestration?.operationId,
+              groupId: orchestration?.groupId,
+              totalRecordCount,
+              totalChunkCount: orchestration?.totalChunkCount,
+              chunkIndex: orchestration?.chunkIndex,
+              scope: orchestration?.scope,
+            }
+          : undefined,
+      },
     ]);
     return ok(undefined);
   }

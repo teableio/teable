@@ -11,7 +11,7 @@ import type { TableQueryService } from '../application/services/TableQueryServic
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
-import { RecordCreated } from '../domain/table/events/RecordCreated';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
@@ -225,9 +225,7 @@ describe('SubmitRecordHandler', () => {
       formId: formViewId,
     });
 
-    const createdEvent = value.events.find(
-      (event): event is RecordCreated => event instanceof RecordCreated
-    );
+    const createdEvent = value.events.find(isRecordCreatedEvent);
     expect(createdEvent).toBeDefined();
     expect(createdEvent?.source).toEqual({ type: 'form', formId: formViewId });
   });

@@ -55,6 +55,35 @@ const focusTextarea = (el: HTMLTextAreaElement, initialSearch: string | undefine
 const getReadonlyClassName = (canExpand: boolean, base: string) =>
   `pointer-events-auto ${canExpand ? 'max-h-64 overflow-auto' : 'overflow-hidden'} ${base}`;
 
+const useReadonlyScrollFix = (canScroll: boolean, cellKey: string) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.scrollTop = 0;
+    }
+  }, [cellKey]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !canScroll) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollHeight <= el.clientHeight) return;
+      const atTop = el.scrollTop <= 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+      if ((e.deltaY > 0 && !atBottom) || (e.deltaY < 0 && !atTop)) {
+        e.stopPropagation();
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel);
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [canScroll]);
+
+  return ref;
+};
+
 interface IGridMarkdownEditorProps extends IWrapperEditorProps, IEditorProps {
   readonlyExpandable?: boolean;
 }
@@ -82,6 +111,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
   const isReadonly = Boolean(cell.readonly);
   const canExpandReadonly = Boolean(isReadonly && readonlyExpandable);
   const isMarkdown = isMarkdownShowAs(field.options);
+  const readonlyScrollRef = useReadonlyScrollFix(canExpandReadonly, record.id);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fallbackFocusRef = useRef<HTMLInputElement>(null);
@@ -95,7 +125,8 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     latestValueRef.current = next;
     setEditorValue(next);
     savedRef.current = false;
-  }, [cell.data]);
+    milkdownGetEditorRef.current = null;
+  }, [cell.data, record.id, field.id]);
 
   const saveValue = () => {
     if (isReadonly || savedRef.current) return;
@@ -224,6 +255,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
       >
         {isMarkdown && (
           <div
+            ref={isMarkdown && canExpandReadonly ? readonlyScrollRef : undefined}
             className={
               isReadonly
                 ? getReadonlyClassName(canExpandReadonly, 'rounded-md px-2 pt-1 text-sm')
@@ -231,6 +263,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
             }
           >
             <MarkdownLongTextEditor
+              key={`${record.id}:${field.id}`}
               className="border-none shadow-none"
               value={editorValue}
               readonly={isReadonly}
@@ -243,6 +276,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
         )}
         {!isMarkdown && isReadonly && (
           <div
+            ref={!isMarkdown && canExpandReadonly ? readonlyScrollRef : undefined}
             className={getReadonlyClassName(
               canExpandReadonly,
               'rounded-md px-2 pt-1 text-[13px] leading-[1.4rem]'

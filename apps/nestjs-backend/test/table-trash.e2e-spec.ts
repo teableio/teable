@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, ViewType, generateRecordTrashId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
@@ -395,6 +395,70 @@ describe('Trash (e2e)', () => {
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
+    });
+
+    it('should restore records from the latest matching snapshots when historical record trash exists', async () => {
+      const createRes = await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              SingleLineText: `restore-record-trash-${Date.now()}-1`,
+            },
+          },
+          {
+            fields: {
+              SingleLineText: `restore-record-trash-${Date.now()}-2`,
+            },
+          },
+        ],
+        fieldKeyType: FieldKeyType.Name,
+      });
+      const recordIds = createRes.data.records.map((record) => record.id);
+
+      await deleteRecords(tableId, recordIds);
+
+      const trashItemsRes = await waitForTableTrashItems(tableId, 1);
+      const recordTrashItem = trashItemsRes.data.trashItems.find(
+        (item) => (item as ITableTrashItemVo).resourceType === ResourceType.Record
+      ) as ITableTrashItemVo | undefined;
+
+      expect(recordTrashItem).toBeTruthy();
+
+      const existingRecordTrashRows = await prisma.recordTrash.findMany({
+        where: {
+          tableId,
+          recordId: { in: recordIds },
+        },
+        select: {
+          recordId: true,
+          snapshot: true,
+          createdBy: true,
+          createdTime: true,
+        },
+      });
+
+      await prisma.recordTrash.createMany({
+        data: existingRecordTrashRows.map((row) => ({
+          id: generateRecordTrashId(),
+          tableId,
+          recordId: row.recordId,
+          snapshot: row.snapshot,
+          createdBy: row.createdBy,
+          createdTime: new Date(row.createdTime.getTime() - 60_000),
+        })),
+      });
+
+      const restored = await restoreTrash(recordTrashItem!.id);
+      expect(restored.status).toEqual(201);
+
+      const recordsAfterRestore = await getRecords(tableId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(
+        recordIds.every((recordId) =>
+          recordsAfterRestore.records.some((record) => record.id === recordId)
+        )
+      ).toBe(true);
     });
 
     it('should restore field when some records were deleted after field deletion', async () => {

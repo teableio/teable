@@ -281,10 +281,10 @@ describe('update-field: rollup property updates', () => {
 
     const table = await ctx.getTableById(hostTableId);
     const updatedField = table.fields.find((f) => f.id === fieldId) as RollupFieldDto | undefined;
-    expect(updatedField?.config?.lookupFieldId).toBe(foreignAmountFieldId);
+    expect(updatedField?.config?.lookupFieldId).toBe(foreignQtyFieldId);
 
     const records = await ctx.listRecords(hostTableId);
-    expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(30);
+    expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(5);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
     await ctx.deleteRecords(hostTableId, [host.id]);
@@ -452,10 +452,10 @@ describe('update-field: rollup property updates', () => {
 
     const table = await ctx.getTableById(hostTableId);
     const updatedField = table.fields.find((f) => f.id === fieldId) as RollupFieldDto | undefined;
-    expect(updatedField?.config?.linkFieldId).toBe(linkField1Id);
+    expect(updatedField?.config?.linkFieldId).toBe(linkField2Id);
 
     const records = await ctx.listRecords(hostTableId);
-    expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(10);
+    expect(records.find((r) => r.id === host.id)?.fields[fieldId]).toBe(20);
 
     await ctx.deleteField({ tableId: hostTableId, fieldId });
     await ctx.deleteRecords(hostTableId, [host.id]);

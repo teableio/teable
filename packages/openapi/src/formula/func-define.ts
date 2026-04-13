@@ -587,8 +587,8 @@ export const funcDefine: [
     {
       name: FunctionName.DatetimeDiff,
       func: FUNCTIONS[FunctionName.DatetimeDiff],
-      params: ['date1', 'date2', '[unit]'],
-      definition: 'DATETIME_DIFF(date1, date2, [unit])',
+      params: ['endDate', 'startDate', '[unit]'],
+      definition: 'DATETIME_DIFF(endDate, startDate, [unit])',
       returnType: CellValueType.Number,
     },
   ],
@@ -607,8 +607,8 @@ export const funcDefine: [
     {
       name: FunctionName.WorkdayDiff,
       func: FUNCTIONS[FunctionName.WorkdayDiff],
-      params: ['date1', 'date2', '[holidayStr]'],
-      definition: 'WORKDAY_DIFF(date1, date2, [holidayStr])',
+      params: ['startDate', 'endDate', '[holidayStr]'],
+      definition: 'WORKDAY_DIFF(startDate, endDate, [holidayStr])',
       returnType: CellValueType.Number,
     },
   ],

@@ -19,10 +19,13 @@ import {
   type Driver,
   type QueryResult,
 } from 'kysely';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 import { RecordInsertBuilder } from './RecordInsertBuilder';
+
+const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim();
 
 class RecordingConnection implements DatabaseConnection {
   constructor(private readonly queries: CompiledQuery[]) {}
@@ -156,6 +159,35 @@ const buildTable = (options?: {
   return { table, linkFieldId };
 };
 
+const buildForeignTable = (params: {
+  tableId?: string;
+  dbTableName: string;
+  lookupFieldId?: string;
+  lookupDbFieldName: string;
+}) => ({
+  id: () => TableId.create(params.tableId ?? FOREIGN_TABLE_ID)._unsafeUnwrap(),
+  dbTableName: () =>
+    ok({
+      value: () => ok(params.dbTableName),
+    }),
+  getField: (predicate: (field: { id(): FieldId }) => boolean) => {
+    const fieldId = FieldId.create(params.lookupFieldId ?? LOOKUP_FIELD_ID)._unsafeUnwrap();
+    const field = {
+      id: () => fieldId,
+      dbFieldName: () =>
+        ok({
+          value: () => ok(params.lookupDbFieldName),
+        }),
+    };
+
+    if (!predicate(field)) {
+      return err(new Error('Lookup field not found'));
+    }
+
+    return ok(field);
+  },
+});
+
 describe('RecordInsertBuilder', () => {
   it('omits order column when link meta hasOrderColumn is false', () => {
     const { db } = createRecordingDb();
@@ -206,5 +238,35 @@ describe('RecordInsertBuilder', () => {
       'rec_main',
       2,
     ]);
+  });
+
+  it('fills missing link titles in the main insert SQL using foreign table metadata', () => {
+    const { db } = createRecordingDb();
+    const { table, linkFieldId } = buildTable();
+    const builder = new RecordInsertBuilder(db);
+    const foreignTable = buildForeignTable({
+      dbTableName: 'bseLegacy.Legacy_Name',
+      lookupDbFieldName: 'Primary_Field',
+    });
+
+    const result = builder.build({
+      table,
+      tableName: 'public.records',
+      fieldValues: new Map<string, unknown>([[linkFieldId.toString(), [{ id: 'rec_foreign' }]]]),
+      context: {
+        recordId: 'rec_main',
+        actorId: 'usr_test',
+        now: '2025-01-01T00:00:00.000Z',
+        fillLinkTitles: true,
+        fillLinkTitleForeignTables: new Map([
+          [foreignTable.id().toString(), foreignTable as never],
+        ]),
+      },
+    });
+
+    const compiled = result._unsafeUnwrap().mainInsert.compiled;
+    expect(normalizeSql(compiled.sql)).toContain('LEFT JOIN "bseLegacy"."Legacy_Name" ft');
+    expect(normalizeSql(compiled.sql)).toContain('"ft"."Primary_Field"');
+    expect(normalizeSql(compiled.sql)).not.toContain(`"${foreignTable.id().toString()}"`);
   });
 });

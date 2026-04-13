@@ -1,5 +1,6 @@
 import {
   DbFieldName,
+  FieldOptionsDtoVisitor,
   FieldSpecBuilder,
   type Field,
   type ILinkFieldOptionsDTO,
@@ -64,9 +65,49 @@ type TableFieldPersistenceBuilderParams = {
   dto?: ITablePersistenceDTO;
 };
 
+type LookupOptionsValue = {
+  linkFieldId?: string;
+  foreignTableId?: string;
+  lookupFieldId?: string;
+  relationship?: string;
+  [key: string]: unknown;
+};
+
+type ConditionalLookupOptionsValue = {
+  foreignTableId?: string;
+  lookupFieldId?: string;
+  condition?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type RollupConfigValue = {
+  linkFieldId?: string;
+  foreignTableId?: string;
+  lookupFieldId?: string;
+  condition?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type LookupFieldLike = Field & {
+  innerField(): Result<Field, DomainError>;
+  innerOptionsPatch(): Readonly<Record<string, unknown>> | undefined;
+  lookupOptionsDto(): LookupOptionsValue;
+};
+
+type ConditionalLookupFieldLike = Field & {
+  innerField(): Result<Field, DomainError>;
+  innerOptionsPatch(): Readonly<Record<string, unknown>> | undefined;
+  conditionalLookupOptionsDto(): ConditionalLookupOptionsValue;
+};
+
+type RollupFieldLike = Field & {
+  configDto(): RollupConfigValue;
+};
+
 export class TableFieldPersistenceBuilder {
   private dtoValue?: ITablePersistenceDTO;
   private storageTypeByIdValue?: ReadonlyMap<string, IFieldStorageType>;
+  private fieldByIdValue?: ReadonlyMap<string, Field>;
 
   constructor(private readonly params: TableFieldPersistenceBuilderParams) {
     this.dtoValue = params.dto;
@@ -106,6 +147,7 @@ export class TableFieldPersistenceBuilder {
       return ok(
         this.buildRowValue({
           fieldDto: field.field,
+          field: this.getFieldById().get(field.field.id),
           storageType,
           dbFieldName: field.dbFieldName,
           order: index + 1,
@@ -133,6 +175,7 @@ export class TableFieldPersistenceBuilder {
     return ok(
       this.buildRowValue({
         fieldDto,
+        field,
         storageType,
         dbFieldName: dbFieldNameResult.value,
         order: orderResult.value,
@@ -157,6 +200,15 @@ export class TableFieldPersistenceBuilder {
     if (applyResult.isErr()) return err(applyResult.error);
     this.storageTypeByIdValue = visitor.typesById();
     return ok(this.storageTypeByIdValue);
+  }
+
+  private getFieldById(): ReadonlyMap<string, Field> {
+    if (this.fieldByIdValue) return this.fieldByIdValue;
+
+    this.fieldByIdValue = new Map(
+      this.params.table.getFields().map((field) => [field.id().toString(), field] as const)
+    );
+    return this.fieldByIdValue;
   }
 
   private resolveFieldDto(
@@ -232,13 +284,14 @@ export class TableFieldPersistenceBuilder {
 
   private buildRowValue(params: {
     fieldDto: ITableFieldPersistenceDTO;
+    field?: Field;
     storageType: IFieldStorageType;
     dbFieldName: string;
     order: number;
   }): TableFieldRow {
     const { table, now, actorId } = this.params;
-    const lookupOptions = this.serializeLookupOptions(params.fieldDto);
-    const lookupLinkedFieldId = this.resolveLookupLinkedFieldId(params.fieldDto);
+    const lookupOptions = this.serializeLookupOptions(params.fieldDto, params.field);
+    const lookupLinkedFieldId = this.resolveLookupLinkedFieldId(params.fieldDto, params.field);
     const notNull = typeof params.fieldDto.notNull === 'boolean' ? params.fieldDto.notNull : null;
     const unique = typeof params.fieldDto.unique === 'boolean' ? params.fieldDto.unique : null;
 
@@ -264,7 +317,7 @@ export class TableFieldPersistenceBuilder {
       id: params.fieldDto.id,
       name: params.fieldDto.name,
       description: params.fieldDto.description ?? null,
-      options: this.serializeFieldOptions(params.fieldDto),
+      options: this.serializeFieldOptions(params.fieldDto, params.field),
       meta: this.serializeFieldMeta(params.fieldDto),
       ai_config: serializedAiConfig,
       type: persistedType,
@@ -294,22 +347,27 @@ export class TableFieldPersistenceBuilder {
     };
   }
 
-  private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
-    if (field.options === undefined) return null;
+  private serializeFieldOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): string | null {
+    const resolvedFieldOptions = this.resolveFieldOptions(field, domainField);
+    if (resolvedFieldOptions === undefined) return null;
 
     if (field.type === 'conditionalLookup') {
-      const innerOptions = field.innerOptions;
+      const innerOptions = this.resolveConditionalLookupInnerOptions(field, domainField);
       if (innerOptions === undefined) return null;
       return JSON.stringify(innerOptions);
     }
 
     // For conditionalRollup, match v1 format: flatten config into options
     // v1 stores: expression, timeZone, formatting, showAs, foreignTableId, lookupFieldId, filter, sort, limit
-    if (field.type === 'conditionalRollup' && field.config) {
-      const config = field.config as Record<string, unknown>;
+    if (field.type === 'conditionalRollup') {
+      const config = this.resolveConditionalRollupConfig(field, domainField);
+      if (!config) return JSON.stringify(resolvedFieldOptions);
       const condition = config.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
-        ...field.options,
+        ...resolvedFieldOptions,
         foreignTableId: config.foreignTableId,
         lookupFieldId: config.lookupFieldId,
         // Convert condition to v1 filter format
@@ -319,12 +377,16 @@ export class TableFieldPersistenceBuilder {
       });
     }
 
-    return JSON.stringify(field.options);
+    return JSON.stringify(resolvedFieldOptions);
   }
 
-  private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
+  private serializeLookupOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): string | null {
     if (field.type === 'conditionalLookup') {
-      const opts = field.options as Record<string, unknown>;
+      const opts = this.resolveConditionalLookupOptions(field, domainField);
+      if (!opts) return null;
       const condition = opts.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
         foreignTableId: opts.foreignTableId,
@@ -336,47 +398,190 @@ export class TableFieldPersistenceBuilder {
     }
 
     // Handle lookup fields (lookupOptions is directly on the DTO)
-    if (field.isLookup && field.lookupOptions) {
-      const linkOptions = this.resolveLinkFieldOptions(field.lookupOptions.linkFieldId);
-      if (!linkOptions) return JSON.stringify(field.lookupOptions);
+    const lookupDefinition = this.resolveLookupOptions(field, domainField);
+    if (field.isLookup && lookupDefinition) {
+      const linkOptions = this.resolveLinkFieldOptions(lookupDefinition.linkFieldId);
+      if (!linkOptions) return JSON.stringify(lookupDefinition);
       const normalizedLinkOptions = this.normalizeLookupLinkedOptions(linkOptions);
       return JSON.stringify({
         ...normalizedLinkOptions,
-        ...field.lookupOptions,
-        linkFieldId: field.lookupOptions.linkFieldId,
+        ...lookupDefinition,
+        linkFieldId: lookupDefinition.linkFieldId,
       });
     }
 
     // Handle rollup fields (config contains linkFieldId, foreignTableId, lookupFieldId)
-    if (field.type === 'rollup' && field.config) {
-      const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
-      if (!linkOptions) return JSON.stringify(field.config);
+    const rollupConfig = this.resolveRollupConfig(field, domainField);
+    if (field.type === 'rollup' && rollupConfig) {
+      const linkOptions = this.resolveLinkFieldOptions(rollupConfig.linkFieldId);
+      if (!linkOptions) return JSON.stringify(rollupConfig);
       return JSON.stringify({
         ...this.normalizeLookupLinkedOptions(linkOptions),
-        ...field.config,
-        linkFieldId: field.config.linkFieldId,
+        ...rollupConfig,
+        linkFieldId: rollupConfig.linkFieldId,
       });
     }
 
     return null;
   }
 
-  private resolveLookupLinkedFieldId(field: ITableFieldPersistenceDTO): string | null {
+  private resolveLookupLinkedFieldId(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): string | null {
     if (field.type === 'conditionalLookup') {
       return null;
     }
 
     // Handle lookup fields
-    if (field.isLookup && field.lookupOptions) {
-      return field.lookupOptions.linkFieldId ?? null;
+    const lookupDefinition = this.resolveLookupOptions(field, domainField);
+    if (field.isLookup && lookupDefinition) {
+      return lookupDefinition.linkFieldId ?? null;
     }
 
     // Handle rollup fields
-    if (field.type === 'rollup' && field.config) {
-      return field.config.linkFieldId ?? null;
+    const rollupConfig = this.resolveRollupConfig(field, domainField);
+    if (field.type === 'rollup' && rollupConfig) {
+      return rollupConfig.linkFieldId ?? null;
     }
 
     return null;
+  }
+
+  private resolveFieldOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): unknown | undefined {
+    if (field.type === 'conditionalLookup') {
+      return this.resolveConditionalLookupInnerOptions(field, domainField);
+    }
+    if (field.options !== undefined) {
+      return field.options;
+    }
+    return domainField ? this.extractPersistedOptionsFromField(domainField) : undefined;
+  }
+
+  private resolveConditionalLookupInnerOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): unknown | undefined {
+    if (field.type !== 'conditionalLookup') {
+      return field.options;
+    }
+    if (field.innerOptions !== undefined) {
+      return field.innerOptions;
+    }
+    if (!domainField || domainField.type().toString() !== 'conditionalLookup') {
+      return undefined;
+    }
+    return this.extractLookupInnerOptions(domainField as ConditionalLookupFieldLike);
+  }
+
+  private resolveConditionalLookupOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): ConditionalLookupOptionsValue | undefined {
+    if (field.type !== 'conditionalLookup') {
+      return undefined;
+    }
+    if (field.options && typeof field.options === 'object' && !Array.isArray(field.options)) {
+      return field.options as ConditionalLookupOptionsValue;
+    }
+    if (!domainField || domainField.type().toString() !== 'conditionalLookup') {
+      return undefined;
+    }
+    return (domainField as ConditionalLookupFieldLike).conditionalLookupOptionsDto();
+  }
+
+  private resolveLookupOptions(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): LookupOptionsValue | undefined {
+    if (field.lookupOptions) {
+      return field.lookupOptions as LookupOptionsValue;
+    }
+    if (!domainField || domainField.type().toString() !== 'lookup') {
+      return undefined;
+    }
+    return (domainField as LookupFieldLike).lookupOptionsDto();
+  }
+
+  private resolveRollupConfig(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): RollupConfigValue | undefined {
+    if (field.type !== 'rollup') {
+      return undefined;
+    }
+    if (field.config) {
+      return field.config as RollupConfigValue;
+    }
+    if (!domainField || domainField.type().toString() !== 'rollup') {
+      return undefined;
+    }
+    return (domainField as RollupFieldLike).configDto();
+  }
+
+  private resolveConditionalRollupConfig(
+    field: ITableFieldPersistenceDTO,
+    domainField?: Field
+  ): RollupConfigValue | undefined {
+    if (field.type !== 'conditionalRollup') {
+      return undefined;
+    }
+    if (field.config) {
+      return field.config as RollupConfigValue;
+    }
+    if (!domainField || domainField.type().toString() !== 'conditionalRollup') {
+      return undefined;
+    }
+    return (domainField as RollupFieldLike).configDto();
+  }
+
+  private extractPersistedOptionsFromField(field: Field): unknown | undefined {
+    if (field.type().toString() === 'lookup') {
+      return this.extractLookupInnerOptions(field as LookupFieldLike);
+    }
+    if (field.type().toString() === 'conditionalLookup') {
+      return this.extractLookupInnerOptions(field as ConditionalLookupFieldLike);
+    }
+
+    const optionsResult = field.accept(new FieldOptionsDtoVisitor());
+    return optionsResult.isOk() ? optionsResult.value : undefined;
+  }
+
+  private extractLookupInnerOptions(
+    field: LookupFieldLike | ConditionalLookupFieldLike
+  ): unknown | undefined {
+    const innerFieldResult = field.innerField();
+    if (innerFieldResult.isErr()) {
+      return undefined;
+    }
+
+    const innerOptionsResult = innerFieldResult.value.accept(new FieldOptionsDtoVisitor());
+    if (innerOptionsResult.isErr()) {
+      return undefined;
+    }
+
+    return this.mergeLookupInnerOptions(innerOptionsResult.value, field.innerOptionsPatch());
+  }
+
+  private mergeLookupInnerOptions(
+    innerOptions: unknown,
+    innerOptionsPatch?: Readonly<Record<string, unknown>>
+  ): unknown | undefined {
+    if (!innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0) {
+      return innerOptions;
+    }
+
+    if (!innerOptions || typeof innerOptions !== 'object' || Array.isArray(innerOptions)) {
+      return innerOptions;
+    }
+
+    return {
+      ...(innerOptions as Record<string, unknown>),
+      ...innerOptionsPatch,
+    };
   }
 
   private normalizeLookupLinkedOptions(
