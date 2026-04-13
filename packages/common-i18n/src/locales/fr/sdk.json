@@ -285,7 +285,8 @@
     "showHiddenFields": "Afficher {{count}} champs cachés",
     "hideHiddenFields": "Masquer {{count}} champs cachés",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "recordFrom": "Enregistrement de"
   },
   "sort": {
     "label": "Trier",

@@ -5,12 +5,16 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
+import { OrSpec } from '../../domain/shared/specification/OrSpec';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
@@ -72,15 +76,28 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore() {
+    return ok(undefined);
+  }
+
   async delete() {
     return ok(undefined);
   }
 }
 
 class FakeRecordQueryRepository implements ITableRecordQueryRepository {
+  public lastSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
+  public findCalls = 0;
+
   constructor(private readonly records: ReadonlyArray<TableRecordReadModel>) {}
 
-  async find() {
+  async find(
+    _context: IExecutionContext,
+    _table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ) {
+    this.findCalls += 1;
+    this.lastSpec = spec;
     return ok({ records: this.records, total: this.records.length });
   }
 
@@ -110,7 +127,11 @@ describe('LinkTitleResolverService', () => {
     expect(extracted).toHaveLength(1);
     expect(service.needsResolution(spec)).toBe(true);
 
-    const idSpec = new SetLinkValueSpec(fieldId, CellValue.fromValidated([]));
+    const idSpec = new SetLinkValueSpec(
+      fieldId,
+      CellValue.fromValidated([{ id: `rec${'c'.repeat(16)}` }]),
+      foreignTableId
+    );
     expect(service.needsResolution(idSpec)).toBe(false);
   });
 
@@ -127,9 +148,10 @@ describe('LinkTitleResolverService', () => {
       },
     ];
 
+    const recordQueryRepository = new FakeRecordQueryRepository(records);
     const service = new LinkTitleResolverService(
       new FakeTableRepository(table),
-      new FakeRecordQueryRepository(records)
+      recordQueryRepository
     );
 
     const fieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
@@ -139,6 +161,7 @@ describe('LinkTitleResolverService', () => {
 
     const resolved = result._unsafeUnwrap()[0];
     expect(resolved.resolvedIds).toEqual([{ id: recordId.toString(), title: 'Alpha' }]);
+    expect(recordQueryRepository.lastSpec).toBeInstanceOf(OrSpec);
   });
 
   it('returns validation error for non-text primary field', async () => {
@@ -198,5 +221,22 @@ describe('LinkTitleResolverService', () => {
     expect(left).toBeInstanceOf(SetLinkValueSpec);
     const leftValue = (left as SetLinkValueSpec).value.toValue();
     expect(leftValue).toEqual([{ id: recordId.toString(), title: 'Alpha' }]);
+  });
+
+  it('skips querying when all requested titles are empty', async () => {
+    const table = buildTextTable('a', 'm');
+    const recordQueryRepository = new FakeRecordQueryRepository([]);
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      recordQueryRepository
+    );
+
+    const fieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['', ''] },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([]);
+    expect(recordQueryRepository.findCalls).toBe(0);
   });
 });

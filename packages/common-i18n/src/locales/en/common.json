@@ -13,6 +13,7 @@
     "update": "Update",
     "create": "Create",
     "delete": "Delete",
+    "clear": "Clear",
     "cancel": "Cancel",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
@@ -72,7 +73,8 @@
     "collapse": "Collapse",
     "viewDetails": "View details",
     "getMore": "Get more",
-    "copySuccess": "Copy successful"
+    "copySuccess": "Copy successful",
+    "share": "Share"
   },
   "quickAction": {
     "title": "Quick actions",
@@ -118,6 +120,35 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create"
     }
+  },
+  "baseShare": {
+    "shareTitle": "Share",
+    "shareToWeb": "Share to web",
+    "linkHolderLabel": "The person who obtained the link",
+    "linkHolderCanView": "Can view",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Can edit",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "linkHolderCanCopyAndSave": "Can save as copy",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "refreshLink": "Regenerate Link",
+    "advanced": "Advanced",
+    "allowCopyData": "Allow viewers to copy data",
+    "restrictByPassword": "Restrict by password",
+    "embedConfig": "Embed config",
+    "embedPreview": "Preview",
+    "copyCode": "Copy code",
+    "enterPassword": "Enter password",
+    "passwordTitle": "Set Password",
+    "deleteConfirmTitle": "Delete Share Link",
+    "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared base.",
+    "createSuccess": "Share link created",
+    "createFailed": "Failed to create share link",
+    "updateFailed": "Failed to update share settings",
+    "deleteSuccess": "Share link deleted",
+    "deleteFailed": "Failed to delete share link",
+    "refreshSuccess": "Share link regenerated",
+    "refreshFailed": "Failed to regenerate share link"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -478,6 +509,9 @@
       "title": "Authority matrix is enabled",
       "description": "Collaborators’ s effective access permission is affected by the roles assigned to them, Unassigned user using the default role",
       "viewDetail": "View detail"
+    },
+    "app": {
+      "previewAppError": "App Error"
     }
   },
   "help": {
@@ -573,7 +607,16 @@
         "chatModelDescription": "The chat model to use, Tips: tool calling is required for teable ai features",
         "chatModels": {
           "lg": "Advanced chat model",
-          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
+          "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5",
+          "md": "Standard",
+          "mdDescription": "For daily conversations and general tasks",
+          "sm": "Lightweight",
+          "smDescription": "For simple queries and quick responses",
+          "inheritHint": "Same as primary ({{model}})",
+          "modelTiers": "Model tiers",
+          "modelTiersDescription": "Optionally assign different models for standard and lightweight tasks. Unset tiers use the primary model above.",
+          "allInheriting": "All tiers using primary model",
+          "customized": "{{count}} customized"
         },
         "actions": {
           "title": "AI Capabilities",
@@ -583,7 +626,12 @@
           },
           "aiChat": {
             "title": "AI Chat",
-            "description": "AI Chat sidebar and all agent capabilities"
+            "description": "AI Chat sidebar and all agent capabilities",
+            "sandboxWarning": "AI Chat runtime must be configured below before use"
+          },
+          "modelSelection": {
+            "title": "Allow Model Selection",
+            "description": "Allow users to choose a model in AI Chat and App Builder"
           }
         },
         "chatModelTest": {
@@ -625,6 +673,9 @@
         "selectModel": "Select model...",
         "defaultModel": "{{name}} (Default)",
         "moreModels": "More Models",
+        "agentModelWarningTitle": "Choose models carefully",
+        "agentModelWarningDescription": "The recommended models above are optimized for agent tasks like tool use and multi-step reasoning. Other models may have limited capabilities and could lead to unexpected results.",
+        "agentModelWarningConfirm": "Got it",
         "noModelsAvailable": "No models available",
         "input": "Input {{ratio}}",
         "output": "Output {{ratio}}",
@@ -851,14 +902,12 @@
       },
       "app": {
         "domain": "Domain",
-        "v0ApiKey": "v0 API key",
         "customDomain": "Custom Domain (Optional)",
         "customDomainDescription": "Set your custom domain for app deployment, access <a>Vercel domain</a> to get custom domain",
         "vercelToken": "Vercel API Token",
         "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token",
         "apiProxy": "API Proxy (Optional)",
-        "apiProxyDescription": "Configure reverse proxy URLs for v0 and Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
-        "v0BaseUrl": "v0 API Base URL",
+        "apiProxyDescription": "Configure reverse proxy URLs Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
         "vercelBaseUrl": "Vercel API Base URL",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "Configure Vercel AI Gateway to access hundreds of models through a single endpoint. Access <a>AI Gateway settings</a> to get API key",
@@ -925,22 +974,16 @@
           "title": "AI: Set chat model",
           "description": "Select a default model for the sidebar AI Chat, <anchor>go to setting</anchor>"
         },
-        "app": {
-          "title": "App builder",
-          "description": "You have not configured the v0 API key, the App builder feature will not be available, <anchor>go to setting</anchor>",
-          "errorTips": "You have not configured the v0 API key, the App builder feature will not be available"
-        },
-        "appBuilderV0": {
-          "title": "App Builder: Enable v0",
-          "description": "Configure the v0 API key to enable App Builder, <anchor>go to setting</anchor>"
-        },
         "appBuilderDomain": {
           "title": "App Builder: Custom domain",
           "description": "If you want to publish apps under your custom domain, configure domain + Vercel token, <anchor>go to setting</anchor>"
         },
         "appBuilderApiProxy": {
-          "title": "App Builder: API proxy",
-          "description": "If you need a proxy for v0/Vercel APIs, configure the proxy URLs, <anchor>go to setting</anchor>"
+          "title": "App Builder: API proxy"
+        },
+        "sandboxVercel": {
+          "title": "AI Chat Runtime",
+          "description": "Configure sandbox runtime environment for AI Chat, <anchor>go to setting</anchor>"
         },
         "email": {
           "title": "Email",
@@ -1258,12 +1301,6 @@
     "createResource": "Create",
     "noPermissionToCreateResource": "You don't have permission to create, please contact owner"
   },
-  "app": {
-    "title": "App builder",
-    "description": "Configure the v0 API Key to enable App builder capabilities. Access <a>v0 setting</a> to obtain your API Key",
-    "previewAppError": "App running error",
-    "sendErrorToAI": "Send error to AI"
-  },
   "credit": {
     "title": "Credit",
     "leftAmount": "Credits left",
@@ -1365,11 +1402,17 @@
     }
   },
   "chat": {
+    "responseInterrupted": "Response interrupted",
     "serverError": "Server error occurred",
     "serverErrorHint": "Please start a new conversation and try again.",
+    "modelNotSupported": "The selected model is not supported in agent mode. Please switch to Claude Opus 4.6 for the best experience.",
+    "byokModelNotSupported": "Your custom model is not compatible with agent mode. Please switch to Claude Opus 4.6 for the best experience.",
+    "modelServiceUnavailable": "The model service is temporarily unavailable. Please try again later.",
+    "modelServiceError": "An error occurred with the model service. Please try again or switch to a different model.",
     "sandboxBusy": "Agent is busy in another conversation. Please wait.",
-    "sandboxCapacityFull": "Too many conversations running at the same time. Please wait for one to finish.",
-    "sandboxTransient": "Cuppy is getting ready. Please try again in a moment."
+    "sandboxCapacityFull": "Concurrent conversation limit ({{max}}) reached. Please wait for one to finish.",
+    "sandboxTransient": "Cuppy is getting ready. Please try again in a moment.",
+    "sandboxSnapshotNotFound": "Cuppy's environment isn't set up yet. Please ask your admin to create a sandbox snapshot."
   },
   "system": {
     "notFound": {
@@ -1404,9 +1447,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "NEW UPDATE",
-    "title": "App Custom Domain is Live",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "April 10 Update",
+    "title": "New Teable Agent: Super Intelligent, Low Cost",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

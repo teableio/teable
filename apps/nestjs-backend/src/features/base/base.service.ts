@@ -168,13 +168,21 @@ export class BaseService {
     const { validCreatorSet, spaceOwnerMap } =
       await this.collaboratorService.buildSpaceOwnerContext(baseSpaceIds);
 
+    const allBaseIds = baseList.map((base) => base.id);
     const allUserIds = uniq([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]);
-    const userList = await this.prismaService.user.findMany({
-      where: { id: { in: allUserIds } },
-      select: { id: true, name: true, avatar: true },
-    });
+    const [userList, sharedBaseList] = await Promise.all([
+      this.prismaService.user.findMany({
+        where: { id: { in: allUserIds } },
+        select: { id: true, name: true, avatar: true },
+      }),
+      this.prismaService.baseShare.findMany({
+        where: { baseId: { in: allBaseIds }, nodeId: null, enabled: true },
+        select: { baseId: true },
+      }),
+    ]);
 
     const userMap = keyBy(userList, 'id');
+    const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
 
     return baseList.map((base) => {
       const isCreatorInSpace = validCreatorSet.has(`${base.spaceId}:${base.createdBy}`);
@@ -184,6 +192,7 @@ export class BaseService {
       return {
         ...base,
         role: roleMap[base.id] || roleMap[base.spaceId],
+        isShared: sharedBaseIds.has(base.id),
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
         createdUser: displayUser

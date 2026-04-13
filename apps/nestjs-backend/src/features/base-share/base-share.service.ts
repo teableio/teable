@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { generateShareId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseShareRo, IUpdateBaseShareRo, IBaseShareVo } from '@teable/openapi';
+import { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
@@ -11,6 +12,7 @@ import type { IClsStore } from '../../types/cls';
 const baseShareNotFoundMessage = 'Base share not found';
 const baseShareNotFoundKey = 'httpErrors.baseShare.notFound';
 const baseShareAlreadyExistsKey = 'httpErrors.baseShare.alreadyExists';
+const allowEditNotSupportedMessage = 'allowEdit is only supported for table or folder nodes';
 
 @Injectable()
 export class BaseShareService {
@@ -24,13 +26,41 @@ export class BaseShareService {
     await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
   }
 
+  private async isEditableNode(nodeId: string): Promise<boolean> {
+    const node = await this.prismaService.baseNode.findFirst({
+      where: { id: nodeId },
+      select: { resourceType: true },
+    });
+    return (
+      node?.resourceType === BaseNodeResourceType.Table ||
+      node?.resourceType === BaseNodeResourceType.Folder
+    );
+  }
+
+  /**
+   * allowEdit and allowSave are mutually exclusive:
+   * allowEdit=true → allowSave must be false
+   * allowSave=true → allowEdit must be false
+   */
+  private resolveEditSaveFlags(
+    allowEdit: boolean | null | undefined,
+    allowSave: boolean | null | undefined
+  ): { allowEdit: boolean | null; allowSave: boolean | null } {
+    const edit = allowEdit ?? null;
+    const save = allowSave ?? null;
+    if (edit) return { allowEdit: true, allowSave: false };
+    if (save) return { allowEdit: false, allowSave: true };
+    return { allowEdit: edit, allowSave: save };
+  }
+
   private formatBaseShareVo(share: {
     baseId: string;
     shareId: string;
     password: string | null;
-    nodeId: string;
+    nodeId: string | null;
     allowSave: boolean | null;
     allowCopy: boolean | null;
+    allowEdit: boolean | null;
     enabled: boolean;
   }): IBaseShareVo {
     return {
@@ -40,60 +70,45 @@ export class BaseShareService {
       nodeId: share.nodeId,
       allowSave: share.allowSave,
       allowCopy: share.allowCopy,
+      allowEdit: share.allowEdit,
       enabled: share.enabled,
     };
   }
 
   async createBaseShare(baseId: string, data: ICreateBaseShareRo): Promise<IBaseShareVo> {
-    const userId = this.cls.get('user.id');
+    const nodeId = data.nodeId ?? null;
 
-    // Check if a share already exists for this node
     const existingShare = await this.prismaService.baseShare.findFirst({
-      where: { baseId, nodeId: data.nodeId },
+      where: { baseId, nodeId },
     });
+
     if (existingShare) {
-      // If existing share is disabled, re-enable it
       if (!existingShare.enabled) {
-        const updated = await this.prismaService.baseShare.update({
-          where: { id: existingShare.id },
-          data: {
-            enabled: true,
-            password: data.password || existingShare.password,
-            allowSave: data.allowSave ?? existingShare.allowSave,
-            allowCopy: data.allowCopy ?? existingShare.allowCopy,
-          },
-        });
-        // Invalidate cache when re-enabling share
-        await this.invalidateBaseShareListCache(baseId);
-        return this.formatBaseShareVo(updated);
+        // Hard-delete the old disabled share so a fresh one can be created
+        await this.prismaService.baseShare.delete({ where: { id: existingShare.id } });
+      } else {
+        throw new CustomHttpException(
+          'A share already exists for this node',
+          HttpErrorCode.CONFLICT,
+          {
+            localization: {
+              i18nKey: baseShareAlreadyExistsKey,
+            },
+          }
+        );
       }
-      throw new CustomHttpException(
-        'A share already exists for this node',
-        HttpErrorCode.CONFLICT,
-        {
-          localization: {
-            i18nKey: baseShareAlreadyExistsKey,
-          },
-        }
-      );
     }
 
-    const shareId = generateShareId();
     const share = await this.prismaService.baseShare.create({
       data: {
         baseId,
-        shareId,
-        password: data.password || null,
-        nodeId: data.nodeId,
-        allowSave: data.allowSave,
-        allowCopy: data.allowCopy,
-        createdBy: userId,
+        shareId: generateShareId(),
+        nodeId,
+        createdBy: this.cls.get('user.id'),
       },
     });
 
-    // Invalidate cache when creating new share
     await this.invalidateBaseShareListCache(baseId);
-
     return this.formatBaseShareVo(share);
   }
 
@@ -102,7 +117,7 @@ export class BaseShareService {
     keyGenerator: generateBaseShareListCacheKey,
     statsType: 'base-share',
   })
-  async getBaseShareList(baseId: string): Promise<{ nodeId: string }[]> {
+  async getBaseShareList(baseId: string): Promise<{ nodeId: string | null }[]> {
     return this.prismaService.baseShare.findMany({
       where: {
         baseId,
@@ -113,6 +128,18 @@ export class BaseShareService {
         nodeId: true,
       },
     });
+  }
+
+  async getBaseShare(baseId: string): Promise<IBaseShareVo | null> {
+    const share = await this.prismaService.baseShare.findFirst({
+      where: { baseId, nodeId: null, enabled: true },
+    });
+
+    if (!share) {
+      return null;
+    }
+
+    return this.formatBaseShareVo(share);
   }
 
   async getBaseShareByNodeId(baseId: string, nodeId: string): Promise<IBaseShareVo | null> {
@@ -144,12 +171,22 @@ export class BaseShareService {
       });
     }
 
+    if (data.allowEdit && share.nodeId && !(await this.isEditableNode(share.nodeId))) {
+      throw new CustomHttpException(allowEditNotSupportedMessage, HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const { allowEdit, allowSave } = this.resolveEditSaveFlags(
+      data.allowEdit !== undefined ? data.allowEdit : share.allowEdit,
+      data.allowSave !== undefined ? data.allowSave : share.allowSave
+    );
+
     const updated = await this.prismaService.baseShare.update({
       where: { id: share.id },
       data: {
         password: data.password !== undefined ? data.password : share.password,
-        allowSave: data.allowSave !== undefined ? data.allowSave : share.allowSave,
+        allowSave,
         allowCopy: data.allowCopy !== undefined ? data.allowCopy : share.allowCopy,
+        allowEdit,
         enabled: data.enabled !== undefined ? data.enabled : share.enabled,
       },
     });

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, ChevronDown, Database, HelpCircle, Pencil } from '@teable/icons';
+import { ChevronsLeft, ChevronDown, Database, HelpCircle, Pencil, Share2 } from '@teable/icons';
 import { CollaboratorType, getBaseList, getSharedBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
@@ -27,6 +27,8 @@ import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { tableConfig } from '@/features/i18n/table.config';
 import { PublishBaseDialog } from '../../table/table-header/publish-base/PublishBaseDialog';
+import { useSharedNodeIds } from './BaseNodeShareIndicator';
+import { BaseShareDialog } from './BaseShareDialog';
 
 const BaseDropdownMenu = ({
   children,
@@ -37,6 +39,8 @@ const BaseDropdownMenu = ({
   spaceId,
   collaboratorType,
   currentBaseId,
+  baseName,
+  isBaseShared,
   disabled,
 }: {
   children: React.ReactNode;
@@ -47,11 +51,14 @@ const BaseDropdownMenu = ({
   creditUsage?: React.ReactNode;
   collaboratorType?: CollaboratorType;
   currentBaseId: string;
+  baseName: string;
+  isBaseShared: boolean;
   disabled?: boolean;
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const isCloud = useIsCloud();
   const [open, setOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const isSpaceCollaborator = collaboratorType === CollaboratorType.Space;
   const { data: spaceBases } = useQuery({
@@ -69,94 +76,118 @@ const BaseDropdownMenu = ({
   const bases = spaceBases || sharedBases;
 
   return (
-    <DropdownMenu open={open} onOpenChange={disabled ? undefined : setOpen}>
-      <DropdownMenuTrigger asChild disabled={disabled}>
-        {children}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="min-w-[260px]"
-        align="start"
-        alignOffset={0}
-        sideOffset={4}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DropdownMenuItem onClick={backSpace}>
-          <div className="flex w-full cursor-pointer items-center gap-2">
-            <ArrowLeft className="size-4" />
-            {t('common:actions.backToSpace')}
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {isCloud && isSpaceCollaborator && creditUsage && (
-          <>
-            <div className="px-2 py-1">{creditUsage}</div>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
+    <>
+      <DropdownMenu open={open} onOpenChange={disabled ? undefined : setOpen}>
+        <DropdownMenuTrigger asChild disabled={disabled}>
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          className="min-w-[260px]"
+          align="start"
+          alignOffset={0}
+          sideOffset={4}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DropdownMenuItem onClick={backSpace}>
             <div className="flex w-full cursor-pointer items-center gap-2">
-              <Database className="size-4" />
-              {t('common:actions.switchBase')}
+              <ArrowLeft className="size-4" />
+              {t('common:actions.backToSpace')}
             </div>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-[300px] w-56 overflow-y-auto">
-            {bases?.map((base) => (
-              <DropdownMenuItem
-                key={base.id}
-                className={cn('cursor-pointer', {
-                  'bg-accent': base.id === currentBaseId,
-                })}
-                asChild
-              >
-                <Link href={`/base/${base.id}`} className="flex items-center gap-2">
-                  <span className="shrink-0">
-                    {base.icon ? (
-                      <Emoji emoji={base.icon} size="1rem" />
-                    ) : (
-                      <Database className="size-4" />
-                    )}
-                  </span>
-                  <span className="truncate" title={base.name}>
-                    {base.name}
-                  </span>
-                </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {isCloud && isSpaceCollaborator && creditUsage && (
+            <>
+              <div className="px-2 py-1">{creditUsage}</div>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <Database className="size-4" />
+                {t('common:actions.switchBase')}
+              </div>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-[300px] w-56 overflow-y-auto">
+              {bases?.map((base) => (
+                <DropdownMenuItem
+                  key={base.id}
+                  className={cn('cursor-pointer', {
+                    'bg-accent': base.id === currentBaseId,
+                  })}
+                  asChild
+                >
+                  <Link href={`/base/${base.id}`} className="flex items-center gap-2">
+                    <span className="shrink-0">
+                      {base.icon ? (
+                        <Emoji emoji={base.icon} size="1rem" />
+                      ) : (
+                        <Database className="size-4" />
+                      )}
+                    </span>
+                    <span className="truncate" title={base.name}>
+                      {base.name}
+                    </span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          {showRename && (
+            <DropdownMenuItem onClick={onRename}>
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <Pencil className="size-4" />
+                {t('actions.rename')}
+              </div>
+            </DropdownMenuItem>
+          )}
+          {showRename && (
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(false);
+                setShareOpen(true);
+              }}
+            >
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <Share2 className="size-4" />
+                {t('common:actions.share')}
+              </div>
+            </DropdownMenuItem>
+          )}
+          {showRename && (
+            <PublishBaseDialog onClose={() => setOpen(false)} closeOnSuccess={false}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <div className="flex w-full cursor-pointer items-center gap-2">
+                  <Send className="size-4" />
+                  {t('space:publishBase.publishToCommunity')}
+                </div>
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        {showRename && (
-          <DropdownMenuItem onClick={onRename}>
-            <div className="flex w-full cursor-pointer items-center gap-2">
-              <Pencil className="size-4" />
-              {t('actions.rename')}
-            </div>
-          </DropdownMenuItem>
-        )}
-        <PublishBaseDialog onClose={() => setOpen(false)} closeOnSuccess={false}>
-          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-            <div className="flex w-full cursor-pointer items-center gap-2">
-              <Send className="size-4" />
-              {t('space:publishBase.publishToCommunity')}
-            </div>
-          </DropdownMenuItem>
-        </PublishBaseDialog>
+            </PublishBaseDialog>
+          )}
 
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link
-            href={t('help.mainLink')}
-            title={t('help.title')}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-full cursor-pointer items-center gap-2"
-          >
-            <HelpCircle className="size-4" />
-            {t('help.title')}
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link
+              href={t('help.mainLink')}
+              title={t('help.title')}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full cursor-pointer items-center gap-2"
+            >
+              <HelpCircle className="size-4" />
+              {t('help.title')}
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <BaseShareDialog
+        baseId={currentBaseId}
+        baseName={baseName}
+        isBaseShared={isBaseShared}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+      />
+    </>
   );
 };
 
@@ -168,6 +199,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const { isBaseShared } = useSharedNodeIds();
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
     onSuccess: () => {
@@ -270,6 +302,8 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
             creditUsage={creditUsage}
             collaboratorType={base.collaboratorType}
             currentBaseId={base.id}
+            baseName={base.name}
+            isBaseShared={isBaseShared}
             disabled={isReadOnlyPreview}
           >
             <div
@@ -283,7 +317,8 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
               <span className="min-w-0 shrink truncate text-sm" title={base.name}>
                 {base.name}
               </span>
-              {!isReadOnlyPreview && <ChevronDown className="size-4 shrink-0" />}
+              {isBaseShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
+              {!isReadOnlyPreview && !isBaseShared && <ChevronDown className="size-4 shrink-0" />}
             </div>
           </BaseDropdownMenu>
         )}

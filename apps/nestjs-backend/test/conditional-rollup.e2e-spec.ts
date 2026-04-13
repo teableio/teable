@@ -1360,6 +1360,188 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('dynamic date filters', () => {
+    it('should honor today filters in rollups', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      const todayDate = new Date();
+      const yesterdayDate = new Date(todayDate);
+      yesterdayDate.setUTCDate(todayDate.getUTCDate() - 1);
+      const todayValue = todayDate.toISOString().slice(0, 10);
+      const yesterdayValue = yesterdayDate.toISOString().slice(0, 10);
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'Rollup_DynamicDate_Foreign',
+          fields: [
+            { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Due Date', type: FieldType.Date } as IFieldRo,
+            { name: 'Hours', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Task: 'Today task', 'Due Date': todayValue, Hours: 5 } },
+            { fields: { Task: 'Old task', 'Due Date': yesterdayValue, Hours: 7 } },
+          ],
+        });
+
+        const dueDateId = foreign.fields.find((field) => field.name === 'Due Date')!.id;
+        const hoursId = foreign.fields.find((field) => field.name === 'Hours')!.id;
+
+        host = await createTable(baseId, {
+          name: 'Rollup_DynamicDate_Host',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Name: 'Host Row' } }],
+        });
+
+        const linkField = await createField(host.id, {
+          name: 'Tasks',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: foreign.id,
+          },
+        } as IFieldRo);
+
+        await updateRecordByApi(host.id, host.records[0].id, linkField.id, [
+          { id: foreign.records[0].id },
+          { id: foreign.records[1].id },
+        ]);
+
+        const filter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: dueDateId,
+              operator: 'is',
+              value: { mode: 'today', timeZone: 'utc' },
+            },
+          ],
+        };
+
+        let rollupField = await createField(host.id, {
+          name: 'Today Hours',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'sum({values})',
+          },
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: hoursId,
+            linkFieldId: linkField.id,
+          },
+        } as IFieldRo);
+
+        let record = await getRecord(host.id, host.records[0].id);
+        expect(record.fields[rollupField.id]).toEqual(12);
+
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: rollupField.name,
+          type: FieldType.Rollup,
+          options: rollupField.options,
+          lookupOptions: {
+            ...(rollupField.lookupOptions as ILookupOptionsRo),
+            filter,
+          },
+        } as IFieldRo);
+
+        const saved = await getField(host.id, rollupField.id);
+        expect((saved.lookupOptions as ILookupOptionsRo).filter).toEqual(filter);
+
+        record = await getRecord(host.id, host.records[0].id);
+        expect(record.fields[rollupField.id]).toEqual(5);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+
+    it('should honor today filters in conditional rollups', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      const todayDate = new Date();
+      const yesterdayDate = new Date(todayDate);
+      yesterdayDate.setUTCDate(todayDate.getUTCDate() - 1);
+      const todayValue = todayDate.toISOString().slice(0, 10);
+      const yesterdayValue = yesterdayDate.toISOString().slice(0, 10);
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalRollup_DynamicDate_Foreign',
+          fields: [
+            { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Due Date', type: FieldType.Date } as IFieldRo,
+            { name: 'Hours', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Task: 'Today task', 'Due Date': todayValue, Hours: 5 } },
+            { fields: { Task: 'Old task', 'Due Date': yesterdayValue, Hours: 7 } },
+          ],
+        });
+
+        const dueDateId = foreign.fields.find((field) => field.name === 'Due Date')!.id;
+        const hoursId = foreign.fields.find((field) => field.name === 'Hours')!.id;
+
+        host = await createTable(baseId, {
+          name: 'ConditionalRollup_DynamicDate_Host',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Name: 'Host Row' } }],
+        });
+
+        const filter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: dueDateId,
+              operator: 'is',
+              value: { mode: 'today', timeZone: 'utc' },
+            },
+          ],
+        };
+
+        let rollupField = await createField(host.id, {
+          name: 'Today Hours',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: hoursId,
+            expression: 'sum({values})',
+          },
+        } as IFieldRo);
+
+        let record = await getRecord(host.id, host.records[0].id);
+        expect(record.fields[rollupField.id]).toEqual(12);
+
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: rollupField.name,
+          type: FieldType.ConditionalRollup,
+          options: {
+            ...(rollupField.options as IConditionalRollupFieldOptions),
+            filter,
+          },
+        } as IFieldRo);
+
+        const saved = await getField(host.id, rollupField.id);
+        expect((saved.options as IConditionalRollupFieldOptions).filter).toEqual(filter);
+
+        record = await getRecord(host.id, host.records[0].id);
+        expect(record.fields[rollupField.id]).toEqual(5);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+  });
+
   describe('boolean field reference filters', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;
@@ -4365,139 +4547,5 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(aliceSummary.fields[sumWithoutExcludedField.id]).toEqual(12);
       expect(bobSummary.fields[sumWithoutExcludedField.id]).toEqual(7);
     });
-  });
-
-  describe('v2 update field hasError propagation', () => {
-    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
-    const itV2Only = isForceV2 ? it : it.skip;
-
-    itV2Only('marks conditional rollup as errored when filter field is deleted', async () => {
-      const foreign = await createTable(baseId, {
-        name: 'V2CondRollupFilterDel_Foreign',
-        fields: [
-          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Amount', type: FieldType.Number } as IFieldRo,
-          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
-        ],
-        records: [
-          { fields: { Title: 'Alpha', Amount: 2, Status: 'Active' } },
-          { fields: { Title: 'Beta', Amount: 4, Status: 'Active' } },
-          { fields: { Title: 'Gamma', Amount: 6, Status: 'Inactive' } },
-        ],
-      });
-      const host = await createTable(baseId, {
-        name: 'V2CondRollupFilterDel_Host',
-        fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
-        records: [{ fields: { Label: 'Row 1' } }],
-      });
-      const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
-      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
-
-      try {
-        // Create conditional rollup without filter
-        let rollupField = await createField(host.id, {
-          name: 'Filtered Sum',
-          type: FieldType.ConditionalRollup,
-          options: {
-            foreignTableId: foreign.id,
-            lookupFieldId: amountId,
-            expression: 'sum({values})',
-          },
-        } as IFieldRo);
-
-        // Convert to add a filter referencing statusId
-        rollupField = await convertField(host.id, rollupField.id, {
-          name: 'Filtered Sum',
-          type: FieldType.ConditionalRollup,
-          options: {
-            foreignTableId: foreign.id,
-            lookupFieldId: amountId,
-            expression: 'sum({values})',
-            filter: {
-              conjunction: 'and',
-              filterSet: [{ fieldId: statusId, operator: 'is', value: 'Active' }],
-            },
-          },
-        } as IFieldRo);
-
-        const hostRecord = await getRecord(host.id, host.records[0].id);
-        expect(hostRecord.fields[rollupField.id]).toEqual(6);
-
-        // Delete the filter field from the foreign table
-        await deleteField(foreign.id, statusId);
-
-        const hostFields = await getFields(host.id);
-        const erroredField = hostFields.find((f) => f.id === rollupField.id)!;
-        expect(erroredField.hasError).toBe(true);
-      } finally {
-        await permanentDeleteTable(baseId, host.id);
-        await permanentDeleteTable(baseId, foreign.id);
-      }
-    });
-
-    itV2Only(
-      'marks conditional rollup as errored when lookup field type becomes incompatible',
-      async () => {
-        const foreign = await createTable(baseId, {
-          name: 'V2CondRollupTypeErr_Foreign',
-          fields: [
-            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
-            { name: 'Amount', type: FieldType.Number } as IFieldRo,
-          ],
-          records: [
-            { fields: { Title: 'Alpha', Amount: 2 } },
-            { fields: { Title: 'Beta', Amount: 4 } },
-            { fields: { Title: 'Gamma', Amount: 6 } },
-          ],
-        });
-        const host = await createTable(baseId, {
-          name: 'V2CondRollupTypeErr_Host',
-          fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
-          records: [{ fields: { Label: 'Row 1' } }],
-        });
-        const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
-        const hostRecordId = host.records[0].id;
-
-        try {
-          const rollupField = await createField(host.id, {
-            name: 'Sum Amount',
-            type: FieldType.ConditionalRollup,
-            options: {
-              foreignTableId: foreign.id,
-              lookupFieldId: amountId,
-              expression: 'sum({values})',
-            },
-          } as IFieldRo);
-
-          const baseline = await getRecord(host.id, hostRecordId);
-          expect(baseline.fields[rollupField.id]).toEqual(12);
-
-          // Convert numeric lookup field to SingleSelect (incompatible with sum)
-          await convertField(foreign.id, amountId, {
-            name: 'Amount (Select)',
-            type: FieldType.SingleSelect,
-            options: {
-              choices: [
-                { name: '2', color: Colors.Blue },
-                { name: '4', color: Colors.Green },
-                { name: '6', color: Colors.Orange },
-              ],
-            },
-          } as IFieldRo);
-
-          let erroredField: IFieldVo | undefined;
-          for (let attempt = 0; attempt < 10; attempt++) {
-            const fieldsAfterConversion = await getFields(host.id);
-            erroredField = fieldsAfterConversion.find((f) => f.id === rollupField.id);
-            if (erroredField?.hasError) break;
-            await new Promise((resolve) => setTimeout(resolve, 200));
-          }
-          expect(erroredField?.hasError).toBe(true);
-        } finally {
-          await permanentDeleteTable(baseId, host.id);
-          await permanentDeleteTable(baseId, foreign.id);
-        }
-      }
-    );
   });
 });

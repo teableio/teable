@@ -65,6 +65,7 @@ export const generateGatewayModelKeyList = (gatewayModels: IGatewayModel[] | und
       contextWindow: model.contextWindow,
       maxTokens: model.maxTokens,
       description: model.description,
+      i18nDescription: model.i18nDescription,
     }));
 };
 

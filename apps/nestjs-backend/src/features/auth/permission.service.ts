@@ -4,6 +4,7 @@ import type { IBaseRole, Action } from '@teable/core';
 import {
   HttpErrorCode,
   IdPrefix,
+  Role,
   TemplatePermissions,
   getPermissions,
   isAnonymous,
@@ -26,6 +27,18 @@ interface IBaseNodeCacheItem {
 }
 
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
+
+/**
+ * Permissions that must never be granted via share links,
+ * even when allowEdit is enabled with a logged-in user.
+ */
+const SHARE_EXCLUDED_PERMISSIONS = new Set<Action>([
+  'view|share',
+  'space|invite_email',
+  'base|invite_email',
+  'user|email_read',
+  'user|integrations',
+]);
 
 @Injectable()
 export class PermissionService {
@@ -597,37 +610,40 @@ export class PermissionService {
 
     const { baseId, nodeId } = baseShare;
 
-    if (!nodeId) {
-      throw new CustomHttpException(
-        `Base share ${shareId} has no nodeId`,
-        HttpErrorCode.RESTRICTED_RESOURCE
-      );
-    }
-
     this.logger.debug(
       `[BaseShare] Checking permission for resource ${resourceId}, shareId: ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
     );
 
-    const resourceBelongsToShare = await this.checkResourceBelongsToShare(
-      resourceId,
-      baseId,
-      nodeId
-    );
+    if (nodeId) {
+      // Node-level share: verify the resource belongs to the shared node subtree
+      const resourceBelongsToShare = await this.checkResourceBelongsToShare(
+        resourceId,
+        baseId,
+        nodeId
+      );
 
-    if (!resourceBelongsToShare) {
-      this.logger.warn(
-        `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
-      );
-      throw new CustomHttpException(
-        `Resource ${resourceId} is not accessible via share ${shareId}`,
-        HttpErrorCode.RESTRICTED_RESOURCE
-      );
+      if (!resourceBelongsToShare) {
+        this.logger.warn(
+          `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
+        );
+        throw new CustomHttpException(
+          `Resource ${resourceId} is not accessible via share ${shareId}`,
+          HttpErrorCode.RESTRICTED_RESOURCE
+        );
+      }
     }
+    // When nodeId is null (whole-base share), all resources in the base are accessible
 
     // Set base share in cls for downstream services to use
     this.cls.set('baseShare', { baseId, nodeId });
 
-    // Return template permissions (read-only), with record|copy if allowCopy is enabled
+    // When allowEdit is enabled and user is logged in, grant editor-level permissions
+    // excluding invite/share/privacy-sensitive actions
+    if (baseShare.allowEdit && !this.isAnonymous()) {
+      return getPermissions(Role.Editor).filter((p) => !SHARE_EXCLUDED_PERMISSIONS.has(p));
+    }
+
+    // Otherwise return template permissions (read-only), with record|copy if allowCopy is enabled
     const permissions = [...TemplatePermissions];
     if (baseShare.allowCopy) {
       permissions.push('record|copy');

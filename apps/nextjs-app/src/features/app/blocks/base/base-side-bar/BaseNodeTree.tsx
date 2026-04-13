@@ -170,7 +170,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
-  const sharedNodeIds = useSharedNodeIds();
+  const { sharedNodeIds } = useSharedNodeIds();
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -209,12 +209,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
       const node = item.getItemData();
       const { resourceType, resourceId } = node;
+      // Share pages need full navigation (no shallow) so getServerSideProps runs
+      const isSharePage = Boolean(shareUrlPrefix);
       if (resourceType === BaseNodeResourceType.Table) {
         const viewId = tableViewIdsMap[resourceId];
         const url = tableHrefMap[resourceId];
         if (url) {
           router.push({ pathname: url }, undefined, {
-            shallow: Boolean(viewId),
+            shallow: !isSharePage && Boolean(viewId),
           });
           return;
         }
@@ -228,7 +230,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       });
       if (!url) return;
       router.push(url, undefined, {
-        shallow: true,
+        shallow: !isSharePage,
       });
     },
     [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction, shareUrlPrefix]
@@ -446,6 +448,23 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   }, [selectedItems, tree, treeItems]);
 
   useEffect(() => {
+    if (!highlightedTableId || Object.keys(treeItems).length === 0) return;
+    const node = Object.values(treeItems).find(
+      (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === highlightedTableId
+    );
+    if (!node) return;
+    const parentIds = getAllParentIds(node.id);
+    if (parentIds.length > 0) {
+      setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
+    }
+    const raf = requestAnimationFrame(() => {
+      const item = tree.getItemInstance(node.id);
+      item?.scrollTo({ block: 'nearest', inline: 'nearest' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [highlightedTableId, treeItems, tree, getAllParentIds, setExpandedItems]);
+
+  useEffect(() => {
     if (isLoading) return;
     tree.rebuildTree();
   }, [tree, treeItems, isLoading]);
@@ -643,7 +662,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             if (!node || Object.keys(node).length === 0) return null;
             const { resourceType, resourceId } = node;
             const name = getNodeName(node);
-            const isHighlighted = isEditMode && highlightedTableId === resourceId;
+            const isHighlighted = highlightedTableId === resourceId;
             const isPinned = pinMap?.[resourceId];
             const showShareIndicator = !shareUrlPrefix;
             const isContextMenuTarget = contextMenuOpen && contextMenu?.nodeId === nodeId;
@@ -651,6 +670,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               <TreeItem asChild key={nodeId} item={item}>
                 <div
                   className="h-8 w-full cursor-pointer"
+                  data-table-id={
+                    resourceType === BaseNodeResourceType.Table ? resourceId : undefined
+                  }
                   data-context-menu={isContextMenuTarget ? '' : undefined}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -678,7 +700,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                           type="text"
                           placeholder="name"
                           defaultValue={item.getItemName()}
-                          className="rounded-none size-full cursor-text"
+                          className="size-full cursor-text rounded-none"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;

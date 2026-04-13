@@ -67,7 +67,8 @@
     "export": "Экспорт",
     "import": "Импорт",
     "getMore": "Получить больше",
-    "copySuccess": "Копирование успешно"
+    "copySuccess": "Копирование успешно",
+    "share": "Поделиться"
   },
   "quickAction": {
     "title": "Быстрые действия",
@@ -113,6 +114,35 @@
         "guide7": "Вставьте резюме → Попросите Teable организовать и отобрать кандидатов"
       }
     }
+  },
+  "baseShare": {
+    "shareTitle": "Поделиться",
+    "shareToWeb": "Опубликовать в интернете",
+    "linkHolderLabel": "Владелец ссылки",
+    "linkHolderCanView": "Может просматривать",
+    "linkHolderCanViewDesc": "Любой, у кого есть ссылка, может просматривать данные",
+    "linkHolderCanEdit": "Может редактировать",
+    "linkHolderCanEditDesc": "Авторизованные пользователи могут редактировать записи в таблице",
+    "linkHolderCanCopyAndSave": "Сохранить как копию",
+    "linkHolderCanCopyAndSaveDesc": "Любой, у кого есть ссылка, может сохранить копию в своё пространство",
+    "refreshLink": "Перегенерировать ссылку",
+    "advanced": "Дополнительно",
+    "allowCopyData": "Разрешить читателям копировать данные",
+    "restrictByPassword": "Защита паролем",
+    "embedConfig": "Настройки встраивания",
+    "embedPreview": "Предпросмотр встраивания",
+    "copyCode": "Копировать код",
+    "enterPassword": "Введите пароль",
+    "passwordTitle": "Установить пароль",
+    "deleteConfirmTitle": "Удалить ссылку общего доступа",
+    "deleteConfirmDescription": "Это действие нельзя отменить. Люди с этой ссылкой больше не смогут получить доступ к общей базе.",
+    "createSuccess": "Ссылка общего доступа создана",
+    "createFailed": "Не удалось создать ссылку общего доступа",
+    "updateFailed": "Не удалось обновить настройки общего доступа",
+    "deleteSuccess": "Ссылка общего доступа удалена",
+    "deleteFailed": "Не удалось удалить ссылку общего доступа",
+    "refreshSuccess": "Ссылка общего доступа перегенерирована",
+    "refreshFailed": "Не удалось перегенерировать ссылку общего доступа"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -580,7 +610,6 @@
       },
       "app": {
         "domain": "Домен",
-        "v0ApiKey": "Ключ API v0",
         "customDomain": "Пользовательский домен (необязательно)",
         "customDomainDescription": "Настройте свой пользовательский домен для развертывания приложения, перейдите в <a>домен Vercel</a> для получения пользовательского домена",
         "vercelToken": "Токен API Vercel",
@@ -618,11 +647,6 @@
           "title": "LLM API",
           "description": "Вы еще не настроили AI LLM API, AI Чат/AI автоматизация не будет использоваться, <anchor>перейти к настройкам</anchor>",
           "errorTips": "Вы еще не настроили AI LLM API, AI Чат/AI автоматизация не будет использоваться"
-        },
-        "app": {
-          "title": "Конструктор приложений",
-          "description": "Вы еще не настроили v0 API, функция Конструктор приложений будет недоступна, <anchor>перейти к настройкам</anchor>",
-          "errorTips": "Вы еще не настроили v0 API, функция Конструктор приложений будет недоступна"
         },
         "webSearch": {
           "title": "Веб-поиск",
@@ -1039,9 +1063,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "НОВОЕ ОБНОВЛЕНИЕ",
-    "title": "Собственный домен для App доступен",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "Обновление 10 апреля",
+    "title": "Новый Teable Agent: Сверхумный, низкая стоимость",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

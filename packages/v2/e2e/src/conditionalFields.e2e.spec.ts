@@ -424,6 +424,128 @@ describe('v2 http conditionalFields (e2e)', () => {
       expect(created).toBeTruthy();
     });
 
+    it('exposes foreign singleSelect choices for conditionalLookup fields', async () => {
+      const categoryFieldId = createFieldId();
+      const importanceFieldId = createFieldId();
+      const hostCategoryFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+
+      const foreignWithCategory = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: foreignTableId,
+        field: { type: 'singleLineText', id: categoryFieldId, name: 'Category' },
+      });
+      const foreignCategoryField = foreignWithCategory.fields.find((f) => f.id === categoryFieldId);
+      if (!foreignCategoryField) throw new Error('Missing foreign category field');
+
+      const foreignWithImportance = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: foreignTableId,
+        field: {
+          type: 'singleSelect',
+          id: importanceFieldId,
+          name: 'Importance',
+          options: {
+            choices: [
+              { id: 'choCondCore', name: '核心', color: 'blue' },
+              { id: 'choCondImportant', name: '重要', color: 'green' },
+              { id: 'choCondReference', name: '参考', color: 'orange' },
+            ],
+          },
+        },
+      });
+      const foreignImportanceField = foreignWithImportance.fields.find(
+        (f) => f.id === importanceFieldId
+      ) as
+        | {
+            options?: {
+              choices?: Array<{ id: string; name: string; color: string }>;
+            };
+          }
+        | undefined;
+      if (!foreignImportanceField?.options?.choices) {
+        throw new Error('Missing foreign importance field choices');
+      }
+
+      const hostWithCategoryFilter = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTableId,
+        field: { type: 'singleLineText', id: hostCategoryFieldId, name: 'Category Filter' },
+      });
+      const hostCategoryFilterField = hostWithCategoryFilter.fields.find(
+        (f) => f.id === hostCategoryFieldId
+      );
+      if (!hostCategoryFilterField) throw new Error('Missing host category filter field');
+
+      const expectedChoices = foreignImportanceField.options.choices;
+
+      const { status, rawBody } = await createField(hostTableId, {
+        type: 'conditionalLookup',
+        id: conditionalLookupFieldId,
+        name: 'Conditional Importance',
+        options: {
+          foreignTableId,
+          lookupFieldId: importanceFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: categoryFieldId,
+                  operator: 'is',
+                  value: hostCategoryFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      if (status !== 200) {
+        console.error('CreateField failed:', JSON.stringify(rawBody, null, 2));
+      }
+      expect(status).toBe(200);
+
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find(
+        (f) => f.id === conditionalLookupFieldId
+      ) as
+        | {
+            type?: string;
+            isLookup?: boolean;
+            options?: {
+              choices?: Array<{ id: string; name: string; color: string }>;
+            };
+          }
+        | undefined;
+      expect(created).toBeTruthy();
+      if (!created) return;
+
+      expect(created.type).toBe('singleSelect');
+      expect(created.isLookup).toBe(true);
+      expect(created.options?.choices).toEqual(expectedChoices);
+
+      const persistedField = (await getTableById(hostTableId)).fields.find(
+        (field) => field.id === conditionalLookupFieldId
+      ) as
+        | {
+            options?: {
+              choices?: Array<{ id: string; name: string; color: string }>;
+            };
+          }
+        | undefined;
+      expect(persistedField?.options?.choices).toEqual(expectedChoices);
+
+      await ctx.deleteField({ tableId: hostTableId, fieldId: conditionalLookupFieldId });
+      await ctx.deleteField({ tableId: hostTableId, fieldId: hostCategoryFieldId });
+      await ctx.deleteField({ tableId: foreignTableId, fieldId: importanceFieldId });
+      await ctx.deleteField({ tableId: foreignTableId, fieldId: categoryFieldId });
+    });
+
     it('rejects conditionalLookup as primary field', async () => {
       const { status } = await createField(hostTableId, {
         type: 'conditionalLookup',

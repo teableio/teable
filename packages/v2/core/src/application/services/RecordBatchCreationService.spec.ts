@@ -10,7 +10,7 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import { DomainEventName } from '../../domain/shared/DomainEventName';
+import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { RecordId } from '../../domain/table/records/RecordId';
@@ -51,6 +51,15 @@ const noopRecordMutationSpecResolver = {
     specs: ReadonlyArray<ICellValueSpec | null>
   ) => ok(specs),
 } as unknown as RecordMutationSpecResolverService;
+
+const noopRecordChangedValueDecoratorService = {
+  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
+    ok(changedFields),
+  decorateChangedFieldsByRecord: async (
+    _table: Table,
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+  ) => ok(changedFieldsByRecord),
+};
 
 const buildBasicTable = () => {
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
@@ -135,6 +144,7 @@ describe('RecordBatchCreationService', () => {
       recordRepository,
       new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -155,9 +165,7 @@ describe('RecordBatchCreationService', () => {
     const created = result._unsafeUnwrap();
     expect(recordRepository.insertedRecords).toHaveLength(2);
     expect(created.records).toHaveLength(2);
-    expect(
-      created.events.some((event) => event.name.equals(DomainEventName.recordsBatchCreated()))
-    ).toBe(true);
+    expect(created.events.some(isRecordsBatchCreatedEvent)).toBe(true);
     expect(created.undoCommands[0]?.type).toBe('DeleteRecords');
     expect(created.redoCommands.at(-1)?.type).toBe('RestoreRecords');
     expect(calls.afterCommit).toHaveLength(0);
@@ -185,6 +193,7 @@ describe('RecordBatchCreationService', () => {
       recordRepository,
       new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
       new RecordWriteSideEffectService(),
       noopRecordWriteUndoRedoPlanService,
@@ -221,6 +230,7 @@ describe('RecordBatchCreationService', () => {
       recordRepository,
       new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([
         {
           name: 'guard-rejector',

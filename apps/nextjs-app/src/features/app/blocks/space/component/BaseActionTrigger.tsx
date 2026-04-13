@@ -7,6 +7,7 @@ import {
   Export,
   Loader2,
   Pencil,
+  Share2,
   Trash2,
   ArrowRight,
 } from '@teable/icons';
@@ -33,6 +34,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
 import { EditableSpaceSelect } from './EditableSpaceSelect';
 
@@ -43,6 +45,7 @@ interface IBaseActionTrigger {
   showDuplicate: boolean;
   showExport: boolean;
   showMove: boolean;
+  showShare?: boolean;
   onRename?: () => void;
   onDelete?: (permanent?: boolean) => void;
   align?: 'center' | 'end' | 'start';
@@ -57,6 +60,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showDuplicate,
     showExport,
     showMove,
+    showShare,
     onDelete,
     onRename,
     align = 'end',
@@ -65,6 +69,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
   const [exportState, setExportState] = React.useState<'idle' | 'loading' | 'done'>('idle');
   const [exportDownloadUrl, setExportDownloadUrl] = React.useState<string | null>(null);
@@ -143,7 +148,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     return () => window.removeEventListener('export-base-complete', handleExportComplete);
   }, [exportState, base.name]);
 
-  if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove) {
+  if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove && !showShare) {
     return null;
   }
 
@@ -207,13 +212,19 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
+          {showShare && (
+            <DropdownMenuItem onClick={() => setShareOpen(true)}>
+              <Share2 className="mr-2" />
+              {t('actions.share')}
+            </DropdownMenuItem>
+          )}
           {showExport && (
             <DropdownMenuItem
               onClick={() => {
                 setExportConfirm(true);
               }}
             >
-              <Export className="mr-2" />
+              <Export className="mr-2 size-4" />
               {t('actions.export')}
             </DropdownMenuItem>
           )}
@@ -223,7 +234,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 setMoveConfirm(true);
               }}
             >
-              <ArrowRight className="mr-2" />
+              <ArrowRight className="mr-2 size-4" />
               {t('actions.move')}
             </DropdownMenuItem>
           )}
@@ -261,10 +272,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         }
       />
 
-      <Dialog
-        open={exportConfirm}
-        onOpenChange={setExportConfirm}
-      >
+      <Dialog open={exportConfirm} onOpenChange={setExportConfirm}>
         <DialogContent
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
@@ -364,6 +372,14 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           base.id && spaceId && moveBaseFn(base.id);
           setMoveConfirm(false);
         }}
+      />
+
+      <BaseShareDialog
+        baseId={base.id}
+        baseName={base.name}
+        isBaseShared={!!base.isShared}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
       />
     </>
   );

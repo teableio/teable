@@ -12,6 +12,7 @@ import {
 } from '../../records/specs/RecordConditionOperators';
 import { RecordConditionSpecBuilder } from '../../records/specs/RecordConditionSpecBuilder';
 import {
+  RecordConditionDateValue,
   RecordConditionFieldReferenceValue,
   RecordConditionLiteralListValue,
   RecordConditionLiteralValue,
@@ -556,6 +557,13 @@ export class FieldCondition extends ValueObject {
                 conditionValue = yield* RecordConditionLiteralListValue.create(
                   filterItemEntry.value
                 );
+              } else if (
+                typeof filterItemEntry.value === 'object' &&
+                filterItemEntry.value !== null &&
+                'mode' in filterItemEntry.value &&
+                'timeZone' in filterItemEntry.value
+              ) {
+                conditionValue = yield* RecordConditionDateValue.create(filterItemEntry.value);
               } else {
                 conditionValue = yield* RecordConditionLiteralValue.create(filterItemEntry.value);
               }

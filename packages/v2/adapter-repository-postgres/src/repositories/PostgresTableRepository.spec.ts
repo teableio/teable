@@ -459,8 +459,8 @@ describe('PostgresTableRepository (pg)', () => {
       fieldSnapshots.forEach((r) => r._unsafeUnwrap());
 
       expect(fieldSnapshots.map((r) => r._unsafeUnwrap())).toEqual<IFieldSnapshot[]>([
-        { type: 'singleLineText', name: 'Name' },
         { type: 'rating', name: 'Priority', max: 5, icon: 'moon', color: 'redBright' },
+        { type: 'singleLineText', name: 'Name' },
         {
           type: 'formula',
           name: 'Score',
@@ -483,6 +483,98 @@ describe('PostgresTableRepository (pg)', () => {
       byNameResult._unsafeUnwrap();
     } finally {
       await db.destroy();
+    }
+  });
+
+  it('hydrates fields in the same fallback visible order as the field list API', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Test Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Selection Column Order')._unsafeUnwrap();
+      const statusName = FieldName.create('Status')._unsafeUnwrap();
+      const assigneeName = FieldName.create('Assignee')._unsafeUnwrap();
+      const titleName = FieldName.create('Title')._unsafeUnwrap();
+      const todoOption = SelectOption.create({ name: 'Todo', color: 'blue' })._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleSelect().withName(statusName).withOptions([todoOption]).done();
+      builder.field().user().withName(assigneeName).done();
+      builder.field().singleLineText().withName(titleName).primary().done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      const insertResult = await repo.insert(context, table);
+      insertResult._unsafeUnwrap();
+
+      const primaryFieldId = table.primaryFieldId().toString();
+      const statusFieldId = table
+        .getFields()
+        .find((field) => field.name().equals(statusName))
+        ?.id()
+        .toString();
+      const assigneeFieldId = table
+        .getFields()
+        .find((field) => field.name().equals(assigneeName))
+        ?.id()
+        .toString();
+
+      expect(statusFieldId).toBeDefined();
+      expect(assigneeFieldId).toBeDefined();
+
+      await db
+        .updateTable('field')
+        .set({ is_primary: null })
+        .where('table_id', '=', table.id().toString())
+        .where('id', '!=', primaryFieldId)
+        .execute();
+
+      const loaded = await repo
+        .findOne(context, table.specs().byId(table.id()).build()._unsafeUnwrap())
+        .then((result) => result._unsafeUnwrap());
+
+      const viewId = loaded.views()[0]?.id().toString();
+      expect(viewId).toBeDefined();
+
+      const orderedVisibleFieldIds = loaded
+        .getOrderedVisibleFieldIds(viewId as string)
+        ._unsafeUnwrap()
+        .map((fieldId) => fieldId.toString());
+
+      expect(orderedVisibleFieldIds).toEqual([
+        primaryFieldId,
+        statusFieldId as string,
+        assigneeFieldId as string,
+      ]);
+    } finally {
+      await db.destroy();
+      c.dispose();
     }
   });
 

@@ -67,7 +67,8 @@
     "import": "Importar",
     "expand": "Expandir",
     "getMore": "Obtener más",
-    "copySuccess": "Copia exitosa"
+    "copySuccess": "Copia exitosa",
+    "share": "Compartir"
   },
   "quickAction": {
     "title": "Acciones Rápidas",
@@ -113,6 +114,35 @@
         "guide7": "Pega currículums → Pide a Teable que organice y preseleccione candidatos"
       }
     }
+  },
+  "baseShare": {
+    "shareTitle": "Compartir",
+    "shareToWeb": "Compartir en la web",
+    "linkHolderLabel": "Persona con el enlace",
+    "linkHolderCanView": "Puede ver",
+    "linkHolderCanViewDesc": "Cualquiera con el enlace puede ver los datos",
+    "linkHolderCanEdit": "Puede editar",
+    "linkHolderCanEditDesc": "Los usuarios con sesión iniciada pueden editar registros en la tabla",
+    "linkHolderCanCopyAndSave": "Guardar como copia",
+    "linkHolderCanCopyAndSaveDesc": "Cualquiera con el enlace puede guardar una copia en su espacio",
+    "refreshLink": "Regenerar enlace",
+    "advanced": "Avanzado",
+    "allowCopyData": "Permitir a los lectores copiar datos",
+    "restrictByPassword": "Proteger con contraseña",
+    "embedConfig": "Configuración de incrustación",
+    "embedPreview": "Vista previa incrustada",
+    "copyCode": "Copiar código",
+    "enterPassword": "Introducir contraseña",
+    "passwordTitle": "Establecer contraseña",
+    "deleteConfirmTitle": "Eliminar enlace compartido",
+    "deleteConfirmDescription": "Esta acción no se puede deshacer. Las personas con este enlace ya no podrán acceder a la base compartida.",
+    "createSuccess": "Enlace compartido creado",
+    "createFailed": "Error al crear el enlace compartido",
+    "updateFailed": "Error al actualizar la configuración de uso compartido",
+    "deleteSuccess": "Enlace compartido eliminado",
+    "deleteFailed": "Error al eliminar el enlace compartido",
+    "refreshSuccess": "Enlace compartido regenerado",
+    "refreshFailed": "Error al regenerar el enlace compartido"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -610,7 +640,6 @@
       },
       "app": {
         "domain": "Dominio",
-        "v0ApiKey": "Clave de API v0",
         "customDomain": "Dominio Personalizado (Opcional)",
         "customDomainDescription": "Configura tu dominio personalizado para el despliegue de la aplicación, accede a <a>dominio de Vercel</a> para obtener el dominio personalizado",
         "vercelToken": "Token API de Vercel",
@@ -648,11 +677,6 @@
           "title": "LLM API",
           "description": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar, <anchor>ir a configuración</anchor>",
           "errorTips": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar"
-        },
-        "app": {
-          "title": "Constructor de aplicaciones",
-          "description": "Aún no ha configurado la API v0, la función Constructor de aplicaciones no estará disponible, <anchor>ir a configuración</anchor>",
-          "errorTips": "Aún no ha configurado la API v0, la función Constructor de aplicaciones no estará disponible"
         },
         "webSearch": {
           "title": "Búsqueda web",
@@ -1079,9 +1103,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "NUEVA ACTUALIZACIÓN",
-    "title": "Dominio personalizado para la App disponible",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "Actualización del 10 de abril",
+    "title": "Nuevo Teable Agent: Superinteligente, bajo costo",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

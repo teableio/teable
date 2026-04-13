@@ -15,6 +15,15 @@ let currentOptions: IInitAxiosOptions = {};
 let interceptorRegistered = false;
 
 /**
+ * Endpoints that require the user's own permissions, not share permissions.
+ * The share header must NOT be sent for these URLs.
+ */
+const USER_SCOPED_PREFIXES = ['/space'];
+
+const isUserScopedUrl = (url?: string) =>
+  url != null && USER_SCOPED_PREFIXES.some((prefix) => url.startsWith(prefix));
+
+/**
  * Initialize axios request interceptors for page-specific headers.
  *
  * - Registers a single interceptor on first call.
@@ -43,8 +52,8 @@ export const initAxios = (options: IInitAxiosOptions = {}) => {
       config.headers[X_CANARY_HEADER] = 'true';
     }
 
-    // Base share page
-    if (shareId) {
+    // Base share page — skip user-scoped endpoints that need the user's own permissions
+    if (shareId && !isUserScopedUrl(config.url)) {
       config.headers[BASE_SHARE_ID_HEADER] = shareId;
     }
 

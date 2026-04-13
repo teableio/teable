@@ -2,7 +2,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { Database, MoreHorizontal } from '@teable/icons';
+import { Database, MoreHorizontal, Share2 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -141,9 +141,12 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               </form>
             ) : (
               <div className="flex-1">
-                <h3 className="line-clamp-2 text-sm" title={base.name}>
-                  {base.name}
-                </h3>
+                <div className="flex items-center gap-1">
+                  <h3 className="line-clamp-2 text-sm" title={base.name}>
+                    {base.name}
+                  </h3>
+                  {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
+                </div>
                 {spaceName && (
                   <p className="mt-0.5 truncate text-xs text-muted-foreground" title={spaceName}>
                     {spaceName}
@@ -170,6 +173,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 showDelete={hasDeletePermission}
                 showExport={hasUpdatePermission}
                 showMove={hasMovePermission}
+                showShare={hasUpdatePermission}
                 onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
                 onRename={onRename}
               >

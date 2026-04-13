@@ -16,7 +16,7 @@ const FormShareButton = ({ disabled }: { disabled: boolean }) => {
   const view = useView();
   const tableId = useTableId();
   const { treeItems } = useBaseNodeContext();
-  const sharedNodeIds = useSharedNodeIds();
+  const { sharedNodeIds } = useSharedNodeIds();
   const [open, setOpen] = useState(false);
 
   const isNodeShared = useMemo(() => {
@@ -40,7 +40,7 @@ const FormShareButton = ({ disabled }: { disabled: boolean }) => {
       >
         <ArrowUpRight className="size-4" />
       </ToolBarButton>
-      <UnifiedShareDialog open={open} onOpenChange={setOpen} />
+      <UnifiedShareDialog open={open} onOpenChange={setOpen} defaultTab="view" showTabs={false} />
     </>
   );
 };

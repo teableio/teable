@@ -1,33 +1,41 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
-import type { IBaseNodeVo, IGetBaseShareVo } from '@teable/openapi';
+import type { IBaseNodeVo, IGetBaseShareVo, ITablePermissionVo } from '@teable/openapi';
 import {
   BASE_SHARE_AUTH,
   BASE_SHARE_ID_HEADER,
   BaseNodeResourceType,
+  COPY_BASE_SHARE,
   copyBaseShare,
   createBase,
   createBaseNode,
   createBaseShare,
+  CREATE_RECORD,
   createField,
   createSpace,
+  DELETE_RECORD_URL,
   deleteBaseShare,
   deleteSpace,
   GET_BASE_NODE_LIST,
   GET_BASE_NODE_TREE,
   GET_BASE_SHARE,
+  GET_TABLE_PERMISSION,
   getBaseNodeList,
   getBaseShareByNodeId,
   getFields,
   getTableList,
+  getBaseLevelShare,
   listBaseShare,
   moveBaseNode,
   refreshBaseShare,
+  UPDATE_RECORD,
   updateBaseShare,
   urlBuilder,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import {
   createTable,
@@ -36,6 +44,8 @@ import {
   permanentDeleteBase,
   updateRecord,
 } from './utils/init-app';
+
+const setCookieHeader = 'set-cookie';
 
 describe('BaseShareController (e2e)', () => {
   let app: INestApplication;
@@ -110,33 +120,11 @@ describe('BaseShareController (e2e)', () => {
       expect(res.data.allowCopy).toBeNull();
     });
 
-    it('should create base share with password', async () => {
-      const res = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        password: 'test123456',
-      });
-      createdShareIds.push(res.data.shareId);
-      expect(res.status).toEqual(201);
-      expect(res.data.password).toBe(true);
-    });
-
     it('should create base share with folder nodeId', async () => {
       const res = await createBaseShare(baseId, { nodeId: folderNodeId });
       createdShareIds.push(res.data.shareId);
       expect(res.status).toEqual(201);
       expect(res.data.nodeId).toEqual(folderNodeId);
-    });
-
-    it('should create base share with allowSave and allowCopy', async () => {
-      const res = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        allowSave: true,
-        allowCopy: true,
-      });
-      createdShareIds.push(res.data.shareId);
-      expect(res.status).toEqual(201);
-      expect(res.data.allowSave).toBe(true);
-      expect(res.data.allowCopy).toBe(true);
     });
 
     it('should list all shared node IDs', async () => {
@@ -159,11 +147,9 @@ describe('BaseShareController (e2e)', () => {
 
     it('should get base share by nodeId', async () => {
       // Use childTableNodeId to avoid conflicts with Public API tests using folderNodeId
-      const share = await createBaseShare(baseId, {
-        nodeId: childTableNodeId,
-        password: 'secret123',
-      });
+      const share = await createBaseShare(baseId, { nodeId: childTableNodeId });
       createdShareIds.push(share.data.shareId);
+      await updateBaseShare(baseId, share.data.shareId, { password: 'secret123' });
 
       const res = await getBaseShareByNodeId(baseId, childTableNodeId);
       expect(res.status).toEqual(200);
@@ -276,7 +262,6 @@ describe('BaseShareController (e2e)', () => {
       const share = await createBaseShare(baseId, { nodeId: folderNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
-
       const res = await anonymousUser.get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }));
       expect(res.status).toEqual(200);
       expect(res.data.shareMeta.nodeId).toEqual(folderNodeId);
@@ -300,13 +285,10 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should include allowSave and allowCopy in shareMeta', async () => {
-      const share = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        allowSave: true,
-        allowCopy: false,
-      });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { allowSave: true, allowCopy: false });
 
       const res = await anonymousUser.get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }));
       expect(res.status).toEqual(200);
@@ -315,12 +297,10 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should require authentication for password-protected share', async () => {
-      const share = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        password: 'testpwd123',
-      });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { password: 'testpwd123' });
 
       // Direct access without auth should return 401 for password-protected shares
       const error = await getError(() =>
@@ -331,25 +311,24 @@ describe('BaseShareController (e2e)', () => {
 
     it('should authenticate with correct password', async () => {
       const password = 'correctpass123';
-      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId, password });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { password });
 
       const authRes = await anonymousUser.post(urlBuilder(BASE_SHARE_AUTH, { shareId }), {
         password,
       });
       expect(authRes.status).toEqual(200);
       expect(authRes.data.token).toBeDefined();
-      expect(authRes.headers['set-cookie']).toBeDefined();
+      expect(authRes.headers[setCookieHeader]).toBeDefined();
     });
 
     it('should reject authentication with wrong password', async () => {
-      const share = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        password: 'correctpass',
-      });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { password: 'correctpass' });
 
       const error = await getError(() =>
         anonymousUser.post(urlBuilder(BASE_SHARE_AUTH, { shareId }), {
@@ -360,12 +339,10 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('requires password for base share protected endpoints', async () => {
-      const share = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        password: '123123123',
-      });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { password: '123123123' });
 
       const error = await getError(() =>
         anonymousUser.get(urlBuilder(GET_BASE_NODE_LIST, { baseId }), {
@@ -382,7 +359,7 @@ describe('BaseShareController (e2e)', () => {
       const listRes = await anonymousUser.get(urlBuilder(GET_BASE_NODE_LIST, { baseId }), {
         headers: {
           [BASE_SHARE_ID_HEADER]: shareId,
-          cookie: authRes.headers['set-cookie'],
+          cookie: authRes.headers[setCookieHeader],
         },
       });
       expect(listRes.status).toEqual(200);
@@ -477,8 +454,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should copy base share to my space', async () => {
-      const share = await createBaseShare(baseId, { nodeId: folderNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
       testShareId = share.data.shareId;
+      await updateBaseShare(baseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -498,8 +476,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should copy base share with records', async () => {
-      const share = await createBaseShare(baseId, { nodeId: folderNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
       testShareId = share.data.shareId;
+      await updateBaseShare(baseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -517,8 +496,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should copy base share without records', async () => {
-      const share = await createBaseShare(baseId, { nodeId: folderNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
       testShareId = share.data.shareId;
+      await updateBaseShare(baseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -536,10 +516,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should reject copy when allowSave is false', async () => {
-      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId, allowSave: false });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       testShareId = share.data.shareId;
-      // Clear any inherited password from previously soft-deleted share for this nodeId
-      await updateBaseShare(baseId, testShareId, { password: null });
+      await updateBaseShare(baseId, testShareId, { allowSave: false });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -555,8 +534,6 @@ describe('BaseShareController (e2e)', () => {
     it('should reject copy when allowSave is not set (null)', async () => {
       const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       testShareId = share.data.shareId;
-      // Clear any inherited password from previously soft-deleted share for this nodeId
-      await updateBaseShare(baseId, testShareId, { password: null });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -571,12 +548,9 @@ describe('BaseShareController (e2e)', () => {
 
     it('should reject copy of password-protected base share without password', async () => {
       // Password-protected shares require authentication even for logged-in users
-      const share = await createBaseShare(baseId, {
-        nodeId: rootTableNodeId,
-        password: 'testpassword123',
-        allowSave: true,
-      });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       testShareId = share.data.shareId;
+      await updateBaseShare(baseId, testShareId, { password: 'testpassword123', allowSave: true });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -590,10 +564,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should reject copy to non-existent space', async () => {
-      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       testShareId = share.data.shareId;
-      // Clear any inherited password from previously soft-deleted share for this nodeId
-      await updateBaseShare(baseId, testShareId, { password: null });
+      await updateBaseShare(baseId, testShareId, { allowSave: true });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -607,10 +580,9 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should generate default name when name is not provided', async () => {
-      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       testShareId = share.data.shareId;
-      // Clear any inherited password from previously soft-deleted share for this nodeId
-      await updateBaseShare(baseId, testShareId, { password: null });
+      await updateBaseShare(baseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -720,7 +692,8 @@ describe('BaseShareController (e2e)', () => {
     });
 
     it('should copy base share with single table and disconnect link fields', async () => {
-      const share = await createBaseShare(linkBaseId, { nodeId: table1NodeId, allowSave: true });
+      const share = await createBaseShare(linkBaseId, { nodeId: table1NodeId });
+      await updateBaseShare(linkBaseId, share.data.shareId, { allowSave: true });
       testShareId = share.data.shareId;
 
       const copyRes = await copyBaseShare(testShareId, {
@@ -794,10 +767,8 @@ describe('BaseShareController (e2e)', () => {
       await moveBaseNode(testBaseId, customersNode!.id, { parentId: folder.data.id });
 
       // Share only the folder
-      const share = await createBaseShare(testBaseId, {
-        nodeId: folder.data.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(testBaseId, { nodeId: folder.data.id });
+      await updateBaseShare(testBaseId, share.data.shareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(share.data.shareId, {
         spaceId: linkTargetSpaceId,
@@ -878,10 +849,8 @@ describe('BaseShareController (e2e)', () => {
       await moveBaseNode(testBaseId, customersNode!.id, { parentId: folder.data.id });
 
       // Share only the folder
-      const share = await createBaseShare(testBaseId, {
-        nodeId: folder.data.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(testBaseId, { nodeId: folder.data.id });
+      await updateBaseShare(testBaseId, share.data.shareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(share.data.shareId, {
         spaceId: linkTargetSpaceId,
@@ -958,11 +927,9 @@ describe('BaseShareController (e2e)', () => {
       const nodeList = await getBaseNodeList(sourceBaseId);
       const firstNode = nodeList.data[0];
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: firstNode.id });
       testShareId = share.data.shareId;
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -989,11 +956,9 @@ describe('BaseShareController (e2e)', () => {
       const nodeList = await getBaseNodeList(sourceBaseId);
       const firstNode = nodeList.data[0];
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: firstNode.id });
       testShareId = share.data.shareId;
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -1009,11 +974,9 @@ describe('BaseShareController (e2e)', () => {
       const nodeList = await getBaseNodeList(sourceBaseId);
       const firstNode = nodeList.data[0];
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: firstNode.id });
       testShareId = share.data.shareId;
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: true });
       targetBaseId = '';
 
       const error = await getError(() =>
@@ -1038,11 +1001,9 @@ describe('BaseShareController (e2e)', () => {
       const nodeList = await getBaseNodeList(sourceBaseId);
       const firstNode = nodeList.data[0];
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: firstNode.id });
       testShareId = share.data.shareId;
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: true });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -1069,12 +1030,9 @@ describe('BaseShareController (e2e)', () => {
       const nodeList = await getBaseNodeList(sourceBaseId);
       const firstNode = nodeList.data[0];
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
-        allowSave: false,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: firstNode.id });
       testShareId = share.data.shareId;
-      await updateBaseShare(sourceBaseId, testShareId, { password: null });
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: false });
 
       const error = await getError(() =>
         copyBaseShare(testShareId!, {
@@ -1107,11 +1065,9 @@ describe('BaseShareController (e2e)', () => {
         throw new Error('SourceTable1 node not found in base node list');
       }
 
-      const share = await createBaseShare(sourceBaseId, {
-        nodeId: sourceTableNode.id,
-        allowSave: true,
-      });
+      const share = await createBaseShare(sourceBaseId, { nodeId: sourceTableNode.id });
       testShareId = share.data.shareId;
+      await updateBaseShare(sourceBaseId, testShareId, { allowSave: true });
 
       const copyRes = await copyBaseShare(testShareId, {
         spaceId: targetSpaceId,
@@ -1143,9 +1099,10 @@ describe('BaseShareController (e2e)', () => {
 
     it('should reject copy after share is disabled', async () => {
       // Create a share with allowSave enabled, then disable it, then try to copy
-      const share = await createBaseShare(baseId, { nodeId: folderNodeId, allowSave: true });
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
       createdShareIds.push(share.data.shareId);
       const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { allowSave: true });
 
       // Disable the share
       await updateBaseShare(baseId, shareId, { enabled: false });
@@ -1167,8 +1124,6 @@ describe('BaseShareController (e2e)', () => {
       const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       const oldShareId = share.data.shareId;
       createdShareIds.push(oldShareId);
-      // Clear any inherited password from previously soft-deleted share for this nodeId
-      await updateBaseShare(baseId, oldShareId, { password: null });
 
       // Refresh to get a new shareId
       const refreshed = await refreshBaseShare(baseId, oldShareId);
@@ -1189,9 +1144,10 @@ describe('BaseShareController (e2e)', () => {
 
     it('should invalidate old JWT cookie after shareId refresh', async () => {
       const password = 'refreshtest123';
-      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId, password });
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
       const oldShareId = share.data.shareId;
       createdShareIds.push(oldShareId);
+      await updateBaseShare(baseId, oldShareId, { password });
 
       // Authenticate with old shareId to get JWT cookie
       const authRes = await anonymousUser.post(
@@ -1201,7 +1157,7 @@ describe('BaseShareController (e2e)', () => {
         }
       );
       expect(authRes.status).toEqual(200);
-      const oldCookie = authRes.headers['set-cookie'];
+      const oldCookie = authRes.headers[setCookieHeader];
 
       // Refresh the shareId
       const refreshed = await refreshBaseShare(baseId, oldShareId);
@@ -1277,6 +1233,485 @@ describe('BaseShareController (e2e)', () => {
       expect(nodeIds.has(childTableNodeId)).toBe(true);
       // Root table is outside the shared folder, should not be visible
       expect(nodeIds.has(rootTableNodeId)).toBe(false);
+    });
+  });
+
+  describe('BaseShare - allowEdit permission', () => {
+    let editBaseId: string;
+    let editTableId: string;
+    let editTableNodeId: string;
+    let editFolderNodeId: string;
+    let loggedInUser: AxiosInstance;
+    const createdShareIds: string[] = [];
+
+    beforeAll(async () => {
+      const base = await createBase({
+        name: 'allowEdit-e2e',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+      editBaseId = base.id;
+
+      const table = await createTable(editBaseId, { name: 'edit-table' });
+      editTableId = table.id;
+
+      const folder = await createBaseNode(editBaseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'edit-folder',
+      });
+      editFolderNodeId = folder.data.id;
+
+      const nodeList = await getBaseNodeList(editBaseId);
+      const tableNode = nodeList.data.find((n) => n.resourceId === editTableId);
+      if (!tableNode) throw new Error('Table node not found');
+      editTableNodeId = tableNode.id;
+
+      loggedInUser = await createNewUserAxios({
+        email: 'allow-edit-e2e@test.com',
+        password: 'TestPassword123!',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(editBaseId);
+    });
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(editBaseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    it('should enforce allowEdit/allowSave mutual exclusivity on update', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowSave: true });
+
+      // Switch to allowEdit
+      const updated = await updateBaseShare(editBaseId, share.data.shareId, {
+        allowEdit: true,
+      });
+      expect(updated.data.allowEdit).toBe(true);
+      expect(updated.data.allowSave).toBe(false);
+    });
+
+    it('should create fresh share after soft-deleted share is removed', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true, allowCopy: true });
+
+      // Soft-delete it
+      await deleteBaseShare(editBaseId, share.data.shareId);
+
+      // Re-create with same nodeId — should create a fresh share with default settings
+      const fresh = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(fresh.data.shareId);
+      expect(fresh.data.enabled).toBe(true);
+      expect(fresh.data.shareId).not.toEqual(share.data.shareId);
+      expect(fresh.data.allowEdit).toBeNull();
+      expect(fresh.data.allowCopy).toBeNull();
+    });
+
+    it('should grant editor-level permissions to logged-in user with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      const permRes = await loggedInUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // Editor-level: can create/update/delete records
+      expect(permRes.data.record['record|create']).toBe(true);
+      expect(permRes.data.record['record|update']).toBe(true);
+      expect(permRes.data.record['record|delete']).toBe(true);
+      // Excluded: view|share must be denied
+      expect(permRes.data.view['view|share']).toBeFalsy();
+    });
+
+    it('should only grant read-only permissions to anonymous user even with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      const permRes = await anonymousUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // Anonymous user should NOT have write permissions
+      expect(permRes.data.record['record|create']).toBeFalsy();
+      expect(permRes.data.record['record|update']).toBeFalsy();
+      expect(permRes.data.record['record|delete']).toBeFalsy();
+    });
+
+    it('should allow logged-in user to create records via allowEdit share', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      const fields = await getFields(editTableId);
+      const firstField = fields.data[0];
+
+      const createRes = await loggedInUser.post(
+        urlBuilder(CREATE_RECORD, { tableId: editTableId }),
+        { records: [{ fields: { [firstField.id]: 'share-edit-test' } }], fieldKeyType: 'id' },
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(createRes.status).toEqual(201);
+      expect(createRes.data.records).toHaveLength(1);
+
+      const recordId = createRes.data.records[0].id;
+
+      // Update the record
+      const updateRes = await loggedInUser.patch(
+        urlBuilder(UPDATE_RECORD, { tableId: editTableId, recordId }),
+        { record: { fields: { [firstField.id]: 'updated-via-share' } }, fieldKeyType: 'id' },
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(updateRes.status).toEqual(200);
+
+      // Delete the record
+      const deleteRes = await loggedInUser.delete(
+        urlBuilder(DELETE_RECORD_URL, { tableId: editTableId, recordId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(deleteRes.status).toEqual(200);
+    });
+
+    it('should deny anonymous user record creation even with allowEdit', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      const fields = await getFields(editTableId);
+      const firstField = fields.data[0];
+
+      const error = await getError(() =>
+        anonymousUser.post(
+          urlBuilder(CREATE_RECORD, { tableId: editTableId }),
+          { records: [{ fields: { [firstField.id]: 'should-fail' } }], fieldKeyType: 'id' },
+          { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+        )
+      );
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should cap permissions at share level even for base owner', async () => {
+      // The default test user is the base owner
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      // Access via share header — should get editor-level, not owner-level
+      const permRes = await loggedInUser.get<ITablePermissionVo>(
+        urlBuilder(GET_TABLE_PERMISSION, { baseId: editBaseId, tableId: editTableId }),
+        { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } }
+      );
+      expect(permRes.status).toEqual(200);
+      // view|share is excluded from share permissions, even though owner normally has it
+      expect(permRes.data.view['view|share']).toBeFalsy();
+    });
+
+    it('should include allowEdit in shareMeta via public API', async () => {
+      const share = await createBaseShare(editBaseId, { nodeId: editTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(editBaseId, share.data.shareId, { allowEdit: true });
+
+      const res = await anonymousUser.get<IGetBaseShareVo>(
+        urlBuilder(GET_BASE_SHARE, { shareId: share.data.shareId })
+      );
+      expect(res.status).toEqual(200);
+      expect(res.data.shareMeta.allowEdit).toBe(true);
+    });
+  });
+
+  describe('Whole Base Share', () => {
+    const createdShareIds: string[] = [];
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(baseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    it('should create whole-base share (no nodeId)', async () => {
+      const res = await createBaseShare(baseId, {});
+      createdShareIds.push(res.data.shareId);
+      expect(res.status).toEqual(201);
+      expect(res.data.baseId).toEqual(baseId);
+      expect(res.data.shareId).toBeDefined();
+      expect(res.data.nodeId).toBeNull();
+      expect(res.data.enabled).toBe(true);
+    });
+
+    it('should prevent duplicate whole-base share', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const error = await getError(() => createBaseShare(baseId, {}));
+      expect(error?.status).toEqual(409);
+    });
+
+    it('should get base-level share via /node endpoint (no nodeId)', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const res = await getBaseLevelShare(baseId);
+      expect(res.status).toEqual(200);
+      expect(res.data).not.toBeNull();
+      expect(res.data!.shareId).toEqual(share.data.shareId);
+      expect(res.data!.nodeId).toBeNull();
+    });
+
+    it('should include whole-base share in list with nodeId null', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const res = await listBaseShare(baseId);
+      expect(res.status).toEqual(200);
+      const baseShareEntry = res.data.find((s) => s.nodeId === null);
+      expect(baseShareEntry).toBeDefined();
+    });
+
+    it('should return valid defaultUrl for whole-base share via public API', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const res = await anonymousUser.get<IGetBaseShareVo>(
+        urlBuilder(GET_BASE_SHARE, { shareId: share.data.shareId })
+      );
+      expect(res.status).toEqual(200);
+      expect(res.data.shareMeta.nodeId).toBeNull();
+      expect(res.data.defaultUrl).toBeDefined();
+      // Should point to first table in base
+      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/`);
+    });
+
+    it('should allow allowEdit for whole-base share', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+      const updated = await updateBaseShare(baseId, share.data.shareId, { allowEdit: true });
+      expect(updated.data.allowEdit).toBe(true);
+      expect(updated.data.allowSave).toBe(false);
+    });
+
+    it('should update whole-base share settings', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const updateRes = await updateBaseShare(baseId, share.data.shareId, {
+        allowCopy: true,
+        allowEdit: true,
+      });
+      expect(updateRes.status).toEqual(200);
+      expect(updateRes.data.allowCopy).toBe(true);
+      expect(updateRes.data.allowEdit).toBe(true);
+    });
+
+    it('should delete (soft) whole-base share', async () => {
+      const share = await createBaseShare(baseId, {});
+      const shareId = share.data.shareId;
+
+      await deleteBaseShare(baseId, shareId);
+
+      const res = await getBaseLevelShare(baseId);
+      expect(res.data).toBeFalsy();
+    });
+
+    it('should coexist with node-level shares', async () => {
+      // Create both whole-base and node-level shares
+      const baseShare = await createBaseShare(baseId, {});
+      createdShareIds.push(baseShare.data.shareId);
+
+      const nodeShare = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      createdShareIds.push(nodeShare.data.shareId);
+      // Both should work independently
+      const list = await listBaseShare(baseId);
+      expect(list.data.length).toBeGreaterThanOrEqual(2);
+
+      const baseShareRes = await anonymousUser.get<IGetBaseShareVo>(
+        urlBuilder(GET_BASE_SHARE, { shareId: baseShare.data.shareId })
+      );
+      expect(baseShareRes.status).toEqual(200);
+      expect(baseShareRes.data.shareMeta.nodeId).toBeNull();
+
+      const nodeRes = await anonymousUser.get<IGetBaseShareVo>(
+        urlBuilder(GET_BASE_SHARE, { shareId: nodeShare.data.shareId })
+      );
+      expect(nodeRes.status).toEqual(200);
+      expect(nodeRes.data.shareMeta.nodeId).toEqual(rootTableNodeId);
+    });
+
+    it('should support password protection for whole-base share', async () => {
+      const password = 'wholebase123';
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(baseId, share.data.shareId, { password });
+
+      // Access without password should fail
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(GET_BASE_SHARE, { shareId: share.data.shareId }))
+      );
+      expect(error?.status).toEqual(401);
+
+      // Auth with correct password should work
+      const authRes = await anonymousUser.post(
+        urlBuilder(BASE_SHARE_AUTH, { shareId: share.data.shareId }),
+        { password }
+      );
+      expect(authRes.status).toEqual(200);
+      expect(authRes.data.token).toBeDefined();
+    });
+
+    it('should show all nodes in base via share header for whole-base share', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+
+      const listRes = await anonymousUser.get<IBaseNodeVo[]>(
+        urlBuilder(GET_BASE_NODE_LIST, { baseId }),
+        {
+          headers: {
+            [BASE_SHARE_ID_HEADER]: share.data.shareId,
+          },
+        }
+      );
+      expect(listRes.status).toEqual(200);
+      const nodeIds = new Set(listRes.data.map((n: IBaseNodeVo) => n.id));
+      // Both root table and folder should be visible
+      expect(nodeIds.has(rootTableNodeId)).toBe(true);
+      expect(nodeIds.has(folderNodeId)).toBe(true);
+      expect(nodeIds.has(childTableNodeId)).toBe(true);
+    });
+
+    it('should copy whole-base share with all tables', async () => {
+      const space = await createSpace({ name: 'whole-base-copy-space' });
+      let copiedBaseId: string | undefined;
+
+      try {
+        const share = await createBaseShare(baseId, {});
+        createdShareIds.push(share.data.shareId);
+        await updateBaseShare(baseId, share.data.shareId, { allowSave: true });
+
+        const copyRes = await copyBaseShare(share.data.shareId, {
+          spaceId: space.data.id,
+          name: 'copied-whole-base',
+          withRecords: true,
+        });
+
+        expect(copyRes.status).toEqual(200);
+        copiedBaseId = copyRes.data.id;
+
+        // Verify all tables from the original base are copied
+        const tableList = await getTableList(copiedBaseId);
+        const tableNames = tableList.data.map((t) => t.name).sort();
+        expect(tableNames).toContain('root-table');
+        expect(tableNames).toContain('child-table');
+      } finally {
+        if (copiedBaseId) await permanentDeleteBase(copiedBaseId);
+        await deleteSpace(space.data.id);
+      }
+    });
+
+    it('should reject copy of whole-base share when allowSave is false', async () => {
+      const space = await createSpace({ name: 'whole-base-copy-reject-space' });
+
+      try {
+        const share = await createBaseShare(baseId, {});
+        createdShareIds.push(share.data.shareId);
+
+        const error = await getError(() =>
+          copyBaseShare(share.data.shareId, {
+            spaceId: space.data.id,
+            name: 'should-not-copy',
+            withRecords: false,
+          })
+        );
+        expect(error?.status).toEqual(403);
+      } finally {
+        await deleteSpace(space.data.id);
+      }
+    });
+  });
+
+  describe('BaseShare - User-scoped endpoints with share header', () => {
+    let shareId: string;
+    let loggedInUser: AxiosInstance;
+    let userSpaceId: string;
+
+    beforeAll(async () => {
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      shareId = share.data.shareId;
+
+      loggedInUser = await createNewUserAxios({
+        email: 'share-user-scoped-e2e@test.com',
+        password: 'TestPassword123!',
+      });
+
+      // Create a space owned by the logged-in user
+      const space = await loggedInUser.post<{ id: string; name: string }>('/space', {
+        name: 'user-scoped-test-space',
+      });
+      userSpaceId = space.data.id;
+    });
+
+    afterAll(async () => {
+      await deleteBaseShare(baseId, shareId).catch(() => undefined);
+      await loggedInUser.delete(`/space/${userSpaceId}`).catch(() => undefined);
+    });
+
+    it('should allow logged-in user to list spaces with share header', async () => {
+      const res = await loggedInUser.get('/space', {
+        headers: { [BASE_SHARE_ID_HEADER]: shareId },
+      });
+      expect(res.status).toEqual(200);
+      expect(Array.isArray(res.data)).toBe(true);
+      expect(res.data.length).toBeGreaterThan(0);
+    });
+
+    it('should allow logged-in user to list bases in space with share header', async () => {
+      const res = await loggedInUser.get(`/space/${userSpaceId}/base`, {
+        headers: { [BASE_SHARE_ID_HEADER]: shareId },
+      });
+      expect(res.status).toEqual(200);
+      expect(Array.isArray(res.data)).toBe(true);
+    });
+
+    it('should allow logged-in user to create space with share header', async () => {
+      const res = await loggedInUser.post(
+        '/space',
+        { name: 'created-with-share-header' },
+        { headers: { [BASE_SHARE_ID_HEADER]: shareId } }
+      );
+      expect(res.status).toEqual(201);
+      // Clean up
+      await loggedInUser.delete(`/space/${res.data.id}`).catch(() => undefined);
+    });
+
+    it('should allow copy base share when spaceId in body triggers PermissionGuard', async () => {
+      // The copy endpoint has @ResourceMeta('spaceId', 'body') + @Permissions('base|create').
+      // PermissionGuard must skip share check for space-scoped resourceId,
+      // otherwise the spaceId gets rejected as "not accessible via share".
+      const allowSaveShare = await createBaseShare(baseId, { nodeId: folderNodeId });
+      await updateBaseShare(baseId, allowSaveShare.data.shareId, { allowSave: true });
+      let copiedBaseId: string | undefined;
+
+      try {
+        // Use loggedInUser's axios to copy into their own space
+        const copyRes = await loggedInUser.post(
+          urlBuilder(COPY_BASE_SHARE, { shareId: allowSaveShare.data.shareId }),
+          { spaceId: userSpaceId, name: 'copy-with-share-header', withRecords: false }
+        );
+        expect(copyRes.status).toEqual(200);
+        copiedBaseId = copyRes.data.id;
+      } finally {
+        if (copiedBaseId) {
+          await loggedInUser.delete(`/base/${copiedBaseId}/permanent`).catch(() => undefined);
+        }
+        await deleteBaseShare(baseId, allowSaveShare.data.shareId).catch(() => undefined);
+      }
     });
   });
 });

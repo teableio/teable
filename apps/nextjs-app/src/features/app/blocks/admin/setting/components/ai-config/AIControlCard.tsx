@@ -9,13 +9,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
   instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
   onChange: (value: { disableActions: string[] }) => void;
 }
 
@@ -48,7 +49,7 @@ const TooltipWrap = ({
 };
 
 const SwitchList = (props: SwitchListProps) => {
-  const { onChange, disableActions, instanceDisableActions = [] } = props;
+  const { onChange, disableActions, instanceDisableActions = [], sandboxConfigured } = props;
   const { t } = useTranslation('common');
 
   const AIFeatureListNameMap = useMemo(() => {
@@ -93,38 +94,49 @@ const SwitchList = (props: SwitchListProps) => {
     [disableActions, onChange]
   );
 
-  return AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
-    <div className="flex items-center justify-between" key={key}>
-      <div className="flex items-center gap-x-1">
-        <Label
-          htmlFor={key}
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          {name}
-        </Label>
-        <TooltipWrap description={description}>
-          <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
-        </TooltipWrap>
-      </div>
-      <Switch
-        id={key}
-        onCheckedChange={(open) => {
-          onCheckItemHandler(key, open);
-        }}
-        checked={!disableActions?.includes(key) && !instanceDisableActions.includes(key)}
-        disabled={disabled}
-      />
-    </div>
-  ));
+  return (
+    <>
+      {AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
+        <div className="flex items-center justify-between" key={key}>
+          <div className="flex items-center gap-x-1">
+            <Label
+              htmlFor={key}
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {name}
+            </Label>
+            <TooltipWrap description={description}>
+              <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
+            </TooltipWrap>
+            {key === AIActions.AIChat && sandboxConfigured === false && (
+              <TooltipWrap description={t('admin.setting.ai.actions.aiChat.sandboxWarning')}>
+                <TriangleAlert className="size-4 cursor-pointer text-yellow-500" />
+              </TooltipWrap>
+            )}
+          </div>
+          <Switch
+            id={key}
+            onCheckedChange={(open) => {
+              onCheckItemHandler(key, open);
+            }}
+            checked={!disableActions?.includes(key) && !instanceDisableActions.includes(key)}
+            disabled={disabled}
+          />
+        </div>
+      ))}
+    </>
+  );
 };
 
 export const AIControlCard = ({
   disableActions,
   instanceDisableActions,
+  sandboxConfigured,
   onChange,
 }: {
   disableActions: string[];
   instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
   onChange: (value: { disableActions: string[] }) => void;
 }) => {
   const { t } = useTranslation('common');
@@ -138,6 +150,7 @@ export const AIControlCard = ({
             onChange={onChange}
             disableActions={disableActions}
             instanceDisableActions={instanceDisableActions}
+            sandboxConfigured={sandboxConfigured}
           />
         </div>
       </CardContent>
