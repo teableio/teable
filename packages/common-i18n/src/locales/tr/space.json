@@ -140,8 +140,8 @@
     "empty": "Henüz üs yok"
   },
   "publishBase": {
-    "title": "Üssü toplulukta yayınla",
-    "description": "Tek tıkla üs yayınlama, ilham artık yalnız değil! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
+    "title": "Şablon Merkezinde Yayınla",
+    "description": "Tek tıkla üssünüzü şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
     "infoTitle": "Temel bilgiler",
     "form": {
       "title": "Başlık",
@@ -164,7 +164,7 @@
     "unPublish": "Yayından kaldır",
     "unPublishSuccess": "Üs başarıyla yayından kaldırıldı!",
     "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
-    "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık topluluk şablon merkezinde görünmeyecek.",
+    "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
     "usageCount": "Kullanım sayısı: ",
     "uploadCover": "Kapak resmi yüklemek için tıklayın",
     "changeCover": "Kapağı değiştirmek için tıklayın",

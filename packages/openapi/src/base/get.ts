@@ -33,6 +33,7 @@ export const getBaseItemSchema = z.object({
     })
     .optional(),
   isCanary: z.boolean().optional(),
+  isShared: z.boolean().optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;

@@ -61,7 +61,7 @@ export class BaseShareOpenController {
     @Request() req: Express.Request & { baseShareInfo: IBaseShareInfo }
   ): Promise<IGetBaseShareVo> {
     const shareInfo = req.baseShareInfo;
-    const { baseId, nodeId, allowSave, allowCopy } = shareInfo;
+    const { baseId, nodeId, allowSave, allowCopy, allowEdit } = shareInfo;
 
     // Build default URL for redirect
     const defaultUrl = await this.buildDefaultUrl(baseId, nodeId);
@@ -73,6 +73,7 @@ export class BaseShareOpenController {
         nodeId,
         allowSave,
         allowCopy,
+        allowEdit,
       },
       defaultUrl,
     };
@@ -82,7 +83,10 @@ export class BaseShareOpenController {
    * Build the default URL for share redirect.
    * Returns a URL like "/base/xxx/table/yyy/zzz" or "/base/xxx/dashboard/yyy"
    */
-  private async buildDefaultUrl(baseId: string, nodeId: string): Promise<string | undefined> {
+  private async buildDefaultUrl(
+    baseId: string,
+    nodeId: string | null
+  ): Promise<string | undefined> {
     // Get all nodes in the base
     const allNodes = await this.prismaService.baseNode.findMany({
       where: { baseId },
@@ -102,14 +106,22 @@ export class BaseShareOpenController {
 
     let targetNode: { resourceType: string; resourceId: string } | null = null;
 
-    // Find the shared node
-    const sharedNode = allNodes.find((n) => n.id === nodeId);
-    if (sharedNode) {
-      // If the shared node is a folder, find the first accessible non-folder child
-      if (sharedNode.resourceType.toLowerCase() === 'folder') {
-        targetNode = this.findFirstAccessibleNode(allNodes, nodeId);
-      } else {
-        targetNode = { resourceType: sharedNode.resourceType, resourceId: sharedNode.resourceId };
+    if (nodeId === null) {
+      // Whole base share: find first accessible node from root
+      targetNode = this.findFirstAccessibleNode(allNodes, null);
+    } else {
+      // Find the shared node
+      const sharedNode = allNodes.find((n) => n.id === nodeId);
+      if (sharedNode) {
+        // If the shared node is a folder, find the first accessible non-folder child
+        if (sharedNode.resourceType.toLowerCase() === 'folder') {
+          targetNode = this.findFirstAccessibleNode(allNodes, nodeId);
+        } else {
+          targetNode = {
+            resourceType: sharedNode.resourceType,
+            resourceId: sharedNode.resourceId,
+          };
+        }
       }
     }
 
@@ -181,6 +193,18 @@ export class BaseShareOpenController {
       await this.permissionService.validPermissions(targetBaseId, ['base|update']);
     }
 
+    // For whole-base share (nodeId=null), include all root-level nodes
+    let nodes: string[];
+    if (nodeId === null) {
+      const rootNodes = await this.prismaService.baseNode.findMany({
+        where: { baseId: fromBaseId, parentId: null },
+        select: { id: true },
+      });
+      nodes = rootNodes.map((n) => n.id);
+    } else {
+      nodes = [nodeId];
+    }
+
     // Copy the base using BaseDuplicateService
     // allowCrossBase = false to disconnect cross-base links
     // duplicateMode = CopyShareBase to handle node relationships correctly
@@ -190,7 +214,7 @@ export class BaseShareOpenController {
         spaceId,
         name,
         withRecords,
-        nodes: [nodeId],
+        nodes,
         baseId: targetBaseId,
       },
       false, // allowCrossBase = false

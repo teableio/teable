@@ -99,6 +99,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             variant="outline"
             size="xs"
             onClick={toggleSidebar}
+            data-sidebar-toggle
           >
             <ChevronsLeft className="size-5 rotate-180" />
           </Button>

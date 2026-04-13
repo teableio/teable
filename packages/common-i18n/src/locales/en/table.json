@@ -519,10 +519,13 @@
       "fillFailed": "Fill failed",
       "clearing": "Clearing...",
       "clearSuccessful": "Clear successful",
+      "clearFailed": "Clear failed",
       "clearConfirmTitle": "Clear data",
       "clearConfirmDescription": "This action will clear {{cellCount}} cells in {{rowCount}} records. Are you sure you want to continue?",
       "deleteRecordConfirmTitle": "Delete records",
       "deleteRecordConfirmDescription": "This action will delete {{recordCount}} records. Are you sure you want to continue?",
+      "duplicateRecordsConfirmTitle": "Duplicate records",
+      "duplicateRecordsConfirmDescription": "This action will duplicate {{recordCount}} records. Are you sure you want to continue?",
       "pasteConfirmTitle": "Perform paste",
       "pasteConfirmDescription": "You are about to perform a paste that overwrites {{recordCount}} records. Are you sure you want to continue?",
       "expandCommonDescription": "To fit your pasted data into the table, we need to add",
@@ -534,7 +537,89 @@
       "conjunction": "and",
       "deleteFieldConfirmTitle": "You will delete the following fields",
       "deleting": "Deleting...",
+      "duplicating": "Duplicating...",
+      "deleteFailed": "Delete failed",
       "deleteSuccessful": "Delete successful",
+      "duplicateFailed": "Duplicate failed",
+      "duplicateSuccessful": "Duplicate successful",
+      "duplicateRecords": "Duplicate",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "duplicateStream": {
+        "preparing": "Preparing selection",
+        "duplicating": "Duplicating records",
+        "descriptionWithIssues": "Some duplicate chunks failed. Review the details below.",
+        "completedWithIssues": "Duplication completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Duplicated {{duplicatedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Duplicating",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Preparing selection",
+        "pasting": "Pasting records",
+        "descriptionWithIssues": "Some paste chunks failed. Review the details below.",
+        "completedWithIssues": "Paste completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Processed {{processedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Pasting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "This action will clear values in {{recordCount}} records. Are you sure you want to continue?",
+        "preparing": "Preparing selection",
+        "clearing": "Clearing records",
+        "descriptionWithIssues": "Some clear chunks failed. Review the details below.",
+        "completedWithIssues": "Clear completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Cleared {{clearedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Clearing",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "Files can only be pasted into an attachment field",
       "copyError": {
         "noFocus": "Please keep the page active and do not switch windows",
@@ -562,6 +647,20 @@
         "runCheck": "Run Check",
         "recheck": "Re-check",
         "repair": "Repair",
+        "repairWarnings": "Repair warnings only",
+        "repairWarningsAndErrors": "Repair warnings and errors",
+        "repairRule": "Repair rule",
+        "repairUnavailable": "This rule cannot be repaired automatically",
+        "manual": "Manual",
+        "manualRepairNotice": "This issue needs manual repair",
+        "manualRepairNoticeWithCount": "{{count}} issues need manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
+        "manualRepairDialogTitle": "Manual repair required",
+        "manualRepairDialogDescription": "This issue cannot be repaired automatically. Review the guidance below and choose how it should be fixed.",
+        "manualRepairDialogReason": "Why manual repair is needed",
+        "manualRepairDialogHint": "This dialog currently guides the user through the repair choices required by the rule. Execution can be added on top of this contract later.",
+        "manualRepairDialogClose": "Close",
+        "manualRepairPreview": "Manual repair setup",
+        "manualRepairPreviewTip": "Manual repair is not submitted yet. This preview shows the options the rule asks the user to choose from.",
         "checking": "Checking schema...",
         "repairing": "Repairing schema...",
         "streamError": "Failed to stream schema integrity results.",
@@ -590,7 +689,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Skipped because this status level was not selected for repair",
+          "skippedRepairUnavailable": "Skipped because automatic repair is unavailable in the current state"
         },
         "rule": {
           "column": "Physical column",
@@ -629,7 +730,66 @@
           "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Field \"{{fieldName}}\" should be unique",
+          "columnUniqueMissingDescription": "Add a UNIQUE constraint to \"{{fieldName}}\" so duplicate values cannot be written.",
+          "columnUniqueIndexMismatch": "Field \"{{fieldName}}\" is missing the expected unique index",
+          "columnUniqueIndexMismatchDescription": "Rebuild the index for \"{{fieldName}}\" as a unique index so reads and writes follow the field's uniqueness rule.",
+          "foreignKeyMissing": "Field \"{{fieldName}}\" is missing its foreign key constraint",
+          "foreignKeyMissingDescription": "Restore the foreign key from \"{{fieldName}}\" to \"{{targetTableName}}\" so linked records stay consistent.",
+          "foreignKeyTargetTableMissing": "The linked table for \"{{fieldName}}\" cannot be found",
+          "foreignKeyTargetTableMissingDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "Field \"{{fieldName}}\" is missing a reference mapping",
+          "referenceMissingDescription": "Restore the reference metadata between \"{{fieldName}}\" and its dependency field so lookup and relation updates can propagate correctly.",
+          "symmetricFieldTargetMissing": "The paired link field for \"{{fieldName}}\" cannot be found",
+          "symmetricFieldWrongType": "The paired field for \"{{fieldName}}\" is not a link field",
+          "symmetricFieldInvalidOptions": "The paired field for \"{{fieldName}}\" has invalid link configuration",
+          "symmetricFieldMissingBackReference": "The paired field for \"{{fieldName}}\" does not point back to the current field",
+          "symmetricFieldWrongBackReference": "The paired field for \"{{fieldName}}\" points to another field instead of the current one",
+          "symmetricFieldDuplicateUsage": "The symmetric link target \"{{symmetricFieldId}}\" is reused by \"{{conflictFieldName}}\"",
+          "symmetricFieldDuplicateUsageDescription": "Each two-way link pair must have a unique symmetric field. Choose which field should keep this relationship before repairing."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Check results",
@@ -670,7 +830,8 @@
         "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
         "ReferenceFieldNotFound": "ReferenceFieldNotFound",
         "UniqueIndexNotFound": "UniqueIndexNotFound",
-        "EmptyString": "EmptyString"
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator"
       }
     },
     "index": {
@@ -865,6 +1026,7 @@
     "copyCells": "Copy cells",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
+    "duplicateRecords": "Duplicate selected records",
     "editField": "Edit field",
     "duplicateField": "Duplicate field",
     "insertFieldLeft": "Insert left",
@@ -899,9 +1061,9 @@
     "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
     "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
     "action": {
-      "rename": "Rename view",
-      "duplicate": "Duplicate view",
-      "delete": "Delete view",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
       "lock": "Lock view",
       "unlock": "Unlock view",
       "enable": "Enable"
@@ -993,8 +1155,12 @@
     "shareLink": "Share link",
     "linkHolderLabel": "The person who obtained the link",
     "linkHolderCanView": "Can view",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Can edit",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Can save as copy",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "Password Protection",
     "enterPassword": "Enter password",
     "selectNodes": "Select Tables",
@@ -1045,10 +1211,11 @@
         "toolsWithErrors": "{{count}} tools ({{errors}} error(s))",
         "hasErrors": "errors",
         "noDetails": "No details available",
+        "model": "Model",
         "contextWindow": "Context Window",
         "contextTooltip": "Agent's working memory usage. When approaching the limit, the agent will automatically summarize earlier conversation to free up space.",
         "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
-        "contextTipMemory": "Say \"remember XXX\" to save to long-term memory, accessible across chats."
+        "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
       },
       "taskProgress": {
         "title": "Task Progress",
@@ -1501,18 +1668,18 @@
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
     "sandboxExpiry": {
-      "expiresIn": "Sandbox expires in {{time}}",
-      "reset": "Reset",
-      "resetTitle": "Reset Sandbox",
-      "runningTasks_one": "There is {{count}} running task. Resetting will terminate it.",
-      "runningTasks_other": "There are {{count}} running tasks. Resetting will terminate them.",
+      "expiresIn": "Agent Computer expires in {{time}}",
+      "reset": "Renew",
+      "resetTitle": "Renew Agent Computer",
+      "runningTasks_one": "There is {{count}} running task. Renewing will interrupt it.",
+      "runningTasks_other": "There are {{count}} running tasks. Renewing will interrupt them.",
       "noRunningTasks": "No tasks are currently running.",
-      "newSandboxHint": "A new sandbox will be created automatically on your next message.",
+      "newSandboxHint": "You can continue using it normally after renewal.",
       "cancel": "Cancel",
-      "confirmReset": "Reset",
-      "confirmResetWithTasks": "Reset Anyway",
-      "expiresSoon": "Sandbox is expiring",
-      "resetFailed": "Failed to reset sandbox"
+      "confirmReset": "Renew",
+      "confirmResetWithTasks": "Renew Anyway",
+      "expiresSoon": "Agent Computer expiring soon",
+      "resetFailed": "Failed to renew Agent Computer"
     },
     "noModel": "No available models",
     "addAttachment": "Add Attachment",
@@ -1612,6 +1779,13 @@
       "removeFromQueue": "Remove",
       "queueFull": "Queue is full (max 10 messages)",
       "messageQueued": "Message queued"
+    },
+    "effort": {
+      "title": "Select reasoning effort",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "max": "Max"
     }
   },
   "upload": {

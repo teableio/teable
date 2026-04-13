@@ -206,6 +206,22 @@ model ComputedUpdateDeadLetter {
   @@map("computed_update_dead_letter")
 }
 
+model ComputedUpdatePauseScope {
+  id        String    @id
+  scopeType String    @map("scope_type")
+  scopeId   String    @map("scope_id")
+  pausedAt  DateTime  @default(now()) @map("paused_at")
+  pausedBy  String?   @map("paused_by")
+  resumeAt  DateTime? @map("resume_at")
+  reason    String?
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([scopeType, scopeId])
+  @@index([resumeAt])
+  @@map("computed_update_pause_scope")
+}
+
 model View {
   id               String    @id
   name             String
@@ -832,14 +848,16 @@ model BaseShare {
   baseId           String    @map("base_id")
   shareId          String    @unique @map("share_id")
   password         String?
-  nodeId           String    @unique @map("node_id")
+  nodeId           String?   @map("node_id")
   allowSave        Boolean?  @map("allow_save")
   allowCopy        Boolean?  @map("allow_copy")
+  allowEdit        Boolean?  @map("allow_edit")
   enabled          Boolean   @default(true)
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
+  @@unique([baseId, nodeId])
   @@index([baseId])
   @@map("base_share")
 }

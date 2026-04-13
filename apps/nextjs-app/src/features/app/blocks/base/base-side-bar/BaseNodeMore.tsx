@@ -1,17 +1,7 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import {
-  Copy,
-  FileCsv,
-  FileExcel,
-  Pencil,
-  History,
-  Code2,
-  Trash2,
-  Download,
-  Share2,
-} from '@teable/icons';
+import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
 import type { IBaseNodeVo, IDuplicateBaseNodeRo } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
@@ -45,7 +35,7 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { FileInputIcon } from 'lucide-react';
+import { CopyPlus, FileInputIcon, Pen, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -219,14 +209,14 @@ const CommonOperation = (props: ICommonOperationProps) => {
       <>
         {canRename && (
           <ListMenuItem
-            icon={<Pencil className="size-4" />}
+            icon={<Pen className="size-4" />}
             label={t('table:table.rename')}
             onClick={() => onRename?.()}
           />
         )}
         {canDuplicate && (
           <ListMenuItem
-            icon={<Copy className="size-4" />}
+            icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
             onClick={handleDuplicateClick}
           />
@@ -240,7 +230,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
         )}
         {canPermanentDelete && (
           <ListMenuItem
-            icon={<Trash2 className="size-4" />}
+            icon={<Trash className="size-4" />}
             label={t('common:actions.permanentDelete')}
             onClick={() => onDelete?.(true)}
             destructive
@@ -248,7 +238,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
         )}
         {canDelete && (
           <ListMenuItem
-            icon={<Trash2 className="size-4" />}
+            icon={<Trash className="size-4" />}
             label={t('common:actions.delete')}
             onClick={() => onDelete?.(false)}
           />
@@ -278,13 +268,13 @@ const CommonOperation = (props: ICommonOperationProps) => {
         >
           {canRename && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pencil className="mr-2" />
+              <Pen className="mr-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
           {canDuplicate && (
             <DropdownMenuItem onClick={handleDuplicateClick}>
-              <Copy className="mr-2" />
+              <CopyPlus className="mr-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
@@ -299,7 +289,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
               className="text-destructive focus:text-destructive"
               onClick={() => onDelete?.(true)}
             >
-              <Trash2 className="mr-2" />
+              <Trash className="mr-2 size-4" />
               {t('common:actions.permanentDelete')}
             </DropdownMenuItem>
           )}
@@ -308,7 +298,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
               className="text-destructive focus:text-destructive"
               onClick={() => onDelete?.(false)}
             >
-              <Trash2 className="mr-2" />
+              <Trash className="mr-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}
@@ -626,7 +616,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
       <>
         {menuPermission.duplicateTable && (
           <ListMenuItem
-            icon={<Copy className="size-4" />}
+            icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
             onClick={() => setDuplicateSetting(true)}
           />
@@ -693,7 +683,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                 variant="ghost"
                 className="h-auto w-full justify-start gap-3 rounded-none border-b p-3"
               >
-                <Trash2 className="size-4" />
+                <Trash className="size-4" />
                 <span>{t('table:tableTrash.title')}</span>
               </Button>
             </SheetTrigger>
@@ -718,7 +708,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
         )}
         {menuPermission.deleteTable && (
           <ListMenuItem
-            icon={<Trash2 className="size-4" />}
+            icon={<Trash className="size-4" />}
             label={t('common:actions.delete')}
             onClick={() => setDeleteConfirm(true)}
             destructive
@@ -742,13 +732,13 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
         >
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pencil className="mr-2 size-4" />
+              <Pen className="mr-2 size-4" />
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
           {menuPermission.duplicateTable && (
             <DropdownMenuItem onClick={() => setDuplicateSetting(true)}>
-              <Copy className="mr-2 size-4" />
+              <CopyPlus className="mr-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
@@ -821,7 +811,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                         setTableTrashDialogOpen(true);
                       }}
                     >
-                      <Trash2 className="mr-1 size-4" />
+                      <Trash className="mr-1 size-4" />
                       {t('table:tableTrash.title')}
                     </DropdownMenuItem>
                   )}
@@ -842,7 +832,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
               className="text-destructive focus:text-destructive"
               onClick={() => setDeleteConfirm(true)}
             >
-              <Trash2 className="mr-2 size-4" />
+              <Trash className="mr-2 size-4" />
               {t('common:actions.delete')}
             </DropdownMenuItem>
           )}

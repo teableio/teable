@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ANONYMOUS_USER_ID, HttpErrorCode, isAnonymous, type Action } from '@teable/core';
+import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix, isAnonymous, type Action } from '@teable/core';
 import cookie from 'cookie';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
@@ -155,12 +155,15 @@ export class PermissionGuard {
       resourceId,
       permissions
     );
-    // Set user to anonymous for share context
-    this.cls.set('user', {
-      id: ANONYMOUS_USER_ID,
-      name: ANONYMOUS_USER_ID,
-      email: '',
-    });
+    // Preserve logged-in user identity for allowEdit; fall back to anonymous
+    const currentUserId = this.cls.get('user.id');
+    if (!currentUserId || isAnonymous(currentUserId)) {
+      this.cls.set('user', {
+        id: ANONYMOUS_USER_ID,
+        name: ANONYMOUS_USER_ID,
+        email: '',
+      });
+    }
     this.cls.set('permissions', ownPermissions);
     return true;
   }
@@ -297,6 +300,22 @@ export class PermissionGuard {
     if (!shareId) {
       return undefined;
     }
+    // Skip share path for endpoints without @Permissions (e.g. /user/me),
+    // otherwise baseSharePermissionCheck throws ForbiddenException.
+    const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!permissions?.length) {
+      return undefined;
+    }
+    // Skip share check when the target resource is outside the share scope.
+    // e.g. space-level endpoints (GET /space, POST /share/:id/base/copy with spaceId in body)
+    // should use the user's own permissions, not the share's.
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
+    if (!resourceId || resourceId.startsWith(IdPrefix.Space)) {
+      return undefined;
+    }
     return await this.baseSharePermissionCheck(context, shareId);
   }
 
@@ -383,9 +402,10 @@ export class PermissionGuard {
    *
    * Priority flow:
    *   1. RESOURCE-level: exclusively use resource-specific auth (base share > template)
-   *   2. Early base share check for PUBLIC or anonymous requests when header is present
+   *   2. Share link check — when share header is present, share permissions are the ceiling
+   *      for ALL users (anonymous or authenticated), so personal role never exceeds the link
    *   3. Anonymous user handling (template / USER-level)
-   *   4. Authenticated user: standard check, with fallback for PUBLIC endpoints
+   *   4. Authenticated user: standard check, with PUBLIC fallback
    */
   protected async permissionCheckWithPublicFallback(
     context: ExecutionContext,
@@ -406,10 +426,8 @@ export class PermissionGuard {
       // No valid resource auth header — fall through to normal checks
     }
 
-    // 2. Early base share check for PUBLIC or anonymous requests
-    const shouldTryBaseShareEarly =
-      baseShareHeader && (allowAnonymousType === AllowAnonymousType.PUBLIC || this.isAnonymous());
-    if (shouldTryBaseShareEarly) {
+    // 2. Share link — permissions are bounded by the link, regardless of user role
+    if (baseShareHeader) {
       const result = await this.tryBaseSharePermissionCheck(context, baseShareHeader);
       if (result !== undefined) return result;
     }
@@ -419,7 +437,7 @@ export class PermissionGuard {
       return this.resolveAnonymousPermission(context, allowAnonymousType);
     }
 
-    // 4. Authenticated user: standard check, with fallback for PUBLIC endpoints
+    // 4. Authenticated user: standard check, with PUBLIC fallback
     try {
       return await permissionCheck();
     } catch (error) {

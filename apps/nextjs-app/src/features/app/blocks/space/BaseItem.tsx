@@ -7,6 +7,7 @@ import {
   Database,
   DraggableHandle,
   MoreHorizontal,
+  Share2,
 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
@@ -162,6 +163,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
                 title={base.name}
               >
                 <span className="truncate text-sm font-medium">{base.name}</span>
+                {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
                 <StarButton
                   className={cn(
                     'size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100',
@@ -238,6 +240,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           showDelete={hasDeletePermission}
           showExport={hasUpdatePermission}
           showMove={hasMovePermission}
+          showShare={hasUpdatePermission}
           onDelete={onDelete}
           onRename={startEditing}
         >

@@ -34,6 +34,14 @@ const lookupLinkOptionsVoSchema = z.object({
   visibleFieldIds: z.array(z.string()).nullable().optional().meta({
     description: 'Optional foreign fields shown when presenting lookup-linked records.',
   }),
+  isOneWay: z.boolean().optional().meta({
+    description:
+      'Whether the underlying relationship is stored as one-way. Present in some persisted lookup payloads.',
+  }),
+  symmetricFieldId: z.string().optional().meta({
+    description:
+      'Optional symmetric link field id preserved on some lookup payloads for compatibility.',
+  }),
   filter: filterSchema.optional(),
   linkFieldId: z.string().meta({
     description: 'The id of Linked record field to use for lookup',
@@ -46,6 +54,45 @@ const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
   linkFieldId: true,
   filter: true,
 });
+
+const lookupLinkOptionsRoKeys = new Set([
+  'foreignTableId',
+  'lookupFieldId',
+  'linkFieldId',
+  'filter',
+]);
+
+const lookupLinkOptionsVoOnlyKeys = new Set([
+  'baseId',
+  'relationship',
+  'fkHostTableName',
+  'selfKeyName',
+  'foreignKeyName',
+  'filterByViewId',
+  'visibleFieldIds',
+  'isOneWay',
+  'symmetricFieldId',
+]);
+
+const normalizeLookupOptionsRoInput = (input: unknown): unknown => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return input;
+  }
+
+  const lookupOptions = input as Record<string, unknown>;
+  if (!('linkFieldId' in lookupOptions)) {
+    return input;
+  }
+
+  const extraKeys = Object.keys(lookupOptions).filter((key) => !lookupLinkOptionsRoKeys.has(key));
+  if (!extraKeys.length || extraKeys.some((key) => !lookupLinkOptionsVoOnlyKeys.has(key))) {
+    return input;
+  }
+
+  return Object.fromEntries(
+    Object.entries(lookupOptions).filter(([key]) => lookupLinkOptionsRoKeys.has(key))
+  );
+};
 
 const lookupConditionalOptionsVoSchema = z.object({
   baseId: z.string().optional().meta({
@@ -127,9 +174,9 @@ export const lookupOptionsVoSchema = z.union(
   }
 );
 
-export const lookupOptionsRoSchema = z.union(
-  [lookupLinkOptionsRoSchema.strict(), lookupConditionalOptionsRoSchema.strict()],
-  {
+export const lookupOptionsRoSchema = z.preprocess(
+  normalizeLookupOptionsRoInput,
+  z.union([lookupLinkOptionsRoSchema.strict(), lookupConditionalOptionsRoSchema.strict()], {
     error: (issue) => {
       if (issue.input && typeof issue.input === 'object') {
         const input = issue.input as Record<string, unknown>;
@@ -164,7 +211,7 @@ export const lookupOptionsRoSchema = z.union(
       }
       return undefined;
     },
-  }
+  })
 );
 
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;

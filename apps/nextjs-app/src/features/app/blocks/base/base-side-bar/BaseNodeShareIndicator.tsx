@@ -30,8 +30,17 @@ export const useSharedNodeIds = () => {
   });
 
   return useMemo(() => {
-    if (!shareList) return new Set<string>();
-    return new Set(shareList.map((share) => share.nodeId));
+    if (!shareList) return { sharedNodeIds: new Set<string>(), isBaseShared: false };
+    const sharedNodeIds = new Set<string>();
+    let isBaseShared = false;
+    for (const share of shareList) {
+      if (share.nodeId === null) {
+        isBaseShared = true;
+      } else {
+        sharedNodeIds.add(share.nodeId);
+      }
+    }
+    return { sharedNodeIds, isBaseShared };
   }, [shareList]);
 };
 

@@ -25,6 +25,8 @@ interface IUnifiedShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   nodeId?: string;
+  defaultTab?: 'table' | 'view';
+  showTabs?: boolean;
 }
 
 const useCurrentNodeFromRoute = () => {
@@ -63,6 +65,8 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
   open,
   onOpenChange,
   nodeId: nodeIdProp,
+  defaultTab = 'table',
+  showTabs = true,
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const baseId = useBaseId() as string;
@@ -98,8 +102,8 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
           <NodeShareHeader node={currentNode.node} />
         </div>
 
-        {showViewTab ? (
-          <Tabs defaultValue="table" className="min-w-0">
+        {showViewTab && showTabs ? (
+          <Tabs key={defaultTab} defaultValue={defaultTab} className="min-w-0">
             <div className="px-6 pt-3">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="table">{t('table:baseShare.shareTableTab')}</TabsTrigger>
@@ -120,12 +124,16 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
           </Tabs>
         ) : (
           <div className="max-h-[60vh] overflow-y-auto px-6 pb-1">
-            <NodeShareContent
-              baseId={baseId}
-              nodeId={currentNode.nodeId}
-              node={currentNode.node}
-              hideHeader
-            />
+            {defaultTab === 'view' && showViewTab ? (
+              <ShareViewContent />
+            ) : (
+              <NodeShareContent
+                baseId={baseId}
+                nodeId={currentNode.nodeId}
+                node={currentNode.node}
+                hideHeader
+              />
+            )}
           </div>
         )}
       </DialogContent>

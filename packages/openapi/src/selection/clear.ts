@@ -6,6 +6,7 @@ import type { IRangesRo } from './range';
 import { rangesRoSchema } from './range';
 
 export const CLEAR_URL = '/table/{tableId}/selection/clear';
+export const clearRoSchema = rangesRoSchema;
 
 export const ClearRoute: RouteConfig = registerRoute({
   method: 'patch',

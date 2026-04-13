@@ -67,7 +67,8 @@
     "export": "Dışa Aktar",
     "import": "İçe Aktar",
     "getMore": "Daha fazla al",
-    "copySuccess": "Kopyalama başarılı"
+    "copySuccess": "Kopyalama başarılı",
+    "share": "Paylaş"
   },
   "quickAction": {
     "title": "Hızlı İşlemler",
@@ -113,6 +114,35 @@
         "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
       }
     }
+  },
+  "baseShare": {
+    "shareTitle": "Paylaş",
+    "shareToWeb": "Web'de paylaş",
+    "linkHolderLabel": "Bağlantıya sahip kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Bağlantıya sahip herkes verileri görüntüleyebilir",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Oturum açmış kullanıcılar tablodaki kayıtları düzenleyebilir",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydet",
+    "linkHolderCanCopyAndSaveDesc": "Bağlantıya sahip herkes kendi alanına bir kopya kaydedebilir",
+    "refreshLink": "Bağlantıyı yeniden oluştur",
+    "advanced": "Gelişmiş",
+    "allowCopyData": "Görüntüleyenlerin verileri kopyalamasına izin ver",
+    "restrictByPassword": "Şifre ile koru",
+    "embedConfig": "Yerleştirme yapılandırması",
+    "embedPreview": "Yerleştirme önizlemesi",
+    "copyCode": "Kodu kopyala",
+    "enterPassword": "Şifre girin",
+    "passwordTitle": "Şifre belirle",
+    "deleteConfirmTitle": "Paylaşım bağlantısını sil",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecektir.",
+    "createSuccess": "Paylaşım bağlantısı oluşturuldu",
+    "createFailed": "Paylaşım bağlantısı oluşturulamadı",
+    "updateFailed": "Paylaşım ayarları güncellenemedi",
+    "deleteSuccess": "Paylaşım bağlantısı silindi",
+    "deleteFailed": "Paylaşım bağlantısı silinemedi",
+    "refreshSuccess": "Paylaşım bağlantısı yeniden oluşturuldu",
+    "refreshFailed": "Paylaşım bağlantısı yeniden oluşturulamadı"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -571,7 +601,6 @@
       },
       "app": {
         "domain": "Alan Adı",
-        "v0ApiKey": "v0 API Anahtarı",
         "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
         "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
         "vercelToken": "Vercel API Token",
@@ -609,11 +638,6 @@
           "title": "LLM API",
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
           "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
-        },
-        "app": {
-          "title": "Uygulama Üretimi",
-          "description": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
-          "errorTips": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak"
         },
         "webSearch": {
           "title": "Web Araması",
@@ -1071,9 +1095,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "YENİ GÜNCELLEME",
-    "title": "Uygulama için Özel Alan Adı Kullanıma Sunuldu",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "10 Nisan Güncellemesi",
+    "title": "Yeni Teable Agent: Süper Zeki, Düşük Maliyet",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

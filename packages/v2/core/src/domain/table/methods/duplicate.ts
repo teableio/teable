@@ -181,6 +181,10 @@ const rewriteDuplicatedDto = (
 
 const ensureDuplicatedLinkDbConfigs = (table: Table): Result<void, DomainError> => {
   return safeTry<void, DomainError>(function* () {
+    const hostTableDbTableNameResult = table.dbTableName();
+    const hostTableDbTableName = hostTableDbTableNameResult.isOk()
+      ? hostTableDbTableNameResult.value
+      : undefined;
     const linkFields = table.getFields((field): field is LinkField => field instanceof LinkField);
     const linkFieldById = new Map(
       linkFields.map((field) => [field.id().toString(), field] as const)
@@ -203,6 +207,8 @@ const ensureDuplicatedLinkDbConfigs = (table: Table): Result<void, DomainError> 
           yield* linkField.ensureDbConfig({
             baseId: table.baseId(),
             hostTableId: table.id(),
+            hostTableDbTableName,
+            foreignTableDbTableName: hostTableDbTableName,
           });
 
           const swappedDbConfig = yield* linkField
@@ -228,6 +234,7 @@ const ensureDuplicatedLinkDbConfigs = (table: Table): Result<void, DomainError> 
       yield* linkField.ensureDbConfig({
         baseId: table.baseId(),
         hostTableId: table.id(),
+        hostTableDbTableName,
       });
     }
 

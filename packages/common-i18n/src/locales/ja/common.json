@@ -67,7 +67,8 @@
     "export": "エクスポート",
     "import": "インポート",
     "getMore": "もっと取得",
-    "copySuccess": "コピー成功"
+    "copySuccess": "コピー成功",
+    "share": "共有"
   },
   "quickAction": {
     "title": "クイックアクション",
@@ -113,6 +114,35 @@
         "guide7": "履歴書を貼り付け → Teableに候補者を整理して選別させる"
       }
     }
+  },
+  "baseShare": {
+    "shareTitle": "共有",
+    "shareToWeb": "Webに公開",
+    "linkHolderLabel": "リンクを取得した人",
+    "linkHolderCanView": "閲覧可能",
+    "linkHolderCanViewDesc": "リンクを持つ人はデータを閲覧できます",
+    "linkHolderCanEdit": "編集可能",
+    "linkHolderCanEditDesc": "ログインユーザーはテーブルのレコードを編集できます",
+    "linkHolderCanCopyAndSave": "コピーとして保存",
+    "linkHolderCanCopyAndSaveDesc": "リンクを持つ人は自分のスペースにコピーを保存できます",
+    "refreshLink": "リンクを再生成",
+    "advanced": "詳細設定",
+    "allowCopyData": "閲覧者にデータのコピーを許可",
+    "restrictByPassword": "パスワードで保護",
+    "embedConfig": "埋め込み設定",
+    "embedPreview": "埋め込みプレビュー",
+    "copyCode": "コードをコピー",
+    "enterPassword": "パスワードを入力",
+    "passwordTitle": "パスワードを設定",
+    "deleteConfirmTitle": "共有リンクを削除",
+    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
+    "createSuccess": "共有リンクが作成されました",
+    "createFailed": "共有リンクの作成に失敗しました",
+    "updateFailed": "共有設定の更新に失敗しました",
+    "deleteSuccess": "共有リンクが削除されました",
+    "deleteFailed": "共有リンクの削除に失敗しました",
+    "refreshSuccess": "共有リンクが再生成されました",
+    "refreshFailed": "共有リンクの再生成に失敗しました"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -614,7 +644,6 @@
       },
       "app": {
         "domain": "ドメイン",
-        "v0ApiKey": "v0 APIキー",
         "customDomain": "カスタムドメイン（オプション）",
         "customDomainDescription": "アプリのデプロイ用のカスタムドメインを設定し、<a>Vercelドメイン</a>にアクセスしてカスタムドメインを取得してください",
         "vercelToken": "Vercel APIトークン",
@@ -652,11 +681,6 @@
           "title": "LLM API",
           "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",
           "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
-        },
-        "app": {
-          "title": "アプリビルダー",
-          "description": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません。<anchor>設定に移動</anchor>",
-          "errorTips": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません"
         },
         "webSearch": {
           "title": "ウェブ検索",
@@ -1083,9 +1107,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "新着アップデート",
-    "title": "アプリのカスタムドメインが利用可能に",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "4月10日アップデート",
+    "title": "新しい Teable Agent：超高性能、低コスト",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

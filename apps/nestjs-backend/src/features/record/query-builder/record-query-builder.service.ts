@@ -325,9 +325,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
       const choices = Array.isArray(rawChoices) ? rawChoices : [];
       if (choices.length) {
-        const arrayLiteral = `ARRAY[${choices
-          .map(({ name }) => this.knex.raw('?', [name]).toQuery())
-          .join(', ')}]`;
+        const choiceNames = choices.map(({ name }) => name);
+        const placeholders = choiceNames.map(() => '?').join(', ');
+        const arrayLiteral = `ARRAY[${placeholders}]`;
 
         if (field.type === FieldType.MultipleSelect) {
           const firstIndexExpr = `CASE
@@ -336,7 +336,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
               THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${orderableSelection}::jsonb, '$[0]') #>> '{}')
             ELSE ARRAY_POSITION(${arrayLiteral}, ${orderableSelection}::text)
           END`;
-          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`);
+          // arrayLiteral appears twice in firstIndexExpr, so duplicate bindings
+          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`, [
+            ...choiceNames,
+            ...choiceNames,
+          ]);
           qb.orderByRaw(`${orderableSelection}::jsonb::text ${direction} ${nullOrdering}`);
           return;
         } else {
@@ -345,7 +349,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
             field.dbFieldType
           );
           const arrayPositionExpr = `ARRAY_POSITION(${arrayLiteral}, ${normalizedExpr})`;
-          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`);
+          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`, choiceNames);
           return;
         }
       }

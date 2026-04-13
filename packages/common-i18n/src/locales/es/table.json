@@ -444,6 +444,25 @@
       "deleteFieldConfirmTitle": "Eliminar los siguientes campos",
       "deleting": "Eliminar ...",
       "deleteSuccessful": "Eliminar exitoso",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "Los archivos solo se pueden pegar en un campo de archivo adjunto",
       "copyError": {
         "noFocus": "Mantenga la página activa y no cambie Windows"
@@ -468,6 +487,18 @@
         "runCheck": "Iniciar comprobación",
         "recheck": "Volver a comprobar",
         "repair": "Reparar",
+        "repairWarnings": "Reparar solo advertencias",
+        "repairWarningsAndErrors": "Reparar advertencias y errores",
+        "repairRule": "Reparar regla",
+        "repairUnavailable": "Esta regla no se puede reparar automáticamente",
+        "manual": "Manual",
+        "manualRepairNotice": "Este problema requiere reparación manual",
+        "manualRepairNoticeWithCount": "{{count}} problemas requieren reparación manual. Usa la acción «Manual» a la derecha de cada regla para abrir el diálogo de reparación.",
+        "manualRepairDialogTitle": "Se requiere reparación manual",
+        "manualRepairDialogDescription": "Este problema no se puede reparar automáticamente. Revisa la guía de abajo y elige cómo corregirlo.",
+        "manualRepairDialogReason": "Por qué se requiere reparación manual",
+        "manualRepairDialogHint": "Este diálogo muestra por ahora las opciones de reparación que exige la regla. La ejecución real podrá añadirse más adelante sobre este contrato.",
+        "manualRepairDialogClose": "Cerrar",
         "checking": "Comprobando esquema...",
         "repairing": "Reparando esquema...",
         "streamError": "Falló el flujo de integridad del esquema.",
@@ -535,7 +566,15 @@
           "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
-          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression"
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
         },
         "phase": {
           "check": "Resultados de comprobación",
@@ -564,6 +603,40 @@
           "unchanged": "Sin cambios",
           "manual": "Manual",
           "skipped": "Omitido"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
         }
       }
     },
@@ -756,11 +829,11 @@
     "dragToolTip": "La clasificación automática está activada, el arrastre manual no está disponible",
     "insertToolTip": "La clasificación automática se enciende, el inserto con el pedido no está disponible",
     "action": {
-      "rename": "Cambiar el nombre de la vista",
-      "duplicate": "Vista duplicada",
-      "delete": "Eliminar vista",
-      "lock": "Vista de bloqueo",
-      "unlock": "Vista de desbloqueo",
+      "rename": "Renombrar",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "lock": "Bloquear",
+      "unlock": "Desbloquear",
       "enable": "Permitir"
     },
     "category": {
@@ -818,8 +891,12 @@
     "shareLink": "Enlace de compartición",
     "linkHolderLabel": "La persona que obtuvo el enlace",
     "linkHolderCanView": "Puede ver",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Puede editar",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Puede guardar como copia",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
     "passwordProtection": "Protección con contraseña",
     "enterPassword": "Introducir contraseña",
     "selectNodes": "Seleccionar tablas",
@@ -850,7 +927,10 @@
     "publishSuccess": "Aplicación publicada exitosamente",
     "publishFailed": "Error al publicar la aplicación",
     "openLink": "Abrir enlace",
-    "appPublished": "Aplicación publicada"
+    "appPublished": "Aplicación publicada",
+    "shareTableTab": "Compartir tabla",
+    "shareViewTab": "Compartir vista",
+    "shareNodeTab": "Compartir nodo"
   },
   "plugin": {
     "recent": "Frases",

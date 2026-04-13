@@ -1,18 +1,23 @@
-import type { DomainError, LinkField } from '@teable/v2-core';
-import { ok, safeTry } from 'neverthrow';
+import { domainError, type DomainError, type LinkField } from '@teable/v2-core';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { sql } from 'kysely';
 
 import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleI18nValue,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
 import {
-  createForeignKeyConstraintStatement,
-  createIndexStatement,
   backfillJunctionTableFromLinkValueStatement,
+  createForeignKeyConstraintStatement,
+  createForeignKeyConstraintStatementFromTableMeta,
+  createIndexStatement,
   dropConstraintStatement,
   dropIndexStatement,
   dropTableStatement,
@@ -35,6 +40,8 @@ export interface JunctionTableConfig {
   sourceTable: TableIdentifier;
   /** The foreign (target) table identifier */
   foreignTable: TableIdentifier;
+  /** The logical table id for resolving the foreign physical table name */
+  foreignTableMetaId?: string;
   /** Whether to add indexes (default: true for ManyMany, false for OneWay) */
   withIndexes?: boolean;
 }
@@ -146,7 +153,8 @@ export class JunctionTableExistsRule implements ISchemaRule {
         this.config.foreignKeyName,
         this.config.foreignTable,
         'foreign',
-        this
+        this,
+        this.config.foreignTableMetaId
       )
     );
 
@@ -432,7 +440,8 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
     private readonly columnName: string,
     private readonly targetTable: TableIdentifier,
     private readonly fkSide: 'self' | 'foreign',
-    parent: ISchemaRule
+    parent: ISchemaRule,
+    private readonly targetTableMetaId?: string
   ) {
     this.id = `junction_fk:${field.id().toString()}:${fkSide}`;
     this.dependencies = [parent.id];
@@ -446,8 +455,63 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
     return `fk_${this.columnName}`;
   }
 
+  private async resolveTargetTable(
+    ctx: SchemaRuleContext
+  ): Promise<Result<TableIdentifier | undefined, DomainError>> {
+    if (!this.targetTableMetaId) {
+      return ok(this.targetTable);
+    }
+
+    const tableMetaExists = await ctx.introspector.tableExists('public', 'table_meta');
+    if (tableMetaExists.isErr()) {
+      return err(tableMetaExists.error);
+    }
+    if (!tableMetaExists.value) {
+      return ok(undefined);
+    }
+
+    try {
+      const result = await sql<{ db_table_name: string | null }>`
+        SELECT db_table_name
+        FROM table_meta
+        WHERE id = ${this.targetTableMetaId}
+          AND deleted_time IS NULL
+        LIMIT 1
+      `.execute(ctx.db);
+
+      const dbTableName = result.rows[0]?.db_table_name;
+      if (!dbTableName) {
+        return ok(undefined);
+      }
+
+      const [schema, ...rest] = dbTableName.split('.');
+      if (rest.length === 0) {
+        return ok({
+          schema: 'public',
+          tableName: schema ?? dbTableName,
+        });
+      }
+
+      return ok({
+        schema: schema ?? 'public',
+        tableName: rest.join('.'),
+      });
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to resolve junction foreign key target table: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'schema.introspection_failed',
+          details: {
+            targetTableMetaId: this.targetTableMetaId,
+          },
+        })
+      );
+    }
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const self = this;
+    const fieldName = this.field.name().toString();
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const fkResult = await ctx.introspector.foreignKeyExists(
@@ -458,10 +522,148 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
       const exists = yield* fkResult;
 
       if (!exists) {
+        const resolvedTargetTableResult = await self.resolveTargetTable(ctx);
+        const resolvedTargetTable = yield* resolvedTargetTableResult;
+        const targetTable = resolvedTargetTable ?? self.targetTable;
+        const targetPhysicalTableName = targetTable.tableName;
+        const targetExistsResult = await ctx.introspector.tableExists(
+          targetTable.schema,
+          targetTable.tableName
+        );
+        const targetExists = yield* targetExistsResult;
+
+        if (!targetExists) {
+          return ok({
+            valid: false,
+            missing: [
+              `foreign key "${self.constraintName}" → ${self.targetTable.tableName}.__id on junction table`,
+              `target table ${targetPhysicalTableName} does not exist`,
+            ],
+            missingItems: [
+              {
+                code: 'junction_foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `The junction table for "${fieldName}" is missing one of its foreign keys.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName: targetPhysicalTableName,
+                  },
+                  fallback: `Restore the junction foreign key for "${fieldName}" so relation rows stay linked to existing records in ${targetPhysicalTableName}.`,
+                },
+              },
+              {
+                code: 'junction_foreign_key_target_table_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyTargetTableMissing',
+                  values: {
+                    fieldName,
+                    targetTableName: targetPhysicalTableName,
+                  },
+                  fallback: `The linked table for the junction of "${fieldName}" cannot be found.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyTargetTableMissingDescription',
+                  values: {
+                    fieldName,
+                    targetPhysicalTableName,
+                  },
+                  fallback: `Automatic repair cannot restore the junction foreign key for "${fieldName}" because the target table "${targetPhysicalTableName}" does not exist.`,
+                },
+              },
+            ],
+          });
+        }
+
+        const orphanCountResult = await countOrphanForeignKeyRows(
+          ctx.db,
+          self.junctionTable,
+          self.columnName,
+          targetTable,
+          '__id'
+        );
+        const orphanCount = yield* orphanCountResult;
+
+        if (orphanCount > 0) {
+          return ok({
+            valid: false,
+            missing: [
+              `foreign key "${self.constraintName}" → ${self.targetTable.tableName}.__id on junction table`,
+              `${orphanCount} orphan rows in ${self.junctionTable.tableName}.${self.columnName}`,
+            ],
+            missingItems: [
+              {
+                code: 'junction_foreign_key_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyMissing',
+                  values: {
+                    fieldName,
+                  },
+                  fallback: `The junction table for "${fieldName}" is missing one of its foreign keys.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyMissingDescription',
+                  values: {
+                    fieldName,
+                    targetTableName: targetPhysicalTableName,
+                  },
+                  fallback: `Restore the junction foreign key for "${fieldName}" so relation rows stay linked to existing records in ${targetPhysicalTableName}.`,
+                },
+              },
+              {
+                code: 'junction_foreign_key_orphan_rows',
+                message: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyOrphanRows',
+                  values: {
+                    fieldName,
+                    count: orphanCount,
+                  },
+                  fallback: `The junction table for "${fieldName}" has ${orphanCount} rows pointing to missing linked records.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.junctionForeignKeyOrphanRowsDescription',
+                  values: {
+                    fieldName,
+                    count: orphanCount,
+                    targetTableName: targetPhysicalTableName,
+                  },
+                  fallback: `Automatic repair cannot restore the junction foreign key for "${fieldName}" until ${orphanCount} invalid relation rows referencing ${targetPhysicalTableName} are cleaned up.`,
+                },
+              },
+            ],
+          });
+        }
+
         return ok({
           valid: false,
           missing: [
             `foreign key "${self.constraintName}" → ${self.targetTable.tableName}.__id on junction table`,
+          ],
+          missingItems: [
+            {
+              code: 'junction_foreign_key_missing',
+              message: {
+                key: 'table:table.integrity.v2.detail.junctionForeignKeyMissing',
+                values: {
+                  fieldName,
+                },
+                fallback: `The junction table for "${fieldName}" is missing one of its foreign keys.`,
+              },
+              description: {
+                key: 'table:table.integrity.v2.detail.junctionForeignKeyMissingDescription',
+                values: {
+                  fieldName,
+                  targetTableName: targetPhysicalTableName,
+                },
+                fallback: `Restore the junction foreign key for "${fieldName}" so relation rows stay linked to existing records in ${targetPhysicalTableName}.`,
+              },
+            },
           ],
         });
       }
@@ -470,7 +672,96 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
     });
   }
 
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    const targetTableMissing = validation.missingItems?.some(
+      (item) => item.code === 'junction_foreign_key_target_table_missing'
+    );
+    const orphanRowsDetected = validation.missingItems?.some(
+      (item) => item.code === 'junction_foreign_key_orphan_rows'
+    );
+
+    if (!targetTableMissing && !orphanRowsDetected) {
+      return ok(undefined);
+    }
+
+    const fieldName = this.field.name().toString();
+    const targetPhysicalTableName = this.targetTable.tableName;
+
+    if (targetTableMissing) {
+      return ok({
+        available: false,
+        mode: 'auto',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.junctionForeignKeyTargetTableMissing',
+          values: {
+            fieldName,
+            targetTableName: targetPhysicalTableName,
+          },
+          fallback: `Automatic repair is unavailable because the junction target table for "${fieldName}" is missing.`,
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.description.junctionForeignKeyTargetTableMissing',
+          values: {
+            fieldName,
+            targetPhysicalTableName,
+          },
+          fallback: `Check whether the target table "${targetPhysicalTableName}" was deleted or renamed. Recreate the table, or update/remove the link configuration for "${fieldName}", then run the check again.`,
+        },
+      });
+    }
+
+    const orphanItem = validation.missingItems?.find(
+      (item) => item.code === 'junction_foreign_key_orphan_rows'
+    );
+    const orphanCount =
+      typeof orphanItem?.message?.values?.count === 'number'
+        ? orphanItem.message.values.count
+        : undefined;
+    const orphanValues: Readonly<Record<string, SchemaRuleI18nValue>> =
+      orphanCount == null
+        ? {
+            fieldName,
+            targetTableName: targetPhysicalTableName,
+          }
+        : {
+            fieldName,
+            targetTableName: targetPhysicalTableName,
+            count: orphanCount,
+          };
+
+    return ok({
+      available: false,
+      mode: 'auto',
+      reason: {
+        key: 'table:table.integrity.v2.repairMeta.reason.junctionForeignKeyOrphanRows',
+        values: orphanValues,
+        fallback: `Automatic repair is unavailable because the junction rows for "${fieldName}" still contain invalid references.`,
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.description.junctionForeignKeyOrphanRows',
+        values: orphanValues,
+        fallback: `Clean up the invalid junction rows for "${fieldName}" before adding the foreign key back.`,
+      },
+    });
+  }
+
   up(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (this.targetTableMetaId) {
+      return ok([
+        createForeignKeyConstraintStatementFromTableMeta(
+          this.junctionTable,
+          this.constraintName,
+          this.columnName,
+          this.targetTableMetaId,
+          '__id',
+          'CASCADE',
+          this.targetTable
+        ),
+      ]);
+    }
     return ok([
       createForeignKeyConstraintStatement(
         this.junctionTable,

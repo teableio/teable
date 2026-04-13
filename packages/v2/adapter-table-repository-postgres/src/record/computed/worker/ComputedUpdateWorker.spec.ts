@@ -1,4 +1,4 @@
-import { domainError, FieldId, RecordId, TableId } from '@teable/v2-core';
+import { domainError, FieldId, RecordId, RecordsBatchUpdated, TableId } from '@teable/v2-core';
 import type { IEventBus, IHasher, ILogger, ITableRepository, IUnitOfWork } from '@teable/v2-core';
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
@@ -236,6 +236,69 @@ describe('ComputedUpdateWorker', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBe(1);
       expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+    });
+
+    it('publishes computed update events with orchestration metadata from the outbox task', async () => {
+      const task = createMockTask({
+        orchestration: {
+          operationId: 'opr_stream_duplicate',
+          groupId: 'opr_stream_duplicate',
+          totalRecordCount: 2000,
+          totalChunkCount: 4,
+          chunkIndex: 0,
+          scope: 'chunk',
+        },
+      });
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const eventBus = createEventBus();
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markDone,
+      });
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          ok({
+            changesByStep: [
+              {
+                tableId: TABLE_ID,
+                recordChanges: [
+                  {
+                    recordId: RECORD_ID,
+                    oldVersion: 1,
+                    changes: [{ fieldId: FIELD_ID, newValue: 'updated' }],
+                  },
+                ],
+              },
+            ],
+          })
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        {} as ComputedUpdatePlanner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        eventBus
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(eventBus.publishMany).toHaveBeenCalledTimes(1);
+      const publishedEvents = vi.mocked(eventBus.publishMany).mock.calls[0]?.[1] as
+        | RecordsBatchUpdated[]
+        | undefined;
+      const batchEvent = publishedEvents?.find((event) => event instanceof RecordsBatchUpdated);
+      expect(batchEvent?.orchestration).toEqual(task.orchestration);
     });
 
     it('processes multiple tasks and counts successful ones', async () => {

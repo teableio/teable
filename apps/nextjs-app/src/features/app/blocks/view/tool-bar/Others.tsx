@@ -5,6 +5,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
 import { useSharedNodeIds } from '@/features/app/blocks/base/base-side-bar/BaseNodeShareIndicator';
+import { useShareEffectiveEdit } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
 import { SearchButton } from '../search/SearchButton';
 import { PersonalViewSwitch } from './components';
@@ -26,8 +27,10 @@ const ShareButton = ({
   const view = useView();
   const tableId = useTableId();
   const { treeItems } = useBaseNodeContext();
-  const sharedNodeIds = useSharedNodeIds();
-  const [open, setOpen] = useState(false);
+  const { sharedNodeIds } = useSharedNodeIds();
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [defaultTab, setDefaultTab] = useState<'table' | 'view'>('table');
 
   const isNodeShared = useMemo(() => {
     if (!tableId) return false;
@@ -38,19 +41,51 @@ const ShareButton = ({
   const isActive = !!view?.enableShare || isNodeShared;
   const text = t('table:toolbar.others.share.label');
 
+  const openDialog = (tab: 'table' | 'view') => {
+    setDefaultTab(tab);
+    setPopoverOpen(false);
+    setDialogOpen(true);
+  };
+
   return (
     <>
-      <ToolBarButton
-        isActive={isActive}
-        text={text}
-        textClassName={textClassName}
-        className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
-        disabled={!permission['view|update']}
-        onClick={() => setOpen(true)}
-      >
-        <ArrowUpRight className="size-4 shrink-0" />
-      </ToolBarButton>
-      <UnifiedShareDialog open={open} onOpenChange={setOpen} />
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          <ToolBarButton
+            isActive={isActive}
+            text={text}
+            textClassName={textClassName}
+            className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
+            disabled={!permission['view|update']}
+          >
+            <ArrowUpRight className="size-4 shrink-0" />
+          </ToolBarButton>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-1" align="start">
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            size="sm"
+            onClick={() => openDialog('table')}
+          >
+            {t('table:baseShare.shareTableTab')}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            size="sm"
+            onClick={() => openDialog('view')}
+          >
+            {t('table:baseShare.shareViewTab')}
+          </Button>
+        </PopoverContent>
+      </Popover>
+      <UnifiedShareDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        defaultTab={defaultTab}
+        showTabs={false}
+      />
     </>
   );
 };
@@ -107,6 +142,8 @@ const OthersMenu = ({ className }: { className?: string }) => {
 
 export const Others: React.FC = () => {
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const isShareEditor = useShareEffectiveEdit();
+  const showControls = !isReadOnlyPreview || isShareEditor;
   return (
     <div
       className={cn(
@@ -116,16 +153,22 @@ export const Others: React.FC = () => {
       )}
     >
       <SearchButton className="size-7 shrink-0" />
-      {!isReadOnlyPreview && (
+      {showControls && (
         <>
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
           <UndoRedoButtons />
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-          <OthersList
-            className="hidden @md/toolbar:flex"
-            classNames={{ textClassName: '@2xl/toolbar:inline' }}
-          />
-          <OthersMenu className="@md/toolbar:hidden" />
+          {isShareEditor ? (
+            <PersonalViewSwitch />
+          ) : (
+            <>
+              <OthersList
+                className="hidden @md/toolbar:flex"
+                classNames={{ textClassName: '@2xl/toolbar:inline' }}
+              />
+              <OthersMenu className="@md/toolbar:hidden" />
+            </>
+          )}
         </>
       )}
     </div>

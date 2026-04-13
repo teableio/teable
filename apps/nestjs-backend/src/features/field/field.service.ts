@@ -11,6 +11,7 @@ import {
 } from '@teable/core';
 import type {
   IFieldVo,
+  IFormulaFieldOptions,
   IGetFieldsQuery,
   ISnapshotBase,
   ISetFieldPropertyOpContext,
@@ -1287,8 +1288,14 @@ export class FieldService implements IReadonlyAdapterService {
       // already reconciles the physical schema. Running it again here would
       // attempt to drop the old column twice and cause: no such column: `...`.
       if (oldField.type === FieldType.Formula && newField.type === FieldType.Formula) {
-        // Check if this is a formula field options update that affects generated columns
-        await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
+        const oldExpression = (oldField.options as IFormulaFieldOptions | undefined)?.expression;
+        const newExpression = (newField.options as IFormulaFieldOptions | undefined)?.expression;
+
+        // Formatting/showAs/timeZone-only updates should not rebuild the physical formula column.
+        // Recreating the column on a pure display change clears stored values on the v1 path.
+        if (oldExpression !== newExpression) {
+          await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
+        }
       }
 
       return { options: JSON.stringify(newValue) };

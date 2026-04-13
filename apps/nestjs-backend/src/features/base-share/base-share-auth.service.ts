@@ -7,9 +7,10 @@ import { CustomHttpException } from '../../custom.exception';
 export interface IBaseShareInfo {
   shareId: string;
   baseId: string;
-  nodeId: string;
+  nodeId: string | null;
   allowSave: boolean | null;
   allowCopy: boolean | null;
+  allowEdit: boolean | null;
 }
 
 export interface IJwtBaseShareInfo {
@@ -74,16 +75,13 @@ export class BaseShareAuthService {
       });
     }
 
-    if (!share.nodeId) {
-      throw new CustomHttpException('Base share has no nodeId', HttpErrorCode.NOT_FOUND);
-    }
-
     return {
       shareId: share.shareId,
       baseId: share.baseId,
-      nodeId: share.nodeId,
+      nodeId: share.nodeId ?? null,
       allowSave: share.allowSave,
       allowCopy: share.allowCopy,
+      allowEdit: share.allowEdit,
     };
   }
 

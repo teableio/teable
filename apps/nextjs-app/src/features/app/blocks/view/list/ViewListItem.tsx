@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
+import { Lock, Share2, Star, Trash } from '@teable/icons';
 import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
 import {
   useBaseId,
@@ -22,7 +22,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
-import { Unlock } from 'lucide-react';
+import { CopyPlus, Download, Pen, Unlock } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect, useMemo } from 'react';
@@ -33,6 +33,7 @@ import { getNodeUrl } from '../../base/base-node/hooks';
 import { usePinMap } from '../../space/usePinMap';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
+import { UnifiedShareDialog } from '../tool-bar/UnifiedShareDialog';
 import { PinViewItem } from './PinViewItem';
 import { useDeleteView } from './useDeleteView';
 
@@ -45,12 +46,13 @@ interface IProps {
 
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const tableId = useTableId() as string;
   const baseId = useBaseId() as string;
   const router = useRouter();
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
-  const { t } = useTranslation('table');
+  const { t } = useTranslation(['table', 'common']);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewItemRef = useRef<HTMLDivElement>(null);
   const { highlightedViewId } = useGridSearchStore();
@@ -194,123 +196,140 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   );
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild disabled={isEditing || isReadOnlyPreview}>
-        <div
-          ref={viewItemRef}
-          role="button"
-          tabIndex={0}
-          className={cn(
-            'flex h-7 max-w-52 items-center overflow-hidden rounded-md p-1 text-sm hover:bg-accent',
-            {
-              'bg-accent': isActive && !isHighlighted,
-              'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
-            }
-          )}
-          onDoubleClick={() => {
-            if (permission['view|update']) {
-              setIsEditing(true);
-              onEdit(true);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (isEditing) {
-              return;
-            }
-            if (e.key === 'Enter' || e.key === ' ') {
-              navigateHandler();
-            }
-          }}
-          onClick={() => {
-            if (isEditing) {
-              return;
-            }
-            navigateHandler();
-          }}
-        >
-          <Button
-            variant="ghost"
-            size="xs"
-            className={cn('m-0 flex w-full rounded-sm hover:bg-transparent p-0', {
-              'bg-secondary': isActive && !isHighlighted,
-              'bg-orange-300/40': isHighlighted,
-            })}
-          >
-            {commonPart}
-          </Button>
-          <iframe
-            ref={iframeRef}
-            title="This for export csv download"
-            style={{ display: 'none' }}
-          />
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {permission['view|update'] && (
-          <ContextMenuItem
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild disabled={isEditing || isReadOnlyPreview}>
+          <div
+            ref={viewItemRef}
+            role="button"
+            tabIndex={0}
+            className={cn(
+              'flex h-7 max-w-52 items-center overflow-hidden rounded-md p-1 text-sm hover:bg-accent',
+              {
+                'bg-accent': isActive && !isHighlighted,
+                'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+              }
+            )}
+            onDoubleClick={() => {
+              if (permission['view|update']) {
+                setIsEditing(true);
+                onEdit(true);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (isEditing) {
+                return;
+              }
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigateHandler();
+              }
+            }}
             onClick={() => {
-              setIsEditing(true);
-              onEdit(true);
+              if (isEditing) {
+                return;
+              }
+              navigateHandler();
             }}
           >
-            <Pencil className="size-4 shrink-0" />
-            {t('view.action.rename')}
-          </ContextMenuItem>
-        )}
-        {view.type === 'grid' && permission['table|export'] && (
-          <ContextMenuItem onClick={() => trigger?.()}>
-            <Export className="size-4 shrink-0" />
-            {t('import.menu.downAsCsv')}
-          </ContextMenuItem>
-        )}
-        {permission['view|create'] && (
-          <ContextMenuItem
-            onClick={async () => {
-              await duplicateViewFn();
-            }}
-            disabled={isDuplicateViewLoading}
-          >
-            <Copy className="size-4 shrink-0" />
-            {t('view.action.duplicate')}
-            {isDuplicateViewLoading && <Spin className="size-3 shrink-0" />}
-          </ContextMenuItem>
-        )}
-        {permission['view|update'] && (
-          <>
-            <ContextMenuSeparator />
+            <Button
+              variant="ghost"
+              size="xs"
+              className={cn('m-0 flex w-full rounded-sm hover:bg-transparent p-0', {
+                'bg-secondary': isActive && !isHighlighted,
+                'bg-orange-300/40': isHighlighted,
+              })}
+            >
+              {commonPart}
+            </Button>
+            <iframe
+              ref={iframeRef}
+              title="This for export csv download"
+              style={{ display: 'none' }}
+            />
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {permission['view|update'] && (
             <ContextMenuItem
-              onClick={(e) => {
-                e.preventDefault();
-                view.updateLocked(!view.isLocked);
+              onClick={() => {
+                setIsEditing(true);
+                onEdit(true);
               }}
             >
-              {view.isLocked ? (
-                <Unlock className="size-4 shrink-0" />
-              ) : (
-                <Lock className="size-4 shrink-0" />
-              )}
-              {view.isLocked ? t('view.action.unlock') : t('view.action.lock')}
+              <Pen className="size-4 shrink-0" />
+              {t('view.action.rename')}
             </ContextMenuItem>
-          </>
-        )}
-        <PinViewItem viewId={view.id} />
-        {permission['view|delete'] && (
-          <>
-            <ContextMenuSeparator />
+          )}
+          {view.type === 'grid' && permission['table|export'] && (
+            <ContextMenuItem onClick={() => trigger?.()}>
+              <Download className="size-4 shrink-0" />
+              {t('import.menu.downAsCsv')}
+            </ContextMenuItem>
+          )}
+          {permission['view|create'] && (
             <ContextMenuItem
-              disabled={!removable}
-              className="text-red-500 focus:text-red-500"
-              onClick={(e) => {
-                e.preventDefault();
-                deleteView();
+              onClick={async () => {
+                await duplicateViewFn();
               }}
+              disabled={isDuplicateViewLoading}
             >
-              <Trash2 className="size-4 shrink-0" />
-              {t('view.action.delete')}
+              <CopyPlus className="size-4 shrink-0" />
+              {t('view.action.duplicate')}
+              {isDuplicateViewLoading && <Spin className="size-3 shrink-0" />}
             </ContextMenuItem>
-          </>
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
+          )}
+          {permission['view|update'] && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  view.updateLocked(!view.isLocked);
+                }}
+              >
+                {view.isLocked ? (
+                  <Unlock className="size-4 shrink-0" />
+                ) : (
+                  <Lock className="size-4 shrink-0" />
+                )}
+                {view.isLocked ? t('view.action.unlock') : t('view.action.lock')}
+              </ContextMenuItem>
+            </>
+          )}
+          <PinViewItem viewId={view.id} />
+          {permission['view|update'] && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={() => setShareDialogOpen(true)}>
+                <Share2 className="size-4 shrink-0" />
+                {t('common:actions.share')}
+              </ContextMenuItem>
+            </>
+          )}
+          {permission['view|delete'] && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                disabled={!removable}
+                className="text-red-500 focus:text-red-500"
+                onClick={(e) => {
+                  e.preventDefault();
+                  deleteView();
+                }}
+              >
+                <Trash className="size-4 shrink-0" />
+                {t('view.action.delete')}
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+      <UnifiedShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        defaultTab="view"
+        showTabs={false}
+      />
+    </>
   );
 };

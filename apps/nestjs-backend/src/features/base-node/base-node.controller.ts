@@ -314,7 +314,7 @@ export class BaseNodeController {
     const baseShare = this.cls.get('baseShare');
     return {
       permissionSet,
-      shareNodeId: baseShare?.nodeId,
+      shareNodeId: baseShare?.nodeId ?? undefined,
     };
   }
 }

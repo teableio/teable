@@ -285,7 +285,8 @@
     "showHiddenFields": "{{count}} 個の隠しフィールドを表示",
     "hideHiddenFields": "{{count}} 個の隠しフィールドを非表示",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "recordFrom": "レコード元"
   },
   "sort": {
     "label": "ソート",

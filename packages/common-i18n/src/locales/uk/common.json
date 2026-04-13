@@ -50,7 +50,8 @@
     "copyToMySpace": "Copy to my space",
     "saveToMySpace": "Save to my space",
     "supportSaveCopy": "Support saving a copy",
-    "copySuccess": "Копіювання успішне"
+    "copySuccess": "Копіювання успішне",
+    "share": "Поділитися"
   },
   "quickAction": {
     "title": "Швидкі дії",
@@ -100,6 +101,35 @@
         "guide7": "Вставте резюме → Попросіть Teable організувати та відібрати кандидатів"
       }
     }
+  },
+  "baseShare": {
+    "shareTitle": "Поділитися",
+    "shareToWeb": "Опублікувати в інтернеті",
+    "linkHolderLabel": "Власник посилання",
+    "linkHolderCanView": "Може переглядати",
+    "linkHolderCanViewDesc": "Будь-хто з посиланням може переглядати дані",
+    "linkHolderCanEdit": "Може редагувати",
+    "linkHolderCanEditDesc": "Авторизовані користувачі можуть редагувати записи в таблиці",
+    "linkHolderCanCopyAndSave": "Зберегти як копію",
+    "linkHolderCanCopyAndSaveDesc": "Будь-хто з посиланням може зберегти копію у свій простір",
+    "refreshLink": "Перегенерувати посилання",
+    "advanced": "Додатково",
+    "allowCopyData": "Дозволити читачам копіювати дані",
+    "restrictByPassword": "Захист паролем",
+    "embedConfig": "Налаштування вбудовування",
+    "embedPreview": "Перегляд вбудовування",
+    "copyCode": "Копіювати код",
+    "enterPassword": "Введіть пароль",
+    "passwordTitle": "Встановити пароль",
+    "deleteConfirmTitle": "Видалити посилання спільного доступу",
+    "deleteConfirmDescription": "Цю дію не можна скасувати. Люди з цим посиланням більше не зможуть отримати доступ до спільної бази.",
+    "createSuccess": "Посилання спільного доступу створено",
+    "createFailed": "Не вдалося створити посилання спільного доступу",
+    "updateFailed": "Не вдалося оновити налаштування спільного доступу",
+    "deleteSuccess": "Посилання спільного доступу видалено",
+    "deleteFailed": "Не вдалося видалити посилання спільного доступу",
+    "refreshSuccess": "Посилання спільного доступу перегенеровано",
+    "refreshFailed": "Не вдалося перегенерувати посилання спільного доступу"
   },
   "share": {
     "copyToSpaceDialog": {
@@ -560,7 +590,6 @@
       },
       "app": {
         "domain": "Домен",
-        "v0ApiKey": "Ключ API v0",
         "customDomain": "Користувацький домен (необов'язково)",
         "customDomainDescription": "Налаштуйте свій користувацький домен для розгортання застосунку, перейдіть до <a>домену Vercel</a> для отримання користувацького домену",
         "vercelToken": "Токен API Vercel",
@@ -598,11 +627,6 @@
           "title": "LLM API",
           "description": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися, <anchor>перейти до налаштувань</anchor>",
           "errorTips": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися"
-        },
-        "app": {
-          "title": "Конструктор додатків",
-          "description": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна, <anchor>перейти до налаштувань</anchor>",
-          "errorTips": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна"
         },
         "webSearch": {
           "title": "Веб-пошук",
@@ -1060,9 +1084,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "НОВЕ ОНОВЛЕННЯ",
-    "title": "Власний домен для App доступний",
-    "url": "https://help.teable.ai/en/changelog#mar-31-2026",
-    "id": "changelog-2026-03-31-app-custom-domain-is-live"
+    "newUpdate": "Оновлення 10 квітня",
+    "title": "Новий Teable Agent: Надрозумний, низька вартість",
+    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
+    "id": "changelog-2026-04-10-new-agent-engine"
   }
 }

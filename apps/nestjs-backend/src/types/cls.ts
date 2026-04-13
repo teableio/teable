@@ -32,7 +32,7 @@ export interface IClsStore extends ClsStore {
   // for base share context (truthy = share mode, baseId for permission check, nodeId for node filtering)
   baseShare?: {
     baseId: string;
-    nodeId: string;
+    nodeId: string | null;
   };
   entry?: {
     type: string;
