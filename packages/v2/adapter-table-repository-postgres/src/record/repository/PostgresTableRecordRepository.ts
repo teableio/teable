@@ -1847,7 +1847,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
     if (this.computedUpdateStrategy.mode === 'sync') {
       const planInput = {
         baseId: table.baseId(),
@@ -1894,19 +1893,20 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
-      await this.publishComputedUpdateEvents(
-        context,
-        table.baseId(),
-        executeResult.value,
-        resolveComputedRealtimeOrchestration(context, recordIds.length)
-      );
+      if (this.computedUpdateStrategy.mode === 'sync') {
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, recordIds.length)
+        );
+      }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, skip planStage to minimize transaction lock hold time.
+    // For hybrid update/delete and async mode, skip planStage to minimize transaction lock hold time.
     // The worker will plan when it processes the seed task asynchronously.
-    // This matches the pattern used by runComputedUpdate (single-record path).
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
       seedTableId: table.id(),
@@ -2274,8 +2274,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2322,19 +2325,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, 1)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, 1)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2412,6 +2417,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     // even if textField was not provided in the input.
     if (changeType === 'insert') {
       for (const field of table.getFields()) {
+        if (field.type().equals(core.FieldType.link())) {
+          continue;
+        }
         const fieldId = field.id();
         fieldIds.set(fieldId.toString(), fieldId);
       }
@@ -2424,8 +2432,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2466,19 +2477,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, recordIds.length)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, recordIds.length)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2548,8 +2561,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2596,19 +2612,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, 1)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, 1)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2764,7 +2782,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For sync mode, plan and execute directly without using the outbox
+    // For sync mode, plan and execute directly without using the outbox.
     if (this.computedUpdateStrategy.mode === 'sync') {
       const planInput = {
         baseId: table.baseId(),
@@ -2804,6 +2822,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordCount: recordIds.length,
           });
           return err(executeResult.error);
+        }
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, recordIds.length)
+          );
         }
       }
 

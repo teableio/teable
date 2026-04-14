@@ -46,4 +46,4 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm -F "!@teable/backend" -r --parralel test-unit
+          pnpm -F "!@teable/backend" -r --parallel test-unit
