@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
+  createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
@@ -58,6 +59,30 @@ describe('v2 http createRecords (e2e)', () => {
       throw new Error('Failed to parse create record response');
     }
     return parsed.data.data.record;
+  };
+
+  const createField = async (tableId: string, field: Record<string, unknown>) => {
+    const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ baseId: ctx.baseId, tableId, field }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create field: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse create field response');
+    }
+    const created = parsed.data.data.table.fields.find(
+      (entry: { id: string; name: string }) => entry.id === field.id || entry.name === field.name
+    );
+    if (!created) {
+      throw new Error('Created field was not returned in create field response');
+    }
+    return created;
   };
 
   const normalizeJsonArray = (value: unknown): unknown[] => {
@@ -290,6 +315,80 @@ describe('v2 http createRecords (e2e)', () => {
 
       const ids = new Set(records.map((r) => r.id));
       expect(ids.size).toBe(10);
+    });
+
+    it('returns conditional lookup values in createRecord and createRecords responses', async () => {
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'Batch Conditional Lookup Foreign',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          { type: 'singleLineText', name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const foreignTitleFieldId = foreign.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const foreignStatusFieldId =
+        foreign.fields.find((field) => field.name === 'Status')?.id ?? '';
+
+      await createRecords(foreign.id, [
+        { fields: { [foreignTitleFieldId]: 'Alpha', [foreignStatusFieldId]: 'Active' } },
+        { fields: { [foreignTitleFieldId]: 'Beta', [foreignStatusFieldId]: 'Active' } },
+        { fields: { [foreignTitleFieldId]: 'Gamma', [foreignStatusFieldId]: 'Closed' } },
+      ]);
+
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'Batch Conditional Lookup Host',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          { type: 'singleLineText', name: 'StatusFilter' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const hostTitleFieldId = host.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const hostStatusFilterFieldId =
+        host.fields.find((field) => field.name === 'StatusFilter')?.id ?? '';
+
+      const conditionalLookup = await createField(host.id, {
+        type: 'conditionalLookup',
+        name: 'Matching Titles',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignStatusFieldId,
+                  operator: 'is',
+                  value: hostStatusFilterFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const record = await createRecord(host.id, {
+        [hostTitleFieldId]: 'Release 1',
+        [hostStatusFilterFieldId]: 'Active',
+      });
+
+      expect(record.fields[conditionalLookup.id]).toEqual(['Alpha', 'Beta']);
+
+      const records = await createRecords(host.id, [
+        {
+          fields: {
+            [hostTitleFieldId]: 'Release 2',
+            [hostStatusFilterFieldId]: 'Active',
+          },
+        },
+      ]);
+
+      expect(records[0].fields[conditionalLookup.id]).toEqual(['Alpha', 'Beta']);
     });
   });
 

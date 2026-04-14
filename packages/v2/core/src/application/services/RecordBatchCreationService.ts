@@ -279,15 +279,24 @@ export class RecordBatchCreationService {
 
     for (const event of rawEvents) {
       if (isRecordCreatedEvent(event)) {
+        const recordId = event.recordId.toString();
+        const recordFieldChanges = new Map<string, unknown>();
+        for (const [fieldId, value] of mutationResult.changedFieldsByRecord?.get(recordId) ?? []) {
+          recordFieldChanges.set(fieldId, value);
+        }
+        for (const [fieldId, value] of mutationResult.computedChangesByRecord?.get(recordId) ??
+          []) {
+          recordFieldChanges.set(fieldId, value);
+        }
+        const mergedRecordFieldChanges =
+          recordFieldChanges.size > 0 ? recordFieldChanges : undefined;
+
         recordCreatedEvents.push(
           RecordCreated.create({
             tableId: event.tableId,
             baseId: event.baseId,
             recordId: event.recordId,
-            fieldValues: mergeRecordFieldValues(
-              event.fieldValues,
-              mutationResult.changedFieldsByRecord?.get(event.recordId.toString())
-            ),
+            fieldValues: mergeRecordFieldValues(event.fieldValues, mergedRecordFieldChanges),
             source: event.source,
           })
         );
@@ -297,7 +306,7 @@ export class RecordBatchCreationService {
     }
 
     if (recordCreatedEvents.length <= 1) {
-      return rawEvents;
+      return [...recordCreatedEvents, ...otherEvents];
     }
 
     const source = recordCreatedEvents[0]?.source ?? { type: 'user' };

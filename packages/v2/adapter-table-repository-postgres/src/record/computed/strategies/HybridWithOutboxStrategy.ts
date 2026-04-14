@@ -1,7 +1,6 @@
 import type {
   BaseId,
   FieldId,
-  Table,
   TableId,
   DomainError,
   IExecutionContext,
@@ -9,12 +8,7 @@ import type {
   ILogger,
   IEventBus,
 } from '@teable/v2-core';
-import {
-  v2CoreTokens,
-  TableId as CoreTableId,
-  RecordsBatchUpdated,
-  FieldType,
-} from '@teable/v2-core';
+import { v2CoreTokens, TableId as CoreTableId, RecordsBatchUpdated } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -61,7 +55,7 @@ import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
 export type DispatchMode = 'push' | 'external' | 'hybrid';
 
 export type HybridWithOutboxStrategyConfig = {
-  syncPolicy: 'seedTableOnly' | 'threshold';
+  syncPolicy: 'none' | 'seedTableOnly' | 'threshold';
   syncMaxDirtyPerTable: number;
   syncMaxTotalDirty: number;
   syncMaxLevelHardCap: number;
@@ -252,15 +246,27 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         })),
       });
 
-      const runSpan = context.tracer?.startSpan('teable.ComputedUpdateRun', {
-        ...toRunSpanAttributes(run),
-        'computed.baseId': currentPlan.baseId.toString(),
-        'computed.seedTableId': currentPlan.seedTableId.toString(),
-        'computed.changeType': currentPlan.changeType,
-      });
+      const runSpan =
+        syncSteps.length > 0
+          ? context.tracer?.startSpan('teable.ComputedUpdateRun', {
+              ...toRunSpanAttributes(run),
+              'computed.baseId': currentPlan.baseId.toString(),
+              'computed.seedTableId': currentPlan.seedTableId.toString(),
+              'computed.changeType': currentPlan.changeType,
+            })
+          : undefined;
 
       const syncWork = async () =>
-        updater.executePreparedSteps(currentPlan, context, prepared.value, syncSteps, run, true);
+        syncSteps.length === 0
+          ? ok({ changesByStep: [] })
+          : updater.executePreparedSteps(
+              currentPlan,
+              context,
+              prepared.value,
+              syncSteps,
+              run,
+              true
+            );
       const syncResult =
         runSpan && context.tracer
           ? await context.tracer.withSpan(runSpan, syncWork)
@@ -527,25 +533,14 @@ const splitStepsByPolicy = (
 } => {
   const seedTableId = plan.seedTableId.toString();
 
-  const isFormulaOnlyStep = (step: UpdateStep, tableById: Map<string, Table>): boolean => {
-    if (step.fieldIds.length === 0) return false;
-    const table = tableById.get(step.tableId.toString());
-    if (!table) return false;
-    for (const fieldId of step.fieldIds) {
-      const fieldResult = table.getField((field) => field.id().equals(fieldId));
-      if (fieldResult.isErr()) return false;
-      if (!fieldResult.value.type().equals(FieldType.formula())) return false;
-    }
-    return true;
-  };
-
   const syncStepKey = (step: UpdateStep): string => `${step.tableId.toString()}|${step.level}`;
 
+  if (config.syncPolicy === 'none') {
+    return { syncSteps: [], asyncSteps: plan.steps, syncMaxLevel: -1 };
+  }
+
   if (config.syncPolicy === 'seedTableOnly') {
-    const syncSteps = plan.steps.filter(
-      (step) =>
-        step.tableId.toString() === seedTableId && isFormulaOnlyStep(step, prepared.tableById)
-    );
+    const syncSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
     const syncStepKeys = new Set(syncSteps.map(syncStepKey));
     const asyncSteps = plan.steps.filter((step) => !syncStepKeys.has(syncStepKey(step)));
     const syncMaxLevel = syncSteps.reduce((acc, step) => Math.max(acc, step.level), -1);
