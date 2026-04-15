@@ -301,6 +301,71 @@ describe('ComputedUpdateWorker', () => {
       expect(batchEvent?.orchestration).toEqual(task.orchestration);
     });
 
+    it('defers computed update event publishing until the transaction commits', async () => {
+      const task = createMockTask();
+      const eventBus = createEventBus();
+      const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+      const transaction = {
+        kind: 'unitOfWorkTransaction' as const,
+        afterCommit: vi.fn((handler: () => Promise<void> | void) => {
+          afterCommitHandlers.push(handler);
+        }),
+      };
+      const unitOfWork: IUnitOfWork = {
+        withTransaction: vi.fn().mockImplementation(async (ctx, fn) => {
+          const result = await fn({ ...ctx, transaction });
+          expect(eventBus.publishMany).not.toHaveBeenCalled();
+          for (const handler of afterCommitHandlers) {
+            await handler();
+          }
+          return result;
+        }),
+      };
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      });
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          ok({
+            changesByStep: [
+              {
+                tableId: TABLE_ID,
+                recordChanges: [
+                  {
+                    recordId: RECORD_ID,
+                    oldVersion: 1,
+                    changes: [{ fieldId: FIELD_ID, newValue: 'updated' }],
+                  },
+                ],
+              },
+            ],
+          })
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        {} as ComputedUpdatePlanner,
+        unitOfWork,
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        eventBus
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(transaction.afterCommit).toHaveBeenCalledTimes(1);
+      expect(eventBus.publishMany).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(eventBus.publishMany).mock.calls[0]?.[0]).not.toHaveProperty('transaction');
+    });
+
     it('processes multiple tasks and counts successful ones', async () => {
       const task1 = createMockTask({ id: 'cuo1' });
       const task2 = createMockTask({ id: 'cuo2' });

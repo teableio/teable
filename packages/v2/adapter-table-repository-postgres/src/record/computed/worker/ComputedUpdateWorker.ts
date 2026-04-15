@@ -2,10 +2,12 @@ import {
   ActorId,
   domainError,
   FieldId,
+  registerAfterCommit,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
   RecordsBatchUpdated,
+  withoutTransaction,
 } from '@teable/v2-core';
 import type {
   BaseId,
@@ -500,19 +502,12 @@ export class ComputedUpdateWorker {
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
-        const publishResult = await this.eventBus.publishMany(txContext, events);
-        if (publishResult.isErr()) {
-          this.logger.warn('computed:worker:events_publish_failed', {
-            error: publishResult.error.message,
-            eventCount: events.length,
-            ...runLogContext,
-          });
-        } else {
-          this.logger.info('computed:worker:events_published', {
-            ...buildComputedUpdateEventLogContext(events),
-            ...runLogContext,
-          });
-        }
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:events_publish_failed',
+          published: 'computed:worker:events_published',
+          deferred: 'computed:worker:events_publish_deferred',
+          logContext: runLogContext,
+        });
       }
 
       const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
@@ -584,6 +579,44 @@ export class ComputedUpdateWorker {
     }
 
     return ok(executeResult.value);
+  }
+
+  private async publishComputedUpdateEvents(
+    context: IExecutionContext,
+    events: ReadonlyArray<RecordsBatchUpdated>,
+    logs: {
+      failed: string;
+      published: string;
+      deferred: string;
+      logContext: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    const publish = async () => {
+      const publishResult = await this.eventBus.publishMany(withoutTransaction(context), events);
+      if (publishResult.isErr()) {
+        this.logger.warn(logs.failed, {
+          error: publishResult.error.message,
+          eventCount: events.length,
+          ...logs.logContext,
+        });
+        return;
+      }
+
+      this.logger.info(logs.published, {
+        ...buildComputedUpdateEventLogContext(events),
+        ...logs.logContext,
+      });
+    };
+
+    if (registerAfterCommit(context, publish)) {
+      this.logger.debug(logs.deferred, {
+        eventCount: events.length,
+        ...logs.logContext,
+      });
+      return;
+    }
+
+    await publish();
   }
 
   private async handleTaskFailure(
@@ -902,19 +935,12 @@ export class ComputedUpdateWorker {
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
-        const publishResult = await this.eventBus.publishMany(txContext, events);
-        if (publishResult.isErr()) {
-          this.logger.warn('computed:worker:seed_events_publish_failed', {
-            error: publishResult.error.message,
-            eventCount: events.length,
-            ...runLogContext,
-          });
-        } else {
-          this.logger.info('computed:worker:seed_events_published', {
-            ...buildComputedUpdateEventLogContext(events),
-            ...runLogContext,
-          });
-        }
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:seed_events_publish_failed',
+          published: 'computed:worker:seed_events_published',
+          deferred: 'computed:worker:seed_events_publish_deferred',
+          logContext: runLogContext,
+        });
       }
 
       // Collect seed groups for next stage

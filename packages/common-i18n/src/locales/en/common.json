@@ -1409,6 +1409,8 @@
     "byokModelNotSupported": "Your custom model is not compatible with agent mode. Please switch to Claude Opus 4.6 for the best experience.",
     "modelServiceUnavailable": "The model service is temporarily unavailable. Please try again later.",
     "modelServiceError": "An error occurred with the model service. Please try again or switch to a different model.",
+    "imageProcessingFailed": "Image Processing Failed",
+    "imageProcessingFailedDescription": "The image could not be processed by the AI model. Please try re-sending or continue without it.",
     "sandboxBusy": "Agent is busy in another conversation. Please wait.",
     "sandboxCapacityFull": "Concurrent conversation limit ({{max}}) reached. Please wait for one to finish.",
     "sandboxTransient": "Cuppy is getting ready. Please try again in a moment.",
