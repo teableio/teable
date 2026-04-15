@@ -92,6 +92,9 @@ const createFormulaContainer = (): Promise<IV2NodeTestContainer> =>
   createV2NodeTestContainer({
     connectionString: 'memory://',
     registerDb: async (container, config) => registerV2PostgresPgliteDb(container, config),
+    computedUpdate: {
+      hybridConfig: { syncPolicy: 'none' },
+    },
   });
 
 const isMemoryAccessOutOfBoundsError = (error: unknown): boolean => {
@@ -966,6 +969,34 @@ const createHostRecord = async (
   await executeCommand(container, command);
 };
 
+const clearStoredComputedFieldValues = async (db: Kysely<unknown>, table: Table): Promise<void> => {
+  const columns = table
+    .getFields()
+    .filter(
+      (field) =>
+        field.type().equals(FieldType.formula()) ||
+        field.type().equals(FieldType.lookup()) ||
+        field.type().equals(FieldType.conditionalLookup()) ||
+        field.type().equals(FieldType.rollup()) ||
+        field.type().equals(FieldType.conditionalRollup())
+    )
+    .map((field) =>
+      field
+        .dbFieldName()
+        .andThen((dbField) => dbField.value())
+        .map((column) => column)
+        .unwrapOr(undefined)
+    )
+    .filter((column): column is string => Boolean(column));
+  if (columns.length === 0) return;
+
+  const tableName = resolveDbTableName(table);
+  await sql`
+    UPDATE ${sql.table(tableName)}
+    SET ${sql.join(columns.map((column) => sql`${sql.ref(column)} = NULL`))}
+  `.execute(db);
+};
+
 export const createFormulaTestTable = async (
   container: IV2NodeTestContainer,
   formulaFields: ReadonlyArray<FormulaFieldDefinition>,
@@ -992,6 +1023,7 @@ export const createFormulaTestTable = async (
   );
   const foreignRecordId = foreign ? await createForeignRecord(container, foreign.table) : undefined;
   await createHostRecord(container, host.table, host.fieldsByType, foreignRecordId);
+  await clearStoredComputedFieldValues(container.db as unknown as Kysely<unknown>, host.table);
 
   const typeValidationStrategy = await detectTypeValidationStrategy(
     container.db as unknown as Kysely<unknown>
@@ -1112,9 +1144,11 @@ const buildFieldSnapshotValue = async (
     ]);
     normalizedRawValue = isTemporalField
       ? normalizeTemporalText(rawValue)
-      : fieldType === 'link'
-        ? normalizeLinkRawValue(rawValue)
-        : rawValue;
+      : fieldType === 'formula'
+        ? null
+        : fieldType === 'link'
+          ? normalizeLinkRawValue(rawValue)
+          : rawValue;
     normalizedFormattedValue = isTemporalField
       ? normalizeTemporalText(formattedValue)
       : formattedValue;
