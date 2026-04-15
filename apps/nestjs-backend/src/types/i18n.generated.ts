@@ -1661,10 +1661,14 @@ export type I18nTranslations = {
             "byokModelNotSupported": string;
             "modelServiceUnavailable": string;
             "modelServiceError": string;
+            "imageProcessingFailed": string;
+            "imageProcessingFailedDescription": string;
             "sandboxBusy": string;
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
             "sandboxSnapshotNotFound": string;
+            "idleTimeout": string;
+            "danglingToolUse": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;

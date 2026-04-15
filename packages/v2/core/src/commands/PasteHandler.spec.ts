@@ -394,6 +394,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updateStreamContexts: IExecutionContext[] = [];
   onInsertManyStream?: (table: Table) => void;
   onUpdateManyStream?: (table: Table) => void;
+  onUpdatedRecord?: (record: TableRecord) => void;
 
   async insert(
     _: IExecutionContext,
@@ -488,6 +489,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
         }
         for (const update of normalizeBatch(batchResult.value)) {
           this.updated.push(update);
+          this.onUpdatedRecord?.(update.record);
           totalUpdated += 1;
         }
       }
@@ -500,6 +502,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
         }
         for (const update of normalizeBatch(batchResult.value)) {
           this.updated.push(update);
+          this.onUpdatedRecord?.(update.record);
           totalUpdated += 1;
         }
       }
@@ -553,6 +556,72 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
           yield ok(record);
         }
       },
+    };
+  }
+}
+
+class OffsetPagingFilteredTableRecordQueryRepository extends FakeTableRecordQueryRepository {
+  constructor(
+    records: TableRecordReadModel[],
+    private readonly filterFieldId: string,
+    private readonly pageSize = 2
+  ) {
+    super();
+    this.records = records;
+  }
+
+  private visibleRecords(): TableRecordReadModel[] {
+    return this.records.filter((record) => !record.fields[this.filterFieldId]);
+  }
+
+  applyUpdatedRecord(record: TableRecord) {
+    const readModel = this.records.find((entry) => entry.id === record.id().toString());
+    if (!readModel) return;
+
+    readModel.version += 1;
+    for (const entry of record.fields().entries()) {
+      readModel.fields[entry.fieldId.toString()] = entry.value.toValue();
+    }
+  }
+
+  override async find(): Promise<
+    Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>
+  > {
+    const visibleRecords = this.visibleRecords();
+    return ok({ records: visibleRecords, total: visibleRecords.length });
+  }
+
+  override findStream(
+    _: IExecutionContext,
+    __: Table,
+    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: Parameters<ITableRecordQueryRepository['findStream']>[3]
+  ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
+    const startOffset =
+      options?.pagination && 'offset' in options.pagination ? options.pagination.offset : 0;
+    const maxLimit = options?.pagination?.limit ?? Number.POSITIVE_INFINITY;
+    const pageSize = this.pageSize;
+
+    return {
+      [Symbol.asyncIterator]: async function* (
+        this: OffsetPagingFilteredTableRecordQueryRepository
+      ) {
+        let yieldedCount = 0;
+
+        while (yieldedCount < maxLimit) {
+          const limit = Math.min(pageSize, maxLimit - yieldedCount);
+          const offset = startOffset + yieldedCount;
+          const page = this.visibleRecords().slice(offset, offset + limit);
+          if (page.length === 0) break;
+
+          for (const record of page) {
+            yield ok(record);
+            yieldedCount += 1;
+          }
+
+          if (page.length < limit) break;
+        }
+      }.bind(this),
     };
   }
 }
@@ -2313,6 +2382,88 @@ describe('PasteHandler', () => {
 
       expect(trackingUndoRedoService.recordEntryCalls).toBe(3);
       expect(new Set(trackingUndoRedoService.entries.map((entry) => entry.groupId)).size).toBe(1);
+    });
+
+    it('snapshots filtered target rows before streamed paste chunks mutate them', async () => {
+      const { table, tableId, textFieldId } = buildTable();
+      const viewId = table.views()[0]!.id();
+      const textFieldKey = textFieldId.toString();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const recordQueryRepository = new OffsetPagingFilteredTableRecordQueryRepository(
+        Array.from({ length: 5 }, (_, index) => ({
+          id: `rec${String.fromCharCode(97 + index).repeat(16)}`,
+          fields: { [textFieldKey]: null },
+          version: 1,
+        })),
+        textFieldKey,
+        2
+      );
+
+      const recordRepository = new FakeTableRecordRepository();
+      recordRepository.onUpdatedRecord = (record) =>
+        recordQueryRepository.applyUpdatedRecord(record);
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+
+      const handler = new PasteStreamApplicationService(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteStreamCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 4],
+        ],
+        content: [['Row 1'], ['Row 2'], ['Row 3'], ['Row 4'], ['Row 5']],
+        filter: {
+          conjunction: 'and',
+          items: [{ fieldId: textFieldKey, operator: 'isEmpty', value: null }],
+        },
+        batchSize: 1,
+      })._unsafeUnwrap();
+
+      const events = [];
+      for await (const event of handler.createStream(createContext(), command)) {
+        events.push(event);
+      }
+
+      const doneEvent = events.find((event) => event.id === 'done');
+      expect(doneEvent).toMatchObject({
+        id: 'done',
+        totalCount: 5,
+        processedCount: 5,
+        updatedCount: 5,
+        createdCount: 0,
+      });
+      expect(recordRepository.updated).toHaveLength(5);
+      expect(recordRepository.inserted).toHaveLength(0);
+      expect(recordQueryRepository.records.map((record) => record.fields[textFieldKey])).toEqual([
+        'Row 1',
+        'Row 2',
+        'Row 3',
+        'Row 4',
+        'Row 5',
+      ]);
     });
 
     it('reuses plugin prepared state across paste stream chunks', async () => {

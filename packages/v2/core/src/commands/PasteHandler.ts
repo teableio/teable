@@ -2526,6 +2526,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       persistedTable,
       updateFilterSpec
     );
+    const collectedOperations = await this.collectPasteOperations(operationsStream);
+    if (collectedOperations.isErr()) {
+      return err(collectedOperations.error);
+    }
 
     const batchSize = resolveSelectionStreamBatchSize(expandedContent.length, command.batchSize);
 
@@ -2535,7 +2539,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       editableColumns,
       plannedColumnExpansion,
       typecast: command.typecast,
-      operationsStream,
+      operationsStream: createPasteOperationStream([
+        ...collectedOperations.value.updateOperations,
+        ...collectedOperations.value.createOperations,
+      ]),
       totalCount: expandedContent.length,
       totalChunkCount: Math.max(1, Math.ceil(expandedContent.length / batchSize)),
       batchSize,
@@ -2981,4 +2988,12 @@ async function* createEmptyPasteOperationStream(): AsyncIterable<
   Result<PasteOperation, DomainError>
 > {
   yield* [];
+}
+
+async function* createPasteOperationStream(
+  operations: ReadonlyArray<PasteOperation>
+): AsyncIterable<Result<PasteOperation, DomainError>> {
+  for (const operation of operations) {
+    yield ok(operation);
+  }
 }

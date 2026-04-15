@@ -19,8 +19,8 @@ import type {
   RecordUpdateDTO,
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
-import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
@@ -33,8 +33,8 @@ import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordOrderBy } from '../ports/TableRecordQueryRepository';
-import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
@@ -479,16 +479,11 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
 type PreparedClearStreamPlan = {
   readonly table: Table;
-  readonly filterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-  readonly search: ReturnType<typeof resolveVisibleRowSearch>;
-  readonly orderBy: ReadonlyArray<TableRecordOrderBy>;
   readonly targetFieldIds: ReadonlyArray<FieldId>;
   readonly totalCount: number;
-  readonly batchSize: number;
   readonly chunkPlans: ReadonlyArray<{
     batchIndex: number;
-    offset: number;
-    limit: number;
+    records: ReadonlyArray<TableRecordReadModel>;
   }>;
 };
 
@@ -955,48 +950,77 @@ export class ClearStreamApplicationService extends ClearHandler {
         sortOrderByResult.value,
         command.viewId.toString()
       ) ?? [];
-    const batchSize = resolveSelectionStreamBatchSize(totalCount, command.batchSize);
-    const chunkPlans = Array.from(
-      { length: Math.ceil(totalCount / Math.max(1, batchSize)) },
-      (_, index) => ({
-        batchIndex: index,
-        offset: startRow + index * batchSize,
-        limit: Math.min(batchSize, totalCount - index * batchSize),
-      })
-    ).filter((chunk) => chunk.limit > 0);
+    const search = resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value);
+    if (!totalCount || !targetFieldIds.length) {
+      return ok({
+        table,
+        targetFieldIds,
+        totalCount: 0,
+        chunkPlans: [],
+      });
+    }
+
+    const targetRecordsResult = await this.queryClearTargetRecords(
+      context,
+      table,
+      filterSpec,
+      orderBy,
+      search,
+      startRow,
+      totalCount
+    );
+    if (targetRecordsResult.isErr()) {
+      return err(targetRecordsResult.error);
+    }
+
+    const targetRecords = targetRecordsResult.value;
+    const batchSize = resolveSelectionStreamBatchSize(targetRecords.length, command.batchSize);
+    const chunkPlans = this.buildClearStreamChunkPlans(targetRecords, batchSize);
 
     return ok({
       table,
-      filterSpec,
-      search: resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value),
-      orderBy,
       targetFieldIds,
-      totalCount,
-      batchSize,
+      totalCount: targetRecords.length,
       chunkPlans,
     });
   }
 
-  private async queryClearChunkRecords(
+  private buildClearStreamChunkPlans(
+    records: ReadonlyArray<TableRecordReadModel>,
+    batchSize: number
+  ): ReadonlyArray<{ batchIndex: number; records: ReadonlyArray<TableRecordReadModel> }> {
+    const normalizedBatchSize = Math.max(1, batchSize);
+    const chunkPlans: Array<{
+      batchIndex: number;
+      records: ReadonlyArray<TableRecordReadModel>;
+    }> = [];
+
+    for (let offset = 0; offset < records.length; offset += normalizedBatchSize) {
+      chunkPlans.push({
+        batchIndex: chunkPlans.length,
+        records: records.slice(offset, offset + normalizedBatchSize),
+      });
+    }
+
+    return chunkPlans;
+  }
+
+  private async queryClearTargetRecords(
     context: ExecutionContextPort.IExecutionContext,
-    plan: PreparedClearStreamPlan,
-    chunkPlan: { offset: number; limit: number }
+    table: Table,
+    filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    orderBy: ReadonlyArray<TableRecordOrderBy>,
+    search: ReturnType<typeof resolveVisibleRowSearch>,
+    offset: number,
+    limit: number
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
     const records: TableRecordReadModel[] = [];
-    const stream = this.tableRecordQueryRepository.findStream(
-      context,
-      plan.table,
-      plan.filterSpec,
-      {
-        mode: 'stored',
-        pagination: {
-          offset: chunkPlan.offset,
-          limit: chunkPlan.limit,
-        },
-        orderBy: plan.orderBy,
-        search: plan.search,
-      }
-    );
+    const stream = this.tableRecordQueryRepository.findStream(context, table, filterSpec, {
+      mode: 'stored',
+      pagination: { offset, limit },
+      orderBy,
+      search,
+    });
 
     for await (const recordResult of stream) {
       if (recordResult.isErr()) {
@@ -1006,6 +1030,14 @@ export class ClearStreamApplicationService extends ClearHandler {
     }
 
     return ok(records);
+  }
+
+  private async queryClearChunkRecords(
+    _context: ExecutionContextPort.IExecutionContext,
+    _plan: PreparedClearStreamPlan,
+    chunkPlan: { records: ReadonlyArray<TableRecordReadModel> }
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    return ok(chunkPlan.records);
   }
 
   private async buildClearChunkPayload(
