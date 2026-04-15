@@ -304,10 +304,10 @@ export class AiService {
     } else if (!aiConfig?.chatModel?.lg) {
       config = aiIntegrationConfig as IAIConfig;
     } else {
-      const lg = aiIntegrationConfig.chatModel?.lg || aiConfig.chatModel.lg;
-      const sm = aiIntegrationConfig.chatModel?.sm;
-      const md = aiIntegrationConfig.chatModel?.md;
-      const ability = aiIntegrationConfig.chatModel?.ability || aiConfig.chatModel.ability;
+      const lg = aiConfig.chatModel.lg;
+      const sm = aiConfig.chatModel.sm;
+      const md = aiConfig.chatModel.md;
+      const ability = aiConfig.chatModel.ability;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)

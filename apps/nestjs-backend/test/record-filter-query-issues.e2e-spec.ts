@@ -6,7 +6,6 @@ import {
   and,
   contains,
   doesNotContain,
-  DriverClient,
   FieldKeyType,
   FieldType,
   is,
@@ -283,39 +282,36 @@ describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
       expect(data.records.length).toBe(4);
     });
 
-    describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-      'with search index',
-      () => {
-        let indexedTable: ITableFullVo;
+    describe('with search index', () => {
+      let indexedTable: ITableFullVo;
 
-        beforeAll(async () => {
-          indexedTable = await createTable(baseId, {
-            name: 'search_index_test',
-            fields: [{ name: 'Text', type: FieldType.SingleLineText }],
-            records: [
-              { fields: { Text: '50% off' } },
-              { fields: { Text: 'file_name.txt' } },
-              { fields: { Text: 'normal' } },
-            ],
-          });
-          await toggleTableIndex(baseId, indexedTable.id, { type: TableIndex.search });
+      beforeAll(async () => {
+        indexedTable = await createTable(baseId, {
+          name: 'search_index_test',
+          fields: [{ name: 'Text', type: FieldType.SingleLineText }],
+          records: [
+            { fields: { Text: '50% off' } },
+            { fields: { Text: 'file_name.txt' } },
+            { fields: { Text: 'normal' } },
+          ],
         });
+        await toggleTableIndex(baseId, indexedTable.id, { type: TableIndex.search });
+      });
 
-        afterAll(async () => {
-          await permanentDeleteTable(baseId, indexedTable.id);
-        });
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, indexedTable.id);
+      });
 
-        it.each([
-          { value: '%', expected: 1 },
-          { value: '_', expected: 1 },
-        ])('global search "$value" with index -> $expected record', async ({ value, expected }) => {
-          const { data } = await apiGetRecords(indexedTable.id, {
-            fieldKeyType: FieldKeyType.Id,
-            search: [value, '', true],
-          });
-          expect(data.records.length).toBe(expected);
+      it.each([
+        { value: '%', expected: 1 },
+        { value: '_', expected: 1 },
+      ])('global search "$value" with index -> $expected record', async ({ value, expected }) => {
+        const { data } = await apiGetRecords(indexedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          search: [value, '', true],
         });
-      }
-    );
+        expect(data.records.length).toBe(expected);
+      });
+    });
   });
 });

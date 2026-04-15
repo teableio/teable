@@ -11,12 +11,13 @@ import {
   TabsTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
 import {
   NodeShareContent,
   NodeShareHeader,
 } from '@/features/app/blocks/base/base-side-bar/NodeShareContent';
+import { VIEW_ICON_MAP } from '@/features/app/blocks/view/constant';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ShareViewContent } from './ShareViewContent';
@@ -87,6 +88,11 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
   const isCurrentRouteNode = !nodeIdProp || (routeNode && routeNode.nodeId === nodeIdProp);
   const showViewTab = isTable && !!view && isCurrentRouteNode;
 
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  const ViewIcon = view?.type != null ? VIEW_ICON_MAP[view.type] : undefined;
+  const isViewActive = showViewTab && ((showTabs && activeTab === 'view') || defaultTab === 'view');
+
   if (!currentNode) {
     return null;
   }
@@ -99,11 +105,32 @@ export const UnifiedShareDialog: React.FC<IUnifiedShareDialogProps> = ({
         </DialogHeader>
 
         <div className="px-6 pt-6">
-          <NodeShareHeader node={currentNode.node} />
+          {isViewActive && view ? (
+            <div className="flex w-full items-center gap-2">
+              <span className="shrink-0 text-base font-medium">
+                {t('table:baseShare.shareTitle')}
+              </span>
+              {ViewIcon && (
+                <span className="shrink-0">
+                  <ViewIcon className="size-4 text-muted-foreground" />
+                </span>
+              )}
+              <span className="truncate text-base font-medium" title={view.name}>
+                {view.name}
+              </span>
+            </div>
+          ) : (
+            <NodeShareHeader node={currentNode.node} />
+          )}
         </div>
 
         {showViewTab && showTabs ? (
-          <Tabs key={defaultTab} defaultValue={defaultTab} className="min-w-0">
+          <Tabs
+            key={defaultTab}
+            defaultValue={defaultTab}
+            className="min-w-0"
+            onValueChange={(v) => setActiveTab(v as 'table' | 'view')}
+          >
             <div className="px-6 pt-3">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="table">{t('table:baseShare.shareTableTab')}</TabsTrigger>
