@@ -52,6 +52,12 @@ import { buildRecordWhereClause } from './buildRecordWhereClause';
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
 const VERSION_COLUMN = '__version';
+const SYSTEM_UPDATE_COLUMNS = new Set([
+  RECORD_ID_COLUMN,
+  VERSION_COLUMN,
+  '__last_modified_time',
+  '__last_modified_by',
+]);
 
 type BulkUpdateTrackedField = {
   fieldId: core.FieldId;
@@ -83,6 +89,46 @@ type ActorIdentity = {
   actorName?: string;
   actorEmail?: string;
 };
+
+const isTrackedLastModifiedField = (field: core.Field): boolean => {
+  const type = field.type();
+  return (
+    type.equals(core.FieldType.lastModifiedTime()) || type.equals(core.FieldType.lastModifiedBy())
+  );
+};
+
+const buildDistinctUserFieldWhere = (
+  table: core.Table,
+  setClauses: Record<string, unknown>
+): Result<Expression<SqlBool> | undefined, DomainError> =>
+  safeTry<Expression<SqlBool> | undefined, DomainError>(function* () {
+    const conditions: Array<Expression<SqlBool>> = [];
+
+    for (const field of table.getFields()) {
+      if (isTrackedLastModifiedField(field)) {
+        continue;
+      }
+
+      const dbFieldName = yield* field.dbFieldName();
+      const dbFieldNameValue = yield* dbFieldName.value();
+      if (
+        SYSTEM_UPDATE_COLUMNS.has(dbFieldNameValue) ||
+        !Object.prototype.hasOwnProperty.call(setClauses, dbFieldNameValue)
+      ) {
+        continue;
+      }
+
+      conditions.push(
+        sql<SqlBool>`${sql.ref(dbFieldNameValue)} IS DISTINCT FROM ${setClauses[dbFieldNameValue]}`
+      );
+    }
+
+    if (conditions.length === 0) {
+      return ok(undefined);
+    }
+
+    return ok(sql<SqlBool>`(${sql.join(conditions, sql` OR `)})`);
+  });
 
 /**
  * Convert a TableRecord's fields to a Map<string, unknown> for use with RecordInsertBuilder.
@@ -1295,6 +1341,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
         const { impactHint, extraSeedRecords, exclusivityConstraints } = impact;
         const changedFieldColumns = yield* toChangedFieldColumns(table, changedFieldIds);
+        const distinctUserFieldWhere = yield* buildDistinctUserFieldWhere(table, setClauses);
         const normalizedImpact = this.normalizeImpactHint(impactHint);
         const expandedChangedFieldIds = this.expandComputedSeedFieldIds(
           table,
@@ -1326,16 +1373,22 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         yield* await validateLinkExclusivityConstraints(context, db, exclusivityConstraints);
 
         try {
-          const updateQuery = db
+          let updateQuery = db
             .updateTable(tableName)
             .set(setClauses)
             .where(RECORD_ID_COLUMN, '=', recordIdStr);
+          if (distinctUserFieldWhere) {
+            updateQuery = updateQuery.where(distinctUserFieldWhere);
+          }
           const updatedRow =
             changedFieldColumns.length > 0
               ? ((await updateQuery
                   .returning(buildChangedFieldReturningSelects(changedFieldColumns))
                   .executeTakeFirst()) as Record<string, unknown> | undefined)
               : (await updateQuery.executeTakeFirst(), undefined);
+          if (changedFieldColumns.length > 0 && !updatedRow) {
+            return ok({});
+          }
 
           // Acquire advisory locks for linked records to prevent deadlocks
           const baseId = table.baseId().toString();
@@ -1449,6 +1502,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           changedTrackedFields,
           beforeImageCapturePlan.trackedFields
         );
+        const distinctUserFieldWhere = yield* buildDistinctUserFieldWhere(table, setClauses);
 
         try {
           const matchedSelects = [
@@ -1468,16 +1522,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ),
           ];
 
-          const rows = await db
+          let updateQuery = db
             .with('matched', (qb) =>
               qb.selectFrom(tableName).select(matchedSelects).where(whereExpression)
             )
             .updateTable(tableName)
             .from('matched')
             .set(setClauses)
-            .whereRef(RECORD_ID_COLUMN, '=', 'matched.matched_id')
-            .returning(returningSelects)
-            .execute();
+            .whereRef(RECORD_ID_COLUMN, '=', 'matched.matched_id');
+          if (distinctUserFieldWhere) {
+            updateQuery = updateQuery.where(distinctUserFieldWhere);
+          }
+          const rows = await updateQuery.returning(returningSelects).execute();
 
           const updatedRecordIds: core.RecordId[] = [];
           const updatedRecords: Array<core.UpdateManyResult['updatedRecords'][number]> = [];
@@ -1728,34 +1784,35 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               });
             }
 
-            // Acquire advisory locks for linked records (deduplicated, single query)
-            const baseId = batchTable.baseId().toString();
-            await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
+            if (batchUpdatedRecords.length > 0) {
+              // Acquire advisory locks for linked records (deduplicated, single query)
+              const baseId = batchTable.baseId().toString();
+              await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
 
-            // Execute additional statements (junction tables, FK updates)
-            for (const stmt of additionalStatements) {
-              await db.executeQuery(stmt.compiled);
-            }
+              // Execute additional statements (junction tables, FK updates)
+              for (const stmt of additionalStatements) {
+                await db.executeQuery(stmt.compiled);
+              }
 
-            // Computed propagation must follow the submitted write set, not adapter-returned metadata rows.
-            for (const update of updates) {
-              affectedRecordIds.set(update.recordId.toString(), update.recordId);
-            }
-            // Preserve the same computed impact semantics as single-record updates.
-            for (const fieldId of impact.valueFieldIds) {
-              allValueFieldIds.set(fieldId.toString(), fieldId);
-            }
-            for (const fieldId of impact.impactHint.linkFieldIds) {
-              allLinkFieldIds.set(fieldId.toString(), fieldId);
-            }
-            for (const seedGroup of impact.extraSeedRecords) {
-              const mergeResult = mergeExtraSeedRecords(
-                extraSeedMap,
-                seedGroup.tableId,
-                seedGroup.recordIds.map((recordId) => recordId.toString())
-              );
-              if (mergeResult.isErr()) {
-                return err(mergeResult.error);
+              for (const update of batchUpdatedRecords) {
+                affectedRecordIds.set(update.recordId.toString(), update.recordId);
+              }
+              // Preserve the same computed impact semantics as single-record updates.
+              for (const fieldId of impact.valueFieldIds) {
+                allValueFieldIds.set(fieldId.toString(), fieldId);
+              }
+              for (const fieldId of impact.impactHint.linkFieldIds) {
+                allLinkFieldIds.set(fieldId.toString(), fieldId);
+              }
+              for (const seedGroup of impact.extraSeedRecords) {
+                const mergeResult = mergeExtraSeedRecords(
+                  extraSeedMap,
+                  seedGroup.tableId,
+                  seedGroup.recordIds.map((recordId) => recordId.toString())
+                );
+                if (mergeResult.isErr()) {
+                  return err(mergeResult.error);
+                }
               }
             }
 
@@ -1847,7 +1904,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
     if (this.computedUpdateStrategy.mode === 'sync') {
       const planInput = {
         baseId: table.baseId(),
@@ -1894,19 +1950,20 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return err(executeResult.error);
       }
 
-      await this.publishComputedUpdateEvents(
-        context,
-        table.baseId(),
-        executeResult.value,
-        resolveComputedRealtimeOrchestration(context, recordIds.length)
-      );
+      if (this.computedUpdateStrategy.mode === 'sync') {
+        await this.publishComputedUpdateEvents(
+          context,
+          table.baseId(),
+          executeResult.value,
+          resolveComputedRealtimeOrchestration(context, recordIds.length)
+        );
+      }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, skip planStage to minimize transaction lock hold time.
+    // For hybrid update/delete and async mode, skip planStage to minimize transaction lock hold time.
     // The worker will plan when it processes the seed task asynchronously.
-    // This matches the pattern used by runComputedUpdate (single-record path).
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
       seedTableId: table.id(),
@@ -2274,8 +2331,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2322,19 +2382,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, 1)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, 1)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2412,6 +2474,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     // even if textField was not provided in the input.
     if (changeType === 'insert') {
       for (const field of table.getFields()) {
+        if (field.type().equals(core.FieldType.link())) {
+          continue;
+        }
         const fieldId = field.id();
         fieldIds.set(fieldId.toString(), fieldId);
       }
@@ -2424,8 +2489,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2466,19 +2534,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, recordIds.length)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, recordIds.length)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2548,8 +2618,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     const normalizedImpact = this.normalizeImpactHint(impact);
 
-    // For sync mode, plan and execute directly without using the outbox
-    if (this.computedUpdateStrategy.mode === 'sync') {
+    const shouldExecuteInline =
+      this.computedUpdateStrategy.mode === 'sync' ||
+      (this.computedUpdateStrategy.mode === 'hybrid' && changeType === 'insert');
+
+    if (shouldExecuteInline) {
       const planInput = {
         baseId: table.baseId(),
         seedTableId: table.id(),
@@ -2596,19 +2669,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
           return err(executeResult.error);
         }
-        await this.publishComputedUpdateEvents(
-          context,
-          table.baseId(),
-          executeResult.value,
-          resolveComputedRealtimeOrchestration(context, 1)
-        );
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, 1)
+          );
+        }
         return ok(executeResult.value);
       }
 
       return ok(undefined);
     }
 
-    // For hybrid/async mode, use the outbox pattern
+    // For hybrid update/delete and async mode, use the outbox pattern
     // Build seed task input - only store minimal trigger information
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2674,13 +2749,27 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return;
     }
 
-    const publishResult = await this.eventBus.publishMany(context, events);
-    if (publishResult.isErr()) {
-      this.logger.warn('computed:events_publish_failed', {
-        error: publishResult.error.message,
+    const publish = async () => {
+      const publishResult = await this.eventBus.publishMany(
+        core.withoutTransaction(context),
+        events
+      );
+      if (publishResult.isErr()) {
+        this.logger.warn('computed:events_publish_failed', {
+          error: publishResult.error.message,
+          eventCount: events.length,
+        });
+      }
+    };
+
+    if (core.registerAfterCommit(context, publish)) {
+      this.logger.debug('computed:events_publish_deferred', {
         eventCount: events.length,
       });
+      return;
     }
+
+    await publish();
   }
 
   private expandComputedSeedFieldIds(
@@ -2764,7 +2853,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return ok(undefined);
     }
 
-    // For sync mode, plan and execute directly without using the outbox
+    // For sync mode, plan and execute directly without using the outbox.
     if (this.computedUpdateStrategy.mode === 'sync') {
       const planInput = {
         baseId: table.baseId(),
@@ -2804,6 +2893,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordCount: recordIds.length,
           });
           return err(executeResult.error);
+        }
+        if (this.computedUpdateStrategy.mode === 'sync') {
+          await this.publishComputedUpdateEvents(
+            context,
+            table.baseId(),
+            executeResult.value,
+            resolveComputedRealtimeOrchestration(context, recordIds.length)
+          );
         }
       }
 

@@ -50,6 +50,7 @@ import {
   getRecord,
   initApp,
   createTable,
+  createRecords,
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
@@ -2583,6 +2584,87 @@ describe('OpenAPI SelectionController (e2e)', () => {
           'updated-2',
           'created-3',
         ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('T3238 should not create rows when v2 paste-stream updates records out of the filtered view', async () => {
+      const rowCount = 600;
+      const createBatchSize = 200;
+      const streamTable = await createTable(baseId, {
+        name: 'T3238 paste-stream filtered empty rows',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [],
+      });
+
+      try {
+        const viewId = streamTable.views[0].id;
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'Name')!.id;
+
+        for (let offset = 0; offset < rowCount; offset += createBatchSize) {
+          await createRecords(streamTable.id, {
+            records: Array.from({ length: Math.min(createBatchSize, rowCount - offset) }, () => ({
+              fields: {},
+            })),
+          });
+        }
+
+        await updateViewFilter(streamTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: nameFieldId,
+                operator: 'isEmpty',
+                value: null,
+              },
+            ],
+          },
+        });
+
+        const filteredRecordsBefore = await getRecords(streamTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+          take: rowCount,
+        });
+        expect(filteredRecordsBefore.data.records).toHaveLength(rowCount);
+
+        const { progressEvents, doneEvent, errorEvents } = await pasteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId,
+            ranges: [
+              [0, 0],
+              [0, rowCount - 1],
+            ],
+            content: Array.from({ length: rowCount }, (_, index) => [`T3238-${index}`]),
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.processedCount).toBe(rowCount);
+        expect(doneEvent?.updatedCount).toBe(rowCount);
+        expect(doneEvent?.createdCount).toBe(0);
+        expect(doneEvent?.data.createdRecordIds).toHaveLength(0);
+        expect(progressEvents.some((event) => event.totalCount === rowCount)).toBe(true);
+
+        const allRecordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: rowCount,
+        });
+        expect(allRecordsAfter.data.records).toHaveLength(rowCount);
+        expect(
+          new Set(allRecordsAfter.data.records.map((record) => record.fields[nameFieldId]))
+        ).toEqual(new Set(Array.from({ length: rowCount }, (_, index) => `T3238-${index}`)));
+
+        const filteredRecordsAfter = await getRecords(streamTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+          take: 1,
+        });
+        expect(filteredRecordsAfter.data.records).toHaveLength(0);
       } finally {
         await permanentDeleteTable(baseId, streamTable.id);
       }

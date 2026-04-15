@@ -84,19 +84,8 @@ type PreparedDeletePlan = {
 
 type PreparedDeleteStreamPlan = {
   readonly table: Table;
-  readonly filterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-  readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
-  readonly search?: RecordQuerySearch;
   readonly totalCount: number;
-  readonly batchSize: number;
   readonly chunkPlans: ReadonlyArray<DeleteStreamChunkPlan>;
-};
-
-type DeleteStreamChunkPlan = {
-  readonly batchIndex: number;
-  readonly rangeKey: string;
-  readonly startRow: number;
-  readonly rowCount: number;
 };
 
 type PreparedDeleteChunk = {
@@ -105,6 +94,8 @@ type PreparedDeleteChunk = {
   readonly deletedRecordIds: ReadonlyArray<string>;
   readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
 };
+
+type DeleteStreamChunkPlan = PreparedDeleteChunk;
 
 type DeleteByRangeStreamExecutionResult = {
   readonly deletedCount: number;
@@ -506,37 +497,30 @@ export class DeleteByRangeApplicationService {
       command.viewId.toString()
     );
 
-    const totalRowsResult = await this.countRecordsInScope(
-      context,
-      table,
-      filterSpec,
-      orderBy,
-      visibleRowSearch
-    );
-    if (totalRowsResult.isErr()) {
-      return err(totalRowsResult.error);
-    }
-
-    const rowRanges = this.resolveDeleteStreamRowRanges(
-      command,
-      totalRowsResult.value,
-      orderedFieldIdsResult.value.length
-    );
-    const totalCount = rowRanges.reduce(
-      (sum, [startRow, endRow]) => sum + (endRow - startRow + 1),
-      0
-    );
-    const batchSize = resolveSelectionStreamBatchSize(totalCount, command.batchSize);
-    const chunkPlans = this.buildDeleteStreamChunkPlans(rowRanges, batchSize);
-
-    return ok({
-      table,
+    const recordsResult = await this.collectRecordsToDelete(context, table, command, {
       filterSpec,
       orderBy,
       search: visibleRowSearch,
-      totalCount,
-      batchSize,
-      chunkPlans,
+      totalCols: orderedFieldIdsResult.value.length,
+      pageSize: DEFAULT_DELETE_QUERY_PAGE_SIZE,
+      includeOrders: true,
+      includeTotal: false,
+    });
+    if (recordsResult.isErr()) {
+      return err(recordsResult.error);
+    }
+
+    const targetRecords = recordsResult.value;
+    const batchSize = resolveSelectionStreamBatchSize(targetRecords.length, command.batchSize);
+    const chunkPlansResult = this.buildDeleteStreamChunkPlans(table, targetRecords, batchSize);
+    if (chunkPlansResult.isErr()) {
+      return err(chunkPlansResult.error);
+    }
+
+    return ok({
+      table,
+      totalCount: targetRecords.length,
+      chunkPlans: chunkPlansResult.value,
     });
   }
 
@@ -745,78 +729,6 @@ export class DeleteByRangeApplicationService {
     return ok(queryResult.value.records);
   }
 
-  private async countRecordsInScope(
-    context: IExecutionContext,
-    table: Table,
-    filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
-    search: RecordQuerySearch | undefined
-  ): Promise<Result<number, DomainError>> {
-    const countLimitResult = PageLimit.create(1);
-    if (countLimitResult.isErr()) {
-      return ok(0);
-    }
-
-    const countResult = await this.tableRecordQueryRepository.find(context, table, filterSpec, {
-      mode: 'stored',
-      pagination: OffsetPagination.create(countLimitResult.value, PageOffset.zero()),
-      orderBy,
-      search,
-    });
-    if (countResult.isErr()) {
-      return err(countResult.error);
-    }
-
-    return ok(countResult.value.total);
-  }
-
-  private resolveDeleteStreamRowRanges(
-    command: DeleteByRangeCommandLike,
-    totalRows: number,
-    totalCols: number
-  ): ReadonlyArray<readonly [number, number]> {
-    if (totalRows <= 0) {
-      return [];
-    }
-
-    if (command.rangeType === 'columns') {
-      return [[0, totalRows - 1]];
-    }
-
-    if (command.rangeType === 'rows') {
-      return command.rawRanges
-        .map(([startRow, endRow]) => this.clampDeleteRowRange(startRow, endRow, totalRows))
-        .filter((range): range is readonly [number, number] => Boolean(range));
-    }
-
-    const [[, startRow], [, endRow]] = normalizeRanges(
-      command.rawRanges,
-      command.rangeType,
-      totalRows,
-      totalCols
-    );
-    const normalizedRange = this.clampDeleteRowRange(startRow, endRow, totalRows);
-    return normalizedRange ? [normalizedRange] : [];
-  }
-
-  private clampDeleteRowRange(
-    startRow: number,
-    endRow: number,
-    totalRows: number
-  ): readonly [number, number] | null {
-    if (totalRows <= 0) {
-      return null;
-    }
-
-    const normalizedStart = Math.max(0, Math.min(startRow, endRow));
-    const normalizedEnd = Math.min(totalRows - 1, Math.max(startRow, endRow));
-    if (normalizedEnd < normalizedStart) {
-      return null;
-    }
-
-    return [normalizedStart, normalizedEnd] as const;
-  }
-
   private async ensureRecordsWithinPluginScope(
     table: Table,
     recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
@@ -900,8 +812,6 @@ export class DeleteByRangeApplicationService {
   ): Promise<Result<DeleteByRangeStreamExecutionResult, DomainError>> {
     const deletedRecordIds: string[] = [];
     let deletedCount = 0;
-    let currentRangeKey: string | undefined;
-    let failedRowCountInRange = 0;
     const operationPluginExecutionResult = await this.prepareDeletePluginExecution(
       context,
       plan.table,
@@ -936,24 +846,18 @@ export class DeleteByRangeApplicationService {
         break;
       }
 
-      if (plannedChunk.rangeKey !== currentRangeKey) {
-        currentRangeKey = plannedChunk.rangeKey;
-        failedRowCountInRange = 0;
-      }
-
       const chunkResult = await this.runInSpan(
         context,
         'teable.DeleteByRangeApplicationService.loadDeleteChunk',
         {
           'teable.batch_index': plannedChunk.batchIndex,
-          'teable.chunk_row_count': plannedChunk.rowCount,
+          'teable.chunk_row_count': plannedChunk.recordIds.length,
           'teable.total_record_count': plan.totalCount,
           'teable.table_id': plan.table.id().toString(),
         },
-        () => this.loadDeleteChunk(context, plan, plannedChunk, failedRowCountInRange)
+        () => this.loadDeleteChunk(plannedChunk)
       );
       if (chunkResult.isErr()) {
-        failedRowCountInRange += plannedChunk.rowCount;
         queue.push(
           this.createErrorEvent(chunkResult.error, {
             phase: 'preparing',
@@ -968,7 +872,6 @@ export class DeleteByRangeApplicationService {
 
       const chunk = chunkResult.value;
       if (!chunk.recordIds.length) {
-        failedRowCountInRange += plannedChunk.rowCount;
         continue;
       }
 
@@ -988,7 +891,6 @@ export class DeleteByRangeApplicationService {
         { previousExecution: previousPluginExecution }
       );
       if (pluginExecutionResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
         queue.push(
           this.createErrorEvent(pluginExecutionResult.error, {
             phase: 'guarding',
@@ -1020,7 +922,6 @@ export class DeleteByRangeApplicationService {
           )
       );
       if (deleteResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
         queue.push(
           this.createErrorEvent(deleteResult.error, {
             phase: 'deleting',
@@ -1124,82 +1025,45 @@ export class DeleteByRangeApplicationService {
   }
 
   private buildDeleteStreamChunkPlans(
-    rowRanges: ReadonlyArray<readonly [number, number]>,
+    table: Table,
+    records: ReadonlyArray<TableRecordReadModel>,
     batchSize: number
-  ): ReadonlyArray<DeleteStreamChunkPlan> {
+  ): Result<ReadonlyArray<DeleteStreamChunkPlan>, DomainError> {
     const chunkPlans: DeleteStreamChunkPlan[] = [];
     const normalizedBatchSize = Math.max(1, batchSize);
-    const sortedRanges = [...rowRanges].sort((left, right) => {
-      if (left[0] !== right[0]) {
-        return right[0] - left[0];
-      }
-      return right[1] - left[1];
-    });
 
-    let batchIndex = 0;
-    for (const [startRow, endRow] of sortedRanges) {
-      const rangeKey = `${startRow}:${endRow}`;
-      let remainingRowCount = endRow - startRow + 1;
-      while (remainingRowCount > 0) {
-        const chunkRowCount = Math.min(normalizedBatchSize, remainingRowCount);
-        chunkPlans.push({
-          batchIndex,
-          rangeKey,
-          startRow,
-          rowCount: chunkRowCount,
-        });
-        batchIndex += 1;
-        remainingRowCount -= chunkRowCount;
+    for (let offset = 0; offset < records.length; offset += normalizedBatchSize) {
+      const chunkRecords = records.slice(offset, offset + normalizedBatchSize);
+      const recordIds: RecordId[] = [];
+      const deletedRecordIds: string[] = [];
+      const recordSnapshots: IDeletedRecordSnapshot[] = [];
+
+      for (const record of chunkRecords) {
+        const recordIdResult = RecordId.create(record.id);
+        if (recordIdResult.isErr()) {
+          return err(recordIdResult.error);
+        }
+
+        recordIds.push(recordIdResult.value);
+        deletedRecordIds.push(record.id);
+        recordSnapshots.push(buildDeletedRecordSnapshot(table, record));
       }
+
+      chunkPlans.push({
+        batchIndex: chunkPlans.length,
+        recordIds,
+        deletedRecordIds,
+        recordSnapshots,
+      });
     }
 
-    return chunkPlans;
+    return ok(chunkPlans);
   }
 
   private async loadDeleteChunk(
-    context: IExecutionContext,
-    plan: PreparedDeleteStreamPlan,
-    chunk: DeleteStreamChunkPlan,
-    failedRowCountInRange: number
+    chunk: DeleteStreamChunkPlan
   ): Promise<Result<PreparedDeleteChunk, DomainError>> {
-    const queryStartRow = chunk.startRow + failedRowCountInRange;
-    const queryResult = await this.queryRecordsForRange(
-      context,
-      plan.table,
-      plan.filterSpec,
-      plan.orderBy,
-      plan.search,
-      queryStartRow,
-      queryStartRow + chunk.rowCount - 1,
-      {
-        includeOrders: true,
-        includeTotal: false,
-      }
-    );
-    if (queryResult.isErr()) {
-      return err(queryResult.error);
-    }
-
-    const recordIds: RecordId[] = [];
-    const deletedRecordIds: string[] = [];
-    const recordSnapshots: IDeletedRecordSnapshot[] = [];
-    for (const record of queryResult.value) {
-      const recordIdResult = RecordId.create(record.id);
-      if (recordIdResult.isErr()) {
-        return err(recordIdResult.error);
-      }
-
-      recordIds.push(recordIdResult.value);
-      deletedRecordIds.push(record.id);
-      recordSnapshots.push(buildDeletedRecordSnapshot(plan.table, record));
-    }
-
-    return ok({
-      batchIndex: chunk.batchIndex,
-      recordIds,
-      deletedRecordIds,
-      recordSnapshots,
-    });
+    return ok(chunk);
   }
 
   private async finalizeDeletePlan(

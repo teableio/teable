@@ -99,7 +99,7 @@ const buildTable = () => {
 
   const table = builder.build()._unsafeUnwrap();
 
-  return { table, tableId, viewId: table.views()[0].id().toString() };
+  return { table, tableId, viewId: table.views()[0].id().toString(), textFieldId };
 };
 
 const buildRecordReadModel = (index: number): TableRecordReadModel => ({
@@ -211,6 +211,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   failInsertByBatchIndex = new Map<number, DomainError>();
   insertContexts: Array<IExecutionContext> = [];
   insertedRecordIdsByBatch: string[][] = [];
+  insertedFieldValuesByBatch: unknown[][] = [];
+  onInsertedSnapshot?: (snapshot: TableRecordReadModel) => void;
   private orderCounterByViewId = new Map<string, number>();
 
   constructor(private readonly queryRepository: FakeTableRecordQueryRepository) {}
@@ -232,6 +234,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.insertContexts.push(context);
     const recordIds = records.map((record) => record.id().toString());
     this.insertedRecordIdsByBatch.push(recordIds);
+    const insertedFieldValues: unknown[] = [];
 
     const batchIndex = this.insertedRecordIdsByBatch.length - 1;
     const failure = this.failInsertByBatchIndex.get(batchIndex);
@@ -253,6 +256,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
         fields,
         version: 1,
       };
+      insertedFieldValues.push(...Object.values(fields));
 
       if (orderViewId) {
         const nextOrder = this.orderCounterByViewId.get(orderViewId) ?? 0;
@@ -262,7 +266,9 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
 
       this.queryRepository.persistedRecords.set(snapshot.id, snapshot);
+      this.onInsertedSnapshot?.(snapshot);
     }
+    this.insertedFieldValuesByBatch.push(insertedFieldValues);
 
     return ok({
       ...(recordOrders.size ? { recordOrders } : {}),
@@ -387,14 +393,26 @@ const createHandler = (args: {
 
 describe('DuplicateRecordsStreamHandler', () => {
   it('streams progress events, publishes chunk events, and records batched undo commands', async () => {
-    const { table, tableId, viewId } = buildTable();
+    const { table, tableId, viewId, textFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.sourceRecords = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record A' },
+        version: 1,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record B' },
+        version: 1,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record C' },
+        version: 1,
+      },
     ];
     queryRepository.total = 3;
     const eventBus = new FakeEventBus();
@@ -555,6 +573,66 @@ describe('DuplicateRecordsStreamHandler', () => {
     ]);
     expect(calls.prepare[1]?.payload.order).toBeInstanceOf(RecordInsertOrder);
     expect(calls.prepare[2]?.payload.order).toBeInstanceOf(RecordInsertOrder);
+  });
+
+  it('snapshots source rows before streamed duplicate chunks insert matching records', async () => {
+    const { table, tableId, viewId, textFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.sourceRecords = [
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record A' },
+        version: 1,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record B' },
+        version: 1,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record C' },
+        version: 1,
+      },
+    ];
+    queryRepository.total = queryRepository.sourceRecords.length;
+
+    const { handler, recordRepository } = createHandler({
+      tableRepository,
+      queryRepository,
+    });
+    recordRepository.onInsertedSnapshot = (snapshot) => {
+      queryRepository.sourceRecords.splice(1, 0, snapshot);
+      queryRepository.total = queryRepository.sourceRecords.length;
+    };
+
+    const command = DuplicateRecordsStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 2]],
+      type: 'rows',
+      batchSize: 1,
+      sort: [{ fieldId: textFieldId.toString(), order: 'asc' }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 3,
+      duplicatedCount: 3,
+    });
+    expect(recordRepository.insertedFieldValuesByBatch).toEqual([
+      ['Record A'],
+      ['Record B'],
+      ['Record C'],
+    ]);
   });
 
   it('yields to the event loop after each duplicate chunk', async () => {
