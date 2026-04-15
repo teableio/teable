@@ -296,20 +296,16 @@ export class UpdateRecordHandler
 
       // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
       const changes: RecordFieldChangeDTO[] = [];
-      const fallbackUpdatedFieldValues = new Map<string, unknown>();
-      for (const entry of updatedRecord.fields().entries()) {
-        fallbackUpdatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
-      }
       const updatedFieldValues =
         yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
           tableForUpdate,
           mutationResult.mutation.changedFields
         );
-      for (const [fieldId] of recordUpdateResult.fieldKeyMapping) {
+      for (const [fieldId, newValue] of updatedFieldValues ?? new Map<string, unknown>()) {
         changes.push({
           fieldId,
           oldValue: currentRecord.fields[fieldId],
-          newValue: updatedFieldValues?.get(fieldId) ?? fallbackUpdatedFieldValues.get(fieldId),
+          newValue,
         });
       }
       // 3. Create and publish RecordUpdated event

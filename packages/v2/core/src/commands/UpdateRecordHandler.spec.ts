@@ -227,6 +227,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastContext: IExecutionContext | undefined;
   lastRecordId: RecordId | undefined;
   lastMutateSpec: ICellValueSpec | undefined;
+  updateOneResult: RecordMutationResult = {};
 
   async insert(
     _: IExecutionContext,
@@ -261,7 +262,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastContext = context;
     this.lastRecordId = recordId;
     this.lastMutateSpec = mutateSpec;
-    return ok({});
+    return ok(this.updateOneResult);
   }
 
   async updateMany(
@@ -395,7 +396,7 @@ describe('UpdateRecordHandler', () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordResult = table
       .createRecord(
-        new Map([
+        new Map<string, string | number>([
           [textFieldId.toString(), 'Old Title'],
           [numberFieldId.toString(), 1],
         ])
@@ -407,6 +408,9 @@ describe('UpdateRecordHandler', () => {
     const tableQueryService = new TableQueryService(tableRepository);
 
     const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateOneResult = {
+      changedFields: new Map([[textFieldId.toString(), 'New Title']]),
+    };
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.record = {
       id: recordResult.record.id().toString(),
@@ -451,6 +455,58 @@ describe('UpdateRecordHandler', () => {
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
     expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
+  });
+
+  it('does not publish update event or undo entry when storage reports no changed fields', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      undoRedoService as unknown as UndoRedoService,
+      unitOfWork
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordCommand.create({
+        tableId: tableId.toString(),
+        recordId: recordResult.record.id().toString(),
+        fields: { [textFieldId.toString()]: 'Old Title' },
+      })._unsafeUnwrap()
+    );
+
+    expect(result._unsafeUnwrap().events).toEqual([]);
+    expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(false);
+    expect(undoRedoService.calls).toHaveLength(0);
   });
 
   it('skips plugins that do not support updateOne', async () => {
@@ -628,6 +684,9 @@ describe('UpdateRecordHandler', () => {
     const tableQueryService = new TableQueryService(tableRepository);
 
     const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateOneResult = {
+      changedFields: new Map([[singleSelectFieldId.toString(), 'In Progress']]),
+    };
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.record = {
       id: recordResult.record.id().toString(),
@@ -803,6 +862,19 @@ describe('UpdateRecordHandler', () => {
     const tableQueryService = new TableQueryService(tableRepository);
 
     const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateOneResult = {
+      changedFields: new Map([
+        [
+          userFieldId.toString(),
+          {
+            id: 'usr-1',
+            title: 'Alice',
+            email: 'alice@example.com',
+            avatarUrl: '/api/attachments/read/public/avatar/usr-1',
+          },
+        ],
+      ]),
+    };
     const recordQueryRepository = new FakeTableRecordQueryRepository();
     recordQueryRepository.record = {
       id: recordResult.record.id().toString(),
