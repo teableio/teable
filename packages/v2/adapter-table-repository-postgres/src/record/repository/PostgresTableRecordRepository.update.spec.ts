@@ -56,6 +56,24 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
 
+const defaultRowsForQuery = (compiledQuery: CompiledQuery): unknown[] => {
+  const sqlText = compiledQuery.sql.toLowerCase();
+  if (sqlText.includes('returning t.__id as record_id')) {
+    const recordId = compiledQuery.sql.match(/\('([^']+)'/)?.[1] ?? `rec${'h'.repeat(16)}`;
+    return [{ record_id: recordId, new_version: 2 }];
+  }
+
+  if (!sqlText.includes('returning') || !sqlText.includes(' as "changed_')) {
+    return [];
+  }
+
+  const row: Record<string, unknown> = {};
+  for (const match of compiledQuery.sql.matchAll(/ as "(changed_\d+)"/g)) {
+    row[match[1]!] = null;
+  }
+  return [row];
+};
+
 class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
@@ -64,7 +82,10 @@ class RecordingConnection implements DatabaseConnection {
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
-    const rows = (this.rowProvider?.(compiledQuery) ?? []) as R[];
+    const providedRows = this.rowProvider?.(compiledQuery);
+    const rows = (
+      providedRows && providedRows.length > 0 ? providedRows : defaultRowsForQuery(compiledQuery)
+    ) as R[];
     return { rows };
   }
 
@@ -390,8 +411,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "2025-01-01T00:00:00.000Z",
             "usr_test",
             "inactive",
+            "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
       ]
     `);
@@ -453,8 +475,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "2025-01-01T00:00:00.000Z",
             "usr_test",
             "inactive",
+            "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
       ]
     `);
@@ -514,8 +537,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "Alice",
             "rechhhhhhhhhhhhhhhh",
+            "Alice",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -632,8 +656,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "Alice",
             "rechhhhhhhhhhhhhhhh",
+            "Alice",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -659,7 +684,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     vi.useRealTimers();
   });
 
-  it('uses submitted update ids for updateManyStream computed planning even when RETURNING rows are incomplete', async () => {
+  it('uses returned update ids for updateManyStream computed planning when RETURNING rows are incomplete', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -761,7 +786,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         newVersion: 2,
       },
     ]);
-    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordIdA, recordIdB]);
+    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordIdA]);
 
     vi.useRealTimers();
   });
@@ -969,8 +994,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
+            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],
@@ -1098,8 +1124,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
+            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],

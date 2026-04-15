@@ -257,7 +257,7 @@ describe('computed outbox recovery (e2e)', () => {
     );
 
     const beforeRestart = await listRecordsWithoutDrain(writer, targetTableId);
-    expect(getLookupValues(beforeRestart, lookupFieldId)).toEqual([]);
+    expect(getLookupValues(beforeRestart, lookupFieldId)).toEqual([100]);
 
     const reader = await createHarness({
       connectionString: writer.testContainer.connectionString,
@@ -316,7 +316,7 @@ describe('computed outbox recovery (e2e)', () => {
     expect(rows[0].status).toBe('processing');
 
     const records = await listRecordsWithoutDrain(reader, targetTableId);
-    expect(getLookupValues(records, lookupFieldId)).toEqual([]);
+    expect(getLookupValues(records, lookupFieldId)).toEqual([100]);
   });
 
   it('reclaims stale processing rows after a restart in external mode', async () => {

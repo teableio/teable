@@ -61,7 +61,7 @@ interface IModelTestStatus {
   isImageModel?: boolean;
 }
 
-const TEXT_MODEL_TIMEOUT_MS = 30000; // 30 seconds timeout for text models
+const TEXT_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for text models
 const IMAGE_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for image models
 const CONCURRENCY = 3; // Concurrent test count
 
