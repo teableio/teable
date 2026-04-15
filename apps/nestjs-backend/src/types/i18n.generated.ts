@@ -1661,6 +1661,8 @@ export type I18nTranslations = {
             "byokModelNotSupported": string;
             "modelServiceUnavailable": string;
             "modelServiceError": string;
+            "imageProcessingFailed": string;
+            "imageProcessingFailedDescription": string;
             "sandboxBusy": string;
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
