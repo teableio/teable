@@ -202,13 +202,25 @@ export class RecordCreationService {
           tableForCreate,
           mutationResult?.changedFields
         );
+      const createdEventFieldChanges = new Map<string, unknown>();
+      for (const [fieldId, value] of decoratedChangedFields ?? []) {
+        createdEventFieldChanges.set(fieldId, value);
+      }
+      for (const [fieldId, value] of mutationResult?.computedChanges ?? []) {
+        createdEventFieldChanges.set(fieldId, value);
+      }
+      const mergedCreatedEventFieldChanges =
+        createdEventFieldChanges.size > 0 ? createdEventFieldChanges : undefined;
       const domainEvents = tableForCreate.pullDomainEvents().map((event) =>
         isRecordCreatedEvent(event)
           ? RecordCreated.create({
               tableId: event.tableId,
               baseId: event.baseId,
               recordId: event.recordId,
-              fieldValues: mergeRecordFieldValues(event.fieldValues, decoratedChangedFields),
+              fieldValues: mergeRecordFieldValues(
+                event.fieldValues,
+                mergedCreatedEventFieldChanges
+              ),
               source: event.source,
             })
           : event
