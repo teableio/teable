@@ -1320,12 +1320,13 @@ export class TableSchemaUpdateVisitor
     };
 
     // Helper to build fully-qualified table name from fkHostTableName (which is "baseId.tableName")
+    const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
     const quoteTableName = (name: string): string => {
-      if (!name.includes('.')) return `"${name}"`;
+      if (!name.includes('.')) return quoteIdentifier(name);
       const [s, t] = name.split('.');
-      return `"${s}"."${t}"`;
+      return `${quoteIdentifier(s)}.${quoteIdentifier(t)}`;
     };
-    const quoteColumn = (name: string): string => `"${name}"`;
+    const quoteColumn = (name: string): string => quoteIdentifier(name);
     const currentTableDbName = this.params.schema
       ? `${this.params.schema}.${this.params.tableName}`
       : this.params.tableName;
@@ -1342,6 +1343,56 @@ export class TableSchemaUpdateVisitor
         return currentTableDbName;
       }
       return rawName;
+    };
+    const quoteIndexNameForTable = (tableName: string, indexName: string): string => {
+      const normalizedTableName = normalizeCurrentTableHostName(tableName);
+      if (!normalizedTableName.includes('.')) {
+        return quoteIdentifier(indexName);
+      }
+
+      const [schemaName] = normalizedTableName.split('.');
+      return `${quoteIdentifier(schemaName)}.${quoteIdentifier(indexName)}`;
+    };
+    const buildFkIndexExclusivityStatements = (params: {
+      fkHostTableName: string;
+      fkColumnName: string;
+      previousRelationship: string;
+      nextRelationship: string;
+    }): TableSchemaStatementBuilder[] => {
+      const previousUnique = params.previousRelationship === 'oneOne';
+      const nextUnique = params.nextRelationship === 'oneOne';
+      if (previousUnique === nextUnique) {
+        return [];
+      }
+
+      const normalizedHostTableName = normalizeCurrentTableHostName(params.fkHostTableName);
+      const fullHostTableName = quoteTableName(normalizedHostTableName);
+      const indexName = `index_${params.fkColumnName}`;
+      const fullIndexName = quoteIndexNameForTable(normalizedHostTableName, indexName);
+      const createIndexName = quoteIdentifier(indexName);
+      const indexKind = nextUnique ? 'UNIQUE ' : '';
+
+      return [
+        {
+          compile: () =>
+            sql
+              .raw(
+                `ALTER TABLE ${fullHostTableName} DROP CONSTRAINT IF EXISTS ${quoteIdentifier(indexName)}`
+              )
+              .compile(db),
+        },
+        {
+          compile: () => sql`DROP INDEX IF EXISTS ${sql.raw(fullIndexName)}`.compile(db),
+        },
+        {
+          compile: () =>
+            sql
+              .raw(
+                `CREATE ${indexKind}INDEX IF NOT EXISTS ${createIndexName} ON ${fullHostTableName} (${quoteColumn(params.fkColumnName)})`
+              )
+              .compile(db),
+        },
+      ];
     };
 
     // For oneWay conversions that don't change storage type
@@ -1420,13 +1471,6 @@ export class TableSchemaUpdateVisitor
           yield* nextConfig.fkHostTableNameString()
         );
 
-        // No FK host movement; only value shape rewrite may be needed.
-        if (oldFkHostTableName === newFkHostTableName) {
-          const statements = [...buildLinkValueShapeRewriteStatements()];
-          yield* addCond(statements);
-          return ok(statements);
-        }
-
         const oldSelfKeyName = yield* previousConfig.selfKeyNameString();
         const oldForeignKeyName = yield* previousConfig.foreignKeyNameString();
         const oldFkColumnName = oldSelfKeyName === '__id' ? oldForeignKeyName : oldSelfKeyName;
@@ -1436,6 +1480,23 @@ export class TableSchemaUpdateVisitor
         const newForeignKeyName = yield* nextConfig.foreignKeyNameString();
         const newFkColumnName = newSelfKeyName === '__id' ? newForeignKeyName : newSelfKeyName;
         const newOrderColumnName = `${newFkColumnName}_order`;
+
+        // No FK host movement; only value shape rewrite may be needed.
+        if (oldFkHostTableName === newFkHostTableName) {
+          const statements = [
+            ...(oldFkColumnName === newFkColumnName
+              ? buildFkIndexExclusivityStatements({
+                  fkHostTableName: oldFkHostTableName,
+                  fkColumnName: oldFkColumnName,
+                  previousRelationship: spec.previousRelationship().toString(),
+                  nextRelationship: spec.nextRelationship().toString(),
+                })
+              : []),
+            ...buildLinkValueShapeRewriteStatements(),
+          ];
+          yield* addCond(statements);
+          return ok(statements);
+        }
 
         const fullOldHostTableName = quoteTableName(oldFkHostTableName);
         const fullNewHostTableName = quoteTableName(newFkHostTableName);

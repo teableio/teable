@@ -44,8 +44,8 @@ describe('OpenAPI integrity (e2e)', () => {
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
     const compiled = builder.toSQL();
-    const sqlItems = Array.isArray(compiled) ? compiled : [compiled];
-    const statements = sqlItems
+    const sqlStatements = Array.isArray(compiled) ? compiled : [compiled];
+    const statements = sqlStatements
       .map(({ sql, bindings }) => ({
         sql,
         bindings: bindings || [],
