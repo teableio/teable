@@ -922,6 +922,17 @@
     "shareNodeTab": "ノードを共有"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "質問",
+        "confirm": "確認 ({{count}})",
+        "otherPlaceholder": "または回答を入力…",
+        "otherSend": "送信",
+        "addCustomPlaceholder": "カスタムオプションを追加…",
+        "askedUser": "ユーザーに質問",
+        "answered": "回答済み"
+      }
+    },
     "tool": {
       "getTableFields": "テーブルフィールドを取得",
       "getTablesMeta": "テーブルメタデータを取得",

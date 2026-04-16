@@ -2,7 +2,7 @@ import type { ILogger } from '@teable/v2-core';
 import type { Kysely } from 'kysely';
 import { describe, it, expect, vi } from 'vitest';
 
-import { ComputedUpdateOutbox } from './ComputedUpdateOutbox';
+import { ComputedUpdateOutbox, dedupeClaimRowsByScope } from './ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxItem } from './ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
@@ -56,6 +56,73 @@ const createMockTask = (
 type MockDb = Kysely<any>;
 
 describe('ComputedUpdateOutbox', () => {
+  describe('releaseForRetry', () => {
+    it('returns a processing task to pending without incrementing attempts', async () => {
+      const now = new Date('2026-01-05T12:00:00Z');
+      let updateValues: Record<string, unknown> | null = null;
+      let selectedLeaseOwner: string | null = null;
+
+      const selectChain = {
+        where: vi.fn().mockImplementation((_col, _op, value) => {
+          if (String(value).startsWith('worker-')) {
+            selectedLeaseOwner = String(value);
+          }
+          return selectChain;
+        }),
+        forUpdate: vi.fn().mockReturnValue({
+          executeTakeFirst: vi.fn().mockResolvedValue({ id: 'cuo123456789012345' }),
+        }),
+      };
+      const mockDb = {
+        transaction: () => ({
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+        }),
+        selectFrom: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue(selectChain),
+        }),
+        updateTable: vi.fn().mockReturnValue({
+          set: vi.fn().mockImplementation((values) => {
+            updateValues = values;
+            return {
+              where: vi.fn().mockReturnValue({
+                execute: vi.fn().mockResolvedValue([]),
+              }),
+            };
+          }),
+        }),
+      } as unknown as MockDb;
+
+      const logger = createLogger();
+      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
+      const task = createMockTask({
+        status: 'processing',
+        attempts: 3,
+        lockedAt: now,
+        lockedBy: 'worker-1:cuc_lock',
+      });
+
+      const result = await outbox.releaseForRetry({
+        task,
+        reason: 'lock busy',
+        retryDelayMs: 250,
+        now,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(true);
+      expect(selectedLeaseOwner).toBe('worker-1:cuc_lock');
+      expect(updateValues).toMatchObject({
+        status: 'pending',
+        last_error: 'lock busy',
+        locked_at: null,
+        locked_by: null,
+        updated_at: now,
+      });
+      expect(updateValues?.attempts).toBeUndefined();
+      expect(updateValues?.next_run_at).toEqual(new Date(now.getTime() + 250));
+    });
+  });
+
   describe('markFailed', () => {
     it('schedules retry with exponential backoff when attempts < maxAttempts', async () => {
       const updateCalls: Array<{ next_run_at: Date; attempts: number }> = [];
@@ -271,6 +338,21 @@ describe('ComputedUpdateOutbox', () => {
   });
 
   describe('claimBatch', () => {
+    it('deduplicates claimed rows by base and seed table lock scope', () => {
+      const rows = [
+        { id: 'first', base_id: 'bse1', seed_table_id: 'tbl1' },
+        { id: 'same-scope', base_id: 'bse1', seed_table_id: 'tbl1' },
+        { id: 'other-table', base_id: 'bse1', seed_table_id: 'tbl2' },
+        { id: 'other-base', base_id: 'bse2', seed_table_id: 'tbl1' },
+      ];
+
+      expect(dedupeClaimRowsByScope(rows).map((row) => row.id)).toEqual([
+        'first',
+        'other-table',
+        'other-base',
+      ]);
+    });
+
     it('checks stale processing before claiming pending work', async () => {
       const now = new Date('2026-01-05T12:00:00Z');
       const statuses: string[] = [];
