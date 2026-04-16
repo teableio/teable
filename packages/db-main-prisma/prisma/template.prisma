@@ -285,6 +285,7 @@ model User {
   salt                 String?
   phone                String?   @unique
   email                String    @unique
+  accountName          String    @default(uuid()) @unique @map("account_name")
   avatar               String?
   isSystem             Boolean?  @map("is_system")
   isAdmin              Boolean?  @map("is_admin")
