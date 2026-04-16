@@ -37,6 +37,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DynamicDB } from '../../query-builder';
 import { ComputedFieldUpdater } from '../ComputedFieldUpdater';
+import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
 import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
 
 // =============================================================================
@@ -594,6 +595,46 @@ const createSequentialRecordIds = (count: number): RecordId[] =>
 // =============================================================================
 
 describe('ComputedFieldUpdater', () => {
+  it('uses try advisory locks when the caller requests non-blocking lock acquisition', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(51);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.acquireLocks(plan, { actorId }, { wait: false });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe(COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE);
+    expect(driver.queries[0]?.sql).toContain('pg_try_advisory_xact_lock');
+    expect(driver.queries[0]?.sql).not.toContain('pg_advisory_xact_lock');
+  });
+
   it('generates SQL for link computed updates with dirty propagation', async () => {
     const { baseId, foreignTable, hostTable, lookupFieldId, linkFieldId } = createLinkTables();
     const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();

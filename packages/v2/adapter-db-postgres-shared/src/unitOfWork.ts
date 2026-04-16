@@ -2,6 +2,7 @@ import type {
   IExecutionContext,
   IUnitOfWork,
   IUnitOfWorkTransaction,
+  UnitOfWorkAfterCommitHandler,
   UnitOfWorkOperation,
   DomainError,
 } from '@teable/v2-core';
@@ -22,8 +23,19 @@ class UnitOfWorkAbort extends Error {
 
 export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction {
   readonly kind = 'unitOfWorkTransaction' as const;
+  private readonly afterCommitHandlers: UnitOfWorkAfterCommitHandler[] = [];
 
   constructor(readonly db: Transaction<DB>) {}
+
+  afterCommit(handler: UnitOfWorkAfterCommitHandler): void {
+    this.afterCommitHandlers.push(handler);
+  }
+
+  async runAfterCommitHandlers(): Promise<void> {
+    for (const handler of this.afterCommitHandlers) {
+      await handler();
+    }
+  }
 }
 
 export const getPostgresTransaction = <DB>(context?: IExecutionContext): Transaction<DB> | null => {
@@ -68,10 +80,11 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
-        return await this.db.transaction().execute(async (trx) => {
+        const transactionResult = await this.db.transaction().execute(async (trx) => {
+          const transaction = new PostgresUnitOfWorkTransaction(trx);
           const transactionContext: IExecutionContext = {
             ...context,
-            transaction: new PostgresUnitOfWorkTransaction(trx),
+            transaction,
           };
 
           const workResult = await work(transactionContext);
@@ -79,8 +92,10 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
             throw new UnitOfWorkAbort(workResult.error);
           }
 
-          return workResult;
+          return { workResult, transaction };
         });
+        await transactionResult.transaction.runAfterCommitHandlers();
+        return transactionResult.workResult;
       } catch (error) {
         if (error instanceof UnitOfWorkAbort) {
           if (attempt < maxRetries && isRetryableTransactionAbort(error.error)) {

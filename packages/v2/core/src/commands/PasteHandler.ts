@@ -72,7 +72,10 @@ import {
 } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { RecordFilter } from '../queries/RecordFilterDto';
-import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import {
+  buildRecordConditionSpec,
+  buildSanitizedRecordConditionSpec,
+} from '../queries/RecordFilterMapper';
 import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import {
@@ -345,11 +348,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined =
-        undefined;
-      if (effectiveFilter) {
-        filterSpec = yield* buildRecordConditionSpec(persistedTable, effectiveFilter);
-      }
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(persistedTable, effectiveFilter);
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -2399,14 +2398,14 @@ export class PasteStreamApplicationService extends PasteHandler {
       ? command.sort ?? undefined
       : mergedDefaults.sort();
 
-    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    if (effectiveFilter) {
-      const filterSpecResult = await buildRecordConditionSpec(persistedTable, effectiveFilter);
-      if (filterSpecResult.isErr()) {
-        return err(filterSpecResult.error);
-      }
-      filterSpec = filterSpecResult.value;
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(
+      persistedTable,
+      effectiveFilter
+    );
+    if (filterSpecResult.isErr()) {
+      return err(filterSpecResult.error);
     }
+    const filterSpec = filterSpecResult.value;
 
     const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds.value);
 
@@ -2526,6 +2525,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       persistedTable,
       updateFilterSpec
     );
+    const collectedOperations = await this.collectPasteOperations(operationsStream);
+    if (collectedOperations.isErr()) {
+      return err(collectedOperations.error);
+    }
 
     const batchSize = resolveSelectionStreamBatchSize(expandedContent.length, command.batchSize);
 
@@ -2535,7 +2538,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       editableColumns,
       plannedColumnExpansion,
       typecast: command.typecast,
-      operationsStream,
+      operationsStream: createPasteOperationStream([
+        ...collectedOperations.value.updateOperations,
+        ...collectedOperations.value.createOperations,
+      ]),
       totalCount: expandedContent.length,
       totalChunkCount: Math.max(1, Math.ceil(expandedContent.length / batchSize)),
       batchSize,
@@ -2981,4 +2987,12 @@ async function* createEmptyPasteOperationStream(): AsyncIterable<
   Result<PasteOperation, DomainError>
 > {
   yield* [];
+}
+
+async function* createPasteOperationStream(
+  operations: ReadonlyArray<PasteOperation>
+): AsyncIterable<Result<PasteOperation, DomainError>> {
+  for (const operation of operations) {
+    yield ok(operation);
+  }
 }
