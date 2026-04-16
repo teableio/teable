@@ -29,6 +29,10 @@ export class TableIndexService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
+  private getSearchIndexBuilder() {
+    return this.dbProvider.searchIndex(this.thresholdConfig.searchIndexTruncateLength);
+  }
+
   async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {
@@ -62,7 +66,7 @@ export class TableIndexService {
     });
 
     if (type === TableIndex.search) {
-      const searchIndexSql = this.dbProvider.searchIndex().getExistTableIndexSql(dbTableName);
+      const searchIndexSql = this.getSearchIndexBuilder().getExistTableIndexSql(dbTableName);
       const [{ exists: searchIndexExist }] = await this.prismaService.$queryRawUnsafe<
         {
           exists: boolean;
@@ -121,7 +125,7 @@ export class TableIndexService {
 
   async toggleSearchIndex(dbTableName: string, fields: IFieldInstance[], toEnable: boolean) {
     if (toEnable) {
-      const sqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fields);
+      const sqls = this.getSearchIndexBuilder().getCreateIndexSql(dbTableName, fields);
       return await this.prismaService.$tx(
         async (prisma) => {
           for (let i = 0; i < sqls.length; i++) {
@@ -146,7 +150,7 @@ export class TableIndexService {
       );
     }
 
-    const sql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
+    const sql = this.getSearchIndexBuilder().getDropIndexSql(dbTableName);
     try {
       return await this.prismaService.$executeRawUnsafe(sql);
     } catch (error) {
@@ -171,7 +175,7 @@ export class TableIndexService {
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
     if (index.includes(TableIndex.search)) {
-      const sql = this.dbProvider.searchIndex().getDeleteSingleIndexSql(dbTableName, field);
+      const sql = this.getSearchIndexBuilder().getDeleteSingleIndexSql(dbTableName, field);
       // Execute within current transaction if present to keep boundaries consistent
       await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
@@ -190,7 +194,7 @@ export class TableIndexService {
     });
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
-    const sql = this.dbProvider.searchIndex().createSingleIndexSql(dbTableName, fieldInstance);
+    const sql = this.getSearchIndexBuilder().createSingleIndexSql(dbTableName, fieldInstance);
     if (index.includes(TableIndex.search) && sql) {
       await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
@@ -222,7 +226,7 @@ export class TableIndexService {
     });
     const { dbTableName } = tableRaw;
 
-    const sql = this.dbProvider.searchIndex().getIndexInfoSql(dbTableName);
+    const sql = this.getSearchIndexBuilder().getIndexInfoSql(dbTableName);
     return this.prismaService.$queryRawUnsafe<unknown[]>(sql);
   }
 
@@ -273,9 +277,9 @@ export class TableIndexService {
     });
 
     const { dbTableName } = tableRaw;
-    const dropSql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
+    const dropSql = this.getSearchIndexBuilder().getDropIndexSql(dbTableName);
     const fieldInstances = await this.getSearchIndexFields(tableId);
-    const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
+    const createSqls = this.getSearchIndexBuilder().getCreateIndexSql(dbTableName, fieldInstances);
     await this.prismaService.$tx(
       async (prisma) => {
         await prisma.$executeRawUnsafe(dropSql);
