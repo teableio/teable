@@ -1,4 +1,3 @@
-
 services:
   integration-test:
     container_name: integration-test
@@ -12,4 +11,4 @@ services:
     networks:
       - teable-net
     environment:
-      - PRISMA_DATABASE_URL=file:../../db/main.db
+      - PRISMA_DATABASE_URL=postgresql://teable:teable@teable-postgres:5432/teable?schema=public&statement_cache_size=1

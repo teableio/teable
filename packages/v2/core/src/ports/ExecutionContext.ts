@@ -6,7 +6,10 @@ import type { ITracer } from './Tracer';
 
 export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
+  afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
 }
+
+export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 
 export interface IExecutionContextBatchMutation {
   readonly operationId?: string;
@@ -59,4 +62,22 @@ export const getDomainContext = (context?: IExecutionContext): IDomainContext | 
           }
         : undefined,
   };
+};
+
+export const registerAfterCommit = (
+  context: IExecutionContext,
+  handler: UnitOfWorkAfterCommitHandler
+): boolean => {
+  if (!context.transaction?.afterCommit) {
+    return false;
+  }
+
+  context.transaction.afterCommit(handler);
+  return true;
+};
+
+export const withoutTransaction = (context: IExecutionContext): IExecutionContext => {
+  const nextContext: IExecutionContext = { ...context };
+  delete nextContext.transaction;
+  return nextContext;
 };

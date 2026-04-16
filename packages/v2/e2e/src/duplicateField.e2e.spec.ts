@@ -673,6 +673,266 @@ describe('duplicateField', () => {
     }
   });
 
+  it('T3235 preserves copied lookup values when converting the duplicate to basic fields', async () => {
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+
+    try {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `DupLookupSelectForeign-${Date.now()}`,
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'singleSelect',
+            name: 'Status',
+            options: {
+              choices: [
+                { id: 'choAlpha', name: 'Alpha', color: 'blueBright' },
+                { id: 'choBeta', name: 'Beta', color: 'greenBright' },
+              ],
+            },
+          },
+          { type: 'number', name: 'Score' },
+          { type: 'checkbox', name: 'Done' },
+          { type: 'date', name: 'Due' },
+        ],
+      });
+      foreignTableId = foreignTable.id;
+
+      const findForeignFieldId = (name: string) =>
+        foreignTable.fields.find((field) => field.name === name)?.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      const foreignStatusFieldId = findForeignFieldId('Status');
+      const foreignScoreFieldId = findForeignFieldId('Score');
+      const foreignDoneFieldId = findForeignFieldId('Done');
+      const foreignDueFieldId = findForeignFieldId('Due');
+      expect(foreignPrimaryFieldId).toBeTruthy();
+      expect(foreignStatusFieldId).toBeTruthy();
+      expect(foreignScoreFieldId).toBeTruthy();
+      expect(foreignDoneFieldId).toBeTruthy();
+      expect(foreignDueFieldId).toBeTruthy();
+      if (
+        !foreignPrimaryFieldId ||
+        !foreignStatusFieldId ||
+        !foreignScoreFieldId ||
+        !foreignDoneFieldId ||
+        !foreignDueFieldId
+      )
+        return;
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `DupLookupSelectHost-${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+      expect(hostPrimaryFieldId).toBeTruthy();
+      if (!hostPrimaryFieldId) return;
+
+      const hostTableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Foreign',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+        },
+      });
+
+      const linkFieldId = hostTableWithLink.fields.find((field) => field.name === 'Foreign')?.id;
+      expect(linkFieldId).toBeTruthy();
+      if (!linkFieldId) return;
+
+      const createLookupFieldId = async (name: string, lookupFieldId: string) => {
+        const hostTableWithLookup = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'lookup',
+            name,
+            options: {
+              linkFieldId,
+              foreignTableId: foreignTable.id,
+              lookupFieldId,
+            },
+          },
+        });
+
+        const lookupId = hostTableWithLookup.fields.find((field) => field.name === name)?.id;
+        expect(lookupId).toBeTruthy();
+        if (!lookupId) throw new Error(`missing lookup field ${name}`);
+        return lookupId;
+      };
+
+      const statusLookupFieldId = await createLookupFieldId('Status Lookup', foreignStatusFieldId);
+      const scoreLookupFieldId = await createLookupFieldId('Score Lookup', foreignScoreFieldId);
+      const doneLookupFieldId = await createLookupFieldId('Done Lookup', foreignDoneFieldId);
+      const dueLookupFieldId = await createLookupFieldId('Due Lookup', foreignDueFieldId);
+
+      const foreignRecord = await ctx.createRecord(foreignTable.id, {
+        [foreignPrimaryFieldId]: 'Foreign 1',
+        [foreignStatusFieldId]: 'Alpha',
+        [foreignScoreFieldId]: 4.7,
+        [foreignDoneFieldId]: true,
+        [foreignDueFieldId]: '2024-01-02T00:00:00.000Z',
+      });
+
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Host 1',
+        [linkFieldId]: { id: foreignRecord.id },
+      });
+
+      await ctx.drainOutbox();
+
+      const beforeRecords = await ctx.listRecordsWithoutDrain(hostTable.id);
+      expect(
+        beforeRecords.find((record) => record.id === hostRecord.id)?.fields[statusLookupFieldId]
+      ).toEqual(['Alpha']);
+      expect(
+        beforeRecords.find((record) => record.id === hostRecord.id)?.fields[scoreLookupFieldId]
+      ).toEqual([4.7]);
+      expect(
+        beforeRecords.find((record) => record.id === hostRecord.id)?.fields[doneLookupFieldId]
+      ).toEqual([true]);
+
+      const assertExpected = (actual: unknown, expected: unknown | ((actual: unknown) => void)) => {
+        if (typeof expected === 'function') {
+          expected(actual);
+          return;
+        }
+        expect(actual).toEqual(expected);
+      };
+
+      const expectDate = (actual: unknown) => {
+        expect(new Date(actual as string).toISOString()).toBe('2024-01-02T00:00:00.000Z');
+      };
+
+      const expectDateArray = (actual: unknown) => {
+        expect(Array.isArray(actual)).toBe(true);
+        expectDate((actual as unknown[])[0]);
+      };
+
+      const duplicateAndConvert = async ({
+        lookupFieldId,
+        targetField,
+        copiedValue,
+        expectedValue,
+      }: {
+        lookupFieldId: string;
+        targetField: { type: string };
+        copiedValue: unknown | ((actual: unknown) => void);
+        expectedValue: unknown | ((actual: unknown) => void);
+      }) => {
+        const duplicateResponse = await fetch(`${ctx.baseUrl}/tables/duplicateField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: hostTable.id,
+            fieldId: lookupFieldId,
+            includeRecordValues: true,
+            newFieldName: `Lookup Copy ${targetField.type}`,
+          }),
+        });
+
+        expect(duplicateResponse.status).toBe(200);
+        const duplicateRaw = await duplicateResponse.json();
+        const duplicateParsed = duplicateFieldOkResponseSchema.safeParse(duplicateRaw);
+        expect(duplicateParsed.success).toBe(true);
+        expect(duplicateParsed.success && duplicateParsed.data.ok).toBe(true);
+        if (!duplicateParsed.success || !duplicateParsed.data.ok) return;
+
+        const duplicatedFieldId = duplicateParsed.data.data.newFieldId;
+        await ctx.drainOutbox();
+
+        const afterDuplicateRecords = await ctx.listRecordsWithoutDrain(hostTable.id);
+        assertExpected(
+          afterDuplicateRecords.find((record) => record.id === hostRecord.id)?.fields[
+            duplicatedFieldId
+          ],
+          copiedValue
+        );
+
+        await ctx.updateField({
+          tableId: hostTable.id,
+          fieldId: duplicatedFieldId,
+          field: targetField as never,
+        });
+
+        const afterConvertRecords = await ctx.listRecords(hostTable.id);
+        assertExpected(
+          afterConvertRecords.find((record) => record.id === hostRecord.id)?.fields[
+            duplicatedFieldId
+          ],
+          expectedValue
+        );
+      };
+
+      await duplicateAndConvert({
+        lookupFieldId: statusLookupFieldId,
+        targetField: { type: 'singleLineText' },
+        copiedValue: ['Alpha'],
+        expectedValue: 'Alpha',
+      });
+      await duplicateAndConvert({
+        lookupFieldId: statusLookupFieldId,
+        targetField: { type: 'longText' },
+        copiedValue: ['Alpha'],
+        expectedValue: 'Alpha',
+      });
+      await duplicateAndConvert({
+        lookupFieldId: scoreLookupFieldId,
+        targetField: { type: 'number' },
+        copiedValue: [4.7],
+        expectedValue: 4.7,
+      });
+      await duplicateAndConvert({
+        lookupFieldId: scoreLookupFieldId,
+        targetField: { type: 'rating' },
+        copiedValue: [4.7],
+        expectedValue: 4,
+      });
+      await duplicateAndConvert({
+        lookupFieldId: doneLookupFieldId,
+        targetField: { type: 'checkbox' },
+        copiedValue: [true],
+        expectedValue: true,
+      });
+      await duplicateAndConvert({
+        lookupFieldId: dueLookupFieldId,
+        targetField: { type: 'date' },
+        copiedValue: expectDateArray,
+        expectedValue: expectDate,
+      });
+      await duplicateAndConvert({
+        lookupFieldId: statusLookupFieldId,
+        targetField: { type: 'singleSelect' },
+        copiedValue: ['Alpha'],
+        expectedValue: 'Alpha',
+      });
+      await duplicateAndConvert({
+        lookupFieldId: statusLookupFieldId,
+        targetField: { type: 'multipleSelect' },
+        copiedValue: ['Alpha'],
+        expectedValue: ['Alpha'],
+      });
+    } finally {
+      if (hostTableId) {
+        await ctx.deleteTable(hostTableId).catch(() => undefined);
+      }
+      if (foreignTableId) {
+        await ctx.deleteTable(foreignTableId).catch(() => undefined);
+      }
+    }
+  });
+
   describe.each(duplicateFieldCases)('duplicate field with values: $label', (caseInfo) => {
     it.todo(`includeRecordValues=true should copy values; setup: ${caseInfo.setupNotes}`);
   });
