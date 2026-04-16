@@ -949,5 +949,18 @@
     "shareTableTab": "Tabloyu paylaş",
     "shareViewTab": "Görünümü paylaş",
     "shareNodeTab": "Düğümü paylaş"
+  },
+  "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Soru",
+        "confirm": "Onayla ({{count}})",
+        "otherPlaceholder": "Veya yanıtınızı yazın…",
+        "otherSend": "Gönder",
+        "addCustomPlaceholder": "Özel seçenek ekle…",
+        "askedUser": "Kullanıcıya soruldu",
+        "answered": "Yanıtlandı"
+      }
+    }
   }
 }

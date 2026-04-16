@@ -1304,7 +1304,7 @@ export class LinkService {
       .txClient()
       .$queryRawUnsafe<{ maxOrder: unknown }[]>(maxOrderQuery);
     const raw = maxOrderResult[0]?.maxOrder as unknown;
-    // Coerce SQLite BigInt or string results safely into number; default to 0
+    // Coerce aggregate results safely into number; default to 0
     return raw == null ? 0 : Number(raw);
   }
 

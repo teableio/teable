@@ -329,7 +329,6 @@ export class RecordService {
       return;
     }
 
-    // sql capable for sqlite
     const valuesQuery = ids
       .map((id, index) => `SELECT ${index + 1} AS sort_order, '${id}' AS id`)
       .join(' UNION ALL ');
