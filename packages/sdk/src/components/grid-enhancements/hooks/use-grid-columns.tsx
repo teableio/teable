@@ -22,7 +22,7 @@ import { CellType, hexToRGBA, getFileCover, onMixedTextClick } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import type { IButtonClickStatusHook } from '../../../hooks';
 import { useFields, useTablePermission, useView } from '../../../hooks';
-import type { IFieldInstance, NumberField, Record } from '../../../model';
+import type { ColorField, IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { isMarkdownShowAs, stripMarkdown } from '../../editor/long-text/utils';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -38,6 +38,7 @@ import {
   GridSelectEditor,
   expandPreviewModal,
 } from '../editor';
+import { GridColorEditor } from '../editor/GridColorEditor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
@@ -583,6 +584,22 @@ export const useCreateCellValue2GridDisplay = (
                 statusHook: buttonClickStatusHook,
                 record,
               },
+            };
+          }
+          case FieldType.Color: {
+            return {
+              ...baseCellProps,
+              type: CellType.Color,
+              data: (cellValue as string) || '',
+              displayData: field.cellValue2String(cellValue) || '',
+              customEditor: (props, editorRef) => (
+                <GridColorEditor
+                  ref={editorRef}
+                  field={field as ColorField}
+                  record={record}
+                  {...props}
+                />
+              ),
             };
           }
           default: {

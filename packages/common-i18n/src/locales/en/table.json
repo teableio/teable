@@ -191,6 +191,9 @@
       "checkbox": {
         "title": "Done"
       },
+      "color": {
+        "title": "Color"
+      },
       "button": {
         "title": "Button",
         "label": "Button label",
@@ -399,6 +402,7 @@
       "lastModifiedBy": "See which user made the most recent edit to some or all fields in a record.",
       "autoNumber": "Automatically generate unique incremental numbers for each record.",
       "button": "Trigger a customized action.",
+      "color": "Store a color value as a hex code.",
       "lookup": "See values from a field in a linked record."
     },
     "fieldName": "Field name",

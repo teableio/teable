@@ -57,6 +57,8 @@ export const validateCellValue = (field: IFieldVo, cellValue: unknown) => {
     }
     case FieldType.Button:
       return validateWithSchema(buttonFieldCelValueSchema, cellValue);
+    case FieldType.Color:
+      return validateWithSchema(singleLineTextCelValueSchema, cellValue);
     default:
       assertNever(type);
   }

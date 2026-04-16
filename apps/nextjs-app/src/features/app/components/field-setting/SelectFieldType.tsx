@@ -47,6 +47,7 @@ export const FIELD_TYPE_ORDER1 = [
   FieldType.Date,
   FieldType.Rating,
   FieldType.Checkbox,
+  FieldType.Color,
   FieldType.Attachment,
   FieldType.Formula,
   FieldType.Link,
@@ -70,6 +71,7 @@ const BASE_FIELD_TYPE = [
   FieldType.Date,
   FieldType.Rating,
   FieldType.Checkbox,
+  FieldType.Color,
   FieldType.Attachment,
 ];
 

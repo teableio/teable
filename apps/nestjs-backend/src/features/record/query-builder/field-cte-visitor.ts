@@ -34,6 +34,7 @@ import {
   type SingleSelectFieldCore,
   type UserFieldCore,
   type ButtonFieldCore,
+  type ColorFieldCore,
   type Tables,
   type TableDomain,
   type ILinkFieldOptions,
@@ -707,6 +708,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.visitLookupField(field);
   }
   visitButtonField(field: ButtonFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitColorField(field: ColorFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
   }
 }
@@ -2821,6 +2825,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitCreatedByField(_field: CreatedByFieldCore): void {}
   visitLastModifiedByField(_field: LastModifiedByFieldCore): void {}
   visitButtonField(_field: ButtonFieldCore): void {}
+  visitColorField(_field: ColorFieldCore): void {}
 
   private ensureLinkCteJoined(cteName: string): void {
     if (this.state.isCteJoined(cteName)) {

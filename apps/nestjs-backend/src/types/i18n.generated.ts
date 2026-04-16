@@ -2123,6 +2123,9 @@ export type I18nTranslations = {
                 "refineOptionsError": string;
                 "optionsRequired": string;
             };
+            "color": {
+                "button": string;
+            };
         };
         "filter": {
             "label": string;
@@ -2313,6 +2316,7 @@ export type I18nTranslations = {
                 "button": string;
                 "createdBy": string;
                 "lastModifiedBy": string;
+                "color": string;
             };
             "description": {
                 "singleLineText": string;
@@ -2337,6 +2341,7 @@ export type I18nTranslations = {
                 "button": string;
                 "createdBy": string;
                 "lastModifiedBy": string;
+                "color": string;
             };
             "link": {
                 "oneWay": string;
@@ -4105,6 +4110,9 @@ export type I18nTranslations = {
                     "title": string;
                     "description": string;
                 };
+                "color": {
+                    "title": string;
+                };
             };
             "editor": {
                 "addField": string;
@@ -4251,6 +4259,7 @@ export type I18nTranslations = {
                 "button": string;
                 "lookup": string;
                 "conditionalRollup": string;
+                "color": string;
             };
             "fieldName": string;
             "fieldNameOptional": string;

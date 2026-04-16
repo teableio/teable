@@ -11,6 +11,7 @@ import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { AutoNumberFieldDto } from './field-dto/auto-number-field.dto';
 import { ButtonFieldDto } from './field-dto/button-field.dto';
+import { ColorFieldDto } from './field-dto/color-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { ConditionalRollupFieldDto } from './field-dto/conditional-rollup-field.dto';
 import { CreatedByFieldDto } from './field-dto/created-by-field.dto';
@@ -173,6 +174,8 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(LastModifiedByFieldDto, normalizedField);
     case FieldType.Button:
       return plainToInstance(ButtonFieldDto, normalizedField);
+    case FieldType.Color:
+      return plainToInstance(ColorFieldDto, normalizedField);
     default:
       assertNever(normalizedField.type);
   }

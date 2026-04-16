@@ -18,6 +18,7 @@ import { isMarkdownShowAs, normalizeMarkdownValue, stripMarkdown } from '../edit
 import { CellAttachment } from './cell-attachment';
 import { CellButton } from './cell-button';
 import { CellCheckbox } from './cell-checkbox';
+import { CellColor } from './cell-color';
 import { CellDate } from './cell-date';
 import { CellLink } from './cell-link';
 import { CellMarkdown } from './cell-markdown';
@@ -223,6 +224,10 @@ const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis }) => 
   />
 );
 
+const renderColor: RenderFn = ({ value, className }) => (
+  <CellColor value={value as string} className={className} />
+);
+
 const typeRenderers: Partial<Record<FieldType, RenderFn>> = {
   [FieldType.LongText]: renderLongText,
   [FieldType.SingleLineText]: renderSingleLineText,
@@ -244,6 +249,7 @@ const typeRenderers: Partial<Record<FieldType, RenderFn>> = {
   [FieldType.Rollup]: renderFormulaLike,
   [FieldType.ConditionalRollup]: renderFormulaLike,
   [FieldType.Link]: renderLink,
+  [FieldType.Color]: renderColor,
 };
 
 export const CellValue = (props: ICellValueContainer) => {

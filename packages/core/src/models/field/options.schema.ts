@@ -5,6 +5,7 @@ import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schem
 import { autoNumberFieldOptionsSchema } from './derivate/auto-number-option.schema';
 import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { colorFieldOptionsSchema } from './derivate/color-option.schema';
 import { conditionalRollupFieldOptionsSchema } from './derivate/conditional-rollup-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import { createdTimeFieldOptionsSchema } from './derivate/created-time-option.schema';
@@ -62,6 +63,8 @@ export function safeParseOptions(fieldType: FieldType, value: unknown) {
       return conditionalRollupFieldOptionsSchema.safeParse(value);
     case FieldType.Button:
       return buttonFieldOptionsSchema.safeParse(value);
+    case FieldType.Color:
+      return colorFieldOptionsSchema.safeParse(value);
     default:
       assertNever(fieldType);
   }

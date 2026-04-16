@@ -27,6 +27,7 @@ import {
   EyeOff,
   MagicAi,
   MousePointerClick as MousePointerClickIcon,
+  PaintBucket as PaintBucketIcon,
 } from '@teable/icons';
 
 import { useCallback } from 'react';
@@ -35,6 +36,7 @@ import {
   AttachmentField,
   AutoNumberField,
   CheckboxField,
+  ColorField,
   CreatedTimeField,
   DateField,
   LastModifiedTimeField,
@@ -226,6 +228,13 @@ export const useFieldStaticGetter = () => {
               color: Colors.Teal,
             },
             Icon: getIcon(MousePointerClickIcon),
+          };
+        case FieldType.Color:
+          return {
+            title: t('field.title.color'),
+            description: t('field.description.color'),
+            defaultOptions: ColorField.defaultOptions(),
+            Icon: getIcon(PaintBucketIcon),
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

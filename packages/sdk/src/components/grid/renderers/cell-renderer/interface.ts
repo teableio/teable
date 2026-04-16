@@ -19,6 +19,7 @@ export enum CellType {
   Boolean = 'Boolean',
   Loading = 'Loading',
   Button = 'Button',
+  Color = 'Color',
 }
 
 export enum EditorType {
@@ -175,6 +176,12 @@ export interface IButtonCell extends IEditableCell {
   };
 }
 
+export interface IColorCell extends IEditableCell {
+  type: CellType.Color;
+  data: string;
+  displayData: string;
+}
+
 export type IInnerCell =
   | ITextCell
   | ILinkCell
@@ -185,7 +192,8 @@ export type IInnerCell =
   | IBooleanCell
   | IChartCell
   | IUserCell
-  | IButtonCell;
+  | IButtonCell
+  | IColorCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 
