@@ -39,6 +39,7 @@ import type {
   ClaimBatchParams,
   ClaimByIdParams,
   RenewLeaseParams,
+  ReleaseForRetryParams,
   ComputedUpdateOutboxConfig,
   AnyOutboxItem,
   FieldBackfillOutboxItem,
@@ -69,7 +70,24 @@ const createOutboxSeedId = (): string =>
 const createClaimOwner = (workerId: string): string =>
   `${workerId}:${generatePrefixedId(OUTBOX_CLAIM_ID_PREFIX, OUTBOX_CLAIM_ID_BODY_LENGTH)}`;
 
-type OutboxRow = Record<string, unknown>;
+export type OutboxRow = Record<string, unknown>;
+
+const getClaimLockScope = (row: OutboxRow): string =>
+  `${String(row.base_id)}:${String(row.seed_table_id)}`;
+
+export const dedupeClaimRowsByScope = <T extends OutboxRow>(rows: ReadonlyArray<T>): T[] => {
+  const seen = new Set<string>();
+  const selected: T[] = [];
+
+  for (const row of rows) {
+    const scope = getClaimLockScope(row);
+    if (seen.has(scope)) continue;
+    seen.add(scope);
+    selected.push(row);
+  }
+
+  return selected;
+};
 
 type SeedRecord = {
   tableId: string;
@@ -509,6 +527,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', DEFAULT_STATUS)
                   .where('o.next_run_at', '<=', now)
+                  .where(
+                    sql<boolean>`not exists (
+                    select 1
+                    from computed_update_outbox active
+                    where active.base_id = o.base_id
+                      and active.seed_table_id = o.seed_table_id
+                      and active.status = 'processing'
+                      and active.locked_at is not null
+                      and active.locked_at > ${reclaimBefore}
+                  )`
+                  )
                   .where(buildComputedTaskNotPausedCondition('o', now))
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')
@@ -518,7 +547,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .execute()
               : [];
 
-          const rows = [...staleRows, ...pendingRows];
+          const rows = dedupeClaimRowsByScope([...staleRows, ...pendingRows]);
 
           if (rows.length === 0) return ok([]);
 
@@ -771,6 +800,86 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         return await context.tracer.withSpan(span, executeMarkDone);
       }
       return await executeMarkDone();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async releaseForRetry(
+    params: ReleaseForRetryParams,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>> {
+    const span = context?.tracer?.startSpan('teable.outbox.releaseForRetry', {
+      'outbox.taskId': params.task.id,
+    });
+
+    const executeRelease = async (): Promise<Result<boolean, DomainError>> => {
+      const now = params.now ?? new Date();
+      const retryDelayMs = Math.max(
+        0,
+        Math.trunc(params.retryDelayMs ?? this.config.baseBackoffMs)
+      );
+      const nextRunAt = new Date(now.getTime() + retryDelayMs);
+      const leaseOwner = params.task.lockedBy ?? null;
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => {
+          if (leaseOwner) {
+            const ownedRow = await trx
+              .selectFrom(OUTBOX_TABLE)
+              .select(['id'])
+              .where('id', '=', params.task.id)
+              .where('status', '=', 'processing')
+              .where('locked_by', '=', leaseOwner)
+              .forUpdate()
+              .executeTakeFirst();
+
+            if (!ownedRow) {
+              this.logger.warn('computed:outbox:release_retry_skipped_owner_mismatch', {
+                taskId: params.task.id,
+                leaseOwner,
+              });
+              return ok(false);
+            }
+          }
+
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              status: DEFAULT_STATUS,
+              next_run_at: nextRunAt,
+              last_error: params.reason,
+              locked_at: null,
+              locked_by: null,
+              updated_at: now,
+            })
+            .where('id', '=', params.task.id)
+            .execute();
+
+          this.logger.debug('computed:outbox:released_for_retry', {
+            taskId: params.task.id,
+            reason: params.reason,
+            nextRunAt,
+          });
+
+          return ok(true);
+        },
+        {
+          logger: this.logger,
+          operation: 'release_for_retry',
+          logContext: { taskId: params.task.id, leaseOwner },
+        }
+      );
+    };
+
+    try {
+      if (span && context?.tracer) {
+        return await context.tracer.withSpan(span, executeRelease);
+      }
+      return await executeRelease();
     } finally {
       span?.end();
     }

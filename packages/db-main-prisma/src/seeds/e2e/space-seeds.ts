@@ -85,10 +85,8 @@ export class SpaceSeeds extends AbstractSeed {
     });
     this.log('UPSERT', `Base ${base.id} - ${base.name}`);
 
-    if (this.driver !== 'sqlite3') {
-      await tx.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
-      await tx.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
-    }
+    await tx.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
+    await tx.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
   }
 
   private async createCollaborator(tx: Prisma.TransactionClient) {

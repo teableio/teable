@@ -500,9 +500,6 @@ describe('OpenAPI SpaceController (e2e)', () => {
         },
       ],
       embeddingModel: 'openai@text-embedding-3-small@GPT',
-      chatModel: {
-        lg: 'openai@gpt-4o@GPT',
-      },
     };
 
     beforeEach(async () => {
