@@ -304,10 +304,10 @@ export class AiService {
     } else if (!aiConfig?.chatModel?.lg) {
       config = aiIntegrationConfig as IAIConfig;
     } else {
-      const lg = aiIntegrationConfig.chatModel?.lg || aiConfig.chatModel.lg;
-      const sm = aiIntegrationConfig.chatModel?.sm;
-      const md = aiIntegrationConfig.chatModel?.md;
-      const ability = aiIntegrationConfig.chatModel?.ability || aiConfig.chatModel.ability;
+      const lg = aiConfig.chatModel.lg;
+      const sm = aiConfig.chatModel.sm;
+      const md = aiConfig.chatModel.md;
+      const ability = aiConfig.chatModel.ability;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)
@@ -458,38 +458,10 @@ export class AiService {
     return !!providerConfig;
   }
 
-  /**
-   * Check if a gateway model should be billed
-   * All AI Gateway models should be billed as long as aiGatewayApiKey is configured
-   * The gatewayModels list is just for recommended/displayed models, not a billing whitelist
-   */
-  async findModelInGateway(modelKey: string): Promise<boolean> {
-    if (!this.isGatewayModel(modelKey)) {
-      this.logger.debug(`[findModelInGateway] ${modelKey} is not a gateway model`);
-      return false;
-    }
-
-    const { model: modelId } = this.parseModelKey(modelKey);
-    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
-
-    // Check if gateway is configured - if yes, all gateway models should be billed
-    if (!aiConfig?.aiGatewayApiKey) {
-      this.logger.warn(
-        `[findModelInGateway] No aiGatewayApiKey configured, model ${modelId} will not be billed`
-      );
-      return false;
-    }
-
-    this.logger.debug(
-      `[findModelInGateway] AI Gateway configured, model ${modelId} will be billed`
-    );
-    return true;
-  }
-
   async checkInstanceAIModel(modelKey: string): Promise<boolean> {
     // Check gateway models first
     if (this.isGatewayModel(modelKey)) {
-      return this.findModelInGateway(modelKey);
+      return true;
     }
 
     const aiConfig = await this.getInstanceAIConfig();

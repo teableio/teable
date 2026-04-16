@@ -13,7 +13,7 @@ import {
   defaultNumberFormatting,
 } from '@teable/core';
 import type { IFieldRo, IUserCellValue } from '@teable/core';
-import type { IPasteRo, IPasteVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
+import type { IRecordsVo, IPasteRo, IPasteVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
   RangeType,
   IdReturnType,
@@ -22,6 +22,7 @@ import {
   DELETE_STREAM_URL,
   DUPLICATE_STREAM_URL,
   DELETE_URL,
+  GET_RECORDS_URL,
   PASTE_URL,
   PASTE_STREAM_URL,
   X_CANARY_HEADER,
@@ -50,6 +51,7 @@ import {
   getRecord,
   initApp,
   createTable,
+  createRecords,
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
@@ -87,6 +89,24 @@ describe('OpenAPI SelectionController (e2e)', () => {
       }),
       pasteRo,
       {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+      }
+    );
+  };
+
+  const getRecordsWithCanary = async (
+    tableId: string,
+    query: Parameters<typeof getRecords>[1],
+    useV2: boolean
+  ) => {
+    return axios.get<IRecordsVo>(
+      urlBuilder(GET_RECORDS_URL, {
+        tableId,
+      }),
+      {
+        params: query,
         headers: {
           [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
         },
@@ -2588,6 +2608,87 @@ describe('OpenAPI SelectionController (e2e)', () => {
       }
     });
 
+    it('T3238 should not create rows when v2 paste-stream updates records out of the filtered view', async () => {
+      const rowCount = 600;
+      const createBatchSize = 200;
+      const streamTable = await createTable(baseId, {
+        name: 'T3238 paste-stream filtered empty rows',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [],
+      });
+
+      try {
+        const viewId = streamTable.views[0].id;
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'Name')!.id;
+
+        for (let offset = 0; offset < rowCount; offset += createBatchSize) {
+          await createRecords(streamTable.id, {
+            records: Array.from({ length: Math.min(createBatchSize, rowCount - offset) }, () => ({
+              fields: {},
+            })),
+          });
+        }
+
+        await updateViewFilter(streamTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: nameFieldId,
+                operator: 'isEmpty',
+                value: null,
+              },
+            ],
+          },
+        });
+
+        const filteredRecordsBefore = await getRecords(streamTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+          take: rowCount,
+        });
+        expect(filteredRecordsBefore.data.records).toHaveLength(rowCount);
+
+        const { progressEvents, doneEvent, errorEvents } = await pasteStreamWithCanary(
+          streamTable.id,
+          {
+            viewId,
+            ranges: [
+              [0, 0],
+              [0, rowCount - 1],
+            ],
+            content: Array.from({ length: rowCount }, (_, index) => [`T3238-${index}`]),
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent?.processedCount).toBe(rowCount);
+        expect(doneEvent?.updatedCount).toBe(rowCount);
+        expect(doneEvent?.createdCount).toBe(0);
+        expect(doneEvent?.data.createdRecordIds).toHaveLength(0);
+        expect(progressEvents.some((event) => event.totalCount === rowCount)).toBe(true);
+
+        const allRecordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: rowCount,
+        });
+        expect(allRecordsAfter.data.records).toHaveLength(rowCount);
+        expect(
+          new Set(allRecordsAfter.data.records.map((record) => record.fields[nameFieldId]))
+        ).toEqual(new Set(Array.from({ length: rowCount }, (_, index) => `T3238-${index}`)));
+
+        const filteredRecordsAfter = await getRecords(streamTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+          take: 1,
+        });
+        expect(filteredRecordsAfter.data.records).toHaveLength(0);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
     it.skipIf(isForceV2)(
       'should allow paste-stream when v2 canary is disabled and fall back to v1 paste',
       async () => {
@@ -3209,6 +3310,110 @@ describe('OpenAPI SelectionController (e2e)', () => {
       // C should be updated (row 2 in DESC order)
       expect(recordC?.fields[nameField.id]).toBe('ViewSortMiddle');
     });
+  });
+
+  describe('paste with incomplete view filters (v1/v2 parity)', () => {
+    let incompleteFilterTable: ITableFullVo;
+
+    beforeEach(async () => {
+      incompleteFilterTable = await createTable(baseId, {
+        name: 'incomplete-filter-paste-table',
+        fields: [
+          { name: 'ID', type: FieldType.AutoNumber },
+          { name: 'Label', type: FieldType.SingleLineText },
+          { name: 'Number', type: FieldType.Number },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'To do', color: Colors.Orange },
+                { name: 'In progress', color: Colors.Cyan },
+                { name: 'Done', color: Colors.Teal },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { Label: 'row1', Status: 'To do' } },
+          { fields: { Label: 'row2' } },
+          { fields: { Label: 'row3' } },
+          { fields: { Label: 'row4' } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, incompleteFilterTable.id);
+    });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
+      'should ignore incomplete non-checkbox view filters before pasting in $label',
+      async ({ useV2, v2Header }) => {
+        const viewId = incompleteFilterTable.views[0].id;
+        const autoNumberField = incompleteFilterTable.fields.find((field) => field.name === 'ID')!;
+        const statusField = incompleteFilterTable.fields.find((field) => field.name === 'Status')!;
+
+        await updateViewFilter(incompleteFilterTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: autoNumberField.id, operator: 'is', value: null }],
+          },
+        });
+
+        const visibleRecords = await getRecordsWithCanary(
+          incompleteFilterTable.id,
+          {
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+          },
+          useV2
+        );
+        expect(visibleRecords.data.records).toHaveLength(4);
+
+        const visibleFields = (await getFields(incompleteFilterTable.id, { viewId })).data;
+        const statusColumnIndex = visibleFields.findIndex((field) => field.id === statusField.id);
+        expect(statusColumnIndex).toBeGreaterThanOrEqual(0);
+
+        const targetRecordId = incompleteFilterTable.records[2].id;
+        const res = await pasteWithCanary(
+          incompleteFilterTable.id,
+          {
+            viewId,
+            content: [['In progress']],
+            ranges: [
+              [statusColumnIndex, 2],
+              [statusColumnIndex, 2],
+            ],
+          },
+          useV2
+        );
+
+        expect(res.status).toBe(200);
+        expect(res.headers['x-teable-v2']).toBe(v2Header);
+
+        const afterRecords = await getRecordsWithCanary(
+          incompleteFilterTable.id,
+          {
+            fieldKeyType: FieldKeyType.Id,
+          },
+          useV2
+        );
+        expect(afterRecords.data.records).toHaveLength(4);
+
+        const targetRecord = afterRecords.data.records.find(
+          (record) => record.id === targetRecordId
+        );
+        expect(targetRecord?.fields[statusField.id]).toBe('In progress');
+      }
+    );
   });
 
   describe('paste with isNoneOf filter and NULL values (production regression)', () => {

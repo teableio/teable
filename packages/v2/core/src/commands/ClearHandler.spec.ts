@@ -29,6 +29,7 @@ import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
+  ITableRecordQueryOptions,
   ITableRecordQueryStreamOptions,
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
@@ -41,7 +42,8 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ClearCommand } from './ClearCommand';
-import { ClearHandler } from './ClearHandler';
+import { ClearHandler, ClearStreamHandler } from './ClearHandler';
+import { ClearStreamCommand } from './ClearStreamCommand';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
@@ -172,6 +174,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updatedRecords: TableRecord[] = [];
   updateCalls = 0;
 
+  constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
+
   async insert(
     _: IExecutionContext,
     __: Table,
@@ -227,10 +231,34 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
       for (const update of batchResult.value) {
         this.updatedRecords.push(update.record);
+        this.updateQueryRecord(update.record);
         totalUpdated += 1;
       }
     }
     return ok({ totalUpdated });
+  }
+
+  private updateQueryRecord(record: TableRecord) {
+    if (!this.queryRepository) {
+      return;
+    }
+
+    const recordId = record.id().toString();
+    const storedRecord = this.queryRepository.records.find((item) => item.id === recordId);
+    if (!storedRecord) {
+      return;
+    }
+
+    const updatedFields: Record<string, unknown> = {};
+    for (const entry of record.fields().entries()) {
+      updatedFields[entry.fieldId.toString()] = entry.value.toValue();
+    }
+
+    storedRecord.fields = {
+      ...storedRecord.fields,
+      ...updatedFields,
+    };
+    storedRecord.version += 1;
   }
 
   async deleteMany(
@@ -249,13 +277,21 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: TableRecordReadModel[] = [];
   lastFindStreamOptions?: ITableRecordQueryStreamOptions;
+  visiblePredicate?: (record: TableRecordReadModel) => boolean;
 
   async find(
     _: IExecutionContext,
     __: Table,
-    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
   ): Promise<Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>> {
-    return ok({ records: this.records, total: this.records.length });
+    const records = this.scopedRecords();
+    const offset = options?.pagination?.offset()?.toNumber() ?? 0;
+    const limit = options?.pagination?.limit()?.toNumber() ?? records.length;
+    return ok({
+      records: records.slice(offset, offset + limit),
+      total: records.length,
+    });
   }
 
   async findOne(
@@ -280,14 +316,22 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     this.lastFindStreamOptions = options;
-    const records = this.records;
+    const records = this.scopedRecords();
+    const pagination = options?.pagination;
+    const offset = pagination && 'offset' in pagination ? pagination.offset : 0;
+    const limit = pagination?.limit ?? records.length;
+    const pageRecords = records.slice(offset, offset + limit);
     return {
       [Symbol.asyncIterator]: async function* () {
-        for (const record of records) {
+        for (const record of pageRecords) {
           yield ok(record);
         }
       },
     };
+  }
+
+  private scopedRecords() {
+    return this.visiblePredicate ? this.records.filter(this.visiblePredicate) : this.records;
   }
 }
 
@@ -692,5 +736,64 @@ describe('ClearHandler', () => {
       expect(firstOrder.fieldId.toString()).toBe(secondFieldId.toString());
       expect(firstOrder.direction).toBe('desc');
     }
+  });
+
+  it('snapshots filtered target rows before streamed clear chunks mutate them', async () => {
+    const { table, tableId, primaryFieldId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = Array.from({ length: 5 }, (_, index) => ({
+      id: `rec${index.toString(36).padStart(16, '0')}`,
+      version: 1,
+      fields: {
+        [primaryFieldId.toString()]: index + 1,
+      },
+    }));
+    recordQueryRepository.visiblePredicate = (record) =>
+      record.fields[primaryFieldId.toString()] !== null &&
+      record.fields[primaryFieldId.toString()] !== undefined;
+    const originalRecordIds = recordQueryRepository.records.map((record) => record.id);
+
+    const recordRepository = new FakeTableRecordRepository(recordQueryRepository);
+    const handler = new ClearStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      recordRepository,
+      recordQueryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [[0, 4]],
+      type: 'rows',
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 5,
+      clearedCount: 5,
+      data: {
+        clearedCount: 5,
+        clearedRecordIds: originalRecordIds,
+      },
+    });
+    expect(recordRepository.updatedRecords.map((record) => record.id().toString())).toEqual(
+      originalRecordIds
+    );
   });
 });
