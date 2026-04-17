@@ -152,6 +152,7 @@
     "@nestjs/platform-express": "10.3.5",
     "@nestjs/platform-ws": "10.3.5",
     "@nestjs/swagger": "7.3.0",
+    "@nestjs/throttler": "6.4.0",
     "@nestjs/terminus": "10.2.3",
     "@nestjs/websockets": "10.3.5",
     "@openrouter/ai-sdk-provider": "2.2.3",

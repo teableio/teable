@@ -11,6 +11,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
+import * as bcrypt from 'bcrypt';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
@@ -578,11 +579,20 @@ export class PermissionService {
     return !!baseShare?.password;
   }
 
+  /**
+   * Check if a stored password is a bcrypt hash (starts with "$2b$", "$2a$", or "$2y$").
+   */
+  private isBcryptHash(storedPassword: string): boolean {
+    return /^\$2[aby]\$/.test(storedPassword);
+  }
+
   async validateBaseSharePasswordToken(shareId: string, token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
-        token
-      );
+      const payload = await this.jwtService.verifyAsync<{
+        shareId: string;
+        password?: string;
+        nonce?: string;
+      }>(token);
       if (payload.shareId !== shareId) {
         return false;
       }
@@ -593,7 +603,25 @@ export class PermissionService {
       if (!baseShare?.password) {
         return false;
       }
-      return payload.password === baseShare.password;
+
+      // New tokens (post-bcrypt migration): contain nonce but no password.
+      // The JWT signature proves it was issued after a successful password check.
+      // We only need to verify the share still has a password set.
+      if (payload.nonce && !payload.password) {
+        return true;
+      }
+
+      // Legacy tokens: contain plaintext password in payload.
+      // Compare against stored password (which may be bcrypt hash or plaintext).
+      if (payload.password) {
+        if (this.isBcryptHash(baseShare.password)) {
+          return bcrypt.compare(payload.password, baseShare.password);
+        }
+        // Legacy plaintext comparison (backward compatibility)
+        return payload.password === baseShare.password;
+      }
+
+      return false;
     } catch {
       return false;
     }
@@ -985,11 +1013,16 @@ export class PermissionService {
    *
    * Note: Password authentication is handled separately via JWT cookie:
    * - When a share has a password, the user authenticates via POST /share/:shareId/base/auth
-   * - A JWT cookie containing { shareId, password } is set for 7 days
-   * - On subsequent requests, ensureBaseShareAuth validates the cookie by comparing the
-   *   password in the JWT with the current DB password (see validateBaseSharePasswordToken).
-   * - If the admin changes the password, the old JWT cookie's password won't match,
-   *   causing the user to be redirected to the auth page automatically.
+   * - A JWT cookie containing { shareId, nonce } is set for 7 days (passwords are
+   *   hashed with bcrypt in the DB and never stored in the JWT)
+   * - On subsequent requests, ensureBaseShareAuth validates the JWT signature and
+   *   confirms the share still has a password set.
+   * - If the admin removes the password, the JWT is no longer valid.
+   * - If the admin changes the password, the old nonce-based JWT remains valid
+   *   (the user already proved they knew the old password). To force re-auth,
+   *   the admin should disable and re-enable the share.
+   * - Legacy JWTs (pre-bcrypt) containing { shareId, password } are still accepted
+   *   and validated via bcrypt.compare against the stored hash.
    */
   getBaseShareIdByHeader(shareHeader: string): string | null {
     if (!shareHeader || !shareHeader.startsWith('shr')) {

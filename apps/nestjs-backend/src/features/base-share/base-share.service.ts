@@ -3,6 +3,7 @@ import { generateShareId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseShareRo, IUpdateBaseShareRo, IBaseShareVo } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
+import * as bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
@@ -180,10 +181,23 @@ export class BaseShareService {
       data.allowSave !== undefined ? data.allowSave : share.allowSave
     );
 
+    // Hash password with bcrypt before storing (null means remove password)
+    let passwordToStore: string | null | undefined;
+    if (data.password !== undefined) {
+      if (data.password === null || data.password === '') {
+        passwordToStore = null;
+      } else {
+        const salt = await bcrypt.genSalt(10);
+        passwordToStore = await bcrypt.hash(data.password, salt);
+      }
+    } else {
+      passwordToStore = share.password;
+    }
+
     const updated = await this.prismaService.baseShare.update({
       where: { id: share.id },
       data: {
-        password: data.password !== undefined ? data.password : share.password,
+        password: passwordToStore,
         allowSave,
         allowCopy: data.allowCopy !== undefined ? data.allowCopy : share.allowCopy,
         allowEdit,

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type {
   IUserMeVo,
   IWaitlistInviteCodeVo,
@@ -49,6 +50,7 @@ export class LocalAuthController {
 
   @Public()
   @UseGuards(LocalAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @HttpCode(200)
   @Post('signin')
   async signin(@Req() req: Request): Promise<IUserMeVo> {
@@ -56,6 +58,7 @@ export class LocalAuthController {
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('signup')
   async signup(
     @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
@@ -141,6 +144,7 @@ export class LocalAuthController {
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('/send-reset-password-email')
   @Public()
   async sendResetPasswordEmail(

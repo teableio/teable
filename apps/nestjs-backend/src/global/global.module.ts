@@ -1,6 +1,7 @@
 import type { DynamicModule, MiddlewareConsumer, ModuleMetadata, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { context, trace } from '@opentelemetry/api';
 import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
@@ -57,6 +58,15 @@ const globalModules = {
     PermissionModule,
     DataLoaderModule,
     PerformanceCacheModule,
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000,
+          limit: Number(process.env.THROTTLE_LIMIT ?? 100),
+        },
+      ],
+    }),
     I18nModule.forRootAsync({
       useFactory: () => {
         const i18nPath = getI18nPath();
@@ -96,6 +106,10 @@ const globalModules = {
     {
       provide: APP_GUARD,
       useClass: PermissionGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,

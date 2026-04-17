@@ -31,10 +31,25 @@ export class BaseShareJwtStrategy extends PassportStrategy(Strategy, BASE_SHARE_
 
   async validate(payload: IJwtBaseShareInfo) {
     const { shareId, password } = payload;
-    const authShareId = await this.baseShareAuthService.authBaseShare(shareId, password);
-    if (!authShareId) {
+
+    // Legacy JWT tokens (pre-bcrypt migration) contain a plaintext `password`.
+    // Re-validate them against the DB so they work during transition.
+    if (password) {
+      const authShareId = await this.baseShareAuthService.authBaseShare(shareId, password);
+      if (!authShareId) {
+        throw new UnauthorizedException();
+      }
+      return authShareId;
+    }
+
+    // New JWT tokens contain only shareId + nonce. The JWT signature already
+    // proves the token was issued by this server after a successful password
+    // check. We only need to verify the share still exists and is enabled.
+    const hasPassword = await this.baseShareAuthService.hasPassword(shareId);
+    if (!hasPassword) {
+      // Share no longer requires a password -- token is no longer valid
       throw new UnauthorizedException();
     }
-    return authShareId;
+    return shareId;
   }
 }

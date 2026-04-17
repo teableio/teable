@@ -2,6 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { CustomHttpException } from '../../custom.exception';
 
 export interface IBaseShareInfo {
@@ -13,9 +15,19 @@ export interface IBaseShareInfo {
   allowEdit: boolean | null;
 }
 
+/**
+ * JWT payload for base share authentication.
+ * Contains only a shareId and a random nonce -- no plaintext password.
+ */
 export interface IJwtBaseShareInfo {
   shareId: string;
-  password: string;
+  /** Random nonce to ensure each auth produces a unique token */
+  nonce: string;
+  /**
+   * @deprecated Legacy field -- old JWTs issued before bcrypt migration may
+   * contain a plaintext `password` instead of `nonce`. Kept for backward compat.
+   */
+  password?: string;
 }
 
 @Injectable()
@@ -33,6 +45,13 @@ export class BaseShareAuthService {
     }
   }
 
+  /**
+   * Check if a stored password is a bcrypt hash (starts with "$2b$" or "$2a$").
+   */
+  private isBcryptHash(storedPassword: string): boolean {
+    return /^\$2[aby]\$/.test(storedPassword);
+  }
+
   async authBaseShare(shareId: string, pass: string): Promise<string | null> {
     const share = await this.prismaService.baseShare.findUnique({
       where: { shareId },
@@ -43,8 +62,8 @@ export class BaseShareAuthService {
       return null;
     }
 
-    const password = share.password;
-    if (!password) {
+    const storedPassword = share.password;
+    if (!storedPassword) {
       throw new CustomHttpException(
         'Password restriction is not enabled',
         HttpErrorCode.VALIDATION_ERROR,
@@ -55,11 +74,21 @@ export class BaseShareAuthService {
         }
       );
     }
-    return pass === password ? shareId : null;
+
+    // Support both bcrypt hashes (new) and plaintext passwords (legacy/transition)
+    if (this.isBcryptHash(storedPassword)) {
+      const match = await bcrypt.compare(pass, storedPassword);
+      return match ? shareId : null;
+    }
+
+    // Legacy plaintext comparison (backward compatibility)
+    return pass === storedPassword ? shareId : null;
   }
 
-  async authToken(jwtShareInfo: IJwtBaseShareInfo) {
-    return await this.jwtService.signAsync(jwtShareInfo);
+  async authToken(shareId: string) {
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const payload: IJwtBaseShareInfo = { shareId, nonce };
+    return await this.jwtService.signAsync(payload);
   }
 
   async getBaseShareInfo(shareId: string): Promise<IBaseShareInfo> {

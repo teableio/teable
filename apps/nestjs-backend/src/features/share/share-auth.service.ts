@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { FieldType, HttpErrorCode, isAnonymous } from '@teable/core';
 import type { IViewVo, IShareViewMeta, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
@@ -20,7 +22,10 @@ export interface IShareViewInfo {
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  /** Random nonce -- no plaintext password in JWT */
+  nonce: string;
+  /** @deprecated Legacy field for backward compat with pre-bcrypt JWTs */
+  password?: string;
 }
 
 @Injectable()
@@ -40,6 +45,13 @@ export class ShareAuthService {
     }
   }
 
+  /**
+   * Check if a stored password is a bcrypt hash.
+   */
+  private isBcryptHash(storedPassword: string): boolean {
+    return /^\$2[aby]\$/.test(storedPassword);
+  }
+
   async authShareView(shareId: string, pass: string): Promise<string | null> {
     const view = await this.prismaService.view.findFirst({
       where: { shareId, enableShare: true, deletedTime: null },
@@ -49,8 +61,8 @@ export class ShareAuthService {
       return null;
     }
     const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
-    const password = shareMeta?.password;
-    if (!password) {
+    const storedPassword = shareMeta?.password;
+    if (!storedPassword) {
       throw new CustomHttpException(
         'Password restriction is not enabled',
         HttpErrorCode.VALIDATION_ERROR,
@@ -61,11 +73,21 @@ export class ShareAuthService {
         }
       );
     }
-    return pass === password ? shareId : null;
+
+    // Support both bcrypt hashes (new) and plaintext passwords (legacy/transition)
+    if (this.isBcryptHash(storedPassword)) {
+      const match = await bcrypt.compare(pass, storedPassword);
+      return match ? shareId : null;
+    }
+
+    // Legacy plaintext comparison (backward compatibility)
+    return pass === storedPassword ? shareId : null;
   }
 
-  async authToken(jwtShareInfo: IJwtShareInfo) {
-    return await this.jwtService.signAsync(jwtShareInfo);
+  async authToken(shareId: string) {
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const payload: IJwtShareInfo = { shareId, nonce };
+    return await this.jwtService.signAsync(payload);
   }
 
   async getShareViewInfo(shareId: string): Promise<IShareViewInfo> {
