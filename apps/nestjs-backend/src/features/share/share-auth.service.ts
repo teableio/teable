@@ -22,8 +22,8 @@ export interface IShareViewInfo {
 
 export interface IJwtShareInfo {
   shareId: string;
-  /** Random nonce -- no plaintext password in JWT */
-  nonce: string;
+  /** Random nonce -- no plaintext password in JWT (absent on legacy tokens) */
+  nonce?: string;
   /** @deprecated Legacy field for backward compat with pre-bcrypt JWTs */
   password?: string;
 }

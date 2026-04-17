@@ -21,8 +21,8 @@ export interface IBaseShareInfo {
  */
 export interface IJwtBaseShareInfo {
   shareId: string;
-  /** Random nonce to ensure each auth produces a unique token */
-  nonce: string;
+  /** Random nonce to ensure each auth produces a unique token (absent on legacy tokens) */
+  nonce?: string;
   /**
    * @deprecated Legacy field -- old JWTs issued before bcrypt migration may
    * contain a plaintext `password` instead of `nonce`. Kept for backward compat.

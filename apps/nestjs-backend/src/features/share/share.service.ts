@@ -46,7 +46,9 @@ import { ShareSocketService } from './share-socket.service';
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  nonce?: string;
+  /** @deprecated Legacy field for backward compat with pre-bcrypt JWTs */
+  password?: string;
 }
 
 @Injectable()

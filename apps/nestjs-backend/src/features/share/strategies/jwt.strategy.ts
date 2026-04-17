@@ -8,7 +8,7 @@ import type { authConfig } from '../../../configs/auth.config';
 import { AuthConfig } from '../../../configs/auth.config';
 import { SHARE_JWT_STRATEGY } from '../guard/constant';
 import { ShareAuthService } from '../share-auth.service';
-import type { IJwtShareInfo } from '../share.service';
+import type { IJwtShareInfo } from '../share-auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) {
@@ -31,10 +31,24 @@ export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) 
 
   async validate(payload: IJwtShareInfo) {
     const { shareId, password } = payload;
-    const authShareId = await this.shareAuthService.authShareView(shareId, password);
-    if (!authShareId) {
+
+    // Legacy JWT tokens (pre-bcrypt migration) contain a plaintext `password`.
+    // Re-validate them against the DB so they work during transition.
+    if (password) {
+      const authShareId = await this.shareAuthService.authShareView(shareId, password);
+      if (!authShareId) {
+        throw new UnauthorizedException();
+      }
+      return authShareId;
+    }
+
+    // New JWT tokens contain only shareId + nonce. The JWT signature proves
+    // the token was issued after a successful password check.
+    // We just verify the share still exists and has a password.
+    const viewInfo = await this.shareAuthService.getShareViewInfo(shareId).catch(() => null);
+    if (!viewInfo?.shareMeta?.password) {
       throw new UnauthorizedException();
     }
-    return authShareId;
+    return shareId;
   }
 }
