@@ -196,6 +196,33 @@ describe('EvalVisitor', () => {
     expect(evalFormula('1 != 2')).toBe(true);
   });
 
+  it('does not treat numeric zero as blank in equality comparisons', () => {
+    const zeroRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: 0,
+      },
+    };
+    const blankRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: null,
+      },
+    };
+
+    expect(evalFormula('0 = BLANK()')).toBe(false);
+    expect(evalFormula('BLANK() = 0')).toBe(false);
+    expect(evalFormula('0 != BLANK()')).toBe(true);
+    expect(evalFormula('{fldNumber} = BLANK()', fieldContext, zeroRecord)).toBe(false);
+    expect(evalFormula('{fldNumber} != BLANK()', fieldContext, zeroRecord)).toBe(true);
+    expect(
+      evalFormula('IF({fldNumber} = BLANK(), "empty", "not empty")', fieldContext, zeroRecord)
+    ).toBe('not empty');
+    expect(evalFormula('{fldNumber} = BLANK()', fieldContext, blankRecord)).toBe(true);
+  });
+
   it('parentheses', () => {
     expect(evalFormula('(3 + 5) * 2')).toBe(16);
   });

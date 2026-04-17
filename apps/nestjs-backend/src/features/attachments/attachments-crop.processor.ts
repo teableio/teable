@@ -1,12 +1,16 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
 import { Injectable, Logger } from '@nestjs/common';
+import { isImage, isPdf } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { renderPdfFirstPageAsImage } from './pdf-thumbnail';
+import StorageAdapter from './plugins/adapter';
+import { InjectStorageAdapter } from './plugins/storage';
 
 interface IRecordImageJob {
   bucket: string;
@@ -35,6 +39,7 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
     private readonly prismaService: PrismaService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly eventEmitterService: EventEmitterService,
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(ATTACHMENTS_CROP_QUEUE) public readonly queue: Queue<IRecordImageJob>
   ) {
     super();
@@ -49,31 +54,59 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
 
   private async handleCropImage(job: Job<IRecordImageJob>) {
     const { bucket, token, path, mimetype, height } = job.data;
-    if (mimetype.startsWith('image/') && height) {
-      const existingThumbnailPath = await this.prismaService.attachments.findUnique({
-        where: { token },
-        select: { thumbnailPath: true },
-      });
-      if (existingThumbnailPath?.thumbnailPath) {
-        this.logger.log(`path(${path}) image already has thumbnail`);
-        return;
-      }
-      const { lgThumbnailPath, smThumbnailPath } =
-        await this.attachmentsStorageService.cropTableImage(bucket, path, height);
-      await this.prismaService.attachments.update({
-        where: {
-          token,
-        },
-        data: {
-          thumbnailPath: JSON.stringify({
-            lg: lgThumbnailPath,
-            sm: smThumbnailPath,
-          }),
-        },
-      });
-      this.logger.log(`path(${path}) crop thumbnails success`);
+
+    const existing = await this.prismaService.attachments.findUnique({
+      where: { token },
+      select: { thumbnailPath: true },
+    });
+    if (existing?.thumbnailPath) {
+      this.logger.log(`path(${path}) already has thumbnail`);
       return;
     }
-    this.logger.log(`path(${path}) is not a image`);
+
+    let lgThumbnailPath: string | undefined;
+    let smThumbnailPath: string | undefined;
+
+    if (isImage(mimetype) && height) {
+      ({ lgThumbnailPath, smThumbnailPath } = await this.attachmentsStorageService.cropTableImage(
+        bucket,
+        path,
+        height
+      ));
+    } else if (isPdf(mimetype)) {
+      try {
+        const stream = await this.storageAdapter.downloadFile(bucket, path);
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream as AsyncIterable<Buffer>) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const pdfBuffer = Buffer.concat(chunks);
+        const { buffer, height: imgHeight } = await renderPdfFirstPageAsImage(pdfBuffer);
+
+        ({ lgThumbnailPath, smThumbnailPath } =
+          await this.attachmentsStorageService.uploadTableImageThumbnailsFromBuffer(
+            bucket,
+            path,
+            buffer,
+            imgHeight
+          ));
+      } catch (error) {
+        console.error(`Failed to render PDF thumbnail for ${path}`, error);
+        this.logger.error(`PDF thumbnail failed for ${path}`, error);
+        // Non-fatal: frontend falls back to PDF icon
+        return;
+      }
+    } else {
+      this.logger.log(`path(${path}) is not a supported type for thumbnails`);
+      return;
+    }
+
+    await this.prismaService.attachments.update({
+      where: { token },
+      data: {
+        thumbnailPath: JSON.stringify({ lg: lgThumbnailPath, sm: smThumbnailPath }),
+      },
+    });
+    this.logger.log(`path(${path}) crop thumbnails success`);
   }
 }

@@ -11,10 +11,13 @@ export interface ISelectFieldDisplayChoice {
 
 export abstract class SelectFieldSdk extends SelectFieldCore {
   private _choiceMap: Record<string, ISelectFieldDisplayChoice> = {};
+  private _choiceMapKey = '';
 
   get displayChoiceMap() {
-    if (Object.keys(this._choiceMap).length === 0) {
-      const displayedChoices = this.options.choices.map(({ id, name, color }) => {
+    const choices = this.options?.choices ?? [];
+    const choicesKey = JSON.stringify(choices.map(({ id, name, color }) => [id, name, color]));
+    if (this._choiceMapKey !== choicesKey) {
+      const displayedChoices = choices.map(({ id, name, color }) => {
         return {
           id,
           name,
@@ -23,6 +26,7 @@ export abstract class SelectFieldSdk extends SelectFieldCore {
         };
       });
       this._choiceMap = keyBy(displayedChoices, 'name');
+      this._choiceMapKey = choicesKey;
     }
     return this._choiceMap;
   }

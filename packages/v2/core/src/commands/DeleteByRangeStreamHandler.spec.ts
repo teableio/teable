@@ -155,6 +155,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   failDeleteByBatchIndex = new Map<number, DomainError>();
   deleteContexts: Array<IExecutionContext> = [];
   deleteRecordIdsByBatch: string[][] = [];
+  onDeletedRecordIds?: (recordIds: ReadonlyArray<string>) => void;
 
   constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
 
@@ -195,8 +196,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
@@ -224,6 +225,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       );
       this.queryRepository.total = this.queryRepository.records.length;
     }
+    this.onDeletedRecordIds?.(matchingIds);
     return ok(undefined);
   }
 
@@ -235,6 +237,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: TableRecordReadModel[] = [];
   total = 0;
+  visiblePredicate?: (record: TableRecordReadModel) => boolean;
   findCalls: Array<{
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
     options?: ITableRecordQueryOptions;
@@ -247,12 +250,13 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     this.findCalls.push({ spec, options });
+    const visibleRecords = this.scopedRecords();
     const scopedRecords =
       spec instanceof RecordByIdsSpec
         ? this.records.filter((record) =>
             spec.recordIds().some((recordId) => recordId.toString() === record.id)
           )
-        : this.records;
+        : visibleRecords;
     const orderedRecords = options?.recordIdsOrder?.length
       ? options.recordIdsOrder
           .map((recordId) => scopedRecords.find((record) => record.id === recordId.toString()))
@@ -278,9 +282,13 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     _options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
-    for (const record of this.records) {
+    for (const record of this.scopedRecords()) {
       yield ok(record);
     }
+  }
+
+  private scopedRecords() {
+    return this.visiblePredicate ? this.records.filter(this.visiblePredicate) : this.records;
   }
 }
 
@@ -696,6 +704,66 @@ describe('DeleteByRangeStreamHandler', () => {
           ).undoCommand.payload.records[0]?.recordId
       )
     ).toEqual([originalRecordIds[0], originalRecordIds[2]]);
+  });
+
+  it('snapshots filtered target rows before streamed delete chunks mutate the visible range', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: 5 }, (_, index) => ({
+      ...buildRecordReadModel(index),
+      fields: { title: `Record ${index}`, visible: true },
+    }));
+    queryRepository.total = queryRepository.records.length;
+    queryRepository.visiblePredicate = (record) => record.fields.visible === true;
+
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+    let hidLeadingRows = false;
+    recordRepository.onDeletedRecordIds = () => {
+      if (hidLeadingRows) {
+        return;
+      }
+      hidLeadingRows = true;
+      queryRepository.records[0]!.fields.visible = false;
+      queryRepository.records[1]!.fields.visible = false;
+      queryRepository.total = queryRepository.records.filter(
+        (record) => record.fields.visible === true
+      ).length;
+    };
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[2, 4]],
+      type: 'rows',
+      batchSize: 1,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    const expectedRecordIds = ['rec0000000000000002', 'rec0000000000000003', 'rec0000000000000004'];
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 3,
+      deletedCount: 3,
+      data: {
+        deletedRecordIds: expectedRecordIds,
+      },
+    });
+    expect(recordRepository.deleteRecordIdsByBatch).toEqual(
+      expectedRecordIds.map((recordId) => [recordId])
+    );
   });
 
   it('emits a zero-result done event and skips undo when every chunk fails', async () => {

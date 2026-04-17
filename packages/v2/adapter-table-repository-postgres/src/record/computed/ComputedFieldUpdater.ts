@@ -34,10 +34,12 @@ import {
 } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
 import {
+  COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
   type ComputedUpdateLockConfig,
   type ComputedUpdateLockSummary,
   buildAdvisoryLockQuery,
   buildComputedUpdateLockPlan,
+  buildTryAdvisoryLockQuery,
   defaultComputedUpdateLockConfig,
 } from './ComputedUpdateLock';
 import type {
@@ -290,6 +292,7 @@ export type PreparedDirtyState = {
 
 type ComputedUpdateLockOptions = {
   logContext?: Record<string, unknown>;
+  wait?: boolean;
 };
 
 /**
@@ -518,6 +521,7 @@ export class ComputedFieldUpdater {
   ): Promise<Result<ComputedUpdateLockSummary, DomainError>> {
     const lockPlan = buildComputedUpdateLockPlan(plan, this.lockConfig);
     const summary = lockPlan.summary;
+    const waitForLocks = options?.wait ?? true;
     if (summary.mode === 'disabled' || summary.mode === 'none') {
       return ok(summary);
     }
@@ -540,7 +544,27 @@ export class ComputedFieldUpdater {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       try {
         for (const statement of lockPlan.statements) {
-          await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
+          if (waitForLocks) {
+            await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
+            continue;
+          }
+
+          const result = await db.executeQuery(buildTryAdvisoryLockQuery(db, statement.key));
+          if (!result.rows[0]?.locked) {
+            return err(
+              domainError.infrastructure({
+                code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+                message: `Computed update lock unavailable: ${statement.key}`,
+                details: {
+                  lockKey: statement.key,
+                  lockScope: statement.scope,
+                  lockTableId: statement.tableId,
+                  lockBatchId: statement.batchId,
+                  lockRecordId: statement.recordId,
+                },
+              })
+            );
+          }
         }
       } catch (error) {
         return err(
