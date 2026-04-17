@@ -38,9 +38,6 @@ export class BaseSqlExecutorService {
   }
 
   private async getReadOnlyDatabaseConnectionConfig(): Promise<string | undefined> {
-    if (this.driver === DriverClient.Sqlite) {
-      return;
-    }
     if (!this.hasPgReadAllDataRole) {
       return;
     }

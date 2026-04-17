@@ -948,6 +948,17 @@
     "more": "Esplora di più..."
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Domanda",
+        "confirm": "Conferma ({{count}})",
+        "otherPlaceholder": "Oppure digita la tua risposta…",
+        "otherSend": "Invia",
+        "addCustomPlaceholder": "Aggiungi opzione personalizzata…",
+        "askedUser": "Domanda posta",
+        "answered": "Risposto"
+      }
+    },
     "tool": {
       "getTableFields": "Ottieni campi della tabella",
       "getTablesMeta": "Ottieni metadati della tabella",
