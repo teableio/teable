@@ -385,6 +385,32 @@ describe('Link relationship conversion (PGlite)', () => {
     return { exists: true, dataType: result.rows[0]!.data_type };
   };
 
+  const indexInfo = async (
+    tableName: string,
+    indexName: string
+  ): Promise<{ exists: boolean; isUnique?: boolean }> => {
+    const result = await sql<{ indexdef: string }>`
+      SELECT indexdef FROM pg_indexes
+      WHERE schemaname = ${SCHEMA} AND tablename = ${tableName} AND indexname = ${indexName}
+    `.execute(db);
+    const indexdef = result.rows[0]?.indexdef;
+    if (!indexdef) return { exists: false };
+    return { exists: true, isUnique: indexdef.includes('CREATE UNIQUE INDEX') };
+  };
+
+  const constraintExists = async (tableName: string, constraintName: string): Promise<boolean> => {
+    const result = await sql<{ cnt: string }>`
+      SELECT count(*)::text as cnt
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = c.connamespace
+      WHERE n.nspname = ${SCHEMA}
+        AND t.relname = ${tableName}
+        AND c.conname = ${constraintName}
+    `.execute(db);
+    return result.rows[0]?.cnt === '1';
+  };
+
   const createSourceAndForeignTables = async () => {
     await sql.raw(`CREATE TABLE "${SCHEMA}"."${SOURCE_TBL}" ("__id" TEXT PRIMARY KEY)`).execute(db);
     await sql
@@ -844,6 +870,74 @@ describe('Link relationship conversion (PGlite)', () => {
         { self_key: 'rec1', foreign_key: 'fRec1' },
         { self_key: 'rec3', foreign_key: 'fRec3' },
       ]);
+    });
+  });
+
+  describe('FK-only relationship conversion', () => {
+    it('should replace oneOne unique FK constraint when converting to manyOne', async () => {
+      await createSourceAndForeignTables();
+
+      await sql
+        .raw(
+          `ALTER TABLE "${SCHEMA}"."${SOURCE_TBL}"
+           ADD COLUMN "${FOREIGN_KEY}" TEXT,
+           ADD COLUMN "${FOREIGN_KEY}_order" DOUBLE PRECISION`
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `ALTER TABLE "${SCHEMA}"."${SOURCE_TBL}"
+           ADD CONSTRAINT "index_${FOREIGN_KEY}" UNIQUE ("${FOREIGN_KEY}")`
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `INSERT INTO "${SCHEMA}"."${SOURCE_TBL}" ("__id", "${FOREIGN_KEY}") VALUES
+           ('rec1', 'fRec1'),
+           ('rec2', NULL)`
+        )
+        .execute(db);
+
+      expect(await indexInfo(SOURCE_TBL, `index_${FOREIGN_KEY}`)).toEqual({
+        exists: true,
+        isUnique: true,
+      });
+      await expect(constraintExists(SOURCE_TBL, `index_${FOREIGN_KEY}`)).resolves.toBe(true);
+
+      const spec = createSpec({
+        previousConfig: createConfig({
+          relationship: 'oneOne',
+          isOneWay: false,
+          fkHostTableName: `${SCHEMA}.${SOURCE_TBL}`,
+          selfKeyName: '__id',
+          foreignKeyName: FOREIGN_KEY,
+          symmetricFieldId: SYM_FIELD_ID,
+        }),
+        nextConfig: createConfig({
+          relationship: 'manyOne',
+          isOneWay: false,
+          fkHostTableName: `${SCHEMA}.${SOURCE_TBL}`,
+          selfKeyName: '__id',
+          foreignKeyName: FOREIGN_KEY,
+          symmetricFieldId: SYM_FIELD_ID,
+        }),
+      });
+
+      await executeStatements(spec);
+
+      expect(await indexInfo(SOURCE_TBL, `index_${FOREIGN_KEY}`)).toEqual({
+        exists: true,
+        isUnique: false,
+      });
+      await expect(constraintExists(SOURCE_TBL, `index_${FOREIGN_KEY}`)).resolves.toBe(false);
+
+      await expect(
+        sql
+          .raw(
+            `UPDATE "${SCHEMA}"."${SOURCE_TBL}" SET "${FOREIGN_KEY}" = 'fRec1' WHERE "__id" = 'rec2'`
+          )
+          .execute(db)
+      ).resolves.toBeDefined();
     });
   });
 

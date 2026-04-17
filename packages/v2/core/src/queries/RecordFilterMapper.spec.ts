@@ -24,6 +24,7 @@ const buildTable = () => {
 
   builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
   builder.field().singleLineText().withName(FieldName.create('Ref')._unsafeUnwrap()).done();
+  builder.field().checkbox().withName(FieldName.create('Done')._unsafeUnwrap()).done();
   builder.field().date().withName(FieldName.create('Due')._unsafeUnwrap()).done();
   builder
     .field()
@@ -203,6 +204,49 @@ describe('RecordFilterMapper', () => {
           fieldId: titleField.id().toString(),
           operator: 'contains',
           value: 'Hello',
+        },
+      ],
+    });
+  });
+
+  it('keeps checkbox null equality and drops incomplete non-checkbox null equality', () => {
+    const table = buildTable();
+    const doneField = table.getField((field) => field.name().toString() === 'Done')._unsafeUnwrap();
+    const titleField = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap();
+
+    const filter: RecordFilter = {
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: doneField.id().toString(),
+          operator: 'is',
+          value: null,
+        },
+        {
+          fieldId: titleField.id().toString(),
+          operator: 'is',
+          value: null,
+        },
+        {
+          fieldId: titleField.id().toString(),
+          operator: 'isNot',
+          value: null,
+        },
+      ],
+    };
+
+    const result = sanitizeRecordFilter(table, filter);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: doneField.id().toString(),
+          operator: 'is',
+          value: null,
         },
       ],
     });

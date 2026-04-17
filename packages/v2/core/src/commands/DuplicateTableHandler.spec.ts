@@ -343,7 +343,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
     _options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
-    return ok({ totalUpdated: 0 });
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
