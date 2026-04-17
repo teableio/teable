@@ -10,6 +10,7 @@ import type {
 } from '../core/ISchemaRule';
 import {
   createIndexStatement,
+  dropConstraintStatement,
   dropIndexStatement,
   type TableIdentifier,
 } from '../helpers/StatementBuilders';
@@ -66,19 +67,35 @@ export class IndexRule implements ISchemaRule {
     const indexName = this.indexName;
     const targetTable = this.getTargetTable(ctx);
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
-      const existsResult = await ctx.introspector.indexExists(targetTable.schema, indexName);
-      const exists = yield* existsResult;
+      const indexResult = await ctx.introspector.getIndex(targetTable.schema, indexName);
+      const index = yield* indexResult;
 
-      return ok({
-        valid: exists,
-        missing: exists ? [] : [`index ${indexName}`],
-      });
+      if (!index) {
+        return ok({
+          valid: false,
+          missing: [`index ${indexName}`],
+        });
+      }
+
+      if (index.isUnique) {
+        return ok({
+          valid: false,
+          missing: [`non-unique index ${indexName}`],
+          extra: [`unique constraint or index ${indexName}`],
+        });
+      }
+
+      return ok({ valid: true });
     });
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const table = this.getTargetTable(ctx);
-    return ok([createIndexStatement(table, this.indexName, this.columnName)]);
+    return ok([
+      dropConstraintStatement(table, this.indexName),
+      dropIndexStatement(table, this.indexName),
+      createIndexStatement(table, this.indexName, this.columnName),
+    ]);
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {

@@ -156,7 +156,6 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on AlibabaCloud ComputeNest](https://service-info-public.oss-cn-hangzhou.aliyuncs.com/computenest-en.svg)](https://computenest.console.aliyun.com/service/instance/create/default?ServiceName=Teable%20%E7%A4%BE%E5%8C%BA%E7%89%88)
 
-
 ## Development
 
 #### 1. Initialize
@@ -169,9 +168,7 @@ corepack enable
 pnpm install
 ```
 
-#### 2. Select Database
-
-we currently support `sqlite` (dev only) and `postgres`, you can switch between them by running the following command
+#### 2. Initialize Postgres
 
 ```sh
 make switch-db-mode
@@ -194,6 +191,7 @@ pnpm dev
 ```
 
 By default, the plugin development server is not started. To preview and develop plugins, run:
+
 ```sh
 # build packages
 pnpm build:packages
@@ -202,8 +200,8 @@ pnpm build:packages
 cd plugins
 pnpm dev
 ```
-This will start the plugin development server on port 3002.
 
+This will start the plugin development server on port 3002.
 
 ## Why Teable?
 

@@ -206,7 +206,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
-    return ok({ totalUpdated: 0 });
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(

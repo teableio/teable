@@ -10,8 +10,8 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
 import type { RecordFieldChangeDTO } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
-import { FieldId } from '../../domain/table/fields/FieldId';
 import type { Field } from '../../domain/table/fields/Field';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldHasError } from '../../domain/table/fields/types/FieldHasError';
 import { FieldNotNull } from '../../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../../domain/table/fields/types/FieldUnique';
@@ -47,6 +47,7 @@ import { TeableSpanAttributes } from '../../ports/Tracer';
 import { TraceSpan } from '../../ports/TraceSpan';
 import type { UndoRedoFieldSnapshot, UndoRedoFieldViewSnapshot } from '../../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
+import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 const stripUndefinedDeep = (value: unknown): unknown => {
@@ -140,6 +141,13 @@ const toCreateFieldInput = (
         }
       : {}),
   }) as UndoRedoFieldSnapshot['field'];
+
+type FieldReplayUpdateEvent = {
+  recordId: string;
+  oldVersion: number;
+  newVersion: number;
+  changes: ReadonlyArray<RecordFieldChangeDTO>;
+};
 
 @injectable()
 export class FieldUndoRedoReplayService {
@@ -403,14 +411,6 @@ export class FieldUndoRedoReplayService {
     );
   }
 
-  private hasSameCellValue(left: unknown, right: unknown): boolean {
-    try {
-      return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-    } catch {
-      return left === right;
-    }
-  }
-
   private async loadFieldValueSnapshotsByRecordId(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
@@ -449,12 +449,7 @@ export class FieldUndoRedoReplayService {
 
   private buildRecordsBatchUpdatedEvents(
     table: Table,
-    updates: ReadonlyArray<{
-      recordId: string;
-      oldVersion: number;
-      newVersion: number;
-      changes: ReadonlyArray<RecordFieldChangeDTO>;
-    }>
+    updates: ReadonlyArray<FieldReplayUpdateEvent>
   ): ReadonlyArray<IDomainEvent> {
     if (updates.length === 0) {
       return [];
@@ -474,6 +469,48 @@ export class FieldUndoRedoReplayService {
     }
 
     return events;
+  }
+
+  private reconcilePersistedUpdateEvents(
+    updates: ReadonlyArray<FieldReplayUpdateEvent>,
+    updateResult: TableRecordRepositoryPort.UpdateManyStreamResult
+  ): FieldReplayUpdateEvent[] {
+    const updatesWithChanges = updates.filter((update) => update.changes.length > 0);
+    const persistedRecords = new Map(
+      updateResult.updatedRecords.map((record) => [record.recordId.toString(), record])
+    );
+
+    const reconciledUpdates: FieldReplayUpdateEvent[] = [];
+    for (const update of updatesWithChanges) {
+      const persistedRecord = persistedRecords.get(update.recordId);
+      if (!persistedRecord) {
+        continue;
+      }
+      const changes: RecordFieldChangeDTO[] = [];
+      for (const change of update.changes) {
+        const oldValue = Object.prototype.hasOwnProperty.call(
+          persistedRecord.oldFieldValues,
+          change.fieldId
+        )
+          ? persistedRecord.oldFieldValues[change.fieldId]
+          : change.oldValue;
+        if (areRecordFieldValuesEqual(oldValue, change.newValue)) {
+          continue;
+        }
+        changes.push({ ...change, oldValue });
+      }
+      if (changes.length === 0) {
+        continue;
+      }
+      reconciledUpdates.push({
+        ...update,
+        oldVersion: persistedRecord.oldVersion,
+        newVersion: persistedRecord.newVersion,
+        changes,
+      });
+    }
+
+    return reconciledUpdates;
   }
 
   @TraceSpan({
@@ -539,7 +576,7 @@ export class FieldUndoRedoReplayService {
           );
         }
 
-        if (service.hasSameCellValue(currentSnapshot.value, record.value)) {
+        if (areRecordFieldValuesEqual(currentSnapshot.value, record.value)) {
           continue;
         }
 
@@ -568,12 +605,7 @@ export class FieldUndoRedoReplayService {
         return ok(undefined);
       }
 
-      const updates: Array<{
-        recordId: string;
-        oldVersion: number;
-        newVersion: number;
-        changes: ReadonlyArray<RecordFieldChangeDTO>;
-      }> = [];
+      const updates: FieldReplayUpdateEvent[] = [];
       const batchResults: Array<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> = [];
       let resolvedUpdateIndex = 0;
       const fieldIdText = params.fieldId.toString();
@@ -631,16 +663,22 @@ export class FieldUndoRedoReplayService {
         }
       }
 
-      yield* await service.unitOfWork.withTransaction(context, async (transactionContext) => {
-        const persistResult = await service.tableRecordRepository.updateManyStream(
-          transactionContext,
-          params.table,
-          syncBatchesGenerator()
-        );
-        return persistResult.map(() => undefined);
-      });
+      const updateResult = yield* await service.unitOfWork.withTransaction(
+        context,
+        async (transactionContext) => {
+          const persistResult = await service.tableRecordRepository.updateManyStream(
+            transactionContext,
+            params.table,
+            syncBatchesGenerator()
+          );
+          return persistResult;
+        }
+      );
 
-      const events = service.buildRecordsBatchUpdatedEvents(params.table, updates);
+      const events = service.buildRecordsBatchUpdatedEvents(
+        params.table,
+        service.reconcilePersistedUpdateEvents(updates, updateResult)
+      );
       if (events.length > 0) {
         yield* await service.eventBus.publishMany(context, events);
       }

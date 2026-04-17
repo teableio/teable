@@ -702,10 +702,13 @@ export const sandboxAgentConfigSchema = z.object({
   models: z.record(z.string(), z.array(sandboxAgentModelSchema)).optional().default({}),
   maxDuration: z.number().min(1).max(1440).default(300).optional(),
   maxIdleTime: z.number().min(60).max(7200).default(1800).optional(),
-  maxConcurrentChats: z.number().min(1).max(10).default(3).optional(),
+  maxConcurrentChats: z.number().min(1).max(20).default(3).optional(),
   activeSnapshotId: z.string().optional(),
   activeAppBuilderSnapshotId: z.string().optional(),
-  defaultEffort: z.enum(['auto', 'low', 'medium', 'high', 'max']).default('auto').optional(),
+  defaultEffort: z
+    .enum(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
+    .default('auto')
+    .optional(),
 });
 
 export type ISandboxAgentConfig = z.infer<typeof sandboxAgentConfigSchema>;

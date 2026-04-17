@@ -3,32 +3,34 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
 import {
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import { v2CoreTokens } from '@teable/v2-core';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
+import type { AttachmentValueDecoratorService, IAttachmentLookupService } from '@teable/v2-core';
+import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import { PinoLogger } from 'nestjs-pino';
-import { ShareDbService } from '../../share-db/share-db.service';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
-import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
-import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
-import { OpenTelemetryTracer } from './v2-tracer.adapter';
 import {
   V2_PROJECTION_REGISTRAR_METADATA,
   isV2ProjectionRegistrar,
   type IV2ProjectionRegistrar,
 } from './v2-projection-registrar';
+import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
+import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
+import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
 @Injectable()
 export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -84,9 +86,23 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     registerV2ShareDbRealtime(container, {
       publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
     });
+    const attachmentLookupService = container.resolve<IAttachmentLookupService>(
+      v2CoreTokens.attachmentLookupService
+    );
+    container.registerInstance(
+      v2CoreTokens.attachmentUrlSignerService,
+      new V2AttachmentUrlSignerService(
+        this.attachmentsStorageService,
+        attachmentLookupService,
+        this.cacheService
+      )
+    );
+    const attachmentValueDecoratorService = container.resolve<AttachmentValueDecoratorService>(
+      v2CoreTokens.attachmentValueDecoratorService
+    );
     container.registerInstance(
       v2CoreTokens.recordChangedValueDecoratorService,
-      new V2RecordChangedValueDecoratorService(this.attachmentsStorageService)
+      new V2RecordChangedValueDecoratorService(attachmentValueDecoratorService)
     );
     container.registerInstance(
       v2CoreTokens.undoRedoStore,

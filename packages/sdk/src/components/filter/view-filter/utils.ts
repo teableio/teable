@@ -108,6 +108,23 @@ export const shouldFilterByDefaultValue = (
   );
 };
 
+/**
+ * Whether a filter item's value is considered "effective" — i.e. the user has
+ * actually filled in a meaningful value, or the field treats null as a valid
+ * default (Checkbox "unchecked", Boolean Formula/Rollup).
+ */
+export const isFilterItemEffective = (
+  item: { value: unknown; operator: string },
+  field: { type: FieldType; cellValueType: CellValueType } | undefined
+): boolean => {
+  return !!(
+    item.value === 0 ||
+    item.value ||
+    EMPTY_OPERATORS.includes(item.operator) ||
+    shouldFilterByDefaultValue(field)
+  );
+};
+
 export const getFilterFieldIds = (
   filter: NonNullable<IFilter>['filterSet'],
   fieldMap: Record<string, IFieldInstance>
@@ -116,14 +133,8 @@ export const getFilterFieldIds = (
 
   filter.forEach((item) => {
     if (isFilterItem(item)) {
-      // The checkbox field and the formula field, when the cellValueType is Boolean, have a default value of null, but they can still work
       const field = fieldMap[item.fieldId];
-      if (
-        item.value === 0 ||
-        item.value ||
-        EMPTY_OPERATORS.includes(item.operator) ||
-        shouldFilterByDefaultValue(field)
-      ) {
+      if (isFilterItemEffective(item, field)) {
         filterIds.add(item.fieldId);
       }
     } else {
