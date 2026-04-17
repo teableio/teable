@@ -351,10 +351,6 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
 
     // Store the SQL queries to be executed later
     for (const sql of alterTableSchema.toSQL()) {
-      // skip sqlite pragma
-      if (sql.sql.startsWith('PRAGMA')) {
-        continue;
-      }
       this.sql.push(sql.sql);
     }
   }

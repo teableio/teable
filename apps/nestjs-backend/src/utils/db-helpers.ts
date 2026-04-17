@@ -9,7 +9,3 @@ export function getDriverName(knex: Knex | Knex.QueryBuilder) {
 export function isPostgreSQL(knex: Knex) {
   return getDriverName(knex) === DriverClient.Pg;
 }
-
-export function isSQLite(knex: Knex) {
-  return getDriverName(knex) === DriverClient.Sqlite;
-}

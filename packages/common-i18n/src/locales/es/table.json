@@ -937,6 +937,17 @@
     "more": "Explorar más ..."
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Pregunta",
+        "confirm": "Confirmar ({{count}})",
+        "otherPlaceholder": "O escribe tu respuesta…",
+        "otherSend": "Enviar",
+        "addCustomPlaceholder": "Añadir opción personalizada…",
+        "askedUser": "Preguntó al usuario",
+        "answered": "Respondido"
+      }
+    },
     "tool": {
       "getTableFields": "Obtener campos de la tabla",
       "getTablesMeta": "Obtener metadatos de la tabla",
