@@ -111,7 +111,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   }
 
   async updateManyStream() {
-    return ok({ totalUpdated: 0 });
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany() {

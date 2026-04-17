@@ -169,10 +169,12 @@ export interface UpdateManyStreamOptions {
 export interface UpdateManyStreamResult {
   /** Total number of records updated */
   totalUpdated: number;
-  /** Main statement versions captured for each updated row. */
-  updatedRecords?: ReadonlyArray<{
+  /** Main statement before/after snapshots captured for each row actually updated by SQL. */
+  updatedRecords: ReadonlyArray<{
     recordId: RecordId;
+    oldVersion: number;
     newVersion: number;
+    oldFieldValues: Readonly<Record<string, unknown>>;
   }>;
 }
 

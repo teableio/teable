@@ -152,7 +152,7 @@ export const BaseShareContent = ({
                   {permissionOptions.map((item) => (
                     <DropdownMenuItem
                       key={item.label}
-                      className={item.active ? 'text-blue-500' : ''}
+                      className={item.active ? 'font-medium' : ''}
                       onClick={item.onClick}
                     >
                       <div className="flex items-start gap-1.5">
@@ -161,7 +161,7 @@ export const BaseShareContent = ({
                         ) : (
                           <span className="mt-0.5 size-4 shrink-0" />
                         )}
-                        <div className="flex flex-col">
+                        <div className="flex flex-col gap-1">
                           <span>{item.label}</span>
                           <span className="text-xs font-normal text-muted-foreground">
                             {item.desc}

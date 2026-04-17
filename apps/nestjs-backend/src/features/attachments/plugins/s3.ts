@@ -4,6 +4,7 @@ import https from 'https';
 import { join, resolve } from 'path';
 import type { Readable } from 'stream';
 import {
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -15,7 +16,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable, Logger } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
-import { getRandomString, HttpErrorCode } from '@teable/core';
+import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import * as fse from 'fs-extra';
 import ms from 'ms';
 import sharp from 'sharp';
@@ -242,7 +243,7 @@ export class S3Storage implements StorageAdapter {
         },
       });
     }
-    if (!mimetype?.startsWith('image/')) {
+    if (!isImage(mimetype ?? '')) {
       return {
         hash,
         size,
@@ -432,7 +433,7 @@ export class S3Storage implements StorageAdapter {
       Key: path,
     });
     const { Body: stream, ContentType: mimetype } = await this.s3ClientPrivateNetwork.send(command);
-    if (!mimetype?.startsWith('image/')) {
+    if (!isImage(mimetype ?? '')) {
       (stream as Readable)?.destroy?.();
       throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -476,6 +477,15 @@ export class S3Storage implements StorageAdapter {
     });
     const { Body: stream } = await this.s3ClientPrivateNetwork.send(command);
     return stream as Readable;
+  }
+
+  async deleteFile(bucket: string, path: string): Promise<void> {
+    await this.s3ClientPrivateNetwork.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: path,
+      })
+    );
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true) {

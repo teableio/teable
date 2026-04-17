@@ -74,6 +74,18 @@ const createNotifyVo = (token: string): INotifyVo => ({
   presignedUrl: `/preview/${token}`,
 });
 
+const createPersistedAttachment = (token: string) => ({
+  id: `att_${token}`,
+  name: `${token}.pdf`,
+  token,
+  size: 1024,
+  path: `/attachments/${token}`,
+  mimetype: 'application/pdf',
+  presignedUrl: `/preview/${token}`,
+  lgThumbnailUrl: `/preview/${token}_lg`,
+  smThumbnailUrl: `/preview/${token}_sm`,
+});
+
 const createFile = (name: string) => new File(['content'], name, { type: 'text/plain' });
 
 const setTaskStatus = (
@@ -296,6 +308,40 @@ describe('useCellAttachmentUploadStore promoted key cleanup', () => {
         fieldId,
         expect.arrayContaining([expect.objectContaining({ token: 'token_late' })])
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('syncs latest persisted attachment thumbnails back into completed tasks', async () => {
+    vi.useFakeTimers();
+    try {
+      const recordId = 'rec_sync';
+      const cellKey = buildCellKey(tableId, recordId, fieldId);
+      const store = useCellAttachmentUploadStore.getState();
+
+      store.startUpload(tableId, recordId, fieldId, [createFile('token_sync.pdf')], 'base');
+      const taskId = useCellAttachmentUploadStore.getState().cellUploads[cellKey].tasks[0].id;
+      const manager = useCellAttachmentUploadStore.getState().cellUploads[cellKey]
+        .manager as unknown as HoistedMockAttachmentManager;
+
+      manager.triggerSuccess(taskId, {
+        ...createNotifyVo('token_sync'),
+        mimetype: 'application/pdf',
+      });
+
+      expect(
+        useCellAttachmentUploadStore.getState().cellUploads[cellKey].tasks[0].attachmentItem?.token
+      ).toBe('token_sync');
+
+      await vi.runAllTimersAsync();
+
+      store.syncCellAttachments(cellKey, [createPersistedAttachment('token_sync')]);
+
+      const updatedTask = useCellAttachmentUploadStore.getState().cellUploads[cellKey].tasks[0];
+      expect(updatedTask.attachmentItem?.id).toBe('att_token_sync');
+      expect(updatedTask.attachmentItem?.lgThumbnailUrl).toBe('/preview/token_sync_lg');
+      expect(updatedTask.attachmentItem?.smThumbnailUrl).toBe('/preview/token_sync_sm');
     } finally {
       vi.useRealTimers();
     }

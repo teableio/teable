@@ -4016,6 +4016,30 @@ describe('v2 http paste (e2e)', () => {
       expect(records[0].fields[versionTextFieldId]).toBe('Pasted Value');
     });
 
+    it('should not increment record version when pasted value is unchanged', async () => {
+      const record = await ctx.createRecord(versionTableId, {
+        [versionTextFieldId]: 'Noop Value',
+      });
+      const recordsBeforePaste = await ctx.listRecords(versionTableId);
+      const rowIndex = recordsBeforePaste.findIndex((r) => r.id === record.id);
+      const versionBeforePaste = await getRecordVersion(record.id);
+
+      const result = await ctx.paste({
+        tableId: versionTableId,
+        viewId: versionViewId,
+        ranges: [
+          [0, rowIndex],
+          [0, rowIndex],
+        ],
+        content: [['Noop Value']],
+      });
+
+      const versionAfterPaste = await getRecordVersion(record.id);
+
+      expect(result.updatedCount).toBe(0);
+      expect(versionAfterPaste).toBe(versionBeforePaste);
+    });
+
     it('should correctly increment versions for multiple records with different versions', async () => {
       // Create multiple records
       const record1 = await ctx.createRecord(versionTableId, { [versionTextFieldId]: 'Rec1' });

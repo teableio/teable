@@ -51,6 +51,7 @@ import {
   type IForeignTableLoaderService,
   NullForeignTableLoaderService,
 } from './ForeignTableLoaderService';
+import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
@@ -437,22 +438,28 @@ export class RecordBulkUpdateService {
                 updatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
               }
 
-              const eventData: RecordUpdateDTO[] = mutationResult.updatedRecords.map((record) => {
+              const eventData: RecordUpdateDTO[] = [];
+              for (const record of mutationResult.updatedRecords) {
                 const changes: RecordFieldChangeDTO[] = [];
                 for (const [fieldId, newValue] of updatedFieldValues.entries()) {
+                  if (areRecordFieldValuesEqual(record.oldFieldValues[fieldId], newValue)) {
+                    continue;
+                  }
                   changes.push({
                     fieldId,
                     oldValue: record.oldFieldValues[fieldId],
                     newValue,
                   });
                 }
-                return {
-                  recordId: record.recordId.toString(),
-                  oldVersion: record.oldVersion,
-                  newVersion: record.newVersion,
-                  changes,
-                };
-              });
+                if (changes.length > 0) {
+                  eventData.push({
+                    recordId: record.recordId.toString(),
+                    oldVersion: record.oldVersion,
+                    newVersion: record.newVersion,
+                    changes,
+                  });
+                }
+              }
 
               return ok({
                 updatedCount: mutationResult.totalUpdated,
@@ -707,13 +714,10 @@ export class RecordBulkUpdateService {
                 for (const pendingEvent of pendingEventData) {
                   const newVersion = persistedVersions.get(pendingEvent.recordId);
                   if (newVersion == null) {
-                    return err(
-                      domainError.unexpected({
-                        code: 'record.update_many.version_mismatch',
-                        message:
-                          'Bulk record update versions did not match the persisted record set',
-                      })
-                    );
+                    continue;
+                  }
+                  if (pendingEvent.changes.length === 0) {
+                    continue;
                   }
                   eventData.push({
                     recordId: pendingEvent.recordId,
@@ -999,7 +1003,9 @@ export class RecordBulkUpdateService {
       });
     }
 
-    return ok(changes);
+    return ok(
+      changes.filter((change) => !areRecordFieldValuesEqual(change.oldValue, change.newValue))
+    );
   }
 
   private createSyncUpdateBatchesGenerator(
