@@ -9,10 +9,10 @@ export const useToolbarChange = () => {
   const { setCollapsedGroupMap } = useGridCollapsedGroupStore();
 
   return useMemo(() => {
-    const onFilterChange = async (value: IFilter) => {
+    const onFilterChange = async (value: IFilter | null) => {
       await view?.updateFilter(value);
     };
-    const onSortChange = async (value: ISort) => {
+    const onSortChange = async (value: ISort | null) => {
       await view?.updateSort?.(value);
     };
     const onGroupChange = async (value: IGroup) => {

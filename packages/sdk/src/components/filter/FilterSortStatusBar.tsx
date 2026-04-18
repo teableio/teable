@@ -4,7 +4,7 @@ import { Badge } from '@teable/ui-lib/shadcn/ui/badge';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { cn } from '@teable/ui-lib/utils';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
 import type { IFieldInstance } from '../../model';
 import type { IFilterLabel, ISortLabel } from './view-filter/hooks/useFilterSortStatus';

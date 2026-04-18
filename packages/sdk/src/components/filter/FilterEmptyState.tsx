@@ -1,7 +1,8 @@
 import type { IFilter } from '@teable/core';
 import { Filter as FilterIcon, X } from '@teable/icons';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
-import { useTranslation } from 'react-i18next';
+import { cn } from '@teable/ui-lib/utils';
+import { useTranslation } from '../../context/app/i18n';
 
 interface IFilterEmptyStateProps {
   filter?: IFilter | null | undefined;
@@ -33,7 +34,3 @@ export const FilterEmptyState = ({ onClearFilter, className }: IFilterEmptyState
     </div>
   );
 };
-
-function cn(...classes: (string | boolean | undefined | null)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
