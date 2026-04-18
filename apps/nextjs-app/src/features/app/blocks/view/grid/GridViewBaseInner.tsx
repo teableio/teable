@@ -62,6 +62,7 @@ import {
   TaskStatusCollectionContext,
   PendingUploadContext,
   isNeedPersistEditing,
+  FilterEmptyState,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -1558,163 +1559,174 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   };
 
+  const hasActiveFilter = view?.filter?.filterSet?.length > 0;
+  const showEmptyState = realRowCount === 0 && hasActiveFilter;
+
   return (
     <div ref={containerRef} className="relative size-full">
-      <Grid
-        ref={gridRef}
-        theme={theme}
-        style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
-        draggable={draggable}
-        isTouchDevice={isTouchDevice}
-        rowCount={realRowCount}
-        rowHeight={rowHeight}
-        columnHeaderHeight={columnHeaderHeight}
-        freezeColumnCount={frozenColumnCount}
-        columnStatistics={columnStatistics}
-        columns={columns}
-        commentCountMap={commentCountMap}
-        customIcons={customIcons}
-        rowControls={rowControls}
-        collapsedGroupIds={collapsedGroupIds}
-        groupCollection={groupCollection}
-        groupPoints={groupPoints as unknown as IGroupPoint[]}
-        collaborators={collaborators}
-        searchCursor={searchCursor}
-        searchHitIndex={searchHitIndex}
-        getCellContent={getCellContent}
-        onDelete={getAuthorizedFunction(onDelete, 'record|update')}
-        onDragStart={onDragStart}
-        onRowOrdered={onRowOrdered}
-        onRowExpand={onRowExpandInner}
-        onRowAppend={
-          isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
-        }
-        onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
-        onFillSelection={getAuthorizedFunction(onFillSelection, 'record|update')}
-        onCellDblClick={onCellDblClick}
-        onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
-        onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-        onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
-        onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
-        onContextMenu={onContextMenu}
-        onGroupHeaderContextMenu={onGroupHeaderContextMenu}
-        onColumnHeaderClick={onColumnHeaderClick}
-        onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
-        onVisibleRegionChanged={onVisibleRegionChanged}
-        onSelectionChanged={onSelectionChanged}
-        onColumnHeaderDblClick={onColumnHeaderDblClick}
-        onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-        onCollapsedGroupChanged={onCollapsedGroupChanged}
-        onScrollChanged={onGridScrollChanged}
-        onUndo={undo}
-        onRedo={redo}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        onItemClick={onItemClick}
-        onItemHovered={onItemHovered}
-      />
-      {fieldAIEnable && (
-        <AiGenerateButton
-          ref={aiGenerateButtonRef}
-          gridRef={gridRef}
-          activeCell={activeCell}
-          recordMap={recordMap}
-          onGenerate={() => {
-            if (activeCell) {
-              clearCellError(activeCell.recordId, activeCell.fieldId);
-            }
-          }}
-        />
-      )}
-      {activeCell && (
-        <ResetClickCountButton
-          ref={resetClickCountButtonRef}
-          gridRef={gridRef}
-          activeCell={activeCell}
-          recordMap={recordMap}
-        />
-      )}
-      {inPrefilling && (
-        <PendingUploadContext.Provider value={pendingUploadCtx}>
-          <PrefillingRowContainer
-            style={prefillingRowStyle}
-            isLoading={isCreatingRecord}
-            onClickOutside={async () => {
-              if (isCreatingRecord || newRecords?.length) return;
-              await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
-            }}
-            onCancel={() => {
-              if (tableId) {
-                cancelPendingUploads(tableId, tempRecordId);
-              }
-              setPrefillingRowIndex(undefined);
-              setPrefillingFieldValueMap(undefined);
-            }}
-          >
-            <Grid
-              ref={prefillingGridRef}
-              theme={theme}
-              scrollBufferX={
-                permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
-              }
-              scrollBufferY={0}
-              scrollBarVisible={false}
-              rowCount={1}
-              rowHeight={rowHeight}
-              rowIndexVisible={false}
-              rowControls={rowControls}
-              draggable={DraggableType.None}
-              selectable={SelectableType.Cell}
-              columns={columns}
-              commentCountMap={commentCountMap}
-              columnHeaderHeight={0}
-              freezeColumnCount={frozenColumnCount}
-              customIcons={customIcons}
-              getCellContent={getPrefillingCellContent}
-              onScrollChanged={onPrefillingGridScrollChanged}
-              onCellEdited={onPrefillingCellEdited}
-              onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
-              onPaste={onPasteForPrefilling}
-              onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
-            />
-          </PrefillingRowContainer>
-        </PendingUploadContext.Provider>
-      )}
-      {presortRecord && (
-        <PresortRowContainer
-          style={presortRowStyle}
-          onInit={onPresortContainerInit}
-          onClickOutside={async () => setPresortRecordData(undefined)}
-        >
+      {!showEmptyState ? (
+        <>
           <Grid
-            ref={presortGridRef}
+            ref={gridRef}
             theme={theme}
-            scrollBufferX={
-              permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
-            }
-            scrollBufferY={0}
-            scrollBarVisible={false}
-            rowCount={1}
+            style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
+            draggable={draggable}
+            isTouchDevice={isTouchDevice}
+            rowCount={realRowCount}
             rowHeight={rowHeight}
-            rowIndexVisible={false}
-            rowControls={rowControls}
-            draggable={DraggableType.None}
-            selectable={SelectableType.Cell}
-            columns={columns}
-            columnHeaderHeight={0}
-            commentCountMap={commentCountMap}
+            columnHeaderHeight={columnHeaderHeight}
             freezeColumnCount={frozenColumnCount}
+            columnStatistics={columnStatistics}
+            columns={columns}
+            commentCountMap={commentCountMap}
             customIcons={customIcons}
-            getCellContent={getPresortCellContent}
-            onScrollChanged={onPrefillingGridScrollChanged}
-            onCellEdited={onPresortCellEdited}
-            onCopy={(selection, e) => onCopyForSingleRow(e, selection, presortRecord.fields)}
-            onPaste={onPasteForPresort}
-            onDelete={getAuthorizedFunction(onDeleteForPresort, 'record|update')}
+            rowControls={rowControls}
+            collapsedGroupIds={collapsedGroupIds}
+            groupCollection={groupCollection}
+            groupPoints={groupPoints as unknown as IGroupPoint[]}
+            collaborators={collaborators}
+            searchCursor={searchCursor}
+            searchHitIndex={searchHitIndex}
+            getCellContent={getCellContent}
+            onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+            onDragStart={onDragStart}
+            onRowOrdered={onRowOrdered}
+            onRowExpand={onRowExpandInner}
+            onRowAppend={
+              isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
+            }
+            onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
+            onFillSelection={getAuthorizedFunction(onFillSelection, 'record|update')}
+            onCellDblClick={onCellDblClick}
+            onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
+            onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
+            onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
+            onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
+            onContextMenu={onContextMenu}
+            onGroupHeaderContextMenu={onGroupHeaderContextMenu}
+            onColumnHeaderClick={onColumnHeaderClick}
+            onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
+            onVisibleRegionChanged={onVisibleRegionChanged}
+            onSelectionChanged={onSelectionChanged}
+            onColumnHeaderDblClick={onColumnHeaderDblClick}
+            onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+            onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onScrollChanged={onGridScrollChanged}
+            onUndo={undo}
+            onRedo={redo}
+            onCopy={onCopy}
+            onPaste={onPaste}
+            onItemClick={onItemClick}
+            onItemHovered={onItemHovered}
           />
-        </PresortRowContainer>
+          {fieldAIEnable && (
+            <AiGenerateButton
+              ref={aiGenerateButtonRef}
+              gridRef={gridRef}
+              activeCell={activeCell}
+              recordMap={recordMap}
+              onGenerate={() => {
+                if (activeCell) {
+                  clearCellError(activeCell.recordId, activeCell.fieldId);
+                }
+              }}
+            />
+          )}
+          {activeCell && (
+            <ResetClickCountButton
+              ref={resetClickCountButtonRef}
+              gridRef={gridRef}
+              activeCell={activeCell}
+              recordMap={recordMap}
+            />
+          )}
+          {inPrefilling && (
+            <PendingUploadContext.Provider value={pendingUploadCtx}>
+              <PrefillingRowContainer
+                style={prefillingRowStyle}
+                isLoading={isCreatingRecord}
+                onClickOutside={async () => {
+                  if (isCreatingRecord || newRecords?.length) return;
+                  await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
+                }}
+                onCancel={() => {
+                  if (tableId) {
+                    cancelPendingUploads(tableId, tempRecordId);
+                  }
+                  setPrefillingRowIndex(undefined);
+                  setPrefillingFieldValueMap(undefined);
+                }}
+              >
+                <Grid
+                  ref={prefillingGridRef}
+                  theme={theme}
+                  scrollBufferX={
+                    permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+                  }
+                  scrollBufferY={0}
+                  scrollBarVisible={false}
+                  rowCount={1}
+                  rowHeight={rowHeight}
+                  rowIndexVisible={false}
+                  rowControls={rowControls}
+                  draggable={DraggableType.None}
+                  selectable={SelectableType.Cell}
+                  columns={columns}
+                  commentCountMap={commentCountMap}
+                  columnHeaderHeight={0}
+                  freezeColumnCount={frozenColumnCount}
+                  customIcons={customIcons}
+                  getCellContent={getPrefillingCellContent}
+                  onScrollChanged={onPrefillingGridScrollChanged}
+                  onCellEdited={onPrefillingCellEdited}
+                  onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
+                  onPaste={onPasteForPrefilling}
+                  onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
+                />
+              </PrefillingRowContainer>
+            </PendingUploadContext.Provider>
+          )}
+          {presortRecord && (
+            <PresortRowContainer
+              style={presortRowStyle}
+              onInit={onPresortContainerInit}
+              onClickOutside={async () => setPresortRecordData(undefined)}
+            >
+              <Grid
+                ref={presortGridRef}
+                theme={theme}
+                scrollBufferX={
+                  permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+                }
+                scrollBufferY={0}
+                scrollBarVisible={false}
+                rowCount={1}
+                rowHeight={rowHeight}
+                rowIndexVisible={false}
+                rowControls={rowControls}
+                draggable={DraggableType.None}
+                selectable={SelectableType.Cell}
+                columns={columns}
+                columnHeaderHeight={0}
+                commentCountMap={commentCountMap}
+                freezeColumnCount={frozenColumnCount}
+                customIcons={customIcons}
+                getCellContent={getPresortCellContent}
+                onScrollChanged={onPrefillingGridScrollChanged}
+                onCellEdited={onPresortCellEdited}
+                onCopy={(selection, e) => onCopyForSingleRow(e, selection, presortRecord.fields)}
+                onPaste={onPasteForPresort}
+                onDelete={getAuthorizedFunction(onDeleteForPresort, 'record|update')}
+              />
+            </PresortRowContainer>
+          )}
+          <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
+        </>
+      ) : (
+        <FilterEmptyState
+          onClearFilter={() => view?.updateFilter(null)}
+        />
       )}
-      <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
       <DomBox id={componentId} />
       {!onRowExpand && (
         <ExpandRecordContainer

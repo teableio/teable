@@ -233,6 +233,13 @@
         "isLessEqual": "≤"
       }
     },
+    "removeTip": "点击移除此筛选条件",
+    "clearAll": "清除所有筛选",
+    "emptyState": {
+      "title": "没有匹配的记录",
+      "description": "当前筛选条件下没有找到匹配的记录，请尝试调整筛选条件。",
+      "clearFilter": "清除筛选"
+    },
     "conditionalRollup": {
       "switchToField": "使用字段值",
       "switchToValue": "输入固定值"
@@ -330,7 +337,15 @@
     "addButton": "添加另一个排序",
     "autoSort": "自动排序",
     "selectASCLabel": "选项顺序",
-    "selectDESCLabel": "选项倒序"
+    "selectDESCLabel": "选项倒序",
+    "asc": "升序",
+    "desc": "降序",
+    "removeTip": "点击移除此排序条件",
+    "clearAll": "清除所有排序"
+  },
+  "filterSort": {
+    "clearAll": "清除所有",
+    "clearAllTip": "清除所有筛选和排序条件"
   },
   "group": {
     "label": "分组",

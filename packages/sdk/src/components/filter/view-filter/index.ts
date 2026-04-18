@@ -4,3 +4,4 @@ export * from './ViewFilter';
 export * from './BaseViewFilter';
 export * from './custom-component';
 export * from './types';
+export * from './type-guard';

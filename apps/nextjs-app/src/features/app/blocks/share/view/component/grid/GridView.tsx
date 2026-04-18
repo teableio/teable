@@ -1,11 +1,13 @@
+import { FilterSortStatusBar } from '@teable/sdk';
 import { RecordProvider, RowCountProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
-import { useIsHydrated } from '@teable/sdk/hooks';
+import { useFields, useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
+import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { useBrand } from '@/features/app/hooks/useBrand';
 import { EmbedFooter } from '../../EmbedFooter';
 import { AggregationProvider } from './aggregation';
@@ -15,7 +17,9 @@ import { Toolbar } from './toolbar';
 export const GridView = () => {
   const { records, view, extra } = useContext(ShareViewContext);
   const isHydrated = useIsHydrated();
+  const fields = useFields({ withHidden: true, withDenied: true });
   const { brandName } = useBrand();
+  const { onFilterChange, onSortChange } = useToolbarChange();
   const {
     query: { hideToolBar, embed },
   } = useRouter();
@@ -37,6 +41,13 @@ export const GridView = () => {
             <AggregationProvider>
               <RowCountProvider>
                 {!hideToolBar && <Toolbar />}
+                <FilterSortStatusBar
+                  filter={view?.filter || null}
+                  sort={view?.sort || null}
+                  fields={fields}
+                  onFilterChange={onFilterChange}
+                  onSortChange={onSortChange}
+                />
                 {isHydrated && (
                   <div className="w-full grow overflow-hidden">
                     <GridViewBase groupPointsServerData={extra?.groupPoints} />

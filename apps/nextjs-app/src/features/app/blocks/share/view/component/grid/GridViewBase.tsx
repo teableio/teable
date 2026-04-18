@@ -13,6 +13,7 @@ import type {
   IPosition,
   IRectangle,
 } from '@teable/sdk/components';
+import { FilterEmptyState } from '@teable/sdk';
 import {
   DraggableType,
   Grid,
@@ -363,50 +364,59 @@ export const GridViewBase = (props: IGridViewProps) => {
     [columns, visibleFields, openHeaderMenu]
   );
 
+  const hasActiveFilter = view?.filter?.filterSet?.length > 0;
+  const showEmptyState = realRowCount === 0 && hasActiveFilter;
+
   return (
     <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
-        <>
-          <Grid
-            ref={gridRef}
-            theme={theme}
-            draggable={DraggableType.Column}
-            isTouchDevice={isTouchDevice}
-            rowCount={realRowCount}
-            rowHeight={rowHeight}
-            columnHeaderHeight={columnHeaderHeight}
-            columnStatistics={columnStatistics}
-            freezeColumnCount={frozenColumnCount}
-            columns={columns}
-            searchCursor={searchCursor}
-            searchHitIndex={searchHitIndex}
-            customIcons={customIcons}
-            rowControls={rowControls}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-            collapsedGroupIds={collapsedGroupIds}
-            groupCollection={groupCollection}
-            groupPoints={groupPoints as unknown as IGroupPoint[]}
-            getCellContent={getCellContent}
-            onVisibleRegionChanged={onVisibleRegionChanged}
-            onSelectionChanged={onSelectionChanged}
-            onCopy={onCopy}
-            onItemHovered={onItemHovered}
-            onRowExpand={onRowExpandInner}
-            onColumnResize={onColumnResize}
-            onColumnFreeze={onColumnFreeze}
-            onColumnOrdered={onColumnOrdered}
-            onColumnStatisticClick={onColumnStatisticClick}
-            onCollapsedGroupChanged={onCollapsedGroupChanged}
-            onGroupHeaderContextMenu={onGroupHeaderContextMenu}
-            onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-            onColumnHeaderClick={onColumnHeaderClick}
-            onContextMenu={onContextMenu}
+        !showEmptyState ? (
+          <>
+            <Grid
+              ref={gridRef}
+              theme={theme}
+              draggable={DraggableType.Column}
+              isTouchDevice={isTouchDevice}
+              rowCount={realRowCount}
+              rowHeight={rowHeight}
+              columnHeaderHeight={columnHeaderHeight}
+              columnStatistics={columnStatistics}
+              freezeColumnCount={frozenColumnCount}
+              columns={columns}
+              searchCursor={searchCursor}
+              searchHitIndex={searchHitIndex}
+              customIcons={customIcons}
+              rowControls={rowControls}
+              style={{
+                width: '100%',
+                height: '100%',
+              }}
+              collapsedGroupIds={collapsedGroupIds}
+              groupCollection={groupCollection}
+              groupPoints={groupPoints as unknown as IGroupPoint[]}
+              getCellContent={getCellContent}
+              onVisibleRegionChanged={onVisibleRegionChanged}
+              onSelectionChanged={onSelectionChanged}
+              onCopy={onCopy}
+              onItemHovered={onItemHovered}
+              onRowExpand={onRowExpandInner}
+              onColumnResize={onColumnResize}
+              onColumnFreeze={onColumnFreeze}
+              onColumnOrdered={onColumnOrdered}
+              onColumnStatisticClick={onColumnStatisticClick}
+              onCollapsedGroupChanged={onCollapsedGroupChanged}
+              onGroupHeaderContextMenu={onGroupHeaderContextMenu}
+              onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+              onColumnHeaderClick={onColumnHeaderClick}
+              onContextMenu={onContextMenu}
+            />
+            <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
+          </>
+        ) : (
+          <FilterEmptyState
+            onClearFilter={() => view?.updateFilter(null)}
           />
-          <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
-        </>
+        )
       ) : (
         <div className="flex w-full items-center space-x-4">
           <div className="w-full space-y-3 px-2">

@@ -216,6 +216,13 @@
         "isLessEqual": "≤"
       }
     },
+    "removeTip": "Click to remove this filter condition",
+    "clearAll": "Clear all filters",
+    "emptyState": {
+      "title": "No matching records",
+      "description": "No records match the current filter criteria. Try adjusting your filters.",
+      "clearFilter": "Clear filters"
+    },
     "conditionalRollup": {
       "switchToField": "Use field value",
       "switchToValue": "Use manual value"
@@ -313,7 +320,15 @@
     "addButton": "Add another sort",
     "autoSort": "Automatically sort records",
     "selectASCLabel": "first → last",
-    "selectDESCLabel": "last → first"
+    "selectDESCLabel": "last → first",
+    "asc": "Ascending",
+    "desc": "Descending",
+    "removeTip": "Click to remove this sort condition",
+    "clearAll": "Clear all sorts"
+  },
+  "filterSort": {
+    "clearAll": "Clear all",
+    "clearAllTip": "Clear all filter and sort conditions"
   },
   "group": {
     "label": "Group",
