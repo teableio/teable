@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem, IFilterSet, ISort, ISortItem } from '@teable/core';
+import { CellValueType, type IFilter, type IFilterItem, type IFilterSet, type ISort, type ISortItem } from '@teable/core';
 import { isFilterItem } from '../type-guard';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -96,7 +96,8 @@ export const useFilterSortStatus = (
   fields: IFieldInstance[]
 ) => {
   const { t } = useTranslation();
-  const operatorI18nMap = useOperatorI18nMap();
+  const commonOperatorMap = useOperatorI18nMap();
+  const numberOperatorMap = useOperatorI18nMap(CellValueType.Number);
 
   const fieldMap = useMemo(() => {
     const map: Record<string, IFieldInstance> = {};
@@ -116,7 +117,9 @@ export const useFilterSortStatus = (
     return flatItems.map(({ item, path }, index) => {
       const field = fieldMap[item.fieldId];
       const fieldName = field?.name ?? item.fieldId;
-      const operatorLabel = operatorI18nMap[item.operator as keyof typeof operatorI18nMap] ?? item.operator;
+      const cellValueType = field?.cellValueType;
+      const operatorMap = cellValueType === CellValueType.Number ? numberOperatorMap : commonOperatorMap;
+      const operatorLabel = operatorMap[item.operator as keyof typeof operatorMap] ?? item.operator;
       const valueLabel = formatFilterValue(item.value);
 
       return {
@@ -131,7 +134,7 @@ export const useFilterSortStatus = (
         path,
       };
     });
-  }, [filter, fieldMap, operatorI18nMap]);
+  }, [filter, fieldMap, commonOperatorMap, numberOperatorMap]);
 
   const sortLabels = useMemo<ISortLabel[]>(() => {
     if (!sort || !sort.sortObjs || sort.sortObjs.length === 0) {
@@ -163,13 +166,9 @@ export const useFilterSortStatus = (
       const newFilter = deepClone(filter);
 
       let current: unknown = newFilter;
-      let parent: unknown = null;
-      let parentKey: string | number | null = null;
 
       for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
-        parent = current;
-        parentKey = key;
 
         if (typeof key === 'string') {
           current = (current as Record<string, unknown>)[key];
