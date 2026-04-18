@@ -3,26 +3,29 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import type * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { ICommandBus } from '../ports/CommandBus';
-import type * as TableRepositoryPort from '../ports/TableRepository';
+import { ICommandBus } from '../ports/CommandBus';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { ITableRepository } from '../ports/TableRepository';
+import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   flattenUndoRedoCommands,
   type UndoRedoCommandLeafData,
 } from '../ports/UndoRedoStore';
-import { v2CoreTokens } from '../ports/tokens';
-import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
+import { type DeleteFieldResult } from './DeleteFieldHandler';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
-import { DeleteFieldResult } from './DeleteFieldHandler';
 
 export class DeleteFieldsResult {
   private constructor(
@@ -44,11 +47,11 @@ export class DeleteFieldsHandler
     @inject(v2CoreTokens.commandBus)
     private readonly commandBus: ICommandBus,
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: TableRepositoryPort.ITableRepository,
+    private readonly tableRepository: ITableRepository,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService
+    private readonly undoRedoStackService: UndoRedoStackService
   ) {}
 
   @TraceSpan()
@@ -129,10 +132,14 @@ export class DeleteFieldsHandler
         })
       );
 
-      yield* await handler.undoRedoService.recordEntry(context, latestTable.id(), {
-        undoCommand: composeUndoRedoCommands([...targetUndoLeaves, ...relatedUndoLeaves]),
-        redoCommand: composeUndoRedoCommands(redoLeaves),
-      });
+      yield* await handler.undoRedoStackService.appendEntry(
+        toUndoRedoStackAppendContext(context),
+        latestTable.id(),
+        {
+          undoCommand: composeUndoRedoCommands([...targetUndoLeaves, ...relatedUndoLeaves]),
+          redoCommand: composeUndoRedoCommands(redoLeaves),
+        }
+      );
 
       return ok(DeleteFieldsResult.create(latestTable, events));
     });

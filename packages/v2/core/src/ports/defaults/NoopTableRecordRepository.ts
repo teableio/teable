@@ -12,6 +12,7 @@ import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
 import type {
   BatchRecordMutationResult,
+  DeleteManyResult,
   DeleteManyStreamOptions,
   DeleteManyStreamResult,
   ITableRecordRepository,
@@ -143,8 +144,8 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<DeleteManyResult, DomainError>> {
+    return ok({});
   }
 
   async deleteManyStream(

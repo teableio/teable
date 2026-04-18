@@ -1205,7 +1205,9 @@
         "confirm": "确认 ({{count}})",
         "otherPlaceholder": "或输入自定义回答…",
         "otherSend": "发送",
-        "addCustomPlaceholder": "添加自定义选项…"
+        "addCustomPlaceholder": "添加自定义选项…",
+        "askedUser": "询问用户",
+        "answered": "已回答"
       },
       "completion": {
         "completed": "已完成",

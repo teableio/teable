@@ -17,7 +17,6 @@ import {
   ok,
 } from '@teable/v2-core';
 import type {
-  IEventBus,
   IHasher,
   ILogger,
   ISpecification,
@@ -48,6 +47,8 @@ import type {
 } from '../computed';
 import type { DynamicDB } from '../query-builder';
 import { CellValueMutateVisitor } from '../visitors/CellValueMutateVisitor';
+import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
+import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 // =============================================================================
@@ -55,6 +56,32 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 // =============================================================================
 
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
+
+const defaultRowsForQuery = (compiledQuery: CompiledQuery): unknown[] => {
+  const sqlText = compiledQuery.sql.toLowerCase();
+  if (
+    sqlText.includes('returning') &&
+    sqlText.includes('record_id') &&
+    sqlText.includes('new_version')
+  ) {
+    const recordId = compiledQuery.sql.match(/\('([^']+)'/)?.[1] ?? `rec${'h'.repeat(16)}`;
+    const row: Record<string, unknown> = { record_id: recordId, old_version: 1, new_version: 2 };
+    for (const match of compiledQuery.sql.matchAll(/ AS "(old_[^"]+)"/g)) {
+      row[match[1]!] = null;
+    }
+    return [row];
+  }
+
+  if (!sqlText.includes('returning') || !sqlText.includes(' as "changed_')) {
+    return [];
+  }
+
+  const row: Record<string, unknown> = {};
+  for (const match of compiledQuery.sql.matchAll(/ as "(changed_\d+)"/g)) {
+    row[match[1]!] = null;
+  }
+  return [row];
+};
 
 class RecordingConnection implements DatabaseConnection {
   constructor(
@@ -64,7 +91,10 @@ class RecordingConnection implements DatabaseConnection {
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
-    const rows = (this.rowProvider?.(compiledQuery) ?? []) as R[];
+    const providedRows = this.rowProvider?.(compiledQuery);
+    const rows = (
+      providedRows && providedRows.length > 0 ? providedRows : defaultRowsForQuery(compiledQuery)
+    ) as R[];
     return { rows };
   }
 
@@ -113,7 +143,45 @@ class RecordingDriver implements Driver {
 }
 
 const createRecordingDb = (rowProvider?: RowProvider) => {
-  const driver = new RecordingDriver(rowProvider);
+  const defaultUndoLogRowProvider: RowProvider = (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM information_schema.tables')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM information_schema.columns')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_proc')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [
+        {
+          operation: 'UPDATE',
+          record_id: RECORD_ID,
+          old_row: {
+            __id: RECORD_ID,
+            __version: 1,
+          },
+          new_row: {
+            __id: RECORD_ID,
+            __version: 2,
+          },
+        },
+      ];
+    }
+    return [];
+  };
+  const driver = new RecordingDriver(
+    rowProvider
+      ? (compiledQuery) => {
+          const providedRows = rowProvider(compiledQuery);
+          return providedRows.length > 0 ? providedRows : defaultUndoLogRowProvider(compiledQuery);
+        }
+      : defaultUndoLogRowProvider
+  );
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -193,14 +261,6 @@ const createNoopRecordOrderCalculator = (): IRecordOrderCalculator => {
   };
 };
 
-const createNoopEventBus = (): IEventBus => {
-  return {
-    publish: async () => undefined,
-    publishMany: async () => undefined,
-    subscribe: () => ({ unsubscribe: () => undefined }),
-  } as unknown as IEventBus;
-};
-
 const createRepository = (
   db: Kysely<DynamicDB>,
   table: Table,
@@ -220,6 +280,10 @@ const createRepository = (
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
     createNoopEventBus(),
     hasher
   );
@@ -239,14 +303,45 @@ const hydrateLinkField = (params: {
   linkField.ensureDbConfig({ baseId: params.baseId, hostTableId: params.tableId })._unsafeUnwrap();
 };
 
+const isUndoCaptureQuery = (query: CompiledQuery) => {
+  const text = query.sql;
+  return (
+    text.includes('teable_undo_capture_') ||
+    text.includes('"public"."__undo_log"') ||
+    text.includes("table_name = '__undo_log'") ||
+    text.includes('__teable_capture_undo_row') ||
+    text.includes('FROM pg_trigger AS t') ||
+    text.includes('"__teable_undo_capture"') ||
+    text.includes('teable.undo_batch_id')
+  );
+};
+
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
-  queries.map((query) => ({ sql: query.sql, parameters: query.parameters }));
+  queries
+    .filter((query) => !isUndoCaptureQuery(query))
+    .map((query) => ({ sql: query.sql, parameters: query.parameters }));
 
 const createSingleRowProvider = (tableName: string, row: Record<string, unknown>): RowProvider => {
   const target = `from ${tableName}`;
   return (compiledQuery) => {
     if (compiledQuery.sql.includes(target) && compiledQuery.sql.includes('select "__id"')) {
       return [row];
+    }
+    return [];
+  };
+};
+
+const createUndoLogRowProvider = (
+  rows: ReadonlyArray<{
+    record_id: string;
+    old_row: Record<string, unknown>;
+    new_row?: Record<string, unknown>;
+    operation?: 'INSERT' | 'UPDATE' | 'DELETE';
+  }>
+): RowProvider => {
+  return (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [...rows];
     }
     return [];
   };
@@ -390,8 +485,19 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "2025-01-01T00:00:00.000Z",
             "usr_test",
             "inactive",
+            "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+        },
+        {
+          "parameters": [
+            "usr_test",
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
         },
       ]
     `);
@@ -453,8 +559,19 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "2025-01-01T00:00:00.000Z",
             "usr_test",
             "inactive",
+            "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+        },
+        {
+          "parameters": [
+            "usr_test",
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
         },
       ]
     `);
@@ -514,8 +631,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "Alice",
             "rechhhhhhhhhhhhhhhh",
+            "Alice",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -529,6 +647,220 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         },
       ]
     `);
+
+    vi.useRealTimers();
+  });
+
+  it('returns update snapshots captured from the undo log', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap().mutateSpec;
+
+    const { db } = createRecordingDb(
+      createUndoLogRowProvider([
+        {
+          operation: 'UPDATE',
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+            __version: 4,
+            col_name: 'Before',
+          },
+          new_row: {
+            __id: recordId.toString(),
+            __version: 5,
+            col_name: 'Alice',
+          },
+        },
+      ])
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updateSnapshot).toEqual({
+      previous: {
+        recordId: recordId.toString(),
+        fields: {
+          [NAME_FIELD_ID]: 'Before',
+        },
+        version: 4,
+      },
+      current: {
+        recordId: recordId.toString(),
+        fields: {
+          [NAME_FIELD_ID]: 'Alice',
+        },
+        version: 5,
+      },
+      oldVersion: 4,
+      newVersion: 5,
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('uses the last UPDATE undo row as the update snapshot after-image', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateTableCurrentRow')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap().mutateSpec;
+
+    const { db } = createRecordingDb(
+      createUndoLogRowProvider([
+        {
+          operation: 'UPDATE',
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+            __version: 4,
+            col_name: 'Before',
+          },
+          new_row: {
+            __id: recordId.toString(),
+            __version: 5,
+            col_name: 'Alice',
+          },
+        },
+        {
+          operation: 'INSERT',
+          record_id: recordId.toString(),
+          old_row: null as never,
+          new_row: {
+            __id: recordId.toString(),
+            __version: 99,
+            col_name: 'Not The Update After Image',
+          },
+        },
+      ])
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updateSnapshot?.current).toEqual({
+      recordId: recordId.toString(),
+      fields: {
+        [NAME_FIELD_ID]: 'Alice',
+      },
+      version: 5,
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('returns Err when update snapshot capture is missing version metadata', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap().mutateSpec;
+
+    const { db } = createRecordingDb(
+      createUndoLogRowProvider([
+        {
+          operation: 'UPDATE',
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+            col_name: 'Before',
+          },
+          new_row: {
+            __id: recordId.toString(),
+            col_name: 'Alice',
+          },
+        },
+      ])
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('missing __version');
 
     vi.useRealTimers();
   });
@@ -632,8 +964,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "Alice",
             "rechhhhhhhhhhhhhhhh",
+            "Alice",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 returning "col_name" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
         },
         {
           "parameters": [
@@ -659,7 +992,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     vi.useRealTimers();
   });
 
-  it('uses submitted update ids for updateManyStream computed planning even when RETURNING rows are incomplete', async () => {
+  it('uses returned update ids for updateManyStream computed planning when RETURNING rows are incomplete', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -758,10 +1091,12 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     expect(result._unsafeUnwrap().updatedRecords).toEqual([
       {
         recordId: recordIdA,
+        oldVersion: 1,
         newVersion: 2,
+        oldFieldValues: {},
       },
     ]);
-    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordIdA, recordIdB]);
+    expect(capturedPlanInputs[0]?.seedRecordIds).toEqual([recordIdA]);
 
     vi.useRealTimers();
   });
@@ -953,7 +1288,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
-    expect(driver.queries).toHaveLength(6);
+    expect(toSnapshot(driver.queries)).toHaveLength(6);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -969,8 +1304,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
+            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],
@@ -1075,7 +1411,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
-    expect(driver.queries).toHaveLength(7);
+    expect(toSnapshot(driver.queries)).toHaveLength(7);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -1098,8 +1434,9 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
             "rechhhhhhhhhhhhhhhh",
+            "[{"id":"reciiiiiiiiiiiiiiii"},{"id":"recjjjjjjjjjjjjjjjj"}]",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 returning "col_links" as "changed_0"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_links" = $3 where "__id" = $4 and ("col_links" IS DISTINCT FROM $5) returning "col_links" as "changed_0"",
         },
         {
           "parameters": [],
@@ -1377,6 +1714,10 @@ const createHybridRepository = (
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
     createNoopEventBus(),
     hasher
   );

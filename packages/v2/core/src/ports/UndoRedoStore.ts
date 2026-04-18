@@ -7,6 +7,12 @@ import type { ViewColumnMetaValue } from '../domain/table/views/ViewColumnMeta';
 import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
 import type { ITableFieldInput } from '../schemas/field';
 
+/**
+ * Identifies a single user interaction stack.
+ *
+ * Undo/redo history is isolated per actor + table + browser window instead of
+ * being a global persistence log.
+ */
 export type UndoScope = {
   readonly actorId: ActorId;
   readonly tableId: TableId;
@@ -29,6 +35,7 @@ export type UndoRedoDeleteRecordsPayload = {
 export type UndoRedoRestoreRecord = {
   readonly recordId: string;
   readonly fields: Record<string, unknown>;
+  readonly version?: number;
   readonly orders?: Record<string, number>;
   readonly autoNumber?: number;
   readonly createdTime?: string;
@@ -244,6 +251,12 @@ export type UndoRedoListOptions = {
   readonly limit?: number;
 };
 
+/**
+ * Storage for the per-window undo/redo interaction stack.
+ *
+ * Repository adapters capture record snapshots separately; this port only
+ * stores and replays already-built stack entries.
+ */
 export interface IUndoRedoStore {
   append(scope: UndoScope, entry: UndoEntry): Promise<Result<void, DomainError>>;
   undo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>>;

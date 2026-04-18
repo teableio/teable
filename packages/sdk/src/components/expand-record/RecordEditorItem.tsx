@@ -47,7 +47,7 @@ export const RecordEditorItem = (props: {
   };
 
   return (
-    <div className={cn(vertical ? 'flex space-x-4' : 'space-y-2', 'relative group')}>
+    <div className={cn(vertical ? 'flex space-x-4' : 'space-y-2', 'relative group/field-row')}>
       <div className={cn('w-36 flex items-top space-x-1 ', vertical ? 'pt-1' : 'w-full')}>
         <div className="flex size-5 items-center">
           <Icon className="size-4" />
@@ -82,7 +82,7 @@ export const RecordEditorItem = (props: {
 
       <div
         className={cn(
-          'absolute -right-8 top-1 opacity-0 transition-opacity group-hover:opacity-100',
+          'absolute -right-8 top-1 opacity-0 transition-opacity group-hover/field-row:opacity-100',
           isInTaskQueue && 'opacity-100'
         )}
       >

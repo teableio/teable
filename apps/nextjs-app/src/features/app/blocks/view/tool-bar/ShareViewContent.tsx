@@ -146,21 +146,22 @@ const EmbedConfigPopover = ({
 
           {needEmbedHiddenToolbar && (
             <div className="flex items-center gap-2">
+              <Label className="text-xs" htmlFor="embed-hideToolBar">
+                {t('table:toolbar.others.share.hideToolbar')}
+              </Label>
               <Switch
+                size="sm"
                 id="embed-hideToolBar"
                 checked={hideToolBar}
                 onCheckedChange={(checked) => setHideToolBar(checked)}
               />
-              <Label className="text-xs" htmlFor="embed-hideToolBar">
-                {t('table:toolbar.others.share.hideToolbar')}
-              </Label>
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
             <Label className="text-xs">{t('common:settings.setting.theme')}</Label>
             <RadioGroup
-              className="flex h-5 gap-2"
+              className="flex h-5 gap-3"
               defaultValue={shareTheme}
               onValueChange={(e) => setShareTheme(e)}
             >
