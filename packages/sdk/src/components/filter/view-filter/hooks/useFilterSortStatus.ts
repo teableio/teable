@@ -3,6 +3,7 @@ import { isFilterItem } from '../type-guard';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { IFieldInstance } from '../../../../model';
+import { useDateI18nMap } from './useDateI18nMap';
 import { useOperatorI18nMap } from './useOperatorI18nMap';
 
 export interface IFilterLabel {
@@ -59,7 +60,10 @@ function flattenFilterSet(
   return result;
 }
 
-function formatFilterValue(value: unknown): string {
+function formatFilterValue(
+  value: unknown,
+  dateI18nMap?: Record<string, string>
+): string {
   if (value === null || value === undefined) {
     return '';
   }
@@ -72,9 +76,9 @@ function formatFilterValue(value: unknown): string {
   if (typeof value === 'object') {
     if ('mode' in value) {
       const modeValue = value as { mode: string; numberOfDays?: number; exactDate?: string; exactDateEnd?: string };
-      let result = modeValue.mode;
+      let result = dateI18nMap?.[modeValue.mode] ?? modeValue.mode;
       if (modeValue.numberOfDays != null) {
-        result += ` (${modeValue.numberOfDays} 天)`;
+        result += ` (${modeValue.numberOfDays})`;
       }
       if (modeValue.exactDate) {
         result += ` ${modeValue.exactDate}`;
@@ -98,6 +102,7 @@ export const useFilterSortStatus = (
   const { t } = useTranslation();
   const commonOperatorMap = useOperatorI18nMap();
   const numberOperatorMap = useOperatorI18nMap(CellValueType.Number);
+  const dateI18nMap = useDateI18nMap();
 
   const fieldMap = useMemo(() => {
     const map: Record<string, IFieldInstance> = {};
@@ -120,7 +125,7 @@ export const useFilterSortStatus = (
       const cellValueType = field?.cellValueType;
       const operatorMap = cellValueType === CellValueType.Number ? numberOperatorMap : commonOperatorMap;
       const operatorLabel = operatorMap[item.operator as keyof typeof operatorMap] ?? item.operator;
-      const valueLabel = formatFilterValue(item.value);
+      const valueLabel = formatFilterValue(item.value, dateI18nMap);
 
       return {
         id: `filter-${index}-${item.fieldId}`,
@@ -134,7 +139,7 @@ export const useFilterSortStatus = (
         path,
       };
     });
-  }, [filter, fieldMap, commonOperatorMap, numberOperatorMap]);
+  }, [filter, fieldMap, commonOperatorMap, numberOperatorMap, dateI18nMap]);
 
   const sortLabels = useMemo<ISortLabel[]>(() => {
     if (!sort || !sort.sortObjs || sort.sortObjs.length === 0) {
@@ -160,7 +165,7 @@ export const useFilterSortStatus = (
 
   const removeFilterItem = useCallback(
     (path: (string | number)[]): IFilter | null => {
-      if (!filter || path.length === 0) return filter;
+      if (!filter || path.length === 0) return filter ?? null;
 
       const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
       const newFilter = deepClone(filter);
