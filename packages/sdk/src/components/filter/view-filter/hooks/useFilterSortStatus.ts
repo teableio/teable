@@ -157,24 +157,37 @@ export const useFilterSortStatus = (
 
   const removeFilterItem = useCallback(
     (path: (string | number)[]): IFilter | null => {
-      if (!filter) return null;
+      if (!filter || path.length === 0) return filter;
 
       const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
       const newFilter = deepClone(filter);
 
       let current: unknown = newFilter;
+      let parent: unknown = null;
+      let parentKey: string | number | null = null;
+
       for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
+        parent = current;
+        parentKey = key;
+
         if (typeof key === 'string') {
           current = (current as Record<string, unknown>)[key];
         } else {
           current = (current as unknown[])[key];
         }
+
+        if (current == null) {
+          return filter;
+        }
       }
 
       const lastKey = path[path.length - 1];
       if (Array.isArray(current)) {
-        current.splice(Number(lastKey), 1);
+        const index = Number(lastKey);
+        if (index >= 0 && index < current.length) {
+          current.splice(index, 1);
+        }
       }
 
       const hasItems = (f: IFilter | IFilterItem | IFilterSet): boolean => {
