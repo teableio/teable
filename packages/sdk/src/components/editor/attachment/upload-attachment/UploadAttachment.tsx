@@ -143,6 +143,7 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
       tableId: props.tableId,
       recordId: props.recordId,
       fieldId: props.fieldId,
+      attachments,
       baseId,
       enabled: true,
     });

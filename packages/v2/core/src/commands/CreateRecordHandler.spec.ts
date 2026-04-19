@@ -8,7 +8,6 @@ import { RecordWriteSideEffectService } from '../application/services/RecordWrit
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -32,11 +31,9 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
-import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
-import type { ITableRecordRepository } from '../ports/TableRecordRepository';
+import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { ITableRecordRepository, RecordStoredSnapshot } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -47,15 +44,14 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   return { actorId: actorIdResult._unsafeUnwrap() };
 };
 
-const noopUndoRedoService = {
-  recordEntry: async () => ok(undefined),
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
@@ -160,17 +156,24 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
   failInsert: DomainError | undefined;
+  omitRecordSnapshot = false;
+  omitRecordSnapshots = false;
 
   async insert(
     context: IExecutionContext,
     table: Table,
     record: TableRecord
-  ): Promise<Result<{ computedChanges?: ReadonlyMap<string, unknown> }, DomainError>> {
+  ): Promise<
+    Result<
+      { computedChanges?: ReadonlyMap<string, unknown>; recordSnapshot?: RecordStoredSnapshot },
+      DomainError
+    >
+  > {
     this.lastContext = context;
     this.lastTable = table;
     if (this.failInsert) return err(this.failInsert);
     this.records.push(record);
-    return ok({});
+    return ok(this.omitRecordSnapshot ? {} : { recordSnapshot: toStoredSnapshot(record) });
   }
 
   async insertMany(
@@ -179,7 +182,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     records: ReadonlyArray<TableRecord>
   ): Promise<
     Result<
-      { computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>> },
+      {
+        computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+        recordSnapshots?: ReadonlyArray<RecordStoredSnapshot>;
+      },
       DomainError
     >
   > {
@@ -187,7 +193,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastTable = table;
     if (this.failInsert) return err(this.failInsert);
     this.records.push(...records);
-    return ok({});
+    return ok(
+      this.omitRecordSnapshots
+        ? {}
+        : { recordSnapshots: records.map((record) => toStoredSnapshot(record)) }
+    );
   }
 
   async insertManyStream(
@@ -238,59 +248,20 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _context: IExecutionContext,
     _table: Table,
     _batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     _context: IExecutionContext,
     _table: Table,
     _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
     return ok({ totalDeleted: 0 });
-  }
-}
-
-class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
-  failFindOne: DomainError | undefined;
-
-  constructor(private readonly recordRepository: FakeTableRecordRepository) {}
-
-  async find() {
-    return ok({ records: [], total: 0 });
-  }
-
-  async findOne(
-    _context: IExecutionContext,
-    _table: Table,
-    recordId: RecordId
-  ): Promise<Result<TableRecordReadModel, DomainError>> {
-    if (this.failFindOne) {
-      return err(this.failFindOne);
-    }
-    const record = this.recordRepository.records.find((entry) => entry.id().equals(recordId));
-    if (!record) {
-      return err(domainError.notFound({ message: 'Record not found' }));
-    }
-
-    const fields: Record<string, unknown> = {};
-    for (const entry of record.fields().entries()) {
-      fields[entry.fieldId.toString()] = entry.value.toValue();
-    }
-
-    return ok({
-      id: record.id().toString(),
-      fields,
-      version: 1,
-    });
-  }
-
-  async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
-    // No-op for tests.
   }
 }
 
@@ -429,14 +400,12 @@ const createHandler = (
   recordRepository: FakeTableRecordRepository,
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork | RollbackFakeUnitOfWork,
-  recordWritePluginRunner = createRecordWritePluginRunner(),
-  recordQueryRepository = new FakeTableRecordQueryRepository(recordRepository)
+  recordWritePluginRunner = createRecordWritePluginRunner()
 ) =>
   new CreateRecordHandler(
     tableQueryService,
     new RecordCreationService(
       recordRepository,
-      recordQueryRepository,
       createFakeRecordMutationSpecResolverService(),
       noopRecordChangedValueDecoratorService,
       recordWritePluginRunner,
@@ -448,6 +417,18 @@ const createHandler = (
       unitOfWork
     )
   );
+
+const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
+  const fields: Record<string, unknown> = {};
+  for (const entry of record.fields().entries()) {
+    fields[entry.fieldId.toString()] = entry.value.toValue();
+  }
+
+  return {
+    recordId: record.id().toString(),
+    fields,
+  };
+};
 
 describe('CreateRecordHandler', () => {
   const baseId = `bse${'a'.repeat(16)}`;
@@ -551,38 +532,6 @@ describe('CreateRecordHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
-    expect(recordRepository.records.length).toBe(1);
-  });
-
-  it('falls back when restore snapshot reload returns not found', async () => {
-    const { table } = createTestTable(baseId, tableId);
-
-    const tableRepository = new FakeTableRepository();
-    tableRepository.tables.push(table);
-    const tableQueryService = new TableQueryService(tableRepository);
-    const recordRepository = new FakeTableRecordRepository();
-    const recordQueryRepository = new FakeTableRecordQueryRepository(recordRepository);
-    recordQueryRepository.failFindOne = domainError.notFound({ message: 'Record not found' });
-    const eventBus = new FakeEventBus();
-    const unitOfWork = new FakeUnitOfWork();
-
-    const handler = createHandler(
-      tableQueryService,
-      tableRepository,
-      recordRepository,
-      eventBus,
-      unitOfWork,
-      createRecordWritePluginRunner(),
-      recordQueryRepository
-    );
-
-    const commandResult = CreateRecordCommand.create({
-      tableId,
-      fields: {},
-    });
-
-    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(result.isOk()).toBe(true);
     expect(recordRepository.records.length).toBe(1);
   });
 
@@ -720,6 +669,35 @@ describe('CreateRecordHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message).toBe('Insert failed');
+  });
+
+  it('returns error when the repository omits the stored snapshot', async () => {
+    const { table } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitRecordSnapshot = true;
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork
+    );
+
+    const commandResult = CreateRecordCommand.create({
+      tableId,
+      fields: {},
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
   });
 
   it('returns error when field validation fails', async () => {

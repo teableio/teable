@@ -22,7 +22,7 @@ export interface ICreateDatabaseColumnContext {
   notNull?: boolean;
   /** Database provider for formula conversion */
   dbProvider?: IDbProvider;
-  /** Whether this is a new table creation (affects SQLite generated columns) */
+  /** Whether this is a new table creation */
   isNewTable?: boolean;
   /** Current table ID (for link field foreign key creation) */
   tableId: string;

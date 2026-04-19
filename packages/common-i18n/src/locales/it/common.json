@@ -1105,9 +1105,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "Aggiornamento del 10 aprile",
-    "title": "Nuovo Teable Agent: Super intelligente, basso costo",
-    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
-    "id": "changelog-2026-04-10-new-agent-engine"
+    "newUpdate": "AGGIORNAMENTO 17 APR",
+    "title": "Claude Opus 4.7 è ora disponibile in Teable",
+    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
+    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
   }
 }

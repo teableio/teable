@@ -2,7 +2,7 @@
 import type { Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString, HttpErrorCode } from '@teable/core';
+import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import * as fse from 'fs-extra';
 import * as minio from 'minio';
 import sharp from 'sharp';
@@ -114,7 +114,7 @@ export class MinioStorage implements StorageAdapter {
     } = await this.minioClientPrivateNetwork.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     const url = `/${bucket}/${objectName}`;
-    if (!mimetype?.startsWith('image/')) {
+    if (!isImage(mimetype ?? '')) {
       return {
         hash,
         size,
@@ -224,7 +224,7 @@ export class MinioStorage implements StorageAdapter {
     const objectName = path;
     const { metaData } = await this.minioClientPrivateNetwork.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
-    if (!mimetype?.startsWith('image/')) {
+    if (!isImage(mimetype ?? '')) {
       throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.attachment.invalidImage',
@@ -271,6 +271,10 @@ export class MinioStorage implements StorageAdapter {
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
     return this.minioClientPrivateNetwork.getObject(bucket, path);
+  }
+
+  async deleteFile(bucket: string, path: string): Promise<void> {
+    await this.minioClientPrivateNetwork.removeObject(bucket, path);
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true): Promise<void> {

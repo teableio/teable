@@ -2,7 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackReplayContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import type { DomainError } from '../domain/shared/DomainError';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
@@ -25,7 +28,7 @@ export class RedoResult {
 export class RedoHandler implements ICommandHandler<RedoCommand, RedoResult> {
   constructor(
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService
+    private readonly undoRedoStackService: UndoRedoStackService
   ) {}
 
   @TraceSpan({
@@ -41,8 +44,8 @@ export class RedoHandler implements ICommandHandler<RedoCommand, RedoResult> {
   ): Promise<Result<RedoResult, DomainError>> {
     const handler = this;
     return safeTry<RedoResult, DomainError>(async function* () {
-      const entry = yield* await handler.undoRedoService.redo(
-        context,
+      const entry = yield* await handler.undoRedoStackService.applyRedo(
+        toUndoRedoStackReplayContext(context),
         command.tableId,
         command.windowId
       );

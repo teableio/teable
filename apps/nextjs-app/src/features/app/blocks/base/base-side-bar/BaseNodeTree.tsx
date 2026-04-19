@@ -201,6 +201,42 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     });
   }, [expandedItems, baseId, setExpandedItemsMap]);
 
+  const getItemUrl = useCallback(
+    (item: ItemInstance<TreeItemData>): string | null => {
+      const node = item.getItemData();
+      const { resourceType, resourceId } = node;
+
+      if (resourceType === BaseNodeResourceType.Table) {
+        const url = tableHrefMap[resourceId];
+        if (url) return url;
+      }
+
+      const urlObj = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+        urlPrefix: shareUrlPrefix,
+      });
+      return urlObj?.pathname ?? null;
+    },
+    [baseId, tableHrefMap, shareUrlPrefix]
+  );
+
+  const handleModifierClick = useCallback(
+    (e: React.MouseEvent, item: ItemInstance<TreeItemData>) => {
+      // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+      if (e.metaKey || e.ctrlKey) {
+        const url = getItemUrl(item);
+        if (url) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(url, '_blank');
+        }
+      }
+    },
+    [getItemUrl]
+  );
+
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
       if (onPrimaryAction) {
@@ -604,7 +640,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             const isPinned = pinMap?.[resourceId];
             return (
               <TreeItem asChild key={nodeId} item={item}>
-                <div className="h-8 w-full cursor-pointer">
+                <div
+                  className="h-8 w-full cursor-pointer"
+                  onClickCapture={(e) => handleModifierClick(e, item)}
+                >
                   <TreeItemLabel className={cn('size-full min-w-0 py-0')}>
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
@@ -674,6 +713,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                     resourceType === BaseNodeResourceType.Table ? resourceId : undefined
                   }
                   data-context-menu={isContextMenuTarget ? '' : undefined}
+                  onClickCapture={(e) => handleModifierClick(e, item)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setContextMenu({

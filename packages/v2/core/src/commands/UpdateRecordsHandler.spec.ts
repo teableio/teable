@@ -9,7 +9,7 @@ import { RecordWriteSideEffectService } from '../application/services/RecordWrit
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -195,6 +195,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastMutateSpec: ICellValueSpec | undefined;
   lastUpdateManyStreamBatches: UpdateManyStreamBatchInput[] = [];
   updateManyStreamVersions = new Map<string, number>();
+  updateManyStreamUpdatedRecordIds: Set<string> | undefined;
   updateManyResult: UpdateManyResult = {
     totalUpdated: 0,
     updatedRecordIds: [],
@@ -269,9 +270,18 @@ class FakeTableRecordRepository implements ITableRecordRepository {
         totalUpdated += updates.length;
         for (const update of updates) {
           const recordId = update.record.id();
+          if (
+            this.updateManyStreamUpdatedRecordIds &&
+            !this.updateManyStreamUpdatedRecordIds.has(recordId.toString())
+          ) {
+            totalUpdated -= 1;
+            continue;
+          }
           updatedRecords.push({
             recordId,
+            oldVersion: 0,
             newVersion: this.updateManyStreamVersions.get(recordId.toString()) ?? 1,
+            oldFieldValues: {},
           });
         }
       }
@@ -289,9 +299,18 @@ class FakeTableRecordRepository implements ITableRecordRepository {
         totalUpdated += updates.length;
         for (const update of updates) {
           const recordId = update.record.id();
+          if (
+            this.updateManyStreamUpdatedRecordIds &&
+            !this.updateManyStreamUpdatedRecordIds.has(recordId.toString())
+          ) {
+            totalUpdated -= 1;
+            continue;
+          }
           updatedRecords.push({
             recordId,
+            oldVersion: 0,
             newVersion: this.updateManyStreamVersions.get(recordId.toString()) ?? 1,
+            oldFieldValues: {},
           });
         }
       }
@@ -304,8 +323,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -409,6 +428,11 @@ class FakeUndoRedoService {
     this.entries.push(entry);
     return ok(undefined);
   }
+
+  async appendEntry(_context: IExecutionContext, _tableId: TableId, entry: unknown) {
+    this.entries.push(entry);
+    return ok(undefined);
+  }
 }
 
 const createHandler = (
@@ -435,7 +459,7 @@ const createHandler = (
     noopRecordWriteUndoRedoPlanService,
     createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
     eventBus,
-    undoRedoService as unknown as UndoRedoService,
+    undoRedoService as unknown as UndoRedoStackService,
     new NoopLogger(),
     unitOfWork
   );
@@ -851,6 +875,53 @@ describe('UpdateRecordsHandler', () => {
       oldVersion: 3,
       newVersion: 17,
     });
+  });
+
+  it('does not publish explicit update events for rows skipped by storage as no-ops', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const recordId = `rec${'x'.repeat(16)}`;
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateManyStreamUpdatedRecordIds = new Set();
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      {
+        id: recordId,
+        version: 3,
+        fields: { [numberFieldId.toString()]: 1 },
+      },
+    ];
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undoRedoService,
+      {
+        queryRepository,
+      }
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        records: [{ id: recordId, fields: { [numberFieldId.toString()]: 1 } }],
+      })._unsafeUnwrap()
+    );
+
+    const payload = result._unsafeUnwrap();
+    expect(payload.updatedCount).toBe(0);
+    expect(recordRepository.updateManyStreamCalls).toBe(1);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
+    expect(undoRedoService.entries).toHaveLength(0);
   });
 
   it('skips explicit records that are missing from storage while updating the rest', async () => {

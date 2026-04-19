@@ -24,7 +24,6 @@ import {
   isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CreateRecordAction, ResourceType } from '@teable/openapi';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
@@ -35,6 +34,7 @@ import type {
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import { CreateRecordAction, ResourceType } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -58,6 +58,7 @@ import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
+import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 
 @Injectable()
 export class TableOpenApiService {
@@ -78,7 +79,8 @@ export class TableOpenApiService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -379,6 +381,7 @@ export class TableOpenApiService {
       await this.prismaService
         .txClient()
         .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
+      await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
     }
   }
 

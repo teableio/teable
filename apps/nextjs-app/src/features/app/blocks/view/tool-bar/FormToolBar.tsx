@@ -1,4 +1,4 @@
-import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable/icons';
+import { Settings as Edit, Edit as Fill, Share2 } from '@teable/icons';
 import { useTableId, useTablePermission, useView, useViewId } from '@teable/sdk/hooks';
 import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -38,7 +38,7 @@ const FormShareButton = ({ disabled }: { disabled: boolean }) => {
         disabled={disabled}
         onClick={() => setOpen(true)}
       >
-        <ArrowUpRight className="size-4" />
+        <Share2 className="size-4" />
       </ToolBarButton>
       <UnifiedShareDialog open={open} onOpenChange={setOpen} defaultTab="view" showTabs={false} />
     </>

@@ -38,7 +38,12 @@ import {
   executeTableSchemaStatements,
   resolvePostgresDbOrTx,
 } from '../../shared/db';
+import {
+  ensureUndoCaptureInfrastructure,
+  invalidateUndoCaptureTableCache,
+} from '../../shared/undoCapture';
 import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
+import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
@@ -215,6 +220,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
             message: `Failed to insert table schema: ${describeError(error)}`,
           })
         );
+      }
+
+      try {
+        await ensureUndoCaptureInfrastructure(
+          repository.db,
+          db,
+          toQualifiedIdentifierLiteral(schema, tableName),
+          `${schema ?? 'public'}.${tableName}`
+        );
+      } catch {
+        // Snapshot capture wiring is best-effort and must not block table creation.
       }
 
       return ok(undefined);
@@ -582,6 +598,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       try {
         const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
         await schemaBuilder.dropTable(tableName).ifExists().execute();
+        invalidateUndoCaptureTableCache(`${schema ?? 'public'}.${tableName}`, repository.db);
       } catch (error) {
         return err(
           domainError.infrastructure({
