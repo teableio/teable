@@ -171,13 +171,6 @@ export const LLM_PROVIDERS = [
     modelsPlaceholder: 'gpt-4.1,o3,gpt-4.1-mini',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENAI_COMPATIBLE],
   },
-  {
-    value: LLMProviderType.CLAUDE_CODE,
-    label: 'Claude Code',
-    baseUrlPlaceholder: 'https://api.anthropic.com/v1',
-    modelsPlaceholder: 'claude-sonnet-4-6,claude-opus-4-6',
-    Icon: LLM_PROVIDER_ICONS[LLMProviderType.CLAUDE_CODE],
-  },
 ] as const;
 
 // Gateway provider icons (owned_by field from AI Gateway API)

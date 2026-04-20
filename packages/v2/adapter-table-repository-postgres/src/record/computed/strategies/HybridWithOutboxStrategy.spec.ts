@@ -70,8 +70,15 @@ const createMockFormulaField = (fieldId: string): Field => {
   } as unknown as Field;
 };
 
-const createMockTable = (tableId: string, fieldIds: string[]): Table => {
-  const fieldsMap = new Map(fieldIds.map((id) => [id, createMockFormulaField(id)]));
+const createMockConditionalLookupField = (fieldId: string): Field => {
+  return {
+    id: () => FieldId.create(fieldId)._unsafeUnwrap(),
+    type: () => FieldType.conditionalLookup(),
+  } as unknown as Field;
+};
+
+const createMockTableFromFields = (tableId: string, fields: ReadonlyArray<Field>): Table => {
+  const fieldsMap = new Map(fields.map((field) => [field.id().toString(), field]));
   return {
     id: () => TableId.create(tableId)._unsafeUnwrap(),
     getField: (predicate: (field: Field) => boolean) => {
@@ -81,6 +88,13 @@ const createMockTable = (tableId: string, fieldIds: string[]): Table => {
       return ok(undefined);
     },
   } as unknown as Table;
+};
+
+const createMockTable = (tableId: string, fieldIds: string[]): Table => {
+  return createMockTableFromFields(
+    tableId,
+    fieldIds.map((id) => createMockFormulaField(id))
+  );
 };
 
 const createPreparedState = (
@@ -130,6 +144,7 @@ const createOutboxStub = () => {
     claimBatch: async () => ok([]),
     claimById: async () => ok(null),
     renewLease: async () => ok([]),
+    releaseForRetry: async () => ok(true),
     markDone: async () => ok(true),
     markFailed: async () => ok(true),
   };
@@ -329,6 +344,119 @@ describe('HybridWithOutboxStrategy', () => {
     expect(steps[0].tableId.toString()).toBe(SEED_TABLE_ID);
 
     expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+  });
+
+  it('syncs seed-table conditional lookup steps and enqueues other tables with seedTableOnly policy', async () => {
+    const plan = createPlan();
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
+
+    const seedTable = createMockTableFromFields(SEED_TABLE_ID, [
+      createMockConditionalLookupField(FIELD_ID_A),
+    ]);
+    const tableById = new Map([[SEED_TABLE_ID, seedTable]]);
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState(
+          [
+            { tableId: OTHER_TABLE_ID, recordCount: 10 },
+            { tableId: THIRD_TABLE_ID, recordCount: 20 },
+          ],
+          tableById
+        )
+      )
+    );
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'seedTableOnly',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+    const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+    const result = await strategy.execute(updater, plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    expect(executePreparedSteps).toHaveBeenCalledTimes(1);
+    const steps = executePreparedSteps.mock.calls[0][3] as UpdateStep[];
+    expect(steps).toHaveLength(1);
+    expect(steps[0].tableId.toString()).toBe(SEED_TABLE_ID);
+    expect(steps[0].fieldIds.map((id) => id.toString())).toEqual([FIELD_ID_A]);
+
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(2);
+    expect(
+      outboxTask.steps.every((step: UpdateStep) => step.tableId.toString() !== SEED_TABLE_ID)
+    ).toBe(true);
+  });
+
+  it('enqueues all steps without sync work when sync policy is none', async () => {
+    const plan = createPlan();
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState([
+          { tableId: SEED_TABLE_ID, recordCount: 1 },
+          { tableId: OTHER_TABLE_ID, recordCount: 10 },
+          { tableId: THIRD_TABLE_ID, recordCount: 20 },
+        ])
+      )
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'none',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+    const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+    const result = await strategy.execute(updater, plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    expect(executePreparedSteps).not.toHaveBeenCalled();
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(3);
   });
 
   it('dispatches worker after enqueue when enabled', async () => {

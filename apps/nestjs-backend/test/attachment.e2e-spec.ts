@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
@@ -245,6 +246,66 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(resultAttachment2.size).toBeDefined();
     expect(resultAttachment2.mimetype).toBeDefined();
     expect(resultAttachment2.path).toBeDefined();
+  });
+
+  it('should regenerate presignedUrl when attachment name is changed', async () => {
+    const field = await createField(table.id, { type: FieldType.Attachment });
+
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    // Step 1: Upload attachment with the original name
+    const fileContent = fs.createReadStream(filePath);
+    const uploadResult = await uploadAttachment(
+      table.id,
+      table.records[0].id,
+      field.id,
+      fileContent,
+      { filename: 'original-name.txt' }
+    );
+    expect(uploadResult.status).toBe(201);
+    const uploadedAttachment = (uploadResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(uploadedAttachment.name).toBe('original-name.txt');
+
+    // Step 2: Read the record to capture the cached presignedUrl from the read path
+    const recordBefore = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const attachmentBefore = (recordBefore.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentBefore.presignedUrl).toBeDefined();
+
+    // Step 3: Rename the attachment (same token, different name)
+    const updateResult = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [field.id]: [
+            {
+              id: uploadedAttachment.id,
+              name: 'renamed-file.txt',
+              token: uploadedAttachment.token,
+            },
+          ],
+        },
+      },
+    });
+
+    // Verify the updateRecord response itself contains the correct presignedUrl
+    const attachmentFromUpdate = (updateResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentFromUpdate.name).toBe('renamed-file.txt');
+    expect(attachmentFromUpdate.presignedUrl).toBeDefined();
+    expect(attachmentFromUpdate.presignedUrl).toContain('renamed-file.txt');
+    expect(attachmentFromUpdate.presignedUrl).not.toContain('original-name.txt');
+
+    // Step 4: Read again — presignedUrl must also be correct on the read path
+    const recordAfter = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const attachmentAfter = (recordAfter.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentAfter.name).toBe('renamed-file.txt');
+    expect(attachmentAfter.presignedUrl).toBeDefined();
+    expect(attachmentAfter.presignedUrl).not.toBe(attachmentBefore.presignedUrl);
+    expect(attachmentAfter.presignedUrl).toContain('renamed-file.txt');
+    expect(attachmentAfter.presignedUrl).not.toContain('original-name.txt');
   });
 
   it('should get attachment absolute url by token', async () => {

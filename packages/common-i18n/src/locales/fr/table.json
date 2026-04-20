@@ -923,6 +923,17 @@
     "shareNodeTab": "Partager le nœud"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Question",
+        "confirm": "Confirmer ({{count}})",
+        "otherPlaceholder": "Ou saisissez votre réponse…",
+        "otherSend": "Envoyer",
+        "addCustomPlaceholder": "Ajouter une option personnalisée…",
+        "askedUser": "Question posée",
+        "answered": "Répondu"
+      }
+    },
     "tool": {
       "getTableFields": "Obtenir les champs de la table",
       "getTablesMeta": "Obtenir les métadonnées de la table",

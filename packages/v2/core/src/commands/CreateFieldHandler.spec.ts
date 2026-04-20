@@ -7,12 +7,13 @@ import type { FieldUndoRedoSnapshotService } from '../application/services/Field
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { ViewColumnMetaUpdated } from '../domain/table/events/ViewColumnMetaUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
@@ -28,7 +29,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { ViewName } from '../domain/table/views/ViewName';
-import { ViewColumnMetaUpdated } from '../domain/table/events/ViewColumnMetaUpdated';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
@@ -43,6 +43,7 @@ import {
   createTrackedFieldOperationPlugin,
   expectFieldOperationPluginToBeSkipped,
 } from './fieldOperationPluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (options?: {
   maxFieldsPerTable?: number;
@@ -65,11 +66,7 @@ const createContext = (options?: {
   };
 };
 
-const noopUndoRedoService = {
-  async recordEntry() {
-    return ok(undefined);
-  },
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 const noopFieldUndoRedoSnapshotService = {
   async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
@@ -87,7 +84,7 @@ const noopFieldUndoRedoSnapshotService = {
 class TrackingUndoRedoService {
   recordEntryCalls = 0;
 
-  async recordEntry() {
+  async appendEntry() {
     this.recordEntryCalls += 1;
     return ok(undefined);
   }
@@ -784,7 +781,7 @@ describe('CreateFieldHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       createFieldOperationPluginRunner(),
-      undoRedoService as unknown as UndoRedoService,
+      undoRedoService as unknown as UndoRedoStackService,
       snapshotService as unknown as FieldUndoRedoSnapshotService
     );
 
@@ -838,7 +835,7 @@ describe('CreateFieldHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       createFieldOperationPluginRunner(),
-      undoRedoService as unknown as UndoRedoService,
+      undoRedoService as unknown as UndoRedoStackService,
       snapshotService as unknown as FieldUndoRedoSnapshotService
     );
 

@@ -2,40 +2,35 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { TableQueryService } from '../application/services/TableQueryService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldName } from '../domain/table/fields/FieldName';
-import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
-import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
-import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import type { ViewId } from '../domain/table/views/ViewId';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
+import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   RecordMutationResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../ports/TableRecordQueryRepository';
-import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ReorderRecordsCommand } from './ReorderRecordsCommand';
@@ -151,11 +146,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       batches.push(batchResult.value);
     }
     this.updateBatches = batches;
-    return ok({ totalUpdated: batches.flat().length });
+    return ok({ totalUpdated: batches.flat().length, updatedRecords: [] });
   }
 
-  async deleteMany(): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  async deleteMany() {
+    return ok({});
   }
 }
 
@@ -175,7 +170,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 
   async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
-    return;
+    yield* [];
   }
 }
 
@@ -235,11 +230,11 @@ describe('ReorderRecordsHandler', () => {
       } as IRecordOrderCalculator,
       eventBus,
       {
-        recordEntry: async (_context, _tableId, entry) => {
+        appendEntry: async (_context, _tableId, entry) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },
-      } as unknown as UndoRedoService,
+      } as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -299,11 +294,11 @@ describe('ReorderRecordsHandler', () => {
       } as IRecordOrderCalculator,
       new FakeEventBus(),
       {
-        recordEntry: async (_context, _tableId, entry) => {
+        appendEntry: async (_context, _tableId, entry) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },
-      } as unknown as UndoRedoService,
+      } as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -327,8 +322,8 @@ describe('ReorderRecordsHandler', () => {
       } as IRecordOrderCalculator,
       new FakeEventBus(),
       {
-        recordEntry: async () => ok(undefined),
-      } as unknown as UndoRedoService,
+        appendEntry: async () => ok(undefined),
+      } as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -363,8 +358,8 @@ describe('ReorderRecordsHandler', () => {
       } as IRecordOrderCalculator,
       eventBus,
       {
-        recordEntry: async () => ok(undefined),
-      } as unknown as UndoRedoService,
+        appendEntry: async () => ok(undefined),
+      } as unknown as UndoRedoStackService,
       unitOfWork
     );
 

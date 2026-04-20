@@ -1,7 +1,6 @@
-import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient, getRandomString, parseDsn } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 import { buildSync } from 'esbuild';
 
@@ -61,30 +60,8 @@ globalThis.testConfig = {
   userId: 'usrTestUserId',
   spaceId: 'spcTestSpaceId',
   baseId: 'bseTestBaseId',
-  driver: DriverClient.Sqlite,
+  driver: DriverClient.Pg,
 };
-
-function prepareSqliteEnv() {
-  if (!process.env.PRISMA_DATABASE_URL?.startsWith('file:')) {
-    return;
-  }
-  const prevFilePath = '../../db/main.db';
-  const prevDir = path.dirname(prevFilePath);
-  const baseName = path.basename(prevFilePath);
-
-  const newFileName = 'test-' + getRandomString(12) + '-' + baseName;
-  const newFilePath = path.join(prevDir, 'test', newFileName);
-
-  process.env.PRISMA_DATABASE_URL = 'file:' + newFilePath;
-  console.log('TEST PRISMA_DATABASE_URL:', process.env.PRISMA_DATABASE_URL);
-
-  const dbPath = '../../packages/db-main-prisma/db/';
-  const testDbPath = path.join(dbPath, 'test');
-  if (!fs.existsSync(testDbPath)) {
-    fs.mkdirSync(testDbPath, { recursive: true });
-  }
-  fs.copyFileSync(path.join(dbPath, baseName), path.join(testDbPath, newFileName));
-}
 
 function compileWorkerFile() {
   const entryFile = path.join(__dirname, 'src/worker/**.ts');
@@ -119,8 +96,6 @@ async function setup() {
   const { driver } = parseDsn(databaseUrl);
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;
-
-  prepareSqliteEnv();
 
   compileWorkerFile();
 }

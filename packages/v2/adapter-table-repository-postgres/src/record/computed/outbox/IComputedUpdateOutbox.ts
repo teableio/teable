@@ -32,6 +32,11 @@ export type ComputedUpdateOutboxConfig = {
    * Pending work still fills the remaining batch capacity.
    */
   reclaimBatchSize: number;
+  /**
+   * Upper bound of seed records executed by a single worker task.
+   * Larger claimed tasks are split into child tasks before acquiring computed locks.
+   */
+  maxSeedRecordsPerTask: number;
 };
 
 export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
@@ -42,6 +47,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   processingLeaseMs: 2 * 60 * 1000,
   heartbeatIntervalMs: 30 * 1000,
   reclaimBatchSize: 50,
+  maxSeedRecordsPerTask: 500,
 };
 
 export const normalizeComputedUpdateOutboxConfig = (
@@ -57,6 +63,7 @@ export const normalizeComputedUpdateOutboxConfig = (
       Math.min(Math.trunc(config.heartbeatIntervalMs), recommendedHeartbeat)
     ),
     reclaimBatchSize: Math.max(1, Math.trunc(config.reclaimBatchSize)),
+    maxSeedRecordsPerTask: Math.max(1, Math.trunc(config.maxSeedRecordsPerTask)),
   };
 };
 
@@ -76,6 +83,13 @@ export type ClaimByIdParams = {
 export type RenewLeaseParams = {
   taskIds: string[];
   leaseOwner: string;
+  now?: Date;
+};
+
+export type ReleaseForRetryParams = {
+  task: AnyOutboxItem;
+  reason: string;
+  retryDelayMs?: number;
   now?: Date;
 };
 
@@ -169,6 +183,11 @@ export interface IComputedUpdateOutbox {
     params: RenewLeaseParams,
     context?: IExecutionContext
   ): Promise<Result<ReadonlyArray<string>, DomainError>>;
+
+  releaseForRetry(
+    params: ReleaseForRetryParams,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>>;
 
   markDone(
     taskOrId: AnyOutboxItem | string,

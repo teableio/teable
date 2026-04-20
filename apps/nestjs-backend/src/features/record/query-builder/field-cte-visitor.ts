@@ -514,214 +514,19 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const sanitizedExpression = this.normalizeJsonAggregateExpression(expression);
         return `json_agg(${sanitizedExpression} ORDER BY ${orderByClause}) FILTER (WHERE ${sanitizedExpression} IS NOT NULL)`;
       }
-      // For SQLite, ensure deterministic ordering by aggregating from an ordered correlated subquery
-      if (this.dbProvider.driver === DriverClient.Sqlite) {
-        try {
-          const linkForOrderingId = getLinkFieldId(field.lookupOptions);
-          const fieldCteMap = this.state.getFieldCteMap();
-          const mainAlias = getTableAliasFromTable(this.table);
-          const foreignDb = this.foreignTable.dbTableName;
-          // Prefer order from link CTE's JSON array (preserves insertion order)
-          if (
-            linkForOrderingId &&
-            fieldCteMap.has(linkForOrderingId) &&
-            this.joinedCtes?.has(linkForOrderingId) &&
-            linkForOrderingId !== this.currentLinkFieldId
-          ) {
-            const cteName = fieldCteMap.get(linkForOrderingId)!;
-            const exprForInner = expression.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-            return `(
-              SELECT CASE WHEN COUNT(*) > 0
-                THEN json_group_array(CASE WHEN ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-                ELSE NULL END
-              FROM json_each(
-                CASE
-                  WHEN json_valid((SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id"))
-                   AND json_type((SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id")) = 'array'
-                  THEN (SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id")
-                  ELSE json('[]')
-                END
-              ) AS je
-              JOIN "${foreignDb}" AS f ON f."__id" = json_extract(je.value, '$.id')
-              ORDER BY je.key ASC
-            )`;
-          }
-          // Fallback to FK/junction ordering using the current link field
-          const baseLink = field as LinkFieldCore;
-          const opts = baseLink.options as ILinkFieldOptions;
-          const usesJunctionTable = getLinkUsesJunctionTable(baseLink);
-          const hasOrderColumn = baseLink.getHasOrderColumn();
-          const fkHost = opts.fkHostTableName!;
-          const selfKey = opts.selfKeyName;
-          const foreignKey = opts.foreignKeyName;
-          const exprForInner = expression.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-          if (usesJunctionTable) {
-            const ordCol = hasOrderColumn ? `j."${baseLink.getOrderColumnName()}"` : undefined;
-            const order = ordCol
-              ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, j."__id" ASC`
-              : `j."__id" ASC`;
-            return `(
-              SELECT CASE WHEN COUNT(*) > 0
-                THEN json_group_array(CASE WHEN ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-                ELSE NULL END
-              FROM "${fkHost}" AS j
-              JOIN "${foreignDb}" AS f ON j."${foreignKey}" = f."__id"
-              WHERE j."${selfKey}" = "${mainAlias}"."__id"
-              ORDER BY ${order}
-            )`;
-          }
-          const ordCol = hasOrderColumn ? `f."${opts.selfKeyName}_order"` : undefined;
-          const order = ordCol
-            ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, f."__id" ASC`
-            : `f."__id" ASC`;
-          return `(
-            SELECT CASE WHEN COUNT(*) > 0
-              THEN json_group_array(CASE WHEN ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-              ELSE NULL END
-            FROM "${foreignDb}" AS f
-            WHERE f."${selfKey}" = "${mainAlias}"."__id"
-            ORDER BY ${order}
-          )`;
-        } catch (_) {
-          // fallback to non-deterministic aggregation
-        }
-      }
       return this.getJsonAggregationFunction(expression);
     }
     const sub = this.buildForeignFilterSubquery(filter);
 
     if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
-      // Single value: conditionally null out for both PG and SQLite
-      if (this.dbProvider.driver === DriverClient.Pg) {
-        return `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
-      }
       return `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
     }
 
-    if (this.dbProvider.driver === DriverClient.Pg) {
-      const sanitizedExpression = this.normalizeJsonAggregateExpression(expression);
-      if (orderByClause) {
-        return `json_agg(${sanitizedExpression} ORDER BY ${orderByClause}) FILTER (WHERE (EXISTS ${sub}) AND ${sanitizedExpression} IS NOT NULL)`;
-      }
-      return `json_agg(${sanitizedExpression}) FILTER (WHERE (EXISTS ${sub}) AND ${sanitizedExpression} IS NOT NULL)`;
+    const sanitizedExpression = this.normalizeJsonAggregateExpression(expression);
+    if (orderByClause) {
+      return `json_agg(${sanitizedExpression} ORDER BY ${orderByClause}) FILTER (WHERE (EXISTS ${sub}) AND ${sanitizedExpression} IS NOT NULL)`;
     }
-
-    // SQLite: use a correlated, ordered subquery to produce deterministic ordering
-    try {
-      const linkForOrderingId = getLinkFieldId(field.lookupOptions);
-      const fieldCteMap = this.state.getFieldCteMap();
-      const mainAlias = getTableAliasFromTable(this.table);
-      const foreignDb = this.foreignTable.dbTableName;
-      // Prefer order from link CTE JSON array
-      if (
-        linkForOrderingId &&
-        fieldCteMap.has(linkForOrderingId) &&
-        this.joinedCtes?.has(linkForOrderingId) &&
-        linkForOrderingId !== this.currentLinkFieldId
-      ) {
-        const cteName = fieldCteMap.get(linkForOrderingId)!;
-        const exprForInner = expression.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-        const subForInner = sub.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-        return `(
-          SELECT CASE WHEN SUM(CASE WHEN (EXISTS ${subForInner}) THEN 1 ELSE 0 END) > 0
-            THEN json_group_array(CASE WHEN (EXISTS ${subForInner}) AND ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-            ELSE NULL END
-          FROM json_each(
-            CASE
-              WHEN json_valid((SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id"))
-               AND json_type((SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id")) = 'array'
-              THEN (SELECT "link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = "${mainAlias}"."__id")
-              ELSE json('[]')
-            END
-          ) AS je
-          JOIN "${foreignDb}" AS f ON f."__id" = json_extract(je.value, '$.id')
-          ORDER BY je.key ASC
-        )`;
-      }
-      if (linkForOrderingId) {
-        const linkForOrdering = this.table.getField(linkForOrderingId) as LinkFieldCore;
-        const opts = linkForOrdering.options as ILinkFieldOptions;
-        const usesJunctionTable = getLinkUsesJunctionTable(linkForOrdering);
-        const hasOrderColumn = linkForOrdering.getHasOrderColumn();
-        const fkHost = opts.fkHostTableName!;
-        const selfKey = opts.selfKeyName;
-        const foreignKey = opts.foreignKeyName;
-        // Adapt expression and filter subquery to inner alias "f"
-        const exprForInner = expression.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-        const subForInner = sub.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-        if (usesJunctionTable) {
-          const ordCol = hasOrderColumn ? `j."${linkForOrdering.getOrderColumnName()}"` : undefined;
-          const order = ordCol
-            ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, j."__id" ASC`
-            : `j."__id" ASC`;
-          return `(
-            SELECT CASE WHEN SUM(CASE WHEN (EXISTS ${subForInner}) THEN 1 ELSE 0 END) > 0
-              THEN json_group_array(CASE WHEN (EXISTS ${subForInner}) AND ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-              ELSE NULL END
-            FROM "${fkHost}" AS j
-            JOIN "${foreignDb}" AS f ON j."${foreignKey}" = f."__id"
-            WHERE j."${selfKey}" = "${mainAlias}"."__id"
-            ORDER BY ${order}
-          )`;
-        } else {
-          const ordCol = hasOrderColumn ? `f."${selfKey}_order"` : undefined;
-          const order = ordCol
-            ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, f."__id" ASC`
-            : `f."__id" ASC`;
-          return `(
-            SELECT CASE WHEN SUM(CASE WHEN (EXISTS ${subForInner}) THEN 1 ELSE 0 END) > 0
-              THEN json_group_array(CASE WHEN (EXISTS ${subForInner}) AND ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-              ELSE NULL END
-            FROM "${foreignDb}" AS f
-            WHERE f."${selfKey}" = "${mainAlias}"."__id"
-            ORDER BY ${order}
-          )`;
-        }
-      }
-      // Default ordering using the current link field
-      const baseLink = field as LinkFieldCore;
-      const opts = baseLink.options as ILinkFieldOptions;
-      const usesJunctionTable = getLinkUsesJunctionTable(baseLink);
-      const hasOrderColumn = baseLink.getHasOrderColumn();
-      const fkHost = opts.fkHostTableName!;
-      const selfKey = opts.selfKeyName;
-      const foreignKey = opts.foreignKeyName;
-      const exprForInner = expression.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-      const subForInner = sub.replaceAll(`"${this.getForeignAlias()}"`, '"f"');
-      if (usesJunctionTable) {
-        const ordCol = hasOrderColumn ? `j."${baseLink.getOrderColumnName()}"` : undefined;
-        const order = ordCol
-          ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, j."__id" ASC`
-          : `j."__id" ASC`;
-        return `(
-          SELECT CASE WHEN SUM(CASE WHEN (EXISTS ${subForInner}) THEN 1 ELSE 0 END) > 0
-            THEN json_group_array(CASE WHEN (EXISTS ${subForInner}) AND ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-            ELSE NULL END
-          FROM "${fkHost}" AS j
-          JOIN "${foreignDb}" AS f ON j."${foreignKey}" = f."__id"
-          WHERE j."${selfKey}" = "${mainAlias}"."__id"
-          ORDER BY ${order}
-        )`;
-      }
-      {
-        const ordCol = hasOrderColumn ? `f."${selfKey}_order"` : undefined;
-        const order = ordCol
-          ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, f."__id" ASC`
-          : `f."__id" ASC`;
-        return `(
-          SELECT CASE WHEN SUM(CASE WHEN (EXISTS ${subForInner}) THEN 1 ELSE 0 END) > 0
-            THEN json_group_array(CASE WHEN (EXISTS ${subForInner}) AND ${exprForInner} IS NOT NULL THEN ${exprForInner} END)
-            ELSE NULL END
-          FROM "${foreignDb}" AS f
-          WHERE f."${selfKey}" = "${mainAlias}"."__id"
-          ORDER BY ${order}
-        )`;
-      }
-    } catch (_) {
-      // fall back
-    }
-    // Fallback: emulate FILTER and null removal using CASE inside the aggregate
-    return `json_group_array(CASE WHEN (EXISTS ${sub}) AND ${expression} IS NOT NULL THEN ${expression} END)`;
+    return `json_agg(${sanitizedExpression}) FILTER (WHERE (EXISTS ${sub}) AND ${sanitizedExpression} IS NOT NULL)`;
   }
   visitNumberField(field: NumberFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
@@ -754,7 +559,6 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.visitLookupField(field);
     }
     const foreignTable = this.foreignTable;
-    const driver = this.dbProvider.driver;
     const junctionAlias = JUNCTION_ALIAS;
 
     const targetLookupField = foreignTable.mustGetField(field.options.lookupFieldId);
@@ -794,111 +598,50 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const linkFilterSub = linkFieldFilter
       ? this.buildForeignFilterSubquery(linkFieldFilter)
       : undefined;
-    return match(driver)
-      .with(DriverClient.Pg, () => {
-        // Build JSON object with id and title, then strip null values to remove title key when null
-        const conditionalJsonObject = this.dialect.buildLinkJsonObject(
-          recordIdRef,
-          formattedSelectionExpression,
-          rawSelectionExpression
-        );
+    // Build JSON object with id and title, then strip null values to remove title key when null
+    const conditionalJsonObject = this.dialect.buildLinkJsonObject(
+      recordIdRef,
+      formattedSelectionExpression,
+      rawSelectionExpression
+    );
 
-        if (isMultiValue) {
-          // Filter out null records and return empty array if no valid records exist
-          // Build an ORDER BY clause with NULLS FIRST semantics and stable tie-breaks using __id
+    if (isMultiValue) {
+      // Filter out null records and return empty array if no valid records exist
+      // Build an ORDER BY clause with NULLS FIRST semantics and stable tie-breaks using __id
 
-          const orderByClause = match({ usesJunctionTable, hasOrderColumn })
-            .with({ usesJunctionTable: true, hasOrderColumn: true }, () => {
-              // ManyMany with order column: NULLS FIRST, then order column ASC, then junction __id ASC
-              const linkField = field as LinkFieldCore;
-              const ord = `${junctionAlias}."${linkField.getOrderColumnName()}"`;
-              return `${ord} IS NULL DESC, ${ord} ASC, ${junctionAlias}."__id" ASC`;
-            })
-            .with({ usesJunctionTable: true, hasOrderColumn: false }, () => {
-              // ManyMany without order column: order by junction __id
-              return `${junctionAlias}."__id" ASC`;
-            })
-            .with({ usesJunctionTable: false, hasOrderColumn: true }, () => {
-              // OneMany/ManyOne/OneOne with order column: NULLS FIRST, then order ASC, then foreign __id ASC
-              const linkField = field as LinkFieldCore;
-              const ord = `"${foreignTableAlias}"."${linkField.getOrderColumnName()}"`;
-              return `${ord} IS NULL DESC, ${ord} ASC, "${foreignTableAlias}"."__id" ASC`;
-            })
-            .with({ usesJunctionTable: false, hasOrderColumn: false }, () => `${recordIdRef} ASC`) // Fallback to record ID if no order column is available
-            .exhaustive();
+      const orderByClause = match({ usesJunctionTable, hasOrderColumn })
+        .with({ usesJunctionTable: true, hasOrderColumn: true }, () => {
+          // ManyMany with order column: NULLS FIRST, then order column ASC, then junction __id ASC
+          const linkField = field as LinkFieldCore;
+          const ord = `${junctionAlias}."${linkField.getOrderColumnName()}"`;
+          return `${ord} IS NULL DESC, ${ord} ASC, ${junctionAlias}."__id" ASC`;
+        })
+        .with({ usesJunctionTable: true, hasOrderColumn: false }, () => {
+          // ManyMany without order column: order by junction __id
+          return `${junctionAlias}."__id" ASC`;
+        })
+        .with({ usesJunctionTable: false, hasOrderColumn: true }, () => {
+          // OneMany/ManyOne/OneOne with order column: NULLS FIRST, then order ASC, then foreign __id ASC
+          const linkField = field as LinkFieldCore;
+          const ord = `"${foreignTableAlias}"."${linkField.getOrderColumnName()}"`;
+          return `${ord} IS NULL DESC, ${ord} ASC, "${foreignTableAlias}"."__id" ASC`;
+        })
+        .with({ usesJunctionTable: false, hasOrderColumn: false }, () => `${recordIdRef} ASC`) // Fallback to record ID if no order column is available
+        .exhaustive();
 
-          const baseFilter = `${recordIdRef} IS NOT NULL`;
-          const appliedFilter = linkFilterSub
-            ? `(EXISTS ${linkFilterSub}) AND ${baseFilter}`
-            : baseFilter;
-          const sanitizedExpression = this.normalizeJsonAggregateExpression(conditionalJsonObject);
-          return `json_agg(${sanitizedExpression} ORDER BY ${orderByClause}) FILTER (WHERE ${appliedFilter})`;
-        } else {
-          // For single value relationships (ManyOne, OneOne) always return a single object or null
-          const cond = linkFilterSub
-            ? `${recordIdRef} IS NOT NULL AND EXISTS ${linkFilterSub}`
-            : `${recordIdRef} IS NOT NULL`;
-          return `CASE WHEN ${cond} THEN ${conditionalJsonObject} ELSE NULL END`;
-        }
-      })
-      .with(DriverClient.Sqlite, () => {
-        // Create conditional JSON object that only includes title if it's not null
-        const conditionalJsonObject = this.dialect.buildLinkJsonObject(
-          recordIdRef,
-          formattedSelectionExpression,
-          rawSelectionExpression
-        );
-
-        if (isMultiValue) {
-          // For SQLite, build a correlated, ordered subquery to ensure deterministic ordering
-          const mainAlias = getTableAliasFromTable(this.table);
-          const foreignDb = this.foreignTable.dbTableName;
-          const usesJunctionTable = getLinkUsesJunctionTable(field);
-          const hasOrderColumn = field.getHasOrderColumn();
-
-          const innerIdRef = `"f"."${ID_FIELD_NAME}"`;
-          const innerTitleExpr = formattedSelectionExpression.replaceAll(
-            `"${foreignTableAlias}"`,
-            '"f"'
-          );
-          const innerRawExpr = rawSelectionExpression.replaceAll(`"${foreignTableAlias}"`, '"f"');
-          const innerJson = `CASE WHEN ${innerRawExpr} IS NOT NULL THEN json_object('id', ${innerIdRef}, 'title', ${innerTitleExpr}) ELSE json_object('id', ${innerIdRef}) END`;
-          const innerFilter = linkFilterSub
-            ? `(EXISTS ${linkFilterSub.replaceAll(`"${foreignTableAlias}"`, '"f"')})`
-            : '1=1';
-
-          const opts = field.options as ILinkFieldOptions;
-          return (
-            this.dialect.buildDeterministicLookupAggregate({
-              tableDbName: this.table.dbTableName,
-              mainAlias: getTableAliasFromTable(this.table),
-              foreignDbName: this.foreignTable.dbTableName,
-              foreignAlias: foreignTableAlias,
-              linkFieldOrderColumn: hasOrderColumn
-                ? `${JUNCTION_ALIAS}."${field.getOrderColumnName()}"`
-                : undefined,
-              linkFieldHasOrderColumn: hasOrderColumn,
-              usesJunctionTable,
-              selfKeyName: opts.selfKeyName,
-              foreignKeyName: opts.foreignKeyName,
-              recordIdRef,
-              formattedSelectionExpression,
-              rawSelectionExpression,
-              linkFilterSubquerySql: linkFilterSub,
-              // Pass the actual junction table name here; the dialect will alias it as "j".
-              junctionAlias: opts.fkHostTableName!,
-            }) || this.getJsonAggregationFunction(conditionalJsonObject)
-          );
-        } else {
-          const cond = linkFilterSub
-            ? `${recordIdRef} IS NOT NULL AND EXISTS ${linkFilterSub}`
-            : `${recordIdRef} IS NOT NULL`;
-          return `CASE WHEN ${cond} THEN ${conditionalJsonObject} ELSE NULL END`;
-        }
-      })
-      .otherwise(() => {
-        throw new Error(`Unsupported database driver: ${driver}`);
-      });
+      const baseFilter = `${recordIdRef} IS NOT NULL`;
+      const appliedFilter = linkFilterSub
+        ? `(EXISTS ${linkFilterSub}) AND ${baseFilter}`
+        : baseFilter;
+      const sanitizedExpression = this.normalizeJsonAggregateExpression(conditionalJsonObject);
+      return `json_agg(${sanitizedExpression} ORDER BY ${orderByClause}) FILTER (WHERE ${appliedFilter})`;
+    } else {
+      // For single value relationships (ManyOne, OneOne) always return a single object or null
+      const cond = linkFilterSub
+        ? `${recordIdRef} IS NOT NULL AND EXISTS ${linkFilterSub}`
+        : `${recordIdRef} IS NOT NULL`;
+      return `CASE WHEN ${cond} THEN ${conditionalJsonObject} ELSE NULL END`;
+    }
   }
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
     if (field.isLookup) {
@@ -1428,18 +1171,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       if (hostField.isMultipleCellValue || foreignField.isMultipleCellValue) {
         return null;
       }
-      if (this.dbProvider.driver === DriverClient.Pg) {
-        return {
-          hostExpr: `jsonb_extract_path_text(${hostRef}::jsonb, 'id')`,
-          foreignExpr: `jsonb_extract_path_text(${foreignRef}::jsonb, 'id')`,
-        };
-      }
-      if (this.dbProvider.driver === DriverClient.Sqlite) {
-        return {
-          hostExpr: `json_extract(${hostRef}, '$.id')`,
-          foreignExpr: `json_extract(${foreignRef}, '$.id')`,
-        };
-      }
+      return {
+        hostExpr: `jsonb_extract_path_text(${hostRef}::jsonb, 'id')`,
+        foreignExpr: `jsonb_extract_path_text(${foreignRef}::jsonb, 'id')`,
+      };
     }
 
     // Exact type match (e.g., text-text, integer-integer)
@@ -1536,20 +1271,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       return expression;
     }
     if (targetField.cellValueType === CellValueType.Number) {
-      if (this.dbProvider.driver === DriverClient.Pg) {
-        return `(${expression})::double precision`;
-      }
-      if (this.dbProvider.driver === DriverClient.Sqlite) {
-        return `CAST(${expression} AS NUMERIC)`;
-      }
+      return `(${expression})::double precision`;
     }
     if (targetField.cellValueType === CellValueType.Boolean) {
-      if (this.dbProvider.driver === DriverClient.Pg) {
-        return `(${expression})::boolean`;
-      }
-      if (this.dbProvider.driver === DriverClient.Sqlite) {
-        return `CAST(${expression} AS NUMERIC)`;
-      }
+      return `(${expression})::boolean`;
     }
     return expression;
   }
@@ -2541,11 +2266,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               // Removed global application of all lookup/rollup filters: we now apply per-field filters only at selection time
 
               cqb.groupBy(`${mainAlias}.__id`);
-
-              // For SQLite, add ORDER BY at query level since json_group_array doesn't support internal ordering
-              if (this.dbProvider.driver === DriverClient.Sqlite) {
-                cqb.orderBy(`${JUNCTION_ALIAS}.__id`);
-              }
             } else if (relationship === Relationship.OneMany) {
               if (process.env.DEBUG_NESTED_CTE === '1') {
                 // eslint-disable-next-line no-console
@@ -2581,18 +2301,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               // Removed global application of all lookup/rollup filters
 
               cqb.groupBy(`${mainAlias}.__id`);
-
-              // For SQLite, add ORDER BY at query level (NULLS FIRST + stable tie-breaker)
-              if (this.dbProvider.driver === DriverClient.Sqlite) {
-                if (linkField.getHasOrderColumn()) {
-                  cqb.orderByRaw(
-                    `(CASE WHEN ${foreignAliasUsed}.${selfKeyName}_order IS NULL THEN 0 ELSE 1 END) ASC`
-                  );
-                  cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`, 'asc');
-                }
-                // Always tie-break by record id for deterministic order
-                cqb.orderBy(`${foreignAliasUsed}.__id`, 'asc');
-              }
             } else if (
               relationship === Relationship.ManyOne ||
               relationship === Relationship.OneOne
@@ -2986,15 +2694,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             }
 
             cqb.groupBy(`${mainAlias}.__id`);
-
-            if (this.dbProvider.driver === DriverClient.Sqlite) {
-              if (linkField.getHasOrderColumn()) {
-                const ordCol = `${JUNCTION_ALIAS}.${linkField.getOrderColumnName()}`;
-                cqb.orderByRaw(`(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC`);
-                cqb.orderBy(ordCol, 'asc');
-              }
-              cqb.orderBy(`${JUNCTION_ALIAS}.__id`, 'asc');
-            }
           } else if (relationship === Relationship.OneMany) {
             this.fromTableWithRestriction(cqb, table, mainAlias);
             cqb.leftJoin(
@@ -3026,16 +2725,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             }
 
             cqb.groupBy(`${mainAlias}.__id`);
-
-            if (this.dbProvider.driver === DriverClient.Sqlite) {
-              if (linkField.getHasOrderColumn()) {
-                cqb.orderByRaw(
-                  `(CASE WHEN ${foreignAliasUsed}.${selfKeyName}_order IS NULL THEN 0 ELSE 1 END) ASC`
-                );
-                cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`, 'asc');
-              }
-              cqb.orderBy(`${foreignAliasUsed}.__id`, 'asc');
-            }
           } else if (
             relationship === Relationship.ManyOne ||
             relationship === Relationship.OneOne
