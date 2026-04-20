@@ -147,13 +147,15 @@ export class Record extends RecordCore {
           },
         },
       });
-      const computedField = Object.keys(this.fieldMap).filter(
-        (fieldId) =>
-          this.fieldMap[fieldId].type === FieldType.Link || this.fieldMap[fieldId].isComputed
+      const computedFieldIds = Object.keys(this.fieldMap).filter(
+        (fId) => this.fieldMap[fId].type === FieldType.Link || this.fieldMap[fId].isComputed
       );
-      if (computedField.length) {
-        this.updateComputedField(computedField, res.data);
+      const fieldsToSync = new Set(computedFieldIds);
+      // Only sync the edited field for types with server-enriched properties (e.g., presignedUrl for attachments)
+      if (this.fieldMap[fieldId]?.type === FieldType.Attachment) {
+        fieldsToSync.add(fieldId);
       }
+      this.updateComputedField([...fieldsToSync], res.data);
     } catch (error) {
       this.onCommitLocal(fieldId, oldCellValue, true);
 

@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -38,6 +37,7 @@ import type {
   ITableRecordRepository,
   RecordMutationResult,
   BatchRecordMutationResult,
+  RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -48,15 +48,23 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
 
-const noopUndoRedoService = {
-  recordEntry: async () => ok(undefined),
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
+
+const toStoredSnapshots = (
+  records: ReadonlyArray<TableRecordReadModel>
+): RecordStoredSnapshot[] => {
+  return records.map((record) => ({
+    recordId: record.id,
+    fields: record.fields,
+  }));
+};
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
@@ -135,6 +143,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastTable: Table | undefined;
   lastSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
   failDelete: DomainError | undefined;
+  deletedRecords: RecordStoredSnapshot[] = [];
 
   async insert(
     _: IExecutionContext,
@@ -182,20 +191,20 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     context: IExecutionContext,
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ deletedRecords?: ReadonlyArray<RecordStoredSnapshot> }, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
     this.lastSpec = spec;
     if (this.failDelete) return err(this.failDelete);
-    return ok(undefined);
+    return ok(this.deletedRecords.length > 0 ? { deletedRecords: [...this.deletedRecords] } : {});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -284,12 +293,14 @@ describe('DeleteRecordsHandler', () => {
       { id: `rec${'b'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record B' }, version: 1 },
     ];
 
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.deletedRecords = toStoredSnapshots(queryRepository.records);
     const eventBus = new FakeEventBus();
 
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner(),
-      new FakeTableRecordRepository(),
+      recordRepository,
       queryRepository,
       eventBus,
       noopUndoRedoService,
@@ -328,13 +339,15 @@ describe('DeleteRecordsHandler', () => {
     queryRepository.records = [
       { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
     ];
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.deletedRecords = toStoredSnapshots(queryRepository.records);
     const eventBus = new FakeEventBus();
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createOne]);
 
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner([plugin]),
-      new FakeTableRecordRepository(),
+      recordRepository,
       queryRepository,
       eventBus,
       noopUndoRedoService,
@@ -371,6 +384,7 @@ describe('DeleteRecordsHandler', () => {
     }));
 
     const recordRepository = new FakeTableRecordRepository();
+    recordRepository.deletedRecords = toStoredSnapshots(queryRepository.records);
     const handler = new DeleteRecordsHandler(
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner(),
@@ -393,7 +407,7 @@ describe('DeleteRecordsHandler', () => {
     expect(recordRepository.lastSpec).toBeInstanceOf(RecordByIdsSpec);
   });
 
-  it('continues when delete returns not found', async () => {
+  it('returns empty result when delete reports not found before any rows are removed', async () => {
     const { table, tableId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -418,9 +432,9 @@ describe('DeleteRecordsHandler', () => {
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    result._unsafeUnwrap();
-
-    expect(eventBus.published.length).toBe(1);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecordIds).toEqual([]);
+    expect(eventBus.published).toHaveLength(0);
   });
 
   it('returns error when delete fails', async () => {
@@ -448,6 +462,80 @@ describe('DeleteRecordsHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
+  });
+
+  it('returns error when repository delete snapshot is missing for scoped delete', async () => {
+    const { table, tableId } = buildTable();
+    const recordId = `rec${'m'.repeat(16)}`;
+    const scopedSpec = {
+      isSatisfiedBy: () => true,
+      mutate: (candidate: TableRecord) => ok(candidate),
+      accept: () => ok(undefined),
+    } satisfies ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.responses = [
+      {
+        records: [{ id: recordId, fields: {} }] as TableRecordReadModel[],
+        total: 1,
+      },
+    ];
+
+    const handler = new DeleteRecordsHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner([
+        {
+          name: 'scoped-delete',
+          supports: (operation: RecordWriteOperationKind) =>
+            operation === RecordWriteOperationKind.deleteMany,
+          scope: () => ok({ recordSpec: scopedSpec }),
+        },
+      ]),
+      new FakeTableRecordRepository(),
+      queryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteRecordsCommand.create({
+      tableId: tableId.toString(),
+      recordIds: [recordId],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
+  });
+
+  it('returns error when repository delete snapshot is missing for unscoped delete', async () => {
+    const { table, tableId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const handler = new DeleteRecordsHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      new FakeTableRecordRepository(),
+      new FakeTableRecordQueryRepository(),
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteRecordsCommand.create({
+      tableId: tableId.toString(),
+      recordIds: [`rec${'u'.repeat(16)}`],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
   });
 
   it('rejects explicit deletions when existing rows fall outside plugin scope', async () => {

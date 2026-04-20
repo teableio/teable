@@ -31,8 +31,10 @@ import { PerformanceCacheService } from '../../performance-cache';
 import { SettingService } from '../setting/setting.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
-// Fixed name for AI Gateway provider in modelKey (format: aiGateway@<modelId>@teable)
-export const AI_GATEWAY_PROVIDER_NAME = 'teable';
+// Fixed name for all instance (platform-provided) providers in modelKey.
+// Instance models always end with @teable (e.g. "aiGateway@model@teable", "anthropic@model@teable").
+// BYOK (space-configured) providers keep their custom name (e.g. "openai@model@my-custom").
+export const INSTANCE_PROVIDER_NAME = 'teable';
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
 
@@ -64,36 +66,12 @@ export class AiService {
   }
 
   /**
-   * Resolve the model key by matching a body model ID against chatModel lg/md/sm values.
-   * Model keys are in format type@modelId@name — we compare the modelId segment.
-   * Falls back to lg if no match is found.
-   */
-  public resolveModelKeyFromBody(
-    chatModel: { lg?: string; md?: string; sm?: string } | undefined,
-    bodyModel?: string
-  ): string | undefined {
-    if (bodyModel) {
-      const sizes = ['lg', 'md', 'sm'] as const;
-      for (const size of sizes) {
-        const key = chatModel?.[size];
-        if (key && this.parseModelKey(key).model === bodyModel) {
-          return key;
-        }
-      }
-    }
-    return chatModel?.lg;
-  }
-
-  /**
    * Check if modelKey is an AI Gateway model
    * Format: aiGateway@<modelId>@teable
    */
   public isGatewayModel(modelKey: string): boolean {
-    const { type, name } = this.parseModelKey(modelKey);
-    return (
-      type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase() &&
-      name?.toLowerCase() === AI_GATEWAY_PROVIDER_NAME.toLowerCase()
-    );
+    const { type } = this.parseModelKey(modelKey);
+    return type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase();
   }
 
   /**
@@ -101,7 +79,7 @@ export class AiService {
    * @param modelId Gateway model ID (e.g., "anthropic/claude-sonnet-4")
    */
   public buildGatewayModelKey(modelId: string): string {
-    return `${LLMProviderType.AI_GATEWAY}@${modelId}@${AI_GATEWAY_PROVIDER_NAME}`;
+    return `${LLMProviderType.AI_GATEWAY}@${modelId}@${INSTANCE_PROVIDER_NAME}`;
   }
 
   /**
@@ -304,10 +282,10 @@ export class AiService {
     } else if (!aiConfig?.chatModel?.lg) {
       config = aiIntegrationConfig as IAIConfig;
     } else {
-      const lg = aiIntegrationConfig.chatModel?.lg || aiConfig.chatModel.lg;
-      const sm = aiIntegrationConfig.chatModel?.sm;
-      const md = aiIntegrationConfig.chatModel?.md;
-      const ability = aiIntegrationConfig.chatModel?.ability || aiConfig.chatModel.ability;
+      const lg = aiConfig.chatModel.lg;
+      const sm = aiConfig.chatModel.sm;
+      const md = aiConfig.chatModel.md;
+      const ability = aiConfig.chatModel.ability;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)
@@ -459,43 +437,12 @@ export class AiService {
   }
 
   /**
-   * Check if a gateway model should be billed
-   * All AI Gateway models should be billed as long as aiGatewayApiKey is configured
-   * The gatewayModels list is just for recommended/displayed models, not a billing whitelist
+   * Check if a model is an instance (platform-provided) model.
+   * Instance models use the "@teable" provider name suffix (e.g. "aiGateway@model@teable").
+   * BYOK (user-configured) models have a custom provider name.
    */
-  async findModelInGateway(modelKey: string): Promise<boolean> {
-    if (!this.isGatewayModel(modelKey)) {
-      this.logger.debug(`[findModelInGateway] ${modelKey} is not a gateway model`);
-      return false;
-    }
-
-    const { model: modelId } = this.parseModelKey(modelKey);
-    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
-
-    // Check if gateway is configured - if yes, all gateway models should be billed
-    if (!aiConfig?.aiGatewayApiKey) {
-      this.logger.warn(
-        `[findModelInGateway] No aiGatewayApiKey configured, model ${modelId} will not be billed`
-      );
-      return false;
-    }
-
-    this.logger.debug(
-      `[findModelInGateway] AI Gateway configured, model ${modelId} will be billed`
-    );
-    return true;
-  }
-
-  async checkInstanceAIModel(modelKey: string): Promise<boolean> {
-    // Check gateway models first
-    if (this.isGatewayModel(modelKey)) {
-      return this.findModelInGateway(modelKey);
-    }
-
-    const aiConfig = await this.getInstanceAIConfig();
-    if (!aiConfig) return false;
-
-    return this.findModelInProviders(modelKey, aiConfig.llmProviders);
+  checkInstanceAIModel(modelKey: string): boolean {
+    return modelKey.endsWith(`@${INSTANCE_PROVIDER_NAME}`);
   }
 
   async getChatModelInstance(baseId: string) {

@@ -5,7 +5,6 @@ import {
   NumberFormatting,
   domainError,
 } from '@teable/v2-core';
-import { formatNumberStringSql } from '@teable/v2-formula-sql-pg';
 import {
   type FormulaField,
   type AttachmentField,
@@ -32,6 +31,7 @@ import {
   type SingleSelectField,
   type UserField,
 } from '@teable/v2-core';
+import { formatNumberStringSql } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { CompiledQuery, Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -555,6 +555,120 @@ const buildFormulaMigrationStatements = (
     ];
 
     return ok(statements);
+  });
+};
+
+type BasicLookupConversionTargetField =
+  | SingleLineTextField
+  | LongTextField
+  | NumberField
+  | RatingField
+  | CheckboxField
+  | DateField
+  | SingleSelectField
+  | MultipleSelectField;
+
+const isBasicLookupConversionTarget = (field: Field): boolean =>
+  [
+    'singleLineText',
+    'longText',
+    'number',
+    'rating',
+    'checkbox',
+    'date',
+    'singleSelect',
+    'multipleSelect',
+  ].includes(field.type().toString());
+
+const buildLookupToBasicFieldMigrationStatements = (
+  params: FieldConversionParams,
+  oldField: LookupField | ConditionalLookupField,
+  newField: BasicLookupConversionTargetField
+): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> => {
+  return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+    const sourceSchema = params.schema ?? 'public';
+    const sourceTableName = params.tableName;
+    const dbFieldName = params.dbFieldName;
+    const tmpColumnName = `__tmp_lookup_src_${oldField.id().toString()}`;
+    const tbl = `${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)}`;
+    const dst = quoteIdent(dbFieldName);
+    const tmp = quoteIdent(tmpColumnName);
+
+    const deleteVisitor = PostgresTableSchemaFieldDeleteVisitor.forConversion({
+      db: params.db,
+      schema: params.schema,
+      tableName: params.tableName,
+      tableId: params.tableId,
+    });
+
+    const createVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
+      db: params.db,
+      schema: params.schema,
+      tableName: params.tableName,
+      tableId: params.tableId,
+    });
+
+    const dropStatements = yield* oldField.accept(deleteVisitor);
+    const createStatements = yield* newField.accept(createVisitor);
+
+    const isMultipleResult = oldField.isMultipleCellValue();
+    const sourceIsMultiple = isMultipleResult.isOk() ? isMultipleResult.value.toBoolean() : false;
+    const targetIsMultiple = newField.type().toString() === 'multipleSelect';
+    const renameSql = `ALTER TABLE ${tbl} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${tmp}`;
+    const arrayValuesExpression = `CASE WHEN ${tmp} IS NOT NULL AND jsonb_typeof(${tmp}::jsonb) = 'array' THEN ${tmp}::jsonb ELSE '[]'::jsonb END`;
+    const firstArrayValueExpression = `CASE WHEN jsonb_array_length(${arrayValuesExpression}) > 0 THEN NULLIF(${arrayValuesExpression}->>0, '') ELSE NULL END`;
+    const scalarValueExpression = `NULLIF(${tmp}::text, '')`;
+    const firstValueExpression = sourceIsMultiple
+      ? firstArrayValueExpression
+      : scalarValueExpression;
+    const textValueExpression = sourceIsMultiple
+      ? `NULLIF(replace(btrim(${arrayValuesExpression}::text, '[]'), '"', ''), '')`
+      : scalarValueExpression;
+    const numericValueExpression = `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${firstValueExpression})::double precision ELSE NULL END`;
+    const targetType = newField.type().toString();
+    const valueExpression = (() => {
+      switch (targetType) {
+        case 'singleLineText':
+        case 'longText':
+          return textValueExpression;
+        case 'number':
+          return numericValueExpression;
+        case 'rating': {
+          const max = (newField as RatingField).ratingMax().toNumber();
+          return `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN GREATEST(0, LEAST(FLOOR((${firstValueExpression})::double precision), ${max})) ELSE NULL END`;
+        }
+        case 'checkbox':
+          return `CASE WHEN lower((${firstValueExpression})::text) IN ('true', 't', '1', 'yes', 'y') THEN TRUE WHEN lower((${firstValueExpression})::text) IN ('false', 'f', '0', 'no', 'n') THEN FALSE WHEN (${firstValueExpression}) IS NOT NULL AND (${firstValueExpression}) <> '' THEN TRUE ELSE NULL END`;
+        case 'date':
+          return `CASE WHEN (${firstValueExpression}) ~ '^\\d{4}-\\d{2}-\\d{2}' THEN (${firstValueExpression})::timestamptz ELSE NULL END`;
+        case 'singleSelect':
+          return firstValueExpression;
+        case 'multipleSelect':
+          return targetIsMultiple && sourceIsMultiple
+            ? arrayValuesExpression
+            : `CASE WHEN ${scalarValueExpression} IS NOT NULL THEN jsonb_build_array(${tmp}::text) ELSE NULL END`;
+        default:
+          return 'NULL';
+      }
+    })();
+    const distinctValuesSql = sourceIsMultiple
+      ? `SELECT DISTINCT value AS name FROM ${tbl} CROSS JOIN LATERAL jsonb_array_elements_text(${arrayValuesExpression}) AS value WHERE value <> ''`
+      : `SELECT DISTINCT ${tmp}::text AS name FROM ${tbl} WHERE ${tmp} IS NOT NULL AND ${tmp}::text <> ''`;
+    const optionsStatement =
+      targetType === 'singleSelect' || targetType === 'multipleSelect'
+        ? buildSelectOptionsFromValuesStatement(params, distinctValuesSql)
+        : null;
+    const migrateSql = `UPDATE ${tbl} SET ${dst} = ${valueExpression} WHERE ${tmp} IS NOT NULL`;
+    const dropTmpSql = `ALTER TABLE ${tbl} DROP COLUMN IF EXISTS ${tmp}`;
+
+    return ok([
+      createCompiledStatementBuilder(params.db, renameSql),
+      ...dropStatements,
+      ...createStatements,
+      ...(optionsStatement ? [optionsStatement] : []),
+      createCompiledStatementBuilder(params.db, migrateSql),
+      createCompiledStatementBuilder(params.db, dropTmpSql),
+    ]);
   });
 };
 
@@ -2884,6 +2998,17 @@ export function generateFieldConversionStatements(
         params,
         oldField as FormulaField,
         newField
+      );
+      return ok(statements);
+    }
+
+    const isOldLookup =
+      oldField.type().toString() === 'lookup' || oldField.type().toString() === 'conditionalLookup';
+    if (isOldLookup && isBasicLookupConversionTarget(newField)) {
+      const statements = yield* buildLookupToBasicFieldMigrationStatements(
+        params,
+        oldField as LookupField | ConditionalLookupField,
+        newField as BasicLookupConversionTargetField
       );
       return ok(statements);
     }

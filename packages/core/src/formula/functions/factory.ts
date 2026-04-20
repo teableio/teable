@@ -74,6 +74,8 @@ import {
   Search,
   Substitute,
   T,
+  TextBefore,
+  TextSplit,
   Trim,
   Upper,
 } from './text';
@@ -111,6 +113,8 @@ export const FUNCTIONS: Record<FunctionName, FormulaFunc> = {
   [FunctionName.Replace]: new Replace(),
   [FunctionName.RegExpReplace]: new RegExpReplace(),
   [FunctionName.Substitute]: new Substitute(),
+  [FunctionName.TextBefore]: new TextBefore(),
+  [FunctionName.TextSplit]: new TextSplit(),
   [FunctionName.Lower]: new Lower(),
   [FunctionName.Upper]: new Upper(),
   [FunctionName.Rept]: new Rept(),

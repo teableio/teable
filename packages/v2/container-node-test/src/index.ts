@@ -14,6 +14,7 @@ import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   createTypeValidationStrategy,
+  installUndoCaptureGlobals,
   registerV2TableRepositoryPostgresAdapter,
   startComputedUpdatePollingIfEnabled,
   v2RecordRepositoryPostgresTokens,
@@ -301,6 +302,10 @@ export const createV2NodeTestContainer = async (
     ensureTypeValidationPolyfillMigrationApplied(db as unknown as Kysely<unknown>)
   );
 
+  await time('undo-capture-globals', async () =>
+    ensureUndoCaptureMigrationApplied(db as unknown as Kysely<unknown>)
+  );
+
   // Register SpyLogger BEFORE other services so they get the spy instance
   const spyLogger = new SpyLogger(createTestConsoleLogger(options));
   c.registerInstance(v2CoreTokens.logger, spyLogger);
@@ -540,6 +545,10 @@ const ensureTypeValidationPolyfillMigrationApplied = async (db: Kysely<unknown>)
   // It is safe to run on PG 16+ because the migration is guarded by `pg_input_is_valid` existence.
   const migrationSql = await loadTypeValidationPolyfillMigrationSql();
   await sql.raw(migrationSql).execute(db);
+};
+
+const ensureUndoCaptureMigrationApplied = async (db: Kysely<unknown>): Promise<void> => {
+  await installUndoCaptureGlobals(db);
 };
 
 let cachedTypeValidationMigrationSql: string | null = null;

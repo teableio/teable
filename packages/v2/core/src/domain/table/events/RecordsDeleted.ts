@@ -12,6 +12,7 @@ import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 export interface IDeletedRecordSnapshot {
   readonly id: string;
   readonly fields: Record<string, unknown>;
+  readonly version?: number;
   readonly displayName?: string;
   readonly autoNumber?: number;
   readonly createdTime?: string;

@@ -1,6 +1,7 @@
 /* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { assertNever, CellValueType, FieldType } from '@teable/core';
+import type { IDateFieldOptions } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
@@ -28,8 +29,8 @@ export class FieldFormatter {
           return `ROUND(value::numeric, ${precision})::text`;
         }
         case CellValueType.DateTime: {
-          // date type not support full text search
-          return null;
+          const timeZone = (options as IDateFieldOptions).formatting.timeZone.replace(/'/g, "''");
+          return `TO_CHAR(TIMEZONE('${timeZone}', value), 'YYYY-MM-DD HH24:MI')`;
         }
         case CellValueType.Boolean: {
           // date type not support full text search
@@ -67,6 +68,9 @@ export class FieldFormatter {
 
   // expression for generating index
   static getIndexExpression(field: IFieldInstance): string | null {
+    if (field.cellValueType === CellValueType.DateTime) {
+      return null;
+    }
     return this.getSearchableExpression(field, field.isMultipleCellValue);
   }
 }

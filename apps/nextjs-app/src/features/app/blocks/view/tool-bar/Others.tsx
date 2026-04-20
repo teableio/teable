@@ -1,4 +1,4 @@
-import { ArrowUpRight, MoreHorizontal } from '@teable/icons';
+import { Check, MoreHorizontal, Share2 } from '@teable/icons';
 import { useIsReadOnlyPreview, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -58,25 +58,27 @@ const ShareButton = ({
             className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
             disabled={!permission['view|update']}
           >
-            <ArrowUpRight className="size-4 shrink-0" />
+            <Share2 className="size-4 shrink-0" />
           </ToolBarButton>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-1" align="start">
+        <PopoverContent className="flex w-auto flex-col p-1" align="start">
           <Button
             variant="ghost"
-            className="w-full justify-start"
+            className="justify-between gap-4 px-2"
             size="sm"
             onClick={() => openDialog('table')}
           >
             {t('table:baseShare.shareTableTab')}
+            {isNodeShared && <Check className="size-4 shrink-0 text-muted-foreground" />}
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start"
+            className="justify-between gap-4 px-2"
             size="sm"
             onClick={() => openDialog('view')}
           >
             {t('table:baseShare.shareViewTab')}
+            {!!view?.enableShare && <Check className="size-4 shrink-0 text-muted-foreground" />}
           </Button>
         </PopoverContent>
       </Popover>

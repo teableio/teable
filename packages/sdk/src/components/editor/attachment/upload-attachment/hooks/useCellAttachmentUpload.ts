@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import type { IAttachmentCellValue } from '@teable/core';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   buildCellKey,
   useCellAttachmentUploadStore,
@@ -10,6 +11,7 @@ interface UseCellAttachmentUploadParams {
   tableId: string;
   recordId: string;
   fieldId: string;
+  attachments: IAttachmentCellValue;
   baseId?: string;
   enabled: boolean;
 }
@@ -23,9 +25,10 @@ interface UseCellAttachmentUploadReturn {
 export const useCellAttachmentUpload = (
   params: UseCellAttachmentUploadParams
 ): UseCellAttachmentUploadReturn => {
-  const { tableId, recordId, fieldId, baseId, enabled } = params;
+  const { tableId, recordId, fieldId, attachments, baseId, enabled } = params;
   const startCellUpload = useCellAttachmentUploadStore((state) => state.startUpload);
   const cancelCellTask = useCellAttachmentUploadStore((state) => state.cancelTask);
+  const syncCellAttachments = useCellAttachmentUploadStore((state) => state.syncCellAttachments);
   const cellKey = useMemo(
     () => buildCellKey(tableId, recordId, fieldId),
     [tableId, recordId, fieldId]
@@ -34,6 +37,10 @@ export const useCellAttachmentUpload = (
   const tasks = useCellAttachmentUploadStore(
     (state) => state.cellUploads[cellKey]?.tasks ?? emptyTasks
   );
+
+  useEffect(() => {
+    syncCellAttachments(cellKey, attachments);
+  }, [attachments, cellKey, syncCellAttachments]);
 
   const uploadingFiles = useMemo(() => {
     return tasks

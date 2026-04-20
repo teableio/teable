@@ -2,10 +2,12 @@ import {
   ActorId,
   domainError,
   FieldId,
+  registerAfterCommit,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
   RecordsBatchUpdated,
+  withoutTransaction,
 } from '@teable/v2-core';
 import type {
   BaseId,
@@ -32,15 +34,21 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import { toErrorLogFields } from '../errorLog';
 import type {
+  ComputedBeforeImageRecordDto,
+  ComputedRealtimeOrchestrationDto,
+  ComputedUpdateSeedGroupDto,
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxPayload,
+  ComputedUpdateOutboxTaskInput,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   buildOutboxTaskInput,
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
+import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
 import type {
   AnyOutboxItem,
@@ -60,6 +68,168 @@ const MAX_STAGE_DEPTH = 50;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
+
+type SeedRecordChunk = {
+  seedRecordIds: string[];
+  extraSeedRecords: ComputedUpdateSeedGroupDto[];
+};
+
+const countSeedRecordDtos = (
+  seedRecordIds: ReadonlyArray<string>,
+  extraSeedRecords: ReadonlyArray<ComputedUpdateSeedGroupDto>
+): number =>
+  seedRecordIds.length + extraSeedRecords.reduce((sum, group) => sum + group.recordIds.length, 0);
+
+const splitSeedRecordDtos = (params: {
+  seedTableId: string;
+  seedRecordIds: ReadonlyArray<string>;
+  extraSeedRecords: ReadonlyArray<ComputedUpdateSeedGroupDto>;
+  maxSeedRecordsPerTask: number;
+}): SeedRecordChunk[] => {
+  const maxSeedRecordsPerTask = Math.max(1, Math.trunc(params.maxSeedRecordsPerTask));
+  const totalSeedRecords = countSeedRecordDtos(params.seedRecordIds, params.extraSeedRecords);
+  if (totalSeedRecords <= maxSeedRecordsPerTask) return [];
+
+  const chunks: SeedRecordChunk[] = [];
+  let current: SeedRecordChunk = { seedRecordIds: [], extraSeedRecords: [] };
+  let currentCount = 0;
+
+  const pushCurrent = () => {
+    if (currentCount === 0) return;
+    chunks.push(current);
+    current = { seedRecordIds: [], extraSeedRecords: [] };
+    currentCount = 0;
+  };
+
+  const appendRecords = (tableId: string, recordIds: ReadonlyArray<string>) => {
+    for (const recordId of recordIds) {
+      if (currentCount >= maxSeedRecordsPerTask) {
+        pushCurrent();
+      }
+
+      if (tableId === params.seedTableId) {
+        current.seedRecordIds.push(recordId);
+      } else {
+        let group = current.extraSeedRecords.find((entry) => entry.tableId === tableId);
+        if (!group) {
+          group = { tableId, recordIds: [] };
+          current.extraSeedRecords.push(group);
+        }
+        group.recordIds.push(recordId);
+      }
+      currentCount += 1;
+    }
+  };
+
+  appendRecords(params.seedTableId, params.seedRecordIds);
+  for (const group of params.extraSeedRecords) {
+    appendRecords(group.tableId, group.recordIds);
+  }
+  pushCurrent();
+
+  return chunks;
+};
+
+const withChunkedPlanHash = (planHash: string, chunkIndex: number, chunkCount: number): string =>
+  `${planHash}:chunk:${chunkIndex + 1}/${chunkCount}`;
+
+const filterBeforeImageRecords = (
+  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecordDto>,
+  seedRecordIds: ReadonlyArray<string>
+): ComputedBeforeImageRecordDto[] => {
+  if (beforeImageRecords.length === 0 || seedRecordIds.length === 0) return [];
+  const seedRecordIdSet = new Set(seedRecordIds);
+  return beforeImageRecords.filter((record) => seedRecordIdSet.has(record.recordId));
+};
+
+export const splitComputedTaskForSeedRecordLimit = (
+  task: ComputedUpdateOutboxItem,
+  maxSeedRecordsPerTask: number
+): ComputedUpdateOutboxTaskInput[] => {
+  if (task.seedAllTableIds && task.seedAllTableIds.length > 0) return [];
+
+  const chunks = splitSeedRecordDtos({
+    seedTableId: task.seedTableId,
+    seedRecordIds: task.seedRecordIds,
+    extraSeedRecords: task.extraSeedRecords,
+    maxSeedRecordsPerTask,
+  });
+  if (chunks.length <= 1) return [];
+
+  return chunks.map((chunk, index) => ({
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords: filterBeforeImageRecords(task.beforeImageRecords, chunk.seedRecordIds),
+    steps: task.steps,
+    edges: task.edges,
+    estimatedComplexity: Math.max(1, Math.ceil(task.estimatedComplexity / chunks.length)),
+    changeType: task.changeType,
+    runId: task.runId,
+    originRunIds: task.originRunIds,
+    runTotalSteps: task.runTotalSteps,
+    runCompletedStepsBefore: task.runCompletedStepsBefore,
+    stageDepth: task.stageDepth,
+    orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
+    planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
+    dirtyStats: [
+      ...(chunk.seedRecordIds.length > 0
+        ? [{ tableId: task.seedTableId, recordCount: chunk.seedRecordIds.length }]
+        : []),
+      ...chunk.extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordCount: group.recordIds.length,
+      })),
+    ],
+    affectedTableIds: task.affectedTableIds,
+    affectedFieldIds: task.affectedFieldIds,
+    syncMaxLevel: task.syncMaxLevel,
+  }));
+};
+
+export const splitSeedTaskForSeedRecordLimit = (
+  task: SeedOutboxItem,
+  maxSeedRecordsPerTask: number
+): ComputedUpdateSeedTaskInput[] => {
+  const chunks = splitSeedRecordDtos({
+    seedTableId: task.seedTableId,
+    seedRecordIds: task.seedRecordIds,
+    extraSeedRecords: task.extraSeedRecords,
+    maxSeedRecordsPerTask,
+  });
+  if (chunks.length <= 1) return [];
+
+  return chunks.map((chunk, index) => ({
+    taskType: 'seed',
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords: filterBeforeImageRecords(task.beforeImageRecords, chunk.seedRecordIds),
+    changedFieldIds: task.changedFieldIds,
+    changeType: task.changeType,
+    impact: task.impact,
+    cyclePolicy: task.cyclePolicy,
+    orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
+    runId: task.runId,
+    planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
+  }));
+};
+
+const chunkOrchestration = (
+  orchestration: ComputedRealtimeOrchestrationDto | undefined,
+  chunkIndex: number,
+  chunkCount: number
+): ComputedRealtimeOrchestrationDto | undefined => {
+  if (!orchestration) return undefined;
+  return {
+    ...orchestration,
+    totalChunkCount: Math.max(orchestration.totalChunkCount, chunkCount),
+    chunkIndex,
+    scope: 'chunk',
+  };
+};
 
 export type ComputedUpdateWorkerParams = {
   workerId: string;
@@ -440,6 +610,15 @@ export class ComputedUpdateWorker {
         ...runLogContext,
       });
     };
+
+    const splitResult = await this.splitLargeComputedTask(computedTask, context, runLogContext);
+    if (splitResult.isErr()) {
+      logTaskFailure(splitResult.error);
+      await this.handleTaskFailure(computedTask, splitResult.error.message, context);
+      return err(splitResult.error);
+    }
+    if (splitResult.value) return ok(true);
+
     const payload = toPayload(computedTask);
     const planResult = deserializeComputedUpdatePlan(payload);
     if (planResult.isErr()) {
@@ -484,6 +663,7 @@ export class ComputedUpdateWorker {
       failurePhase = 'acquire_locks';
       const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
         logContext: runLogContext,
+        wait: false,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
@@ -500,19 +680,12 @@ export class ComputedUpdateWorker {
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
-        const publishResult = await this.eventBus.publishMany(txContext, events);
-        if (publishResult.isErr()) {
-          this.logger.warn('computed:worker:events_publish_failed', {
-            error: publishResult.error.message,
-            eventCount: events.length,
-            ...runLogContext,
-          });
-        } else {
-          this.logger.info('computed:worker:events_published', {
-            ...buildComputedUpdateEventLogContext(events),
-            ...runLogContext,
-          });
-        }
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:events_publish_failed',
+          published: 'computed:worker:events_published',
+          deferred: 'computed:worker:events_publish_deferred',
+          logContext: runLogContext,
+        });
       }
 
       const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
@@ -578,12 +751,54 @@ export class ComputedUpdateWorker {
       return ok(true);
     });
     if (executeResult.isErr()) {
+      if (isComputedUpdateLockUnavailable(executeResult.error)) {
+        await this.releaseTaskForRetry(computedTask, executeResult.error.message, context);
+        return ok(false);
+      }
       logTaskFailure(executeResult.error);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context);
       return err(executeResult.error);
     }
 
     return ok(executeResult.value);
+  }
+
+  private async publishComputedUpdateEvents(
+    context: IExecutionContext,
+    events: ReadonlyArray<RecordsBatchUpdated>,
+    logs: {
+      failed: string;
+      published: string;
+      deferred: string;
+      logContext: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    const publish = async () => {
+      const publishResult = await this.eventBus.publishMany(withoutTransaction(context), events);
+      if (publishResult.isErr()) {
+        this.logger.warn(logs.failed, {
+          error: publishResult.error.message,
+          eventCount: events.length,
+          ...logs.logContext,
+        });
+        return;
+      }
+
+      this.logger.info(logs.published, {
+        ...buildComputedUpdateEventLogContext(events),
+        ...logs.logContext,
+      });
+    };
+
+    if (registerAfterCommit(context, publish)) {
+      this.logger.debug(logs.deferred, {
+        eventCount: events.length,
+        ...logs.logContext,
+      });
+      return;
+    }
+
+    await publish();
   }
 
   private async handleTaskFailure(
@@ -608,6 +823,98 @@ export class ComputedUpdateWorker {
     }
 
     return result.value;
+  }
+
+  private async releaseTaskForRetry(
+    task: AnyOutboxItem,
+    reason: string,
+    context?: IExecutionContext
+  ): Promise<boolean> {
+    const result = await this.outbox.releaseForRetry(
+      {
+        task,
+        reason,
+      },
+      context
+    );
+    if (result.isErr()) {
+      this.logger.warn('computed:outbox:release_retry_failed', {
+        taskId: task.id,
+        error: result.error.message,
+      });
+      return false;
+    }
+
+    if (!result.value) {
+      this.logger.warn('computed:outbox:release_retry_skipped', {
+        taskId: task.id,
+        leaseOwner: task.lockedBy ?? null,
+      });
+      return false;
+    }
+
+    this.logger.debug('computed:worker:lock_unavailable_requeued', {
+      taskId: task.id,
+      reason,
+    });
+    return true;
+  }
+
+  private async splitLargeComputedTask(
+    task: ComputedUpdateOutboxItem,
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<boolean, DomainError>> {
+    const chunks = splitComputedTaskForSeedRecordLimit(
+      task,
+      this.outboxConfig.maxSeedRecordsPerTask
+    );
+    if (chunks.length === 0) return ok(false);
+
+    for (const chunk of chunks) {
+      const enqueueResult = await this.outbox.enqueueOrMerge(chunk, context);
+      if (enqueueResult.isErr()) return err(enqueueResult.error);
+    }
+
+    const doneResult = await this.outbox.markDone(task, context);
+    if (doneResult.isErr()) return err(doneResult.error);
+    if (!doneResult.value) return ok(false);
+
+    this.logger.info('computed:worker:large_task_split', {
+      taskId: task.id,
+      chunkCount: chunks.length,
+      seedRecordCount: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+      maxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      ...logContext,
+    });
+    return ok(true);
+  }
+
+  private async splitLargeSeedTask(
+    task: SeedOutboxItem,
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<boolean, DomainError>> {
+    const chunks = splitSeedTaskForSeedRecordLimit(task, this.outboxConfig.maxSeedRecordsPerTask);
+    if (chunks.length === 0) return ok(false);
+
+    for (const chunk of chunks) {
+      const enqueueResult = await this.outbox.enqueueSeedTask(chunk, context);
+      if (enqueueResult.isErr()) return err(enqueueResult.error);
+    }
+
+    const doneResult = await this.outbox.markDone(task, context);
+    if (doneResult.isErr()) return err(doneResult.error);
+    if (!doneResult.value) return ok(false);
+
+    this.logger.info('computed:worker:large_seed_task_split', {
+      taskId: task.id,
+      chunkCount: chunks.length,
+      seedRecordCount: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+      maxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      ...logContext,
+    });
+    return ok(true);
   }
 
   /**
@@ -812,6 +1119,14 @@ export class ComputedUpdateWorker {
       return err(seedPayloadResult.error);
     }
 
+    const splitResult = await this.splitLargeSeedTask(task, context, runLogContext);
+    if (splitResult.isErr()) {
+      logSeedFailure(splitResult.error);
+      await this.handleTaskFailure(task, splitResult.error.message, context);
+      return err(splitResult.error);
+    }
+    if (splitResult.value) return ok(true);
+
     const seedData = seedPayloadResult.value;
 
     // Load table with fields
@@ -885,6 +1200,7 @@ export class ComputedUpdateWorker {
       failurePhase = 'acquire_locks';
       const lockResult = await this.updater.acquireLocks(plan, txContext, {
         logContext: runLogContext,
+        wait: false,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
@@ -902,19 +1218,12 @@ export class ComputedUpdateWorker {
       );
       if (events.length > 0) {
         failurePhase = 'publish_events';
-        const publishResult = await this.eventBus.publishMany(txContext, events);
-        if (publishResult.isErr()) {
-          this.logger.warn('computed:worker:seed_events_publish_failed', {
-            error: publishResult.error.message,
-            eventCount: events.length,
-            ...runLogContext,
-          });
-        } else {
-          this.logger.info('computed:worker:seed_events_published', {
-            ...buildComputedUpdateEventLogContext(events),
-            ...runLogContext,
-          });
-        }
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:seed_events_publish_failed',
+          published: 'computed:worker:seed_events_published',
+          deferred: 'computed:worker:seed_events_publish_deferred',
+          logContext: runLogContext,
+        });
       }
 
       // Collect seed groups for next stage
@@ -979,6 +1288,10 @@ export class ComputedUpdateWorker {
     });
 
     if (executeResult.isErr()) {
+      if (isComputedUpdateLockUnavailable(executeResult.error)) {
+        await this.releaseTaskForRetry(task, executeResult.error.message, context);
+        return ok(false);
+      }
       logSeedFailure(executeResult.error);
       await this.handleTaskFailure(task, executeResult.error.message, context);
       return err(executeResult.error);

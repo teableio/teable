@@ -1317,10 +1317,23 @@ export class FormulaSqlPgExpressionBuilder {
     const emptyText = sqlStringLiteral('');
     const leftValue = `COALESCE(${leftText.valueSql}, ${emptyText})`;
     const rightValue = `COALESCE(${rightText.valueSql}, ${emptyText})`;
+    const shouldCompareNullsAsBlanks =
+      (operator === '=' || operator === '<>') &&
+      (this.isNullSqlLiteral(left.valueSql) || this.isNullSqlLiteral(right.valueSql));
+    const numericValueComparison = shouldCompareNullsAsBlanks
+      ? `(CASE
+          WHEN ${leftNull} OR ${rightNull} THEN (${leftNull} ${operator} ${rightNull})
+          ELSE (${leftNumeric.valueSql} ${operator} ${rightNumeric.valueSql})
+        END)`
+      : `(COALESCE(${leftNumeric.valueSql}, 0) ${operator} COALESCE(${rightNumeric.valueSql}, 0))`;
     return `(CASE
-      WHEN ${numericCondition} THEN (COALESCE(${leftNumeric.valueSql}, 0) ${operator} COALESCE(${rightNumeric.valueSql}, 0))
+      WHEN ${numericCondition} THEN ${numericValueComparison}
       ELSE (${leftValue} ${operator} ${rightValue})
     END)`;
+  }
+
+  private isNullSqlLiteral(valueSql: string): boolean {
+    return valueSql.trim().toUpperCase() === 'NULL';
   }
 
   protected buildLooseDatetimeComparison(left: SqlExpr, right: SqlExpr, operator: string): string {
