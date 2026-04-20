@@ -1,11 +1,10 @@
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
-import { RecordBatchCreationService } from './RecordBatchCreationService';
-import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
-import type { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
-import type { TableUpdateFlow } from './TableUpdateFlow';
+import {
+  createRecordWritePluginRunner,
+  createTrackedRecordWritePlugin,
+} from '../../commands/recordWritePluginRunnerTestUtils';
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
@@ -13,25 +12,23 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import type { RecordId } from '../../domain/table/records/RecordId';
-import type { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
-import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
+import { Table } from '../../domain/table/Table';
+import { TableName } from '../../domain/table/TableName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   RecordMutationResult,
+  RecordStoredSnapshot,
 } from '../../ports/TableRecordRepository';
-import { Table } from '../../domain/table/Table';
-import { TableName } from '../../domain/table/TableName';
-import {
-  createRecordWritePluginRunner,
-  createTrackedRecordWritePlugin,
-} from '../../commands/recordWritePluginRunnerTestUtils';
+import { RecordBatchCreationService } from './RecordBatchCreationService';
+import type { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
+import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
+import type { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
+import type { TableUpdateFlow } from './TableUpdateFlow';
 
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
@@ -78,6 +75,7 @@ const buildBasicTable = () => {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   readonly insertedRecords: TableRecord[] = [];
+  omitRecordSnapshots = false;
 
   constructor(
     private readonly insertManyResult: Result<BatchRecordMutationResult, DomainError> = ok({})
@@ -94,6 +92,13 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     if (this.insertManyResult.isOk()) {
       this.insertedRecords.push(...records);
+      const recordSnapshots =
+        this.insertManyResult.value.recordSnapshots ??
+        (this.omitRecordSnapshots ? undefined : records.map((record) => toStoredSnapshot(record)));
+      return ok({
+        ...this.insertManyResult.value,
+        ...(recordSnapshots ? { recordSnapshots } : {}),
+      });
     }
     return this.insertManyResult;
   }
@@ -111,11 +116,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   }
 
   async updateManyStream() {
-    return ok({ totalUpdated: 0 });
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany() {
-    return ok(undefined);
+    return ok({});
   }
 
   async deleteManyStream() {
@@ -123,17 +128,17 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   }
 }
 
-class EmptyTableRecordQueryRepository implements ITableRecordQueryRepository {
-  async find() {
-    return ok({ records: [], total: 0 });
+const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
+  const fields: Record<string, unknown> = {};
+  for (const entry of record.fields().entries()) {
+    fields[entry.fieldId.toString()] = entry.value.toValue();
   }
 
-  async findOne() {
-    return err(domainError.notFound({ message: 'not found' }));
-  }
-
-  async *findStream() {}
-}
+  return {
+    recordId: record.id().toString(),
+    fields,
+  };
+};
 
 describe('RecordBatchCreationService', () => {
   it('creates records and returns batch undo/redo plus deferred afterCommit', async () => {
@@ -142,7 +147,6 @@ describe('RecordBatchCreationService', () => {
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createMany]);
     const service = new RecordBatchCreationService(
       recordRepository,
-      new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
       noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
@@ -191,7 +195,6 @@ describe('RecordBatchCreationService', () => {
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.createMany]);
     const service = new RecordBatchCreationService(
       recordRepository,
-      new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
       noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([plugin]),
@@ -217,6 +220,32 @@ describe('RecordBatchCreationService', () => {
     expect(calls.afterCommit).toHaveLength(0);
   });
 
+  it('returns an infrastructure error when the repository omits stored snapshots', async () => {
+    const table = buildBasicTable();
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitRecordSnapshots = true;
+    const service = new RecordBatchCreationService(
+      recordRepository,
+      noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      noopTableUpdateFlow
+    );
+
+    const result = await service.create(createContext(), {
+      table,
+      recordsFieldValues: [new Map([[table.primaryFieldId().toString(), 'Alpha']])],
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      isTransactionBound: true,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
+  });
+
   it('stops before persistence when the createMany plugin guard rejects the batch', async () => {
     const table = buildBasicTable();
     const recordRepository = new FakeTableRecordRepository();
@@ -228,7 +257,6 @@ describe('RecordBatchCreationService', () => {
     };
     const service = new RecordBatchCreationService(
       recordRepository,
-      new EmptyTableRecordQueryRepository(),
       noopRecordMutationSpecResolver,
       noopRecordChangedValueDecoratorService,
       createRecordWritePluginRunner([

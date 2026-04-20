@@ -299,6 +299,26 @@ export const funcDefine: [
     },
   ],
   [
+    FunctionName.TextBefore,
+    {
+      name: FunctionName.TextBefore,
+      func: FUNCTIONS[FunctionName.TextBefore],
+      params: ['text', 'delimiter'],
+      definition: 'TEXTBEFORE(text, delimiter)',
+      returnType: CellValueType.String,
+    },
+  ],
+  [
+    FunctionName.TextSplit,
+    {
+      name: FunctionName.TextSplit,
+      func: FUNCTIONS[FunctionName.TextSplit],
+      params: ['text', 'delimiter'],
+      definition: 'TEXTSPLIT(text, delimiter)',
+      returnType: 'array',
+    },
+  ],
+  [
     FunctionName.Lower,
     {
       name: FunctionName.Lower,

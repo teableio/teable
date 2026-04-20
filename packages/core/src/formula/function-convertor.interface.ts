@@ -66,6 +66,15 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   replace(oldText: string, startNum: string, numChars: string, newText: string): TReturn;
   regexpReplace(text: string, pattern: string, replacement: string): TReturn;
   substitute(text: string, oldText: string, newText: string, instanceNum?: string): TReturn;
+  textBefore(
+    text: string,
+    delimiter: string,
+    instanceNum?: string,
+    matchMode?: string,
+    matchEnd?: string,
+    ifNotFound?: string
+  ): TReturn;
+  textSplit(text: string, delimiter: string, ignoreEmpty?: string, matchMode?: string): TReturn;
   lower(text: string): TReturn;
   upper(text: string): TReturn;
   rept(text: string, numTimes: string): TReturn;

@@ -1,3 +1,4 @@
+export * from './NoopAttachmentUrlSignerService';
 export * from './NoopCsvParser';
 export * from './NoopEventBus';
 export * from './NoopHasher';

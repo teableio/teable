@@ -112,4 +112,37 @@ describe('Formula numeric blank comparison duplication (regression)', () => {
       await permanentDeleteTable(baseId, table.id);
     }
   });
+
+  it('treats blank number fields as BLANK() in IF comparisons', async () => {
+    const weightFieldId = generateFieldId();
+    const table = (await createTable(baseId, {
+      name: 'numeric_blank_formula',
+      fields: [
+        {
+          id: weightFieldId,
+          name: 'Weight',
+          type: FieldType.Number,
+        },
+        {
+          name: 'BlankMarker',
+          type: FieldType.Formula,
+          options: {
+            expression: `IF({${weightFieldId}}=BLANK(), 1, 2)`,
+          },
+        },
+      ],
+      records: [{ fields: { Weight: 75 } }, { fields: {} }],
+    })) as ITableFullVo;
+
+    try {
+      const formulaFieldId = table.fields.find((f) => f.name === 'BlankMarker')?.id as string;
+
+      const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+
+      expect(records[0].fields[formulaFieldId]).toBe(2);
+      expect(records[1].fields[formulaFieldId]).toBe(1);
+    } finally {
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
 });

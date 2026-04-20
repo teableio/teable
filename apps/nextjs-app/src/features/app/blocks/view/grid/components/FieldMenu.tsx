@@ -23,6 +23,7 @@ import {
   useGridViewStore,
   useIsTouchDevice,
   usePersonalView,
+  useSearch,
   useTableId,
   useTablePermission,
   useView,
@@ -94,6 +95,7 @@ export const FieldMenu = () => {
   const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
   const { personalViewCommonQuery, isPersonalView } = usePersonalView();
+  const { searchQuery } = useSearch();
   const isViewLocked = Boolean(view?.isLocked && !isPersonalView);
   const emptyFieldMenu = !view || !fields?.length || !allFields.length;
   const [deleteFieldDialog, setDeleteFieldDialog] = useState<{
@@ -175,7 +177,7 @@ export const FieldMenu = () => {
 
     // For share view: use view's filter/sort/group directly (no personal view in share view)
     // For normal view: use personalViewCommonQuery
-    const downloadQuery = shareId
+    const baseQuery = shareId
       ? view?.filter || view?.sort || view?.group
         ? {
             filter: view?.filter ?? undefined,
@@ -183,7 +185,10 @@ export const FieldMenu = () => {
             groupBy: view?.group ?? undefined,
           }
         : undefined
-      : personalViewCommonQuery ?? undefined;
+      : personalViewCommonQuery;
+
+    const downloadQuery =
+      searchQuery || baseQuery ? { ...baseQuery, search: searchQuery } : undefined;
 
     openDownloadDialog({
       tableId,

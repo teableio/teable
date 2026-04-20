@@ -16,6 +16,8 @@ import {
   Search,
   Substitute,
   T,
+  TextBefore,
+  TextSplit,
   Trim,
   Upper,
 } from './text';
@@ -408,6 +410,55 @@ describe('TextFunc', () => {
       ]);
 
       expect(result).toBe('Hello, Table');
+    });
+  });
+
+  describe('TextBefore', () => {
+    const textBeforeFunc = new TextBefore();
+
+    it('should return the text before the first delimiter', () => {
+      const result = textBeforeFunc.eval([
+        new TypedValue('20, 04, 79, 01, 24', CellValueType.String, false),
+        new TypedValue(',', CellValueType.String, false),
+      ]);
+
+      expect(result).toBe('20');
+    });
+
+    it('should return the provided fallback when the delimiter is not found', () => {
+      const result = textBeforeFunc.eval([
+        new TypedValue('Teable', CellValueType.String, false),
+        new TypedValue(',', CellValueType.String, false),
+        new TypedValue(1, CellValueType.Number, false),
+        new TypedValue(0, CellValueType.Number, false),
+        new TypedValue(false, CellValueType.Boolean, false),
+        new TypedValue('missing', CellValueType.String, false),
+      ]);
+
+      expect(result).toBe('missing');
+    });
+  });
+
+  describe('TextSplit', () => {
+    const textSplitFunc = new TextSplit();
+
+    it('should split text by delimiter into a string array', () => {
+      const result = textSplitFunc.eval([
+        new TypedValue('20, 04, 79, 01, 24', CellValueType.String, false),
+        new TypedValue(',', CellValueType.String, false),
+      ]);
+
+      expect(result).toEqual(['20', ' 04', ' 79', ' 01', ' 24']);
+    });
+
+    it('should optionally remove empty split results', () => {
+      const result = textSplitFunc.eval([
+        new TypedValue('a,,b', CellValueType.String, false),
+        new TypedValue(',', CellValueType.String, false),
+        new TypedValue(true, CellValueType.Boolean, false),
+      ]);
+
+      expect(result).toEqual(['a', 'b']);
     });
   });
 

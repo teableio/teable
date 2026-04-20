@@ -73,6 +73,32 @@ describe('GeneratedColumnQueryPostgres if', () => {
 
     expect(query.countAll('"__number"')).toBe('CASE WHEN "__number" IS NULL THEN 0 ELSE 1 END');
   });
+
+  it('normalizes BLANK() when comparing number fields', () => {
+    const query = new GeneratedColumnQueryPostgres();
+    query.setContext({} as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldWeight',
+          isMultiple: false,
+          isLookup: false,
+          dbFieldName: '__weight',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+        },
+      },
+      { type: 'string', isFieldReference: false },
+    ] as unknown as never);
+
+    const sql = query.equal('"__weight"', query.blank());
+    expect(sql).toContain('COALESCE(NULLIF');
+    expect(sql).toContain('"__weight"');
+    expect(sql).toContain('::text');
+    expect(sql).toContain("= ''");
+  });
 });
 
 describe('GeneratedColumnQueryPostgres FROMNOW/TONOW', () => {

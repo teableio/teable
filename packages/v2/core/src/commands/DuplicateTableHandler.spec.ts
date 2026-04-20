@@ -343,15 +343,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
     _options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
-    return ok({ totalUpdated: 0 });
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     _context: IExecutionContext,
     _table: Table,
     _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
