@@ -5,7 +5,7 @@ Declaration: If the folder I belong to changes, please update me, especially pub
 ## Responsibilities
 
 - Provide a Keyv-backed implementation of `@teable/v2-core` `IUndoRedoStore`.
-- Persist undo/redo entries with cursor semantics compatible with `UndoRedoService`.
+- Persist undo/redo entries with cursor semantics compatible with `UndoRedoStackService`.
 - Keep storage concerns out of `v2/core`.
 
 ## Files

@@ -43,6 +43,7 @@ import { ComputedFieldCascadeAfterSchemaUpdate } from '../record/computed/Comput
 import { v2RecordRepositoryPostgresTokens } from '../record/di/tokens';
 import { TableRecordQueryBuilderManager } from '../record/query-builder';
 import {
+  PostgresRecordMutationSnapshotCaptureService,
   PostgresTableRecordQueryRepository,
   PostgresTableRecordRepository,
   PostgresRecordOrderCalculator,
@@ -129,6 +130,12 @@ export const registerV2TableRepositoryPostgresAdapter = (
 
   // Register record (DML) components
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
+
+  c.register(
+    v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,
+    PostgresRecordMutationSnapshotCaptureService,
+    { lifecycle: Lifecycle.Singleton }
+  );
 
   c.register(
     v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager,

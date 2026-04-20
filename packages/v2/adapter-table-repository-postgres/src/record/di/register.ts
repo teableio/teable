@@ -34,7 +34,11 @@ import {
 } from '../computed';
 import { ComputedFieldCascadeAfterSchemaUpdate } from '../computed/ComputedFieldCascadeAfterSchemaUpdate';
 import { TableRecordQueryBuilderManager } from '../query-builder';
-import { PostgresTableRecordQueryRepository, PostgresTableRecordRepository } from '../repository';
+import {
+  PostgresRecordMutationSnapshotCaptureService,
+  PostgresTableRecordQueryRepository,
+  PostgresTableRecordRepository,
+} from '../repository';
 import { v2RecordRepositoryPostgresTokens } from './tokens';
 
 export interface IV2RecordRepositoryPostgresConfig {
@@ -69,6 +73,14 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   config: IV2RecordRepositoryPostgresConfig
 ): DependencyContainer => {
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
+
+  c.register(
+    v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,
+    PostgresRecordMutationSnapshotCaptureService,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
 
   c.register(
     v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager,

@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
@@ -14,7 +13,6 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import type { RecordId } from '../domain/table/records/RecordId';
-import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
@@ -29,32 +27,44 @@ import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
+  ITableRecordQueryOptions,
   ITableRecordQueryStreamOptions,
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
+  UpdateManyStreamBatchInput,
   RecordMutationResult,
   UpdateManyStreamResult,
   ITableRecordRepository,
 } from '../ports/TableRecordRepository';
+import { isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ClearCommand } from './ClearCommand';
-import { ClearHandler } from './ClearHandler';
+import { ClearHandler, ClearStreamHandler } from './ClearHandler';
+import { ClearStreamCommand } from './ClearStreamCommand';
 import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
 } from './recordWritePluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
 
-const noopUndoRedoService = {
-  recordEntry: async () => ok(undefined),
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
+
+class TrackingUndoRedoService {
+  recordEntryCalls = 0;
+
+  async recordEntry() {
+    this.recordEntryCalls += 1;
+    return ok(undefined);
+  }
+}
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'e'.repeat(16)}`)._unsafeUnwrap();
@@ -163,6 +173,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -170,7 +184,11 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   updatedRecords: TableRecord[] = [];
+  updateManyStreamUpdatedRecordIds?: ReadonlySet<string>;
+  updateManyStreamVersions = new Map<string, number>();
   updateCalls = 0;
+
+  constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
 
   async insert(
     _: IExecutionContext,
@@ -217,28 +235,90 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async updateManyStream(
     _: IExecutionContext,
     __: Table,
-    batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
+    batches:
+      | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
     let totalUpdated = 0;
-    for (const batchResult of batches) {
+    const updatedRecords: Array<NonNullable<UpdateManyStreamResult['updatedRecords']>[number]> = [];
+    for await (const batchResult of batches) {
       if (batchResult.isErr()) {
         return err(batchResult.error);
       }
-      for (const update of batchResult.value) {
+      const updates = isUpdateManyStreamBatch(batchResult.value)
+        ? batchResult.value.updates
+        : batchResult.value;
+      for (const update of updates) {
+        const recordId = update.record.id().toString();
+        if (
+          this.updateManyStreamUpdatedRecordIds &&
+          !this.updateManyStreamUpdatedRecordIds.has(recordId)
+        ) {
+          continue;
+        }
         this.updatedRecords.push(update.record);
+        const storedRecord = this.queryRepository?.records.find((item) => item.id === recordId);
+        const configuredNewVersion = this.updateManyStreamVersions.get(recordId);
+        const oldVersion =
+          storedRecord?.version ??
+          (configuredNewVersion !== undefined ? configuredNewVersion - 1 : 0);
+        const oldFieldValues: Record<string, unknown> = {};
+        if (storedRecord) {
+          for (const entry of update.record.fields().entries()) {
+            const fieldId = entry.fieldId.toString();
+            if (Object.prototype.hasOwnProperty.call(storedRecord.fields, fieldId)) {
+              oldFieldValues[fieldId] = storedRecord.fields[fieldId];
+            }
+          }
+        }
+        const newVersion =
+          configuredNewVersion ?? this.updateQueryRecord(update.record) ?? oldVersion + 1;
+        updatedRecords.push({
+          recordId: update.record.id(),
+          oldVersion,
+          newVersion,
+          oldFieldValues,
+        });
         totalUpdated += 1;
       }
     }
-    return ok({ totalUpdated });
+    return ok({
+      totalUpdated,
+      updatedRecords,
+    });
+  }
+
+  private updateQueryRecord(record: TableRecord): number | undefined {
+    if (!this.queryRepository) {
+      return undefined;
+    }
+
+    const recordId = record.id().toString();
+    const storedRecord = this.queryRepository.records.find((item) => item.id === recordId);
+    if (!storedRecord) {
+      return undefined;
+    }
+
+    const updatedFields: Record<string, unknown> = {};
+    for (const entry of record.fields().entries()) {
+      updatedFields[entry.fieldId.toString()] = entry.value.toValue();
+    }
+
+    storedRecord.fields = {
+      ...storedRecord.fields,
+      ...updatedFields,
+    };
+    storedRecord.version += 1;
+    return storedRecord.version;
   }
 
   async deleteMany(
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -249,13 +329,21 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: TableRecordReadModel[] = [];
   lastFindStreamOptions?: ITableRecordQueryStreamOptions;
+  visiblePredicate?: (record: TableRecordReadModel) => boolean;
 
   async find(
     _: IExecutionContext,
     __: Table,
-    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
   ): Promise<Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>> {
-    return ok({ records: this.records, total: this.records.length });
+    const records = this.scopedRecords();
+    const offset = options?.pagination?.offset()?.toNumber() ?? 0;
+    const limit = options?.pagination?.limit()?.toNumber() ?? records.length;
+    return ok({
+      records: records.slice(offset, offset + limit),
+      total: records.length,
+    });
   }
 
   async findOne(
@@ -280,14 +368,22 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     this.lastFindStreamOptions = options;
-    const records = this.records;
+    const records = this.scopedRecords();
+    const pagination = options?.pagination;
+    const offset = pagination && 'offset' in pagination ? pagination.offset : 0;
+    const limit = pagination?.limit ?? records.length;
+    const pageRecords = records.slice(offset, offset + limit);
     return {
       [Symbol.asyncIterator]: async function* () {
-        for (const record of records) {
+        for (const record of pageRecords) {
           yield ok(record);
         }
       },
     };
+  }
+
+  private scopedRecords() {
+    return this.visiblePredicate ? this.records.filter(this.visiblePredicate) : this.records;
   }
 }
 
@@ -338,7 +434,7 @@ describe('ClearHandler', () => {
       },
     ];
 
-    const recordRepository = new FakeTableRecordRepository();
+    const recordRepository = new FakeTableRecordRepository(recordQueryRepository);
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
@@ -375,6 +471,107 @@ describe('ClearHandler', () => {
     expect(event!.updates[0]?.recordId).toBe(recordId);
     expect(event!.updates[0]?.oldVersion).toBe(existingVersion);
     expect(event!.updates[0]?.newVersion).toBe(existingVersion + 1);
+  });
+
+  it('omits already empty fields from clear update event changes', async () => {
+    const { table, tableId, firstFieldId, secondFieldId } = buildProjectionTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const recordId = `rec${'a'.repeat(16)}`;
+    recordQueryRepository.records = [
+      {
+        id: recordId,
+        version: 3,
+        fields: {
+          [firstFieldId.toString()]: 100,
+          [secondFieldId.toString()]: null,
+        },
+      },
+    ];
+    const eventBus = new FakeEventBus();
+    const handler = new ClearHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      new FakeTableRecordRepository(recordQueryRepository),
+      recordQueryRepository,
+      eventBus,
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 0],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updatedCount).toBe(1);
+    const event = eventBus.published.find(isRecordsBatchUpdatedEvent);
+    expect(event?.updates).toHaveLength(1);
+    expect(event?.updates[0]?.recordId).toBe(recordId);
+    expect(event?.updates[0]?.changes).toEqual([
+      {
+        fieldId: firstFieldId.toString(),
+        oldValue: 100,
+        newValue: null,
+      },
+    ]);
+  });
+
+  it('does not publish clear update event when storage skips the row', async () => {
+    const { table, tableId, firstFieldId } = buildProjectionTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = [
+      {
+        id: `rec${'b'.repeat(16)}`,
+        version: 4,
+        fields: {
+          [firstFieldId.toString()]: 100,
+        },
+      },
+    ];
+    const recordRepository = new FakeTableRecordRepository(recordQueryRepository);
+    recordRepository.updateManyStreamUpdatedRecordIds = new Set();
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new TrackingUndoRedoService();
+    const handler = new ClearHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      recordRepository,
+      recordQueryRepository,
+      eventBus,
+      undoRedoService as unknown as UndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().updatedCount).toBe(0);
+    expect(eventBus.published.find(isRecordsBatchUpdatedEvent)).toBeUndefined();
+    expect(undoRedoService.recordEntryCalls).toBe(0);
   });
 
   it('trims clear targets to plugin-scoped update fields', async () => {
@@ -692,5 +889,127 @@ describe('ClearHandler', () => {
       expect(firstOrder.fieldId.toString()).toBe(secondFieldId.toString());
       expect(firstOrder.direction).toBe('desc');
     }
+  });
+
+  it('stream clear omits already empty fields from update event changes', async () => {
+    const { table, tableId, firstFieldId, secondFieldId } = buildProjectionTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const recordId = `rec${'c'.repeat(16)}`;
+    recordQueryRepository.records = [
+      {
+        id: recordId,
+        version: 5,
+        fields: {
+          [firstFieldId.toString()]: 100,
+          [secondFieldId.toString()]: null,
+        },
+      },
+    ];
+    const eventBus = new FakeEventBus();
+    const handler = new ClearStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      new FakeTableRecordRepository(recordQueryRepository),
+      recordQueryRepository,
+      eventBus,
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [1, 0],
+      ],
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      clearedCount: 1,
+      data: {
+        clearedCount: 1,
+        clearedRecordIds: [recordId],
+      },
+    });
+    const updateEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
+    expect(updateEvent?.updates[0]?.changes).toEqual([
+      {
+        fieldId: firstFieldId.toString(),
+        oldValue: 100,
+        newValue: null,
+      },
+    ]);
+  });
+
+  it('snapshots filtered target rows before streamed clear chunks mutate them', async () => {
+    const { table, tableId, primaryFieldId } = buildTable();
+    const viewId = table.views()[0]!.id();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.records = Array.from({ length: 5 }, (_, index) => ({
+      id: `rec${index.toString(36).padStart(16, '0')}`,
+      version: 1,
+      fields: {
+        [primaryFieldId.toString()]: index + 1,
+      },
+    }));
+    recordQueryRepository.visiblePredicate = (record) =>
+      record.fields[primaryFieldId.toString()] !== null &&
+      record.fields[primaryFieldId.toString()] !== undefined;
+    const originalRecordIds = recordQueryRepository.records.map((record) => record.id);
+
+    const recordRepository = new FakeTableRecordRepository(recordQueryRepository);
+    const handler = new ClearStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      recordRepository,
+      recordQueryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const command = ClearStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [[0, 4]],
+      type: 'rows',
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 5,
+      clearedCount: 5,
+      data: {
+        clearedCount: 5,
+        clearedRecordIds: originalRecordIds,
+      },
+    });
+    expect(recordRepository.updatedRecords.map((record) => record.id().toString())).toEqual(
+      originalRecordIds
+    );
   });
 });

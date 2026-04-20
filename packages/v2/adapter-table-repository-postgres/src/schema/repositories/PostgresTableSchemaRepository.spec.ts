@@ -31,6 +31,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createSchemaChecker } from '../rules/checker/SchemaChecker';
 import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntrospector';
+import { installUndoCaptureGlobals } from '../visitors/__tests__/helpers/installUndoCaptureGlobals';
 import { PostgresTableSchemaRepository } from './PostgresTableSchemaRepository';
 
 class PGliteDriver {
@@ -252,6 +253,8 @@ describe('PostgresTableSchemaRepository', () => {
       .addColumn('from_field_id', 'text')
       .addUniqueConstraint('reference_to_from_unique', ['to_field_id', 'from_field_id'])
       .execute();
+
+    await installUndoCaptureGlobals(db);
   });
 
   afterAll(async () => {

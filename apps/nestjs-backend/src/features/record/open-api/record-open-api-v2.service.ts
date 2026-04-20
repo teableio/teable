@@ -1644,13 +1644,7 @@ export class RecordOpenApiV2Service {
             return null;
           }
         } else {
-          // For non-checkbox fields, is/isNot with null means isEmpty/isNotEmpty
-          if (operator === 'is') {
-            return { fieldId: node.fieldId, operator: 'isEmpty', value: null };
-          }
-          if (operator === 'isNot') {
-            return { fieldId: node.fieldId, operator: 'isNotEmpty', value: null };
-          }
+          // V1 drops incomplete non-checkbox filters such as `field is <empty input>`.
           return null;
         }
       }
@@ -1799,9 +1793,8 @@ export class RecordOpenApiV2Service {
     }
 
     if (rawValue == null) {
-      // V1 uses {operator: "is", value: null} for "field is empty"
-      // and {operator: "isNot", value: null} for "field is not empty"
-      // Preserve the filter as-is; v2 core handles is/isNot with null value
+      // Preserve is/isNot+null until field-aware normalization can distinguish
+      // checkbox unchecked checks from incomplete non-checkbox UI filters.
       if (operator === 'is' || operator === 'isNot') {
         return { fieldId: filter.fieldId, operator, value: null };
       }

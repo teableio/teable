@@ -125,6 +125,7 @@ export interface RecordInsertBuilderContext {
   recordId: string;
   actorId: string;
   now: string;
+  version?: number;
   actorName?: string;
   actorEmail?: string;
   createdTime?: string;
@@ -208,7 +209,7 @@ export class RecordInsertBuilder {
         [CREATED_BY_COLUMN]: createdBy,
         [LAST_MODIFIED_TIME_COLUMN]: lastModifiedTime,
         [LAST_MODIFIED_BY_COLUMN]: lastModifiedBy,
-        [VERSION_COLUMN]: 1,
+        [VERSION_COLUMN]: context.version ?? 1,
         ...(typeof context.autoNumber === 'number' ? { __auto_number: context.autoNumber } : {}),
       };
 

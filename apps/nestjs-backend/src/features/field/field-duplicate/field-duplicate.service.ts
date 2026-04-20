@@ -1571,10 +1571,6 @@ export class FieldDuplicateService {
         .toSQL();
 
       for (const sql of fieldValidationSqls) {
-        // skip sqlite pragma
-        if (sql.sql.startsWith('PRAGMA')) {
-          continue;
-        }
         await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
       }
     }

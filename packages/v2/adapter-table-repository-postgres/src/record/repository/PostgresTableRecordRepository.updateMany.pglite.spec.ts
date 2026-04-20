@@ -27,6 +27,7 @@ import {
 } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { installUndoCaptureGlobals } from '../../schema/visitors/__tests__/helpers/installUndoCaptureGlobals';
 import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
@@ -34,6 +35,8 @@ import type {
   IUpdateStrategy,
 } from '../computed';
 import type { DynamicDB } from '../query-builder';
+import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
+import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 class PGliteDriver {
@@ -200,6 +203,11 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
+    createNoopEventBus(),
     hasher
   );
 };
@@ -292,6 +300,8 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
         last_modified_by text
       )
     `.execute(db);
+
+    await installUndoCaptureGlobals(db);
   });
 
   afterEach(async () => {
@@ -489,6 +499,131 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
         __id: recordC,
         col_status: 'Done',
         __version: 4,
+      },
+    ]);
+  });
+
+  it('does not update selector-matched rows when requested values are unchanged', async () => {
+    const { table, schemaName, tableName, statusFieldId } = await createTableWithStorage(
+      db,
+      'update-many-noop'
+    );
+    createdSchemas.push(schemaName);
+
+    const fullTableName = `${schemaName}.${tableName}`;
+    const recordId = createId('rec', 'noop-selector');
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+
+    await sql`
+      INSERT INTO ${sql.table(fullTableName)} (
+        __id,
+        __created_time,
+        __created_by,
+        __last_modified_time,
+        __last_modified_by,
+        __version,
+        col_title,
+        col_amount,
+        col_status
+      )
+      VALUES (${recordId}, NOW(), 'seed', NOW(), 'seed', 1, 'Alpha', 1, 'Open')
+    `.execute(db);
+
+    const targetSpec = RecordByIdsSpec.create([RecordId.create(recordId)._unsafeUnwrap()]);
+    const mutateSpec = table
+      .updateRecord(RecordId.create(recordId)._unsafeUnwrap(), new Map([[statusFieldId, 'Open']]))
+      ._unsafeUnwrap().mutateSpec;
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const result = await repository.updateMany({ actorId }, table, targetSpec, mutateSpec);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toMatchObject({
+      totalUpdated: 0,
+      updatedRecordIds: [],
+      updatedRecords: [],
+    });
+
+    const rows = await sql<{
+      __id: string;
+      col_status: string | null;
+      __version: number;
+      __last_modified_by: string;
+    }>`
+      SELECT __id, col_status, __version, __last_modified_by
+      FROM ${sql.table(fullTableName)}
+      ORDER BY __id
+    `.execute(db);
+
+    expect(rows.rows).toEqual([
+      {
+        __id: recordId,
+        col_status: 'Open',
+        __version: 1,
+        __last_modified_by: 'seed',
+      },
+    ]);
+  });
+
+  it('does not update explicit stream rows when requested values are unchanged', async () => {
+    const { table, schemaName, tableName, statusFieldId } = await createTableWithStorage(
+      db,
+      'update-stream-noop'
+    );
+    createdSchemas.push(schemaName);
+
+    const fullTableName = `${schemaName}.${tableName}`;
+    const recordId = createId('rec', 'noop-stream');
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const typedRecordId = RecordId.create(recordId)._unsafeUnwrap();
+
+    await sql`
+      INSERT INTO ${sql.table(fullTableName)} (
+        __id,
+        __created_time,
+        __created_by,
+        __last_modified_time,
+        __last_modified_by,
+        __version,
+        col_title,
+        col_amount,
+        col_status
+      )
+      VALUES (${recordId}, NOW(), 'seed', NOW(), 'seed', 1, 'Alpha', 1, 'Open')
+    `.execute(db);
+
+    const updateResult = table
+      .updateRecord(typedRecordId, new Map([[statusFieldId, 'Open']]))
+      ._unsafeUnwrap();
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const result = await repository.updateManyStream(
+      { actorId },
+      table,
+      (function* () {
+        yield ok([updateResult]);
+      })()
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({ totalUpdated: 0, updatedRecords: [] });
+
+    const rows = await sql<{
+      __id: string;
+      col_status: string | null;
+      __version: number;
+      __last_modified_by: string;
+    }>`
+      SELECT __id, col_status, __version, __last_modified_by
+      FROM ${sql.table(fullTableName)}
+      ORDER BY __id
+    `.execute(db);
+
+    expect(rows.rows).toEqual([
+      {
+        __id: recordId,
+        col_status: 'Open',
+        __version: 1,
+        __last_modified_by: 'seed',
       },
     ]);
   });

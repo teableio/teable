@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -26,8 +26,9 @@ import {
   composeUndoRedoCommands,
   createUndoRedoCommand,
   flattenUndoRedoCommands,
+  type UndoRedoCommandData,
 } from '../ports/UndoRedoStore';
-import { DeleteFieldCommand } from './DeleteFieldCommand';
+import type { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldResult } from './DeleteFieldHandler';
 import { DeleteFieldsCommand } from './DeleteFieldsCommand';
 import { DeleteFieldsHandler } from './DeleteFieldsHandler';
@@ -157,7 +158,7 @@ class FakeUndoRedoService {
     };
   }> = [];
 
-  async recordEntry(
+  async appendEntry(
     _: IExecutionContext,
     tableId: TableId,
     entry: { undoCommand: unknown; redoCommand: unknown }
@@ -239,7 +240,7 @@ describe('DeleteFieldsHandler', () => {
       commandBus,
       tableRepository,
       snapshotService as unknown as FieldUndoRedoSnapshotService,
-      undoRedoService as unknown as UndoRedoService
+      undoRedoService as unknown as UndoRedoStackService
     );
 
     const commandResult = DeleteFieldsCommand.create({
@@ -273,7 +274,7 @@ describe('DeleteFieldsHandler', () => {
     const entry = undoRedoService.entries[0];
     expect(entry.tableId.equals(latestTable.id())).toBe(true);
 
-    const undoLeaves = flattenUndoRedoCommands(entry.entry.undoCommand as any);
+    const undoLeaves = flattenUndoRedoCommands(entry.entry.undoCommand as UndoRedoCommandData);
     expect(
       undoLeaves
         .filter((leaf) => leaf.type === 'ApplyFieldSnapshot')
@@ -285,7 +286,7 @@ describe('DeleteFieldsHandler', () => {
       relatedFieldY.toString(),
     ]);
 
-    const redoLeaves = flattenUndoRedoCommands(entry.entry.redoCommand as any);
+    const redoLeaves = flattenUndoRedoCommands(entry.entry.redoCommand as UndoRedoCommandData);
     expect(redoLeaves.map((leaf) => leaf.type)).toEqual(['DeleteField', 'DeleteField']);
     expect(redoLeaves.map((leaf) => leaf.payload.fieldId)).toEqual([
       targetFieldA.toString(),
@@ -310,7 +311,7 @@ describe('DeleteFieldsHandler', () => {
       commandBus,
       tableRepository,
       snapshotService as unknown as FieldUndoRedoSnapshotService,
-      undoRedoService as unknown as UndoRedoService
+      undoRedoService as unknown as UndoRedoStackService
     );
 
     const commandResult = DeleteFieldsCommand.create({

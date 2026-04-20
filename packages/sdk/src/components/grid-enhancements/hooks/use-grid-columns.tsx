@@ -18,7 +18,7 @@ import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, hexToRGBA, getFileCover, isSystemFileIcon, onMixedTextClick } from '../..';
+import { CellType, hexToRGBA, getFileCover, onMixedTextClick } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import type { IButtonClickStatusHook } from '../../../hooks';
 import { useFields, useTablePermission, useView } from '../../../hooks';
@@ -456,7 +456,7 @@ export const useCreateCellValue2GridDisplay = (
                     : lgThumbnailUrl;
                 return {
                   id,
-                  url: isSystemFileIcon(mimetype) ? url : thumbnailUrl ?? url,
+                  url: thumbnailUrl ?? url,
                   width,
                   height,
                 };

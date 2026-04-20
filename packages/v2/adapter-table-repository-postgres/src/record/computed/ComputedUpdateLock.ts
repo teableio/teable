@@ -63,6 +63,7 @@ export type ComputedUpdateLockPlan = {
 
 const ADVISORY_LOCK_SQL =
   "select pg_advisory_xact_lock(('x' || substr(md5($1), 1, 16))::bit(64)::bigint)";
+export const COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE = 'computed_update.lock_unavailable';
 
 type SeedRecordGroup = {
   tableId: string;
@@ -199,6 +200,14 @@ export const buildAdvisoryLockQuery = <DB>(db: Kysely<DB> | Transaction<DB>, key
   sql`select pg_advisory_xact_lock(
     ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
   )`.compile(db);
+
+export const buildTryAdvisoryLockQuery = <DB>(db: Kysely<DB> | Transaction<DB>, key: string) =>
+  sql<{ locked: boolean }>`select pg_try_advisory_xact_lock(
+    ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
+  ) as locked`.compile(db);
+
+export const isComputedUpdateLockUnavailable = (error: { code?: string }): boolean =>
+  error.code === COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE;
 
 const collectSeedRecordGroups = (plan: {
   seedTableId: { toString(): string };

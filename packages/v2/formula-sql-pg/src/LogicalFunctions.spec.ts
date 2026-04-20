@@ -1,4 +1,5 @@
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +7,7 @@ import {
   createFieldTypeCases,
   createFormulaTestContainer,
   createFormulaTestTable,
+  executeFormulaAsText,
   type FormulaFieldDefinition,
   type FormulaTestTable,
 } from './testkit/FormulaSqlPgTestkit';
@@ -54,6 +56,13 @@ describe('logical functions', () => {
       { name: 'BlankValue', expression: 'BLANK()' },
       { name: 'ErrorValue', expression: 'ERROR("boom")' },
       { name: 'CompareNumberText', expression: '{SingleLineText} = {Number}' },
+      { name: 'ZeroEqualsBlank', expression: '0 = BLANK()' },
+      { name: 'BlankEqualsZero', expression: 'BLANK() = 0' },
+      { name: 'ZeroNotEqualsBlank', expression: '0 != BLANK()' },
+      { name: 'NumberEqualsBlank', expression: '{Number} = BLANK()' },
+      { name: 'NumberNotEqualsBlank', expression: '{Number} != BLANK()' },
+      { name: 'NumberBlankIf', expression: 'IF({Number} = BLANK(), 1, 2)' },
+      { name: 'BlankNumberIf', expression: 'IF(BLANK() = {Number}, 1, 2)' },
     ];
     testTable = await createFormulaTestTable(container, formulaFields);
   });
@@ -87,5 +96,45 @@ describe('logical functions', () => {
       inputs: context.inputs,
       result: context.result,
     }).toMatchSnapshot();
+  });
+
+  it('does not treat numeric zero as blank in equality comparisons', async () => {
+    const tableName = testTable.table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+    const numberField = testTable.fieldsByType.number;
+    if (!numberField) throw new Error('Missing Number field');
+    const numberColumn = numberField.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap();
+    await sql`
+      UPDATE ${sql.table(tableName)}
+      SET ${sql.ref(numberColumn)} = ${0}
+    `.execute(testTable.db);
+
+    await expect(executeFormulaAsText(testTable, 'ZeroEqualsBlank')).resolves.toBe('false');
+    await expect(executeFormulaAsText(testTable, 'BlankEqualsZero')).resolves.toBe('false');
+    await expect(executeFormulaAsText(testTable, 'ZeroNotEqualsBlank')).resolves.toBe('true');
+    await expect(executeFormulaAsText(testTable, 'NumberEqualsBlank')).resolves.toBe('false');
+    await expect(executeFormulaAsText(testTable, 'NumberNotEqualsBlank')).resolves.toBe('true');
+  });
+
+  it('treats blank number fields as BLANK() in IF comparisons', async () => {
+    const tableName = testTable.table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+    const numberField = testTable.fieldsByType.number;
+    if (!numberField) throw new Error('Missing Number field');
+    const numberColumn = numberField.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap();
+
+    await sql`
+      UPDATE ${sql.table(tableName)}
+      SET ${sql.ref(numberColumn)} = NULL
+    `.execute(testTable.db);
+
+    await expect(executeFormulaAsText(testTable, 'NumberBlankIf')).resolves.toBe('1');
+    await expect(executeFormulaAsText(testTable, 'BlankNumberIf')).resolves.toBe('1');
+
+    await sql`
+      UPDATE ${sql.table(tableName)}
+      SET ${sql.ref(numberColumn)} = ${10}
+    `.execute(testTable.db);
+
+    await expect(executeFormulaAsText(testTable, 'NumberBlankIf')).resolves.toBe('2');
+    await expect(executeFormulaAsText(testTable, 'BlankNumberIf')).resolves.toBe('2');
   });
 });
