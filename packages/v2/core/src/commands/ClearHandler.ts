@@ -2,12 +2,16 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { areRecordFieldValuesEqual } from '../application/services/RecordFieldValueEquality';
 import {
   type RecordWritePluginExecution,
   RecordWritePluginRunner,
 } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
@@ -19,8 +23,8 @@ import type {
   RecordUpdateDTO,
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
-import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
@@ -33,13 +37,13 @@ import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordOrderBy } from '../ports/TableRecordQueryRepository';
-import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
+import { buildSanitizedRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { ClearCommand } from './ClearCommand';
 import { ClearStreamCommand } from './ClearStreamCommand';
@@ -66,6 +70,67 @@ const filterScopedFieldIds = <T extends { toString(): string }>(
 
   return fieldIds.filter((fieldId) => allowedFieldIds.has(fieldId.toString()));
 };
+
+const reconcilePersistedUpdateEvents = (
+  eventData: ReadonlyArray<RecordUpdateDTO>,
+  updateResult: TableRecordRepositoryPort.UpdateManyStreamResult
+): RecordUpdateDTO[] => {
+  const updatesWithChanges = eventData.filter((update) => update.changes.length > 0);
+  const persistedRecords = new Map(
+    updateResult.updatedRecords.map((record) => [record.recordId.toString(), record])
+  );
+
+  const reconciledUpdates: RecordUpdateDTO[] = [];
+  for (const update of updatesWithChanges) {
+    const persistedRecord = persistedRecords.get(update.recordId);
+    if (!persistedRecord) {
+      continue;
+    }
+
+    const changes: RecordFieldChangeDTO[] = [];
+    for (const change of update.changes) {
+      const oldValue = Object.prototype.hasOwnProperty.call(
+        persistedRecord.oldFieldValues,
+        change.fieldId
+      )
+        ? persistedRecord.oldFieldValues[change.fieldId]
+        : change.oldValue;
+      if (areRecordFieldValuesEqual(oldValue, change.newValue)) {
+        continue;
+      }
+      changes.push({ ...change, oldValue });
+    }
+    if (changes.length === 0) {
+      continue;
+    }
+
+    reconciledUpdates.push({
+      ...update,
+      oldVersion: persistedRecord.oldVersion,
+      newVersion: persistedRecord.newVersion,
+      changes,
+    });
+  }
+
+  return reconciledUpdates;
+};
+
+const buildUpdateRecordsUndoRedoCommand = (
+  tableId: string,
+  updates: ReadonlyArray<RecordUpdateDTO>,
+  valueSelector: (change: RecordFieldChangeDTO) => unknown
+): UndoRedoCommandLeafData =>
+  createUndoRedoCommand('UpdateRecords', {
+    tableId,
+    fieldKeyType: 'id',
+    typecast: false,
+    records: updates.map((update) => ({
+      id: update.recordId,
+      fields: Object.fromEntries(
+        update.changes.map((change) => [change.fieldId, valueSelector(change)])
+      ),
+    })),
+  });
 
 export interface ClearResult {
   /** Number of records updated (cleared) */
@@ -128,7 +193,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
     @inject(v2CoreTokens.eventBus)
     protected readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    protected readonly undoRedoService: UndoRedoService,
+    protected readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -166,10 +231,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-      if (effectiveFilter) {
-        filterSpec = yield* buildRecordConditionSpec(table, effectiveFilter);
-      }
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, effectiveFilter);
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -312,7 +374,6 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         const fieldValues = new Map<string, unknown>();
         const changes: RecordFieldChangeDTO[] = [];
 
-        let hasNonNullValue = false;
         const perRecordAllowedFieldIds = tableRecord
           ? yield* initialPluginExecution.getUpdateFieldIdsForRecord(tableRecord)
           : undefined;
@@ -327,15 +388,15 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         for (const fieldId of recordScopedEditableFieldIds) {
           const fieldIdStr = fieldId.toString();
           const oldValue = record.fields[fieldIdStr];
-          if (oldValue !== null && oldValue !== undefined) {
-            hasNonNullValue = true;
+          const newValue = null;
+          if (areRecordFieldValuesEqual(oldValue, newValue)) {
+            continue;
           }
-          fieldValues.set(fieldIdStr, null);
-          changes.push({ fieldId: fieldIdStr, oldValue, newValue: null });
+          fieldValues.set(fieldIdStr, newValue);
+          changes.push({ fieldId: fieldIdStr, oldValue, newValue });
         }
 
-        // Skip records where all target fields are already null
-        if (!hasNonNullValue) continue;
+        if (changes.length === 0) continue;
 
         updateItems.push({ recordId, fieldValues });
         eventData.push({
@@ -383,62 +444,57 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       const batchMutation = buildOperationBatchMutation(context, updateItems.length);
 
       // 11. Execute updates within transaction
-      yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
-        const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
-        const beforePersistResult = await pluginExecution.beforePersist(txContextWithBatchMutation);
-        if (beforePersistResult.isErr()) {
-          return beforePersistResult;
+      const updateResult = yield* await handler.unitOfWork.withTransaction(
+        context,
+        async (txContext) => {
+          const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
+          const beforePersistResult = await pluginExecution.beforePersist(
+            txContextWithBatchMutation
+          );
+          if (beforePersistResult.isErr()) {
+            return err(beforePersistResult.error);
+          }
+          return handler.executeUpdates(txContextWithBatchMutation, table, updateItems);
         }
-        return handler.executeUpdates(txContextWithBatchMutation, table, updateItems);
-      });
+      );
+      const persistedEventData = reconcilePersistedUpdateEvents(eventData, updateResult);
 
       // 12. Publish events after transaction commits
-      if (eventData.length > 0) {
+      if (persistedEventData.length > 0) {
         const event = RecordsBatchUpdated.create({
           tableId: table.id(),
           baseId: table.baseId(),
-          updates: eventData,
+          updates: persistedEventData,
           source: 'user',
           orchestration: batchMutation,
         });
         yield* await handler.eventBus.publishMany(context, [event]);
       }
 
-      if (eventData.length > 0) {
-        const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) =>
-          createUndoRedoCommand('UpdateRecord', {
-            tableId: table.id().toString(),
-            recordId,
-            fields,
-            fieldKeyType: 'id',
-            typecast: false,
-          });
+      if (persistedEventData.length > 0) {
+        const tableIdText = table.id().toString();
 
-        const undoCommands: UndoRedoCommandLeafData[] = eventData.map((update) => {
-          const fields: Record<string, unknown> = {};
-          for (const change of update.changes) {
-            fields[change.fieldId] = change.oldValue;
+        yield* await handler.undoRedoStackService.appendEntry(
+          toUndoRedoStackAppendContext(context),
+          table.id(),
+          {
+            groupId: batchMutation.groupId,
+            undoCommand: buildUpdateRecordsUndoRedoCommand(
+              tableIdText,
+              persistedEventData,
+              (change) => change.oldValue
+            ),
+            redoCommand: buildUpdateRecordsUndoRedoCommand(
+              tableIdText,
+              persistedEventData,
+              (change) => change.newValue
+            ),
           }
-          return buildUpdateCommand(update.recordId, fields);
-        });
-
-        const redoCommands: UndoRedoCommandLeafData[] = eventData.map((update) => {
-          const fields: Record<string, unknown> = {};
-          for (const change of update.changes) {
-            fields[change.fieldId] = change.newValue;
-          }
-          return buildUpdateCommand(update.recordId, fields);
-        });
-
-        yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-          groupId: batchMutation.groupId,
-          undoCommand: createUndoRedoCommand('Batch', undoCommands),
-          redoCommand: createUndoRedoCommand('Batch', redoCommands),
-        });
+        );
       }
       await pluginExecution.afterCommit();
 
-      return ok({ updatedCount: eventData.length });
+      return ok({ updatedCount: updateResult.totalUpdated });
     });
   }
 
@@ -446,49 +502,46 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     updateItems: ReadonlyArray<UpdateRecordItem>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<TableRecordRepositoryPort.UpdateManyStreamResult, DomainError>> {
     const handler = this;
 
-    return safeTry<void, DomainError>(async function* () {
-      // Generate update batches - typecast is false since we're setting null values
-      const updateBatches = table.updateRecordsStream(updateItems, { typecast: false });
+    return safeTry<TableRecordRepositoryPort.UpdateManyStreamResult, DomainError>(
+      async function* () {
+        // Generate update batches - typecast is false since we're setting null values
+        const updateBatches = table.updateRecordsStream(updateItems, { typecast: false });
 
-      const batchResults: Array<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> = [];
-      for (const batch of updateBatches) {
-        batchResults.push(batch);
-      }
-
-      function* syncBatchesGenerator(): Generator<
-        Result<ReadonlyArray<RecordUpdateResult>, DomainError>
-      > {
-        for (const batch of batchResults) {
-          yield batch;
+        const batchResults: Array<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> = [];
+        for (const batch of updateBatches) {
+          batchResults.push(batch);
         }
+
+        function* syncBatchesGenerator(): Generator<
+          Result<ReadonlyArray<RecordUpdateResult>, DomainError>
+        > {
+          for (const batch of batchResults) {
+            yield batch;
+          }
+        }
+
+        const updateResult = yield* await handler.tableRecordRepository.updateManyStream(
+          context,
+          table,
+          syncBatchesGenerator()
+        );
+
+        return ok(updateResult);
       }
-
-      yield* await handler.tableRecordRepository.updateManyStream(
-        context,
-        table,
-        syncBatchesGenerator()
-      );
-
-      return ok(undefined);
-    });
+    );
   }
 }
 
 type PreparedClearStreamPlan = {
   readonly table: Table;
-  readonly filterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-  readonly search: ReturnType<typeof resolveVisibleRowSearch>;
-  readonly orderBy: ReadonlyArray<TableRecordOrderBy>;
   readonly targetFieldIds: ReadonlyArray<FieldId>;
   readonly totalCount: number;
-  readonly batchSize: number;
   readonly chunkPlans: ReadonlyArray<{
     batchIndex: number;
-    offset: number;
-    limit: number;
+    records: ReadonlyArray<TableRecordReadModel>;
   }>;
 };
 
@@ -727,6 +780,7 @@ export class ClearStreamApplicationService extends ClearHandler {
           scope: 'chunk' as const,
         };
 
+        let chunkClearedCount = 0;
         if (chunkBuild.updateItems.length > 0) {
           const persistResult = await this.unitOfWork.withTransaction(
             context,
@@ -736,7 +790,7 @@ export class ClearStreamApplicationService extends ClearHandler {
                 txContextWithBatchMutation
               );
               if (beforePersistResult.isErr()) {
-                return beforePersistResult;
+                return err(beforePersistResult.error);
               }
               return this.executeUpdates(
                 txContextWithBatchMutation,
@@ -760,77 +814,75 @@ export class ClearStreamApplicationService extends ClearHandler {
             continue;
           }
 
-          const publishResult = await this.eventBus.publishMany(context, [
-            RecordsBatchUpdated.create({
-              tableId: plan.table.id(),
-              baseId: plan.table.baseId(),
-              updates: chunkBuild.eventData,
-              source: 'user',
-              orchestration: batchMutation,
-            }),
-          ]);
-          if (publishResult.isErr()) {
-            queue.push(
-              this.createErrorEvent(publishResult.error, {
-                phase: 'publishing',
-                batchIndex: chunkPlan.batchIndex,
-                totalCount: plan.totalCount,
-                processedCount,
-                clearedCount,
-                recordIds: chunkBuild.recordIds.map((recordId) => recordId.toString()),
-              })
-            );
+          const persistedEventData = reconcilePersistedUpdateEvents(
+            chunkBuild.eventData,
+            persistResult.value
+          );
+
+          if (persistedEventData.length > 0) {
+            const publishResult = await this.eventBus.publishMany(context, [
+              RecordsBatchUpdated.create({
+                tableId: plan.table.id(),
+                baseId: plan.table.baseId(),
+                updates: persistedEventData,
+                source: 'user',
+                orchestration: batchMutation,
+              }),
+            ]);
+            if (publishResult.isErr()) {
+              queue.push(
+                this.createErrorEvent(publishResult.error, {
+                  phase: 'publishing',
+                  batchIndex: chunkPlan.batchIndex,
+                  totalCount: plan.totalCount,
+                  processedCount,
+                  clearedCount,
+                  recordIds: chunkBuild.recordIds.map((recordId) => recordId.toString()),
+                })
+              );
+            }
           }
 
-          const undoCommands: UndoRedoCommandLeafData[] = chunkBuild.eventData.map((update) => {
-            const fields: Record<string, unknown> = {};
-            for (const change of update.changes) {
-              fields[change.fieldId] = change.oldValue;
-            }
-            return createUndoRedoCommand('UpdateRecord', {
-              tableId: plan.table.id().toString(),
-              recordId: update.recordId,
-              fields,
-              fieldKeyType: 'id',
-              typecast: false,
-            });
-          });
-          const redoCommands: UndoRedoCommandLeafData[] = chunkBuild.eventData.map((update) => {
-            const fields: Record<string, unknown> = {};
-            for (const change of update.changes) {
-              fields[change.fieldId] = change.newValue;
-            }
-            return createUndoRedoCommand('UpdateRecord', {
-              tableId: plan.table.id().toString(),
-              recordId: update.recordId,
-              fields,
-              fieldKeyType: 'id',
-              typecast: false,
-            });
-          });
-          const undoRedoResult = await this.undoRedoService.recordEntry(context, plan.table.id(), {
-            groupId: operationId,
-            undoCommand: createUndoRedoCommand('Batch', undoCommands),
-            redoCommand: createUndoRedoCommand('Batch', redoCommands),
-          });
-          if (undoRedoResult.isErr()) {
-            queue.push(
-              this.createErrorEvent(undoRedoResult.error, {
-                phase: 'finalizing',
-                batchIndex: chunkPlan.batchIndex,
-                totalCount: plan.totalCount,
-                processedCount,
-                clearedCount,
-                recordIds: chunkBuild.recordIds.map((recordId) => recordId.toString()),
-              })
+          if (persistedEventData.length > 0) {
+            const tableIdText = plan.table.id().toString();
+            const undoRedoResult = await this.undoRedoStackService.appendEntry(
+              toUndoRedoStackAppendContext(context),
+              plan.table.id(),
+              {
+                groupId: operationId,
+                undoCommand: buildUpdateRecordsUndoRedoCommand(
+                  tableIdText,
+                  persistedEventData,
+                  (change) => change.oldValue
+                ),
+                redoCommand: buildUpdateRecordsUndoRedoCommand(
+                  tableIdText,
+                  persistedEventData,
+                  (change) => change.newValue
+                ),
+              }
             );
+            if (undoRedoResult.isErr()) {
+              queue.push(
+                this.createErrorEvent(undoRedoResult.error, {
+                  phase: 'finalizing',
+                  batchIndex: chunkPlan.batchIndex,
+                  totalCount: plan.totalCount,
+                  processedCount,
+                  clearedCount,
+                  recordIds: chunkBuild.recordIds.map((recordId) => recordId.toString()),
+                })
+              );
+            }
           }
+
+          chunkClearedCount = persistResult.value.totalUpdated;
+          clearedCount += chunkClearedCount;
+          clearedRecordIds.push(...persistedEventData.map((update) => update.recordId));
         }
 
         await chunkPluginExecution.afterCommit();
         processedCount += queriedRecords.length;
-        clearedCount += chunkBuild.eventData.length;
-        clearedRecordIds.push(...chunkBuild.eventData.map((update) => update.recordId));
         queue.push(
           this.createProgressEvent(
             'clearing',
@@ -839,7 +891,7 @@ export class ClearStreamApplicationService extends ClearHandler {
             clearedCount,
             chunkPlan.batchIndex,
             queriedRecords.length,
-            chunkBuild.eventData.length
+            chunkClearedCount
           )
         );
       }
@@ -904,14 +956,11 @@ export class ClearStreamApplicationService extends ClearHandler {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    if (effectiveFilter) {
-      const filterSpecResult = await buildRecordConditionSpec(table, effectiveFilter);
-      if (filterSpecResult.isErr()) {
-        return err(filterSpecResult.error);
-      }
-      filterSpec = filterSpecResult.value;
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    if (filterSpecResult.isErr()) {
+      return err(filterSpecResult.error);
     }
+    const filterSpec = filterSpecResult.value;
 
     let totalRows = 0;
     if (command.rangeType === 'columns' || command.rangeType === 'rows') {
@@ -955,48 +1004,77 @@ export class ClearStreamApplicationService extends ClearHandler {
         sortOrderByResult.value,
         command.viewId.toString()
       ) ?? [];
-    const batchSize = resolveSelectionStreamBatchSize(totalCount, command.batchSize);
-    const chunkPlans = Array.from(
-      { length: Math.ceil(totalCount / Math.max(1, batchSize)) },
-      (_, index) => ({
-        batchIndex: index,
-        offset: startRow + index * batchSize,
-        limit: Math.min(batchSize, totalCount - index * batchSize),
-      })
-    ).filter((chunk) => chunk.limit > 0);
+    const search = resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value);
+    if (!totalCount || !targetFieldIds.length) {
+      return ok({
+        table,
+        targetFieldIds,
+        totalCount: 0,
+        chunkPlans: [],
+      });
+    }
+
+    const targetRecordsResult = await this.queryClearTargetRecords(
+      context,
+      table,
+      filterSpec,
+      orderBy,
+      search,
+      startRow,
+      totalCount
+    );
+    if (targetRecordsResult.isErr()) {
+      return err(targetRecordsResult.error);
+    }
+
+    const targetRecords = targetRecordsResult.value;
+    const batchSize = resolveSelectionStreamBatchSize(targetRecords.length, command.batchSize);
+    const chunkPlans = this.buildClearStreamChunkPlans(targetRecords, batchSize);
 
     return ok({
       table,
-      filterSpec,
-      search: resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value),
-      orderBy,
       targetFieldIds,
-      totalCount,
-      batchSize,
+      totalCount: targetRecords.length,
       chunkPlans,
     });
   }
 
-  private async queryClearChunkRecords(
+  private buildClearStreamChunkPlans(
+    records: ReadonlyArray<TableRecordReadModel>,
+    batchSize: number
+  ): ReadonlyArray<{ batchIndex: number; records: ReadonlyArray<TableRecordReadModel> }> {
+    const normalizedBatchSize = Math.max(1, batchSize);
+    const chunkPlans: Array<{
+      batchIndex: number;
+      records: ReadonlyArray<TableRecordReadModel>;
+    }> = [];
+
+    for (let offset = 0; offset < records.length; offset += normalizedBatchSize) {
+      chunkPlans.push({
+        batchIndex: chunkPlans.length,
+        records: records.slice(offset, offset + normalizedBatchSize),
+      });
+    }
+
+    return chunkPlans;
+  }
+
+  private async queryClearTargetRecords(
     context: ExecutionContextPort.IExecutionContext,
-    plan: PreparedClearStreamPlan,
-    chunkPlan: { offset: number; limit: number }
+    table: Table,
+    filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    orderBy: ReadonlyArray<TableRecordOrderBy>,
+    search: ReturnType<typeof resolveVisibleRowSearch>,
+    offset: number,
+    limit: number
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
     const records: TableRecordReadModel[] = [];
-    const stream = this.tableRecordQueryRepository.findStream(
-      context,
-      plan.table,
-      plan.filterSpec,
-      {
-        mode: 'stored',
-        pagination: {
-          offset: chunkPlan.offset,
-          limit: chunkPlan.limit,
-        },
-        orderBy: plan.orderBy,
-        search: plan.search,
-      }
-    );
+    const stream = this.tableRecordQueryRepository.findStream(context, table, filterSpec, {
+      mode: 'stored',
+      pagination: { offset, limit },
+      orderBy,
+      search,
+    });
 
     for await (const recordResult of stream) {
       if (recordResult.isErr()) {
@@ -1006,6 +1084,14 @@ export class ClearStreamApplicationService extends ClearHandler {
     }
 
     return ok(records);
+  }
+
+  private async queryClearChunkRecords(
+    _context: ExecutionContextPort.IExecutionContext,
+    _plan: PreparedClearStreamPlan,
+    chunkPlan: { records: ReadonlyArray<TableRecordReadModel> }
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    return ok(chunkPlan.records);
   }
 
   private async buildClearChunkPayload(
@@ -1053,24 +1139,24 @@ export class ClearStreamApplicationService extends ClearHandler {
         return err(recordIdResult.error);
       }
 
-      let hasNonNullValue = false;
       const fieldValues = new Map<string, unknown>();
       const changes: RecordFieldChangeDTO[] = [];
       for (const fieldId of recordScopedEditableFieldIds) {
         const fieldIdStr = fieldId.toString();
         const oldValue = record.fields[fieldIdStr];
-        if (oldValue !== null && oldValue !== undefined) {
-          hasNonNullValue = true;
+        const newValue = null;
+        if (areRecordFieldValuesEqual(oldValue, newValue)) {
+          continue;
         }
-        fieldValues.set(fieldIdStr, null);
+        fieldValues.set(fieldIdStr, newValue);
         changes.push({
           fieldId: fieldIdStr,
           oldValue,
-          newValue: null,
+          newValue,
         });
       }
 
-      if (!hasNonNullValue) {
+      if (changes.length === 0) {
         continue;
       }
 
@@ -1175,7 +1261,7 @@ export class ClearStreamHandler implements ICommandHandler<ClearStreamCommand, C
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -1192,7 +1278,7 @@ export class ClearStreamHandler implements ICommandHandler<ClearStreamCommand, C
         this.tableRecordRepository,
         this.tableRecordQueryRepository,
         this.eventBus,
-        this.undoRedoService,
+        this.undoRedoStackService,
         this.unitOfWork
       ).createStream(context, command)
     );

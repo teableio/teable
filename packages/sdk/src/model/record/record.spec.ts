@@ -72,6 +72,26 @@ describe('sdk Record cell value normalization', () => {
     expect(record.getCellValue(field.id)).toEqual(['Open']);
   });
 
+  it('keeps displaying select values when realtime mutates field options', () => {
+    const field = createFieldInstance(createSelectField(FieldType.SingleSelect));
+
+    expect(field.displayChoiceMap.Open).toBeDefined();
+
+    field.options.choices.push({
+      id: 'optClosed00000001',
+      name: 'Closed',
+      color: 'greenBright',
+    });
+
+    const record = recordInstanceFieldMap(createRecordInstance(createRecord('Closed')), {
+      [field.id]: field,
+    });
+
+    expect(record.getCellValue(field.id)).toBe('Closed');
+    expect(record.getCellValueAsString(field.id)).toBe('Closed');
+    expect(field.displayChoiceMap.Closed).toBeDefined();
+  });
+
   it('keeps displaying the value when the same record instance is rebound from singleSelect to text', () => {
     const singleSelectField = createFieldInstance(createSelectField(FieldType.SingleSelect));
     const textField = createFieldInstance(

@@ -1,6 +1,7 @@
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle } from '@teable/v2-di';
 
+import { AttachmentValueDecoratorService } from '../application/services/AttachmentValueDecoratorService';
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
 import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { DuplicateRecordsApplicationService } from '../application/services/DuplicateRecordsApplicationService';
@@ -15,8 +16,8 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
-import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
 import { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
+import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
 import { NullRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
@@ -29,9 +30,10 @@ import { TableDeletionSideEffectService } from '../application/services/TableDel
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
+import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
@@ -242,6 +244,22 @@ export const registerV2CoreServices = (
     );
   }
 
+  // AttachmentUrlSignerService - default no-op; override in nest adapter
+  if (!container.isRegistered(v2CoreTokens.attachmentUrlSignerService)) {
+    container.register(v2CoreTokens.attachmentUrlSignerService, NoopAttachmentUrlSignerService, {
+      lifecycle,
+    });
+  }
+
+  // AttachmentValueDecoratorService - orchestrates attachment URL decoration
+  if (!container.isRegistered(v2CoreTokens.attachmentValueDecoratorService)) {
+    container.register(
+      v2CoreTokens.attachmentValueDecoratorService,
+      AttachmentValueDecoratorService,
+      { lifecycle }
+    );
+  }
+
   if (!container.isRegistered(v2CoreTokens.recordChangedValueDecoratorService)) {
     container.register(
       v2CoreTokens.recordChangedValueDecoratorService,
@@ -366,9 +384,9 @@ export const registerV2CoreServices = (
     container.registerInstance(v2CoreTokens.undoRedoStore, new NoopUndoRedoStore());
   }
 
-  // UndoRedoService - record undo/redo operations
+  // UndoRedoStackService - per-window undo/redo stack append/replay
   if (!container.isRegistered(v2CoreTokens.undoRedoService)) {
-    container.register(v2CoreTokens.undoRedoService, UndoRedoService, { lifecycle });
+    container.register(v2CoreTokens.undoRedoService, UndoRedoStackService, { lifecycle });
   }
 
   return container;

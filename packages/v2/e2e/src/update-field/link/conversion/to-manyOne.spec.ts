@@ -201,6 +201,86 @@ describe('update-field: link conversion to manyOne', () => {
     });
   });
 
+  it('should allow updating another cell to the same target after enabling many-one links', async () => {
+    const table1 = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('convert-oneone-manyone-host'),
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+    });
+    const table2 = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('convert-oneone-manyone-foreign'),
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+    });
+
+    const table1PrimaryFieldId = table1.fields.find((field) => field.isPrimary)?.id;
+    const table2PrimaryFieldId = table2.fields.find((field) => field.isPrimary)?.id;
+    if (!table1PrimaryFieldId || !table2PrimaryFieldId) {
+      throw new Error('Failed to resolve primary field IDs');
+    }
+
+    const hostRecord1 = await ctx.createRecord(table1.id, { [table1PrimaryFieldId]: 'table1:C1' });
+    const hostRecord2 = await ctx.createRecord(table1.id, { [table1PrimaryFieldId]: 'table1:C2' });
+    const foreignRecord = await ctx.createRecord(table2.id, {
+      [table2PrimaryFieldId]: 'table2:C1',
+    });
+
+    const tableWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table1.id,
+      field: {
+        type: 'link',
+        name: 'Link',
+        options: {
+          relationship: 'oneOne',
+          foreignTableId: table2.id,
+          lookupFieldId: table2PrimaryFieldId,
+          isOneWay: false,
+        },
+      },
+    });
+    const linkField = tableWithLink.fields.find((field) => field.name === 'Link');
+    if (!linkField) {
+      throw new Error('Failed to resolve oneOne link field');
+    }
+
+    await ctx.updateRecord(table1.id, hostRecord1.id, {
+      [linkField.id]: { id: foreignRecord.id },
+    });
+
+    await ctx.updateField({
+      tableId: table1.id,
+      fieldId: linkField.id,
+      field: {
+        type: 'link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: table2.id,
+          lookupFieldId: table2PrimaryFieldId,
+          isOneWay: false,
+        },
+      },
+    });
+
+    await ctx.drainOutbox();
+
+    await ctx.updateRecord(table1.id, hostRecord2.id, {
+      [linkField.id]: { id: foreignRecord.id },
+    });
+
+    const hostRecords = await ctx.listRecords(table1.id);
+    const updatedHostRecord1 = hostRecords.find((record) => record.id === hostRecord1.id);
+    const updatedHostRecord2 = hostRecords.find((record) => record.id === hostRecord2.id);
+    expect(updatedHostRecord1?.fields[linkField.id]).toEqual({
+      id: foreignRecord.id,
+      title: 'table2:C1',
+    });
+    expect(updatedHostRecord2?.fields[linkField.id]).toEqual({
+      id: foreignRecord.id,
+      title: 'table2:C1',
+    });
+  });
+
   it('should convert text to many-one link and backfill symmetric field', async () => {
     const table1 = await ctx.createTable({
       baseId: ctx.baseId,

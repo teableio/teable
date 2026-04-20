@@ -5,3 +5,4 @@ export { underlyingField } from './field';
 export { underlyingRecords } from './records';
 export { underlyingRecord } from './record';
 export { underlyingCanarySpace } from './canary-space';
+export { underlyingUndoCapture } from './undo-capture';

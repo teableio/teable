@@ -81,6 +81,20 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract replace(oldText: string, startNum: string, numChars: string, newText: string): string;
   abstract regexpReplace(text: string, pattern: string, replacement: string): string;
   abstract substitute(text: string, oldText: string, newText: string, instanceNum?: string): string;
+  abstract textBefore(
+    text: string,
+    delimiter: string,
+    instanceNum?: string,
+    matchMode?: string,
+    matchEnd?: string,
+    ifNotFound?: string
+  ): string;
+  abstract textSplit(
+    text: string,
+    delimiter: string,
+    ignoreEmpty?: string,
+    matchMode?: string
+  ): string;
   abstract lower(text: string): string;
   abstract upper(text: string): string;
   abstract rept(text: string, numTimes: string): string;

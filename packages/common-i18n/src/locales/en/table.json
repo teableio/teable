@@ -1203,7 +1203,9 @@
         "confirm": "Confirm ({{count}})",
         "otherPlaceholder": "Or type your answer…",
         "otherSend": "Send",
-        "addCustomPlaceholder": "Add custom option…"
+        "addCustomPlaceholder": "Add custom option…",
+        "askedUser": "Asked user",
+        "answered": "Answered"
       },
       "completion": {
         "completed": "Completed",

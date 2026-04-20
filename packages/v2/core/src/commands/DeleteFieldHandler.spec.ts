@@ -6,7 +6,6 @@ import type { FieldDeletionSideEffectService } from '../application/services/Fie
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -37,17 +36,14 @@ import {
   createTrackedFieldOperationPlugin,
   expectFieldOperationPluginToBeSkipped,
 } from './fieldOperationPluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
 
-const noopUndoRedoService = {
-  async recordEntry() {
-    return ok(undefined);
-  },
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 class FakeFieldUndoRedoSnapshotService {
   captured: Array<{ tableId: TableId; fieldId: FieldId; includeRecords?: boolean }> = [];

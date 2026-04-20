@@ -77,6 +77,8 @@ import {
   Search,
   Substitute,
   T,
+  TextBefore,
+  TextSplit,
   Trim,
   Upper,
 } from './text';
@@ -332,6 +334,17 @@ describe('formula functions', () => {
       const substitute = new Substitute();
       substitute.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
       substitute.validateParams([stringValue, stringValue, stringValue])._unsafeUnwrap();
+
+      const textBefore = new TextBefore();
+      textBefore.validateParams([stringValue])._unsafeUnwrapErr();
+      textBefore.validateParams([stringValue, stringValue])._unsafeUnwrap();
+
+      const textSplit = new TextSplit();
+      textSplit.validateParams([stringValue])._unsafeUnwrapErr();
+      textSplit.validateParams([stringValue, stringValue])._unsafeUnwrap();
+      const textSplitReturn = textSplit.getReturnType([stringValue, stringValue])._unsafeUnwrap();
+      expect(textSplitReturn.type).toBe(CellValueType.String);
+      expect(textSplitReturn.isMultiple).toBe(true);
 
       const rept = new Rept();
       rept.validateParams([stringValue])._unsafeUnwrapErr();

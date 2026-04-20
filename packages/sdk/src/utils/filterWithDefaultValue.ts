@@ -25,6 +25,7 @@ import {
 } from '@teable/core';
 import { getRecords, getUserCollaborators } from '@teable/openapi';
 import { keyBy } from 'lodash';
+import { isFilterItemEffective } from '../components/filter/view-filter/utils';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const VALIDATE_FILTER_OPERATORS = [is.value, isExactly.value, contains.value, hasAllOf.value];
@@ -144,6 +145,10 @@ export const extractDefaultFieldsFromFilters = async ({
     }
 
     const field = fieldMap[fieldId];
+
+    if (!isFilterItemEffective({ value, operator: operator as string }, field)) {
+      return;
+    }
 
     if (fieldId in result) {
       delete result[fieldId];
