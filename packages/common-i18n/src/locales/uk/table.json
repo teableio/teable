@@ -942,6 +942,17 @@
     "shareNodeTab": "Поділитися вузлом"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Питання",
+        "confirm": "Підтвердити ({{count}})",
+        "otherPlaceholder": "Або введіть відповідь…",
+        "otherSend": "Надіслати",
+        "addCustomPlaceholder": "Додати власний варіант…",
+        "askedUser": "Запитання користувачу",
+        "answered": "Відповідь надано"
+      }
+    },
     "tool": {
       "getTableFields": "Отримати поля таблиці",
       "getTablesMeta": "Отримати метадані таблиці",

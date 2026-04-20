@@ -1063,9 +1063,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "Обновление 10 апреля",
-    "title": "Новый Teable Agent: Сверхумный, низкая стоимость",
-    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
-    "id": "changelog-2026-04-10-new-agent-engine"
+    "newUpdate": "ОБНОВЛЕНИЕ 17 АПР",
+    "title": "Claude Opus 4.7 теперь доступен в Teable",
+    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
+    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
   }
 }

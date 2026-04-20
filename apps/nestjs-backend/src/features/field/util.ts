@@ -1,6 +1,5 @@
-import { assertNever, DbFieldType, DriverClient } from '@teable/core';
+import { assertNever, DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
-import { getDriverName } from '../../utils/db-helpers';
 
 // from knex define
 export enum SchemaType {
@@ -21,16 +20,15 @@ export enum SchemaType {
  * For new field creation, use the visitor pattern instead.
  */
 export function dbType2knexFormat(knex: Knex, dbFieldType: DbFieldType) {
-  const driverName = getDriverName(knex);
+  void knex;
 
   switch (dbFieldType) {
     case DbFieldType.Blob:
       return SchemaType.Binary;
     case DbFieldType.Integer:
       return SchemaType.Integer;
-    case DbFieldType.Json: {
-      return driverName === DriverClient.Sqlite ? SchemaType.Text : SchemaType.Jsonb;
-    }
+    case DbFieldType.Json:
+      return SchemaType.Jsonb;
     case DbFieldType.Real:
       return SchemaType.Double;
     case DbFieldType.Text:

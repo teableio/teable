@@ -174,16 +174,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {

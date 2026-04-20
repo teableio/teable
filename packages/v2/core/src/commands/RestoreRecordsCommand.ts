@@ -12,6 +12,7 @@ export const restoreRecordsInputSchema = z.object({
       z.object({
         recordId: z.string(),
         fields: z.record(z.string(), z.unknown()).default({}),
+        version: z.number().int().optional(),
         orders: z.record(z.string(), z.number()).optional(),
         autoNumber: z.number().optional(),
         createdTime: z.string().optional(),

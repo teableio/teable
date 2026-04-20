@@ -1130,13 +1130,8 @@ const filterOneManyLinksOnInsert = (
       continue;
     }
 
-    // Skip oneMany link fields in the seed table (FK is not here)
-    // unless the user explicitly set the link value
-    if (
-      meta.type === 'link' &&
-      meta.tableId.equals(seedTableId) &&
-      meta.options?.relationship === 'oneMany'
-    ) {
+    // Skip seed-table link fields unless the user explicitly set the link value.
+    if (meta.type === 'link' && meta.tableId.equals(seedTableId)) {
       continue;
     }
 

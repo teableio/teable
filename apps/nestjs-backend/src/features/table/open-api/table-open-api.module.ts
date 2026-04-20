@@ -15,9 +15,11 @@ import { ViewModule } from '../../view/view.module';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TableModule } from '../table.module';
+import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
 import { TableController } from './table-open-api.controller';
 import { TableOpenApiService } from './table-open-api.service';
+import { V2TableMutationCacheInvalidatorService } from './v2-table-mutation-cache-invalidator.service';
 
 @Module({
   imports: [
@@ -42,6 +44,11 @@ import { TableOpenApiService } from './table-open-api.service';
     TableOpenApiV2Service,
     TableIndexService,
     TableDuplicateService,
+    V2TableMutationCacheInvalidatorService,
+    {
+      provide: TableMutationCacheInvalidator,
+      useExisting: V2TableMutationCacheInvalidatorService,
+    },
   ],
   exports: [TableOpenApiService, TableOpenApiV2Service, TableDuplicateService],
 })

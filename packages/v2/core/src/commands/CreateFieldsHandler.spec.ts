@@ -6,7 +6,7 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -157,6 +157,16 @@ class TrackingUndoRedoService {
     this.latestEntry = entry;
     return ok(undefined);
   }
+
+  async appendEntry(
+    _context: IExecutionContext,
+    _tableId: TableId,
+    entry: { undoCommand: unknown; redoCommand: unknown }
+  ) {
+    this.recordEntryCalls += 1;
+    this.latestEntry = entry;
+    return ok(undefined);
+  }
 }
 
 class TrackingFieldUndoRedoSnapshotService {
@@ -219,7 +229,9 @@ describe('CreateFieldsHandler', () => {
       tableUpdateFlow,
       fieldCreationSideEffectService,
       new ForeignTableLoaderService(tableRepository),
-      { recordEntry: async () => ok(undefined) } as unknown as UndoRedoService,
+      {
+        appendEntry: async () => ok(undefined),
+      } as unknown as UndoRedoStackService,
       {
         capture: async () =>
           ok({
@@ -334,7 +346,9 @@ describe('CreateFieldsHandler', () => {
       tableUpdateFlow,
       fieldCreationSideEffectService,
       new ForeignTableLoaderService(tableRepository),
-      { recordEntry: async () => ok(undefined) } as unknown as UndoRedoService,
+      {
+        appendEntry: async () => ok(undefined),
+      } as unknown as UndoRedoStackService,
       {
         capture: async () => err(domainError.unexpected({ message: 'unreachable' })),
       } as unknown as FieldUndoRedoSnapshotService
@@ -433,7 +447,7 @@ describe('CreateFieldsHandler', () => {
       tableUpdateFlow,
       fieldCreationSideEffectService,
       new ForeignTableLoaderService(tableRepository),
-      undoRedoService as unknown as UndoRedoService,
+      undoRedoService as unknown as UndoRedoStackService,
       snapshotService as unknown as FieldUndoRedoSnapshotService
     );
 

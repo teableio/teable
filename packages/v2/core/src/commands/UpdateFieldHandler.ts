@@ -11,7 +11,10 @@ import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoR
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -64,7 +67,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     @inject(v2CoreTokens.fieldOperationPluginRunner)
     private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
@@ -368,24 +371,28 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         command.fieldId,
         { includeRecords: hasTypeConversion }
       );
-      yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
-        undoCommand: createUndoRedoCommand(
-          hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
-          {
-            baseId: table.baseId().toString(),
-            tableId: table.id().toString(),
-            snapshot: oldFieldSnapshot,
-          }
-        ),
-        redoCommand: createUndoRedoCommand(
-          hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
-          {
-            baseId: updateResult.table.baseId().toString(),
-            tableId: updateResult.table.id().toString(),
-            snapshot: newFieldSnapshot,
-          }
-        ),
-      });
+      yield* await handler.undoRedoStackService.appendEntry(
+        toUndoRedoStackAppendContext(context),
+        updateResult.table.id(),
+        {
+          undoCommand: createUndoRedoCommand(
+            hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+            {
+              baseId: table.baseId().toString(),
+              tableId: table.id().toString(),
+              snapshot: oldFieldSnapshot,
+            }
+          ),
+          redoCommand: createUndoRedoCommand(
+            hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+            {
+              baseId: updateResult.table.baseId().toString(),
+              tableId: updateResult.table.id().toString(),
+              snapshot: newFieldSnapshot,
+            }
+          ),
+        }
+      );
 
       const updatedFieldForPlugin = yield* updateResult.table.getField((f) =>
         f.id().equals(command.fieldId)

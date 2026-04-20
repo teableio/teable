@@ -7,6 +7,12 @@ import type { ViewColumnMetaValue } from '../domain/table/views/ViewColumnMeta';
 import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
 import type { ITableFieldInput } from '../schemas/field';
 
+/**
+ * Identifies a single user interaction stack.
+ *
+ * Undo/redo history is isolated per actor + table + browser window instead of
+ * being a global persistence log.
+ */
 export type UndoScope = {
   readonly actorId: ActorId;
   readonly tableId: TableId;
@@ -21,6 +27,16 @@ export type UndoRedoUpdateRecordPayload = {
   readonly typecast: boolean;
 };
 
+export type UndoRedoUpdateRecordsPayload = {
+  readonly tableId: string;
+  readonly records: ReadonlyArray<{
+    readonly id: string;
+    readonly fields: Record<string, unknown>;
+  }>;
+  readonly fieldKeyType: 'id';
+  readonly typecast: boolean;
+};
+
 export type UndoRedoDeleteRecordsPayload = {
   readonly tableId: string;
   readonly recordIds: ReadonlyArray<string>;
@@ -29,6 +45,7 @@ export type UndoRedoDeleteRecordsPayload = {
 export type UndoRedoRestoreRecord = {
   readonly recordId: string;
   readonly fields: Record<string, unknown>;
+  readonly version?: number;
   readonly orders?: Record<string, number>;
   readonly autoNumber?: number;
   readonly createdTime?: string;
@@ -90,6 +107,7 @@ export type UndoRedoReplayFieldTypeConversionPayload = {
 
 export type UndoRedoCommandLeafType =
   | 'UpdateRecord'
+  | 'UpdateRecords'
   | 'DeleteRecords'
   | 'RestoreRecords'
   | 'ApplyRecordOrders'
@@ -101,6 +119,7 @@ export type UndoRedoCommandType = UndoRedoCommandLeafType | 'Batch';
 
 export const undoRedoCommandVersions = {
   UpdateRecord: 1,
+  UpdateRecords: 1,
   DeleteRecords: 1,
   RestoreRecords: 1,
   ApplyRecordOrders: 1,
@@ -114,6 +133,12 @@ export type UndoRedoUpdateCommandData = {
   readonly type: 'UpdateRecord';
   readonly version: number;
   readonly payload: UndoRedoUpdateRecordPayload;
+};
+
+export type UndoRedoUpdateRecordsCommandData = {
+  readonly type: 'UpdateRecords';
+  readonly version: number;
+  readonly payload: UndoRedoUpdateRecordsPayload;
 };
 
 export type UndoRedoDeleteRecordsCommandData = {
@@ -154,6 +179,7 @@ export type UndoRedoReplayFieldTypeConversionCommandData = {
 
 export type UndoRedoCommandLeafData =
   | UndoRedoUpdateCommandData
+  | UndoRedoUpdateRecordsCommandData
   | UndoRedoDeleteRecordsCommandData
   | UndoRedoRestoreRecordsCommandData
   | UndoRedoApplyRecordOrdersCommandData
@@ -171,6 +197,7 @@ export type UndoRedoCommandData = UndoRedoCommandLeafData | UndoRedoBatchCommand
 
 export type UndoRedoCommandPayloadByType = {
   UpdateRecord: UndoRedoUpdateRecordPayload;
+  UpdateRecords: UndoRedoUpdateRecordsPayload;
   DeleteRecords: UndoRedoDeleteRecordsPayload;
   RestoreRecords: UndoRedoRestoreRecordsPayload;
   ApplyRecordOrders: UndoRedoApplyRecordOrdersPayload;
@@ -182,6 +209,7 @@ export type UndoRedoCommandPayloadByType = {
 
 export type UndoRedoCommandDataByType = {
   UpdateRecord: UndoRedoUpdateCommandData;
+  UpdateRecords: UndoRedoUpdateRecordsCommandData;
   DeleteRecords: UndoRedoDeleteRecordsCommandData;
   RestoreRecords: UndoRedoRestoreRecordsCommandData;
   ApplyRecordOrders: UndoRedoApplyRecordOrdersCommandData;
@@ -196,6 +224,16 @@ const normalizeUpdateRecordFields = (fields: Record<string, unknown>): Record<st
     Object.entries(fields).map(([fieldId, value]) => [fieldId, value === undefined ? null : value])
   );
 
+const normalizeUpdateRecordsPayload = (
+  payload: UndoRedoUpdateRecordsPayload
+): UndoRedoUpdateRecordsPayload => ({
+  ...payload,
+  records: payload.records.map((record) => ({
+    ...record,
+    fields: normalizeUpdateRecordFields(record.fields),
+  })),
+});
+
 export const createUndoRedoCommand = <TType extends UndoRedoCommandType>(
   type: TType,
   payload: UndoRedoCommandPayloadByType[TType]
@@ -206,7 +244,11 @@ export const createUndoRedoCommand = <TType extends UndoRedoCommandType>(
           ...(payload as UndoRedoUpdateRecordPayload),
           fields: normalizeUpdateRecordFields((payload as UndoRedoUpdateRecordPayload).fields),
         } as UndoRedoCommandPayloadByType[TType])
-      : payload;
+      : type === 'UpdateRecords'
+        ? (normalizeUpdateRecordsPayload(
+            payload as UndoRedoUpdateRecordsPayload
+          ) as UndoRedoCommandPayloadByType[TType])
+        : payload;
 
   return {
     type,
@@ -244,6 +286,12 @@ export type UndoRedoListOptions = {
   readonly limit?: number;
 };
 
+/**
+ * Storage for the per-window undo/redo interaction stack.
+ *
+ * Repository adapters capture record snapshots separately; this port only
+ * stores and replays already-built stack entries.
+ */
 export interface IUndoRedoStore {
   append(scope: UndoScope, entry: UndoEntry): Promise<Result<void, DomainError>>;
   undo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>>;

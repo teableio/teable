@@ -1107,9 +1107,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月10日アップデート",
-    "title": "新しい Teable Agent：超高性能、低コスト",
-    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
-    "id": "changelog-2026-04-10-new-agent-engine"
+    "newUpdate": "4月17日 アップデート",
+    "title": "Claude Opus 4.7 が Teable で利用可能に",
+    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
+    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
   }
 }
