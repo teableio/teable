@@ -953,13 +953,7 @@
   "aiChat": {
     "agent": {
       "askUserQuestion": {
-        "label": "Soru",
-        "confirm": "Onayla ({{count}})",
-        "otherPlaceholder": "Veya yanıtınızı yazın…",
-        "otherSend": "Gönder",
-        "addCustomPlaceholder": "Özel seçenek ekle…",
-        "askedUser": "Kullanıcıya soruldu",
-        "answered": "Yanıtlandı"
+        "otherPlaceholder": "Veya yanıtınızı yazın…"
       }
     }
   }
