@@ -33,6 +33,8 @@ import type {
   IComputedUpdateOutbox,
 } from '../computed';
 import type { DynamicDB } from '../query-builder';
+import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
+import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 // =============================================================================
@@ -98,7 +100,39 @@ class RecordingDriver implements Driver {
 }
 
 const createRecordingDb = (rowProvider?: RowProvider) => {
-  const driver = new RecordingDriver(rowProvider);
+  const defaultUndoLogRowProvider: RowProvider = (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM information_schema.tables')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM information_schema.columns')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_proc')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [
+        {
+          record_id: RECORD_ID,
+          old_row: {
+            __id: RECORD_ID,
+          },
+        },
+      ];
+    }
+    return [];
+  };
+  const driver = new RecordingDriver(
+    rowProvider
+      ? (compiledQuery) => {
+          const providedRows = rowProvider(compiledQuery);
+          return providedRows.length > 0 ? providedRows : defaultUndoLogRowProvider(compiledQuery);
+        }
+      : defaultUndoLogRowProvider
+  );
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -110,15 +144,24 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
   return { db, driver };
 };
 
-const createLogger = (): ILogger => {
-  const logger: ILogger = {
-    child: () => logger,
-    scope: () => logger,
-    debug: () => undefined,
-    info: () => undefined,
-    warn: () => undefined,
-    error: () => undefined,
-  };
+type MockLogger = ILogger & {
+  debug: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+};
+
+const createLogger = (): MockLogger => {
+  const logger = {
+    child: vi.fn(),
+    scope: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as MockLogger;
+  logger.child.mockReturnValue(logger);
+  logger.scope.mockReturnValue(logger);
   return logger;
 };
 
@@ -191,9 +234,9 @@ const createNoopRecordOrderCalculator = (): IRecordOrderCalculator => {
 const createRepository = (
   db: Kysely<DynamicDB>,
   table: Table,
-  computedUpdatePlanner: ComputedUpdatePlanner = createNoopComputedPlanner(table)
+  computedUpdatePlanner: ComputedUpdatePlanner = createNoopComputedPlanner(table),
+  logger: MockLogger = createLogger()
 ) => {
-  const logger = createLogger();
   const computedFieldUpdater = {} as ComputedFieldUpdater;
   const computedUpdateStrategy = createNoopStrategy();
   const computedUpdateOutbox = createNoopOutbox();
@@ -207,12 +250,60 @@ const createRepository = (
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
+    createNoopEventBus(),
     hasher
   );
 };
 
+const createMissingTableExistsRowProvider = (
+  schemaName: string,
+  tableName: string
+): RowProvider => {
+  return (compiledQuery) => {
+    if (
+      compiledQuery.sql.includes('FROM information_schema.tables') &&
+      compiledQuery.parameters[0] === schemaName &&
+      compiledQuery.parameters[1] === tableName
+    ) {
+      return [{ exists: false }];
+    }
+    return [];
+  };
+};
+
+const isUndoCaptureQuery = (query: CompiledQuery) => {
+  const text = query.sql;
+  return (
+    text.includes('teable_undo_capture_') ||
+    text.includes('"public"."__undo_log"') ||
+    text.includes("table_name = '__undo_log'") ||
+    text.includes('__teable_capture_undo_row') ||
+    text.includes('FROM pg_trigger AS t') ||
+    text.includes('"__teable_undo_capture"') ||
+    text.includes('teable.undo_batch_id')
+  );
+};
+
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
-  queries.map((query) => ({ sql: query.sql, parameters: query.parameters }));
+  queries
+    .filter((query) => !isUndoCaptureQuery(query))
+    .map((query) => ({ sql: query.sql, parameters: query.parameters }));
+
+const composeRowProviders =
+  (...providers: RowProvider[]): RowProvider =>
+  (compiledQuery) => {
+    for (const provider of providers) {
+      const rows = provider(compiledQuery);
+      if (rows.length > 0) {
+        return rows;
+      }
+    }
+    return [];
+  };
 
 const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowProvider => {
   const target = `from ${tableName}`;
@@ -228,6 +319,20 @@ const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowP
       compiledQuery.sql.includes(target)
     ) {
       return recordIds.map((recordId) => ({ record_id: recordId }));
+    }
+    return [];
+  };
+};
+
+const createUndoLogRowProvider = (
+  rows: ReadonlyArray<{
+    record_id: string;
+    old_row: Record<string, unknown>;
+  }>
+): RowProvider => {
+  return (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [...rows];
     }
     return [];
   };
@@ -328,6 +433,20 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblcccccccccccccccc",
+          ],
+          "sql": "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND table_name = $2
+          ) AS exists
+        ",
+        },
+        {
+          "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
           "sql": "select "__fk_fldffffffffffffffff" as "self_key", "__id" as "foreign_key" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" in ($1)",
@@ -339,6 +458,20 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
             "tblbbbbbbbbbbbbbbbb",
           ],
           "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblcccccccccccccccc",
+          ],
+          "sql": "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND table_name = $2
+          ) AS exists
+        ",
         },
         {
           "parameters": [
@@ -417,10 +550,23 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const deleteSpec = specBuilder.build()._unsafeUnwrap();
 
     const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const rowProvider = createRecordIdRowProvider(tableName, [
-      recordId.toString(),
-      recordIdB.toString(),
-    ]);
+    const rowProvider = composeRowProviders(
+      createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+        {
+          record_id: recordIdB.toString(),
+          old_row: {
+            __id: recordIdB.toString(),
+          },
+        },
+      ])
+    );
 
     const { db, driver } = createRecordingDb(rowProvider);
     const repo = createRepository(db, table);
@@ -439,6 +585,20 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+          ],
+          "sql": "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND table_name = $2
+          ) AS exists
+        ",
+        },
+        {
+          "parameters": [
             "rechhhhhhhhhhhhhhhh",
             "reciiiiiiiiiiiiiiii",
           ],
@@ -451,6 +611,20 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
             "tblbbbbbbbbbbbbbbbb",
           ],
           "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+          ],
+          "sql": "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = $1
+            AND table_name = $2
+          ) AS exists
+        ",
         },
         {
           "parameters": [
@@ -478,6 +652,195 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
       ]
     `);
+    vi.useRealTimers();
+  });
+
+  it('tolerates missing junction host table during delete and keeps warning logs', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      symmetricFieldId: symmetricFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Links')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const junctionTableName = `"bse${'a'.repeat(16)}"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff"`;
+    const rowProvider = composeRowProviders(
+      createMissingTableExistsRowProvider(
+        `bse${'a'.repeat(16)}`,
+        'junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff'
+      ),
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const logger = createLogger();
+    const repo = createRepository(db, table, createNoopComputedPlanner(table), logger);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    expect(snapshotSql.some((sql) => sql.includes(`from ${junctionTableName}`))).toBe(false);
+    expect(snapshotSql.some((sql) => sql.includes(`delete from ${junctionTableName}`))).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'record:delete:missing_link_host_table',
+      expect.objectContaining({
+        phase: 'load-existing',
+        fieldId: LINK_FIELD_ID,
+        hostTableName: 'bseaaaaaaaaaaaaaaaa.junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff',
+        operationType: 'junction-delete',
+      })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'record:delete:missing_link_host_table',
+      expect.objectContaining({
+        phase: 'cleanup-outgoing',
+        fieldId: LINK_FIELD_ID,
+        hostTableName: 'bseaaaaaaaaaaaaaaaa.junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff',
+        operationType: 'junction-delete',
+      })
+    );
+
+    vi.useRealTimers();
+  });
+
+  it('tolerates missing foreign host table during delete and keeps warning logs', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'oneMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      symmetricFieldId: symmetricFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Links')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const foreignHostTableName = `"bse${'a'.repeat(16)}"."tblcccccccccccccccc"`;
+    const rowProvider = composeRowProviders(
+      createMissingTableExistsRowProvider(`bse${'a'.repeat(16)}`, `tbl${'c'.repeat(16)}`),
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const logger = createLogger();
+    const repo = createRepository(db, table, createNoopComputedPlanner(table), logger);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    expect(snapshotSql.some((sql) => sql.includes(`from ${foreignHostTableName}`))).toBe(false);
+    expect(snapshotSql.some((sql) => sql.includes(`update ${foreignHostTableName}`))).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'record:delete:missing_link_host_table',
+      expect.objectContaining({
+        phase: 'load-existing',
+        fieldId: LINK_FIELD_ID,
+        hostTableName: 'bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc',
+        operationType: 'fk-nullify',
+      })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'record:delete:missing_link_host_table',
+      expect.objectContaining({
+        phase: 'cleanup-outgoing',
+        fieldId: LINK_FIELD_ID,
+        hostTableName: 'bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc',
+        operationType: 'fk-nullify',
+      })
+    );
+
     vi.useRealTimers();
   });
 
@@ -598,6 +961,135 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
       },
     ]);
+
+    vi.useRealTimers();
+  });
+
+  it('returns deleted record snapshots captured from the undo log', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb(
+      composeRowProviders(
+        createRecordIdRowProvider(tableName, [recordId.toString()]),
+        createUndoLogRowProvider([
+          {
+            record_id: recordId.toString(),
+            old_row: {
+              __id: recordId.toString(),
+              col_name: 'Alice',
+            },
+          },
+        ])
+      )
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      deletedRecords: [
+        expect.objectContaining({
+          recordId: recordId.toString(),
+          fields: {
+            [NAME_FIELD_ID]: 'Alice',
+          },
+        }),
+      ],
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('returns Err when delete snapshot capture is incomplete', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'z'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    specBuilder.recordId(recordIdB);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb(
+      composeRowProviders(
+        createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
+        createUndoLogRowProvider([
+          {
+            record_id: recordId.toString(),
+            old_row: {
+              __id: recordId.toString(),
+              col_name: 'Alice',
+            },
+          },
+        ])
+      )
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain(
+      'Failed to capture complete delete snapshots'
+    );
 
     vi.useRealTimers();
   });

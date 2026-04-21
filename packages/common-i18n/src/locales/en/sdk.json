@@ -574,6 +574,14 @@
       "summary": "Replaces occurrences of old_text with new_text.\nYou can optionally specify an index number (starting from 1) to replace just a specific occurrence of old_text. If no index number is specified, then all occurrences of old_text will be replaced.",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
     },
+    "TEXTBEFORE": {
+      "summary": "Returns the text before a delimiter.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "Splits text by a delimiter and returns multiple text values.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
+    },
     "LOWER": {
       "summary": "Makes a string lowercase.",
       "example": "LOWER(\"Hello Teable\") => \"hello teable\""

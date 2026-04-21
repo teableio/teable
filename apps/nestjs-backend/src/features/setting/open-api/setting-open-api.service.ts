@@ -36,6 +36,7 @@ import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
@@ -75,7 +76,38 @@ export class SettingOpenApiService {
   }
 
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
+    // Instance providers must use "teable" as name so modelKeys end with @teable,
+    // allowing a simple suffix check to distinguish instance vs BYOK models.
+    if (updateSettingRo.aiConfig) {
+      this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
+    }
     return this.settingService.updateSetting(updateSettingRo);
+  }
+
+  /**
+   * Rewrite all provider names to "teable" and update chatModel keys accordingly.
+   * Admin-configured providers are always instance-level; the @teable suffix
+   * lets the rest of the system distinguish them from BYOK (space-level) providers.
+   */
+  private normalizeInstanceProviderNames(aiConfig: Record<string, unknown>): void {
+    const name = INSTANCE_PROVIDER_NAME;
+    const providers = aiConfig.llmProviders as Array<Record<string, unknown>> | undefined;
+    if (providers) {
+      for (const provider of providers) {
+        provider.name = name;
+      }
+    }
+    const chatModel = aiConfig.chatModel as Record<string, string | undefined> | undefined;
+    if (chatModel) {
+      for (const tier of ['lg', 'md', 'sm']) {
+        const key = chatModel[tier];
+        if (key && key.includes('@')) {
+          const parts = key.split('@');
+          parts[parts.length - 1] = name;
+          chatModel[tier] = parts.join('@');
+        }
+      }
+    }
   }
 
   async getServerBrand(): Promise<{ brandName: string; brandLogo: string }> {

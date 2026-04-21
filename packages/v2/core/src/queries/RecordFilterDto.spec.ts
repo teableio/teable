@@ -28,7 +28,8 @@ describe('RecordFilterDto', () => {
     });
     expect(invalidEmpty.success).toBe(false);
 
-    // is/isNot with null is allowed for V1 compatibility
+    // is/isNot with null is allowed until field-aware normalization can distinguish
+    // checkbox null checks from incomplete non-checkbox filters.
     const isWithNull = recordFilterConditionSchema.safeParse({
       fieldId: 'fld123',
       operator: 'is',

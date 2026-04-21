@@ -7,20 +7,12 @@
  *   ├─ Registry B: tag1 → tag2 → tag3 (serial)  ← Parallel
  *   └─ Registry C: tag1 → tag2 → tag3 (serial)
  *
- * Generates a version string following the Semantic Versioning (SemVer) specification, with added build metadata.
+ * Generates a build-time release id.
  *
- * The basic version number follows the format: major.minor.patch (e.g., 1.0.0)
+ * The release id follows the format:
+ *   release.YYYY-MM-DDTHH-mm-ssZ.N
  *
- * If not in a GitHub Actions environment:
- * - By default, the generated version number format is: {base version}-alpha
- *   For example, if the version in package.json is 1.0.0, the generated version number would be 1.0.0-alpha
- *
- * If in a GitHub Actions environment:
- * - For branch references, the generated version number format is: {base version}-alpha+build.{GITHUB_RUN_NUMBER}.sha-{first 7 characters of GITHUB_SHA}
- *   For example, for version 1.0.0 on the 123rd run in GitHub Actions with a commit SHA of abcdefg, the generated version number would be 1.0.0-alpha+build.123.sha-abcdefg
- *
- * - For tag references, the generated version number format is: {base version}+build.{GITHUB_RUN_NUMBER}.sha-{first 7 characters of GITHUB_SHA}
- *   For example, for version 1.0.0 on the 123rd run in GitHub Actions with a commit SHA of abcdefg, the generated version number would be 1.0.0+build.123.sha-abcdefg
+ * `N` defaults to `GITHUB_RUN_NUMBER`, then `1`.
  *
  * Usage:
  *   # Mode 1: Full registry tags (auto-detected, recommended for CI with docker/metadata-action)
@@ -71,13 +63,13 @@ function extractRegistryImage(fullTag) {
 }
 
 /** Group full registry tags by image path for parallel push */
-function buildPushGroupsFromFullTags(tags, { arch, tagSuffix }) {
+function buildPushGroupsFromFullTags(tags, { tagSuffix }) {
   const groupMap = new Map();
 
   tags.forEach((tag) => {
     let fullTag = tag;
-    if (arch && !tag.endsWith(`-${arch}`) && !tag.endsWith(`-${arch}${tagSuffix ?? ''}`)) {
-      fullTag = tagSuffix ? `${tag}-${arch}${tagSuffix}` : `${tag}-${arch}`;
+    if (tagSuffix && !tag.endsWith(tagSuffix)) {
+      fullTag = `${tag}${tagSuffix}`;
     }
 
     const registryImage = extractRegistryImage(fullTag);
@@ -88,6 +80,20 @@ function buildPushGroupsFromFullTags(tags, { arch, tagSuffix }) {
   });
 
   return Array.from(groupMap.entries()).map(([registry, images]) => ({ registry, images }));
+}
+
+function isMultiPlatformTarget(platform) {
+  return platform.includes(',');
+}
+
+function resolveArchTagSuffix(platform) {
+  if (!platform || isMultiPlatformTarget(platform)) {
+    return null;
+  }
+
+  const [singleTarget] = platform.split(',');
+  const segments = singleTarget.split('/');
+  return segments[1] || null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -115,36 +121,45 @@ const toBoolean = (input) => Boolean(input);
 const env = $.env;
 let isCi = ['true', '1'].includes(env?.CI ?? '');
 
-/** Generate semver from package.json version and GitHub Actions context */
-const getSemver = async () => {
-  const nextjsDir = env.NEXTJS_DIR ?? 'apps/nextjs-app';
-  const { version } = await fs.readJson(`${nextjsDir}/package.json`);
-  let semver = `${version}-alpha`;
+function formatReleaseTimestamp(date) {
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z').replace(/:/g, '-');
+}
 
+function getReleaseBuildDate() {
+  const releaseTimestamp = env.TEABLE_RELEASE_TIMESTAMP?.trim();
+  if (!releaseTimestamp) {
+    return new Date();
+  }
+
+  const parsedDate = new Date(releaseTimestamp);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error(`Invalid TEABLE_RELEASE_TIMESTAMP: ${releaseTimestamp}`);
+  }
+
+  return parsedDate;
+}
+
+function getReleaseSequence() {
+  return env.GITHUB_RUN_NUMBER?.trim() || '1';
+}
+
+/** Generate a build-time release id shared by runtime metadata and image tags */
+const getReleaseId = async () => {
   if (env.GITHUB_ACTIONS) {
     isCi = true;
-    const refType = env.GITHUB_REF_TYPE;
-    const runNumber = env.GITHUB_RUN_NUMBER;
-    const isPR = Boolean(env.GITHUB_HEAD_REF);
-
-    console.log('GitHub Actions Context:');
-    console.log('  isPR:', isPR);
-    console.log('  refType:', refType);
-    console.log('  runNumber:', runNumber);
-
-    switch (refType) {
-      case 'branch':
-        semver = isPR
-          ? `${version}-alpha+pr-build.${runNumber}`
-          : `${version}-alpha+build.${runNumber}`;
-        break;
-      case 'tag':
-        semver = `${version}+build.${runNumber}`;
-        break;
-    }
   }
-  console.log('semver:', semver);
-  return semver;
+
+  const releaseBuildDate = getReleaseBuildDate();
+  const releaseTimestamp = formatReleaseTimestamp(releaseBuildDate);
+  const releaseSequence = getReleaseSequence();
+  const releaseId = `release.${releaseTimestamp}.${releaseSequence}`;
+
+  console.log('Release Context:');
+  console.log('  timestamp:', releaseTimestamp);
+  console.log('  sequence:', releaseSequence);
+  console.log('releaseId:', releaseId);
+
+  return releaseId;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -357,14 +372,14 @@ function buildDockerCommand(options) {
     tags,
     tagSuffix,
     uploadAssetsList,
-    semver,
-    dockerSemver,
+    releaseId,
+    dockerReleaseId,
     arch,
     useFullRegistryTags,
   } = options;
 
   const command = ['docker', 'buildx', 'build'];
-  command.push('--build-arg', `BUILD_VERSION=${semver}`);
+  command.push('--build-arg', `BUILD_VERSION=${releaseId}`);
 
   if (uploadAssetsList) {
     command.push('--build-arg', `UPLOAD_ASSETS_LIST=${uploadAssetsList}`);
@@ -383,29 +398,30 @@ function buildDockerCommand(options) {
   if (useFullRegistryTags) {
     tags.forEach((tag) => {
       let fullTag = tag;
-      if (arch && !tag.endsWith(`-${arch}`) && !tag.endsWith(`-${arch}${tagSuffix ?? ''}`)) {
-        fullTag = tagSuffix ? `${tag}-${arch}${tagSuffix}` : `${tag}-${arch}`;
+      if (tagSuffix && !tag.endsWith(tagSuffix)) {
+        fullTag = `${tag}${tagSuffix}`;
       }
       command.push('--tag', fullTag);
     });
 
-    // Also add semver tags for each unique registry
+    // Also add build-time release tags for each unique registry
     const remotes = Array.from(new Set(tags.map((tag) => extractRegistryImage(tag))));
     remotes.forEach((remote) => {
-      command.push('--tag', `${remote}:${dockerSemver}-${arch}`);
+      command.push('--tag', `${remote}:${dockerReleaseId}`);
     });
 
     return command;
   }
 
-  // Mode 2: Legacy - simple tags with arch suffix
+  // Mode 2: Legacy - simple tags plus build-time release tag
   const remotes = Array.from(new Set(tags.map((tag) => tag.split(':')[0])));
   remotes.forEach((remote) => {
-    command.push('--tag', `${remote}:${dockerSemver}-${arch}`);
+    command.push('--tag', `${remote}:${dockerReleaseId}`);
   });
 
   tags.forEach((tag) => {
-    command.push('--tag', `${tag}-${arch}${tagSuffix ?? ''}`);
+    const fullTag = tagSuffix && !tag.endsWith(tagSuffix) ? `${tag}${tagSuffix}` : tag;
+    command.push('--tag', fullTag);
   });
 
   return command;
@@ -434,8 +450,8 @@ function printDryRunConfig(config) {
     arch,
     push,
     tagSuffix,
-    semver,
-    dockerSemver,
+    releaseId,
+    dockerReleaseId,
     buildArgs,
     cacheFrom,
     cacheTo,
@@ -458,8 +474,8 @@ function printDryRunConfig(config) {
   console.log();
 
   console.log(chalk.yellow('Version Info:'));
-  console.log(chalk.gray('  Semver:'), semver);
-  console.log(chalk.gray('  Docker Semver:'), dockerSemver);
+  console.log(chalk.gray('  Release ID:'), releaseId);
+  console.log(chalk.gray('  Docker Release ID:'), dockerReleaseId);
   console.log();
 
   printList('Build Args', buildArgs);
@@ -557,9 +573,9 @@ async function main() {
   const uploadAssetsList = uploadAssetsListArg ?? '';
 
   // Compute version info
-  const semver = await getSemver();
-  const dockerSemver = semver.replace(/\+/g, '-').replace(/\s/g, '_');
-  const arch = platform.split('/')[1];
+  const releaseId = await getReleaseId();
+  const dockerReleaseId = releaseId.replace(/\s/g, '_');
+  const arch = resolveArchTagSuffix(platform);
   const useFullRegistryTags = tags.length > 0 && tags.every((t) => isFullRegistryTag(t));
 
   // Build docker command
@@ -572,8 +588,8 @@ async function main() {
     tags,
     tagSuffix,
     uploadAssetsList,
-    semver,
-    dockerSemver,
+    releaseId,
+    dockerReleaseId,
     arch,
     useFullRegistryTags,
   });
@@ -586,8 +602,8 @@ async function main() {
       arch,
       push,
       tagSuffix,
-      semver,
-      dockerSemver,
+      releaseId,
+      dockerReleaseId,
       buildArgs,
       cacheFrom,
       cacheTo,
@@ -598,14 +614,30 @@ async function main() {
 
   // Mode 1: Full registry tags (recommended for CI)
   if (useFullRegistryTags) {
-    command.push('--load', '.');
-    const pushGroups = buildPushGroupsFromFullTags(tags, { arch, tagSuffix });
+    if (push) {
+      command.push('--push', '.');
 
-    // Add semver tags to push groups
+      if (dryRun) {
+        console.log(chalk.yellow('Docker Build Command:'));
+        console.log(chalk.white('  ' + command.join(' ')));
+        console.log();
+        console.log(chalk.green('✓ Dry-run complete. No commands were executed.'));
+        process.exit(0);
+      }
+
+      console.log('command:', command.join(' '));
+      await $`${command}`;
+      return;
+    }
+
+    command.push('--load', '.');
+    const pushGroups = buildPushGroupsFromFullTags(tags, { tagSuffix });
+
+    // Add build-time release tags to push groups
     pushGroups.forEach((group) => {
-      const semverTag = `${group.registry}:${dockerSemver}-${arch}`;
-      if (!group.images.includes(semverTag)) {
-        group.images.push(semverTag);
+      const releaseTag = `${group.registry}:${dockerReleaseId}`;
+      if (!group.images.includes(releaseTag)) {
+        group.images.push(releaseTag);
       }
     });
 

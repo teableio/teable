@@ -3,10 +3,13 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { FieldUndoRedoReplayService } from '../application/services/FieldUndoRedoReplayService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type {
+  UndoRedoStackReplayContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
@@ -43,13 +46,15 @@ const buildTable = (): Table => {
 };
 
 class FakeUndoRedoService {
-  undoCalls: Array<{ context: IExecutionContext; tableId: string; windowId?: string }> = [];
-  redoCalls: Array<{ context: IExecutionContext; tableId: string; windowId?: string }> = [];
+  undoCalls: Array<{ context: UndoRedoStackReplayContext; tableId: string; windowId?: string }> =
+    [];
+  redoCalls: Array<{ context: UndoRedoStackReplayContext; tableId: string; windowId?: string }> =
+    [];
   undoEntry: UndoEntry | null = null;
   redoEntry: UndoEntry | null = null;
 
-  async undo(
-    context: IExecutionContext,
+  async applyUndo(
+    context: UndoRedoStackReplayContext,
     tableId: TableId,
     windowId?: string
   ): Promise<Result<UndoEntry | null, DomainError>> {
@@ -57,8 +62,8 @@ class FakeUndoRedoService {
     return ok(this.undoEntry);
   }
 
-  async redo(
-    context: IExecutionContext,
+  async applyRedo(
+    context: UndoRedoStackReplayContext,
     tableId: TableId,
     windowId?: string
   ): Promise<Result<UndoEntry | null, DomainError>> {
@@ -143,8 +148,8 @@ describe('undo/redo commands and handlers', () => {
     service.redoEntry = entry;
     const tableId = entry.scope.tableId.toString();
 
-    const undoHandler = new UndoHandler(service as unknown as UndoRedoService);
-    const redoHandler = new RedoHandler(service as unknown as UndoRedoService);
+    const undoHandler = new UndoHandler(service as unknown as UndoRedoStackService);
+    const redoHandler = new RedoHandler(service as unknown as UndoRedoStackService);
     const undoCommand = UndoCommand.create({ tableId, windowId: 'window-2' })._unsafeUnwrap();
     const redoCommand = RedoCommand.create({ tableId })._unsafeUnwrap();
 
@@ -153,8 +158,18 @@ describe('undo/redo commands and handlers', () => {
 
     expect(undoResult._unsafeUnwrap().entry).toBe(entry);
     expect(redoResult._unsafeUnwrap().entry).toBe(entry);
-    expect(service.undoCalls).toEqual([{ context, tableId, windowId: 'window-2' }]);
-    expect(service.redoCalls).toEqual([{ context, tableId, windowId: undefined }]);
+    expect(service.undoCalls).toHaveLength(1);
+    expect(service.undoCalls[0]?.tableId).toBe(tableId);
+    expect(service.undoCalls[0]?.windowId).toBe('window-2');
+    expect(service.undoCalls[0]?.context.actorId).toBe(context.actorId);
+    expect(service.undoCalls[0]?.context.windowId).toBe(context.windowId);
+    expect(service.undoCalls[0]?.context.requestId).toBe(context.requestId);
+    expect(service.redoCalls).toHaveLength(1);
+    expect(service.redoCalls[0]?.tableId).toBe(tableId);
+    expect(service.redoCalls[0]?.windowId).toBeUndefined();
+    expect(service.redoCalls[0]?.context.actorId).toBe(context.actorId);
+    expect(service.redoCalls[0]?.context.windowId).toBe(context.windowId);
+    expect(service.redoCalls[0]?.context.requestId).toBe(context.requestId);
   });
 
   it('routes field snapshot replay commands through the replay service', async () => {

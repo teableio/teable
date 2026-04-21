@@ -7,7 +7,10 @@ import { FieldOperationPluginRunner } from '../application/services/FieldOperati
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
@@ -79,7 +82,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     @inject(v2CoreTokens.fieldOperationPluginRunner)
     private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
@@ -118,7 +121,6 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const referenceVisitor = new LinkForeignTableReferenceVisitor();
       const foreignRefs = yield* referenceVisitor.collect([targetField]);
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        baseId: command.baseId,
         references: foreignRefs,
       });
       const basePluginContext = {
@@ -238,10 +240,14 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       });
 
       if (!command.skipUndoRedo()) {
-        yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
-          undoCommand,
-          redoCommand,
-        });
+        yield* await handler.undoRedoStackService.appendEntry(
+          toUndoRedoStackAppendContext(context),
+          updateResult.table.id(),
+          {
+            undoCommand,
+            redoCommand,
+          }
+        );
       }
       if (!deletedField) {
         return err(domainError.unexpected({ message: 'Field not deleted' }));

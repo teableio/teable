@@ -11,6 +11,31 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 
+export interface RecordStoredSnapshot {
+  /** Stringified record id from storage. */
+  recordId: string;
+  /** Stored field payload keyed by field id. */
+  fields: Readonly<Record<string, unknown>>;
+  /** Stored version captured from __version when available. */
+  version?: number;
+  /** Preserve per-view row-order snapshot when available. */
+  orders?: Readonly<Record<string, number>>;
+  autoNumber?: number;
+  createdTime?: string;
+  createdBy?: string;
+  lastModifiedTime?: string;
+  lastModifiedBy?: string;
+}
+
+export interface RecordUpdateSnapshot {
+  /** Stored row image captured before the update statement. */
+  previous: RecordStoredSnapshot;
+  /** Stored row image captured after the update mutation finishes. */
+  current: RecordStoredSnapshot;
+  oldVersion: number;
+  newVersion: number;
+}
+
 /**
  * Result of single record mutation operations (insert/update).
  * Contains computed field values that were updated as part of the operation.
@@ -29,6 +54,16 @@ export interface RecordMutationResult {
    * are processed asynchronously.
    */
   computedChanges?: ReadonlyMap<string, unknown>;
+
+  /**
+   * Stored snapshot for insert/restore-style mutations after persistence completes.
+   */
+  recordSnapshot?: RecordStoredSnapshot;
+
+  /**
+   * Stored snapshot captured before an update statement is applied.
+   */
+  updateSnapshot?: RecordUpdateSnapshot;
 }
 
 /**
@@ -55,6 +90,11 @@ export interface BatchRecordMutationResult {
    * Used for undo/redo operations to restore record positions.
    */
   recordOrders?: ReadonlyMap<string, Record<string, number>>;
+
+  /**
+   * Stored snapshots for records after persistence completes.
+   */
+  recordSnapshots?: ReadonlyArray<RecordStoredSnapshot>;
 }
 
 /**
@@ -169,10 +209,12 @@ export interface UpdateManyStreamOptions {
 export interface UpdateManyStreamResult {
   /** Total number of records updated */
   totalUpdated: number;
-  /** Main statement versions captured for each updated row. */
-  updatedRecords?: ReadonlyArray<{
+  /** Main statement before/after snapshots captured for each row actually updated by SQL. */
+  updatedRecords: ReadonlyArray<{
     recordId: RecordId;
+    oldVersion: number;
     newVersion: number;
+    oldFieldValues: Readonly<Record<string, unknown>>;
   }>;
 }
 
@@ -195,6 +237,18 @@ export interface DeleteManyStreamResult {
   totalDeleted: number;
 }
 
+export interface DeleteManyResult {
+  /** Stored snapshots captured before deletion. */
+  deletedRecords?: ReadonlyArray<RecordStoredSnapshot>;
+}
+
+export const hasDeletedRecordSnapshots = (
+  result: DeleteManyResult
+): result is DeleteManyResult & { deletedRecords: ReadonlyArray<RecordStoredSnapshot> } =>
+  typeof result === 'object' &&
+  result != null &&
+  Array.isArray((result as { deletedRecords?: unknown }).deletedRecords);
+
 export interface UpdateManyStreamBatch {
   /** Optional table snapshot for this batch when field metadata changed mid-stream. */
   table?: Table;
@@ -211,6 +265,7 @@ export const isUpdateManyStreamBatch = (
 
 export interface RecordRestoreSystemValues {
   /** Preserve legacy record identity fields during undo/redo restore. */
+  version?: number;
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
@@ -377,7 +432,7 @@ export interface ITableRecordRepository {
     context: IExecutionContext,
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>>;
+  ): Promise<Result<DeleteManyResult, DomainError>>;
 
   deleteManyStream(
     context: IExecutionContext,

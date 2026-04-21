@@ -78,6 +78,14 @@ describe('SingleSelectFieldCore', () => {
     expect(multipleField.validateCellValue([cellValue]).success).toBe(true);
   });
 
+  it('should validate choices added after the choice map is cached', () => {
+    expect(field.validateCellValue('Option 1').success).toBe(true);
+
+    field.options.choices.push({ id: 'cho3', name: 'Option 3', color: Colors.Green });
+
+    expect(field.validateCellValue('Option 3').success).toBe(true);
+  });
+
   it('should convert string to cellValue', () => {
     expect(field.convertStringToCellValue('Option 1')).toEqual('Option 1');
     expect(field.convertStringToCellValue('Option\n1')).toEqual('Option 1');

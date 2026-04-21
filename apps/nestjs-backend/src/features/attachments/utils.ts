@@ -1,3 +1,6 @@
+import { isImage } from '@teable/core';
+import { ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE } from './constant';
+
 export const getExtensionPreview = (contentType: string) => {
   const imageExtensions = [
     'jif',
@@ -43,4 +46,8 @@ export const getExtensionPreview = (contentType: string) => {
     return contentType;
   }
   return 'application/octet-stream';
+};
+
+export const resolveThumbnailMimetype = (mimetype: string) => {
+  return isImage(mimetype) ? mimetype : ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
 };

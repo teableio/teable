@@ -3,14 +3,7 @@ import { Calendar as CalendarIcon } from '@teable/icons';
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
-import {
-  forwardRef,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-} from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, useEffect } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { useIsTouchDevice } from '../../../hooks';
 import type { IEditorRef } from '../type';

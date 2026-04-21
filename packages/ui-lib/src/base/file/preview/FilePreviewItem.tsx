@@ -21,7 +21,7 @@ export const FilePreviewItem = (props: IFilePreviewItem) => {
     const fileId = fileIdRef.current;
     const isItemChange = fileItem !== oldFileItemRef.current;
     if (isItemChange) {
-      oldFileItemRef.current === fileItem;
+      oldFileItemRef.current = fileItem;
       mergeFiles({ ...fileItem, fileId });
     }
   }, [fileItem, mergeFiles]);

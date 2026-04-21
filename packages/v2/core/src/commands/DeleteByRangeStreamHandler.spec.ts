@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -37,6 +37,7 @@ import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   RecordMutationResult,
+  RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
@@ -195,15 +196,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     context: IExecutionContext,
     __: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ deletedRecords?: ReadonlyArray<RecordStoredSnapshot> }, DomainError>> {
     this.deleteContexts.push(context);
 
     const matchingIds =
@@ -219,12 +220,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     }
 
     if (this.queryRepository) {
+      const deletedRecords = this.queryRepository.records
+        .filter((record) => matchingIds.includes(record.id))
+        .map((record) => toStoredSnapshot(record));
       this.queryRepository.records = this.queryRepository.records.filter(
         (record) => !matchingIds.includes(record.id)
       );
       this.queryRepository.total = this.queryRepository.records.length;
+      return ok(deletedRecords.length > 0 ? { deletedRecords } : {});
     }
-    return ok(undefined);
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -284,6 +289,17 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 }
 
+const toStoredSnapshot = (record: TableRecordReadModel): RecordStoredSnapshot => ({
+  recordId: record.id,
+  fields: record.fields,
+  ...(record.orders ? { orders: record.orders } : {}),
+  ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
+  ...(record.createdTime ? { createdTime: record.createdTime } : {}),
+  ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+  ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
+  ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+});
+
 class FakeEventBus implements IEventBus {
   events: IDomainEvent[] = [];
   publishManyCalls: Array<ReadonlyArray<IDomainEvent>> = [];
@@ -331,6 +347,48 @@ class FakeUndoRedoService {
     });
     return ok(undefined);
   }
+
+  async recordDelete(
+    context: IExecutionContext,
+    params: {
+      tableId: TableId;
+      deletedRecords: ReadonlyArray<{ recordId: string }>;
+      deletedRecordIds?: ReadonlyArray<string>;
+      groupId?: string;
+    }
+  ) {
+    return this.recordEntry(context, params.tableId, {
+      ...(params.groupId ? { groupId: params.groupId } : {}),
+      undoCommand: {
+        payload: {
+          records: [...params.deletedRecords],
+        },
+      },
+      redoCommand: {
+        payload: {
+          recordIds: [
+            ...(params.deletedRecordIds ?? params.deletedRecords.map((record) => record.recordId)),
+          ],
+        },
+      },
+    });
+  }
+
+  async appendEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+    return this.recordEntry(context, tableId, entry);
+  }
+
+  async appendRecordDelete(
+    context: IExecutionContext,
+    params: {
+      tableId: TableId;
+      deletedRecords: ReadonlyArray<{ recordId: string }>;
+      deletedRecordIds?: ReadonlyArray<string>;
+      groupId?: string;
+    }
+  ) {
+    return this.recordDelete(context, params);
+  }
 }
 
 const createHandler = (args: {
@@ -349,7 +407,7 @@ const createHandler = (args: {
     args.recordRepository ?? new FakeTableRecordRepository(args.queryRepository),
     args.queryRepository,
     eventBus,
-    undoRedoService as unknown as UndoRedoService,
+    undoRedoService as unknown as UndoRedoStackService,
     new FakeUnitOfWork()
   );
 

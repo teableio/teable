@@ -168,7 +168,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   return (
     <>
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover modal open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"

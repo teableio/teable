@@ -9,8 +9,9 @@ import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type {
   RecordUpdateUndoRedoInput,
-  UndoRedoService,
-} from '../application/services/UndoRedoService';
+  RecordSnapshotUndoRedoInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -227,6 +228,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastContext: IExecutionContext | undefined;
   lastRecordId: RecordId | undefined;
   lastMutateSpec: ICellValueSpec | undefined;
+  omitUpdateSnapshot = false;
 
   async insert(
     _: IExecutionContext,
@@ -261,7 +263,24 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastContext = context;
     this.lastRecordId = recordId;
     this.lastMutateSpec = mutateSpec;
-    return ok({});
+    return ok(
+      this.omitUpdateSnapshot
+        ? {}
+        : {
+            updateSnapshot: {
+              previous: {
+                recordId: recordId.toString(),
+                fields: {},
+              },
+              current: {
+                recordId: recordId.toString(),
+                fields: {},
+              },
+              oldVersion: 1,
+              newVersion: 2,
+            },
+          }
+    );
   }
 
   async updateMany(
@@ -277,16 +296,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -379,13 +398,31 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 class FakeUndoRedoService {
-  calls: RecordUpdateUndoRedoInput[] = [];
+  calls: Array<RecordUpdateUndoRedoInput | RecordSnapshotUndoRedoInput> = [];
+  entryCalls: Array<unknown> = [];
 
-  async recordUpdateRecord(
+  async appendRecordUpdate(
     _context: IExecutionContext,
     params: RecordUpdateUndoRedoInput
   ): Promise<Result<void, DomainError>> {
     this.calls.push(params);
+    return ok(undefined);
+  }
+
+  async appendRecordUpdateFromSnapshot(
+    _context: IExecutionContext,
+    params: RecordSnapshotUndoRedoInput
+  ): Promise<Result<void, DomainError>> {
+    this.calls.push(params);
+    return ok(undefined);
+  }
+
+  async appendEntry(
+    _context: IExecutionContext,
+    _tableId: TableId,
+    entry: unknown
+  ): Promise<Result<void, DomainError>> {
+    this.entryCalls.push(entry);
     return ok(undefined);
   }
 }
@@ -432,7 +469,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       unitOfWork
     );
 
@@ -487,7 +524,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       unitOfWork
     );
 
@@ -547,7 +584,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -600,7 +637,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -650,7 +687,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       unitOfWork
     );
 
@@ -728,7 +765,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       unitOfWork
     );
 
@@ -778,7 +815,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       new FakeUnitOfWork()
     );
 
@@ -790,6 +827,53 @@ describe('UpdateRecordHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Record missing');
+  });
+
+  it('returns error when repository update snapshot is missing', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitUpdateSnapshot = true;
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
+      new FakeEventBus(),
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      new FakeUnitOfWork()
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.update_snapshot.unavailable');
   });
 
   it('event changes contain resolved values after typecast user field resolution', async () => {
@@ -843,7 +927,7 @@ describe('UpdateRecordHandler', () => {
       noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
-      new FakeUndoRedoService() as unknown as UndoRedoService,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
       unitOfWork
     );
 
@@ -913,7 +997,7 @@ describe('UpdateRecordHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
-        new FakeUndoRedoService() as unknown as UndoRedoService,
+        new FakeUndoRedoService() as unknown as UndoRedoStackService,
         new FakeUnitOfWork()
       );
 
@@ -972,7 +1056,7 @@ describe('UpdateRecordHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
-        new FakeUndoRedoService() as unknown as UndoRedoService,
+        new FakeUndoRedoService() as unknown as UndoRedoStackService,
         new FakeUnitOfWork()
       );
 
@@ -1023,7 +1107,7 @@ describe('UpdateRecordHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
-        new FakeUndoRedoService() as unknown as UndoRedoService,
+        new FakeUndoRedoService() as unknown as UndoRedoStackService,
         new FakeUnitOfWork()
       );
 
