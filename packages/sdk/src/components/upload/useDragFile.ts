@@ -1,6 +1,6 @@
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
-import { useDrop, useDropArea } from 'react-use';
+import { useDropArea } from 'react-use';
 
 interface IUseDragFileProps {
   event?: {
@@ -16,7 +16,7 @@ export const useDragFile = (props: IUseDragFileProps = {}) => {
   const { event, options } = props;
   const { onDrop, onPaste } = event || {};
   const { debounceTime = 30 } = options || {};
-  const { over: hasOver } = useDrop();
+  const [hasOver, setHasOver] = useState(false);
   const [bound, { over }] = useDropArea({
     onFiles: (files, event) => {
       if (onDrop && event.type === 'drop') onDrop(files);
@@ -30,7 +30,32 @@ export const useDragFile = (props: IUseDragFileProps = {}) => {
   }, [debounceTime]);
 
   useEffect(() => {
+    const isFileDrag = (e: DragEvent) => e.dataTransfer?.types?.includes('Files') ?? false;
+
+    const onDragOverOrEnter = (e: DragEvent) => {
+      if (isFileDrag(e)) {
+        e.preventDefault();
+        setHasOver(true);
+      }
+    };
+    const onDragLeaveOrDrop = () => setHasOver(false);
+
+    document.addEventListener('dragenter', onDragOverOrEnter);
+    document.addEventListener('dragover', onDragOverOrEnter);
+    document.addEventListener('dragleave', onDragLeaveOrDrop);
+    document.addEventListener('drop', onDragLeaveOrDrop);
+
+    return () => {
+      document.removeEventListener('dragenter', onDragOverOrEnter);
+      document.removeEventListener('dragover', onDragOverOrEnter);
+      document.removeEventListener('dragleave', onDragLeaveOrDrop);
+      document.removeEventListener('drop', onDragLeaveOrDrop);
+    };
+  }, []);
+
+  useEffect(() => {
     updateDragFileEnter(hasOver);
+    return () => updateDragFileEnter.cancel();
   }, [updateDragFileEnter, hasOver]);
   return {
     over,

@@ -145,6 +145,28 @@ export class GeneratedColumnQuerySupportValidatorPostgres
     return false;
   }
 
+  textBefore(
+    _text: string,
+    _delimiter: string,
+    _instanceNum?: string,
+    _matchMode?: string,
+    _matchEnd?: string,
+    _ifNotFound?: string
+  ): boolean {
+    // POSITION/LEFT require collation handling for string literals in generated columns.
+    return false;
+  }
+
+  textSplit(
+    _text: string,
+    _delimiter: string,
+    _ignoreEmpty?: string,
+    _matchMode?: string
+  ): boolean {
+    // Produces JSON arrays and relies on collation-sensitive string processing.
+    return false;
+  }
+
   lower(_text: string): boolean {
     // LOWER function requires collation for string literals in PostgreSQL
     // Only supported when used with column references

@@ -6,23 +6,21 @@ import { parseDsn as parse } from '@httpx/dsn-parser';
 import { PrismaClient } from '@prisma/client';
 import { SpaceSeeds } from '../src/seeds/e2e/space-seeds';
 import { UserSeeds } from '../src/seeds/e2e/user-seeds';
+import { installUndoCaptureGlobals } from './installUndoCaptureGlobals';
 
 export type IDsn = ReturnType<typeof parseDsnOrThrow>;
 
 export function parseDsn(dsn: string): IDsn {
   const parsedDsn = parse(dsn);
-  if (dsn.startsWith('file:')) {
-    return {
-      host: 'localhost',
-      driver: 'sqlite3',
-    };
-  }
 
   if (!parsedDsn.success) {
     throw new Error(`DATABASE_URL ${parsedDsn.reason}`);
   }
   if (!parsedDsn.value.port) {
     throw new Error(`DATABASE_URL must provide a port`);
+  }
+  if (parsedDsn.value.driver !== 'postgresql') {
+    throw new Error(`DATABASE_URL driver ${parsedDsn.value.driver} is not supported`);
   }
 
   return parsedDsn.value;
@@ -50,6 +48,8 @@ async function main() {
   prisma = new PrismaClient();
 
   if (e2e) {
+    await installUndoCaptureGlobals(prisma, driver);
+
     const userSeeds = new UserSeeds(prisma, driver as any, Boolean(log));
     await userSeeds.execute();
 

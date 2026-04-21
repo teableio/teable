@@ -30,18 +30,14 @@ export const integrationItemVoSchema = z.object({
   lastModifiedTime: z.string().optional(),
 });
 
-export const aiIntegrationSettingSchema = aiConfigSchema
-  .pick({
-    chatModel: true,
-  })
-  .extend({
-    enable: z.boolean().optional(),
-    llmProviders: z.array(
-      simpleLLMProviderSchema.omit({
-        isInstance: true,
-      })
-    ),
-  });
+export const aiIntegrationSettingSchema = z.object({
+  enable: z.boolean().optional(),
+  llmProviders: z.array(
+    simpleLLMProviderSchema.omit({
+      isInstance: true,
+    })
+  ),
+});
 
 export type IAIIntegrationAISetting = z.infer<typeof aiIntegrationSettingSchema>;
 

@@ -577,6 +577,19 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     return results;
   };
 
+  const constraintExists = async (tableName: string, constraintName: string): Promise<boolean> => {
+    const result = await sql<{ cnt: string }>`
+      SELECT count(*)::text AS cnt
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = c.connamespace
+      WHERE n.nspname = ${TEST_SCHEMA}
+        AND t.relname = ${tableName}
+        AND c.conname = ${constraintName}
+    `.execute(db);
+    return result.rows[0]?.cnt === '1';
+  };
+
   describe('ColumnExistsRule', () => {
     const TABLE_NAME = 'test_column_rule';
 
@@ -985,6 +998,60 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await db.executeQuery(stmt.compile(db));
       }
 
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should return invalid when an existing FK index is unique', async () => {
+      await createTestTable(TABLE_NAME, ['name_col TEXT']);
+      await sql
+        .raw(
+          `ALTER TABLE ${TEST_SCHEMA}.${TABLE_NAME}
+           ADD CONSTRAINT index_name_col UNIQUE (name_col)`
+        )
+        .execute(db);
+
+      const fieldResult = createRealField('idx004', 'Name', 'name_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'name_col', 'other_table');
+      const rule = IndexRule.forFkColumn(field, 'name_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const result = await rule.isValid(ctx);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toMatchObject({
+        valid: false,
+        missing: ['non-unique index index_name_col'],
+        extra: ['unique constraint or index index_name_col'],
+      });
+    });
+
+    it('should replace a stale unique FK constraint with a non-unique index', async () => {
+      await createTestTable(TABLE_NAME, ['name_col TEXT']);
+      await sql
+        .raw(
+          `ALTER TABLE ${TEST_SCHEMA}.${TABLE_NAME}
+           ADD CONSTRAINT index_name_col UNIQUE (name_col)`
+        )
+        .execute(db);
+
+      const fieldResult = createRealField('idx005', 'Name', 'name_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'name_col', 'other_table');
+      const rule = IndexRule.forFkColumn(field, 'name_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+      await expect(constraintExists(TABLE_NAME, 'index_name_col')).resolves.toBe(true);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const index = (await introspector.getIndex(TEST_SCHEMA, 'index_name_col'))._unsafeUnwrap();
+      expect(index).toMatchObject({ isUnique: false, columnNames: ['name_col'] });
+      await expect(constraintExists(TABLE_NAME, 'index_name_col')).resolves.toBe(false);
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
@@ -3084,6 +3151,74 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         checker.checkField(table, field.id().toString())
       );
       expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it('should repair a many-one link FK index that is incorrectly unique', async () => {
+      const sourceTableName = createValidTableId('src_many_one_unique_idx');
+      const targetTableName = createValidTableId('tgt_many_one_unique_idx');
+      const fkColumnName = '__fk_many_one_unique_idx';
+      const indexRuleName = `index_${fkColumnName}`;
+
+      await createTestTable(targetTableName);
+      await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+      await sql
+        .raw(
+          `ALTER TABLE ${TEST_SCHEMA}.${sourceTableName}
+           ADD CONSTRAINT "${indexRuleName}" UNIQUE ("${fkColumnName}")`
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: 'rpuniqueidx1',
+        name: 'ManyOne Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyOne',
+        foreignTableId: targetTableName,
+        fkHostTableName: sourceTableName,
+        selfKeyName: '__id',
+        foreignKeyName: fkColumnName,
+        hasOrderColumn: false,
+      })._unsafeUnwrap();
+      const table = createTableAggregate(sourceTableName, field);
+      const ruleId = `index:${field.id().toString()}:${fkColumnName}`;
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const initialCheckResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      const initialIndexResult = initialCheckResults.find((result) => result.ruleId === ruleId);
+
+      expect(initialIndexResult?.status).toBe('warn');
+      expect(initialIndexResult?.details).toMatchObject({
+        missing: [`non-unique index ${indexRuleName}`],
+        extra: [`unique constraint or index ${indexRuleName}`],
+      });
+      await expect(constraintExists(sourceTableName, indexRuleName)).resolves.toBe(true);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId)
+      );
+      const repairResult = repairResults.find((result) => result.ruleId === ruleId);
+
+      expect(repairResult?.status).toBe('success');
+      expect(repairResult?.outcome).toBe('repaired');
+      await expect(constraintExists(sourceTableName, indexRuleName)).resolves.toBe(false);
+
+      const repairedIndex = (
+        await introspector.getIndex(TEST_SCHEMA, indexRuleName)
+      )._unsafeUnwrap();
+      expect(repairedIndex).toMatchObject({
+        columnNames: [fkColumnName],
+        isUnique: false,
+      });
+
+      const repairedCheckResults = await collectFinalResults(
+        checker.checkField(table, field.id().toString())
+      );
+      expect(repairedCheckResults.find((result) => result.ruleId === ruleId)?.status).toBe(
+        'success'
+      );
     });
 
     it.each([

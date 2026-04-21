@@ -194,7 +194,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Creator Column */}
-      <div className="hidden w-10 shrink-0 items-center gap-2 px-2 sm:flex sm:w-24">
+      <div className="hidden w-[88px] shrink-0 items-center gap-2 px-2 sm:flex xl:w-40 2xl:w-48">
         <Avatar className="size-6 border">
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
@@ -205,12 +205,12 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Created Time Column */}
-      <div className="hidden w-24 shrink-0 truncate px-2 text-xs sm:flex">
+      <div className="hidden w-[88px] shrink-0 truncate px-2 text-xs sm:flex xl:w-28 2xl:w-48">
         {base.createdTime ? dayjs(base.createdTime).fromNow() : '-'}
       </div>
 
       {/* Last Opened Column */}
-      <div className="hidden w-32 shrink-0 truncate px-2 text-xs sm:flex">
+      <div className="hidden w-[88px] shrink-0 truncate px-2 text-xs sm:flex xl:w-28 2xl:w-48">
         {lastVisitTime ? dayjs(lastVisitTime).fromNow() : '-'}
       </div>
 

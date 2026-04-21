@@ -69,6 +69,17 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       });
     };
 
+    const onRename = useCallback(
+      (id: string, newName: string) => {
+        setSortData((prev) => {
+          const updated = prev.map((att) => (att.id === id ? { ...att, name: newName } : att));
+          onChange?.(updated);
+          return updated;
+        });
+      },
+      [onChange]
+    );
+
     const downloadFile = useCallback(
       ({ presignedUrl, name }: IAttachmentItem) => {
         const downloadLink = document.createElement('a');
@@ -216,6 +227,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
                             key={attachment.id}
                             attachment={attachment}
                             onDelete={onDelete}
+                            onRename={onRename}
                             downloadFile={downloadFile}
                             fileCover={fileCover}
                             readonly={readonly}

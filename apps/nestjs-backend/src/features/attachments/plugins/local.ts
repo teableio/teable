@@ -4,7 +4,7 @@ import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } f
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { Injectable, Logger } from '@nestjs/common';
-import { getRandomString, HttpErrorCode } from '@teable/core';
+import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
@@ -53,7 +53,7 @@ export class LocalStorage implements StorageAdapter {
     return `${baseUrl}/api/attachments/upload/${token}`;
   }
 
-  private deleteFile(filePath: string) {
+  private deleteLocalFile(filePath: string) {
     try {
       unlinkSync(filePath);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,7 +182,7 @@ export class LocalStorage implements StorageAdapter {
         });
       } catch (error) {
         this.logger.error('saveTemporaryFile error', error);
-        this.deleteFile(path);
+        this.deleteLocalFile(path);
         reject(error);
       }
     });
@@ -193,7 +193,7 @@ export class LocalStorage implements StorageAdapter {
     const newFilePath = resolve(distPath, rename);
     await fse.copy(filePath, newFilePath);
     if (isDelete) {
-      this.deleteFile(filePath);
+      this.deleteLocalFile(filePath);
     }
     return join(this.path, rename);
   }
@@ -243,7 +243,7 @@ export class LocalStorage implements StorageAdapter {
       }),
     };
 
-    if (!mimetype?.startsWith('image/')) {
+    if (!isImage(mimetype ?? '')) {
       return meta;
     }
     return {
@@ -321,7 +321,7 @@ export class LocalStorage implements StorageAdapter {
         writer.on('finish', resolve);
         writer.on('error', reject);
       }).catch((err) => {
-        this.deleteFile(temPath);
+        this.deleteLocalFile(temPath);
         throw err;
       });
     }
@@ -372,6 +372,11 @@ export class LocalStorage implements StorageAdapter {
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
     return createReadStream(resolve(this.storageDir, bucket, path));
+  }
+
+  async deleteFile(bucket: string, path: string): Promise<void> {
+    const filePath = resolve(this.storageDir, bucket, path);
+    this.deleteLocalFile(filePath);
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true) {

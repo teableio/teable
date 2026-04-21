@@ -33,6 +33,8 @@ import type {
   IComputedUpdateOutbox,
 } from '../computed';
 import type { DynamicDB } from '../query-builder';
+import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
+import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 // =============================================================================
@@ -98,7 +100,39 @@ class RecordingDriver implements Driver {
 }
 
 const createRecordingDb = (rowProvider?: RowProvider) => {
-  const driver = new RecordingDriver(rowProvider);
+  const defaultUndoLogRowProvider: RowProvider = (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM information_schema.tables')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM information_schema.columns')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_proc')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+      return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [
+        {
+          record_id: RECORD_ID,
+          old_row: {
+            __id: RECORD_ID,
+          },
+        },
+      ];
+    }
+    return [];
+  };
+  const driver = new RecordingDriver(
+    rowProvider
+      ? (compiledQuery) => {
+          const providedRows = rowProvider(compiledQuery);
+          return providedRows.length > 0 ? providedRows : defaultUndoLogRowProvider(compiledQuery);
+        }
+      : defaultUndoLogRowProvider
+  );
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -207,12 +241,44 @@ const createRepository = (
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
+    createNoopEventBus(),
     hasher
   );
 };
 
+const isUndoCaptureQuery = (query: CompiledQuery) => {
+  const text = query.sql;
+  return (
+    text.includes('teable_undo_capture_') ||
+    text.includes('"public"."__undo_log"') ||
+    text.includes("table_name = '__undo_log'") ||
+    text.includes('__teable_capture_undo_row') ||
+    text.includes('FROM pg_trigger AS t') ||
+    text.includes('"__teable_undo_capture"') ||
+    text.includes('teable.undo_batch_id')
+  );
+};
+
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
-  queries.map((query) => ({ sql: query.sql, parameters: query.parameters }));
+  queries
+    .filter((query) => !isUndoCaptureQuery(query))
+    .map((query) => ({ sql: query.sql, parameters: query.parameters }));
+
+const composeRowProviders =
+  (...providers: RowProvider[]): RowProvider =>
+  (compiledQuery) => {
+    for (const provider of providers) {
+      const rows = provider(compiledQuery);
+      if (rows.length > 0) {
+        return rows;
+      }
+    }
+    return [];
+  };
 
 const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowProvider => {
   const target = `from ${tableName}`;
@@ -228,6 +294,20 @@ const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowP
       compiledQuery.sql.includes(target)
     ) {
       return recordIds.map((recordId) => ({ record_id: recordId }));
+    }
+    return [];
+  };
+};
+
+const createUndoLogRowProvider = (
+  rows: ReadonlyArray<{
+    record_id: string;
+    old_row: Record<string, unknown>;
+  }>
+): RowProvider => {
+  return (compiledQuery) => {
+    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+      return [...rows];
     }
     return [];
   };
@@ -417,10 +497,23 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const deleteSpec = specBuilder.build()._unsafeUnwrap();
 
     const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const rowProvider = createRecordIdRowProvider(tableName, [
-      recordId.toString(),
-      recordIdB.toString(),
-    ]);
+    const rowProvider = composeRowProviders(
+      createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+        {
+          record_id: recordIdB.toString(),
+          old_row: {
+            __id: recordIdB.toString(),
+          },
+        },
+      ])
+    );
 
     const { db, driver } = createRecordingDb(rowProvider);
     const repo = createRepository(db, table);
@@ -598,6 +691,135 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
       },
     ]);
+
+    vi.useRealTimers();
+  });
+
+  it('returns deleted record snapshots captured from the undo log', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb(
+      composeRowProviders(
+        createRecordIdRowProvider(tableName, [recordId.toString()]),
+        createUndoLogRowProvider([
+          {
+            record_id: recordId.toString(),
+            old_row: {
+              __id: recordId.toString(),
+              col_name: 'Alice',
+            },
+          },
+        ])
+      )
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      deletedRecords: [
+        expect.objectContaining({
+          recordId: recordId.toString(),
+          fields: {
+            [NAME_FIELD_ID]: 'Alice',
+          },
+        }),
+      ],
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('returns Err when delete snapshot capture is incomplete', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'z'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    specBuilder.recordId(recordIdB);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db } = createRecordingDb(
+      composeRowProviders(
+        createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
+        createUndoLogRowProvider([
+          {
+            record_id: recordId.toString(),
+            old_row: {
+              __id: recordId.toString(),
+              col_name: 'Alice',
+            },
+          },
+        ])
+      )
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain(
+      'Failed to capture complete delete snapshots'
+    );
 
     vi.useRealTimers();
   });

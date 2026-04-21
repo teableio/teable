@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
+import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
 import { CustomHttpException } from '../../custom.exception';
@@ -12,7 +13,11 @@ import {
   getTableThumbnailToken,
 } from '../../utils/generate-thumbnail-path';
 import { second } from '../../utils/second';
-import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from './constant';
+import {
+  ATTACHMENT_LG_THUMBNAIL_HEIGHT,
+  ATTACHMENT_SM_THUMBNAIL_HEIGHT,
+  ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE,
+} from './constant';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
@@ -112,6 +117,57 @@ export class AttachmentsStorageService {
         'Content-Type': mimetype,
       }
     );
+  }
+
+  async uploadTableImageThumbnailsFromBuffer(
+    bucket: string,
+    path: string,
+    imageBuffer: Buffer,
+    height: number
+  ) {
+    const mimetype = ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
+    const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
+    const image = sharp(imageBuffer, { failOn: 'none', unlimited: true });
+    let cutSmThumbnailPath: string | undefined;
+    let cutLgThumbnailPath: string | undefined;
+
+    if (height > ATTACHMENT_SM_THUMBNAIL_HEIGHT) {
+      const smBuffer = await image
+        .clone()
+        .resize(undefined, ATTACHMENT_SM_THUMBNAIL_HEIGHT)
+        .png()
+        .toBuffer();
+      cutSmThumbnailPath = (
+        await this.storageAdapter.uploadFile(bucket, smThumbnailPath, smBuffer, {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': mimetype,
+        })
+      ).path;
+    }
+
+    if (height > ATTACHMENT_LG_THUMBNAIL_HEIGHT) {
+      const lgBuffer = await image
+        .clone()
+        .resize(undefined, ATTACHMENT_LG_THUMBNAIL_HEIGHT)
+        .png()
+        .toBuffer();
+      cutLgThumbnailPath = (
+        await this.storageAdapter.uploadFile(bucket, lgThumbnailPath, lgBuffer, {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': mimetype,
+        })
+      ).path;
+    }
+
+    this.eventEmitterService.emit(Events.CROP_IMAGE, {
+      bucket,
+      path,
+    });
+
+    return {
+      smThumbnailPath: cutSmThumbnailPath,
+      lgThumbnailPath: cutLgThumbnailPath,
+    };
   }
 
   async cropTableImage(bucket: string, path: string, height: number) {

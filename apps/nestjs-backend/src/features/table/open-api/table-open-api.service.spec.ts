@@ -117,6 +117,7 @@ describe('TableOpenApiService.prepareFields', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     );
 

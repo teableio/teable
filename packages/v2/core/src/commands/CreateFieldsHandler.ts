@@ -6,7 +6,10 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import type { IDomainContext } from '../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -63,7 +66,7 @@ export class CreateFieldsHandler
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
@@ -168,10 +171,14 @@ export class CreateFieldsHandler
           })
         );
 
-        yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
-          undoCommand: composeUndoRedoCommands(undoCommands),
-          redoCommand: composeUndoRedoCommands(redoCommands),
-        });
+        yield* await handler.undoRedoStackService.appendEntry(
+          toUndoRedoStackAppendContext(context),
+          updateResult.table.id(),
+          {
+            undoCommand: composeUndoRedoCommands(undoCommands),
+            redoCommand: composeUndoRedoCommands(redoCommands),
+          }
+        );
       }
 
       return ok(

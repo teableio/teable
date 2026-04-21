@@ -6,7 +6,6 @@ import type { RecordMutationSpecResolverService } from '../application/services/
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -35,7 +34,7 @@ import type {
   ITableRecordQueryStreamOptions,
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
-import type { ITableRecordRepository } from '../ports/TableRecordRepository';
+import type { ITableRecordRepository, RecordStoredSnapshot } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -46,15 +45,14 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   return { actorId: actorIdResult._unsafeUnwrap() };
 };
 
-const noopUndoRedoService = {
-  recordEntry: async () => ok(undefined),
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -146,17 +144,24 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
   failInsert: DomainError | undefined;
+  omitRecordSnapshot = false;
+  omitRecordSnapshots = false;
 
   async insert(
     context: IExecutionContext,
     table: Table,
     record: TableRecord
-  ): Promise<Result<{ computedChanges?: ReadonlyMap<string, unknown> }, DomainError>> {
+  ): Promise<
+    Result<
+      { computedChanges?: ReadonlyMap<string, unknown>; recordSnapshot?: RecordStoredSnapshot },
+      DomainError
+    >
+  > {
     this.lastContext = context;
     this.lastTable = table;
     if (this.failInsert) return err(this.failInsert);
     this.records.push(record);
-    return ok({});
+    return ok(this.omitRecordSnapshot ? {} : { recordSnapshot: toStoredSnapshot(record) });
   }
 
   async insertMany(
@@ -173,7 +178,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastTable = table;
     if (this.failInsert) return err(this.failInsert);
     this.records.push(...records);
-    return ok({});
+    return ok(
+      this.omitRecordSnapshots
+        ? {}
+        : { recordSnapshots: records.map((record) => toStoredSnapshot(record)) }
+    );
   }
 
   async insertManyStream(
@@ -224,16 +233,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _context: IExecutionContext,
     _table: Table,
     _batches: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     _context: IExecutionContext,
     _table: Table,
     _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ) {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -300,6 +309,18 @@ class FakeEventBus implements IEventBus {
     return ok(undefined);
   }
 }
+
+const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
+  const fields: Record<string, unknown> = {};
+  for (const entry of record.fields().entries()) {
+    fields[entry.fieldId.toString()] = entry.value.toValue();
+  }
+
+  return {
+    recordId: record.id().toString(),
+    fields,
+  };
+};
 
 const createFakeRecordMutationSpecResolverService = () =>
   ({
@@ -743,6 +764,49 @@ describe('DuplicateRecordHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message).toBe('Insert failed');
+  });
+
+  it('returns error when the repository omits the stored snapshot', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitRecordSnapshot = true;
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    recordQueryRepository.records.set(sourceRecordId, {
+      id: sourceRecordId,
+      fields: {
+        [textFieldId]: 'Test',
+      },
+      version: 1,
+    });
+
+    const handler = new DuplicateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      createFakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const commandResult = DuplicateRecordCommand.create({
+      tableId,
+      recordId: sourceRecordId,
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
   });
 
   it('returns the duplicated record in result', async () => {

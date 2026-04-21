@@ -3,13 +3,17 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
+import { requireStoredRecordSnapshot } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -24,7 +28,6 @@ import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
@@ -70,7 +73,7 @@ export class DuplicateRecordHandler
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -230,31 +233,26 @@ export class DuplicateRecordHandler
       );
       const persistedResult = yield* transactionResult;
       const mutationResult = persistedResult.mutation;
+      const recordSnapshot = yield* requireStoredRecordSnapshot(
+        {
+          operation: 'duplicate',
+          tableId: table.id().toString(),
+          recordId: record.id().toString(),
+        },
+        mutationResult.recordSnapshot
+      );
 
       // 8. Pull and publish events
       const events = [...persistedResult.tableEvents, ...tableForCreate.pullDomainEvents()];
       yield* await handler.eventBus.publishMany(context, events);
 
-      const recordFields: Record<string, unknown> = {};
-      for (const entry of record.fields().entries()) {
-        recordFields[entry.fieldId.toString()] = entry.value.toValue();
-      }
-
-      yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-        undoCommand: createUndoRedoCommand('DeleteRecords', {
-          tableId: table.id().toString(),
-          recordIds: [record.id().toString()],
-        }),
-        redoCommand: createUndoRedoCommand('RestoreRecords', {
-          tableId: table.id().toString(),
-          records: [
-            {
-              recordId: record.id().toString(),
-              fields: recordFields,
-            },
-          ],
-        }),
-      });
+      yield* await handler.undoRedoStackService.appendRecordCreate(
+        toUndoRedoStackAppendContext(context),
+        {
+          tableId: table.id(),
+          createdRecords: [recordSnapshot],
+        }
+      );
       await pluginExecution.afterCommit();
 
       // 9. Build field key mapping for response transformation (using field ID)

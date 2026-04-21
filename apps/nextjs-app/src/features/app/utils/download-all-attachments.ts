@@ -160,19 +160,20 @@ async function loadAllAttachments(
   totalAttachments: number;
   totalSize: number;
 }> {
-  const { ignoreViewQuery, filter, orderBy, groupBy } = personalViewCommonQuery ?? {};
+  const { ignoreViewQuery, filter, orderBy, groupBy, search } = personalViewCommonQuery ?? {};
 
   // 1. Create filter with non-empty attachment condition
   const attachmentFilter = createAttachmentFilter(fieldId, filter as IFilter | undefined);
 
   // 2. Get total row count with the filter (use share view API if shareId is provided)
   const rowCountData = shareId
-    ? (await getShareViewRowCount(shareId, { filter: attachmentFilter })).data
+    ? (await getShareViewRowCount(shareId, { filter: attachmentFilter, search })).data
     : (
         await getRowCount(tableId, {
           viewId,
           ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
           filter: attachmentFilter,
+          search,
         })
       ).data;
 
@@ -212,6 +213,7 @@ async function loadAllAttachments(
       ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
       ...(orderBy ? { orderBy } : {}),
       ...(groupBy ? { groupBy } : {}),
+      ...(search ? { search } : {}),
     };
 
     // Use share view API if shareId is provided
