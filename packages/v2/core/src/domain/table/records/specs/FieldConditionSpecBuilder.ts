@@ -5,11 +5,11 @@ import type { z } from 'zod';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
+import { CellValueType } from '../../fields/types/CellValueType';
 import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
 import type { LookupField } from '../../fields/types/LookupField';
 import type { SingleLineTextField } from '../../fields/types/SingleLineTextField';
 import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisitor';
-import { CellValueType } from '../../fields/types/CellValueType';
 import { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import { ButtonConditionSpec } from './ButtonConditionSpec';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
@@ -99,12 +99,11 @@ export class FieldConditionSpecBuilder {
       // fall back to the outer field for operator validation.
     }
 
-    // V1 compatibility: is/isNot with null value means "field is empty/not empty"
-    // Normalize before operator validation since is/isNot+null is not natively valid in v2
-    if (!input.value && (input.operator === 'is' || input.operator === 'isNot')) {
+    // V1 compatibility: checkbox filters store unchecked as is+null and checked as isNot+null.
+    // Other fields use the same shape for incomplete UI filters, which callers should sanitize away.
+    if (input.value == null && (input.operator === 'is' || input.operator === 'isNot')) {
       const cellType = valueTypeResult.value.cellValueType;
       if (cellType.equals(CellValueType.boolean())) {
-        // Checkbox: is+null → is+false (unchecked), isNot+null → is+true (checked)
         input = {
           ...input,
           operator: 'is',
@@ -112,13 +111,6 @@ export class FieldConditionSpecBuilder {
             input.operator === 'is'
               ? RecordConditionLiteralValue.create(false)._unsafeUnwrap()
               : RecordConditionLiteralValue.create(true)._unsafeUnwrap(),
-        };
-      } else {
-        // Other fields: is+null → isEmpty, isNot+null → isNotEmpty
-        input = {
-          ...input,
-          operator: input.operator === 'is' ? 'isEmpty' : 'isNotEmpty',
-          value: undefined,
         };
       }
     }

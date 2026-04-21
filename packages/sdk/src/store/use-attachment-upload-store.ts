@@ -1,7 +1,7 @@
 import type { IAttachmentItem } from '@teable/core';
 import { generateAttachmentId, HttpError } from '@teable/core';
 import { insertAttachment, UploadType } from '@teable/openapi';
-import { omit } from 'lodash';
+import { isEqual, omit } from 'lodash';
 import { create } from 'zustand';
 import {
   AttachmentManager,
@@ -97,6 +97,9 @@ interface ICellAttachmentUploadState {
   // Get tasks for a specific cell
   getCellTasks: (cellKey: string) => ICellUploadTask[];
 
+  // Sync latest persisted attachments back into upload tasks
+  syncCellAttachments: (cellKey: string, attachments: IAttachmentItem[]) => void;
+
   // Check if a cell has uploading tasks
   hasUploadingTasks: (cellKey: string) => boolean;
 
@@ -113,6 +116,25 @@ interface ICellAttachmentUploadState {
 
 export const buildCellKey = (tableId: string, recordId: string, fieldId: string) =>
   `${tableId}:${recordId}:${fieldId}`;
+
+const matchAttachmentItem = (
+  taskAttachment: IAttachmentItem | undefined,
+  attachments: IAttachmentItem[]
+) => {
+  if (!taskAttachment) {
+    return undefined;
+  }
+
+  return attachments.find((attachment) => {
+    if (taskAttachment.token && attachment.token === taskAttachment.token) {
+      return true;
+    }
+    if (taskAttachment.path && attachment.path === taskAttachment.path) {
+      return true;
+    }
+    return attachment.name === taskAttachment.name && attachment.size === taskAttachment.size;
+  });
+};
 
 // Update task in store
 const updateTask = (cellKey: string, taskId: string, update: Partial<ICellUploadTask>) => {
@@ -334,6 +356,7 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
             ...omit(attachment, ['url']),
           };
 
+          updateTask(cellKey, file.id, { attachmentItem });
           enqueueInsert(cellKey, tableId, recordId, fieldId, file.id, attachmentItem);
         },
         errorCallback: (file, error, code) => {
@@ -584,6 +607,54 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
 
   getCellTasks: (cellKey) => {
     return get().cellUploads[cellKey]?.tasks || [];
+  },
+
+  syncCellAttachments: (cellKey, attachments) => {
+    if (attachments.length === 0) return;
+
+    set((prev) => {
+      const cellState = prev.cellUploads[cellKey];
+      if (!cellState) return prev;
+
+      let hasChanges = false;
+      const tasks = cellState.tasks.map((task) => {
+        const matchedAttachment = matchAttachmentItem(task.attachmentItem, attachments);
+        if (!matchedAttachment) {
+          return task;
+        }
+
+        const nextAttachmentItem = {
+          ...task.attachmentItem,
+          ...matchedAttachment,
+        };
+
+        const unchanged = isEqual(task.attachmentItem, nextAttachmentItem);
+
+        if (unchanged) {
+          return task;
+        }
+
+        hasChanges = true;
+        return {
+          ...task,
+          attachmentItem: nextAttachmentItem,
+        };
+      });
+
+      if (!hasChanges) {
+        return prev;
+      }
+
+      return {
+        cellUploads: {
+          ...prev.cellUploads,
+          [cellKey]: {
+            ...cellState,
+            tasks,
+          },
+        },
+      };
+    });
   },
 
   hasUploadingTasks: (cellKey) => {

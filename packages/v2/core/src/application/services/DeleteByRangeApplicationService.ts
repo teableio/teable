@@ -38,23 +38,23 @@ import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
 import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
 import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import { ITableRecordRepository } from '../../ports/TableRecordRepository';
+import { type DeleteManyResult, ITableRecordRepository } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { SpanAttributes } from '../../ports/Tracer';
-import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
-import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
+import { buildSanitizedRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import {
   resolveVisibleRowSearch,
   type RecordQuerySearch,
   type RecordSearch,
 } from '../../queries/RecordSearch';
+import { requireStoredRecordSnapshots } from './RecordMutationSnapshotContract';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { TableQueryService } from './TableQueryService';
-import { UndoRedoService } from './UndoRedoService';
+import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoStackService';
 
 const DEFAULT_DELETE_QUERY_PAGE_SIZE = 500;
 const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
@@ -174,7 +174,7 @@ export class DeleteByRangeApplicationService {
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -228,7 +228,7 @@ export class DeleteByRangeApplicationService {
       return err(persistResult.error);
     }
 
-    return this.finalizeDeletePlan(context, plan, pluginExecutionResult.value);
+    return this.finalizeDeletePlan(context, plan, persistResult.value, pluginExecutionResult.value);
   }
 
   createStream(
@@ -374,14 +374,11 @@ export class DeleteByRangeApplicationService {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    if (effectiveFilter) {
-      const filterSpecResult = await buildRecordConditionSpec(table, effectiveFilter);
-      if (filterSpecResult.isErr()) {
-        return err(filterSpecResult.error);
-      }
-      filterSpec = filterSpecResult.value;
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    if (filterSpecResult.isErr()) {
+      return err(filterSpecResult.error);
     }
+    const filterSpec = filterSpecResult.value;
 
     const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value);
     const groupByOrderByResult = await resolveGroupByToOrderBy(effectiveGroup);
@@ -405,7 +402,9 @@ export class DeleteByRangeApplicationService {
       search: visibleRowSearch,
       totalCols: orderedFieldIdsResult.value.length,
       pageSize,
-      includeOrders: true,
+      // Undo/redo restore snapshots now come from repository capture instead of
+      // the pre-read query, so we do not pay the extra row-order join here.
+      includeOrders: false,
     });
     if (recordsResult.isErr()) {
       return err(recordsResult.error);
@@ -481,14 +480,11 @@ export class DeleteByRangeApplicationService {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    if (effectiveFilter) {
-      const filterSpecResult = await buildRecordConditionSpec(table, effectiveFilter);
-      if (filterSpecResult.isErr()) {
-        return err(filterSpecResult.error);
-      }
-      filterSpec = filterSpecResult.value;
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    if (filterSpecResult.isErr()) {
+      return err(filterSpecResult.error);
     }
+    const filterSpec = filterSpecResult.value;
 
     const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value);
     const groupByOrderByResult = await resolveGroupByToOrderBy(effectiveGroup);
@@ -864,12 +860,12 @@ export class DeleteByRangeApplicationService {
     context: IExecutionContext,
     plan: PreparedDeletePlan | (PreparedDeleteChunk & { table: Table }),
     pluginExecution?: RecordWritePluginExecution
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<DeleteManyResult, DomainError>> {
     return this.unitOfWork.withTransaction(context, async (transactionContext) => {
       if (pluginExecution) {
         const beforePersistResult = await pluginExecution.beforePersist(transactionContext);
         if (beforePersistResult.isErr()) {
-          return beforePersistResult;
+          return err(beforePersistResult.error);
         }
       }
 
@@ -880,12 +876,12 @@ export class DeleteByRangeApplicationService {
       );
       if (deleteResult.isErr()) {
         if (isNotFoundError(deleteResult.error)) {
-          return ok(undefined);
+          return ok<DeleteManyResult>({});
         }
         return err(deleteResult.error);
       }
 
-      return ok(undefined);
+      return ok(deleteResult.value);
     });
   }
 
@@ -1033,15 +1029,36 @@ export class DeleteByRangeApplicationService {
         continue;
       }
 
-      deletedRecordIds.push(...chunk.deletedRecordIds);
-      deletedCount += chunk.deletedRecordIds.length;
+      const persistedRecordSnapshotsResult = this.resolveDeletedSnapshots(
+        plan.table,
+        chunk.recordSnapshots,
+        deleteResult.value
+      );
+      if (persistedRecordSnapshotsResult.isErr()) {
+        failedRowCountInRange += chunk.recordIds.length;
+        queue.push(
+          this.createErrorEvent(persistedRecordSnapshotsResult.error, {
+            phase: 'deleting',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...chunk.deletedRecordIds],
+          })
+        );
+        continue;
+      }
+      const persistedRecordSnapshots = persistedRecordSnapshotsResult.value;
+      const persistedDeletedRecordIds = persistedRecordSnapshots.map((snapshot) => snapshot.id);
+
+      deletedRecordIds.push(...persistedDeletedRecordIds);
+      deletedCount += persistedDeletedRecordIds.length;
 
       queue.push(
         this.createProgressEvent(
           'deleting',
           plan.totalCount,
           deletedCount,
-          chunk.deletedRecordIds.length,
+          persistedDeletedRecordIds.length,
           chunk.batchIndex
         )
       );
@@ -1058,8 +1075,10 @@ export class DeleteByRangeApplicationService {
         () =>
           this.publishDeleteEvents(context, {
             table: plan.table,
-            recordIds: chunk.recordIds,
-            recordSnapshots: chunk.recordSnapshots,
+            recordIds: persistedDeletedRecordIds.map((recordId) =>
+              RecordId.create(recordId)._unsafeUnwrap()
+            ),
+            recordSnapshots: persistedRecordSnapshots,
             orchestration: {
               operationId: operation.operationId,
               groupId: operation.operationId,
@@ -1077,7 +1096,7 @@ export class DeleteByRangeApplicationService {
             batchIndex: chunk.batchIndex,
             totalCount: plan.totalCount,
             deletedCount,
-            recordIds: [...chunk.deletedRecordIds],
+            recordIds: [...persistedDeletedRecordIds],
           })
         );
       }
@@ -1095,8 +1114,8 @@ export class DeleteByRangeApplicationService {
           this.recordDeleteUndoRedoEntry(
             context,
             plan.table,
-            chunk.recordSnapshots,
-            chunk.deletedRecordIds,
+            persistedRecordSnapshots,
+            persistedDeletedRecordIds,
             operation.operationId
           )
       );
@@ -1107,7 +1126,7 @@ export class DeleteByRangeApplicationService {
             batchIndex: chunk.batchIndex,
             totalCount: plan.totalCount,
             deletedCount,
-            recordIds: [...chunk.deletedRecordIds],
+            recordIds: [...persistedDeletedRecordIds],
           })
         );
       }
@@ -1172,7 +1191,8 @@ export class DeleteByRangeApplicationService {
       queryStartRow,
       queryStartRow + chunk.rowCount - 1,
       {
-        includeOrders: true,
+        // Repository-backed delete capture supplies the persisted order snapshot.
+        includeOrders: false,
         includeTotal: false,
       }
     );
@@ -1205,15 +1225,29 @@ export class DeleteByRangeApplicationService {
   private async finalizeDeletePlan(
     context: IExecutionContext,
     plan: PreparedDeletePlan,
+    deleteResult: DeleteManyResult,
     pluginExecution?: RecordWritePluginExecution
   ): Promise<Result<DeleteByRangeResult, DomainError>> {
+    const recordSnapshotsResult = this.resolveDeletedSnapshots(
+      plan.table,
+      plan.recordSnapshots,
+      deleteResult
+    );
+    if (recordSnapshotsResult.isErr()) {
+      return err(recordSnapshotsResult.error);
+    }
+    const recordSnapshots = recordSnapshotsResult.value;
+    const recordIds = recordSnapshots.map((snapshot) =>
+      RecordId.create(snapshot.id)._unsafeUnwrap()
+    );
+
     const publishResult = await this.publishDeleteEvents(context, {
       table: plan.table,
-      recordIds: plan.recordIds,
-      recordSnapshots: plan.recordSnapshots,
+      recordIds,
+      recordSnapshots,
       orchestration: {
         operationId: context.requestId,
-        totalRecordCount: plan.recordIds.length,
+        totalRecordCount: recordIds.length,
         totalChunkCount: 1,
         chunkIndex: 0,
         scope: 'operation',
@@ -1223,11 +1257,7 @@ export class DeleteByRangeApplicationService {
       return err(publishResult.error);
     }
 
-    const undoRedoResult = await this.recordUndoRedoEntry(
-      context,
-      plan.table,
-      plan.recordSnapshots
-    );
+    const undoRedoResult = await this.recordUndoRedoEntry(context, plan.table, recordSnapshots);
     if (undoRedoResult.isErr()) {
       return err(undoRedoResult.error);
     }
@@ -1237,10 +1267,34 @@ export class DeleteByRangeApplicationService {
     }
 
     return ok({
-      deletedCount: plan.deletedRecordIds.length,
-      deletedRecordIds: plan.deletedRecordIds,
+      deletedCount: recordSnapshots.length,
+      deletedRecordIds: recordSnapshots.map((snapshot) => snapshot.id),
       events: publishResult.value,
     });
+  }
+
+  private resolveDeletedSnapshots(
+    table: Table,
+    fallbackSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
+    deleteResult: DeleteManyResult
+  ): Result<ReadonlyArray<IDeletedRecordSnapshot>, DomainError> {
+    const persistedDeletedRecords = deleteResult.deletedRecords;
+
+    const storedSnapshotsResult = requireStoredRecordSnapshots(
+      {
+        operation: 'delete',
+        tableId: table.id().toString(),
+        ...(fallbackSnapshots.length > 0 ? { expectedCount: fallbackSnapshots.length } : {}),
+      },
+      persistedDeletedRecords
+    );
+    if (storedSnapshotsResult.isErr()) {
+      return err(storedSnapshotsResult.error);
+    }
+
+    return ok(
+      storedSnapshotsResult.value.map((snapshot) => buildDeletedRecordSnapshot(table, snapshot))
+    );
   }
 
   private async publishDeleteEvents(
@@ -1290,35 +1344,26 @@ export class DeleteByRangeApplicationService {
     deletedRecordIds: ReadonlyArray<string>,
     groupId?: string
   ): Promise<Result<void, DomainError>> {
-    const restoreRecords = this.toRestoreRecords(recordSnapshots);
-    if (!restoreRecords.length) {
+    if (!recordSnapshots.length) {
       return ok(undefined);
     }
 
-    return this.undoRedoService.recordEntry(context, table.id(), {
+    return this.undoRedoStackService.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+      tableId: table.id(),
+      deletedRecords: recordSnapshots.map((snapshot) => ({
+        recordId: snapshot.id,
+        fields: snapshot.fields,
+        ...(snapshot.version !== undefined ? { version: snapshot.version } : {}),
+        ...(snapshot.orders ? { orders: snapshot.orders } : {}),
+        ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
+        ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
+        ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+        ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
+        ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
+      })),
+      deletedRecordIds,
       groupId,
-      undoCommand: createUndoRedoCommand('RestoreRecords', {
-        tableId: table.id().toString(),
-        records: restoreRecords,
-      }),
-      redoCommand: createUndoRedoCommand('DeleteRecords', {
-        tableId: table.id().toString(),
-        recordIds: [...deletedRecordIds],
-      }),
     });
-  }
-
-  private toRestoreRecords(recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>) {
-    return recordSnapshots.map((snapshot) => ({
-      recordId: snapshot.id,
-      fields: snapshot.fields,
-      orders: snapshot.orders,
-      autoNumber: snapshot.autoNumber,
-      createdTime: snapshot.createdTime,
-      createdBy: snapshot.createdBy,
-      lastModifiedTime: snapshot.lastModifiedTime,
-      lastModifiedBy: snapshot.lastModifiedBy,
-    }));
   }
 
   private createProgressEvent(

@@ -25,6 +25,7 @@ import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
@@ -34,10 +35,12 @@ import {
 } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
 import {
+  COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
   type ComputedUpdateLockConfig,
   type ComputedUpdateLockSummary,
   buildAdvisoryLockQuery,
   buildComputedUpdateLockPlan,
+  buildTryAdvisoryLockQuery,
   defaultComputedUpdateLockConfig,
 } from './ComputedUpdateLock';
 import type {
@@ -68,26 +71,6 @@ const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
-
-const splitSchemaQualifiedTableName = (
-  tableName: string
-): { schemaName?: string; plainTableName: string } => {
-  const splitIndex = tableName.indexOf('.');
-  if (splitIndex === -1) {
-    return { plainTableName: tableName };
-  }
-  return {
-    schemaName: tableName.slice(0, splitIndex),
-    plainTableName: tableName.slice(splitIndex + 1),
-  };
-};
-
-const toQualifiedIdentifierLiteral = (tableName: string): string => {
-  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  return schemaName
-    ? `${quoteIdentifier(schemaName)}.${quoteIdentifier(plainTableName)}`
-    : quoteIdentifier(plainTableName);
-};
 
 /**
  * Change data for a single field in a record.
@@ -290,6 +273,7 @@ export type PreparedDirtyState = {
 
 type ComputedUpdateLockOptions = {
   logContext?: Record<string, unknown>;
+  wait?: boolean;
 };
 
 /**
@@ -518,6 +502,7 @@ export class ComputedFieldUpdater {
   ): Promise<Result<ComputedUpdateLockSummary, DomainError>> {
     const lockPlan = buildComputedUpdateLockPlan(plan, this.lockConfig);
     const summary = lockPlan.summary;
+    const waitForLocks = options?.wait ?? true;
     if (summary.mode === 'disabled' || summary.mode === 'none') {
       return ok(summary);
     }
@@ -540,7 +525,27 @@ export class ComputedFieldUpdater {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       try {
         for (const statement of lockPlan.statements) {
-          await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
+          if (waitForLocks) {
+            await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
+            continue;
+          }
+
+          const result = await db.executeQuery(buildTryAdvisoryLockQuery(db, statement.key));
+          if (!result.rows[0]?.locked) {
+            return err(
+              domainError.infrastructure({
+                code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+                message: `Computed update lock unavailable: ${statement.key}`,
+                details: {
+                  lockKey: statement.key,
+                  lockScope: statement.scope,
+                  lockTableId: statement.tableId,
+                  lockBatchId: statement.batchId,
+                  lockRecordId: statement.recordId,
+                },
+              })
+            );
+          }
         }
       } catch (error) {
         return err(

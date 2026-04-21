@@ -1661,10 +1661,15 @@ export type I18nTranslations = {
             "byokModelNotSupported": string;
             "modelServiceUnavailable": string;
             "modelServiceError": string;
+            "imageProcessingFailed": string;
+            "imageProcessingFailedDescription": string;
             "sandboxBusy": string;
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
             "sandboxSnapshotNotFound": string;
+            "agentStartFailed": string;
+            "idleTimeout": string;
+            "danglingToolUse": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -2687,6 +2692,14 @@ export type I18nTranslations = {
                 "example": string;
             };
             "FORMULA": {
+                "summary": string;
+                "example": string;
+            };
+            "TEXTBEFORE": {
+                "summary": string;
+                "example": string;
+            };
+            "TEXTSPLIT": {
                 "summary": string;
                 "example": string;
             };
@@ -4783,6 +4796,79 @@ export type I18nTranslations = {
             "shareNodeTab": string;
         };
         "aiChat": {
+            "agent": {
+                "askUserQuestion": {
+                    "label": string;
+                    "confirm": string;
+                    "otherPlaceholder": string;
+                    "otherSend": string;
+                    "addCustomPlaceholder": string;
+                    "askedUser": string;
+                    "answered": string;
+                };
+                "completion": {
+                    "completed": string;
+                    "tools": string;
+                    "toolsWithErrors": string;
+                    "hasErrors": string;
+                    "noDetails": string;
+                    "model": string;
+                    "contextWindow": string;
+                    "contextTooltip": string;
+                    "contextTipNewChat": string;
+                    "contextTipMemory": string;
+                };
+                "taskProgress": {
+                    "title": string;
+                    "noTasks": string;
+                    "operationFailed": string;
+                    "collapse": string;
+                    "showMore": string;
+                };
+                "tool": {
+                    "executing": string;
+                    "executionFailed": string;
+                    "stoppedByUser": string;
+                    "executionDenied": string;
+                    "moreLines": string;
+                    "copy": string;
+                    "copied": string;
+                    "copyNewContent": string;
+                    "showAllLines": string;
+                    "collapse": string;
+                    "linesHidden": string;
+                };
+                "subtask": {
+                    "working": string;
+                    "workingOn": string;
+                    "completed": string;
+                };
+                "skill": {
+                    "running": string;
+                    "runningName": string;
+                };
+                "plan": {
+                    "entering": string;
+                    "exiting": string;
+                };
+                "worktree": {
+                    "creating": string;
+                    "creatingName": string;
+                    "exiting": string;
+                };
+                "cron": {
+                    "scheduling": string;
+                    "removing": string;
+                    "listing": string;
+                };
+                "step": string;
+                "runDetails": {
+                    "working": string;
+                    "summary": string;
+                    "moreActions": string;
+                    "collapseActions": string;
+                };
+            };
             "tool": {
                 "getTableFields": string;
                 "getTablesMeta": string;
@@ -5272,77 +5358,6 @@ export type I18nTranslations = {
                 "regenerate": string;
                 "refresh": string;
                 "regenerating": string;
-            };
-            "agent": {
-                "askUserQuestion": {
-                    "label": string;
-                    "confirm": string;
-                    "otherPlaceholder": string;
-                    "otherSend": string;
-                    "addCustomPlaceholder": string;
-                };
-                "completion": {
-                    "completed": string;
-                    "tools": string;
-                    "toolsWithErrors": string;
-                    "hasErrors": string;
-                    "noDetails": string;
-                    "model": string;
-                    "contextWindow": string;
-                    "contextTooltip": string;
-                    "contextTipNewChat": string;
-                    "contextTipMemory": string;
-                };
-                "taskProgress": {
-                    "title": string;
-                    "noTasks": string;
-                    "operationFailed": string;
-                    "collapse": string;
-                    "showMore": string;
-                };
-                "tool": {
-                    "executing": string;
-                    "executionFailed": string;
-                    "stoppedByUser": string;
-                    "executionDenied": string;
-                    "moreLines": string;
-                    "copy": string;
-                    "copied": string;
-                    "copyNewContent": string;
-                    "showAllLines": string;
-                    "collapse": string;
-                    "linesHidden": string;
-                };
-                "subtask": {
-                    "working": string;
-                    "workingOn": string;
-                    "completed": string;
-                };
-                "skill": {
-                    "running": string;
-                    "runningName": string;
-                };
-                "plan": {
-                    "entering": string;
-                    "exiting": string;
-                };
-                "worktree": {
-                    "creating": string;
-                    "creatingName": string;
-                    "exiting": string;
-                };
-                "cron": {
-                    "scheduling": string;
-                    "removing": string;
-                    "listing": string;
-                };
-                "step": string;
-                "runDetails": {
-                    "working": string;
-                    "summary": string;
-                    "moreActions": string;
-                    "collapseActions": string;
-                };
             };
             "sandboxExpiry": {
                 "expiresIn": string;

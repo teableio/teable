@@ -944,6 +944,17 @@
     "shareNodeTab": "Knoten teilen"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Frage",
+        "confirm": "Bestätigen ({{count}})",
+        "otherPlaceholder": "Oder Antwort eingeben…",
+        "otherSend": "Senden",
+        "addCustomPlaceholder": "Benutzerdefinierte Option hinzufügen…",
+        "askedUser": "Benutzer gefragt",
+        "answered": "Beantwortet"
+      }
+    },
     "tool": {
       "getTableFields": "Tabelle Felder abrufen",
       "getTablesMeta": "Tabelle Metadaten abrufen",

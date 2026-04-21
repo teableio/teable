@@ -33,6 +33,7 @@ import {
   underlyingRecords,
   underlyingRecord,
   underlyingCanarySpace,
+  underlyingUndoCapture,
 } from './underlying';
 
 // explain subcommand group
@@ -100,6 +101,7 @@ export const underlying = Command.make('underlying').pipe(
     underlyingRecords,
     underlyingRecord,
     underlyingCanarySpace,
+    underlyingUndoCapture,
   ])
 );
 

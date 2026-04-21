@@ -232,6 +232,26 @@ describe('Computed Orchestrator (e2e)', () => {
     return undefined;
   };
 
+  const findLatestRecordChangeMap = (
+    events: any[],
+    tableId: string,
+    recordId: string
+  ): FieldChangeMap | undefined => {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (!event?.payload || event.payload.tableId !== tableId) continue;
+      const recordPayloads = Array.isArray(event.payload.record)
+        ? event.payload.record
+        : [event.payload.record];
+      for (const rec of recordPayloads) {
+        if (rec?.id === recordId) {
+          return (rec.fields ?? {}) as FieldChangeMap;
+        }
+      }
+    }
+    return undefined;
+  };
+
   // ===== Formula related =====
   describe('Formula', () => {
     it('emits old/new values for formula on same table when base field changes', async () => {
@@ -957,9 +977,7 @@ IF(
 
       // Event payload verification only in v1 mode
       if (!isForceV2) {
-        const evt = events.find((e) => e.payload.tableId === t2.id)!;
-        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-        const changes = rec.fields as FieldChangeMap;
+        const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toEqual(456);
@@ -1088,9 +1106,7 @@ IF(
 
       // Event payload verification only in v1 mode
       if (!isForceV2) {
-        const evt = events.find((e) => e.payload.tableId === t1.id)!;
-        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-        const changes = rec.fields as FieldChangeMap;
+        const changes = findLatestRecordChangeMap(events, t1.id, t1.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toEqual([123]);
@@ -1145,9 +1161,7 @@ IF(
 
       // Event payload verification only in v1 mode
       if (!isForceV2) {
-        const evt = events.find((e) => e.payload.tableId === t1.id)!;
-        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-        const changes = rec.fields as FieldChangeMap;
+        const changes = findLatestRecordChangeMap(events, t1.id, t1.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toBeNull();
@@ -1199,9 +1213,7 @@ IF(
 
       // Event payload verification only in v1 mode
       if (!isForceV2) {
-        const evt = events.find((e) => e.payload.tableId === t2.id)!;
-        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-        const changes = rec.fields as FieldChangeMap;
+        const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toEqual([7]);

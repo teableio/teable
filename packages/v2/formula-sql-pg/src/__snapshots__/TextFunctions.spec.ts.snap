@@ -7639,6 +7639,1144 @@ exports[`text functions > 'T' with 'user' 1`] = `
 }
 `;
 
+exports[`text functions > 'TextBefore' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "TEXTBEFORE({Attachment}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) = 0 THEN NULL ELSE LEFT((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), POSITION('1' IN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "TEXTBEFORE({AutoNumber}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."AutoNumber")::text) = 0 THEN NULL ELSE LEFT(("t"."AutoNumber")::text, POSITION('1' IN ("t"."AutoNumber")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "TEXTBEFORE({Button}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = 0 THEN NULL ELSE LEFT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), POSITION('1' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "TEXTBEFORE({Checkbox}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."Checkbox")::text) = 0 THEN NULL ELSE LEFT(("t"."Checkbox")::text, POSITION('1' IN ("t"."Checkbox")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "TEXTBEFORE({ConditionalLookupType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN (
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )) = 0 THEN NULL ELSE LEFT((
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ), POSITION('1' IN (
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "TEXTBEFORE({ConditionalRollupType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."ConditionalRollupType")::text) = 0 THEN NULL ELSE LEFT(("t"."ConditionalRollupType")::text, POSITION('1' IN ("t"."ConditionalRollupType")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "TEXTBEFORE({CreatedBy}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN (CASE
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
+  END)) = 0 THEN NULL ELSE LEFT((CASE
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
+  END), POSITION('1' IN (CASE
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
+  END)) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "TEXTBEFORE({CreatedTime}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-0",
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."CreatedTime")::text) = 0 THEN NULL ELSE LEFT(("t"."CreatedTime")::text, POSITION('1' IN ("t"."CreatedTime")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "TEXTBEFORE({Date}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."Date")::text) = 0 THEN NULL ELSE LEFT(("t"."Date")::text, POSITION('1' IN ("t"."Date")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "TEXTBEFORE({FormulaType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN (10)::text) = 0 THEN NULL ELSE LEFT((10)::text, POSITION('1' IN (10)::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "TEXTBEFORE({LastModifiedBy}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN (CASE
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
+  END)) = 0 THEN NULL ELSE LEFT((CASE
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
+  END), POSITION('1' IN (CASE
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
+  END)) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "TEXTBEFORE({LastModifiedTime}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-0",
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."LastModifiedTime")::text) = 0 THEN NULL ELSE LEFT(("t"."LastModifiedTime")::text, POSITION('1' IN ("t"."LastModifiedTime")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "TEXTBEFORE({LinkType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = 0 THEN NULL ELSE LEFT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), POSITION('1' IN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "TEXTBEFORE({LongText}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN "t"."LongText") = 0 THEN NULL ELSE LEFT("t"."LongText", POSITION('1' IN "t"."LongText") - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "TEXTBEFORE({LookupType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )) = 0 THEN NULL ELSE LEFT((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ), POSITION('1' IN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "TEXTBEFORE({MultipleSelect}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) = 0 THEN NULL ELSE LEFT((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), POSITION('1' IN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "TEXTBEFORE({Number}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."Number")::text) = 0 THEN NULL ELSE LEFT(("t"."Number")::text, POSITION('1' IN ("t"."Number")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "TEXTBEFORE({Rating}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."Rating")::text) = 0 THEN NULL ELSE LEFT(("t"."Rating")::text, POSITION('1' IN ("t"."Rating")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "TEXTBEFORE({RollupType}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN ("t"."RollupType")::text) = 0 THEN NULL ELSE LEFT(("t"."RollupType")::text, POSITION('1' IN ("t"."RollupType")::text) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "TEXTBEFORE({SingleLineText}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN "t"."SingleLineText") = 0 THEN NULL ELSE LEFT("t"."SingleLineText", POSITION('1' IN "t"."SingleLineText") - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "TEXTBEFORE({SingleSelect}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "(CASE WHEN POSITION('1' IN "t"."SingleSelect") = 0 THEN NULL ELSE LEFT("t"."SingleSelect", POSITION('1' IN "t"."SingleSelect") - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextBefore' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "TEXTBEFORE({User}, "1")",
+  "funcId": "TextBefore",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN POSITION('1' IN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) = 0 THEN NULL ELSE LEFT((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), POSITION('1' IN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    )) - 1) END)",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "TEXTSPLIT({Attachment}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "["", "0, 20"]",
+  "sql": "to_jsonb(string_to_array((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "TEXTSPLIT({AutoNumber}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "["", ""]",
+  "sql": "to_jsonb(string_to_array(("t"."AutoNumber")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "TEXTSPLIT({Button}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "TEXTSPLIT({Checkbox}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "["true"]",
+  "sql": "to_jsonb(string_to_array(("t"."Checkbox")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "TEXTSPLIT({ConditionalLookupType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array((
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "TEXTSPLIT({ConditionalRollupType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array(("t"."ConditionalRollupType")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "TEXTSPLIT({CreatedBy}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["System"]",
+  "sql": "to_jsonb(string_to_array((CASE
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
+  END), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "TEXTSPLIT({CreatedTime}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-0", "-00 00:00:00.000+00"]",
+  "sql": "to_jsonb(string_to_array(("t"."CreatedTime")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "TEXTSPLIT({Date}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "["2024-02-03 00:00:00+00"]",
+  "sql": "to_jsonb(string_to_array(("t"."Date")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "TEXTSPLIT({FormulaType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array((10)::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "TEXTSPLIT({LastModifiedBy}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["System"]",
+  "sql": "to_jsonb(string_to_array((CASE
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
+  END), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "TEXTSPLIT({LastModifiedTime}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-0", "-00 00:00:00.000+00"]",
+  "sql": "to_jsonb(string_to_array(("t"."LastModifiedTime")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "TEXTSPLIT({LinkType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "TEXTSPLIT({LongText}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array("t"."LongText", '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "TEXTSPLIT({LookupType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "TEXTSPLIT({MultipleSelect}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "["", "0, 20"]",
+  "sql": "to_jsonb(string_to_array((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "TEXTSPLIT({Number}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array(("t"."Number")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "TEXTSPLIT({Rating}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "["4"]",
+  "sql": "to_jsonb(string_to_array(("t"."Rating")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "TEXTSPLIT({RollupType}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array(("t"."RollupType")::text, '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "TEXTSPLIT({SingleLineText}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array("t"."SingleLineText", '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "TEXTSPLIT({SingleSelect}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["", "0"]",
+  "sql": "to_jsonb(string_to_array("t"."SingleSelect", '1'))",
+}
+`;
+
+exports[`text functions > 'TextSplit' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "TEXTSPLIT({User}, "1")",
+  "funcId": "TextSplit",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "to_jsonb(string_to_array((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ), '1'))",
+}
+`;
+
 exports[`text functions > 'Trim' with 'attachment' 1`] = `
 {
   "fieldType": "attachment",

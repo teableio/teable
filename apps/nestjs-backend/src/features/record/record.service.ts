@@ -32,6 +32,8 @@ import {
   HttpErrorCode,
   identify,
   IdPrefix,
+  isImage,
+  isPdf,
   mergeFilter,
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
@@ -80,6 +82,7 @@ import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { resolveThumbnailMimetype } from '../attachments/utils';
 import { BatchService } from '../calculation/batch.service';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
@@ -329,7 +332,6 @@ export class RecordService {
       return;
     }
 
-    // sql capable for sqlite
     const valuesQuery = ids
       .map((id, index) => `SELECT ${index + 1} AS sort_order, '${id}' AS id`)
       .join(' UNION ALL ');
@@ -1659,7 +1661,7 @@ export class RecordService {
           const cellValue = record.data.fields[fieldKey];
           if (cellValue == null) continue;
           (cellValue as IAttachmentCellValue).forEach((item) => {
-            if (item.mimetype.startsWith('image/') && item.width && item.height) {
+            if (isImage(item.mimetype) || isPdf(item.mimetype)) {
               thumbnailTokens.push(getTableThumbnailToken(item.token));
             }
           });
@@ -1669,8 +1671,8 @@ export class RecordService {
     if (thumbnailTokens.length === 0) {
       return {};
     }
-    const attachments = await this.prismaService.txClient().attachments.findMany({
-      where: { token: { in: thumbnailTokens } },
+    const attachments = await this.prismaService.attachments.findMany({
+      where: { token: { in: thumbnailTokens }, thumbnailPath: { not: null } },
       select: { token: true, thumbnailPath: true },
     });
     return attachments.reduce<
@@ -1722,6 +1724,10 @@ export class RecordService {
     return records;
   }
 
+  async invalidateAttachmentPresignedUrlCache(tokens: string[]) {
+    await Promise.all(tokens.map((token) => this.cacheService.del(`attachment:preview:${token}`)));
+  }
+
   async getAttachmentPresignedCellValue(
     cellValue: IAttachmentCellValue | null,
     cacheTokenUrlMap?: Record<string, string>,
@@ -1730,7 +1736,6 @@ export class RecordService {
     if (cellValue == null) {
       return null;
     }
-
     return await Promise.all(
       cellValue.map(async (item) => {
         const { path, mimetype, token } = item;
@@ -1748,25 +1753,33 @@ export class RecordService {
           ));
         let smThumbnailUrl: string | undefined;
         let lgThumbnailUrl: string | undefined;
+        const isImg = isImage(mimetype);
+        const thumbnailMimetype = resolveThumbnailMimetype(mimetype);
         if (thumbnailPathTokenMap && thumbnailPathTokenMap[token]) {
           const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
           if (smThumbnailPath) {
             smThumbnailUrl =
               cacheTokenUrlMap?.[getTableThumbnailToken(smThumbnailPath)] ??
-              (await this.attachmentStorageService.getTableThumbnailUrl(smThumbnailPath, mimetype));
+              (await this.attachmentStorageService.getTableThumbnailUrl(
+                smThumbnailPath,
+                thumbnailMimetype
+              ));
           }
           if (lgThumbnailPath) {
             lgThumbnailUrl =
               cacheTokenUrlMap?.[getTableThumbnailToken(lgThumbnailPath)] ??
-              (await this.attachmentStorageService.getTableThumbnailUrl(lgThumbnailPath, mimetype));
+              (await this.attachmentStorageService.getTableThumbnailUrl(
+                lgThumbnailPath,
+                thumbnailMimetype
+              ));
           }
         }
-        const isImage = mimetype.startsWith('image/');
+
         return {
           ...item,
           presignedUrl,
-          smThumbnailUrl: isImage ? smThumbnailUrl || presignedUrl : undefined,
-          lgThumbnailUrl: isImage ? lgThumbnailUrl || presignedUrl : undefined,
+          smThumbnailUrl: isImg ? smThumbnailUrl || presignedUrl : smThumbnailUrl,
+          lgThumbnailUrl: isImg ? lgThumbnailUrl || presignedUrl : lgThumbnailUrl,
         };
       })
     );
@@ -2127,9 +2140,6 @@ export class RecordService {
               return false;
             }
             if (isSearchAllFields) {
-              if (field.cellValueType === CellValueType.DateTime) {
-                return false;
-              }
               if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
                 return false;
               }

@@ -319,6 +319,110 @@ export class Substitute extends TextFunc {
   }
 }
 
+function getTextBeforeIndex(
+  source: string,
+  delimiter: string,
+  instanceNum: number,
+  matchMode: number,
+  matchEnd: boolean
+) {
+  const searchSource = matchMode === 1 ? source.toLowerCase() : source;
+  const searchDelimiter = matchMode === 1 ? delimiter.toLowerCase() : delimiter;
+  const indexes: number[] = [];
+  let position = searchSource.indexOf(searchDelimiter);
+
+  while (position !== -1) {
+    indexes.push(position);
+    position = searchSource.indexOf(searchDelimiter, position + searchDelimiter.length);
+  }
+
+  if (matchEnd) {
+    indexes.push(source.length);
+  }
+
+  return instanceNum > 0 ? indexes[instanceNum - 1] : indexes[indexes.length + instanceNum];
+}
+
+export class TextBefore extends TextFunc {
+  name = FunctionName.TextBefore;
+
+  acceptValueType = new Set([CellValueType.String, CellValueType.Number]);
+
+  acceptMultipleValue = true;
+
+  validateParams(params: TypedValue[]) {
+    if (params.length < 2) {
+      throw new Error(`${FunctionName.TextBefore} needs at least 2 params`);
+    }
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
+    return { type: CellValueType.String };
+  }
+
+  eval(
+    params: TypedValue<string | number | boolean | null | (string | number | boolean | null)[]>[]
+  ): string | null {
+    const targetString = convertValueToString(params[0]);
+    const delimiter = convertValueToString(params[1]);
+
+    if (targetString == null || delimiter == null) return null;
+
+    const instanceNum = Number(params[2]?.value ?? 1);
+    const matchMode = Number(params[3]?.value ?? 0);
+    const matchEnd = Boolean(params[4]?.value ?? false);
+    const ifNotFound = params[5] ? convertValueToString(params[5]) : null;
+
+    if (!Number.isInteger(instanceNum) || instanceNum === 0) return null;
+    if (delimiter === '') return instanceNum > 0 ? '' : targetString;
+
+    const source = String(targetString);
+    const index = getTextBeforeIndex(source, delimiter, instanceNum, matchMode, matchEnd);
+    if (index == null) return ifNotFound;
+
+    return source.slice(0, index);
+  }
+}
+
+export class TextSplit extends TextFunc {
+  name = FunctionName.TextSplit;
+
+  acceptValueType = new Set([CellValueType.String, CellValueType.Number]);
+
+  acceptMultipleValue = true;
+
+  validateParams(params: TypedValue[]) {
+    if (params.length < 2) {
+      throw new Error(`${FunctionName.TextSplit} needs at least 2 params`);
+    }
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
+    return { type: CellValueType.String, isMultiple: true };
+  }
+
+  eval(
+    params: TypedValue<string | number | boolean | null | (string | number | boolean | null)[]>[]
+  ): string[] | null {
+    const targetString = convertValueToString(params[0]);
+    const delimiter = convertValueToString(params[1]);
+
+    if (targetString == null || delimiter == null) return null;
+
+    const matchMode = Number(params[3]?.value ?? 0);
+    const ignoreEmpty = Boolean(params[2]?.value ?? false);
+    const value = String(targetString);
+    const parts =
+      matchMode === 1
+        ? value.split(new RegExp(delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+        : value.split(delimiter);
+
+    return ignoreEmpty ? parts.filter((part) => part !== '') : parts;
+  }
+}
+
 export class Lower extends TextFunc {
   name = FunctionName.Lower;
 

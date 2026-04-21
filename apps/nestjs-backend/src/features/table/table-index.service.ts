@@ -37,10 +37,7 @@ export class TableIndexService {
       },
     });
     return fieldsRaw
-      .filter(
-        ({ cellValueType, type }) =>
-          cellValueType !== CellValueType.DateTime && type !== FieldType.Button
-      )
+      .filter(({ type }) => type !== FieldType.Button)
       .map((field) => createFieldInstanceByRaw(field))
       .map((field) => ({
         ...field,
