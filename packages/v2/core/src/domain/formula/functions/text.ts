@@ -207,6 +207,53 @@ export class Substitute extends TextFunc {
   }
 }
 
+export class TextBefore extends TextFunc {
+  name = FunctionName.TextBefore;
+
+  acceptValueType = new Set([CellValueType.String, CellValueType.Number]);
+
+  acceptMultipleValue = true;
+
+  validateParams(params: TypedValue[]) {
+    if (params.length < 2) {
+      return err(
+        domainError.validation({ message: `${FunctionName.TextBefore} needs at least 2 params` })
+      );
+    }
+    return ok(undefined);
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    if (!params) return ok({ type: CellValueType.String });
+    return this.validateParams(params).map(() => ({ type: CellValueType.String }));
+  }
+}
+
+export class TextSplit extends TextFunc {
+  name = FunctionName.TextSplit;
+
+  acceptValueType = new Set([CellValueType.String, CellValueType.Number]);
+
+  acceptMultipleValue = true;
+
+  validateParams(params: TypedValue[]) {
+    if (params.length < 2) {
+      return err(
+        domainError.validation({ message: `${FunctionName.TextSplit} needs at least 2 params` })
+      );
+    }
+    return ok(undefined);
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    if (!params) return ok({ type: CellValueType.String, isMultiple: true });
+    return this.validateParams(params).map(() => ({
+      type: CellValueType.String,
+      isMultiple: true,
+    }));
+  }
+}
+
 export class Lower extends TextFunc {
   name = FunctionName.Lower;
 

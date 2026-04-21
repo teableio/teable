@@ -316,6 +316,9 @@ export class EvalVisitor
       leftValue,
       rightValue
     );
+    if (this.shouldUseStrictBlankEquality(leftTypedValue, rightTypedValue, leftValue, rightValue)) {
+      return normalized.left === normalized.right;
+    }
     return normalized.left == normalized.right;
   }
 
@@ -332,7 +335,35 @@ export class EvalVisitor
       rightValue
     );
 
+    if (this.shouldUseStrictBlankEquality(leftTypedValue, rightTypedValue, leftValue, rightValue)) {
+      return normalizedLeft !== normalizedRight;
+    }
+
     return normalizedLeft != normalizedRight;
+  }
+
+  private shouldUseStrictBlankEquality(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue,
+    leftValue: unknown,
+    rightValue: unknown
+  ) {
+    const hasNumericOperand =
+      this.isNumericLikeTypedValue(leftTypedValue) || this.isNumericLikeTypedValue(rightTypedValue);
+    if (!hasNumericOperand) {
+      return false;
+    }
+    return (
+      this.isBlankEqualityValue(leftTypedValue, leftValue) ||
+      this.isBlankEqualityValue(rightTypedValue, rightValue)
+    );
+  }
+
+  private isBlankEqualityValue(typedValue: TypedValue, value: unknown) {
+    if (typedValue.isBlank || value == null) {
+      return true;
+    }
+    return this.isStringLikeTypedValue(typedValue) && value === '';
   }
 
   private normalizeEqualityValues(
@@ -372,7 +403,7 @@ export class EvalVisitor
     }
 
     if (value == null && this.isNumericLikeTypedValue(typedValue)) {
-      return 0;
+      return '';
     }
 
     return value;

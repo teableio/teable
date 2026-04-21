@@ -9,8 +9,6 @@ try {
     const driverClient = getDriverName(this);
 
     switch (driverClient) {
-      case DriverClient.Sqlite:
-        return knex(this.client.config).raw(`PRAGMA table_info(??)`, tableName);
       case DriverClient.Pg: {
         const [schema, name] = tableName.split('.');
         this.select({
@@ -24,6 +22,8 @@ try {
           .where('table_schema', schema);
         break;
       }
+      default:
+        throw new Error(`Unsupported database driver: ${driverClient}`);
     }
     return this;
   });

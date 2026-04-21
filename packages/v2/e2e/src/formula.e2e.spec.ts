@@ -7272,7 +7272,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:HOUR function
      * Formula:HOUR({dateField})
-     * Expect: extracts hour
+     * Expect: extracts hour with an explicit UTC formula time zone
      */
     it('should get hour - HOUR({dateField})', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -7305,7 +7305,7 @@ describe('v2 http formula (e2e)', () => {
           field: {
             type: 'formula',
             name: 'HourValue',
-            options: { expression: `HOUR({${dateFieldId}})` },
+            options: { expression: `HOUR({${dateFieldId}})`, timeZone: 'utc' },
           },
         }),
       });
@@ -7347,7 +7347,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:MINUTE function
      * Formula:MINUTE({dateField})
-     * Expect: extracts minute
+     * Expect: extracts minute with an explicit UTC formula time zone
      */
     it('should get minute - MINUTE({dateField})', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -7380,7 +7380,7 @@ describe('v2 http formula (e2e)', () => {
           field: {
             type: 'formula',
             name: 'MinuteValue',
-            options: { expression: `MINUTE({${dateFieldId}})` },
+            options: { expression: `MINUTE({${dateFieldId}})`, timeZone: 'utc' },
           },
         }),
       });
@@ -7422,7 +7422,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:SECOND function
      * Formula:SECOND({dateField})
-     * Expect: extracts second
+     * Expect: extracts second with an explicit UTC formula time zone
      */
     it('should get second - SECOND({dateField})', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -7455,7 +7455,7 @@ describe('v2 http formula (e2e)', () => {
           field: {
             type: 'formula',
             name: 'SecondValue',
-            options: { expression: `SECOND({${dateFieldId}})` },
+            options: { expression: `SECOND({${dateFieldId}})`, timeZone: 'utc' },
           },
         }),
       });
@@ -13757,7 +13757,7 @@ describe('v2 http formula (e2e)', () => {
           field: {
             type: 'formula',
             name: 'Milestone TimeStr',
-            options: { expression: `TIMESTR({${lookupFieldId}})` },
+            options: { expression: `TIMESTR({${lookupFieldId}})`, timeZone: 'utc' },
           },
         }),
       });

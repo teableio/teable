@@ -24,7 +24,6 @@ import { RecordId } from '../../domain/table/records/RecordId';
 import { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { recordToFieldValues } from '../../domain/table/records/recordToFieldValues';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
@@ -40,19 +39,22 @@ import { ITableRecordQueryRepository } from '../../ports/TableRecordQueryReposit
 import type { TableRecordOrderBy } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import { ITableRecordRepository } from '../../ports/TableRecordRepository';
-import type { BatchRecordMutationResult } from '../../ports/TableRecordRepository';
+import type {
+  BatchRecordMutationResult,
+  RecordStoredSnapshot,
+} from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { SpanAttributes } from '../../ports/Tracer';
-import { createUndoRedoCommand, type UndoRedoRestoreRecord } from '../../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
-import { buildRecordConditionSpec } from '../../queries/RecordFilterMapper';
+import { buildSanitizedRecordConditionSpec } from '../../queries/RecordFilterMapper';
 import {
   resolveVisibleRowSearch,
   type RecordQuerySearch,
   type RecordSearch,
 } from '../../queries/RecordSearch';
+import { requireStoredRecordSnapshots } from './RecordMutationSnapshotContract';
 import {
   RecordWritePluginRunner,
   type RecordWritePluginExecution,
@@ -60,7 +62,7 @@ import {
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import { TableQueryService } from './TableQueryService';
 import { TableUpdateFlow } from './TableUpdateFlow';
-import { UndoRedoService } from './UndoRedoService';
+import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoStackService';
 
 const MAX_DUPLICATE_STREAM_BUFFERED_EVENTS = 64;
 
@@ -86,19 +88,10 @@ type PreparedDuplicateSourceRecord = {
 type PreparedDuplicatePlan = {
   readonly table: Table;
   readonly viewId: ViewId;
-  readonly filterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-  readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
-  readonly search?: RecordQuerySearch;
   readonly totalCount: number;
   readonly batchSize: number;
-  readonly chunkPlans: ReadonlyArray<DuplicateChunkPlan>;
+  readonly chunkPlans: ReadonlyArray<PreparedDuplicateChunk>;
   readonly anchorRecordId?: RecordId;
-};
-
-type DuplicateChunkPlan = {
-  readonly batchIndex: number;
-  readonly startRow: number;
-  readonly rowCount: number;
 };
 
 type PreparedDuplicateChunk = {
@@ -117,7 +110,7 @@ type DuplicatePluginOrchestration = {
 
 type DuplicateChunkPersistResult = {
   readonly duplicatedRecordIds: ReadonlyArray<string>;
-  readonly restoreRecords: ReadonlyArray<UndoRedoRestoreRecord>;
+  readonly storedSnapshots: ReadonlyArray<RecordStoredSnapshot>;
   readonly events: ReadonlyArray<IDomainEvent>;
 };
 
@@ -179,7 +172,7 @@ export class DuplicateRecordsApplicationService {
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -325,14 +318,11 @@ export class DuplicateRecordsApplicationService {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    if (effectiveFilter) {
-      const filterSpecResult = await buildRecordConditionSpec(table, effectiveFilter);
-      if (filterSpecResult.isErr()) {
-        return err(filterSpecResult.error);
-      }
-      filterSpec = filterSpecResult.value;
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    if (filterSpecResult.isErr()) {
+      return err(filterSpecResult.error);
     }
+    const filterSpec = filterSpecResult.value;
 
     const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value);
     const groupByOrderByResult = await resolveGroupByToOrderBy(effectiveGroup);
@@ -371,7 +361,21 @@ export class DuplicateRecordsApplicationService {
       0
     );
     const batchSize = resolveSelectionStreamBatchSize(totalCount, command.batchSize);
-    const chunkPlans = this.buildDuplicateChunkPlans(rowRanges, batchSize);
+    const sourceRecordsResult = await this.collectDuplicateSourceRecords(
+      context,
+      table,
+      filterSpec,
+      orderBy,
+      visibleRowSearch,
+      rowRanges,
+      batchSize
+    );
+    if (sourceRecordsResult.isErr()) {
+      return err(sourceRecordsResult.error);
+    }
+
+    const sourceRecords = sourceRecordsResult.value;
+    const chunkPlans = this.buildDuplicateChunkPlans(sourceRecords, batchSize);
     const anchorRecordIdResult = await this.resolveDuplicateAnchorRecordId(
       context,
       table,
@@ -387,10 +391,7 @@ export class DuplicateRecordsApplicationService {
     return ok({
       table,
       viewId: command.viewId,
-      filterSpec,
-      orderBy,
-      search: visibleRowSearch,
-      totalCount,
+      totalCount: sourceRecords.length,
       batchSize,
       chunkPlans,
       anchorRecordId: anchorRecordIdResult.value,
@@ -577,23 +578,65 @@ export class DuplicateRecordsApplicationService {
     return [normalizedStart, normalizedEnd] as const;
   }
 
-  private buildDuplicateChunkPlans(
+  private async collectDuplicateSourceRecords(
+    context: IExecutionContext,
+    table: Table,
+    filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
+    search: RecordQuerySearch | undefined,
     rowRanges: ReadonlyArray<readonly [number, number]>,
-    batchSize: number
-  ): ReadonlyArray<DuplicateChunkPlan> {
-    const chunkPlans: DuplicateChunkPlan[] = [];
-    const normalizedBatchSize = Math.max(1, batchSize);
-    let batchIndex = 0;
+    pageSize: number
+  ): Promise<Result<ReadonlyArray<PreparedDuplicateSourceRecord>, DomainError>> {
+    const sourceRecords: PreparedDuplicateSourceRecord[] = [];
+    const normalizedPageSize = Math.max(1, pageSize);
 
     for (const [startRow, endRow] of rowRanges) {
-      for (let chunkStart = startRow; chunkStart <= endRow; chunkStart += normalizedBatchSize) {
-        chunkPlans.push({
-          batchIndex,
-          startRow: chunkStart,
-          rowCount: Math.min(normalizedBatchSize, endRow - chunkStart + 1),
-        });
-        batchIndex += 1;
+      for (let cursor = startRow; cursor <= endRow; cursor += normalizedPageSize) {
+        const pageEnd = Math.min(endRow, cursor + normalizedPageSize - 1);
+        const recordsResult = await this.queryRecordsForRange(
+          context,
+          table,
+          filterSpec,
+          orderBy,
+          search,
+          cursor,
+          pageEnd,
+          { includeTotal: false }
+        );
+        if (recordsResult.isErr()) {
+          return err(recordsResult.error);
+        }
+
+        for (const record of recordsResult.value) {
+          const recordIdResult = RecordId.create(record.id);
+          if (recordIdResult.isErr()) {
+            return err(recordIdResult.error);
+          }
+
+          sourceRecords.push({
+            sourceRecordId: recordIdResult.value,
+            sourceRecordIdString: record.id,
+            fieldValues: this.extractDuplicateFieldValues(table, record),
+          });
+        }
       }
+    }
+
+    return ok(sourceRecords);
+  }
+
+  private buildDuplicateChunkPlans(
+    sourceRecords: ReadonlyArray<PreparedDuplicateSourceRecord>,
+    batchSize: number
+  ): ReadonlyArray<PreparedDuplicateChunk> {
+    const chunkPlans: PreparedDuplicateChunk[] = [];
+    const normalizedBatchSize = Math.max(1, batchSize);
+
+    for (let offset = 0; offset < sourceRecords.length; offset += normalizedBatchSize) {
+      chunkPlans.push({
+        batchIndex: chunkPlans.length,
+        sourceRecords: sourceRecords.slice(offset, offset + normalizedBatchSize),
+      });
     }
 
     return chunkPlans;
@@ -764,14 +807,19 @@ export class DuplicateRecordsApplicationService {
         }),
       ]
     );
-    const restoreRecordsResult = await this.buildRestoreRecords(context, table, persisted.records);
-    if (restoreRecordsResult.isErr()) {
-      return err(restoreRecordsResult.error);
+    const storedSnapshotsResult = await this.buildStoredSnapshots(
+      context,
+      table,
+      persisted.records,
+      persisted.mutationResult
+    );
+    if (storedSnapshotsResult.isErr()) {
+      return err(storedSnapshotsResult.error);
     }
 
     return ok({
       duplicatedRecordIds: persisted.records.map((record) => record.id().toString()),
-      restoreRecords: restoreRecordsResult.value,
+      storedSnapshots: storedSnapshotsResult.value,
       events,
     });
   }
@@ -807,65 +855,25 @@ export class DuplicateRecordsApplicationService {
     ];
   }
 
-  private async buildRestoreRecords(
-    context: IExecutionContext,
+  private async buildStoredSnapshots(
+    _context: IExecutionContext,
     table: Table,
-    records: ReadonlyArray<TableRecord>
-  ): Promise<Result<ReadonlyArray<UndoRedoRestoreRecord>, DomainError>> {
-    const traceAttributes = {
-      'teable.chunk_record_count': records.length,
-      'teable.table_id': table.id().toString(),
-    } satisfies SpanAttributes;
-    const snapshotResult = await this.runInSpan(
-      context,
-      'teable.DuplicateRecordsApplicationService.buildRestoreRecordsQuery',
-      traceAttributes,
-      () =>
-        this.tableRecordQueryRepository.find(
-          context,
-          table,
-          RecordByIdsSpec.create(records.map((record) => record.id())),
-          { mode: 'stored', includeOrders: true }
-        )
+    records: ReadonlyArray<TableRecord>,
+    mutationResult: BatchRecordMutationResult
+  ): Promise<Result<ReadonlyArray<RecordStoredSnapshot>, DomainError>> {
+    const storedSnapshotsResult = requireStoredRecordSnapshots(
+      {
+        operation: 'duplicate',
+        tableId: table.id().toString(),
+        expectedCount: records.length,
+      },
+      mutationResult.recordSnapshots
     );
-    if (snapshotResult.isErr()) {
-      return err(snapshotResult.error);
+    if (storedSnapshotsResult.isErr()) {
+      return err(storedSnapshotsResult.error);
     }
 
-    const snapshotMap = new Map(snapshotResult.value.records.map((record) => [record.id, record]));
-
-    return this.runInSpan(
-      context,
-      'teable.DuplicateRecordsApplicationService.buildRestoreRecordsMap',
-      traceAttributes,
-      async () =>
-        ok(
-          records.map((record) => {
-            const snapshot = snapshotMap.get(record.id().toString());
-            if (!snapshot) {
-              const fields: Record<string, unknown> = {};
-              for (const entry of record.fields().entries()) {
-                fields[entry.fieldId.toString()] = entry.value.toValue();
-              }
-              return {
-                recordId: record.id().toString(),
-                fields,
-              };
-            }
-
-            return {
-              recordId: snapshot.id,
-              fields: snapshot.fields,
-              ...(snapshot.orders ? { orders: snapshot.orders } : {}),
-              ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
-              ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
-              ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
-              ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
-              ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
-            };
-          })
-        )
-    );
+    return ok(storedSnapshotsResult.value);
   }
 
   private async executeDuplicateStreamChunks(
@@ -925,11 +933,11 @@ export class DuplicateRecordsApplicationService {
           'teable.DuplicateRecordsApplicationService.loadDuplicateChunk',
           {
             'teable.batch_index': chunkPlan.batchIndex,
-            'teable.chunk_row_count': chunkPlan.rowCount,
+            'teable.chunk_row_count': chunkPlan.sourceRecords.length,
             'teable.total_record_count': plan.totalCount,
             'teable.table_id': plan.table.id().toString(),
           },
-          () => this.loadDuplicateChunk(context, plan, chunkPlan)
+          () => this.loadDuplicateChunk(chunkPlan)
         );
         if (chunkResult.isErr()) {
           queue.push(
@@ -1090,7 +1098,7 @@ export class DuplicateRecordsApplicationService {
               context,
               plan.table,
               persisted.duplicatedRecordIds,
-              persisted.restoreRecords,
+              persisted.storedSnapshots,
               operation.operationId
             )
         );
@@ -1130,42 +1138,9 @@ export class DuplicateRecordsApplicationService {
   }
 
   private async loadDuplicateChunk(
-    context: IExecutionContext,
-    plan: PreparedDuplicatePlan,
-    chunkPlan: DuplicateChunkPlan
+    chunkPlan: PreparedDuplicateChunk
   ): Promise<Result<PreparedDuplicateChunk, DomainError>> {
-    const recordsResult = await this.queryRecordsForRange(
-      context,
-      plan.table,
-      plan.filterSpec,
-      plan.orderBy,
-      plan.search,
-      chunkPlan.startRow,
-      chunkPlan.startRow + chunkPlan.rowCount - 1,
-      { includeTotal: false }
-    );
-    if (recordsResult.isErr()) {
-      return err(recordsResult.error);
-    }
-
-    const sourceRecords: PreparedDuplicateSourceRecord[] = [];
-    for (const record of recordsResult.value) {
-      const recordIdResult = RecordId.create(record.id);
-      if (recordIdResult.isErr()) {
-        return err(recordIdResult.error);
-      }
-
-      sourceRecords.push({
-        sourceRecordId: recordIdResult.value,
-        sourceRecordIdString: record.id,
-        fieldValues: this.extractDuplicateFieldValues(plan.table, record),
-      });
-    }
-
-    return ok({
-      batchIndex: chunkPlan.batchIndex,
-      sourceRecords,
-    });
+    return ok(chunkPlan);
   }
 
   private createChunkOrder(
@@ -1187,23 +1162,18 @@ export class DuplicateRecordsApplicationService {
     context: IExecutionContext,
     table: Table,
     duplicatedRecordIds: ReadonlyArray<string>,
-    restoreRecords: ReadonlyArray<UndoRedoRestoreRecord>,
+    storedSnapshots: ReadonlyArray<RecordStoredSnapshot>,
     groupId: string
   ): Promise<Result<void, DomainError>> {
-    if (!restoreRecords.length) {
+    if (!storedSnapshots.length) {
       return ok(undefined);
     }
 
-    return this.undoRedoService.recordEntry(context, table.id(), {
+    return this.undoRedoStackService.appendRecordCreate(toUndoRedoStackAppendContext(context), {
+      tableId: table.id(),
+      createdRecordIds: duplicatedRecordIds,
+      createdRecords: storedSnapshots,
       groupId,
-      undoCommand: createUndoRedoCommand('DeleteRecords', {
-        tableId: table.id().toString(),
-        recordIds: [...duplicatedRecordIds],
-      }),
-      redoCommand: createUndoRedoCommand('RestoreRecords', {
-        tableId: table.id().toString(),
-        records: restoreRecords,
-      }),
     });
   }
 

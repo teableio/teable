@@ -7,14 +7,18 @@ import {
   type IForeignTableLoaderService,
   NullForeignTableLoaderService,
 } from '../application/services/ForeignTableLoaderService';
-import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { type IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
+import { requireRecordUpdateSnapshot } from '../application/services/RecordMutationSnapshotContract';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoService } from '../application/services/UndoRedoService';
+import {
+  toUndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldValuesDTO';
@@ -50,6 +54,22 @@ const buildScopedUpdateForbiddenError = (tableId: string) =>
       authorizedRecordCount: 0,
     },
   });
+
+const areFieldValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') {
+    return false;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+};
 
 export class UpdateRecordResult {
   private constructor(
@@ -98,7 +118,7 @@ export class UpdateRecordHandler
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoService: UndoRedoService,
+    private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.foreignTableLoaderService)
@@ -296,20 +316,30 @@ export class UpdateRecordHandler
 
       // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
       const changes: RecordFieldChangeDTO[] = [];
-      const fallbackUpdatedFieldValues = new Map<string, unknown>();
+      const changedFieldValues = new Map<string, unknown>(
+        mutationResult.mutation.changedFields ?? []
+      );
       for (const entry of updatedRecord.fields().entries()) {
-        fallbackUpdatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
+        const fieldId = entry.fieldId.toString();
+        const newValue = entry.value.toValue();
+        if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+          changedFieldValues.set(fieldId, newValue);
+        }
       }
       const updatedFieldValues =
         yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
           tableForUpdate,
-          mutationResult.mutation.changedFields
+          changedFieldValues.size > 0 ? changedFieldValues : undefined,
+          currentRecord.fields
         );
-      for (const [fieldId] of recordUpdateResult.fieldKeyMapping) {
+      for (const [fieldId, newValue] of updatedFieldValues ?? new Map<string, unknown>()) {
+        if (areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+          continue;
+        }
         changes.push({
           fieldId,
           oldValue: currentRecord.fields[fieldId],
-          newValue: updatedFieldValues?.get(fieldId) ?? fallbackUpdatedFieldValues.get(fieldId),
+          newValue,
         });
       }
       // 3. Create and publish RecordUpdated event
@@ -352,13 +382,6 @@ export class UpdateRecordHandler
       }
       yield* await handler.eventBus.publishMany(context, events);
 
-      const oldValues: Record<string, unknown> = {};
-      const newValues: Record<string, unknown> = {};
-      for (const change of changes) {
-        oldValues[change.fieldId] = change.oldValue;
-        newValues[change.fieldId] = change.newValue;
-      }
-
       const orderUndoCommands =
         command.order && mutationResult.previousOrder !== mutationResult.nextOrder
           ? [
@@ -394,33 +417,49 @@ export class UpdateRecordHandler
             ]
           : [];
 
-      if (Object.keys(oldValues).length > 0) {
-        yield* await handler.undoRedoService.recordUpdateRecord(context, {
-          tableId: table.id(),
-          recordId: command.recordId,
-          oldValues,
-          newValues,
-          recordVersionBefore: oldVersion,
-          recordVersionAfter: newVersion,
-          undoCommandsAfter: [...sideEffectUndoRedoPlan.undoCommands, ...orderUndoCommands],
-          redoCommandsBefore: [...sideEffectUndoRedoPlan.redoCommands, ...orderRedoCommands],
-        });
+      if (changes.length > 0) {
+        const updateSnapshotResult = requireRecordUpdateSnapshot(
+          {
+            operation: 'update',
+            tableId: table.id().toString(),
+            recordId: command.recordId.toString(),
+          },
+          mutationResult.mutation.updateSnapshot
+        );
+        if (updateSnapshotResult.isErr()) {
+          return err(updateSnapshotResult.error);
+        }
+        yield* await handler.undoRedoStackService.appendRecordUpdateFromSnapshot(
+          toUndoRedoStackAppendContext(context),
+          {
+            tableId: table.id(),
+            recordId: command.recordId,
+            snapshot: updateSnapshotResult.value,
+            fieldIds: changes.map((change) => change.fieldId),
+            undoCommandsAfter: [...sideEffectUndoRedoPlan.undoCommands, ...orderUndoCommands],
+            redoCommandsBefore: [...sideEffectUndoRedoPlan.redoCommands, ...orderRedoCommands],
+          }
+        );
       } else if (
         sideEffectUndoRedoPlan.undoCommands.length > 0 ||
         sideEffectUndoRedoPlan.redoCommands.length > 0 ||
         orderUndoCommands.length > 0 ||
         orderRedoCommands.length > 0
       ) {
-        yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-          undoCommand: composeUndoRedoCommands([
-            ...sideEffectUndoRedoPlan.undoCommands,
-            ...orderUndoCommands,
-          ]),
-          redoCommand: composeUndoRedoCommands([
-            ...sideEffectUndoRedoPlan.redoCommands,
-            ...orderRedoCommands,
-          ]),
-        });
+        yield* await handler.undoRedoStackService.appendEntry(
+          toUndoRedoStackAppendContext(context),
+          table.id(),
+          {
+            undoCommand: composeUndoRedoCommands([
+              ...sideEffectUndoRedoPlan.undoCommands,
+              ...orderUndoCommands,
+            ]),
+            redoCommand: composeUndoRedoCommands([
+              ...sideEffectUndoRedoPlan.redoCommands,
+              ...orderRedoCommands,
+            ]),
+          }
+        );
       }
       await pluginExecution.afterCommit();
 
@@ -439,6 +478,7 @@ export class UpdateRecordHandler
               .entries()
               .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
           ),
+          ...(updatedFieldValues ? Object.fromEntries(updatedFieldValues) : {}),
         },
       });
 

@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -39,6 +38,7 @@ import type {
   ITableRecordRepository,
   RecordMutationResult,
   BatchRecordMutationResult,
+  RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -49,15 +49,14 @@ import {
   createTrackedRecordWritePlugin,
   expectRecordWritePluginToBeSkipped,
 } from './recordWritePluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId, requestId: 'req-delete-direct-test' };
 };
 
-const noopUndoRedoService = {
-  recordEntry: async () => ok(undefined),
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
@@ -139,6 +138,9 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastTable: Table | undefined;
   lastSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
   failDelete: DomainError | undefined;
+  deletedRecordsOverride: ReadonlyArray<RecordStoredSnapshot> | null = null;
+
+  constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
 
   async insert(
     _: IExecutionContext,
@@ -186,26 +188,58 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     _: IExecutionContext,
     __: Table,
     ___: Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>>
-  ): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  ): Promise<Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
   async deleteMany(
     context: IExecutionContext,
     table: Table,
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<{ deletedRecords?: ReadonlyArray<RecordStoredSnapshot> }, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
     this.lastSpec = spec;
     if (this.failDelete) return err(this.failDelete);
-    return ok(undefined);
+    const recordIdSet =
+      spec instanceof RecordByIdsSpec
+        ? new Set(spec.recordIds().map((recordId) => recordId.toString()))
+        : undefined;
+    const deletedRecords =
+      this.deletedRecordsOverride ??
+      (recordIdSet && this.queryRepository
+        ? this.queryRepository.records
+            .filter((record) => recordIdSet.has(record.id))
+            .map((record) => toStoredSnapshot(record))
+        : []);
+    if (this.queryRepository && spec instanceof RecordByIdsSpec) {
+      const deletedRecordIdSet =
+        this.deletedRecordsOverride == null
+          ? recordIdSet
+          : new Set(deletedRecords.map((record) => record.recordId));
+      this.queryRepository.records = this.queryRepository.records.filter(
+        (record) => !deletedRecordIdSet?.has(record.id)
+      );
+      this.queryRepository.total = this.queryRepository.records.length;
+    }
+    return ok(deletedRecords.length > 0 ? { deletedRecords } : {});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
     return ok({ totalDeleted: 0 });
   }
 }
+
+const toStoredSnapshot = (record: TableRecordReadModel): RecordStoredSnapshot => ({
+  recordId: record.id,
+  fields: record.fields,
+  ...(record.orders ? { orders: record.orders } : {}),
+  ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
+  ...(record.createdTime ? { createdTime: record.createdTime } : {}),
+  ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+  ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
+  ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+});
 
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
@@ -286,7 +320,7 @@ const createHandler = (args: {
   const deleteByRangeApplicationService = new DeleteByRangeApplicationService(
     new TableQueryService(args.tableRepository),
     createRecordWritePluginRunner(args.plugins),
-    args.recordRepository ?? new FakeTableRecordRepository(),
+    args.recordRepository ?? new FakeTableRecordRepository(args.queryRepository),
     args.queryRepository,
     args.eventBus ?? new FakeEventBus(),
     noopUndoRedoService,
@@ -507,7 +541,7 @@ describe('DeleteByRangeHandler', () => {
     }));
     queryRepository.total = recordCount;
 
-    const recordRepository = new FakeTableRecordRepository();
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
     const handler = createHandler({
       tableRepository,
       recordRepository,
@@ -528,7 +562,7 @@ describe('DeleteByRangeHandler', () => {
     expect(recordRepository.lastSpec).toBeInstanceOf(RecordByIdsSpec);
   });
 
-  it('continues when delete returns not found', async () => {
+  it('returns error when delete reports not found after planning rows', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -538,7 +572,7 @@ describe('DeleteByRangeHandler', () => {
       { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
     ];
 
-    const recordRepository = new FakeTableRecordRepository();
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
     recordRepository.failDelete = domainError.notFound({ message: 'Record missing' });
     const eventBus = new FakeEventBus();
 
@@ -559,9 +593,9 @@ describe('DeleteByRangeHandler', () => {
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    result._unsafeUnwrap();
-
-    expect(eventBus.published.length).toBe(1);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
+    expect(eventBus.published).toHaveLength(0);
   });
 
   it('returns error when delete fails', async () => {
@@ -574,7 +608,7 @@ describe('DeleteByRangeHandler', () => {
       { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
     ];
 
-    const recordRepository = new FakeTableRecordRepository();
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
     recordRepository.failDelete = domainError.unexpected({ message: 'delete failed' });
 
     const handler = createHandler({
@@ -594,5 +628,37 @@ describe('DeleteByRangeHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
+  });
+
+  it('returns error when repository delete snapshots disagree with planned rows', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+    ];
+
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+    recordRepository.deletedRecordsOverride = [toStoredSnapshot(queryRepository.records[0]!)];
+
+    const handler = createHandler({
+      tableRepository,
+      recordRepository,
+      queryRepository,
+    });
+
+    const commandResult = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 1]],
+      type: 'rows',
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.missing');
   });
 });

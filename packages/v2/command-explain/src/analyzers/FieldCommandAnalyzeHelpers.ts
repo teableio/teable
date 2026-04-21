@@ -58,11 +58,11 @@ export const createFieldExplainDryRunEnvironment = (input: {
 
 export const createNoopUndoRedoService = () =>
   ({
-    async recordEntry() {
+    async appendEntry() {
       return ok(undefined);
     },
   }) as {
-    recordEntry: (
+    appendEntry: (
       context: IExecutionContext,
       tableId: { toString(): string },
       entry: unknown

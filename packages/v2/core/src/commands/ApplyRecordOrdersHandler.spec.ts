@@ -147,11 +147,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       batches.push(batchResult.value);
     }
     this.updateBatches = batches;
-    return ok({ totalUpdated: batches.flat().length });
+    return ok({ totalUpdated: batches.flat().length, updatedRecords: [] });
   }
 
-  async deleteMany(): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  async deleteMany() {
+    return ok({});
   }
 }
 

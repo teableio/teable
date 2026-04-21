@@ -66,6 +66,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       [FunctionName.Replace]: (params) => this.replace(params),
       [FunctionName.RegExpReplace]: (params) => this.regexpReplace(params),
       [FunctionName.Substitute]: (params) => this.substitute(params),
+      [FunctionName.TextBefore]: (params) => this.textBefore(params),
+      [FunctionName.TextSplit]: (params) => this.textSplit(params),
       [FunctionName.Lower]: (params) => this.lower(params),
       [FunctionName.Upper]: (params) => this.upper(params),
       [FunctionName.Rept]: (params) => this.rept(params),
@@ -953,6 +955,53 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       guardValueSql(valueSql, errorCondition),
       'string',
       false,
+      errorCondition,
+      errorMessage
+    );
+  }
+
+  private textBefore(params: SqlExpr[]): SqlExpr {
+    const textExpr = params[0];
+    const delimiterExpr = params[1];
+    if (!textExpr || !delimiterExpr) return makeExpr('NULL', 'string', false);
+    const text = this.coerceToString(textExpr, false);
+    const delimiter = this.coerceToString(delimiterExpr);
+    const ifNotFound = params[5] ? this.coerceToString(params[5]) : undefined;
+    const errorCondition = combineErrorConditions(
+      ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter]
+    );
+    const errorMessage = buildErrorMessageSql(
+      ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter],
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+    );
+    const positionSql = `POSITION(${delimiter.valueSql} IN ${text.valueSql})`;
+    const fallbackSql = ifNotFound?.valueSql ?? 'NULL';
+    const valueSql = `(CASE WHEN ${positionSql} = 0 THEN ${fallbackSql} ELSE LEFT(${text.valueSql}, ${positionSql} - 1) END)`;
+    return makeExpr(
+      guardValueSql(valueSql, errorCondition),
+      'string',
+      false,
+      errorCondition,
+      errorMessage
+    );
+  }
+
+  private textSplit(params: SqlExpr[]): SqlExpr {
+    const textExpr = params[0];
+    const delimiterExpr = params[1];
+    if (!textExpr || !delimiterExpr) return makeExpr('NULL', 'string', true);
+    const text = this.coerceToString(textExpr, false);
+    const delimiter = this.coerceToString(delimiterExpr);
+    const errorCondition = combineErrorConditions([text, delimiter]);
+    const errorMessage = buildErrorMessageSql(
+      [text, delimiter],
+      buildErrorLiteral('TYPE', 'cannot_cast_to_text')
+    );
+    const valueSql = `to_jsonb(string_to_array(${text.valueSql}, ${delimiter.valueSql}))`;
+    return makeExpr(
+      guardValueSql(valueSql, errorCondition),
+      'string',
+      true,
       errorCondition,
       errorMessage
     );

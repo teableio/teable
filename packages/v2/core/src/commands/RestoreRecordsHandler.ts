@@ -158,6 +158,7 @@ export class RestoreRecordsHandler
       batch.map((record) => [
         record.recordId,
         {
+          ...(record.version !== undefined ? { version: record.version } : {}),
           ...(record.orders ? { orders: record.orders } : {}),
           ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
           ...(record.createdTime ? { createdTime: record.createdTime } : {}),
