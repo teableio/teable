@@ -1406,10 +1406,15 @@
     "byokModelNotSupported": "您的自定义模型不支持 Agent 模式，建议切换为 Claude Opus 4.6 以获得最佳体验。",
     "modelServiceUnavailable": "模型服务暂时不可用，请稍后重试。",
     "modelServiceError": "模型服务发生错误，请重试或切换模型。",
+    "imageProcessingFailed": "图片处理失败",
+    "imageProcessingFailedDescription": "AI 模型无法处理此图片，请尝试重新发送或继续对话。",
     "sandboxBusy": "Cuppy 正在另一个对话中执行，请稍候。",
     "sandboxCapacityFull": "最多同时运行 {{max}} 个对话，请等待一个对话完成。",
     "sandboxTransient": "Cuppy 正在准备中，请稍后重试。",
-    "sandboxSnapshotNotFound": "Cuppy 的运行环境尚未准备好，请联系管理员创建沙箱快照。"
+    "sandboxSnapshotNotFound": "Cuppy 的运行环境尚未准备好，请联系管理员创建沙箱快照。",
+    "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
+    "idleTimeout": "命令执行超过时间限制（{{seconds}}秒），请重试。",
+    "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。"
   },
   "system": {
     "notFound": {
@@ -1444,9 +1449,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月10日更新",
-    "title": "全新 Teable Agent：超级智能，低成本",
-    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
-    "id": "changelog-2026-04-10-new-agent-engine"
+    "newUpdate": "4月17日 更新",
+    "title": "Claude Opus 4.7 现已接入 Teable",
+    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
+    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
   }
 }

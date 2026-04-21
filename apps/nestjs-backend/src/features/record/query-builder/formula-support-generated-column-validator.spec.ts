@@ -65,4 +65,23 @@ describe('FormulaSupportGeneratedColumnValidator', () => {
     const validator = new GeneratedColumnQuerySupportValidatorPostgres();
     expect(validateFormulaSupport(validator, 'SUM({fldNum1},{fldNum2})', table)).toBe(true);
   });
+
+  it('rejects TEXTBEFORE and TEXTSPLIT for generated columns', () => {
+    const table = makeMockTable({
+      fldText: {
+        id: 'fldText',
+        name: 'Text',
+        dbFieldName: 'Field_1',
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        isLookup: false,
+        isMultipleCellValue: false,
+      },
+    });
+
+    const validator = new GeneratedColumnQuerySupportValidatorPostgres();
+    expect(validateFormulaSupport(validator, 'TEXTBEFORE({fldText}, ",")', table)).toBe(false);
+    expect(validateFormulaSupport(validator, 'TEXTSPLIT({fldText}, ",")', table)).toBe(false);
+  });
 });

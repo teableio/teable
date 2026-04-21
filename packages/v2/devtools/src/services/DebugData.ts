@@ -99,6 +99,47 @@ export interface CanarySpaceCheckResult {
   readonly config: CanaryConfigSummary;
 }
 
+export interface UndoCaptureTriggerSummary {
+  readonly present: boolean;
+  readonly name: string;
+  readonly enabledCode: string | null;
+  readonly isEnabled: boolean;
+  readonly functionSchema: string | null;
+  readonly functionName: string | null;
+  readonly definition: string | null;
+}
+
+export interface UndoCaptureFunctionSummary {
+  readonly present: boolean;
+  readonly schema: string | null;
+  readonly name: string | null;
+}
+
+export interface UndoCaptureUndoLogSummary {
+  readonly tableExists: boolean;
+  readonly pendingRowCount: number;
+  readonly pendingBatchCount: number;
+  readonly latestCreatedAt: string | null;
+}
+
+export interface UndoCaptureInspectionResult {
+  readonly table: {
+    readonly tableId: string;
+    readonly tableName: string;
+    readonly dbTableName: string;
+    readonly schemaName: string;
+    readonly physicalTableName: string;
+  };
+  readonly infrastructure: {
+    readonly undoLogTableExists: boolean;
+    readonly captureFunctionExists: boolean;
+    readonly ready: boolean;
+  };
+  readonly captureFunction: UndoCaptureFunctionSummary;
+  readonly trigger: UndoCaptureTriggerSummary;
+  readonly undoLog: UndoCaptureUndoLogSummary;
+}
+
 export class DebugData extends Context.Tag('DebugData')<
   DebugData,
   {
@@ -131,6 +172,9 @@ export class DebugData extends Context.Tag('DebugData')<
       tableId: string,
       recordId: string
     ) => Effect.Effect<RawRecord | null, CliError>;
+    readonly inspectUndoCapture: (
+      tableId: string
+    ) => Effect.Effect<UndoCaptureInspectionResult | null, CliError>;
     readonly checkCanarySpace: (input: {
       readonly spaceId?: string;
       readonly baseId?: string;

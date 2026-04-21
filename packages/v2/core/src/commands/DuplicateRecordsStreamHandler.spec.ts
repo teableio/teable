@@ -6,7 +6,7 @@ import { DuplicateRecordsApplicationService } from '../application/services/Dupl
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
+import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -41,6 +41,7 @@ import type {
   InsertOptions,
   ITableRecordRepository,
   RecordMutationResult,
+  RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
@@ -209,6 +210,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   failInsertByBatchIndex = new Map<number, DomainError>();
+  omitRecordSnapshotsByBatchIndex = new Set<number>();
   insertContexts: Array<IExecutionContext> = [];
   insertedRecordIdsByBatch: string[][] = [];
   private orderCounterByViewId = new Map<string, number>();
@@ -240,6 +242,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     }
 
     const recordOrders = new Map<string, Record<string, number>>();
+    const recordSnapshots: RecordStoredSnapshot[] = [];
     const orderViewId = options?.order?.viewId.toString();
 
     for (const record of records) {
@@ -262,10 +265,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
 
       this.queryRepository.persistedRecords.set(snapshot.id, snapshot);
+      recordSnapshots.push(toStoredSnapshot(snapshot));
     }
 
     return ok({
       ...(recordOrders.size ? { recordOrders } : {}),
+      ...(this.omitRecordSnapshotsByBatchIndex.has(batchIndex) ? {} : { recordSnapshots }),
     });
   }
 
@@ -286,12 +291,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 
-  async updateManyStream(): Promise<Result<{ totalUpdated: number }, DomainError>> {
-    return ok({ totalUpdated: 0 });
+  async updateManyStream(): Promise<
+    Result<{ totalUpdated: number; updatedRecords: [] }, DomainError>
+  > {
+    return ok({ totalUpdated: 0, updatedRecords: [] });
   }
 
-  async deleteMany(): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  async deleteMany() {
+    return ok({});
   }
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
@@ -336,7 +343,62 @@ class FakeUndoRedoService {
     });
     return ok(undefined);
   }
+
+  async recordCreate(
+    context: IExecutionContext,
+    params: {
+      tableId: TableId;
+      createdRecords: ReadonlyArray<{ recordId: string }>;
+      createdRecordIds?: ReadonlyArray<string>;
+      groupId?: string;
+    }
+  ) {
+    return this.recordEntry(context, params.tableId, {
+      ...(params.groupId ? { groupId: params.groupId } : {}),
+      undoCommand: {
+        type: 'DeleteRecords',
+        payload: {
+          recordIds: [
+            ...(params.createdRecordIds ?? params.createdRecords.map((record) => record.recordId)),
+          ],
+        },
+      },
+      redoCommand: {
+        type: 'RestoreRecords',
+        payload: {
+          records: [...params.createdRecords],
+        },
+      },
+    });
+  }
+
+  async appendEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+    return this.recordEntry(context, tableId, entry);
+  }
+
+  async appendRecordCreate(
+    context: IExecutionContext,
+    params: {
+      tableId: TableId;
+      createdRecords: ReadonlyArray<{ recordId: string }>;
+      createdRecordIds?: ReadonlyArray<string>;
+      groupId?: string;
+    }
+  ) {
+    return this.recordCreate(context, params);
+  }
 }
+
+const toStoredSnapshot = (record: TableRecordReadModel): RecordStoredSnapshot => ({
+  recordId: record.id,
+  fields: record.fields,
+  ...(record.orders ? { orders: record.orders } : {}),
+  ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
+  ...(record.createdTime ? { createdTime: record.createdTime } : {}),
+  ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+  ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
+  ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+});
 
 class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
@@ -373,7 +435,7 @@ const createHandler = (args: {
       new FakeUnitOfWork()
     ),
     eventBus,
-    undoRedoService as unknown as UndoRedoService,
+    undoRedoService as unknown as UndoRedoStackService,
     new FakeUnitOfWork()
   );
 
@@ -520,7 +582,7 @@ describe('DuplicateRecordsStreamHandler', () => {
     ).toEqual([2, 1]);
     expect(
       queryRepository.findCalls.filter((call) => call.spec instanceof RecordByIdsSpec)
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(calls.prepare).toHaveLength(3);
     expect(calls.guard).toHaveLength(3);
     expect(calls.beforePersist).toHaveLength(2);
@@ -644,8 +706,6 @@ describe('DuplicateRecordsStreamHandler', () => {
         'teable.DuplicateRecordsApplicationService.buildDuplicateChunkRecords',
         'teable.DuplicateRecordsApplicationService.persistDuplicateChunkMutation',
         'teable.DuplicateRecordsApplicationService.aggregateDuplicateChunkEvents',
-        'teable.DuplicateRecordsApplicationService.buildRestoreRecordsQuery',
-        'teable.DuplicateRecordsApplicationService.buildRestoreRecordsMap',
         'teable.DuplicateRecordsApplicationService.publishDuplicateChunkEvents',
         'teable.DuplicateRecordsApplicationService.recordDuplicateChunkUndoRedo',
         'teable.DuplicateRecordsApplicationService.yieldAfterDuplicateChunk',
@@ -851,6 +911,56 @@ describe('DuplicateRecordsStreamHandler', () => {
         undoRedoService.recordEntryCalls.map((call) => (call.entry as { groupId: string }).groupId)
       )
     ).toHaveProperty('size', 1);
+  });
+
+  it('emits an error when a duplicate chunk persists without stored snapshots', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.sourceRecords = [
+      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+    ];
+    queryRepository.total = 1;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+    recordRepository.omitRecordSnapshotsByBatchIndex.add(0);
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new FakeUndoRedoService();
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+      eventBus,
+      undoRedoService,
+    });
+
+    const command = DuplicateRecordsStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 0]],
+      type: 'rows',
+      batchSize: 1,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.map((event) => event.id)).toEqual(['progress', 'progress', 'error', 'done']);
+    expect(events.find((event) => event.id === 'error')).toMatchObject({
+      id: 'error',
+      phase: 'duplicating',
+      batchIndex: 0,
+      totalCount: 1,
+      duplicatedCount: 0,
+      message: 'Record repository did not provide the required stored snapshot for duplicate.',
+      code: 'record.stored_snapshot.unavailable',
+    });
+    expect(eventBus.publishManyCalls).toHaveLength(0);
+    expect(undoRedoService.recordEntryCalls).toHaveLength(0);
   });
 
   it('emits a zero-result done event and skips undo when every chunk fails', async () => {

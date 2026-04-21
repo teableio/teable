@@ -252,6 +252,7 @@
     "passport-oauth2-client-password": "0.1.2",
     "passport-openidconnect": "0.1.2",
     "pause": "0.1.0",
+    "pdf-parse": "2.4.5",
     "pg": "8.11.5",
     "pino-http": "10.5.0",
     "pino-pretty": "11.0.0",

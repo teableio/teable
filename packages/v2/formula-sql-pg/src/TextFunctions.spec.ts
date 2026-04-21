@@ -28,6 +28,8 @@ const textFunctionCases: ReadonlyArray<TextFunctionCase> = [
     buildExpression: (fieldName) => `REGEXP_REPLACE({${fieldName}}, "1", "x")`,
   },
   { id: 'Substitute', buildExpression: (fieldName) => `SUBSTITUTE({${fieldName}}, "1", "x")` },
+  { id: 'TextBefore', buildExpression: (fieldName) => `TEXTBEFORE({${fieldName}}, "1")` },
+  { id: 'TextSplit', buildExpression: (fieldName) => `TEXTSPLIT({${fieldName}}, "1")` },
   { id: 'Lower', buildExpression: (fieldName) => `LOWER({${fieldName}})` },
   { id: 'Upper', buildExpression: (fieldName) => `UPPER({${fieldName}})` },
   { id: 'Rept', buildExpression: (fieldName) => `REPT({${fieldName}}, 2)` },

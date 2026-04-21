@@ -155,6 +155,48 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('keeps legacy lookup formula convert payloads on formula semantics', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2(
+      {
+        type: 'formula',
+        isLookup: true,
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+        },
+        options: {
+          formatting: { precision: 4, type: 'decimal' },
+        },
+      },
+      {
+        type: 'formula',
+        isLookup: true,
+        cellValueType: 'number',
+        isMultipleCellValue: false,
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+        },
+        options: {
+          expression: 'max({values})',
+          formatting: { precision: 2, type: 'decimal' },
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      type: 'formula',
+      options: {
+        expression: 'max({values})',
+        formatting: { precision: 4, type: 'decimal' },
+        showAs: null,
+      },
+    });
+  });
+
   it('maps rollup convert options with foreignTableId and showAs', () => {
     const service = createService();
     const mapped = service.mapConvertFieldToV2({

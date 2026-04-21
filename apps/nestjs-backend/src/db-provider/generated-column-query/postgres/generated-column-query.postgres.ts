@@ -203,7 +203,8 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private normalizeBlankComparable(value: string, metadataIndex?: number): string {
     const comparable = this.coerceToTextComparable(value, metadataIndex);
-    return `COALESCE(NULLIF(${comparable}, ''), '')`;
+    const textComparable = this.ensureTextCollation(comparable);
+    return `COALESCE(NULLIF(${textComparable}, ''), '')`;
   }
 
   private ensureTextCollation(expr: string): string {
@@ -220,9 +221,17 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const rightIndex = metadataIndexes?.right;
     const leftIsEmptyLiteral = this.isEmptyStringLiteral(left);
     const rightIsEmptyLiteral = this.isEmptyStringLiteral(right);
+    const leftIsNullLiteral = this.isNullLiteral(left);
+    const rightIsNullLiteral = this.isNullLiteral(right);
     const leftIsText = this.isTextLikeExpression(left, leftIndex);
     const rightIsText = this.isTextLikeExpression(right, rightIndex);
-    const normalizeText = leftIsEmptyLiteral || rightIsEmptyLiteral || leftIsText || rightIsText;
+    const normalizeText =
+      leftIsEmptyLiteral ||
+      rightIsEmptyLiteral ||
+      leftIsNullLiteral ||
+      rightIsNullLiteral ||
+      leftIsText ||
+      rightIsText;
 
     const leftIsNumericComparable = this.shouldCoalesceNumericComparison(left, leftIndex);
     const rightIsNumericComparable = this.shouldCoalesceNumericComparison(right, rightIndex);
@@ -241,11 +250,21 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       return `(${left} ${operator} ${right})`;
     }
 
-    const normalizeOperand = (value: string, isEmptyLiteral: boolean, metadataIndex?: number) =>
-      isEmptyLiteral ? "''" : this.normalizeBlankComparable(value, metadataIndex);
+    const normalizeOperand = (
+      value: string,
+      isEmptyLiteral: boolean,
+      isNullLiteral: boolean,
+      metadataIndex?: number
+    ) =>
+      isEmptyLiteral || isNullLiteral ? "''" : this.normalizeBlankComparable(value, metadataIndex);
 
-    const normalizedLeft = normalizeOperand(left, leftIsEmptyLiteral, leftIndex);
-    const normalizedRight = normalizeOperand(right, rightIsEmptyLiteral, rightIndex);
+    const normalizedLeft = normalizeOperand(left, leftIsEmptyLiteral, leftIsNullLiteral, leftIndex);
+    const normalizedRight = normalizeOperand(
+      right,
+      rightIsEmptyLiteral,
+      rightIsNullLiteral,
+      rightIndex
+    );
 
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
   }
@@ -823,6 +842,29 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       return `REPLACE(${source}, ${search}, ${replacement})`;
     }
     return `REPLACE(${source}, ${search}, ${replacement})`;
+  }
+
+  textBefore(
+    text: string,
+    delimiter: string,
+    _instanceNum?: string,
+    _matchMode?: string,
+    _matchEnd?: string,
+    ifNotFound?: string
+  ): string {
+    const source = this.ensureTextCollation(this.coerceToTextComparable(text, 0));
+    const search = this.ensureTextCollation(this.coerceToTextComparable(delimiter, 1));
+    const fallback = ifNotFound
+      ? this.ensureTextCollation(this.coerceToTextComparable(ifNotFound, 5))
+      : 'NULL';
+    const position = `POSITION(${search} IN ${source})`;
+    return `(CASE WHEN ${position} = 0 THEN ${fallback} ELSE LEFT(${source}, ${position} - 1) END)`;
+  }
+
+  textSplit(text: string, delimiter: string, _ignoreEmpty?: string, _matchMode?: string): string {
+    const source = this.ensureTextCollation(this.coerceToTextComparable(text, 0));
+    const search = this.ensureTextCollation(this.coerceToTextComparable(delimiter, 1));
+    return `to_jsonb(string_to_array(${source}, ${search}))`;
   }
 
   lower(text: string): string {

@@ -544,11 +544,18 @@ describe('FieldConditionSpecBuilder', () => {
       'Invalid record condition operator for field'
     );
 
-    // is without value on text field gets normalized to isEmpty (V1 compat)
+    // is without value on a non-checkbox field is an incomplete UI filter.
     const isWithoutValue = FieldConditionSpecBuilder.create(fields.textField).create({
       operator: 'is',
     });
-    expect(isWithoutValue.isOk()).toBe(true);
+    expect(isWithoutValue._unsafeUnwrapErr().message).toContain(
+      'Record condition requires a value'
+    );
+
+    const checkboxIsWithoutValue = FieldConditionSpecBuilder.create(fields.checkboxField).create({
+      operator: 'is',
+    });
+    expect(checkboxIsWithoutValue.isOk()).toBe(true);
 
     // contains without value should still fail
     const missingValue = FieldConditionSpecBuilder.create(fields.textField).create({

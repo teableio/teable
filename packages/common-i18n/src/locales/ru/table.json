@@ -923,6 +923,17 @@
     "shareNodeTab": "Поделиться узлом"
   },
   "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "label": "Вопрос",
+        "confirm": "Подтвердить ({{count}})",
+        "otherPlaceholder": "Или введите ответ…",
+        "otherSend": "Отправить",
+        "addCustomPlaceholder": "Добавить свой вариант…",
+        "askedUser": "Вопрос пользователю",
+        "answered": "Отвечено"
+      }
+    },
     "tool": {
       "getTableFields": "Получить поля таблицы",
       "getTablesMeta": "Получить метаданные таблицы",
