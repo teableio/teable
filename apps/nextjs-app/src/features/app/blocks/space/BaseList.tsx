@@ -343,9 +343,15 @@ export const BaseList = (props: IBaseListProps) => {
         )}
       >
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
-        <div className="hidden shrink-0 px-2 sm:block sm:w-24">{t('space:baseList.owner')}</div>
-        <div className="hidden w-24 shrink-0 px-2 sm:block">{t('space:baseList.createdTime')}</div>
-        <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.lastOpened')}</div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
+          {t('space:baseList.owner')}
+        </div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-28 2xl:w-48">
+          {t('space:baseList.createdTime')}
+        </div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-28 2xl:w-48">
+          {t('space:baseList.lastOpened')}
+        </div>
       </div>
 
       {/* Rows */}

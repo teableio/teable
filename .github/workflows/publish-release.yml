@@ -1,0 +1,167 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'Release tag name, e.g. release.2026-04-20T10-38-57Z.1'
+        required: true
+        type: string
+      release_record_id:
+        description: 'Teable EE release record ID to mark as launched'
+        required: false
+        type: string
+      release_note:
+        description: 'English release note in Markdown'
+        required: true
+        type: string
+      release_note_zh:
+        description: 'Chinese release note in Markdown'
+        required: false
+        type: string
+      source_commit:
+        description: 'Teable EE source commit SHA'
+        required: false
+        type: string
+      community_commit:
+        description: 'Teable community sync commit SHA'
+        required: false
+        type: string
+      trigger:
+        description: 'Who triggered the publish'
+        required: false
+        type: string
+      publish_latest:
+        description: 'Whether GitHub should mark this release as latest'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Ensure release tag points to develop HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          set -euo pipefail
+
+          TARGET_SHA="$(git rev-parse HEAD)"
+          TAG_REF="refs/tags/${RELEASE_ID}"
+
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_ID}" >/dev/null 2>&1; then
+            echo "Tag ${RELEASE_ID} already exists"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+              --method POST \
+              --field ref="${TAG_REF}" \
+              --field sha="${TARGET_SHA}"
+          fi
+
+      - name: Build release body
+        env:
+          RELEASE_NOTE: ${{ inputs.release_note }}
+          RELEASE_NOTE_ZH: ${{ inputs.release_note_zh }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          COMMUNITY_COMMIT: ${{ inputs.community_commit }}
+          TRIGGER: ${{ inputs.trigger }}
+        run: |
+          {
+            printf '%s\n\n' "$RELEASE_NOTE"
+
+            if [ -n "$RELEASE_NOTE_ZH" ]; then
+              printf '<details>\n<summary>中文</summary>\n\n%s\n\n</details>\n\n' "$RELEASE_NOTE_ZH"
+            fi
+
+            printf '---\n\n'
+            printf 'Published from `develop` head in `teableio/teable`.\n\n'
+
+            if [ -n "$SOURCE_COMMIT" ]; then
+              printf -- '- EE source commit: `%s`\n' "$SOURCE_COMMIT"
+            fi
+
+            if [ -n "$COMMUNITY_COMMIT" ]; then
+              printf -- '- Community sync commit: `%s`\n' "$COMMUNITY_COMMIT"
+            fi
+
+            if [ -n "$TRIGGER" ]; then
+              printf -- '- Triggered by: `%s`\n' "$TRIGGER"
+            fi
+          } > release-body.md
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          PUBLISH_LATEST: ${{ inputs.publish_latest && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+
+          release_body="$(cat release-body.md)"
+          release_payload="$(jq -nc \
+            --arg tag_name "${RELEASE_ID}" \
+            --arg name "${RELEASE_ID}" \
+            --arg target_commitish "develop" \
+            --arg body "${release_body}" \
+            --argjson make_latest "${PUBLISH_LATEST}" \
+            '{
+              tag_name: $tag_name,
+              name: $name,
+              target_commitish: $target_commitish,
+              body: $body,
+              draft: false,
+              prerelease: false,
+              make_latest: $make_latest
+            }')"
+
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_ID}" >/tmp/release.json 2>/dev/null; then
+            RELEASE_API_ID="$(jq -r '.id' /tmp/release.json)"
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_API_ID}" \
+              --method PATCH \
+              --input - <<<"${release_payload}"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/releases" \
+              --method POST \
+              --input - <<<"${release_payload}"
+          fi
+
+      - name: Mark EE release as launched in Teable
+        if: ${{ inputs.release_record_id != '' && secrets.TEABLE_API_TOKEN != '' }}
+        env:
+          RELEASE_RECORD_ID: ${{ inputs.release_record_id }}
+          TEABLE_API_TOKEN: ${{ secrets.TEABLE_API_TOKEN }}
+        run: |
+          payload=$(jq -n \
+            '{
+              "fieldKeyType": "dbFieldName",
+              "typecast": true,
+              "record": {
+                "fields": {
+                  "status": "Launched"
+                }
+              }
+            }')
+
+          http_code=$(curl -s -w "%{http_code}" -o /tmp/teable-release-update.json -X PATCH \
+            "https://app.teable.ai/api/table/tblAhVLOxNtvkaF1ii5/record/${RELEASE_RECORD_ID}" \
+            -H "Authorization: Bearer ${TEABLE_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "$payload")
+
+          echo "Teable status update HTTP: ${http_code}"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            cat /tmp/teable-release-update.json
+            exit 1
+          fi

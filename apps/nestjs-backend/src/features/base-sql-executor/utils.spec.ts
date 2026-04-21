@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { DriverClient } from '@teable/core';
 import { validateRoleOperations, checkTableAccess } from './utils';
 
@@ -88,6 +89,41 @@ describe('base sql executor utils', () => {
           database: DriverClient.Pg,
         })
       ).toThrow(/Table 'xxx' not found/);
+    });
+
+    it('error message shows the correct "schema"."table" example when dbTableName was misused', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."bseXXX.tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(/FROM "bseXXX"\."tblYYY"/);
+    });
+
+    it('error message does not enumerate valid table refs (avoid leaking base table list)', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."bseXXX.tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY', 'bseXXX.Biao_Ge_5', 'bseXXX.Issue_20management'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(
+        // Should NOT leak the other table names in the base
+        expect.objectContaining({
+          message: expect.not.stringContaining('Biao_Ge_5'),
+        })
+      );
+    });
+
+    it('correctly-split "schema"."table" form passes the whitelist', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY'],
+          database: DriverClient.Pg,
+        })
+      ).not.toThrow();
     });
   });
 });

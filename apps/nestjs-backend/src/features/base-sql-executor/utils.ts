@@ -33,7 +33,6 @@ export const validateRoleOperations = (sql: string) => {
 
 const databaseTypeMap = {
   [DriverClient.Pg]: 'postgresql',
-  [DriverClient.Sqlite]: 'sqlite',
 };
 
 const collectWithNames = (ast?: AST) => {
@@ -87,10 +86,16 @@ export const checkTableAccess = (
       return parts[parts.length - 1];
     });
 
-    const message =
-      invalidTableNames.length > 0
-        ? `Table ${invalidTableNames.map((n: string) => `'${n}'`).join(', ')} not found. Please use the db table name (dbTableName from get-tables-meta) instead of the display table name for SQL queries.`
-        : (error?.message as string);
+    let message: string;
+    if (invalidTableNames.length > 0) {
+      const invalidList = invalidTableNames.map((n: string) => `'${n}'`).join(', ');
+      message =
+        `Table ${invalidList} not found. ` +
+        `dbTableName from get-tables-meta is already \`schema.table\` (e.g. \`bseXXX.tblYYY\`); ` +
+        `use it in SQL as \`FROM "bseXXX"."tblYYY"\`.`;
+    } else {
+      message = error?.message as string;
+    }
 
     throw new CustomHttpException(
       `An error occurred while checking table access: ${message}`,

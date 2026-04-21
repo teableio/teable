@@ -1,11 +1,10 @@
 /* eslint-disable require-yield */
-import { PGlite } from '@electric-sql/pglite';
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   BaseId,
   DbFieldName,
   type IHasher,
-  type IEventBus,
   type ILogger,
   type IRecordOrderCalculator,
   FieldName,
@@ -16,17 +15,12 @@ import {
   ok,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Dialect, QueryResult } from 'kysely';
-import {
-  CompiledQuery,
-  Kysely,
-  PostgresAdapter,
-  PostgresIntrospector,
-  PostgresQueryCompiler,
-  sql,
-} from 'kysely';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPGliteDb } from '../../schema/visitors/__tests__/helpers/createPGliteDb';
+import { installUndoCaptureGlobals } from '../../schema/visitors/__tests__/helpers/installUndoCaptureGlobals';
 import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
@@ -34,83 +28,9 @@ import type {
   IUpdateStrategy,
 } from '../computed';
 import type { DynamicDB } from '../query-builder';
+import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
+import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
-
-class PGliteDriver {
-  #client: PGlite;
-
-  constructor(client: PGlite) {
-    this.#client = client;
-  }
-
-  async acquireConnection() {
-    return new PGliteConnection(this.#client);
-  }
-
-  async beginTransaction(connection: PGliteConnection) {
-    await connection.executeQuery(CompiledQuery.raw('BEGIN'));
-  }
-
-  async commitTransaction(connection: PGliteConnection) {
-    await connection.executeQuery(CompiledQuery.raw('COMMIT'));
-  }
-
-  async rollbackTransaction(connection: PGliteConnection) {
-    await connection.executeQuery(CompiledQuery.raw('ROLLBACK'));
-  }
-
-  async destroy() {
-    await this.#client.close();
-  }
-
-  async init() {}
-
-  async releaseConnection() {}
-}
-
-class PGliteConnection {
-  #client: PGlite;
-
-  constructor(client: PGlite) {
-    this.#client = client;
-  }
-
-  async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
-    const result = await this.#client.query<R>(compiledQuery.sql, [...compiledQuery.parameters]);
-    return {
-      rows: result.rows,
-      numAffectedRows: result.affectedRows ? BigInt(result.affectedRows) : undefined,
-    };
-  }
-
-  async *streamQuery(): AsyncGenerator<never> {
-    throw new Error('PGlite does not support streaming.');
-  }
-}
-
-class KyselyPGliteDialect implements Dialect {
-  #client: PGlite;
-
-  constructor(client: PGlite) {
-    this.#client = client;
-  }
-
-  createAdapter() {
-    return new PostgresAdapter();
-  }
-
-  createDriver() {
-    return new PGliteDriver(this.#client);
-  }
-
-  createIntrospector(db: Kysely<unknown>) {
-    return new PostgresIntrospector(db);
-  }
-
-  createQueryCompiler() {
-    return new PostgresQueryCompiler();
-  }
-}
 
 const sanitizeIdSeed = (seed: string): string => seed.replace(/[^0-9a-z]/gi, '0');
 const createId = (prefix: string, seed: string): string =>
@@ -182,13 +102,6 @@ const createNoopOutbox = (): IComputedUpdateOutbox => {
   };
 };
 
-const createNoopEventBus = (): IEventBus => {
-  return {
-    publish: async () => ok(undefined),
-    publishMany: async () => ok(undefined),
-  };
-};
-
 const createNoopHasher = (): IHasher => {
   return {
     sha256: () => 'test-hash',
@@ -218,6 +131,10 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
     computedFieldUpdater,
     computedUpdateStrategy,
     computedUpdateOutbox,
+    new PostgresRecordMutationSnapshotCaptureService(
+      db as unknown as Kysely<V1TeableDatabase>,
+      logger
+    ),
     eventBus,
     hasher
   );
@@ -288,15 +205,16 @@ const createTableWithStorage = async (
 };
 
 describe('PostgresTableRecordRepository.insert (pglite)', () => {
-  let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
+  let destroyDb: (() => Promise<void>) | undefined;
   const createdSchemas: string[] = [];
 
   beforeAll(async () => {
-    pglite = await PGlite.create();
-    db = new Kysely<V1TeableDatabase>({
-      dialect: new KyselyPGliteDialect(pglite),
-    });
+    const pgliteDb = await createPGliteDb();
+    db = pgliteDb.db;
+    destroyDb = async () => {
+      await pgliteDb.db.destroy();
+    };
 
     await sql`
       CREATE TABLE IF NOT EXISTS table_meta (
@@ -305,6 +223,8 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
         last_modified_by text
       )
     `.execute(db);
+
+    await installUndoCaptureGlobals(db);
   });
 
   afterEach(async () => {
@@ -315,7 +235,7 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
   });
 
   afterAll(async () => {
-    await db.destroy();
+    await destroyDb?.();
   });
 
   it('sets default row order when inserting into schema-qualified table', async () => {
@@ -325,14 +245,35 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
 
     const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
     const actorId = ActorId.create('tester')._unsafeUnwrap();
-    const context = { actorId };
+    const actorContext = {
+      actorId,
+      actorName: 'Tester',
+      actorEmail: 'tester@example.com',
+    };
 
     const recordA = table.createRecord(new Map([[primaryFieldId, 'A']]))._unsafeUnwrap().record;
-    const firstInsertResult = await repository.insert(context, table, recordA);
+    const firstInsertResult = await db.transaction().execute(async (trx) =>
+      repository.insert(
+        {
+          ...actorContext,
+          transaction: new PostgresUnitOfWorkTransaction(trx as never),
+        },
+        table,
+        recordA
+      )
+    );
     expect(firstInsertResult.isOk()).toBe(true);
 
     const recordB = table.createRecord(new Map([[primaryFieldId, 'B']]))._unsafeUnwrap().record;
-    const secondInsertResult = await repository.insert(context, table, recordB);
+    const secondInsertResult = await db
+      .transaction()
+      .execute(async (trx) =>
+        repository.insert(
+          { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          table,
+          recordB
+        )
+      );
     expect(secondInsertResult.isOk()).toBe(true);
 
     const fullTableName = `${schemaName}.${tableName}`;
@@ -347,6 +288,113 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
     expect(rows.rows.map((row) => row.order_value)).toEqual([1, 2]);
   });
 
+  it('returns stored insert snapshots from mutation capture', async () => {
+    const { table, schemaName, primaryFieldId } = await createTableWithStorage(
+      db,
+      'insert-snapshot'
+    );
+    createdSchemas.push(schemaName);
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const actorContext = {
+      actorId,
+      actorName: 'Tester',
+      actorEmail: 'tester@example.com',
+    };
+
+    const firstRecord = table
+      .createRecord(new Map([[primaryFieldId, 'Alpha']]))
+      ._unsafeUnwrap().record;
+    const firstInsertResult = await db
+      .transaction()
+      .execute(async (trx) =>
+        repository.insert(
+          { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          table,
+          firstRecord
+        )
+      );
+    expect(firstInsertResult.isOk()).toBe(true);
+    expect(firstInsertResult._unsafeUnwrap().recordSnapshot).toMatchObject({
+      recordId: firstRecord.id().toString(),
+      fields: {
+        [primaryFieldId]: 'Alpha',
+      },
+    });
+
+    const secondRecord = table
+      .createRecord(new Map([[primaryFieldId, 'Beta']]))
+      ._unsafeUnwrap().record;
+    const secondInsertResult = await db
+      .transaction()
+      .execute(async (trx) =>
+        repository.insertMany(
+          { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          table,
+          [secondRecord]
+        )
+      );
+    expect(secondInsertResult.isOk()).toBe(true);
+    expect(secondInsertResult._unsafeUnwrap().recordSnapshots).toEqual([
+      expect.objectContaining({
+        recordId: secondRecord.id().toString(),
+        fields: {
+          [primaryFieldId]: 'Beta',
+        },
+      }),
+    ]);
+  });
+
+  it('returns Err when insert snapshot capture does not record the inserted row', async () => {
+    const { table, schemaName, primaryFieldId } = await createTableWithStorage(
+      db,
+      'insert-missing-snapshot'
+    );
+    createdSchemas.push(schemaName);
+
+    await sql
+      .raw(
+        `
+      CREATE OR REPLACE FUNCTION "public"."__teable_capture_undo_row"()
+      RETURNS trigger
+      LANGUAGE plpgsql
+      AS $$
+      BEGIN
+        RETURN NULL;
+      END;
+      $$;
+    `
+      )
+      .execute(db);
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const actorContext = {
+      actorId,
+      actorName: 'Tester',
+      actorEmail: 'tester@example.com',
+    };
+
+    const record = table.createRecord(new Map([[primaryFieldId, 'Gamma']]))._unsafeUnwrap().record;
+    const insertResult = await db
+      .transaction()
+      .execute(async (trx) =>
+        repository.insert(
+          { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          table,
+          record
+        )
+      );
+
+    expect(insertResult.isErr()).toBe(true);
+    expect(insertResult._unsafeUnwrapErr().message).toContain(
+      'Failed to capture complete insert snapshots'
+    );
+
+    await installUndoCaptureGlobals(db);
+  });
+
   it('analyzes the first batch inserted into an empty table', async () => {
     const { table, schemaName, tableName, primaryFieldId } = await createTableWithStorage(
       db,
@@ -356,7 +404,11 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
 
     const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
     const actorId = ActorId.create('tester')._unsafeUnwrap();
-    const context = { actorId };
+    const actorContext = {
+      actorId,
+      actorName: 'Tester',
+      actorEmail: 'tester@example.com',
+    };
 
     const statsBefore = await sql<{ count: string }>`
       SELECT COUNT(*)::text AS count
@@ -369,7 +421,15 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
     const recordA = table.createRecord(new Map([[primaryFieldId, 'A']]))._unsafeUnwrap().record;
     const recordB = table.createRecord(new Map([[primaryFieldId, 'B']]))._unsafeUnwrap().record;
 
-    const result = await repository.insertMany(context, table, [recordA, recordB]);
+    const result = await db
+      .transaction()
+      .execute(async (trx) =>
+        repository.insertMany(
+          { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          table,
+          [recordA, recordB]
+        )
+      );
     expect(result.isOk()).toBe(true);
 
     const statsAfter = await sql<{ count: string }>`

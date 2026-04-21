@@ -7,7 +7,6 @@ import type { FieldUpdateSideEffectService } from '../application/services/Field
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -37,6 +36,7 @@ import {
   createTrackedFieldOperationPlugin,
   expectFieldOperationPluginToBeSkipped,
 } from './fieldOperationPluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 import { UpdateFieldCommand } from './UpdateFieldCommand';
 import { UpdateFieldHandler } from './UpdateFieldHandler';
 
@@ -56,11 +56,7 @@ const createContext = (options?: {
   $t: options?.t,
 });
 
-const noopUndoRedoService = {
-  async recordEntry() {
-    return ok(undefined);
-  },
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 const noopFieldUndoRedoSnapshotService = {
   async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {

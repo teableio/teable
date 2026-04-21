@@ -39,6 +39,7 @@ export type ISelectFieldOptionsRo = z.infer<typeof selectFieldOptionsRoSchema>;
 
 export abstract class SelectFieldCore extends FieldCore {
   private _innerChoicesMap: Record<string, ISelectFieldChoice> = {};
+  private _innerChoicesMapKey = '';
 
   meta?: undefined;
 
@@ -53,8 +54,11 @@ export abstract class SelectFieldCore extends FieldCore {
   // For validate cellValue,
   // avoiding choice and checking too many rows has a complexity of m(choice.length) x n(rows.length)
   get innerChoicesMap() {
-    if (Object.keys(this._innerChoicesMap).length === 0) {
-      this._innerChoicesMap = keyBy(this.options.choices, 'name');
+    const choices = this.options?.choices ?? [];
+    const choicesKey = JSON.stringify(choices.map(({ id, name }) => [id, name]));
+    if (this._innerChoicesMapKey !== choicesKey) {
+      this._innerChoicesMap = keyBy(choices, 'name');
+      this._innerChoicesMapKey = choicesKey;
     }
     return this._innerChoicesMap;
   }

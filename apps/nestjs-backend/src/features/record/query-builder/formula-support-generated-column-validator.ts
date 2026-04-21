@@ -276,6 +276,24 @@ export class FormulaSupportGeneratedColumnValidator {
           paramCount > 3 ? dummyParam : undefined
         )
       )
+      .with('TEXTBEFORE', () =>
+        this.supportValidator.textBefore(
+          dummyParam,
+          dummyParam,
+          paramCount > 2 ? dummyParam : undefined,
+          paramCount > 3 ? dummyParam : undefined,
+          paramCount > 4 ? dummyParam : undefined,
+          paramCount > 5 ? dummyParam : undefined
+        )
+      )
+      .with('TEXTSPLIT', () =>
+        this.supportValidator.textSplit(
+          dummyParam,
+          dummyParam,
+          paramCount > 2 ? dummyParam : undefined,
+          paramCount > 3 ? dummyParam : undefined
+        )
+      )
       .with('LOWER', () => this.supportValidator.lower(dummyParam))
       .with('UPPER', () => this.supportValidator.upper(dummyParam))
       .with('REPT', () => this.supportValidator.rept(dummyParam, dummyParam))

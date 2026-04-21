@@ -6,7 +6,6 @@ import type { FieldDeletionSideEffectService } from '../application/services/Fie
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -37,17 +36,14 @@ import {
   createTrackedFieldOperationPlugin,
   expectFieldOperationPluginToBeSkipped,
 } from './fieldOperationPluginRunnerTestUtils';
+import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
 
-const noopUndoRedoService = {
-  async recordEntry() {
-    return ok(undefined);
-  },
-} as unknown as UndoRedoService;
+const noopUndoRedoService = createNoopUndoRedoStackService();
 
 class FakeFieldUndoRedoSnapshotService {
   captured: Array<{ tableId: TableId; fieldId: FieldId; includeRecords?: boolean }> = [];
@@ -232,7 +228,7 @@ class FakeForeignTableLoaderService {
 
   async load(
     _: IExecutionContext,
-    input: { baseId: BaseId; references: ReadonlyArray<unknown> }
+    input: { baseId?: BaseId; references: ReadonlyArray<unknown> }
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.lastBaseId = input.baseId;
     this.lastReferences = [...input.references];
@@ -291,7 +287,7 @@ describe('DeleteFieldHandler', () => {
     expect(sideEffectService.calls[0]?.fields[0]?.equals(secondaryFieldId)).toBe(true);
     expect(eventBus.published.length).toBeGreaterThan(0);
     expect(unitOfWork.transactions.length).toBe(1);
-    expect(foreignTableLoader.lastBaseId?.equals(baseId)).toBe(true);
+    expect(foreignTableLoader.lastBaseId).toBeUndefined();
     expect(fieldUndoRedoSnapshotService.captured).toHaveLength(1);
   });
 

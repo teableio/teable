@@ -1916,7 +1916,12 @@ export class FieldOpenApiV2Service {
     }
 
     // Case 3: Regular Lookup (non-conditional)
-    if (ro.isLookup && ro.lookupOptions) {
+    if (
+      ro.isLookup &&
+      ro.lookupOptions &&
+      ro.type !== FieldType.Formula &&
+      ro.type !== FieldType.Rollup
+    ) {
       const lookupOpts = ro.lookupOptions as Record<string, unknown>;
       const currentLookupOpts =
         currentField?.lookupOptions &&
@@ -1966,19 +1971,32 @@ export class FieldOpenApiV2Service {
         ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
           ? (ro.lookupOptions as Record<string, unknown>)
           : undefined;
+      const currentOpts =
+        currentField?.options &&
+        typeof currentField.options === 'object' &&
+        !Array.isArray(currentField.options)
+          ? (currentField.options as Record<string, unknown>)
+          : undefined;
       const linkFieldId = opts.linkFieldId ?? lookupOpts?.linkFieldId;
       const lookupFieldId = opts.lookupFieldId ?? lookupOpts?.lookupFieldId;
       const foreignTableId = opts.foreignTableId ?? lookupOpts?.foreignTableId;
       const hasShowAs = Object.prototype.hasOwnProperty.call(opts, 'showAs');
+      const hasExpressionPatch = Object.prototype.hasOwnProperty.call(opts, 'expression');
       const shouldClearShowAs =
         !hasShowAs && currentField?.type === 'rollup' && currentField?.options != null;
+      const expression =
+        typeof opts.expression === 'string'
+          ? opts.expression
+          : !hasExpressionPatch && typeof currentOpts?.expression === 'string'
+            ? currentOpts.expression
+            : undefined;
       const shouldIncludeConfig =
         linkFieldId != null && lookupFieldId != null && foreignTableId != null;
       return {
         ...base,
         type: 'rollup',
         options: {
-          ...(opts.expression != null ? { expression: opts.expression } : {}),
+          ...(expression != null ? { expression } : {}),
           ...(opts.formatting != null ? { formatting: opts.formatting } : {}),
           ...(opts.timeZone != null ? { timeZone: opts.timeZone } : {}),
           ...(opts.showAs != null ? { showAs: opts.showAs } : {}),
@@ -2004,6 +2022,7 @@ export class FieldOpenApiV2Service {
           ? (currentField.options as Record<string, unknown>)
           : undefined;
       const hasShowAs = Object.prototype.hasOwnProperty.call(opts, 'showAs');
+      const hasExpressionPatch = Object.prototype.hasOwnProperty.call(opts, 'expression');
       const shouldClearShowAs =
         !hasShowAs && currentField?.type === 'formula' && currentField?.options != null;
       const zodDefaultExpressions = new Set(['LAST_MODIFIED_TIME()', 'CREATED_TIME()']);
@@ -2015,7 +2034,8 @@ export class FieldOpenApiV2Service {
       const expression =
         newExpression && zodDefaultExpressions.has(newExpression) && currentExpression
           ? currentExpression
-          : newExpression;
+          : newExpression ??
+            (!hasExpressionPatch && currentExpression != null ? currentExpression : undefined);
 
       return {
         ...base,

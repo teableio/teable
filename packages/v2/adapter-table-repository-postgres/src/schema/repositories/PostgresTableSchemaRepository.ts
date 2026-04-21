@@ -14,6 +14,7 @@ import type {
 } from '@teable/v2-core';
 import {
   TraceSpan,
+  TeableSpanAttributes,
   DbFieldName,
   TableByIdSpec,
   domainError,
@@ -38,7 +39,12 @@ import {
   executeTableSchemaStatements,
   resolvePostgresDbOrTx,
 } from '../../shared/db';
+import {
+  ensureUndoCaptureInfrastructure,
+  invalidateUndoCaptureTableCache,
+} from '../../shared/undoCapture';
 import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
+import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
@@ -155,7 +161,16 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
           for (const rule of deferredFkRules) {
             const statements = yield* rule.up(ctx);
-            await executeTableSchemaStatements(db, statements);
+            await executeTableSchemaStatements(db, statements, {
+              tracer: context.tracer,
+              attributes: {
+                [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
+                'teable.base_id': table.baseId().toString(),
+                'teable.table_name': tableName,
+                'teable.schema': schema ?? 'public',
+                'teable.schema.statement.source': 'deferred_foreign_key',
+              },
+            });
           }
         }
       }
@@ -217,6 +232,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         );
       }
 
+      try {
+        await ensureUndoCaptureInfrastructure(
+          repository.db,
+          db,
+          toQualifiedIdentifierLiteral(schema, tableName),
+          `${schema ?? 'public'}.${tableName}`
+        );
+      } catch {
+        // Snapshot capture wiring is best-effort and must not block table creation.
+      }
+
       return ok(undefined);
     });
   }
@@ -266,7 +292,16 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const statements = yield* visitor.where();
       if (statements.length > 0) {
         try {
-          await executeTableSchemaStatements(db, statements);
+          await executeTableSchemaStatements(db, statements, {
+            tracer: context.tracer,
+            attributes: {
+              [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
+              'teable.base_id': table.baseId().toString(),
+              'teable.table_name': tableName,
+              'teable.schema': schema ?? 'public',
+              'teable.schema.statement.source': 'table_schema_update',
+            },
+          });
         } catch (error) {
           if (isUniqueViolation(error)) {
             return err(
@@ -582,6 +617,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       try {
         const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
         await schemaBuilder.dropTable(tableName).ifExists().execute();
+        invalidateUndoCaptureTableCache(`${schema ?? 'public'}.${tableName}`, repository.db);
       } catch (error) {
         return err(
           domainError.infrastructure({

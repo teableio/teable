@@ -169,4 +169,11 @@ export default abstract class StorageAdapter {
   abstract downloadFile(bucket: string, path: string): Promise<ReadableStream>;
 
   abstract deleteDir(bucket: string, path: string, throwError?: boolean): Promise<void>;
+
+  /**
+   * delete a single file
+   * @param bucket bucket name
+   * @param path path name
+   */
+  abstract deleteFile(bucket: string, path: string): Promise<void>;
 }

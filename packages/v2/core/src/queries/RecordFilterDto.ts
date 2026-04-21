@@ -104,8 +104,8 @@ export const recordFilterConditionSchema = z.preprocess(
       }
 
       if (val.value === null) {
-        // Allow is/isNot with null for V1 compatibility:
-        // V1 uses {operator: "is", value: null} for "field is empty"
+        // Allow is/isNot with null until field-aware normalization can distinguish
+        // checkbox unchecked checks from incomplete non-checkbox UI filters.
         if (val.operator !== 'is' && val.operator !== 'isNot') {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,

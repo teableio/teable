@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
+import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
@@ -78,6 +79,7 @@ const createOutboxStub = (
   renewLease: vi
     .fn()
     .mockImplementation(({ taskIds }: { taskIds: string[] }) => Promise.resolve(ok(taskIds))),
+  releaseForRetry: vi.fn().mockResolvedValue(ok(true)),
   markDone: vi.fn().mockResolvedValue(ok(true)),
   markFailed: vi.fn().mockResolvedValue(ok(true)),
   ...overrides,
@@ -192,6 +194,120 @@ describe('ComputedUpdateWorker', () => {
       expect(markFailed).toHaveBeenCalledWith(task, expect.any(String), expect.anything());
     });
 
+    it('releases the task for retry when computed locks are unavailable', async () => {
+      const task = createMockTask();
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const execute = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+        markFailed,
+      });
+
+      const updater = createUpdaterStub({
+        acquireLocks: vi.fn().mockResolvedValue(
+          err(
+            domainError.infrastructure({
+              code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+              message: 'Computed update lock unavailable: lock-key',
+            })
+          )
+        ),
+        execute,
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(0);
+      expect(releaseForRetry).toHaveBeenCalledWith(
+        {
+          task,
+          reason: 'Computed update lock unavailable: lock-key',
+        },
+        expect.anything()
+      );
+      expect(markFailed).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('splits large computed tasks into smaller child tasks before acquiring locks', async () => {
+      const seedRecordIds = Array.from(
+        { length: 5 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const task = createMockTask({
+        seedRecordIds,
+        beforeImageRecords: seedRecordIds.map((recordId) => ({
+          recordId,
+          fieldValuesByDbName: { col_value: recordId },
+        })),
+      });
+      const enqueueOrMerge = vi.fn().mockResolvedValue(ok({ taskId: 'child', merged: false }));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const acquireLocks = vi.fn().mockResolvedValue(createLockResult());
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        enqueueOrMerge,
+        markDone,
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        {
+          ...defaultComputedUpdateOutboxConfig,
+          maxSeedRecordsPerTask: 2,
+        },
+        createUpdaterStub({ acquireLocks }),
+        {} as ComputedUpdatePlanner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(1);
+      expect(enqueueOrMerge).toHaveBeenCalledTimes(3);
+      expect(enqueueOrMerge.mock.calls.map((call) => call[0].seedRecordIds)).toEqual([
+        seedRecordIds.slice(0, 2),
+        seedRecordIds.slice(2, 4),
+        seedRecordIds.slice(4, 5),
+      ]);
+      expect(enqueueOrMerge.mock.calls.map((call) => call[0].planHash)).toEqual([
+        'abc123:chunk:1/3',
+        'abc123:chunk:2/3',
+        'abc123:chunk:3/3',
+      ]);
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+      expect(acquireLocks).not.toHaveBeenCalled();
+    });
+
     it('calls markDone when task execution succeeds', async () => {
       const task = createMockTask();
       const markDone = vi.fn().mockResolvedValue(ok(true));
@@ -299,6 +415,71 @@ describe('ComputedUpdateWorker', () => {
         | undefined;
       const batchEvent = publishedEvents?.find((event) => event instanceof RecordsBatchUpdated);
       expect(batchEvent?.orchestration).toEqual(task.orchestration);
+    });
+
+    it('defers computed update event publishing until the transaction commits', async () => {
+      const task = createMockTask();
+      const eventBus = createEventBus();
+      const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+      const transaction = {
+        kind: 'unitOfWorkTransaction' as const,
+        afterCommit: vi.fn((handler: () => Promise<void> | void) => {
+          afterCommitHandlers.push(handler);
+        }),
+      };
+      const unitOfWork: IUnitOfWork = {
+        withTransaction: vi.fn().mockImplementation(async (ctx, fn) => {
+          const result = await fn({ ...ctx, transaction });
+          expect(eventBus.publishMany).not.toHaveBeenCalled();
+          for (const handler of afterCommitHandlers) {
+            await handler();
+          }
+          return result;
+        }),
+      };
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      });
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          ok({
+            changesByStep: [
+              {
+                tableId: TABLE_ID,
+                recordChanges: [
+                  {
+                    recordId: RECORD_ID,
+                    oldVersion: 1,
+                    changes: [{ fieldId: FIELD_ID, newValue: 'updated' }],
+                  },
+                ],
+              },
+            ],
+          })
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        {} as ComputedUpdatePlanner,
+        unitOfWork,
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        eventBus
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(transaction.afterCommit).toHaveBeenCalledTimes(1);
+      expect(eventBus.publishMany).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(eventBus.publishMany).mock.calls[0]?.[0]).not.toHaveProperty('transaction');
     });
 
     it('processes multiple tasks and counts successful ones', async () => {
