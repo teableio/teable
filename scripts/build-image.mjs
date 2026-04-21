@@ -382,7 +382,8 @@ function buildDockerCommand(options) {
   command.push('--build-arg', `BUILD_VERSION=${releaseId}`);
 
   if (uploadAssetsList) {
-    command.push('--build-arg', `UPLOAD_ASSETS_LIST=${uploadAssetsList}`);
+    const uploadAssetsListB64 = Buffer.from(uploadAssetsList).toString('base64');
+    command.push('--build-arg', `UPLOAD_ASSETS_LIST_B64=${uploadAssetsListB64}`);
   }
 
   buildArgs.forEach((arg) => command.push('--build-arg', arg));

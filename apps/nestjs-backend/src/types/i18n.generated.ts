@@ -4798,19 +4798,14 @@ export type I18nTranslations = {
         "aiChat": {
             "agent": {
                 "askUserQuestion": {
-                    "label": string;
-                    "confirm": string;
                     "otherPlaceholder": string;
-                    "otherSend": string;
-                    "addCustomPlaceholder": string;
-                    "askedUser": string;
-                    "answered": string;
+                    "asked": string;
+                    "skipped": string;
+                    "previousQuestion": string;
+                    "nextQuestion": string;
                 };
                 "completion": {
                     "completed": string;
-                    "tools": string;
-                    "toolsWithErrors": string;
-                    "hasErrors": string;
                     "noDetails": string;
                     "model": string;
                     "contextWindow": string;
@@ -4820,129 +4815,20 @@ export type I18nTranslations = {
                 };
                 "taskProgress": {
                     "title": string;
-                    "noTasks": string;
-                    "operationFailed": string;
-                    "collapse": string;
-                    "showMore": string;
                 };
                 "tool": {
-                    "executing": string;
-                    "executionFailed": string;
-                    "stoppedByUser": string;
-                    "executionDenied": string;
-                    "moreLines": string;
                     "copy": string;
                     "copied": string;
-                    "copyNewContent": string;
-                    "showAllLines": string;
                     "collapse": string;
                     "linesHidden": string;
                 };
-                "subtask": {
-                    "working": string;
-                    "workingOn": string;
-                    "completed": string;
-                };
-                "skill": {
-                    "running": string;
-                    "runningName": string;
-                };
-                "plan": {
-                    "entering": string;
-                    "exiting": string;
-                };
-                "worktree": {
-                    "creating": string;
-                    "creatingName": string;
-                    "exiting": string;
-                };
-                "cron": {
-                    "scheduling": string;
-                    "removing": string;
-                    "listing": string;
-                };
-                "step": string;
-                "runDetails": {
-                    "working": string;
-                    "summary": string;
-                    "moreActions": string;
-                    "collapseActions": string;
-                };
             };
             "tool": {
-                "getTableFields": string;
-                "getTablesMeta": string;
-                "sqlQuery": string;
-                "generateScriptAction": string;
-                "getScriptInput": string;
-                "getTeableApi": string;
-                "dataVisualization": string;
-                "updateBase": string;
-                "args": string;
-                "result": string;
-                "thinking": string;
-                "toBeConfirmed": string;
-                "errorMessage": string;
-                "confirm": string;
-                "createRecordsSuccess": string;
-                "createRecordsFailed": string;
-                "updateRecordsSuccess": string;
-                "updateRecordsFailed": string;
-                "generatingRecords": string;
-                "creatingRecords": string;
-                "updatingRecords": string;
-                "recordsPreview": string;
-                "andMoreRecords": string;
-                "unknownError": string;
-                "recordIds": string;
-                "records": string;
-                "viewAll": string;
                 "showLess": string;
-                "generatingData": string;
-                "generatingUpdates": string;
-                "recordsGenerated": string;
-                "recordsCount": string;
-                "fieldsCount": string;
-                "fieldsGenerated": string;
-                "updatedProperties": string;
-                "configured": string;
-                "recordsToUpdate": string;
-                "showingLast": string;
-                "recordLabel": string;
-                "statusGenerating": string;
-                "statusCreating": string;
-                "statusUpdating": string;
-                "statusCreated": string;
-                "statusUpdated": string;
-                "getApps": {
-                    "title": string;
-                    "loading": string;
-                    "foundApps": string;
-                    "noApps": string;
-                    "openApp": string;
-                };
                 "generateApp": {
-                    "title": string;
                     "creatingApp": string;
                     "updatingApp": string;
-                    "generatingApp": string;
-                    "generating": string;
-                    "openApp": string;
                     "viewProgress": string;
-                    "newApp": string;
-                    "building": string;
-                };
-                "generateAutomation": {
-                    "title": string;
-                    "creatingAutomation": string;
-                    "updatingAutomation": string;
-                    "generatingAutomation": string;
-                    "building": string;
-                    "openAutomation": string;
-                    "viewProgress": string;
-                    "testResults": string;
-                    "triggerTest": string;
-                    "actionTest": string;
                 };
                 "htmlPreview": {
                     "preview": string;
@@ -4957,318 +4843,17 @@ export type I18nTranslations = {
                     "downloadSuccess": string;
                     "downloadFailed": string;
                     "iframeFailed": string;
-                };
-                "loadAttachment": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "empty": string;
-                    "modeNative": string;
-                    "modeNativeDesc": string;
-                    "modeExtracted": string;
-                    "modeExtractedDesc": string;
-                    "visionLoaded": string;
-                    "pdfLoaded": string;
-                    "textExtracted": string;
-                    "contextLoaded": string;
-                    "truncated": string;
-                    "preview": string;
-                };
-                "textExtract": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "empty": string;
-                    "preview": string;
-                    "truncated": string;
-                    "previews": string;
-                    "chars": string;
-                    "totalCharacters": string;
-                    "filesTruncated": string;
-                };
-                "importExcel": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "suggestions": string;
-                    "analyzeComplete": string;
-                    "worksheets": string;
-                    "columns": string;
-                    "importComplete": string;
-                    "stageAnalyze": string;
-                    "stageImport": string;
+                    "iframeTitle": string;
                 };
                 "retrying": string;
-                "queuing": string;
-            };
-            "tools": {
-                "getTeableApi": string;
-                "readFiles": string;
-                "writeFile": string;
-                "deleteFiles": string;
-                "listFiles": string;
-                "addDependencies": string;
-                "checkBuildErrors": string;
-                "lint": string;
-            };
-            "fallback": {
-                "previewLoadFailed": string;
-                "retry": string;
-                "chatAborted": string;
-            };
-            "preview": {
-                "deletedTable": string;
-                "deletedView": string;
-                "deletedField": string;
-                "deletedRecords": string;
-            };
-            "agentName": {
-                "tableOperatorAgent": string;
-                "viewOperatorAgent": string;
-                "fieldOperatorAgent": string;
-                "recordOperatorAgent": string;
-                "buildBaseAgent": string;
-                "buildAutomationAgent": string;
-            };
-            "confirm": {
-                "toBeConfirmed": string;
-                "deleteWarning": string;
             };
             "action": {
-                "createTable": string;
-                "updateTable": string;
-                "updateTableName": string;
-                "deleteTable": string;
-                "createView": string;
-                "updateView": string;
-                "updateViewName": string;
-                "deleteView": string;
-                "createField": string;
-                "createAiField": string;
-                "createLinkField": string;
-                "createLookupField": string;
-                "createRollupField": string;
-                "createFormulaField": string;
-                "deleteField": string;
-                "updateField": string;
-                "createRecord": string;
-                "createRecords": string;
-                "deleteRecord": string;
-                "updateRecord": string;
-                "updateRecords": string;
-                "updateBase": string;
-                "planTask": string;
-                "generateTables": string;
-                "generatePrimaryFields": string;
-                "generateFields": string;
-                "generateViews": string;
-                "generateRecords": string;
-                "generateAIFields": string;
-                "generateLinkFields": string;
-                "generateLookupFields": string;
-                "generateRollupFields": string;
-                "generateFormulaFields": string;
-                "generateWorkflow": string;
-                "generateTrigger": string;
-                "generateScriptAction": string;
-                "generateSendMailAction": string;
-                "generateAction": string;
-                "setupAutomationTrigger": string;
-                "testAutomationNode": string;
-                "activateAutomation": string;
-                "executeScript": string;
-                "wait": string;
-                "generateScriptFlowChart": string;
-                "triggerAiFill": string;
-                "initialize": string;
-                "rename": string;
-                "buildTest": string;
-                "developTask": string;
-                "generateSummary": string;
-                "previewEnvironment": string;
-                "getRelativeData": string;
-                "getPreviousNodeOutputVariables": string;
-                "getApiJson": string;
-                "generateScriptAndDependencies": string;
-                "analyzingAttachment": string;
                 "locateResource": string;
-                "goTo": string;
-                "operationSuccess": string;
-                "operationFailed": string;
-                "deleteAutomationNode": string;
-            };
-            "aiFill": {
-                "processedRecords": string;
-            };
-            "queryTool": {
-                "getRecords": string;
-                "getRecordsWithTable": string;
-                "getGridRows": string;
-                "getGridRowsWithTable": string;
-                "getFields": string;
-                "getFieldsWithTable": string;
-                "getTables": string;
-                "getViews": string;
-                "getViewsWithTable": string;
-                "sqlQuery": string;
-                "querying": string;
-                "queryFailed": string;
-                "aborted": string;
-                "noData": string;
-                "dataFormatError": string;
-                "unsupportedQueryType": string;
-                "returnedRecords": string;
-                "record": string;
-                "moreRecords": string;
-                "foundFields": string;
-                "moreFields": string;
-                "foundTables": string;
-                "moreTables": string;
-                "foundViews": string;
-                "moreViews": string;
-                "queryReturned": string;
-                "row": string;
-                "moreRows": string;
-                "getDoc": string;
-                "getDocWithTopic": string;
-                "getAutomations": string;
-                "getAutomation": string;
-                "getAutomationRuns": string;
-                "foundAutomations": string;
-                "moreAutomations": string;
-                "foundRuns": string;
-                "moreRuns": string;
-                "active": string;
-                "trigger": string;
-                "actions": string;
-                "moreActions": string;
-                "getUserIntegrations": string;
-                "connectedIntegrations": string;
-                "availableToConnect": string;
-                "connect": string;
-                "noIntegrationsAvailable": string;
-                "activateTool": string;
-                "webSearch": string;
-                "webSearchResults": string;
-                "webSearchCompleted": string;
-                "searchApi": string;
-                "searchApiWithQuery": string;
-                "noApiFound": string;
-                "foundApis": string;
-                "totalApis": string;
-                "callApi": string;
-                "callApiWithMethod": string;
-                "response": string;
-                "success": string;
-                "failed": string;
-                "inputData": string;
-                "availableNodes": string;
-                "hasPreviousCode": string;
-                "noInputData": string;
-            };
-            "showUI": {
-                "connect": string;
-                "connecting": string;
-                "connected": string;
-                "connectToUse": string;
-                "checkingConnection": string;
-                "confirm": string;
-                "confirmed": string;
-                "cancel": string;
-                "cancelled": string;
-                "connectionCancelled": string;
-            };
-            "codeBlock": {
-                "hiddenLines": string;
-                "collapseCode": string;
-                "code": string;
-                "preview": string;
-            };
-            "buildFlow": {
-                "progress": string;
-                "completed": string;
-                "completedDesc": string;
-                "stepStatus": {
-                    "initializing": string;
-                    "naming": string;
-                    "planning": string;
-                    "developing": string;
-                    "summarizing": string;
-                    "deploying": string;
-                    "testing": string;
-                };
-                "moduleStatus": {
-                    "running": string;
-                    "completed": string;
-                    "error": string;
-                    "pending": string;
-                };
-                "toolStatus": {
-                    "running": string;
-                    "completed": string;
-                    "error": string;
-                };
-            };
-            "generateScript": {
-                "generateSuccess": string;
-            };
-            "buildBase": {
-                "title": string;
-                "generateSuccess": string;
-                "generateError": string;
-            };
-            "buildAutomation": {
-                "title": string;
-                "generateSuccess": string;
-            };
-            "automation": {
-                "created": string;
-                "updated": string;
-                "workflow": string;
-                "trigger": string;
-                "scriptAction": string;
-                "workflowLabel": string;
-                "triggerLabel": string;
-                "scriptActionLabel": string;
-                "workflowId": string;
-                "triggerId": string;
-                "scriptActionId": string;
-                "viewAutomation": string;
-                "navigateToAutomation": string;
-                "triggerType": {
-                    "recordCreated": string;
-                    "recordUpdated": string;
-                    "recordCreatedOrUpdated": string;
-                    "formSubmitted": string;
-                    "scheduledTime": string;
-                    "buttonClick": string;
-                };
-                "activated": string;
-                "deactivated": string;
-                "discarded": string;
-                "activateFailed": string;
-                "deactivateFailed": string;
-                "discardFailed": string;
-                "scriptUpdated": string;
-                "scriptUpdateFailed": string;
-                "scriptExecuted": string;
-                "scriptExecutionFailed": string;
-                "scriptReady": string;
-                "executingScript": string;
-                "waitedSeconds": string;
-                "waitFailed": string;
-                "flowchartGenerated": string;
-                "flowchartGenerationFailed": string;
             };
             "newChat": string;
-            "clearChat": string;
             "expand": string;
             "history": string;
             "close": string;
-            "clearChatConfirmTitle": string;
-            "clearChatConfirmDesc": string;
-            "dontShowAgain": string;
-            "noModel": string;
             "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
@@ -5289,37 +4874,14 @@ export type I18nTranslations = {
             "inputPlaceholder": string;
             "thought": string;
             "meta": {
-                "timeCostUnit": string;
-                "timeCostDescription": string;
-                "creditDescription": string;
-                "tokenDescription": string;
                 "input": string;
                 "output": string;
-                "tokens": string;
-                "totalTimeCost": string;
-                "totalCreditCost": string;
-                "customModel": string;
-                "tokenDetails": string;
-                "cachedInput": string;
-                "cacheWrite": string;
-                "reasoning": string;
                 "taskCompleted": string;
-            };
-            "dataVisualization": {
-                "error": string;
-            };
-            "tips": {
-                "modelTips": string;
             };
             "attachment": {
                 "imageNotSupported": string;
-                "attachmentSizeExceeded": string;
             };
             "suggestions": {
-                "recommend": string;
-                "ask": string;
-                "analyze": string;
-                "build": string;
                 "title": string;
                 "whatCanIDo": string;
                 "createOrModifyDatabase": string;
@@ -5334,31 +4896,23 @@ export type I18nTranslations = {
                 "buildLeadCapture": string;
             };
             "buildApp": {
-                "thinking": {
-                    "duration": string;
-                };
                 "task": {
-                    "searching": string;
-                    "readingFiles": string;
                     "foundResults": string;
-                    "noIssuesFound": string;
-                    "defaultTitle": string;
-                };
-                "codeProject": {
-                    "defaultTitle": string;
                 };
             };
             "scriptPreview": {
-                "aiModelRequired": string;
                 "writeCodeHint": string;
                 "noPreview": string;
-                "generatePreview": string;
-                "analyzing": string;
                 "codeChanged": string;
-                "regenerate": string;
-                "refresh": string;
-                "regenerating": string;
             };
+            "showUI": {
+                "skip": string;
+                "submit": string;
+            };
+            "clearChat": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
             "sandboxExpiry": {
                 "expiresIn": string;
                 "reset": string;
@@ -5378,8 +4932,6 @@ export type I18nTranslations = {
                 "edit": string;
                 "forceSend": string;
                 "removeFromQueue": string;
-                "queueFull": string;
-                "messageQueued": string;
             };
             "effort": {
                 "title": string;
@@ -5387,6 +4939,35 @@ export type I18nTranslations = {
                 "medium": string;
                 "high": string;
                 "max": string;
+            };
+            "partTool": {
+                "bash": string;
+                "read": string;
+                "write": string;
+                "edit": string;
+                "glob": string;
+                "grep": string;
+                "webSearch": string;
+                "skill": string;
+                "foundFiles": string;
+                "moreTools": string;
+                "moreItems": string;
+                "fallbackName": string;
+                "questionCount_one": string;
+                "questionCount_other": string;
+            };
+            "retry": {
+                "interrupted": string;
+                "button": string;
+            };
+            "guide": {
+                "goToScenario": string;
+            };
+            "initChatFailed": string;
+            "app": {
+                "loadingChatHistory": string;
+                "generatorTitle": string;
+                "generatorDesc": string;
             };
         };
         "download": {

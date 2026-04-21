@@ -44,3 +44,4 @@ export * from './ui/slider';
 export * as sonner from './ui/sonner';
 export * from './ui/input-group';
 export * from './ui/tree';
+export * from './ui/field';

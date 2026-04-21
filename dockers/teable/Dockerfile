@@ -68,6 +68,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 ARG UPLOAD_ASSETS_LIST=""
+ARG UPLOAD_ASSETS_LIST_B64=""
 
 RUN set -ex; \
         rm -fr node_modules; \
@@ -82,7 +83,7 @@ RUN set -ex; \
         apt-get install -y --no-install-recommends rsync; \
         rm -rf /var/lib/apt/lists/*; \
         chmod +x ./scripts/upload-assets.mjs; \
-        zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
+        zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST" --listB64="$UPLOAD_ASSETS_LIST_B64";
 
 
 ##################################################################

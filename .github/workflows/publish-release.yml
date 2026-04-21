@@ -7,25 +7,9 @@ on:
         description: 'Release tag name, e.g. release.2026-04-20T10-38-57Z.1507'
         required: true
         type: string
-      public_release_record_id:
-        description: 'Teable public release draft record ID'
-        required: false
-        type: string
       release_note:
         description: 'Final English release note in Markdown'
         required: true
-        type: string
-      source_commit:
-        description: 'Teable EE source commit SHA'
-        required: false
-        type: string
-      community_commit:
-        description: 'Teable community sync commit SHA'
-        required: false
-        type: string
-      trigger:
-        description: 'Who triggered the publish'
-        required: false
         type: string
       publish_latest:
         description: 'Whether GitHub should mark this release as latest'
@@ -39,12 +23,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    env:
-      PUBLIC_RELEASE_TABLE_ID: tblX2CdgkDLtJiu6r0v
-      PUBLIC_GITHUB_URL_FIELD_ID: flduhgmWYWM9KIhctli
-      PUBLIC_PUBLISHED_AT_FIELD_ID: fldNSquOmeADd7UH7Z6
-      PUBLIC_GITHUB_RESULT_FIELD_ID: fldVVv7LgxSmS7l7rII
-      PUBLIC_PUBLISH_ERROR_FIELD_ID: fldjQwcMZMwG3vExSm8
 
     steps:
       - name: Checkout develop
@@ -56,40 +34,16 @@ jobs:
       - name: Build release body
         env:
           RELEASE_NOTE: ${{ inputs.release_note }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-          COMMUNITY_COMMIT: ${{ inputs.community_commit }}
-          TRIGGER: ${{ inputs.trigger }}
         run: |
-          {
-            printf '%s\n\n' "$RELEASE_NOTE"
-            printf '---\n\n'
-            printf 'Published from `develop` head in `teableio/teable`.\n\n'
-
-            if [ -n "$SOURCE_COMMIT" ]; then
-              printf -- '- EE source commit: `%s`\n' "$SOURCE_COMMIT"
-            fi
-
-            if [ -n "$COMMUNITY_COMMIT" ]; then
-              printf -- '- Community sync commit: `%s`\n' "$COMMUNITY_COMMIT"
-            fi
-
-            if [ -n "$TRIGGER" ]; then
-              printf -- '- Triggered by: `%s`\n' "$TRIGGER"
-            fi
-          } > release-body.md
+          printf '%s\n' "$RELEASE_NOTE" > release-body.md
 
       - name: Create or update GitHub release
-        id: publish_release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ inputs.release_id }}
           PUBLISH_LATEST: ${{ inputs.publish_latest && 'true' || 'false' }}
         run: |
-          set +e
-
-          publish_status="success"
-          release_url=""
-          error_message=""
+          set -euo pipefail
 
           ensure_tag() {
             local target_sha
@@ -145,94 +99,5 @@ jobs:
             fi
           }
 
-          if ! ensure_tag; then
-            publish_status="failed"
-            error_message="Failed to create or verify release tag ${RELEASE_ID}"
-          elif ! upsert_release; then
-            publish_status="failed"
-            error_message="Failed to create or update GitHub release ${RELEASE_ID}"
-          fi
-
-          {
-            echo "status=${publish_status}"
-            echo "release_url=${release_url}"
-            echo "error_message=${error_message}"
-          } >> "$GITHUB_OUTPUT"
-
-          exit 0
-
-      - name: Write GitHub publish result back to Teable
-        if: ${{ inputs.public_release_record_id != '' && secrets.TEABLE_API_TOKEN != '' }}
-        env:
-          TEABLE_API_TOKEN: ${{ secrets.TEABLE_API_TOKEN }}
-          PUBLIC_RELEASE_RECORD_ID: ${{ inputs.public_release_record_id }}
-          PUBLISH_STATUS: ${{ steps.publish_release.outputs.status }}
-          RELEASE_URL: ${{ steps.publish_release.outputs.release_url }}
-          ERROR_MESSAGE: ${{ steps.publish_release.outputs.error_message }}
-        run: |
-          set -euo pipefail
-
-          teable_patch_record() {
-            local table_id="$1"
-            local record_id="$2"
-            local payload="$3"
-
-            http_code=$(curl -s -w "%{http_code}" -o /tmp/teable-patch.json \
-              -X PATCH "https://app.teable.ai/api/table/${table_id}/record/${record_id}" \
-              -H "Authorization: Bearer ${TEABLE_API_TOKEN}" \
-              -H 'Content-Type: application/json' \
-              -d "${payload}")
-
-            if [ "${http_code}" -lt 200 ] || [ "${http_code}" -ge 300 ]; then
-              cat /tmp/teable-patch.json
-              return 1
-            fi
-          }
-
-          if [ "${PUBLISH_STATUS}" = "success" ]; then
-            published_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-            public_payload="$(jq -nc \
-              --arg url_field "${PUBLIC_GITHUB_URL_FIELD_ID}" \
-              --arg published_at_field "${PUBLIC_PUBLISHED_AT_FIELD_ID}" \
-              --arg result_field "${PUBLIC_GITHUB_RESULT_FIELD_ID}" \
-              --arg error_field "${PUBLIC_PUBLISH_ERROR_FIELD_ID}" \
-              --arg release_url "${RELEASE_URL}" \
-              --arg published_at "${published_at}" \
-              '{
-                fieldKeyType: "id",
-                typecast: true,
-                record: {
-                  fields: {
-                    ($url_field): $release_url,
-                    ($published_at_field): $published_at,
-                    ($result_field): "Success",
-                    ($error_field): ""
-                  }
-                }
-              }')"
-
-            teable_patch_record "${PUBLIC_RELEASE_TABLE_ID}" "${PUBLIC_RELEASE_RECORD_ID}" "${public_payload}"
-          else
-            public_payload="$(jq -nc \
-              --arg result_field "${PUBLIC_GITHUB_RESULT_FIELD_ID}" \
-              --arg error_field "${PUBLIC_PUBLISH_ERROR_FIELD_ID}" \
-              --arg error_message "${ERROR_MESSAGE}" \
-              '{
-                fieldKeyType: "id",
-                typecast: true,
-                record: {
-                  fields: {
-                    ($result_field): "Failed",
-                    ($error_field): $error_message
-                  }
-                }
-              }')"
-
-            teable_patch_record "${PUBLIC_RELEASE_TABLE_ID}" "${PUBLIC_RELEASE_RECORD_ID}" "${public_payload}"
-          fi
-
-      - name: Fail job when publish was not successful
-        if: ${{ steps.publish_release.outputs.status != 'success' }}
-        run: |
-          echo "${{ steps.publish_release.outputs.error_message }}"
-          exit 1
+          ensure_tag
+          upsert_release

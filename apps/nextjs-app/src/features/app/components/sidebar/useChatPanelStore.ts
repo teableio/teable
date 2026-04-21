@@ -22,18 +22,21 @@ import { persist } from 'zustand/middleware';
  */
 interface IChatPanelState {
   status: 'open' | 'close' | 'expanded';
+  panelType: 'general' | 'app-builder';
+  setPanelType: (type: 'general' | 'app-builder') => void;
   close: () => void;
   open: () => void;
   expand: () => void;
   toggleVisible: () => void;
   toggleExpanded: () => void;
-  openAgent: () => void;
 }
 
 export const useChatPanelStore = create<IChatPanelState>()(
   persist(
     (set) => ({
       status: 'open',
+      panelType: 'app-builder',
+      setPanelType: (type: 'general' | 'app-builder') => set({ panelType: type }),
       close: () =>
         set(() => ({
           status: 'close',
@@ -46,7 +49,6 @@ export const useChatPanelStore = create<IChatPanelState>()(
         })),
       toggleExpanded: () =>
         set((state) => ({ status: state.status === 'expanded' ? 'open' : 'expanded' })),
-      openAgent: () => set({ status: 'open' }),
     }),
     {
       name: LocalStorageKeys.ChatPanel,
