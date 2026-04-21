@@ -191,6 +191,7 @@
     },
     "invalidateSelected": "已删除选项",
     "invalidateSelectedTips": "该选项已被删除，请重新选择",
+    "invalidConditionTip": "此筛选条件无效，将被忽略。请调整后重试。",
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"

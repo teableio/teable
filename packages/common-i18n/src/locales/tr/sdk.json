@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Geçersiz değer",
     "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
+    "invalidConditionTip": "Bu filtre koşulu geçersiz ve yok sayılacak. Lütfen değeri ayarlayın.",
     "default": {
       "empty": "Filtre koşulu uygulanmadı",
       "placeholder": "Bir değer girin"
