@@ -30,7 +30,6 @@ import {
   SingleLineTextDisplayType,
   DateFormattingPreset,
   generateFieldId,
-  DriverClient,
   CellFormat,
   FieldAIActionType,
   generateWorkflowId,
@@ -263,62 +262,59 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       );
     });
 
-    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-      'should modify field validation',
-      async () => {
-        const sourceFieldRo: IFieldRo = {
-          name: 'TextField',
-          type: FieldType.SingleLineText,
-        };
-        const uniqueFieldRo: IFieldRo = {
-          ...sourceFieldRo,
-          unique: true,
-        };
-        const notNullFieldRo: IFieldRo = {
-          ...sourceFieldRo,
-          unique: false,
-          notNull: true,
-        };
+    it('should modify field validation', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+      };
+      const uniqueFieldRo: IFieldRo = {
+        ...sourceFieldRo,
+        unique: true,
+      };
+      const notNullFieldRo: IFieldRo = {
+        ...sourceFieldRo,
+        unique: false,
+        notNull: true,
+      };
 
-        const table2Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const table2Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
-        await deleteRecords(
-          table1.id,
-          table2Records.records.map((record) => record.id)
-        );
+      await deleteRecords(
+        table1.id,
+        table2Records.records.map((record) => record.id)
+      );
 
-        const sourceField = await createField(table1.id, sourceFieldRo);
-        const { records } = await createRecords(table1.id, {
-          records: [
-            {
-              fields: {
-                [sourceField.id]: '100',
-              },
+      const sourceField = await createField(table1.id, sourceFieldRo);
+      const { records } = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
             },
-            {
-              fields: {
-                [sourceField.id]: '100',
-              },
+          },
+          {
+            fields: {
+              [sourceField.id]: '100',
             },
-            {
-              fields: {},
-            },
-          ],
-        });
+          },
+          {
+            fields: {},
+          },
+        ],
+      });
 
-        await convertField(table1.id, sourceField.id, uniqueFieldRo, 400);
+      await convertField(table1.id, sourceField.id, uniqueFieldRo, 400);
 
-        await deleteRecord(table1.id, records[1].id);
+      await deleteRecord(table1.id, records[1].id);
 
-        await convertField(table1.id, sourceField.id, uniqueFieldRo);
+      await convertField(table1.id, sourceField.id, uniqueFieldRo);
 
-        await convertField(table1.id, sourceField.id, notNullFieldRo, 400);
+      await convertField(table1.id, sourceField.id, notNullFieldRo, 400);
 
-        await deleteRecord(table1.id, records[2].id);
+      await deleteRecord(table1.id, records[2].id);
 
-        await convertField(table1.id, sourceField.id, notNullFieldRo);
-      }
-    );
+      await convertField(table1.id, sourceField.id, notNullFieldRo);
+    });
 
     it('should modify attachment field name', async () => {
       const sourceFieldRo: IFieldRo = {
@@ -2389,9 +2385,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await convertField(table1.id, createdResult.newField.id, sourceFieldRo);
 
       // junction should not exist when converting one-way one-many to tow-way one-one
-      const query = dbProvider.checkTableExist(
-        `${baseId}${globalThis.testConfig.driver === DriverClient.Sqlite ? '_' : '.'}junction_${createdResult.newField.id}`
-      );
+      const query = dbProvider.checkTableExist(`${baseId}.junction_${createdResult.newField.id}`);
 
       const queryResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(query);
       expect(queryResult[0].exists).toBeFalsy();
@@ -3863,6 +3857,118 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
         const afterRecord = await getRecord(table1.id, table1.records[0].id);
         expect(afterRecord.fields[lookupField.id]).toEqual('row-2');
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
+      'should convert a legacy v1-created rollup through v2 canary',
+      async () => {
+        const sourceNumberField = await createField(table2.id, {
+          name: 'Source Number',
+          type: FieldType.Number,
+          options: {
+            formatting: {
+              type: NumberFormattingType.Decimal,
+              precision: 2,
+            },
+          },
+        });
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, sourceNumberField.id, 7);
+        await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+          id: table2.records[0].id,
+        });
+
+        const legacyRollupField = await createField(table1.id, {
+          type: FieldType.Rollup,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: sourceNumberField.id,
+            linkFieldId: linkField.id,
+          },
+          options: {
+            expression: 'max({values})',
+            formatting: {
+              type: NumberFormattingType.Decimal,
+              precision: 2,
+            },
+          },
+        });
+
+        const beforeField = await getField(table1.id, legacyRollupField.id);
+        expect(beforeField.type).toBe(FieldType.Rollup);
+        expect(beforeField.options).toMatchObject({
+          expression: 'max({values})',
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        });
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, legacyRollupField.id, {
+          type: FieldType.Rollup,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: sourceNumberField.id,
+            linkFieldId: linkField.id,
+          },
+          options: {
+            expression: 'max({values})',
+            formatting: {
+              type: NumberFormattingType.Decimal,
+              precision: 4,
+            },
+          },
+        });
+
+        expect(updatedField.type).toBe(FieldType.Rollup);
+        expect(updatedField.options).toMatchObject({
+          expression: 'max({values})',
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 4,
+          },
+        });
+
+        const refreshedField = await getField(table1.id, legacyRollupField.id);
+        expect(refreshedField.type).toBe(FieldType.Rollup);
+        expect(refreshedField.options).toMatchObject({
+          expression: 'max({values})',
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 4,
+          },
+        });
+
+        const persistedField = await prisma.txClient().field.findFirstOrThrow({
+          where: { id: legacyRollupField.id, deletedTime: null },
+          select: {
+            type: true,
+            options: true,
+          },
+        });
+        expect(persistedField.type).toBe(FieldType.Rollup);
+        const persistedOptions =
+          typeof persistedField.options === 'string'
+            ? JSON.parse(persistedField.options)
+            : persistedField.options;
+        expect(persistedOptions).toMatchObject({
+          expression: 'max({values})',
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 4,
+          },
+        });
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(afterRecord.fields[legacyRollupField.id]).toBe(7);
       }
     );
 

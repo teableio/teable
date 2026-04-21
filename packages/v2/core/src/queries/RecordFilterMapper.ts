@@ -168,3 +168,15 @@ export const sanitizeRecordFilter = (
 
   return sanitizeNode(table, filter).map((sanitized) => sanitized ?? null);
 };
+
+export const buildSanitizedRecordConditionSpec = (
+  table: Table,
+  filter: RecordFilter | null | undefined
+): Result<
+  ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+  DomainError
+> => {
+  return sanitizeRecordFilter(table, filter).andThen((sanitized) =>
+    sanitized ? buildRecordConditionSpec(table, sanitized) : ok(undefined)
+  );
+};

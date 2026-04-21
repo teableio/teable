@@ -1195,6 +1195,27 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `REPLACE(${source}, ${search}, ${replacement})`;
   }
 
+  textBefore(
+    text: string,
+    delimiter: string,
+    _instanceNum?: string,
+    _matchMode?: string,
+    _matchEnd?: string,
+    ifNotFound?: string
+  ): string {
+    const source = this.coerceArrayLikeToText(text, 0);
+    const search = this.coerceArrayLikeToText(delimiter, 1);
+    const fallback = ifNotFound ? this.coerceArrayLikeToText(ifNotFound, 5) : 'NULL';
+    const position = `POSITION(${search} IN ${source})`;
+    return `(CASE WHEN ${position} = 0 THEN ${fallback} ELSE LEFT(${source}, ${position} - 1) END)`;
+  }
+
+  textSplit(text: string, delimiter: string, _ignoreEmpty?: string, _matchMode?: string): string {
+    const source = this.coerceArrayLikeToText(text, 0);
+    const search = this.coerceArrayLikeToText(delimiter, 1);
+    return `to_jsonb(string_to_array(${source}, ${search}))`;
+  }
+
   lower(text: string): string {
     const operand = this.coerceArrayLikeToText(text, 0);
     return `LOWER(${operand})`;

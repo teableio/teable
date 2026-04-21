@@ -1409,10 +1409,15 @@
     "byokModelNotSupported": "Your custom model is not compatible with agent mode. Please switch to Claude Opus 4.6 for the best experience.",
     "modelServiceUnavailable": "The model service is temporarily unavailable. Please try again later.",
     "modelServiceError": "An error occurred with the model service. Please try again or switch to a different model.",
+    "imageProcessingFailed": "Image Processing Failed",
+    "imageProcessingFailedDescription": "The image could not be processed by the AI model. Please try re-sending or continue without it.",
     "sandboxBusy": "Agent is busy in another conversation. Please wait.",
     "sandboxCapacityFull": "Concurrent conversation limit ({{max}}) reached. Please wait for one to finish.",
     "sandboxTransient": "Cuppy is getting ready. Please try again in a moment.",
-    "sandboxSnapshotNotFound": "Cuppy's environment isn't set up yet. Please ask your admin to create a sandbox snapshot."
+    "sandboxSnapshotNotFound": "Cuppy's environment isn't set up yet. Please ask your admin to create a sandbox snapshot.",
+    "agentStartFailed": "The AI engine failed to start. Please try again or start a new session.",
+    "idleTimeout": "Command execution exceeded the time limit ({{seconds}}s). Please retry.",
+    "danglingToolUse": "The previous session was interrupted and has been auto-repaired. Please retry your message."
   },
   "system": {
     "notFound": {
@@ -1447,9 +1452,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "April 10 Update",
-    "title": "New Teable Agent: Super Intelligent, Low Cost",
-    "url": "https://help.teable.ai/en/changelog#apr-10-2026",
-    "id": "changelog-2026-04-10-new-agent-engine"
+    "newUpdate": "APR 17 UPDATE",
+    "title": "Claude Opus 4.7 is now in Teable",
+    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
+    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
   }
 }

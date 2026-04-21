@@ -103,7 +103,7 @@ describe('View filter with is/isNot null value (e2e)', () => {
     await permanentDeleteTable(baseId, tableId);
   });
 
-  it('should apply view filter with is+null (checkbox) and isNotEmpty via API viewId query', async () => {
+  it('should apply checkbox is+null and ignore incomplete non-checkbox isNot+null filters', async () => {
     await withForceV2All(async () => {
       // Create table with checkbox and text fields
       const table = await createTable(baseId, {
@@ -127,8 +127,9 @@ describe('View filter with is/isNot null value (e2e)', () => {
       const doneField = table.fields.find((f) => f.name === 'Done')!;
       const codeField = table.fields.find((f) => f.name === 'Code')!;
 
-      // Set V1-style view filter: Done is [unchecked] AND Code isNotEmpty
+      // Set V1-style view filter: Done is [unchecked] AND an incomplete Code condition.
       // V1 stores checkbox "is unchecked" as {operator: "is", value: null}
+      // but drops non-checkbox is/isNot+null because the filter input is incomplete.
       const filterRo: IFilterRo = {
         filter: {
           conjunction: 'and',
@@ -146,16 +147,16 @@ describe('View filter with is/isNot null value (e2e)', () => {
         fieldKeyType: FieldKeyType.Name,
       });
 
-      // Only rows where Done is unchecked/false AND Code is not empty should match
+      // Only rows where Done is unchecked/false should match; Code isNot+null is ignored.
       // row2: Done=false, Code='A002' ✓
       // row3: Done=undefined, Code='A003' ✓
       // row1: Done=true → excluded
       // row4: Done=true → excluded
-      // row5: Done=undefined, Code=undefined → excluded by Code isNot null
+      // row5: Done=undefined, Code=undefined ✓
       const records = result.data.records;
-      expect(records.length).toBe(2);
+      expect(records.length).toBe(3);
       const names = records.map((r) => r.fields.Name).sort();
-      expect(names).toEqual(['row2', 'row3']);
+      expect(names).toEqual(['row2', 'row3', 'row5']);
     });
   });
 });

@@ -13,30 +13,35 @@ import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreat
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
-import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
-import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
 import { ITableRecordRepository } from '../../ports/TableRecordRepository';
-import type { BatchRecordMutationResult } from '../../ports/TableRecordRepository';
+import type {
+  BatchRecordMutationResult,
+  RecordStoredSnapshot,
+} from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
-import type { UndoRedoCommandLeafData, UndoRedoRestoreRecord } from '../../ports/UndoRedoStore';
+import type { UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
 import {
   type IForeignTableLoaderService,
   NullForeignTableLoaderService,
 } from './ForeignTableLoaderService';
-import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { type IRecordChangedValueDecoratorService } from './RecordChangedValueDecoratorService';
+import { mergeRecordFieldValues } from './recordEventFieldValues';
+import {
+  requireStoredRecordSnapshots,
+  toUndoRedoRestoreRecords,
+} from './RecordMutationSnapshotContract';
+import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from './RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from './RecordWriteUndoRedoPlanService';
 import { TableUpdateFlow } from './TableUpdateFlow';
-import { mergeRecordFieldValues } from './recordEventFieldValues';
 
 export interface IRecordBatchCreationInput {
   readonly table: Table;
@@ -62,8 +67,6 @@ export class RecordBatchCreationService {
   constructor(
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: ITableRecordRepository,
-    @inject(v2CoreTokens.tableRecordQueryRepository)
-    private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordChangedValueDecoratorService)
@@ -179,11 +182,17 @@ export class RecordBatchCreationService {
         tableForCreate.pullDomainEvents(),
         batchMutation
       );
-      const recordSnapshots = yield* await service.buildRecordSnapshots(
+      const recordSnapshotsResult = await service.buildRecordSnapshots(
         context,
         tableForCreate,
-        records
+        records,
+        mutationResult
       );
+      if (recordSnapshotsResult.isErr()) {
+        return err(recordSnapshotsResult.error);
+      }
+      const storedSnapshots = recordSnapshotsResult.value;
+      const recordSnapshots = toUndoRedoRestoreRecords(storedSnapshots);
 
       return ok({
         records,
@@ -279,15 +288,23 @@ export class RecordBatchCreationService {
 
     for (const event of rawEvents) {
       if (isRecordCreatedEvent(event)) {
+        const recordId = event.recordId.toString();
+        const recordFieldChanges = new Map<string, unknown>();
+        for (const [fieldId, value] of mutationResult.changedFieldsByRecord?.get(recordId) ?? []) {
+          recordFieldChanges.set(fieldId, value);
+        }
+        for (const [fieldId, value] of mutationResult.computedChangesByRecord?.get(recordId) ??
+          []) {
+          recordFieldChanges.set(fieldId, value);
+        }
+        const mergedRecordFieldChanges =
+          recordFieldChanges.size > 0 ? recordFieldChanges : undefined;
         recordCreatedEvents.push(
           RecordCreated.create({
             tableId: event.tableId,
             baseId: event.baseId,
             recordId: event.recordId,
-            fieldValues: mergeRecordFieldValues(
-              event.fieldValues,
-              mutationResult.changedFieldsByRecord?.get(event.recordId.toString())
-            ),
+            fieldValues: mergeRecordFieldValues(event.fieldValues, mergedRecordFieldChanges),
             source: event.source,
           })
         );
@@ -297,7 +314,7 @@ export class RecordBatchCreationService {
     }
 
     if (recordCreatedEvents.length <= 1) {
-      return rawEvents;
+      return [...recordCreatedEvents, ...otherEvents];
     }
 
     const source = recordCreatedEvents[0]?.source ?? { type: 'user' };
@@ -318,50 +335,24 @@ export class RecordBatchCreationService {
   }
 
   private async buildRecordSnapshots(
-    context: IExecutionContext,
+    _context: IExecutionContext,
     table: Table,
-    records: ReadonlyArray<TableRecord>
-  ): Promise<Result<ReadonlyArray<UndoRedoRestoreRecord>, DomainError>> {
-    const restoreSnapshotResult = await this.tableRecordQueryRepository.find(
-      context,
-      table,
-      RecordByIdsSpec.create(records.map((record) => record.id())),
-      { mode: 'stored', includeOrders: true }
+    records: ReadonlyArray<TableRecord>,
+    mutationResult: BatchRecordMutationResult
+  ): Promise<Result<ReadonlyArray<RecordStoredSnapshot>, DomainError>> {
+    const storedSnapshotsResult = requireStoredRecordSnapshots(
+      {
+        operation: 'create',
+        tableId: table.id().toString(),
+        expectedCount: records.length,
+      },
+      mutationResult.recordSnapshots
     );
-    if (restoreSnapshotResult.isErr()) {
-      return err(restoreSnapshotResult.error);
+    if (storedSnapshotsResult.isErr()) {
+      return err(storedSnapshotsResult.error);
     }
 
-    const restoreSnapshotMap = new Map(
-      restoreSnapshotResult.value.records.map((record) => [record.id, record])
-    );
-
-    return ok(
-      records.map((record) => {
-        const snapshot = restoreSnapshotMap.get(record.id().toString());
-        if (!snapshot) {
-          const fields: Record<string, unknown> = {};
-          for (const entry of record.fields().entries()) {
-            fields[entry.fieldId.toString()] = entry.value.toValue();
-          }
-          return {
-            recordId: record.id().toString(),
-            fields,
-          };
-        }
-
-        return {
-          recordId: record.id().toString(),
-          fields: snapshot.fields,
-          ...(snapshot.orders ? { orders: snapshot.orders } : {}),
-          ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
-          ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
-          ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
-          ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
-          ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
-        };
-      })
-    );
+    return ok(storedSnapshotsResult.value);
   }
 
   private buildExtendedFieldKeyMapping(

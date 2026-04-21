@@ -154,7 +154,7 @@ describe('undo-redo/updateRecord (db)', () => {
     await harness.undo(table.id().toString());
     expect(harness.probe.names()).toEqual([
       'UndoCommand',
-      'UpdateRecordCommand',
+      'UpdateRecordsCommand',
       'ApplyFieldSnapshotCommand',
       'UpdateFieldCommand',
       'ApplyFieldSnapshotCommand',
@@ -174,7 +174,7 @@ describe('undo-redo/updateRecord (db)', () => {
       'UpdateFieldCommand',
       'ApplyFieldSnapshotCommand',
       'UpdateFieldCommand',
-      'UpdateRecordCommand',
+      'UpdateRecordsCommand',
     ]);
     loadedTable = await loadTable(harness, table);
     expect(getSelectOptionNames(loadedTable, 'Status')).toEqual(['Open', 'In Progress']);

@@ -105,7 +105,7 @@ describe('undo-redo/paste (db)', () => {
     await harness.undo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('UndoCommand');
     expect(harness.probe.names()).toContain('DeleteRecordsCommand');
-    expect(harness.probe.names().filter((name) => name === 'UpdateRecordCommand')).toHaveLength(2);
+    expect(harness.probe.names().filter((name) => name === 'UpdateRecordsCommand')).toHaveLength(1);
     expect((await fetchRowById(harness.db, table, firstId))?.[titleDbName]).toBe('Alpha');
     expect((await fetchRowById(harness.db, table, secondId))?.[amountDbName]).toBe(2);
     expect(await fetchRowById(harness.db, table, createdId)).toBeUndefined();
@@ -113,7 +113,7 @@ describe('undo-redo/paste (db)', () => {
     await harness.redo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('RedoCommand');
     expect(harness.probe.names()).toContain('RestoreRecordsCommand');
-    expect(harness.probe.names().filter((name) => name === 'UpdateRecordCommand')).toHaveLength(2);
+    expect(harness.probe.names().filter((name) => name === 'UpdateRecordsCommand')).toHaveLength(1);
     expect((await fetchRowById(harness.db, table, firstId))?.[titleDbName]).toBe('Paste Row 0');
     expect((await fetchRowById(harness.db, table, secondId))?.[amountDbName]).toBe(200);
     expect((await fetchRowById(harness.db, table, createdId))?.[amountDbName]).toBe(300);
@@ -183,7 +183,7 @@ describe('undo-redo/paste (db)', () => {
     await harness.undo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('UndoCommand');
     expect(harness.probe.names()).toContain('DeleteRecordsCommand');
-    expect(harness.probe.names()).toContain('UpdateRecordCommand');
+    expect(harness.probe.names()).toContain('UpdateRecordsCommand');
     expect(
       harness.probe.names().filter((name) => name === 'ApplyFieldSnapshotCommand')
     ).toHaveLength(2);
@@ -197,7 +197,7 @@ describe('undo-redo/paste (db)', () => {
     await harness.redo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('RedoCommand');
     expect(harness.probe.names()).toContain('RestoreRecordsCommand');
-    expect(harness.probe.names()).toContain('UpdateRecordCommand');
+    expect(harness.probe.names()).toContain('UpdateRecordsCommand');
     expect(
       harness.probe.names().filter((name) => name === 'ApplyFieldSnapshotCommand')
     ).toHaveLength(2);

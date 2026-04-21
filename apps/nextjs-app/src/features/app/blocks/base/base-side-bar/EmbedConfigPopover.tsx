@@ -63,7 +63,7 @@ export const EmbedConfigPopover = ({ shareUrl }: { shareUrl: string }) => {
               className="flex-1"
               onClick={() => setPreviewOpen(true)}
             >
-              <Eye className="mr-1 size-4" />
+              <Eye className="size-4 shrink-0" />
               {t('common:baseShare.embedPreview')}
             </Button>
             <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px]">
@@ -82,7 +82,7 @@ export const EmbedConfigPopover = ({ shareUrl }: { shareUrl: string }) => {
             </DialogContent>
           </Dialog>
           <Button variant="outline" size="sm" className="flex-1" onClick={handleCopyCode}>
-            <Copy className="mr-1 size-4" />
+            <Copy className="size-4 shrink-0" />
             {t('common:baseShare.copyCode')}
           </Button>
         </div>

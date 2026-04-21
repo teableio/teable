@@ -82,8 +82,8 @@ describe('undo-redo/clear (db)', () => {
       ._unsafeUnwrap()
       .at(-1);
 
-    expect(entry?.undoCommand.type).toBe('Batch');
-    expect(entry?.redoCommand.type).toBe('Batch');
+    expect(entry?.undoCommand.type).toBe('UpdateRecords');
+    expect(entry?.redoCommand.type).toBe('UpdateRecords');
     expect(
       (await fetchRowById(harness.db, table, createResult.records[0]!.id().toString()))?.[
         amountDbName
@@ -97,7 +97,7 @@ describe('undo-redo/clear (db)', () => {
 
     await harness.undo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('UndoCommand');
-    expect(harness.probe.names().filter((name) => name === 'UpdateRecordCommand')).toHaveLength(2);
+    expect(harness.probe.names().filter((name) => name === 'UpdateRecordsCommand')).toHaveLength(1);
     expect(
       (await fetchRowById(harness.db, table, createResult.records[0]!.id().toString()))?.[
         amountDbName
@@ -111,7 +111,7 @@ describe('undo-redo/clear (db)', () => {
 
     await harness.redo(table.id().toString());
     expect(harness.probe.names()[0]).toBe('RedoCommand');
-    expect(harness.probe.names().filter((name) => name === 'UpdateRecordCommand')).toHaveLength(2);
+    expect(harness.probe.names().filter((name) => name === 'UpdateRecordsCommand')).toHaveLength(1);
     expect(
       (await fetchRowById(harness.db, table, createResult.records[0]!.id().toString()))?.[
         amountDbName

@@ -1,5 +1,5 @@
 import type { DomainError, Field, Table } from '@teable/v2-core';
-import { domainError, ok } from '@teable/v2-core';
+import { FieldType, domainError, ok } from '@teable/v2-core';
 import { CompiledQuery, type CompiledQuery as KyselyCompiledQuery, type Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -24,6 +24,40 @@ export interface BuildBatchUpdateSqlParams {
   };
   table: Table;
   db: Kysely<DynamicDB>;
+}
+
+export interface BatchUpdateReturnedOldField {
+  fieldId: string;
+  alias: string;
+}
+
+export function collectBatchUpdateReturnedOldFields(
+  table: Table,
+  columnUpdateData: ReadonlyMap<string, ReadonlyArray<{ recordId: string; value: unknown }>>
+): BatchUpdateReturnedOldField[] {
+  const fields: BatchUpdateReturnedOldField[] = [];
+  const seenFieldIds = new Set<string>();
+  for (const [columnName] of columnUpdateData) {
+    if (isSystemColumn(columnName)) {
+      continue;
+    }
+
+    const fieldResult = getFieldByColumnName(table, columnName);
+    if (fieldResult.isErr() || isTrackedLastModifiedField(fieldResult.value)) {
+      continue;
+    }
+
+    const fieldId = fieldResult.value.id().toString();
+    if (seenFieldIds.has(fieldId)) {
+      continue;
+    }
+    seenFieldIds.add(fieldId);
+    fields.push({
+      fieldId,
+      alias: `old_${fields.length}`,
+    });
+  }
+  return fields;
 }
 
 /**
@@ -96,12 +130,7 @@ export function buildBatchUpdateSql(
     // Add user field columns
     for (const [columnName] of columnUpdateData) {
       // Skip system columns (will add them at the end)
-      if (
-        columnName === '__id' ||
-        columnName === '__last_modified_time' ||
-        columnName === '__last_modified_by' ||
-        columnName === '__version'
-      ) {
+      if (isSystemColumn(columnName)) {
         continue;
       }
 
@@ -122,7 +151,7 @@ export function buildBatchUpdateSql(
     // A column is constant-NULL only when every record in the batch explicitly
     // provides that column with a nullish value. Missing values must preserve
     // the current stored cell instead of being coerced into clears.
-    const constantNullColumns: string[] = [];
+    const constantNullColumnFields: Array<{ name: string; field: Field | null }> = [];
     const varyingColumnFields: Array<{ name: string; field: Field | null }> = [];
 
     for (const colField of allColumnFields) {
@@ -137,18 +166,26 @@ export function buildBatchUpdateSql(
           return v === null || v === undefined;
         });
       if (allNull) {
-        constantNullColumns.push(colField.name);
+        constantNullColumnFields.push(colField);
       } else {
         varyingColumnFields.push(colField);
       }
     }
 
+    const returnedOldFields = collectReturnedOldFields(allColumnFields);
+    const matchedOldValueSelects = returnedOldFields.map(
+      ({ name, alias }) => `${escapeSqlIdentifier(name)} AS ${escapeSqlIdentifier(alias)}`
+    );
+    const returningOldValueSelects = returnedOldFields.map(
+      ({ alias }) => `matched.${escapeSqlIdentifier(alias)} AS ${escapeSqlIdentifier(alias)}`
+    );
+
     // Build SET clauses
     const setClauses: string[] = [];
 
     // Constant-NULL columns: SET col = NULL directly (no need for VALUES row data)
-    for (const colName of constantNullColumns) {
-      setClauses.push(`${escapeSqlIdentifier(colName)} = NULL`);
+    for (const { name } of constantNullColumnFields) {
+      setClauses.push(`${escapeSqlIdentifier(name)} = NULL`);
     }
 
     // Case 1: All user columns are constant NULL — use simple WHERE __id = ANY(...)
@@ -168,11 +205,25 @@ export function buildBatchUpdateSql(
 
       const escapedTableName = escapeSchemaQualifiedTableName(tableName);
       const idList = recordIds.map((id) => escapeAndQuoteSqlValue(id)).join(', ');
+      const distinctWhereClause = buildConstantNullDistinctWhereClause(
+        constantNullColumnFields,
+        't'
+      );
       const updateSql = `
-UPDATE ${escapedTableName}
+WITH matched AS (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+)
+UPDATE ${escapedTableName} AS t
 SET ${setClauses.join(', ')}
-WHERE "__id" = ANY(ARRAY[${idList}])
-RETURNING "__id" AS "record_id", "__version" AS "new_version"
+FROM matched
+WHERE t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
+RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
+  t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}
       `.trim();
 
       return ok(CompiledQuery.raw(updateSql));
@@ -267,19 +318,104 @@ RETURNING "__id" AS "record_id", "__version" AS "new_version"
 
     // Build final UPDATE statement
     const escapedTableName = escapeSchemaQualifiedTableName(tableName);
+    const idList = recordIds.map((id) => escapeAndQuoteSqlValue(id)).join(', ');
+    const distinctWhereClause = buildValuesDistinctWhereClause(
+      constantNullColumnFields,
+      varyingColumns
+    );
     const updateSql = `
+WITH matched AS (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+)
 UPDATE ${escapedTableName} AS t
 SET ${setClauses.join(', ')}
-FROM (VALUES
+FROM matched, (VALUES
   ${valueRows.join(',\n  ')}
 ) AS v(${columnAliases})
-WHERE t.__id = v.__id
-RETURNING t.__id AS record_id, t.__version AS new_version
+WHERE t.${escapeSqlIdentifier('__id')} = v.${escapeSqlIdentifier('__id')}
+  AND t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
+RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
+  t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}
     `.trim();
 
     // Compile using kysely's sql tag for proper parameter handling
     return ok(CompiledQuery.raw(updateSql, parameters));
   });
+}
+
+type BatchColumnField = { name: string; field: Field | null };
+type VaryingBatchColumnField = BatchColumnField & { presenceAlias: string };
+
+function isSystemColumn(columnName: string): boolean {
+  return (
+    columnName === '__id' ||
+    columnName === '__last_modified_time' ||
+    columnName === '__last_modified_by' ||
+    columnName === '__version'
+  );
+}
+
+function isTrackedLastModifiedField(field: Field | null): boolean {
+  if (!field) {
+    return false;
+  }
+  const type = field.type();
+  return type.equals(FieldType.lastModifiedTime()) || type.equals(FieldType.lastModifiedBy());
+}
+
+function collectReturnedOldFields(
+  columns: ReadonlyArray<BatchColumnField>
+): Array<{ name: string; alias: string; fieldId: string }> {
+  const fields: Array<{ name: string; alias: string; fieldId: string }> = [];
+  const seenFieldIds = new Set<string>();
+  for (const { name, field } of columns) {
+    if (!field || isTrackedLastModifiedField(field)) {
+      continue;
+    }
+    const fieldId = field.id().toString();
+    if (seenFieldIds.has(fieldId)) {
+      continue;
+    }
+    seenFieldIds.add(fieldId);
+    fields.push({ name, alias: `old_${fields.length}`, fieldId });
+  }
+  return fields;
+}
+
+function buildConstantNullDistinctWhereClause(
+  columns: ReadonlyArray<BatchColumnField>,
+  tableAlias?: string
+): string {
+  const columnPrefix = tableAlias ? `${tableAlias}.` : '';
+  const predicates = columns
+    .filter(({ field }) => !isTrackedLastModifiedField(field))
+    .map(({ name }) => `${columnPrefix}${escapeSqlIdentifier(name)} IS DISTINCT FROM NULL`);
+
+  return predicates.length > 0 ? ` AND (${predicates.join(' OR ')})` : '';
+}
+
+function buildValuesDistinctWhereClause(
+  constantNullColumns: ReadonlyArray<BatchColumnField>,
+  varyingColumns: ReadonlyArray<VaryingBatchColumnField>
+): string {
+  const predicates = [
+    ...constantNullColumns
+      .filter(({ field }) => !isTrackedLastModifiedField(field))
+      .map(({ name }) => `t.${escapeSqlIdentifier(name)} IS DISTINCT FROM NULL`),
+    ...varyingColumns
+      .filter(({ field }) => !isTrackedLastModifiedField(field))
+      .map(
+        ({ name, presenceAlias }) =>
+          `(v.${escapeSqlIdentifier(presenceAlias)} AND t.${escapeSqlIdentifier(name)} IS DISTINCT FROM v.${escapeSqlIdentifier(name)})`
+      ),
+  ];
+
+  return predicates.length > 0 ? ` AND (${predicates.join(' OR ')})` : '';
 }
 
 function isCompilableSqlExpression(value: unknown): value is CompilableSqlExpression {
