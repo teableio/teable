@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
+    "invalidConditionTip": "Cette condition de filtre est invalide et sera ignorée. Veuillez ajuster la valeur.",
     "default": {
       "empty": "Aucune condition de filtrage appliquée",
       "placeholder": "Entrez une valeur"
@@ -1432,7 +1433,8 @@
       "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
       "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
       "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}",
-      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application"
+      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application",
+      "domainReserved": "Sous-domaine réservé"
     }
   }
 }

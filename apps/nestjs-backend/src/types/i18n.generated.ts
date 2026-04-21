@@ -2087,6 +2087,7 @@ export type I18nTranslations = {
             };
             "invalidateSelected": string;
             "invalidateSelectedTips": string;
+            "invalidConditionTip": string;
             "default": {
                 "empty": string;
                 "placeholder": string;
@@ -3361,6 +3362,7 @@ export type I18nTranslations = {
                 "zipFileTooLarge": string;
                 "invalidZip": string;
                 "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
             "reward": {
                 "notFound": string;
@@ -3384,6 +3386,7 @@ export type I18nTranslations = {
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
                 "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
         };
         "aiError": {

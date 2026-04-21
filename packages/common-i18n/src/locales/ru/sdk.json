@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Неверное значение",
     "invalidateSelectedTips": "Выбранное значение было удалено, выберите другое",
+    "invalidConditionTip": "Это условие фильтра недопустимо и будет проигнорировано. Измените значение.",
     "default": {
       "empty": "Фильтры не применены",
       "placeholder": "Введите значение"
@@ -1432,7 +1433,8 @@
       "linkedInPostNotFound": "Публикация LinkedIn не найдена: {{postId}}",
       "linkedInAuthorNotFound": "Автор LinkedIn не найден: {{postId}}",
       "fetchLinkedInUserFailed": "Не удалось получить пользователя LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Этот домен уже привязан к другому приложению"
+      "domainAlreadyInUse": "Этот домен уже привязан к другому приложению",
+      "domainReserved": "Поддомен зарезервирован"
     }
   }
 }

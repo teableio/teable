@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Unzulässiger Wert",
     "invalidateSelectedTips": "Der ausgewählte Wert wurde gelöscht, bitte wählen Sie erneut",
+    "invalidConditionTip": "Diese Filterbedingung ist ungültig und wird ignoriert. Bitte passen Sie den Wert an.",
     "default": {
       "empty": "Es werden keine Filterbedingungen angewendet",
       "placeholder": "Einen Wert eingeben"
@@ -1438,7 +1439,8 @@
       "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
       "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}",
-      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden"
+      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden",
+      "domainReserved": "Subdomain ist reserviert"
     }
   }
 }
