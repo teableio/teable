@@ -1594,6 +1594,23 @@ export class FieldConvertingService {
       );
     }
 
+    // Primary fields must stay as regular (editable) fields. Converting a primary to a
+    // lookup / conditional-lookup produces a computed primary whose cell value is derived
+    // from a link, which in turn breaks base duplication (findFirstOrThrow for the foreign
+    // table's primary can't locate a valid static primary). See T3367.
+    if (oldField.isPrimary && (updateFieldRo.isLookup || updateFieldRo.isConditionalLookup)) {
+      throw new CustomHttpException(
+        'Primary field cannot be configured as a lookup field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.primaryCannotBeLookup',
+            context: {},
+          },
+        }
+      );
+    }
+
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
       tableId,
       updateFieldRo,
