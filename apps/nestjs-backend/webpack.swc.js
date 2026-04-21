@@ -47,7 +47,13 @@ module.exports = function (options, webpack) {
     ],
     // ignore tests hot reload
     watchOptions: {
-      ignored: ['**/test/**', '**/*.spec.ts', '**/node_modules/**', '**/*.d.ts'],
+      ignored: [
+        '**/test/**',
+        '**/*.spec.ts',
+        '**/node_modules/**',
+        '**/*.d.ts',
+        '**/i18n.generated.ts',
+      ],
       poll: false,
       aggregateTimeout: 200,
     },

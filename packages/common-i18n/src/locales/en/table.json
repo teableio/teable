@@ -1199,19 +1199,14 @@
   "aiChat": {
     "agent": {
       "askUserQuestion": {
-        "label": "Question",
-        "confirm": "Confirm ({{count}})",
         "otherPlaceholder": "Or type your answer…",
-        "otherSend": "Send",
-        "addCustomPlaceholder": "Add custom option…",
-        "askedUser": "Asked user",
-        "answered": "Answered"
+        "asked": "Asked",
+        "skipped": "Skipped",
+        "previousQuestion": "Previous question",
+        "nextQuestion": "Next question"
       },
       "completion": {
         "completed": "Completed",
-        "tools": "{{count}} tools",
-        "toolsWithErrors": "{{count}} tools ({{errors}} error(s))",
-        "hasErrors": "errors",
         "noDetails": "No details available",
         "model": "Model",
         "contextWindow": "Context Window",
@@ -1220,132 +1215,22 @@
         "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
       },
       "taskProgress": {
-        "title": "Task Progress",
-        "noTasks": "No tasks",
-        "operationFailed": "Task operation failed",
-        "collapse": "Collapse",
-        "showMore": "Show more ({{count}})"
+        "title": "Task Progress"
       },
       "tool": {
-        "executing": "Executing…",
-        "executionFailed": "Tool execution failed",
-        "stoppedByUser": "Stopped by user",
-        "executionDenied": "Tool execution was denied",
-        "moreLines": "… +{{count}} more lines",
         "copy": "Copy",
         "copied": "Copied!",
-        "copyNewContent": "Copy new content",
-        "showAllLines": "Show all {{count}} lines",
         "collapse": "Collapse",
         "linesHidden": "{{count}} lines hidden - click to expand"
-      },
-      "subtask": {
-        "working": "Working on subtask",
-        "workingOn": "Working on subtask: {{description}}",
-        "completed": "Subtask completed"
-      },
-      "skill": {
-        "running": "Running skill",
-        "runningName": "Running skill: {{name}}"
-      },
-      "plan": {
-        "entering": "Entering plan mode",
-        "exiting": "Exiting plan mode"
-      },
-      "worktree": {
-        "creating": "Creating worktree",
-        "creatingName": "Creating worktree: {{name}}",
-        "exiting": "Exiting worktree"
-      },
-      "cron": {
-        "scheduling": "Scheduling task",
-        "removing": "Removing scheduled task",
-        "listing": "Scheduled tasks"
-      },
-      "step": "Step {{number}}",
-      "runDetails": {
-        "working": "Working...",
-        "summary": "{{actions}} actions completed",
-        "moreActions": "... +{{count}} more actions",
-        "collapseActions": "Collapse"
       }
     },
     "tool": {
-      "getTableFields": "Get table fields",
-      "getTablesMeta": "Get tables meta",
-      "sqlQuery": "Execute SQL query",
-      "generateScriptAction": "Generate script action",
-      "getScriptInput": "Get script input",
-      "getTeableApi": "Get API",
-      "dataVisualization": "Data visualization",
-      "updateBase": "Update database info",
-      "args": "Arguments",
-      "result": "Result",
-      "thinking": "Thinking...",
       "retrying": "Retrying ({{attempt}}/{{maxRetries}})...",
-      "queuing": "Queuing...",
-      "toBeConfirmed": "To be confirmed",
-      "errorMessage": "Error message",
-      "confirm": "Confirm",
-      "createRecordsSuccess": "Successfully created {{count}} record(s)",
-      "createRecordsFailed": "Failed to create records",
-      "updateRecordsSuccess": "Successfully updated {{count}} record(s)",
-      "updateRecordsFailed": "Failed to update records",
-      "generatingRecords": "Generating {{count}} record(s)...",
-      "creatingRecords": "Creating {{count}} record(s)...",
-      "updatingRecords": "Updating {{count}} record(s)...",
-      "recordsPreview": "Records preview",
-      "andMoreRecords": "And {{count}} more...",
-      "unknownError": "Unknown error",
-      "recordIds": "Record IDs",
-      "records": "record(s)",
-      "viewAll": "View All",
       "showLess": "Show Less",
-      "generatingData": "Generating data...",
-      "generatingUpdates": "Generating updates...",
-      "recordsGenerated": "{{count}} record(s) generated",
-      "recordsCount": "Records({{count}})",
-      "fieldsCount": "Fields({{count}})",
-      "fieldsGenerated": "{{count}} field(s) generated",
-      "updatedProperties": "Updated ({{count}})",
-      "configured": "configured",
-      "recordsToUpdate": "{{count}} record(s) to update",
-      "showingLast": "last {{count}}",
-      "recordLabel": "Record",
-      "statusGenerating": "Generating...",
-      "statusCreating": "Creating...",
-      "statusUpdating": "Updating...",
-      "statusCreated": "Created",
-      "statusUpdated": "Updated",
-      "getApps": {
-        "title": "App List",
-        "loading": "Loading apps...",
-        "foundApps": "Found {{count}} app(s)",
-        "noApps": "No apps found in this base",
-        "openApp": "Open App"
-      },
       "generateApp": {
-        "title": "App Builder",
         "creatingApp": "Creating app",
         "updatingApp": "Updating app",
-        "generatingApp": "Generating app",
-        "generating": "Generating...",
-        "openApp": "Open App",
-        "viewProgress": "View Progress",
-        "newApp": "New App",
-        "building": "Building..."
-      },
-      "generateAutomation": {
-        "title": "Automation Builder",
-        "creatingAutomation": "Creating automation",
-        "updatingAutomation": "Updating automation",
-        "generatingAutomation": "Building automation",
-        "building": "Building...",
-        "openAutomation": "Open Automation",
-        "viewProgress": "View Progress",
-        "testResults": "Test Results",
-        "triggerTest": "Trigger",
-        "actionTest": "Action {{index}}"
+        "viewProgress": "View Progress"
       },
       "htmlPreview": {
         "preview": "Preview",
@@ -1359,307 +1244,16 @@
         "exitFullscreen": "Exit Fullscreen",
         "downloadSuccess": "Image downloaded successfully",
         "downloadFailed": "Failed to capture image",
-        "iframeFailed": "Failed to capture: iframe not accessible"
-      },
-      "loadAttachment": {
-        "title": "Load Attachment",
-        "loading": "Loading attachment",
-        "failed": "Failed to load attachment",
-        "empty": "No attachments loaded",
-        "modeNative": "AI Vision",
-        "modeNativeDesc": "Loaded into AI native context",
-        "modeExtracted": "Text Extracted",
-        "modeExtractedDesc": "File content parsed and extracted as text for analysis",
-        "visionLoaded": "Loaded for visual analysis",
-        "pdfLoaded": "Loaded for PDF analysis",
-        "textExtracted": "{{chars}} characters extracted",
-        "contextLoaded": "Loaded to AI context",
-        "truncated": "Truncated",
-        "preview": "Preview"
-      },
-      "textExtract": {
-        "title": "Text Extract",
-        "loading": "Extracting text",
-        "failed": "Failed to extract text",
-        "empty": "No text extracted",
-        "preview": "Preview",
-        "truncated": "Truncated",
-        "previews": "previews",
-        "chars": "{{chars}} chars",
-        "totalCharacters": "Total: {{chars}} characters",
-        "filesTruncated": "({{count}} file(s) truncated)"
-      },
-      "importExcel": {
-        "title": "Import Excel",
-        "loading": "Processing file...",
-        "failed": "Import failed",
-        "suggestions": "Suggestions",
-        "analyzeComplete": "Analysis Complete",
-        "worksheets": "Worksheets",
-        "columns": "columns",
-        "importComplete": "Import Complete",
-        "stageAnalyze": "Analyzing",
-        "stageImport": "Importing"
+        "iframeFailed": "Failed to capture: iframe not accessible",
+        "iframeTitle": "HTML Preview"
       }
-    },
-    "tools": {
-      "getTeableApi": "Get Teable API",
-      "readFiles": "Read Files",
-      "writeFile": "Write File",
-      "deleteFiles": "Delete Files",
-      "listFiles": "List Files",
-      "addDependencies": "Add Dependencies",
-      "checkBuildErrors": "Check Build Errors",
-      "lint": "Lint Code"
-    },
-    "fallback": {
-      "previewLoadFailed": "Preview load failed",
-      "retry": "Retry {{count}} time",
-      "chatAborted": "aborted"
-    },
-    "preview": {
-      "deletedTable": "Deleted table",
-      "deletedView": "Deleted view",
-      "deletedField": "Deleted field",
-      "deletedRecords": "Deleted records"
-    },
-    "agentName": {
-      "tableOperatorAgent": "Table agent",
-      "viewOperatorAgent": "View agent",
-      "fieldOperatorAgent": "Field agent",
-      "recordOperatorAgent": "Record agent",
-      "buildBaseAgent": "Build base agent",
-      "buildAutomationAgent": "Build automation agent"
-    },
-    "confirm": {
-      "toBeConfirmed": "To be confirmed",
-      "deleteWarning": "Are you sure you want to delete?"
     },
     "action": {
-      "createTable": "Create table",
-      "updateTable": "Update table",
-      "updateTableName": "Update table name",
-      "deleteTable": "Delete table",
-      "createView": "Create view",
-      "updateView": "Update view",
-      "updateViewName": "Update view name",
-      "deleteView": "Delete view",
-      "createField": "Create field",
-      "createAiField": "Create AI field",
-      "createLinkField": "Create link field",
-      "createLookupField": "Create lookup field",
-      "createRollupField": "Create rollup field",
-      "createFormulaField": "Create formula field",
-      "deleteField": "Delete field",
-      "updateField": "Update field",
-      "createRecord": "Create record",
-      "createRecords": "Create records",
-      "deleteRecord": "Delete record",
-      "updateRecord": "Update record",
-      "updateRecords": "Update records",
-      "updateBase": "Update database info",
-      "planTask": "Plan task...",
-      "generateTables": "Generate tables",
-      "generatePrimaryFields": "Generate primary fields",
-      "generateFields": "Generate fields",
-      "generateViews": "Generate views",
-      "generateRecords": "Generate records",
-      "generateAIFields": "Generate AI fields",
-      "generateLinkFields": "Generate link fields",
-      "generateLookupFields": "Generate lookup fields",
-      "generateRollupFields": "Generate rollup fields",
-      "generateFormulaFields": "Generate formula fields",
-      "generateWorkflow": "Generate workflow",
-      "generateTrigger": "Generate trigger",
-      "generateScriptAction": "Generate script action node",
-      "generateSendMailAction": "Generate send mail action node",
-      "generateAction": "Generate action node",
-      "setupAutomationTrigger": "Setup automation trigger",
-      "testAutomationNode": "Test automation node",
-      "activateAutomation": "Activate automation",
-      "deleteAutomationNode": "Delete {{nodeType}} node",
-      "executeScript": "Execute script",
-      "wait": "Wait",
-      "generateScriptFlowChart": "Generate script flowchart",
-      "triggerAiFill": "Trigger AI fill",
-      "initialize": "Initialize environment",
-      "rename": "Generate app name",
-      "buildTest": "Build test",
-      "developTask": "Develop task",
-      "generateSummary": "Generate summary",
-      "previewEnvironment": "Prepare preview environment",
-      "getRelativeData": "Get relative data",
-      "getPreviousNodeOutputVariables": "Get previous node output variables",
-      "getApiJson": "Get API info",
-      "generateScriptAndDependencies": "Generate script and dependencies",
-      "analyzingAttachment": "Analyzing attachment...",
-      "locateResource": "Locate",
-      "goTo": "Go to",
-      "operationSuccess": "Operation completed successfully",
-      "operationFailed": "Operation failed"
-    },
-    "aiFill": {
-      "processedRecords": "{{count}} record(s) queued for AI generation"
-    },
-    "queryTool": {
-      "getRecords": "Query records",
-      "getRecordsWithTable": "Query records · {{tableName}}",
-      "getGridRows": "Query grid rows",
-      "getGridRowsWithTable": "Query grid rows · {{tableName}}",
-      "getFields": "Query fields",
-      "getFieldsWithTable": "Query fields · {{tableName}}",
-      "getTables": "Query tables",
-      "getViews": "Query views",
-      "getViewsWithTable": "Query views · {{tableName}}",
-      "sqlQuery": "SQL query",
-      "querying": "Querying...",
-      "queryFailed": "Query failed",
-      "aborted": "Aborted",
-      "noData": "No data returned",
-      "dataFormatError": "Data format error",
-      "unsupportedQueryType": "Unsupported query type: {{toolName}}",
-      "returnedRecords": "Returned {{count}} record(s)",
-      "record": "Record {{index}}",
-      "moreRecords": "... +{{count}} more record(s)",
-      "foundFields": "Found {{count}} field(s)",
-      "moreFields": "... +{{count}} more field(s)",
-      "foundTables": "Found {{count}} table(s)",
-      "moreTables": "... +{{count}} more table(s)",
-      "foundViews": "Found {{count}} view(s)",
-      "moreViews": "... +{{count}} more view(s)",
-      "queryReturned": "Query returned {{rowCount}} row(s) × {{columnCount}} column(s)",
-      "row": "Row {{index}}",
-      "moreRows": "... +{{count}} more row(s)",
-      "getDoc": "Get Doc",
-      "getDocWithTopic": "Get Doc · {{topic}}",
-      "getAutomations": "Query automations",
-      "getAutomation": "Query automation",
-      "getAutomationRuns": "Query automation runs",
-      "foundAutomations": "Found {{count}} automation(s)",
-      "moreAutomations": "... +{{count}} more automation(s)",
-      "foundRuns": "Found {{count}} run(s)",
-      "moreRuns": "... +{{count}} more run(s)",
-      "active": "Active",
-      "trigger": "Trigger",
-      "actions": "{{count}} action(s)",
-      "moreActions": "... +{{count}} more action(s)",
-      "getUserIntegrations": "Check integrations",
-      "connectedIntegrations": "Connected",
-      "availableToConnect": "Available to connect",
-      "connect": "Connect",
-      "noIntegrationsAvailable": "No integrations available",
-      "activateTool": "Activate tools",
-      "webSearch": "Web search",
-      "webSearchResults": "Found {{count}} result(s)",
-      "webSearchCompleted": "Search completed",
-      "searchApi": "Search API",
-      "searchApiWithQuery": "Search API · {{query}}",
-      "noApiFound": "No APIs found",
-      "foundApis": "Found {{count}} API(s)",
-      "totalApis": "Total {{count}} APIs available",
-      "callApi": "Call API",
-      "callApiWithMethod": "{{method}} {{path}}...",
-      "response": "Response",
-      "success": "Success",
-      "failed": "Failed",
-      "inputData": "Input data",
-      "availableNodes": "Available nodes",
-      "hasPreviousCode": "Has existing code",
-      "noInputData": "No input data available"
+      "locateResource": "Locate"
     },
     "showUI": {
-      "connect": "Connect",
-      "connecting": "Connecting...",
-      "connected": "Connected",
-      "connectToUse": "Connect {{provider}} to use in automations",
-      "checkingConnection": "Checking connection status...",
-      "confirm": "Confirm",
-      "confirmed": "Confirmed",
-      "cancel": "Cancel",
-      "cancelled": "Cancelled",
-      "connectionCancelled": "Connection cancelled"
-    },
-    "codeBlock": {
-      "hiddenLines": "{{count}} lines hidden",
-      "collapseCode": "Collapse code",
-      "code": "Code",
-      "preview": "Preview"
-    },
-    "buildFlow": {
-      "progress": "Build progress",
-      "completed": "App build completed",
-      "completedDesc": "All steps completed successfully, app is ready for preview",
-      "stepStatus": {
-        "initializing": "Creating app and initializing environment...",
-        "naming": "Generating app name...",
-        "planning": "Analyzing requirements and planning development...",
-        "developing": "Writing code and implementing features...",
-        "summarizing": "Organizing development results...",
-        "deploying": "Deploying to preview environment...",
-        "testing": "Building test..."
-      },
-      "moduleStatus": {
-        "running": "Running",
-        "completed": "Completed",
-        "error": "Failed",
-        "pending": "Pending"
-      },
-      "toolStatus": {
-        "running": "Running",
-        "completed": "Completed",
-        "error": "Failed"
-      }
-    },
-    "generateScript": {
-      "generateSuccess": "Generate script successfully"
-    },
-    "buildBase": {
-      "title": "Build base",
-      "generateSuccess": "Generate database successfully",
-      "generateError": "Generate database failed"
-    },
-    "buildAutomation": {
-      "title": "Build automation",
-      "generateSuccess": "Generate automation successfully"
-    },
-    "automation": {
-      "created": "Created",
-      "updated": "Updated",
-      "workflow": "Workflow",
-      "trigger": "Trigger",
-      "scriptAction": "Script Action",
-      "workflowLabel": "Workflow",
-      "triggerLabel": "Trigger",
-      "scriptActionLabel": "Script Action",
-      "workflowId": "Workflow",
-      "triggerId": "Trigger",
-      "scriptActionId": "Script Action",
-      "viewAutomation": "View",
-      "navigateToAutomation": "Navigate to automation",
-      "triggerType": {
-        "recordCreated": "Record Created",
-        "recordUpdated": "Record Updated",
-        "recordCreatedOrUpdated": "Record Created or Updated",
-        "formSubmitted": "Form Submitted",
-        "scheduledTime": "Scheduled Time",
-        "buttonClick": "Button Click"
-      },
-      "activated": "Activated",
-      "deactivated": "Deactivated",
-      "discarded": "Changes Discarded",
-      "activateFailed": "Activate Failed",
-      "deactivateFailed": "Deactivate Failed",
-      "discardFailed": "Discard Failed",
-      "scriptUpdated": "Script Updated",
-      "scriptUpdateFailed": "Update Failed",
-      "scriptExecuted": "Script Executed",
-      "scriptExecutionFailed": "Execution Failed",
-      "scriptReady": "Script ready",
-      "executingScript": "Executing script...",
-      "waitedSeconds": "Waited {{seconds}}s",
-      "waitFailed": "Wait failed",
-      "flowchartGenerated": "Flowchart Generated",
-      "flowchartGenerationFailed": "Generation Failed"
+      "skip": "Skip",
+      "submit": "Submit"
     },
     "newChat": "New Chat",
     "clearChat": "Clear Chat",
@@ -1683,7 +1277,6 @@
       "expiresSoon": "Agent Computer expiring soon",
       "resetFailed": "Failed to renew Agent Computer"
     },
-    "noModel": "No available models",
     "addAttachment": "Add Attachment",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
@@ -1704,37 +1297,14 @@
     "inputPlaceholder": "Describe what you want to do",
     "thought": "Thinking",
     "meta": {
-      "timeCostUnit": "s",
-      "timeCostDescription": "Generation time: {{timeCost}}s",
-      "creditDescription": "{{credits}} credits consumed",
-      "tokenDescription": "Tokens used: {{tokens}}",
       "input": "Input",
       "output": "Output",
-      "tokens": "Tokens",
-      "totalTimeCost": "Total time cost",
-      "totalCreditCost": "Total credit cost",
-      "customModel": "Custom model",
-      "tokenDetails": "Token Details",
-      "cachedInput": "Cached Input (90% off)",
-      "cacheWrite": "Cache Write",
-      "reasoning": "Reasoning (Thinking)",
       "taskCompleted": "Task completed"
     },
-    "dataVisualization": {
-      "error": "Data visualization failed"
-    },
-    "tips": {
-      "modelTips": "Only administrators can configure"
-    },
     "attachment": {
-      "imageNotSupported": "Image is not supported",
-      "attachmentSizeExceeded": "Attachment size exceeds the limit {{size}}MB"
+      "imageNotSupported": "Image is not supported"
     },
     "suggestions": {
-      "recommend": "Recommended",
-      "ask": "Ask",
-      "analyze": "Analyze",
-      "build": "Build",
       "title": "How can I help?",
       "whatCanIDo": "What can I do?",
       "createOrModifyDatabase": "Create or modify database",
@@ -1749,38 +1319,20 @@
       "buildLeadCapture": "Build me a lead capture landing page"
     },
     "buildApp": {
-      "thinking": {
-        "duration": "Thought for {{duration}}s"
-      },
       "task": {
-        "searching": "Searching \"{{query}}\"",
-        "readingFiles": "Reading files:",
-        "foundResults": "Found {{count}} results",
-        "noIssuesFound": "No issues found",
-        "defaultTitle": "Task"
-      },
-      "codeProject": {
-        "defaultTitle": "Code Project"
+        "foundResults": "Found {{count}} results"
       }
     },
     "scriptPreview": {
-      "aiModelRequired": "AI model is required to generate preview.",
       "writeCodeHint": "Write some code to see the flowchart preview.",
       "noPreview": "No flowchart preview available.",
-      "generatePreview": "Generate Preview",
-      "analyzing": "Analyzing script...",
-      "codeChanged": "Code changed since this preview was generated.",
-      "regenerate": "Regenerate",
-      "refresh": "Refresh",
-      "regenerating": "Regenerating..."
+      "codeChanged": "Code changed since this preview was generated."
     },
     "queue": {
       "nQueued": "{{count}} Queued",
       "edit": "Edit",
       "forceSend": "Stop & send now",
-      "removeFromQueue": "Remove",
-      "queueFull": "Queue is full (max 10 messages)",
-      "messageQueued": "Message queued"
+      "removeFromQueue": "Remove"
     },
     "effort": {
       "title": "Select reasoning effort",
@@ -1788,6 +1340,35 @@
       "medium": "Medium",
       "high": "High",
       "max": "Max"
+    },
+    "partTool": {
+      "bash": "Run command",
+      "read": "Read file",
+      "write": "Create file",
+      "edit": "Edit file",
+      "glob": "Find files",
+      "grep": "Search in files",
+      "webSearch": "Search web",
+      "skill": "Loading skill",
+      "foundFiles": "Found {{count}} files",
+      "moreTools": "+{{count}} more tools",
+      "moreItems": "+{{count}} more",
+      "fallbackName": "Tool",
+      "questionCount_one": "{{count}} question",
+      "questionCount_other": "{{count}} questions"
+    },
+    "retry": {
+      "interrupted": "Response interrupted",
+      "button": "Retry"
+    },
+    "guide": {
+      "goToScenario": "Go to scenario {{index}}"
+    },
+    "initChatFailed": "Failed to initialize chat",
+    "app": {
+      "loadingChatHistory": "Loading chat history...",
+      "generatorTitle": "AI App Generator",
+      "generatorDesc": "Describe what you want to build"
     }
   },
   "upload": {

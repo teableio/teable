@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IPickerModel } from '../GatewayModelPickerDialog';
 import { parseModelKey, isGatewayModelKey } from '../utils';
@@ -16,7 +17,8 @@ interface IUseGatewayModelsReturn {
   gatewayConfigured: boolean | null;
   pickerModels: IPickerModel[];
   selectedModelIdForPicker: string | undefined;
-  fetchGatewayModels: () => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchGatewayModels: () => Promise<any>;
   findGatewayModel: (value: string) => IModelOption | undefined;
 }
 
@@ -30,36 +32,34 @@ export function useGatewayModels({
   options,
 }: IUseGatewayModelsOptions): IUseGatewayModelsReturn {
   const [gatewayModels, setGatewayModels] = useState<IGatewayModelAPI[]>([]);
-  const [isLoadingGateway, setIsLoadingGateway] = useState(false);
   const [gatewayConfigured, setGatewayConfigured] = useState<boolean | null>(null);
-
-  // Fetch gateway models from backend API
-  const fetchGatewayModels = useCallback(async () => {
-    setIsLoadingGateway(true);
-    try {
-      const response = await fetch('/api/admin/setting/gateway-models');
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.status}`);
+  const {
+    data,
+    isLoading: isLoadingGateway,
+    refetch: fetchGatewayModels,
+  } = useQuery({
+    queryKey: ['admin', 'gateway-models'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/admin/setting/gateway-models');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch models: ${response.status}`);
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Failed to fetch gateway models:', error);
+        throw error;
       }
+    },
+    enabled: needGroup && gatewayConfigured === null,
+  });
 
-      const data = await response.json();
+  useEffect(() => {
+    if (data) {
       setGatewayConfigured(data.configured);
       setGatewayModels(data.models || []);
-    } catch (error) {
-      console.error('Failed to fetch gateway models:', error);
-      setGatewayConfigured(false);
-    } finally {
-      setIsLoadingGateway(false);
     }
-  }, []);
-
-  // Pre-fetch gateway status on mount when needGroup is enabled
-  useEffect(() => {
-    if (needGroup && gatewayConfigured === null) {
-      fetchGatewayModels();
-    }
-  }, [needGroup, gatewayConfigured, fetchGatewayModels]);
+  }, [data]);
 
   // Transform gateway models to picker format and filter by type
   const pickerModels = useMemo((): IPickerModel[] => {
