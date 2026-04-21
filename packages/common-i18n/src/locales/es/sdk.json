@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Valor no válido",
     "invalidateSelectedTips": "Se ha eliminado el valor seleccionado, seleccione nuevamente",
+    "invalidConditionTip": "Esta condición de filtro no es válida y se ignorará. Ajuste el valor.",
     "default": {
       "empty": "No se aplican condiciones de filtro",
       "placeholder": "Ingrese un valor"
