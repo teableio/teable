@@ -2087,6 +2087,7 @@ export type I18nTranslations = {
             };
             "invalidateSelected": string;
             "invalidateSelectedTips": string;
+            "invalidConditionTip": string;
             "default": {
                 "empty": string;
                 "placeholder": string;
