@@ -638,6 +638,9 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo principal mal configurado como Lookup"
       }
     },
     "index": {

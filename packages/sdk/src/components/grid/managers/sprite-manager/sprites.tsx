@@ -1,5 +1,4 @@
 import {
-  AlertCircle,
   DraggableHandle,
   Maximize2,
   Plus,
@@ -8,6 +7,7 @@ import {
   ChevronRight,
   Lock,
   EyeOff,
+  Info,
 } from '@teable/icons';
 import { renderToString } from 'react-dom/server';
 
@@ -33,7 +33,7 @@ const add = (props: ISpriteProps) => {
 
 const description = (props: ISpriteProps) => {
   const { fgColor } = props;
-  return renderToString(<AlertCircle style={{ color: fgColor }} />);
+  return renderToString(<Info style={{ color: fgColor }} />);
 };
 
 const close = (props: ISpriteProps) => {

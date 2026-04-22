@@ -695,12 +695,23 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           innerOptions: unwrappedInner.innerOptions,
           innerOptionsPatch: field.innerOptionsPatch(),
         });
+        const {
+          innerType: _innerType,
+          innerOptions: _innerOptions,
+          ...innerShape
+        } = innerDto as
+          | (ITableFieldPersistenceDTO & {
+              innerType?: ITableFieldPersistenceDTO['type'];
+              innerOptions?: unknown;
+            })
+          | Record<string, unknown>;
 
         return {
-          ...innerDto,
+          ...innerShape,
           ...baseDto,
           id: field.id().toString(),
           name: field.name().toString(),
+          type: unwrappedInner.innerType ?? innerDto.type,
           isLookup: true,
           isConditionalLookup,
           lookupOptions: lookupOptionsWithRelationship,
