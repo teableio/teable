@@ -298,8 +298,11 @@ export class SearchQueryPostgresBuilder {
 
     return conditions
       .filter(({ field }) => {
-        // global search does not support checkbox
-        if (isSearchAllFields && field.cellValueType === CellValueType.Boolean) {
+        // global search does not support date time and checkbox
+        if (
+          isSearchAllFields &&
+          [CellValueType.DateTime, CellValueType.Boolean].includes(field.cellValueType)
+        ) {
           return false;
         }
         return true;

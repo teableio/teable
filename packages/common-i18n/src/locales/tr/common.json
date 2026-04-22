@@ -849,6 +849,10 @@
           "runQuotaExceeded": {
             "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
             "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
+          },
+          "failedSummary": {
+            "title": "Otomasyon {{name}} {{failCount}} kez başarısız oldu",
+            "message": "Otomasyonunuz {{name}} art arda {{failCount}} kez başarısız oldu. Ayrıntıları görmek için çalıştırma geçmişini açın."
           }
         },
         "billing": {

@@ -888,6 +888,10 @@
           "runQuotaExceeded": {
             "title": "La automatización {{name}} alcanzó el máximo mensual de ejecuciones",
             "message": "Las ejecuciones mensuales de la automatización {{name}} se han agotado y no puede ejecutarse temporalmente. Actualiza tu suscripción o compra ejecuciones adicionales."
+          },
+          "failedSummary": {
+            "title": "La automatización {{name}} ha fallado {{failCount}} veces",
+            "message": "Tu automatización {{name}} ha acumulado {{failCount}} fallos consecutivos. Abre el historial de ejecuciones para ver los detalles."
           }
         },
         "billing": {

@@ -1,8 +1,8 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import type {
   FieldCore,
   IConjunction,
-  IDateTimeFieldOperator,
+  IFilterValidationError,
   IFilter,
   IFilterItem,
   IFilterOperator,
@@ -14,17 +14,16 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
+  analyzeFilterValidationIssues,
   getFilterOperatorMapping,
-  getValidFilterSubOperators,
-  HttpErrorCode,
   isEmpty,
   isMeTag,
   isNotEmpty,
   isFieldReferenceValue,
 } from '@teable/core';
 import type { Knex } from 'knex';
-import { includes, invert, isObject } from 'lodash';
-import { CustomHttpException } from '../../custom.exception';
+import { includes, invert } from 'lodash';
+import { ZodError } from 'zod';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
@@ -33,6 +32,7 @@ import type { IFilterQueryInterface } from './filter-query.interface';
 
 export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private logger = new Logger(AbstractFilterQuery.name);
+  private filterValidationIssueMap = new Map<string, IFilterValidationError[]>();
 
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
@@ -45,6 +45,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
 
   appendQueryBuilder(): Knex.QueryBuilder {
     this.preProcessRemoveNullAndReplaceMe(this.filter);
+    this.filterValidationIssueMap = this.collectFilterValidationIssues(this.filter);
 
     return this.parseFilters(this.originQueryBuilder, this.filter);
   }
@@ -52,20 +53,22 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private parseFilters(
     queryBuilder: Knex.QueryBuilder,
     filter?: IFilter,
-    parentConjunction?: IConjunction
+    parentConjunction?: IConjunction,
+    path: number[] = []
   ): Knex.QueryBuilder {
     if (!filter || !filter.filterSet) {
       return queryBuilder;
     }
     const { filterSet, conjunction } = filter;
     queryBuilder.where((filterBuilder) => {
-      filterSet.forEach((filterItem) => {
+      filterSet.forEach((filterItem, index) => {
+        const itemPath = [...path, index];
         if ('fieldId' in filterItem) {
-          this.parseFilter(filterBuilder, filterItem as IFilterItem, conjunction);
+          this.parseFilter(filterBuilder, filterItem as IFilterItem, conjunction, itemPath);
         } else {
           filterBuilder = filterBuilder[parentConjunction || conjunction];
           filterBuilder.where((builder) => {
-            this.parseFilters(builder, filterItem as IFilterSet, conjunction);
+            this.parseFilters(builder, filterItem as IFilterSet, conjunction, itemPath);
           });
         }
       });
@@ -77,7 +80,8 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private parseFilter(
     queryBuilder: Knex.QueryBuilder,
     filterMeta: IFilterItem,
-    conjunction: IConjunction
+    conjunction: IConjunction,
+    path: number[]
   ) {
     const { fieldId, operator, value, isSymbol } = filterMeta;
 
@@ -86,71 +90,153 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       return queryBuilder;
     }
 
-    let convertOperator = operator;
-    const filterOperatorMapping = getFilterOperatorMapping(field);
-    const validFilterOperators = Object.keys(filterOperatorMapping);
-    if (isSymbol) {
-      convertOperator = invert(filterOperatorMapping)[operator] as IFilterOperator;
+    if (this.shouldSkipInvalidFilterItem(field, filterMeta, path)) {
+      return queryBuilder;
     }
+
+    const convertOperator = this.getConvertedOperator(field, operator, isSymbol);
+    const validFilterOperators = Object.keys(getFilterOperatorMapping(field));
 
     if (!includes(validFilterOperators, convertOperator)) {
-      let referenceFieldId: string | undefined;
-      if (isFieldReferenceValue(value)) {
-        referenceFieldId = value.fieldId;
-      } else if (Array.isArray(value)) {
-        referenceFieldId = (
-          value.find((entry) => isFieldReferenceValue(entry)) as IFieldReferenceValue | undefined
-        )?.fieldId;
-      }
-
-      if (referenceFieldId) {
-        const referenceName = this.fields?.[referenceFieldId]?.name ?? referenceFieldId;
-        const sourceName = field.name ?? field.id;
-        throw new FieldReferenceCompatibilityException(sourceName, referenceName);
-      }
-
-      throw new CustomHttpException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.view.filterInvalidOperator',
-          },
-        }
+      this.throwIfFilterReferencesInvalidOperator(field, value);
+      this.logger.warn(
+        `Skip filter item: field=${field.id}(${field.name}) operator='${convertOperator}' not in [${validFilterOperators.join(',')}]`
       );
-    }
-
-    const validFilterSubOperators = getValidFilterSubOperators(
-      field.type,
-      convertOperator as IDateTimeFieldOperator
-    );
-
-    if (
-      validFilterSubOperators &&
-      isObject(value) &&
-      'mode' in value &&
-      !includes(validFilterSubOperators, value.mode)
-    ) {
-      throw new CustomHttpException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.view.filterInvalidOperatorMode',
-          },
-        }
-      );
+      return queryBuilder;
     }
 
     queryBuilder = queryBuilder[conjunction];
 
-    this.getFilterAdapter(field).compiler(
-      queryBuilder,
-      convertOperator as IFilterOperator,
-      value,
-      this.dbProvider!
-    );
+    try {
+      this.getFilterAdapter(field).compiler(
+        queryBuilder,
+        convertOperator as IFilterOperator,
+        value,
+        this.dbProvider!
+      );
+    } catch (error) {
+      this.handleCompilerError(error, field, convertOperator, value);
+    }
     return queryBuilder;
+  }
+
+  private shouldSkipInvalidFilterItem(field: FieldCore, filterMeta: IFilterItem, path: number[]) {
+    const validationIssues = this.getFilterItemValidationIssues(path);
+    if (validationIssues.length === 0) {
+      return false;
+    }
+
+    const hasInvalidOperator = validationIssues.some(
+      (issue) => issue.code === 'OPERATOR_NOT_ALLOWED'
+    );
+    if (hasInvalidOperator) {
+      this.throwIfFilterReferencesInvalidOperator(field, filterMeta.value);
+    }
+
+    this.logger.warn(
+      `Skip filter item: field=${field.id}(${field.name}) path=${path.join('.')} issues=[${validationIssues
+        .map((issue) => issue.code)
+        .join(',')}]`
+    );
+    return true;
+  }
+
+  private getConvertedOperator(field: FieldCore, operator: string, isSymbol?: boolean) {
+    if (!isSymbol) {
+      return operator as IFilterOperator;
+    }
+
+    return invert(getFilterOperatorMapping(field))[operator] as IFilterOperator;
+  }
+
+  private throwIfFilterReferencesInvalidOperator(field: FieldCore, value: unknown) {
+    const referenceFieldId = this.extractFieldReferenceFieldId(value);
+    if (!referenceFieldId) {
+      return;
+    }
+
+    const referenceName = this.fields?.[referenceFieldId]?.name ?? referenceFieldId;
+    const sourceName = field.name ?? field.id;
+    throw new FieldReferenceCompatibilityException(sourceName, referenceName);
+  }
+
+  private handleCompilerError(
+    error: unknown,
+    field: FieldCore,
+    convertOperator: IFilterOperator,
+    value: unknown
+  ) {
+    if (error instanceof FieldReferenceCompatibilityException) {
+      throw error;
+    }
+    if (this.extractFieldReferenceFieldId(value)) {
+      throw error;
+    }
+    if (!this.isSkippableCompilerError(error)) {
+      throw error;
+    }
+    const reason = error instanceof Error ? error.message : String(error);
+    this.logger.warn(
+      `Skip filter item: field=${field.id}(${field.name}) operator='${convertOperator}' ` +
+        `value=${JSON.stringify(value)} compile error: ${reason}`
+    );
+  }
+
+  private collectFilterValidationIssues(filter?: IFilter) {
+    const issueMap = new Map<string, IFilterValidationError[]>();
+    if (!filter || !this.fields) {
+      return issueMap;
+    }
+
+    const fieldMetaMap = Object.entries(this.fields).reduce(
+      (acc, [fieldKey, field]) => {
+        const fieldMeta = {
+          type: field.type,
+          cellValueType: field.cellValueType,
+          isMultipleCellValue: Boolean(field.isMultipleCellValue),
+        };
+        acc[fieldKey] = fieldMeta;
+        acc[field.id] = fieldMeta;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          type: FieldType;
+          cellValueType: CellValueType;
+          isMultipleCellValue: boolean;
+        }
+      >
+    );
+
+    const issues = analyzeFilterValidationIssues(filter, fieldMetaMap);
+    issues.forEach((issue) => {
+      const key = issue.path.join('.');
+      const issueList = issueMap.get(key) ?? [];
+      issueList.push(issue);
+      issueMap.set(key, issueList);
+    });
+    return issueMap;
+  }
+
+  private getFilterItemValidationIssues(path: number[]) {
+    return this.filterValidationIssueMap.get(path.join('.')) ?? [];
+  }
+
+  private extractFieldReferenceFieldId(value: unknown): string | undefined {
+    if (isFieldReferenceValue(value)) {
+      return value.fieldId;
+    }
+    if (Array.isArray(value)) {
+      return (
+        value.find((entry) => isFieldReferenceValue(entry)) as IFieldReferenceValue | undefined
+      )?.fieldId;
+    }
+    return undefined;
+  }
+
+  private isSkippableCompilerError(error: unknown) {
+    return error instanceof BadRequestException || error instanceof ZodError;
   }
 
   private getFilterAdapter(field: FieldCore): AbstractCellValueFilter {
