@@ -80,7 +80,6 @@ type SearchFixture = {
     owner: FieldId;
     collaborators: FieldId;
     tags: FieldId;
-    due: FieldId;
     checkbox: FieldId;
   };
 };
@@ -100,7 +99,6 @@ const setupSearchFixture = async ({
   const ownerFieldId = FieldId.create(createId('fld', `o-${seed}`))._unsafeUnwrap();
   const collaboratorsFieldId = FieldId.create(createId('fld', `c-${seed}`))._unsafeUnwrap();
   const tagsFieldId = FieldId.create(createId('fld', `t-${seed}`))._unsafeUnwrap();
-  const dueFieldId = FieldId.create(createId('fld', `d-${seed}`))._unsafeUnwrap();
   const checkboxFieldId = FieldId.create(createId('fld', `b-${seed}`))._unsafeUnwrap();
 
   const alphaOption = SelectOption.create({ name: 'Alpha', color: 'blue' })._unsafeUnwrap();
@@ -142,12 +140,6 @@ const setupSearchFixture = async ({
     .done();
   builder
     .field()
-    .date()
-    .withId(dueFieldId)
-    .withName(FieldName.create('Due')._unsafeUnwrap())
-    .done();
-  builder
-    .field()
     .checkbox()
     .withId(checkboxFieldId)
     .withName(FieldName.create('Checkbox')._unsafeUnwrap())
@@ -176,11 +168,6 @@ const setupSearchFixture = async ({
     .setDbFieldName(DbFieldName.rehydrate('col_tags')._unsafeUnwrap())
     ._unsafeUnwrap();
   table
-    .getField((field) => field.id().equals(dueFieldId))
-    ._unsafeUnwrap()
-    .setDbFieldName(DbFieldName.rehydrate('col_due')._unsafeUnwrap())
-    ._unsafeUnwrap();
-  table
     .getField((field) => field.id().equals(checkboxFieldId))
     ._unsafeUnwrap()
     .setDbFieldName(DbFieldName.rehydrate('col_checkbox')._unsafeUnwrap())
@@ -200,7 +187,6 @@ const setupSearchFixture = async ({
       col_owner jsonb,
       col_collaborators jsonb,
       col_tags jsonb,
-      col_due timestamp with time zone,
       col_checkbox boolean
     )
   `.execute(db);
@@ -209,7 +195,7 @@ const setupSearchFixture = async ({
   const bravoRecordId = createId('rec', `bravo-${seed}`);
 
   await sql`
-    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_due, col_checkbox)
+    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_checkbox)
     VALUES (
       ${alphaRecordId},
       1,
@@ -217,13 +203,12 @@ const setupSearchFixture = async ({
       ${JSON.stringify({ title: 'Visible Owner', name: 'owner@example.com', id: 'usr_alpha' })}::jsonb,
       ${JSON.stringify([{ title: 'Alice Visible', name: 'alice@example.com', id: 'usr_a' }])}::jsonb,
       ${JSON.stringify(['Alpha', 'Beta'])}::jsonb,
-      ${'2026-02-24T00:00:00.000Z'}::timestamptz,
       ${true}
     )
   `.execute(db);
 
   await sql`
-    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_due, col_checkbox)
+    INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number, col_name, col_owner, col_collaborators, col_tags, col_checkbox)
     VALUES (
       ${bravoRecordId},
       2,
@@ -231,7 +216,6 @@ const setupSearchFixture = async ({
       ${JSON.stringify({ title: 'Title Only', name: 'hidden-name@example.com', id: 'usr_bravo' })}::jsonb,
       ${JSON.stringify([{ title: 'Team Visible', name: 'team-hidden@example.com', id: 'usr_b' }])}::jsonb,
       ${JSON.stringify(['Gamma', 'Delta'])}::jsonb,
-      ${'2026-02-25T00:00:00.000Z'}::timestamptz,
       ${false}
     )
   `.execute(db);
@@ -248,7 +232,6 @@ const setupSearchFixture = async ({
       owner: ownerFieldId,
       collaborators: collaboratorsFieldId,
       tags: tagsFieldId,
-      due: dueFieldId,
       checkbox: checkboxFieldId,
     },
   };
@@ -394,19 +377,6 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         table: fixture.table,
         fullTableName: fixture.fullTableName,
         search: RecordSearch.fromTuple(['Beta', fixture.fieldIds.tags.toString(), true]),
-      })
-    ).resolves.toEqual([fixture.recordIds.alpha]);
-  });
-
-  it('matches date fields in global visible-row search', async () => {
-    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'global-date' });
-
-    await expect(
-      findMatchingRecordIds({
-        db,
-        table: fixture.table,
-        fullTableName: fixture.fullTableName,
-        search: RecordSearch.fromTuple(['2026-02-24', '', true]),
       })
     ).resolves.toEqual([fixture.recordIds.alpha]);
   });

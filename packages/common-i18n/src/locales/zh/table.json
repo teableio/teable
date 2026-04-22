@@ -832,7 +832,8 @@
         "ReferenceFieldNotFound": "引用字段不存在",
         "UniqueIndexNotFound": "唯一索引不存在",
         "EmptyString": "存在空字符串单元格",
-        "InvalidFilterOperator": "无效的筛选操作符"
+        "InvalidFilterOperator": "无效的筛选操作符",
+        "InvalidPrimaryLookup": "主字段被错误配置为 Lookup"
       }
     },
     "index": {

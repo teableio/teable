@@ -264,6 +264,10 @@ const buildFieldSearchCondition = (
       return ok(undefined);
     }
 
+    if (cellValueType.equals(CellValueType.dateTime()) && search.searchesAllFields()) {
+      return ok(undefined);
+    }
+
     if (isStructuredStringField(field)) {
       return ok(
         isMultiple
