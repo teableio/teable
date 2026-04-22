@@ -24,6 +24,7 @@ describe('v2 http record compatibility (P0)', () => {
   let attachmentPath = '';
   let attachmentSize = 0;
   let attachmentMimetype = '';
+  let attachmentIdCounter = 0;
 
   const uniqueTableName = (prefix: string) => {
     tableCounter += 1;
@@ -210,18 +211,36 @@ describe('v2 http record compatibility (P0)', () => {
   };
 
   const seedAttachment = async () => {
-    attachmentToken = `tok_${Date.now()}`;
-    attachmentPath = 'table/DXR3aPmms8EI';
-    attachmentSize = 4;
-    attachmentMimetype = 'text/plain';
+    attachmentIdCounter += 1;
+    const token = `tok_${Date.now()}_${attachmentIdCounter}`;
+    const path = `table/DXR3aPmms8EI_${attachmentIdCounter}`;
+    const size = 4 + attachmentIdCounter;
+    const mimetype = 'text/plain';
 
     await sql
       .raw(
         `insert into attachments (id, token, hash, size, mimetype, path, created_by)
-         values ('att_${Date.now()}', '${attachmentToken}', 'hash', ${attachmentSize}, '${attachmentMimetype}', '${attachmentPath}', '${ctx.testUser.id}')
+         values ('att_${Date.now()}_${attachmentIdCounter}', '${token}', 'hash', ${size}, '${mimetype}', '${path}', '${ctx.testUser.id}')
          on conflict (token) do nothing`
       )
       .execute(ctx.testContainer.db);
+
+    return {
+      token,
+      path,
+      size,
+      mimetype,
+    };
+  };
+
+  const listAttachmentRows = async (recordId: string, fieldId: string) => {
+    return await ctx.testContainer.db
+      .selectFrom('attachments_table')
+      .select(['attachment_id', 'token', 'name', 'table_id', 'record_id', 'field_id'])
+      .where('record_id', '=', recordId)
+      .where('field_id', '=', fieldId)
+      .orderBy('token')
+      .execute();
   };
 
   beforeAll(async () => {
@@ -229,7 +248,11 @@ describe('v2 http record compatibility (P0)', () => {
 
     // Test user is already inserted by globalTestContext
     await ensureAttachmentTables();
-    await seedAttachment();
+    const seeded = await seedAttachment();
+    attachmentToken = seeded.token;
+    attachmentPath = seeded.path;
+    attachmentSize = seeded.size;
+    attachmentMimetype = seeded.mimetype;
   });
 
   describe('audit user fields', () => {
@@ -461,6 +484,72 @@ describe('v2 http record compatibility (P0)', () => {
           mimetype: attachmentMimetype,
           name: 'attachment',
         }),
+      ]);
+    });
+
+    it('persists attachment rows into attachments_table on create and update', async () => {
+      const initialAttachment = await seedAttachment();
+      const replacementAttachment = await seedAttachment();
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: uniqueTableName('attachment-sync'),
+        fields: [
+          { type: 'singleLineText', name: 'title', isPrimary: true },
+          { type: 'attachment', name: 'attachment' },
+        ],
+      });
+      const titleFieldId = table.fields.find((field) => field.name === 'title')?.id ?? '';
+      const attachmentFieldId = table.fields.find((field) => field.name === 'attachment')?.id ?? '';
+
+      const createdRecord = await createRecord(table.id, {
+        [titleFieldId]: 'attachment row sync',
+        [attachmentFieldId]: [
+          {
+            id: 'act_sync_create_1',
+            name: 'created.txt',
+            token: initialAttachment.token,
+            path: 'ignored/on/write',
+            size: 1,
+            mimetype: 'text/plain',
+          },
+        ],
+      });
+
+      const createdRows = await listAttachmentRows(createdRecord.id, attachmentFieldId);
+      expect(createdRows).toEqual([
+        {
+          attachment_id: 'act_sync_create_1',
+          token: initialAttachment.token,
+          name: 'created.txt',
+          table_id: table.id,
+          record_id: createdRecord.id,
+          field_id: attachmentFieldId,
+        },
+      ]);
+
+      await updateRecord(table.id, createdRecord.id, {
+        [attachmentFieldId]: [
+          {
+            id: 'act_sync_update_1',
+            name: 'updated.txt',
+            token: replacementAttachment.token,
+            path: 'ignored/on/update',
+            size: 2,
+            mimetype: 'text/plain',
+          },
+        ],
+      });
+
+      const updatedRows = await listAttachmentRows(createdRecord.id, attachmentFieldId);
+      expect(updatedRows).toEqual([
+        {
+          attachment_id: 'act_sync_update_1',
+          token: replacementAttachment.token,
+          name: 'updated.txt',
+          table_id: table.id,
+          record_id: createdRecord.id,
+          field_id: attachmentFieldId,
+        },
       ]);
     });
 

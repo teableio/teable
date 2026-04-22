@@ -18,6 +18,7 @@ export enum IntegrityIssueType {
   UniqueIndexNotFound = 'UniqueIndexNotFound',
   EmptyString = 'EmptyString',
   InvalidFilterOperator = 'InvalidFilterOperator',
+  InvalidPrimaryLookup = 'InvalidPrimaryLookup',
 }
 
 // Define the schema for a single issue
