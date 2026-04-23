@@ -905,6 +905,158 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     });
   });
 
+  describe('duplicate filtered lookup fields that target conditional lookups', () => {
+    let issuesTable: ITableFullVo;
+    let releasesTable: ITableFullVo;
+    let launchesTable: ITableFullVo;
+    let originalForceV2All: string | undefined;
+    let issueTitleFieldId: string;
+    let issuePrFieldId: string;
+    let releasePrFieldId: string;
+    let releaseEditionFieldId: string;
+    let issuesTitleLookupFieldId: string;
+    let relatedReleasesFieldId: string;
+    let releaseIssuesFieldId: string;
+
+    beforeAll(async () => {
+      originalForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'false';
+
+      issuesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_issues',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'PR', type: FieldType.SingleLineText },
+        ],
+      });
+
+      const issueFields = (await getFields(issuesTable.id)).data;
+      issueTitleFieldId = issueFields.find((field) => field.name === 'Title')!.id;
+      issuePrFieldId = issueFields.find((field) => field.name === 'PR')!.id;
+
+      releasesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_releases',
+        fields: [
+          { name: 'Tag', type: FieldType.SingleLineText },
+          { name: 'PR', type: FieldType.SingleLineText },
+          {
+            name: 'Edition',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [{ name: 'cloud' }, { name: 'ee' }],
+            },
+          },
+        ],
+      });
+
+      const releaseFields = (await getFields(releasesTable.id)).data;
+      releasePrFieldId = releaseFields.find((field) => field.name === 'PR')!.id;
+      releaseEditionFieldId = releaseFields.find((field) => field.name === 'Edition')!.id;
+
+      issuesTitleLookupFieldId = (
+        await createField(releasesTable.id, {
+          name: 'Issues title',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: issuesTable.id,
+            lookupFieldId: issueTitleFieldId,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: issuePrFieldId,
+                  operator: 'is',
+                  value: {
+                    type: 'field',
+                    fieldId: releasePrFieldId,
+                    tableId: releasesTable.id,
+                  },
+                },
+              ],
+            },
+          },
+        })
+      ).data.id;
+
+      launchesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_launches',
+        fields: [{ name: 'Launch', type: FieldType.SingleLineText }],
+      });
+
+      relatedReleasesFieldId = (
+        await createField(launchesTable.id, {
+          name: 'Related Releases',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: releasesTable.id,
+            isOneWay: false,
+          },
+        })
+      ).data.id;
+
+      releaseIssuesFieldId = (
+        await createField(launchesTable.id, {
+          name: 'Release Issues',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: releasesTable.id,
+            linkFieldId: relatedReleasesFieldId,
+            lookupFieldId: issuesTitleLookupFieldId,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: releaseEditionFieldId,
+                  operator: 'is',
+                  value: 'cloud',
+                },
+              ],
+            },
+          },
+        })
+      ).data.id;
+
+      process.env.FORCE_V2_ALL = originalForceV2All;
+    });
+
+    afterAll(async () => {
+      process.env.FORCE_V2_ALL = originalForceV2All;
+      await permanentDeleteTable(baseId, launchesTable.id);
+      await permanentDeleteTable(baseId, releasesTable.id);
+      await permanentDeleteTable(baseId, issuesTable.id);
+    });
+
+    it('should duplicate filtered lookups whose source field is conditional lookup', async () => {
+      const duplicated = (
+        await duplicateField(launchesTable.id, releaseIssuesFieldId, {
+          name: 'Release Issues Copy',
+        })
+      ).data;
+
+      expect(duplicated.isLookup).toBe(true);
+      expect(duplicated.isConditionalLookup).not.toBe(true);
+      expect(duplicated.lookupOptions).toMatchObject({
+        foreignTableId: releasesTable.id,
+        linkFieldId: relatedReleasesFieldId,
+        lookupFieldId: issuesTitleLookupFieldId,
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            expect.objectContaining({
+              fieldId: releaseEditionFieldId,
+              operator: 'is',
+              value: 'cloud',
+            }),
+          ],
+        },
+      });
+    });
+  });
+
   describe('duplicate rollup fields', () => {
     let table: ITableFullVo;
     let subTable: ITableFullVo;

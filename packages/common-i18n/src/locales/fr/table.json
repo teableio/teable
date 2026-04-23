@@ -632,6 +632,9 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Champ principal mal configuré comme Lookup"
       }
     },
     "index": {
