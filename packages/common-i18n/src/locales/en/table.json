@@ -831,7 +831,8 @@
         "ReferenceFieldNotFound": "ReferenceFieldNotFound",
         "UniqueIndexNotFound": "UniqueIndexNotFound",
         "EmptyString": "EmptyString",
-        "InvalidFilterOperator": "InvalidFilterOperator"
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "Primary field misconfigured as lookup"
       }
     },
     "index": {
@@ -1359,7 +1360,10 @@
     },
     "retry": {
       "interrupted": "Response interrupted",
-      "button": "Retry"
+      "button": "Retry",
+      "offline": "You're offline. We'll retry once your connection is back.",
+      "pausedHidden": "Retry paused — open this tab to reconnect.",
+      "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
     },
     "guide": {
       "goToScenario": "Go to scenario {{index}}"

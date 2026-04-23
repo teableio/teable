@@ -885,6 +885,10 @@
           "runQuotaExceeded": {
             "title": "Automatisierung {{name}} hat die maximale monatliche Ausführungsanzahl erreicht",
             "message": "Die monatlichen Ausführungen für Automatisierung {{name}} sind aufgebraucht. Die Ausführung ist vorübergehend nicht möglich. Bitte upgraden Sie Ihr Abonnement oder kaufen Sie zusätzliche Ausführungen."
+          },
+          "failedSummary": {
+            "title": "Automatisierung {{name}} ist {{failCount}} Mal fehlgeschlagen",
+            "message": "Ihre Automatisierung {{name}} hat {{failCount}} aufeinanderfolgende Fehler angesammelt. Öffnen Sie den Ausführungsverlauf, um Details anzuzeigen."
           }
         },
         "billing": {

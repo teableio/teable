@@ -160,8 +160,28 @@ describe('Computed Orchestrator (e2e)', () => {
     eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
     try {
       const result = await fn();
-      // allow async emission to flush
-      await new Promise((r) => setTimeout(r, 50));
+      // Computed updates may emit a short burst of async record.update events after
+      // the originating mutation resolves. Keep listening until the stream settles.
+      const stableWindowMs = 100;
+      const pollIntervalMs = 25;
+      const deadline = Date.now() + 2000;
+      let stableSince = Date.now();
+      let lastCount = events.length;
+
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+
+        if (events.length !== lastCount) {
+          lastCount = events.length;
+          stableSince = Date.now();
+          continue;
+        }
+
+        if (Date.now() - stableSince >= stableWindowMs) {
+          break;
+        }
+      }
+
       return { result, events };
     } finally {
       eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
