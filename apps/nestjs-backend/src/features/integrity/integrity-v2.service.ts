@@ -12,9 +12,11 @@ import type {
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  checkTableMetaWithTables,
   createSchemaChecker,
   createSchemaRepairer,
   PostgresSchemaIntrospector,
+  type MetaValidationIssue,
   type SchemaCheckResult,
   type SchemaRepairResult,
   type SchemaRuleRepairHint,
@@ -45,14 +47,16 @@ export class IntegrityV2Service {
     tableId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
-    const { table, db, schema } = await this.resolveSchemaTarget(tableId);
+    const { table, tables, db, schema } = await this.resolveSchemaTarget(tableId, {
+      includeBaseTables: true,
+    });
     const checker = createSchemaChecker({
       db,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
 
-    return this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    return this.streamTableChecks(table, tables, checker, statuses);
   }
 
   async createRepairStream(
@@ -128,7 +132,12 @@ export class IntegrityV2Service {
     return this.streamBaseRepairs(tables, repairer, repairRo);
   }
 
-  private async resolveSchemaTarget(tableId: string) {
+  private async resolveSchemaTarget(
+    tableId: string,
+    options?: {
+      includeBaseTables?: boolean;
+    }
+  ) {
     const parsedTableId = TableId.create(tableId);
     if (parsedTableId.isErr()) {
       throw new HttpException(parsedTableId.error.message, HttpStatus.BAD_REQUEST);
@@ -148,9 +157,24 @@ export class IntegrityV2Service {
 
     const db = container.resolve<ISchemaIntegrityDb>(v2PostgresDbTokens.db);
     const table = tableResult.value;
+    let tables: ReadonlyArray<Table> = [table];
+
+    if (options?.includeBaseTables) {
+      const tablesResult = await tableRepository.find(
+        context,
+        TableByBaseIdSpec.create(table.baseId())
+      );
+
+      if (tablesResult.isErr()) {
+        throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      tables = tablesResult.value;
+    }
 
     return {
       table,
+      tables,
       db,
       schema: table.baseId().toString(),
     };
@@ -197,13 +221,27 @@ export class IntegrityV2Service {
     };
   }
 
+  private async *streamTableChecks(
+    table: Table,
+    allTables: ReadonlyArray<Table>,
+    checker: ReturnType<typeof createSchemaChecker>,
+    statuses?: IV2SchemaIntegrityFilterStatus[]
+  ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    yield* this.decorateMetaCheckStream(
+      table,
+      checkTableMetaWithTables(table, table.baseId(), allTables),
+      statuses
+    );
+  }
+
   private async *streamBaseChecks(
     tables: ReadonlyArray<Table>,
     checker: ReturnType<typeof createSchemaChecker>,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
     for (const table of tables) {
-      yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+      yield* this.streamTableChecks(table, tables, checker, statuses);
     }
   }
 
@@ -253,6 +291,45 @@ export class IntegrityV2Service {
       }
 
       yield serialized;
+    }
+  }
+
+  private async *decorateMetaCheckStream(
+    table: Table,
+    stream: AsyncGenerator<MetaValidationIssue, void, unknown>,
+    statuses?: IV2SchemaIntegrityFilterStatus[]
+  ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    const statusFilter = this.createStatusFilterSet(statuses);
+    let index = 0;
+
+    for await (const issue of stream) {
+      const status = this.toMetaCheckStatus(issue.severity);
+      if (!status || !this.shouldIncludeResult(status, statusFilter)) {
+        continue;
+      }
+
+      const missing = [
+        issue.details?.relatedTableId,
+        issue.details?.relatedFieldId,
+        issue.details?.path,
+      ].filter((value): value is string => Boolean(value));
+
+      yield {
+        id: this.createScopedResultId(table, `meta:${issue.category}:${issue.fieldId}:${index++}`),
+        tableId: table.id().toString(),
+        tableName: table.name().toString(),
+        fieldId: issue.fieldId,
+        fieldName: issue.fieldName,
+        ruleId: `meta:${issue.category}`,
+        ruleDescription: 'Metadata reference validation',
+        status,
+        message: issue.message,
+        details: missing.length ? { missing } : undefined,
+        required: true,
+        timestamp: Date.now(),
+        dependencies: [],
+        depth: 0,
+      };
     }
   }
 
@@ -460,5 +537,13 @@ export class IntegrityV2Service {
     }
 
     return statusFilter.has(status as IV2SchemaIntegrityFilterStatus);
+  }
+
+  private toMetaCheckStatus(
+    severity: MetaValidationIssue['severity']
+  ): IV2SchemaIntegrityCheckResult['status'] | undefined {
+    if (severity === 'error') return 'error';
+    if (severity === 'warning') return 'warn';
+    return undefined;
   }
 }

@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TableSchemaUpdateVisitor } from '../TableSchemaUpdateVisitor';
 import { createTestDb } from './helpers/createTestDb';
+import { createDtField } from './helpers/fieldFactories';
 
 describe('TableSchemaUpdateVisitor', () => {
   describe('visitTableUpdateFieldConstraints', () => {
@@ -982,7 +983,15 @@ describe('TableSchemaUpdateVisitor', () => {
         table: createTable(),
       });
 
-    const createField = (params: { id: string; kind: 'singleLineText' | 'checkbox' }) => {
+    const createField = (params: { id: string; kind: 'singleLineText' | 'checkbox' | 'date' }) => {
+      if (params.kind === 'date') {
+        return createDtField(
+          params.id,
+          `Field ${params.id.slice(-4)}`,
+          `fld_${params.id.slice(-8)}`
+        )._unsafeUnwrap();
+      }
+
       const table = Table.builder()
         .withBaseId(BaseId.create(SCHEMA)._unsafeUnwrap())
         .withName(TableName.create('Field Source')._unsafeUnwrap());
@@ -1017,6 +1026,21 @@ describe('TableSchemaUpdateVisitor', () => {
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+    });
+
+    it('should append a btree search index statement for date fields', () => {
+      const field = createField({ id: 'fldDateField000001', kind: 'date' });
+      const spec = TableAddFieldSpec.create(field);
+      const visitor = createVisitor();
+
+      const result = visitor.visitTableAddField(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
+      expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+      expect(sqls.some((text) => text.includes('USING btree'))).toBe(true);
+      expect(sqls.some((text) => text.includes('gin_trgm_ops'))).toBe(false);
     });
 
     it('should not append search index statement for unsupported field types', () => {
