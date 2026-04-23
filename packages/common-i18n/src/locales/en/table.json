@@ -831,7 +831,8 @@
         "ReferenceFieldNotFound": "ReferenceFieldNotFound",
         "UniqueIndexNotFound": "UniqueIndexNotFound",
         "EmptyString": "EmptyString",
-        "InvalidFilterOperator": "InvalidFilterOperator"
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "Primary field misconfigured as lookup"
       }
     },
     "index": {

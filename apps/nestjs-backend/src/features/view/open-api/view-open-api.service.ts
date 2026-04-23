@@ -12,6 +12,7 @@ import type {
   ILinkFieldOptions,
   IPluginViewOptions,
   IViewPropertyKeys,
+  CellValueType,
   ISort,
   IGroup,
   TableDomain,
@@ -28,7 +29,7 @@ import {
   generatePluginInstallId,
   generateOperationId,
   extractFieldIdsFromFilter,
-  validateFilterOperatorModeCompatibility,
+  analyzeFilterValidationIssues,
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -289,7 +290,7 @@ export class ViewOpenApiService {
     if (fieldIds.length > 0) {
       const fields = await this.prismaService.field.findMany({
         where: { tableId, id: { in: fieldIds } },
-        select: { id: true, type: true },
+        select: { id: true, type: true, cellValueType: true, isMultipleCellValue: true },
       });
 
       // Check for unsupported Button type fields
@@ -306,15 +307,26 @@ export class ViewOpenApiService {
         );
       }
 
-      // Validate operator + mode compatibility for date fields
-      const fieldTypeMap = fields.reduce(
+      // Validate filter compatibility with the same shared analyzer used by SDK/query execution.
+      const fieldMetaMap = fields.reduce(
         (acc, f) => {
-          acc[f.id] = f.type as FieldType;
+          acc[f.id] = {
+            type: f.type as FieldType,
+            cellValueType: f.cellValueType as CellValueType,
+            isMultipleCellValue: Boolean(f.isMultipleCellValue),
+          };
           return acc;
         },
-        {} as Record<string, FieldType>
+        {} as Record<
+          string,
+          {
+            type: FieldType;
+            cellValueType: CellValueType;
+            isMultipleCellValue: boolean;
+          }
+        >
       );
-      const validationErrors = validateFilterOperatorModeCompatibility(filter, fieldTypeMap);
+      const validationErrors = analyzeFilterValidationIssues(filter, fieldMetaMap);
       if (validationErrors.length > 0) {
         throw new CustomHttpException(validationErrors[0].message, HttpErrorCode.VALIDATION_ERROR, {
           localization: {

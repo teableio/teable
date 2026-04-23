@@ -890,6 +890,10 @@
           "runQuotaExceeded": {
             "title": "L'automatisation {{name}} a atteint le nombre maximal d'exécutions mensuelles",
             "message": "Le quota mensuel d'exécutions de l'automatisation {{name}} est épuisé. L'exécution est temporairement indisponible. Veuillez mettre à niveau votre abonnement ou acheter des exécutions supplémentaires."
+          },
+          "failedSummary": {
+            "title": "L'automatisation {{name}} a échoué {{failCount}} fois",
+            "message": "Votre automatisation {{name}} a cumulé {{failCount}} échecs consécutifs. Ouvrez l'historique des exécutions pour voir les détails."
           }
         },
         "billing": {
