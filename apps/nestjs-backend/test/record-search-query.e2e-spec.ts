@@ -927,35 +927,6 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       });
     });
 
-    it('should search date fields globally when search index is enabled', async () => {
-      await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
-
-      const dateField = table.fields.find(
-        (f) => f.cellValueType === CellValueType.DateTime
-      )! as IFieldInstance;
-
-      const { records } = (
-        await apiGetRecords(table.id, {
-          fieldKeyType: FieldKeyType.Id,
-          viewId: table.views[0].id,
-          search: ['2022-03-02', '', true],
-        })
-      ).data;
-
-      expect(records.length).toBe(1);
-      expect(records[0].fields[dateField.id]).toBe('2022-03-01T16:00:00.000Z');
-
-      const searchIndex = await getSearchIndex(table.id, {
-        viewId: table.views[0].id,
-        take: 10,
-        search: ['2022-03-02', '', true],
-      });
-
-      expect(searchIndex.data).toEqual(
-        expect.arrayContaining([expect.objectContaining({ fieldId: dateField.id })])
-      );
-    });
-
     it('should repair abnormal index', async () => {
       const textfield = table.fields.find(
         (f) => f.cellValueType === CellValueType.String

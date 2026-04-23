@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Valor no válido",
     "invalidateSelectedTips": "Se ha eliminado el valor seleccionado, seleccione nuevamente",
+    "invalidConditionTip": "Esta condición de filtro no es válida y se ignorará. Ajuste el valor.",
     "default": {
       "empty": "No se aplican condiciones de filtro",
       "placeholder": "Ingrese un valor"
@@ -1221,7 +1222,8 @@
       "button": {
         "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
         "notSupportReset": "El campo de botón no admite restablecimiento"
-      }
+      },
+      "primaryCannotBeLookup": "El campo principal no puede configurarse como un campo Lookup"
     },
     "view": {
       "notFound": "Vista no encontrada",
@@ -1432,7 +1434,8 @@
       "linkedInPostNotFound": "Publicación de LinkedIn no encontrada: {{postId}}",
       "linkedInAuthorNotFound": "Autor de LinkedIn no encontrado: {{postId}}",
       "fetchLinkedInUserFailed": "Error al obtener el usuario de LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Este dominio ya está vinculado a otra aplicación"
+      "domainAlreadyInUse": "Este dominio ya está vinculado a otra aplicación",
+      "domainReserved": "Subdominio reservado"
     }
   }
 }

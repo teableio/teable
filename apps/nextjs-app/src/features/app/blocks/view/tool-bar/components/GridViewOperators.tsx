@@ -125,38 +125,6 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Group>
-      {/* <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {
-              // disabled doesn't trigger the tooltip, so wrap div
-            }
-            <div>
-              <Color>
-                {(text: string, isActive) => (
-                  <ToolBarButton
-                    disabled={true}
-                    isActive={isActive}
-                    text={text}
-                    className={cn(
-                      GUIDE_VIEW_GROUPING,
-                      'max-w-xs',
-                      isActive &&
-                        'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
-                    )}
-                    textClassName="@2xl/toolbar:inline"
-                  >
-                    <PaintBucket className="size-4 text-sm" />
-                  </ToolBarButton>
-                )}
-              </Color>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('table:toolbar.comingSoon')}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider> */}
 
       <RowHeight
         rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
