@@ -69,3 +69,35 @@ describe('convertFormulaToGeneratedColumn blank numeric comparisons', () => {
     expect(result.sql).toContain("= ''");
   });
 });
+
+describe('convertFormulaToSelectQuery blank numeric comparisons', () => {
+  it('keeps spaced BLANK() as a blank operand when comparing number fields', () => {
+    const numberField = createFieldInstanceByVo({
+      id: 'fldWeight',
+      dbFieldName: 'weight',
+      name: 'Weight',
+      type: FieldType.Number,
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Real,
+    });
+    const table = new TableDomain({
+      id: 'tblFormulaUnit',
+      name: 'Formula Unit',
+      dbTableName: 'public.tbl_formula_unit',
+      lastModifiedTime: '2026-04-08T00:00:00.000Z',
+      fields: [numberField],
+    });
+    const provider = new PostgresProvider(knex({ client: 'pg' }));
+    const sql = toSql(
+      provider.convertFormulaToSelectQuery('{fldWeight} != BLANK()', {
+        ...context,
+        table,
+      })
+    );
+
+    expect(sql).toContain('COALESCE(NULLIF');
+    expect(sql).toContain('"weight"');
+    expect(sql).not.toContain('::numeric');
+    expect(sql).toContain("<> ''");
+  });
+});

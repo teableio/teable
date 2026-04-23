@@ -1394,6 +1394,27 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('inner join lateral');
     });
 
+    test('returns NULL lookup when lookup link field is missing', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createLookupTable();
+      const lookupField = mainTable.getFields()[2];
+      const tableWithoutLink = Object.create(mainTable) as Table;
+      (tableWithoutLink as unknown as { getField: () => { isErr(): true } }).getField = () => ({
+        isErr: () => true,
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(tableWithoutLink)
+          .select([lookupField.id()])
+      );
+
+      expect(sql).toContain('NULL::jsonb as "col_lookup"');
+      expect(sql).not.toContain('inner join lateral');
+    });
+
     test('uses single-level flattening for lookup-of-lookup chains without inner filters', () => {
       const db = createTestDb();
       const { hostTable, middleTable, middleTableId } = createNestedLookupChain();
