@@ -549,7 +549,9 @@ export class ComputedFieldSelectExpressionVisitor
         return ok(sql.raw('NULL::jsonb').as(colAlias));
       }
       const linkFieldResult = field.linkField(this.table);
-      if (linkFieldResult.isErr()) return err(linkFieldResult.error);
+      if (linkFieldResult.isErr()) {
+        return ok(sql.raw('NULL::jsonb').as(colAlias));
+      }
       const linkField = linkFieldResult.value;
       if (linkField.foreignTableId().toString() !== field.foreignTableId().toString()) {
         return ok(sql.raw('NULL::jsonb').as(colAlias));
@@ -589,7 +591,9 @@ export class ComputedFieldSelectExpressionVisitor
       }
       const expression = field.expression().toString();
       const linkFieldResult = field.linkField(this.table);
-      if (linkFieldResult.isErr()) return err(linkFieldResult.error);
+      if (linkFieldResult.isErr()) {
+        return this.typedNullColumn(field, colAlias);
+      }
       const linkField = linkFieldResult.value;
       if (linkField.foreignTableId().toString() !== field.foreignTableId().toString()) {
         return ok(sql.raw('NULL').as(colAlias));
