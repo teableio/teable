@@ -832,7 +832,8 @@
         "ReferenceFieldNotFound": "引用字段不存在",
         "UniqueIndexNotFound": "唯一索引不存在",
         "EmptyString": "存在空字符串单元格",
-        "InvalidFilterOperator": "无效的筛选操作符"
+        "InvalidFilterOperator": "无效的筛选操作符",
+        "InvalidPrimaryLookup": "主字段被错误配置为 Lookup"
       }
     },
     "index": {
@@ -1353,7 +1354,10 @@
     },
     "retry": {
       "interrupted": "响应已中断",
-      "button": "重试"
+      "button": "重试",
+      "offline": "当前无网络连接，恢复后将自动重试。",
+      "pausedHidden": "已暂停重试，请切回此标签页以重新连接。",
+      "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
     "guide": {
       "goToScenario": "跳转到场景 {{index}}"
