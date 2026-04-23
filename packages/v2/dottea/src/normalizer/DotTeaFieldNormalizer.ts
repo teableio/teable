@@ -6,6 +6,53 @@ const asRecord = (value: unknown): Record<string, unknown> | undefined =>
 const readString = (value: Record<string, unknown> | undefined, key: string): string | undefined =>
   typeof value?.[key] === 'string' ? (value[key] as string) : undefined;
 
+const normalizeSelectOptionName = (name: unknown): unknown =>
+  typeof name === 'string' ? name.trim() : name;
+
+const normalizeSelectDefaultValue = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === 'string' ? item.trim() : item));
+  }
+  return value;
+};
+
+const normalizeSelectChoices = (
+  options: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined => {
+  if (!options || !Array.isArray(options.choices)) {
+    return options;
+  }
+
+  const seen = new Set<string>();
+  const choices = options.choices.flatMap((choice) => {
+    if (!choice || typeof choice !== 'object' || Array.isArray(choice)) {
+      return [choice];
+    }
+
+    const rawChoice = choice as Record<string, unknown>;
+    const normalizedName = normalizeSelectOptionName(rawChoice.name);
+    if (typeof normalizedName === 'string') {
+      if (seen.has(normalizedName)) {
+        return [];
+      }
+      seen.add(normalizedName);
+    }
+
+    return [{ ...rawChoice, name: normalizedName }];
+  });
+
+  return {
+    ...options,
+    choices,
+    ...(options.defaultValue !== undefined
+      ? { defaultValue: normalizeSelectDefaultValue(options.defaultValue) }
+      : {}),
+  };
+};
+
 /**
  * Extract field IDs from a formula expression.
  */
@@ -116,11 +163,17 @@ export const normalizeFieldOptions = (
   fieldTypesById: ReadonlyMap<string, string>
 ): NormalizedFieldOptions => {
   const rawOptions = asRecord(field.options);
+  const normalizedSelectOptions =
+    field.type === 'singleSelect' || field.type === 'multipleSelect'
+      ? normalizeSelectChoices(rawOptions)
+      : rawOptions;
   const rawLookupOptions = asRecord(field.lookupOptions);
 
   if (field.type === 'link') {
-    const options = normalizeLinkOptions(rawOptions);
-    return options ? { type: 'link', options } : { type: 'singleLineText', options: rawOptions };
+    const options = normalizeLinkOptions(normalizedSelectOptions);
+    return options
+      ? { type: 'link', options }
+      : { type: 'singleLineText', options: normalizedSelectOptions };
   }
 
   const lookupOptions = normalizeLookupOptions(rawLookupOptions);
@@ -129,10 +182,10 @@ export const normalizeFieldOptions = (
   }
 
   if (field.type === 'rollup') {
-    const options = normalizeFormulaOptions(rawOptions, 'countall({values})');
+    const options = normalizeFormulaOptions(normalizedSelectOptions, 'countall({values})');
     return options && lookupOptions
       ? { type: 'rollup', options, config: lookupOptions }
-      : { type: 'singleLineText', options: rawOptions };
+      : { type: 'singleLineText', options: normalizedSelectOptions };
   }
 
   // Check conditionalLookup BEFORE formula, because v1 dottea stores conditional lookups
@@ -141,21 +194,24 @@ export const normalizeFieldOptions = (
   if (field.type === 'conditionalLookup' || field.isConditionalLookup) {
     // Config can be in rawOptions or rawLookupOptions depending on v1 export format
     const foreignTableId =
-      readString(rawLookupOptions, 'foreignTableId') ?? readString(rawOptions, 'foreignTableId');
+      readString(rawLookupOptions, 'foreignTableId') ??
+      readString(normalizedSelectOptions, 'foreignTableId');
     const lookupFieldId =
-      readString(rawLookupOptions, 'lookupFieldId') ?? readString(rawOptions, 'lookupFieldId');
-    const condition = normalizeCondition(rawLookupOptions) ?? normalizeCondition(rawOptions);
+      readString(rawLookupOptions, 'lookupFieldId') ??
+      readString(normalizedSelectOptions, 'lookupFieldId');
+    const condition =
+      normalizeCondition(rawLookupOptions) ?? normalizeCondition(normalizedSelectOptions);
     if (foreignTableId && lookupFieldId && condition) {
       return { type: 'conditionalLookup', options: { foreignTableId, lookupFieldId, condition } };
     }
-    return { type: 'singleLineText', options: rawOptions };
+    return { type: 'singleLineText', options: normalizedSelectOptions };
   }
 
   if (field.type === 'conditionalRollup') {
-    const options = normalizeFormulaOptions(rawOptions, 'countall({values})');
-    const foreignTableId = readString(rawOptions, 'foreignTableId');
-    const lookupFieldId = readString(rawOptions, 'lookupFieldId');
-    const condition = normalizeCondition(rawOptions);
+    const options = normalizeFormulaOptions(normalizedSelectOptions, 'countall({values})');
+    const foreignTableId = readString(normalizedSelectOptions, 'foreignTableId');
+    const lookupFieldId = readString(normalizedSelectOptions, 'lookupFieldId');
+    const condition = normalizeCondition(normalizedSelectOptions);
     if (options && foreignTableId && lookupFieldId && condition) {
       return {
         type: 'conditionalRollup',
@@ -163,24 +219,30 @@ export const normalizeFieldOptions = (
         config: { foreignTableId, lookupFieldId, condition },
       };
     }
-    return { type: 'singleLineText', options: rawOptions };
+    return { type: 'singleLineText', options: normalizedSelectOptions };
   }
 
   if (field.type === 'formula') {
-    const expression = typeof rawOptions?.expression === 'string' ? rawOptions.expression : '';
+    const expression =
+      typeof normalizedSelectOptions?.expression === 'string'
+        ? normalizedSelectOptions.expression
+        : '';
     const refs = expression ? extractFieldReferences(expression) : [];
+    const hasMissingDependency = refs.some((ref) => !fieldTypesById.has(ref));
     const hasComputedDependency = refs.some((ref) => {
       const type = fieldTypesById.get(ref);
       return type === 'rollup' || type === 'conditionalRollup';
     });
-    if (hasComputedDependency) {
-      return { type: 'singleLineText', options: rawOptions };
+    if (hasMissingDependency || hasComputedDependency) {
+      return { type: 'singleLineText', options: normalizedSelectOptions };
     }
-    const options = normalizeFormulaOptions(rawOptions, '0');
-    return options ? { type: 'formula', options } : { type: 'singleLineText', options: rawOptions };
+    const options = normalizeFormulaOptions(normalizedSelectOptions, '0');
+    return options
+      ? { type: 'formula', options }
+      : { type: 'singleLineText', options: normalizedSelectOptions };
   }
 
-  return { options: rawOptions };
+  return { options: normalizedSelectOptions };
 };
 
 /**

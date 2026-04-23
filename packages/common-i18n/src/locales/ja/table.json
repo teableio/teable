@@ -632,6 +632,9 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "主フィールドが Lookup として誤設定"
       }
     },
     "index": {
