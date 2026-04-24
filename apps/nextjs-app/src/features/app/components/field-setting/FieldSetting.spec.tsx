@@ -18,6 +18,20 @@ vi.mock('./DynamicFieldEditor', () => ({
 }));
 
 describe('FieldSettingBase', () => {
+  it('disables save when editing target field is not available yet', () => {
+    render(
+      <FieldSettingBase
+        visible
+        field={undefined}
+        operator={FieldOperator.Edit}
+        onCancel={() => undefined}
+        onConfirm={() => undefined}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
+  });
+
   it('hydrates local editor state when originField arrives after initial fallback render', () => {
     const lookupField = {
       id: 'fldLookup0000000001',

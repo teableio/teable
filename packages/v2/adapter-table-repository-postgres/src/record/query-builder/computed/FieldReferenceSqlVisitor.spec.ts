@@ -620,6 +620,32 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(mockLateral.calls).toEqual([]);
     });
 
+    it('should short-circuit lookup fields with missing link field without registering laterals', () => {
+      const { table, lookupField } = createLookupErrorTable();
+      const tableWithoutLink = Object.create(table) as Table;
+      (tableWithoutLink as unknown as { getField: () => { isErr(): true } }).getField = () => ({
+        isErr: () => true,
+      });
+      lookupField.setHasError(FieldHasError.ok());
+      mockLateral.clear();
+      const visitor = new FieldReferenceSqlVisitor({
+        table: tableWithoutLink,
+        tableAlias: 't',
+        lateral: mockLateral,
+      });
+
+      const result = lookupField.accept(visitor);
+
+      expect(result.isOk()).toBe(true);
+      const expr = result._unsafeUnwrap();
+
+      expect(expr.valueSql).toBe('NULL::text');
+      expect(expr.valueType).toBe('string');
+      expect(expr.errorConditionSql).toBe('TRUE');
+      expect(expr.errorMessageSql).toContain('#ERROR:REF:errored_field');
+      expect(mockLateral.calls).toEqual([]);
+    });
+
     it('should short-circuit errored conditional lookup fields without registering laterals', () => {
       const { table, conditionalLookupField } = createConditionalLookupErrorTable();
       mockLateral.clear();

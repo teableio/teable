@@ -6,6 +6,7 @@ import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -54,6 +55,23 @@ export class LinkValueColumnRule implements ISchemaRule {
           ? []
           : [`link value column "${schemaName}"."${ctx.tableName}"."${columnName}" not found`],
       });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will recreate the stored link-value column for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair restores the JSONB display-value column only. Underlying relation ids in FK or junction storage are not rewritten, but linked cells may still display empty or stale values until those display payloads are rebuilt.',
+      },
     });
   }
 
