@@ -1799,6 +1799,14 @@ type PreparedPropagationSelect = {
 const propagationQueryKey = (compiled: ReturnType<DirtySelectQuery['compile']>): string =>
   `${compiled.sql}::${JSON.stringify(compiled.parameters)}`;
 
+const toAffectedRowCount = (value: unknown): number | undefined => {
+  if (typeof value === 'bigint') {
+    return value > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(value);
+  }
+  if (typeof value === 'number') return value;
+  return undefined;
+};
+
 const propagateDirtyRecords = async (
   db: Kysely<DynamicDB>,
   edges: ReadonlyArray<ComputedDependencyEdge>,
@@ -1806,14 +1814,6 @@ const propagateDirtyRecords = async (
   context?: IExecutionContext
 ): Promise<Result<DirtyPropagationStats, DomainError>> => {
   try {
-    const countDirtyRecords = async (): Promise<number> => {
-      const result = await db
-        .selectFrom(DIRTY_TABLE)
-        .select(sql<number>`count(*)`.as('count'))
-        .executeTakeFirst();
-      return result ? Number(result.count) : 0;
-    };
-
     // Build trace info for all edges once
     const edgeTraceInfos = edges.map((edge, i) => buildEdgeTraceInfo(edge, i, tableById));
     const plannedAllTargetReasonCounts = countPlannedAllTargetReasonCounts(edges);
@@ -1852,7 +1852,6 @@ const propagateDirtyRecords = async (
 
     const selectQueries = [...preparedQueries.values()];
     const maxPasses = Math.max(selectQueries.length, 1);
-    let previousCount = await countDirtyRecords();
 
     for (let pass = 0; pass < maxPasses; pass += 1) {
       if (selectQueries.length === 0) {
@@ -1902,7 +1901,7 @@ const propagateDirtyRecords = async (
         );
       }
 
-      const executeBatchWork = async (): Promise<void> => {
+      const executeBatchWork = async (): Promise<number | undefined> => {
         // Build UNION ALL query from all SELECT queries
         if (selectQueries.length === 1) {
           // Single edge - no need for UNION ALL
@@ -1914,7 +1913,8 @@ const propagateDirtyRecords = async (
             .compile();
 
           batchSpan?.setAttribute('batch.sql', compiled.sql);
-          await db.executeQuery(compiled);
+          const result = await db.executeQuery(compiled);
+          return toAffectedRowCount(result.numAffectedRows);
         } else {
           // Multiple edges - use UNION ALL
           // Start with first query, then chain unionAll for the rest
@@ -1931,26 +1931,29 @@ const propagateDirtyRecords = async (
             .compile();
 
           batchSpan?.setAttribute('batch.sql', compiled.sql);
-          await db.executeQuery(compiled);
+          const result = await db.executeQuery(compiled);
+          return toAffectedRowCount(result.numAffectedRows);
         }
       };
 
+      let insertedRowCount: number | undefined;
       try {
         // Use withSpan to set batchSpan as active context so pg queries become children
         if (batchSpan && context?.tracer) {
-          await context.tracer.withSpan(batchSpan, executeBatchWork);
+          insertedRowCount = await context.tracer.withSpan(batchSpan, executeBatchWork);
         } else {
-          await executeBatchWork();
+          insertedRowCount = await executeBatchWork();
         }
       } finally {
+        if (insertedRowCount !== undefined) {
+          batchSpan?.setAttribute('batch.insertedRowCount', insertedRowCount);
+        }
         batchSpan?.end();
       }
 
-      const nextCount = await countDirtyRecords();
-      if (nextCount === previousCount) {
+      if (insertedRowCount === 0) {
         break;
       }
-      previousCount = nextCount;
     }
     return ok({
       plannedAllTargetReasonCounts,

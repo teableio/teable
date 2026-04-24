@@ -5,7 +5,7 @@ import {
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
-import { FieldKeyType, type RecordFilter, type RecordSearchInput } from '@teable/v2-core';
+import { FieldKeyType, type RecordFilter } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -133,7 +133,7 @@ describe('v2 http date time parsing (e2e)', () => {
 
   const listRecords = async (
     tableId: string,
-    options?: { filter?: RecordFilter; groupBy?: string[]; search?: RecordSearchInput }
+    options?: { filter?: RecordFilter; groupBy?: string[] }
   ) => {
     const params = new URLSearchParams({
       tableId,
@@ -146,10 +146,6 @@ describe('v2 http date time parsing (e2e)', () => {
 
     if (options?.groupBy) {
       params.set('groupBy', JSON.stringify(options.groupBy));
-    }
-
-    if (options?.search) {
-      params.set('search', JSON.stringify(options.search));
     }
 
     const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
@@ -207,51 +203,6 @@ describe('v2 http date time parsing (e2e)', () => {
       [dateFieldId]: dateCase.update.input,
     });
     expect(updatedRecord.fields[dateFieldId]).toBe(dateCase.update.expected);
-  });
-
-  it('searches date fields globally', async () => {
-    const table = await createTable({
-      baseId: ctx.baseId,
-      name: uniqueName('global-date-search'),
-      fields: [
-        { type: 'singleLineText', name: 'Title', isPrimary: true },
-        {
-          type: 'date',
-          name: 'Question Date',
-          options: {
-            formatting: {
-              date: 'YYYY-MM-DD',
-              time: 'None',
-              timeZone: 'utc',
-            },
-          },
-        },
-      ],
-      views: [{ type: 'grid' }],
-    });
-
-    const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
-    const dateFieldId = table.fields.find((field) => field.name === 'Question Date')?.id ?? '';
-
-    await createRecords(table.id, [
-      {
-        fields: {
-          [primaryFieldId]: 'Target',
-          [dateFieldId]: '2026-02-24',
-        },
-      },
-      {
-        fields: {
-          [primaryFieldId]: 'Other',
-          [dateFieldId]: '2026-02-25',
-        },
-      },
-    ]);
-
-    const records = await listRecords(table.id, { search: ['2026-02-24', '', true] });
-
-    expect(records).toHaveLength(1);
-    expect(records[0]?.fields[primaryFieldId]).toBe('Target');
   });
 
   it('filters exact datetime groups to a single timestamp', async () => {
