@@ -256,6 +256,7 @@
       "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
+      "fieldUnavailable": "This field is unavailable. Refresh the table and try again.",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add description",
@@ -831,7 +832,8 @@
         "ReferenceFieldNotFound": "ReferenceFieldNotFound",
         "UniqueIndexNotFound": "UniqueIndexNotFound",
         "EmptyString": "EmptyString",
-        "InvalidFilterOperator": "InvalidFilterOperator"
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "Primary field misconfigured as lookup"
       }
     },
     "index": {
@@ -1359,7 +1361,10 @@
     },
     "retry": {
       "interrupted": "Response interrupted",
-      "button": "Retry"
+      "button": "Retry",
+      "offline": "You're offline. We'll retry once your connection is back.",
+      "pausedHidden": "Retry paused — open this tab to reconnect.",
+      "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
     },
     "guide": {
       "goToScenario": "Go to scenario {{index}}"

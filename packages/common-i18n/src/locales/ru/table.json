@@ -632,6 +632,9 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Основное поле неправильно настроено как Lookup"
       }
     },
     "index": {
