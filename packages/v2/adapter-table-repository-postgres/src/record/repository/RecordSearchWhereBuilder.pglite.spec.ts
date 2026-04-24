@@ -36,6 +36,10 @@ class PGliteDialect implements Dialect {
           };
         },
         streamQuery: async function* () {
+          // eslint-disable-next-line no-constant-condition
+          if (false) {
+            yield undefined as never;
+          }
           throw new Error('PGlite does not support streaming');
         },
       }),
@@ -292,6 +296,38 @@ const findMatchingRecordIds = async ({
   return rows.map((row) => row.id as string);
 };
 
+const compileSearchQuery = ({
+  db,
+  table,
+  fullTableName,
+  search,
+  visibleFieldIds,
+}: {
+  db: Kysely<V1TeableDatabase>;
+  table: Table;
+  fullTableName: string;
+  search: RecordSearch;
+  visibleFieldIds?: ReadonlyArray<FieldId>;
+}) => {
+  const whereClause = buildRecordSearchWhereClause(
+    table,
+    {
+      search,
+      visibleFieldIds,
+    },
+    {
+      tableAlias: 't',
+    }
+  )._unsafeUnwrap();
+
+  let query = db.selectFrom(`${fullTableName} as t`).select('t.__id as id');
+  if (whereClause != null) {
+    query = query.where(whereClause);
+  }
+
+  return query.compile();
+};
+
 describe('RecordSearchWhereBuilder (pglite)', () => {
   let client: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -411,6 +447,20 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ).resolves.toEqual([fixture.recordIds.alpha]);
   });
 
+  it('compiles date-like searches to range predicates instead of TO_CHAR matches', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'date-range-sql' });
+
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['2026-02-24', fixture.fieldIds.due.toString(), true]),
+    });
+
+    expect(compiled.sql.toLowerCase()).toContain('"t"."col_due" >=');
+    expect(compiled.sql.toLowerCase()).toContain('"t"."col_due" <');
+    expect(compiled.sql.toLowerCase()).not.toContain('to_char(');
+  });
   it('does not filter rows for checkbox field-specific visible-row search', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'checkbox' });
 

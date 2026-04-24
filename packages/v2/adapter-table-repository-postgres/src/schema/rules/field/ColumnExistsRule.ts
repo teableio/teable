@@ -14,6 +14,7 @@ import {
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -119,6 +120,23 @@ export class ColumnExistsRule implements ISchemaRule {
       }
 
       return ok({ valid: true });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will recreate the missing physical column for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair only recreates the missing column structure. It does not recover historical cell values from another source, so affected records may still display empty values until data is backfilled separately.',
+      },
     });
   }
 

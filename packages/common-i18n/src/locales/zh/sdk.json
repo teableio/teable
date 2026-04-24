@@ -191,6 +191,7 @@
     },
     "invalidateSelected": "已删除选项",
     "invalidateSelectedTips": "该选项已被删除，请重新选择",
+    "invalidConditionTip": "此筛选条件无效，将被忽略。请调整后重试。",
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"
@@ -1241,7 +1242,8 @@
       "button": {
         "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
         "notSupportReset": "按钮不支持重置"
-      }
+      },
+      "primaryCannotBeLookup": "主字段不能配置为 Lookup 字段"
     },
     "view": {
       "notFound": "视图不存在",
@@ -1439,7 +1441,8 @@
       "noFilesInZip": "ZIP 文件中没有找到文件",
       "zipFileTooLarge": "ZIP 文件大小超过 5MB 限制",
       "invalidZip": "无效的 ZIP 文件",
-      "domainAlreadyInUse": "该域名已被其他应用绑定"
+      "domainAlreadyInUse": "该域名已被其他应用绑定",
+      "domainReserved": "子域名已被保留"
     },
     "reward": {
       "notFound": "奖励记录不存在",

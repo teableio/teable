@@ -59,7 +59,11 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
       where: { token },
       select: { thumbnailPath: true },
     });
-    if (existing?.thumbnailPath) {
+    if (!existing) {
+      this.logger.log(`Attachment with token(${token}) does not exist.`);
+      return;
+    }
+    if (existing.thumbnailPath) {
       this.logger.log(`path(${path}) already has thumbnail`);
       return;
     }
@@ -91,7 +95,6 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
             imgHeight
           ));
       } catch (error) {
-        console.error(`Failed to render PDF thumbnail for ${path}`, error);
         this.logger.error(`PDF thumbnail failed for ${path}`, error);
         // Non-fatal: frontend falls back to PDF icon
         return;

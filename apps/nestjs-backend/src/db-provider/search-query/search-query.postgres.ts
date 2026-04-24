@@ -9,6 +9,7 @@ import type { IRecordQueryFilterContext } from '../../features/record/query-buil
 import { escapePostgresRegex } from '../../utils/postgres-regex-escape';
 import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import { SearchQueryAbstract } from './abstract';
+import { getDateSearchRange } from './date-search-range.util';
 import { FieldFormatter } from './search-index-builder.postgres';
 import type { ISearchCellValueType } from './types';
 
@@ -53,6 +54,9 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const { isMultipleCellValue } = field;
     const isSearchAllFields = !search[1];
     if (isSearchAllFields) {
+      if (field.cellValueType === CellValueType.DateTime) {
+        return isMultipleCellValue ? this.multipleDate() : this.date();
+      }
       const searchValue = search[0];
       const escapedSearchValue = escapeLikeWildcards(searchValue);
       const expression = FieldFormatter.getSearchableExpression(field, isMultipleCellValue);
@@ -136,17 +140,15 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   }
 
   protected date() {
-    const {
-      search,
-      knex,
-      field: { options },
-    } = this;
-    const searchValue = search[0];
-    const escapedSearchValue = escapeLikeWildcards(searchValue);
-    const timeZone = (options as IDateFieldOptions).formatting.timeZone;
+    const { search, knex } = this;
+    const range = getDateSearchRange(search[0], this.field.options as IDateFieldOptions);
+    if (!range) {
+      return knex.raw('FALSE');
+    }
+
     return knex.raw(
-      `TO_CHAR(TIMEZONE(?, ${this.fieldName}), 'YYYY-MM-DD HH24:MI') ILIKE ? ESCAPE '\\'`,
-      [timeZone, `%${escapedSearchValue}%`]
+      `(${this.fieldName} >= ?::timestamptz AND ${this.fieldName} < ?::timestamptz)`,
+      [range.start, range.end]
     );
   }
 
@@ -199,20 +201,24 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   protected multipleDate() {
     const { search, knex } = this;
-    const searchValue = search[0];
-    const escapedSearchValue = escapeLikeWildcards(searchValue);
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
+    const range = getDateSearchRange(search[0], this.field.options as IDateFieldOptions);
+    if (!range) {
+      return knex.raw('FALSE');
+    }
+
     return knex.raw(
       `
       EXISTS (
         SELECT 1 FROM (
-          SELECT string_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), 'YYYY-MM-DD HH24:MI'), ', ') as aggregated
+          SELECT 1
           FROM jsonb_array_elements_text(${this.fieldName}::jsonb) as elem
+          WHERE CAST(elem AS timestamp with time zone) >= ?::timestamptz
+            AND CAST(elem AS timestamp with time zone) < ?::timestamptz
+          LIMIT 1
         ) as sub
-        WHERE sub.aggregated ILIKE ? ESCAPE '\\'
       )
       `,
-      [timeZone, `%${escapedSearchValue}%`]
+      [range.start, range.end]
     );
   }
 
@@ -298,8 +304,11 @@ export class SearchQueryPostgresBuilder {
 
     return conditions
       .filter(({ field }) => {
-        // global search does not support checkbox
-        if (isSearchAllFields && field.cellValueType === CellValueType.Boolean) {
+        // global search does not support date time and checkbox
+        if (
+          isSearchAllFields &&
+          [CellValueType.DateTime, CellValueType.Boolean].includes(field.cellValueType)
+        ) {
           return false;
         }
         return true;
