@@ -890,6 +890,10 @@
           "runQuotaExceeded": {
             "title": "L'automazione {{name}} ha raggiunto il numero massimo mensile di esecuzioni",
             "message": "Le esecuzioni mensili dell'automazione {{name}} sono esaurite e l'esecuzione è temporaneamente non disponibile. Aggiorna l'abbonamento o acquista esecuzioni aggiuntive."
+          },
+          "failedSummary": {
+            "title": "L'automazione {{name}} ha fallito {{failCount}} volte",
+            "message": "La tua automazione {{name}} ha accumulato {{failCount}} errori consecutivi. Apri la cronologia delle esecuzioni per visualizzare i dettagli."
           }
         },
         "billing": {
@@ -1105,9 +1109,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "AGGIORNAMENTO 17 APR",
-    "title": "Claude Opus 4.7 è ora disponibile in Teable",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "AGGIORNAMENTO DEL 23 APRILE",
+    "title": "Modifica esterna senza costi aggiuntivi",
+    "url": "https://help.teable.ai/en/changelog#apr-23-2026",
+    "id": "changelog-2026-04-23-external-editing-with-no-extra-cost"
   }
 }

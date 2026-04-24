@@ -848,6 +848,32 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await expect(convertField(table1.id, table1.fields[0].id, newFieldRo)).rejects.toThrow();
     });
 
+    it('should not convert primary field to a lookup field (T3367)', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(table1.id, linkFieldRo);
+
+      const toLookupRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      await expect(convertField(table1.id, table1.fields[0].id, toLookupRo)).rejects.toThrow(
+        /primary/i
+      );
+    });
+
     it('should convert text to date', async () => {
       const newFieldRo: IFieldRo = {
         type: FieldType.Date,

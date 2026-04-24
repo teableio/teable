@@ -133,17 +133,11 @@ export class TableSchemaUpdateVisitor
     return `${prefix}_${tableName.slice(0, tableDbNameLen)}_${abbDbFieldName}_${fieldId}`;
   }
 
-  /** Field types whose cellValueType is Boolean or DateTime (unsupported by GIN trigram). */
-  private static readonly SEARCH_INDEX_UNSUPPORTED_TYPES = new Set([
-    'checkbox',
-    'date',
-    'createdTime',
-    'lastModifiedTime',
-    'button',
-  ]);
+  /** Field types that should never participate in search indexing. */
+  private static readonly SEARCH_INDEX_UNSUPPORTED_TYPES = new Set(['checkbox', 'button']);
 
   /**
-   * Whether a field type supports GIN trigram search indexes.
+   * Whether a field type supports search indexes.
    */
   private static fieldSupportsSearchIndex(fieldType: string): boolean {
     return !TableSchemaUpdateVisitor.SEARCH_INDEX_UNSUPPORTED_TYPES.has(fieldType);
@@ -165,7 +159,7 @@ export class TableSchemaUpdateVisitor
   }
 
   /**
-   * Build a conditional CREATE INDEX statement for a field's GIN trigram search index.
+   * Build a conditional CREATE INDEX statement for a field's search index.
    * Only creates the index if any idx_trgm indexes already exist on the table
    * (i.e., the table has search indexing enabled).
    */
@@ -179,10 +173,18 @@ export class TableSchemaUpdateVisitor
     }
 
     const valueTypeResult = field.accept(new FieldValueTypeVisitor());
+    let useBtree = false;
     if (valueTypeResult.isOk()) {
       const cellValueType = valueTypeResult.value.cellValueType.toString();
-      if (cellValueType === 'boolean' || cellValueType === 'dateTime') {
+      const isMultiple = valueTypeResult.value.isMultipleCellValue.isMultiple();
+      if (cellValueType === 'boolean') {
         return null;
+      }
+      if (cellValueType === 'dateTime') {
+        if (isMultiple) {
+          return null;
+        }
+        useBtree = true;
       }
     }
 
@@ -196,8 +198,9 @@ export class TableSchemaUpdateVisitor
     const isMultipleResult = field.isMultipleCellValue();
     const isMultiple = isMultipleResult.isOk() && isMultipleResult.value.toBoolean();
     let expression = `"${dbFieldName}"::text`;
-
-    if (!isMultiple && fieldType === 'longText') {
+    if (useBtree) {
+      expression = `"${dbFieldName}"`;
+    } else if (!isMultiple && fieldType === 'longText') {
       expression = `REPLACE(REPLACE(REPLACE("${dbFieldName}"::text, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text)`;
     }
 
@@ -211,7 +214,7 @@ export class TableSchemaUpdateVisitor
             AND tablename = '${tableName}'
             AND indexname LIKE 'idx_trgm%'
         ) THEN
-          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" USING gin ((${expression.replace(/'/g, "''")}) gin_trgm_ops)';
+          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" ${useBtree ? `USING btree (${expression.replace(/'/g, "''")})` : `USING gin ((${expression.replace(/'/g, "''")}) gin_trgm_ops)`}';
         END IF;
       END
       $$;
