@@ -373,6 +373,62 @@ describe('DefaultTableMapper', () => {
     fieldDbNameResult?._unsafeUnwrap();
   });
 
+  it('deduplicates select choices by name when rehydrating persistence dto', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+
+    const withDuplicateSelectChoices = {
+      ...dto,
+      fields: dto.fields.map((field) => {
+        if (field.type === 'singleSelect') {
+          return {
+            ...field,
+            options: {
+              ...field.options,
+              choices: [
+                ...field.options.choices,
+                { id: `cho${'c'.repeat(16)}`, name: 'Todo', color: 'red' },
+                { id: `cho${'e'.repeat(16)}`, name: ' Todo ', color: 'blue' },
+              ],
+            },
+          };
+        }
+
+        if (field.type === 'multipleSelect') {
+          return {
+            ...field,
+            options: {
+              ...field.options,
+              choices: [
+                ...field.options.choices,
+                { id: `cho${'d'.repeat(16)}`, name: 'Done', color: 'yellow' },
+              ],
+            },
+          };
+        }
+
+        return field;
+      }),
+    };
+
+    const mapped = mapper.toDomain(withDuplicateSelectChoices)._unsafeUnwrap();
+    const statusField = mapped.getFields().find((field) => field.name().toString() === 'Status') as
+      | SingleSelectField
+      | undefined;
+    const tagsField = mapped.getFields().find((field) => field.name().toString() === 'Tags') as
+      | MultipleSelectField
+      | undefined;
+
+    expect(statusField?.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Todo',
+      'Done',
+    ]);
+    expect(tagsField?.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Todo',
+      'Done',
+    ]);
+  });
+
   it('preserves dbTableName when mapping builder-backed tables to dto', () => {
     const baseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
     const tableId = TableId.create(`tbl${'z'.repeat(16)}`)._unsafeUnwrap();
