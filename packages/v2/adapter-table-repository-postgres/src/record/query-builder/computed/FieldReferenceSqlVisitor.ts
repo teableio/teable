@@ -385,25 +385,13 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       if (field.hasError().isError()) {
         return this.erroredFieldExpr(field, { isArray: isMultiValue, storageKind: 'json' });
       }
-      const orderByResult = this.getLinkOrderBy(field);
-      if (orderByResult.isErr()) return err(orderByResult.error);
-      const lateralAlias = this.lateral.addColumn(
-        field.id(),
-        field.foreignTableId().toString(),
-        colAlias,
-        {
-          type: 'link',
-          lookupFieldId: field.lookupFieldId(),
-          isMultiValue,
-          orderBy: orderByResult.value,
-        }
-      );
-      // Return the raw lateral reference - JSON extraction handled by visitFormulaField
+      // Use the stored link snapshot for formula references. Recomputing the link through the
+      // foreign display field can drop title when the foreign primary is itself stale/empty.
       return ok(
         makeExpr(
-          this.qualify(lateralAlias, colAlias),
+          this.qualify(this.tableAlias, colAlias),
           'unknown',
-          false,
+          isMultiValue,
           undefined,
           undefined,
           field,
@@ -430,7 +418,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       }
       const condition = field.lookupOptions().condition();
       const linkFieldResult = field.linkField(this.table);
-      if (linkFieldResult.isErr()) return err(linkFieldResult.error);
+      if (linkFieldResult.isErr()) return this.erroredFieldExpr(field, exprOptions);
       const linkField = linkFieldResult.value;
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
@@ -472,10 +460,10 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
         return this.erroredFieldExpr(field);
       }
       const expression = field.expression().toString();
-      const linkFieldResult = field
-        .linkField(this.table)
-        .andThen((linkField) => this.getLinkOrderBy(linkField));
-      if (linkFieldResult.isErr()) return err(linkFieldResult.error);
+      const linkFieldResult = field.linkField(this.table);
+      if (linkFieldResult.isErr()) return this.erroredFieldExpr(field);
+      const orderByResult = this.getLinkOrderBy(linkFieldResult.value);
+      if (orderByResult.isErr()) return err(orderByResult.error);
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -484,7 +472,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
           type: 'rollup',
           foreignFieldId: field.lookupFieldId(),
           expression,
-          orderBy: linkFieldResult.value,
+          orderBy: orderByResult.value,
         }
       );
       return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));

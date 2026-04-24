@@ -49,7 +49,7 @@ class RecordingConnection implements DatabaseConnection {
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
-    return { rows: [] };
+    return { rows: [], numAffectedRows: BigInt(0) };
   }
 
   async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {
@@ -718,18 +718,10 @@ describe('ComputedFieldUpdater', () => {
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
-          "parameters": [],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
-        },
-        {
           "parameters": [
             "tblcccccccccccccccc",
           ],
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
-        },
-        {
-          "parameters": [],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
         },
         {
           "parameters": [],
@@ -1123,19 +1115,11 @@ describe('ComputedFieldUpdater', () => {
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
-          "parameters": [],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
-        },
-        {
           "parameters": [
             "tblkkkkkkkkkkkkkkkk",
             "tblllllllllllllllll",
           ],
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $2 on conflict ("table_id", "record_id") do nothing",
-        },
-        {
-          "parameters": [],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
         },
         {
           "parameters": [],
