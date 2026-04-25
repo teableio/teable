@@ -27,6 +27,7 @@ import { LinkFieldQueryService } from '../field/field-calculate/link-field-query
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { TableDomainQueryService } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { LinkFieldIntegrityService } from './link-field.service';
@@ -44,6 +45,7 @@ export class LinkIntegrityService {
     private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
     private readonly fieldService: FieldService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -161,10 +163,43 @@ export class LinkIntegrityService {
       });
     }
 
+    const primaryLookupIssues = await this.checkInvalidPrimaryLookup(baseId);
+    if (primaryLookupIssues.length > 0) {
+      linkFieldIssues.push({
+        baseId: mainBase.id,
+        baseName: mainBase.name,
+        issues: primaryLookupIssues,
+      });
+    }
+
     return {
       hasIssues: linkFieldIssues.length > 0,
       linkFieldIssues,
     };
+  }
+
+  private async checkInvalidPrimaryLookup(baseId: string): Promise<IIntegrityIssue[]> {
+    const fields = await this.prismaService.field.findMany({
+      where: {
+        deletedTime: null,
+        isPrimary: true,
+        isLookup: true,
+        table: { baseId, deletedTime: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        tableId: true,
+        table: { select: { name: true } },
+      },
+    });
+
+    return fields.map((f) => ({
+      fieldId: f.id,
+      tableId: f.tableId,
+      type: IntegrityIssueType.InvalidPrimaryLookup,
+      message: `Primary field "${f.name}" in table "${f.table.name}" is incorrectly configured as a lookup field, which breaks base duplication. Fixing will add a new formula field that mirrors the current value and promote it to primary; the original lookup field will be kept and renamed with a "(before-fix)" suffix.`,
+    }));
   }
 
   private async checkReferenceField(baseId: string): Promise<IIntegrityIssue[]> {
@@ -859,6 +894,11 @@ export class LinkIntegrityService {
             result && fixResults.push(result);
             break;
           }
+          case IntegrityIssueType.InvalidPrimaryLookup: {
+            const result = await this.fixInvalidPrimaryLookup(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
           default:
             break;
         }
@@ -883,6 +923,64 @@ export class LinkIntegrityService {
       type: IntegrityIssueType.InvalidLinkReference,
       fieldId,
       message: 'InvalidLinkReference fixed',
+    };
+  }
+
+  async fixInvalidPrimaryLookup(fieldId: string): Promise<IIntegrityIssue | undefined> {
+    const oldField = await this.prismaService.field.findFirst({
+      where: {
+        id: fieldId,
+        deletedTime: null,
+        isPrimary: true,
+        isLookup: true,
+      },
+      select: { id: true, name: true, tableId: true },
+    });
+    if (!oldField) return;
+
+    // Strategy: additive fix, atomic via a single outer $tx — inner $tx calls from
+    // updateField / createField reuse the same transaction, so any failure rolls back all
+    // partial mutations (rename / isPrimary demote / new formula / isPrimary promote).
+    //   1. Rename old field (service — emits ShareDB ops so clients see the change).
+    //   2. Demote old field's isPrimary (direct DB — no service for primary toggle).
+    //   3. Create a new formula field with the original name via service; expression references
+    //      the old field so values stay in sync.
+    //   4. Promote the new field's isPrimary (direct DB — no service for primary toggle).
+    // The old lookup field is preserved so existing references (link preview
+    // `options.lookupFieldId`, downstream lookups/rollups/formulas) keep working.
+
+    const legacyName = `${oldField.name} (before-fix)`;
+
+    const newFieldId = await this.prismaService.$tx(async (prisma) => {
+      await this.fieldOpenApiService.updateField(oldField.tableId, oldField.id, {
+        name: legacyName,
+      });
+
+      await prisma.field.update({
+        where: { id: oldField.id },
+        data: { isPrimary: null },
+      });
+
+      const newField = await this.fieldOpenApiService.createField(oldField.tableId, {
+        type: FieldType.Formula,
+        name: oldField.name,
+        options: {
+          expression: `{${oldField.id}}`,
+        },
+      });
+
+      await prisma.field.update({
+        where: { id: newField.id },
+        data: { isPrimary: true },
+      });
+
+      return newField.id;
+    });
+
+    return {
+      type: IntegrityIssueType.InvalidPrimaryLookup,
+      fieldId,
+      message: `Added formula field "${oldField.name}" (${newFieldId}) as new primary. Original lookup field renamed to "${legacyName}" (${oldField.id}) and can be removed after verifying the new primary.`,
     };
   }
 

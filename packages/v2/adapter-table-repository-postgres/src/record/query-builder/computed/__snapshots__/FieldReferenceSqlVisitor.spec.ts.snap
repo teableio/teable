@@ -38,28 +38,10 @@ exports[`FieldReferenceSqlVisitor > JSON fields with display value extraction > 
 
 exports[`FieldReferenceSqlVisitor > link fields > should aggregate titles from multi-value link field 1`] = `
 {
-  "isArray": false,
-  "lateralCalls": [
-    {
-      "columnType": {
-        "isMultiValue": true,
-        "lookupFieldId": FieldId {
-          "value": "fldtttttttttttttttt",
-        },
-        "orderBy": {
-          "column": "__fk_fldyyyyyyyyyyyyyyyy_order",
-          "source": "foreign",
-        },
-        "type": "link",
-      },
-      "foreignTableId": "tblffffffffffffffff",
-      "linkFieldId": "fldllllllllllllllll",
-      "outputAlias": "col_link_multiple",
-      "type": "addColumn",
-    },
-  ],
+  "isArray": true,
+  "lateralCalls": [],
   "storageKind": "json",
-  "valueSql": ""lat_0"."col_link_multiple"",
+  "valueSql": ""t"."col_link_multiple"",
   "valueType": "unknown",
 }
 `;
@@ -67,24 +49,9 @@ exports[`FieldReferenceSqlVisitor > link fields > should aggregate titles from m
 exports[`FieldReferenceSqlVisitor > link fields > should extract title from single-value link field 1`] = `
 {
   "isArray": false,
-  "lateralCalls": [
-    {
-      "columnType": {
-        "isMultiValue": false,
-        "lookupFieldId": FieldId {
-          "value": "fldtttttttttttttttt",
-        },
-        "orderBy": undefined,
-        "type": "link",
-      },
-      "foreignTableId": "tblffffffffffffffff",
-      "linkFieldId": "fldkkkkkkkkkkkkkkkk",
-      "outputAlias": "col_link_single",
-      "type": "addColumn",
-    },
-  ],
+  "lateralCalls": [],
   "storageKind": "json",
-  "valueSql": ""lat_0"."col_link_single"",
+  "valueSql": ""t"."col_link_single"",
   "valueType": "unknown",
 }
 `;

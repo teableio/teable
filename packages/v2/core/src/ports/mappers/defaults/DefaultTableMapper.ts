@@ -114,6 +114,7 @@ import type {
   IRatingFieldOptionsDTO,
   IRollupFieldConfigDTO,
   IRollupFieldOptionsDTO,
+  ISelectFieldChoiceDTO,
   ISelectFieldOptionsDTO,
   ISingleLineTextFieldOptionsDTO,
   IUserFieldOptionsDTO,
@@ -137,6 +138,20 @@ const optional = <T>(
 ): Result<T | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
+};
+
+const deduplicateSelectChoiceDtos = (
+  choices: ReadonlyArray<ISelectFieldChoiceDTO>
+): ReadonlyArray<ISelectFieldChoiceDTO> => {
+  const seen = new Set<string>();
+  const deduped: ISelectFieldChoiceDTO[] = [];
+  for (const choice of choices) {
+    const name = choice.name.trim();
+    if (seen.has(name)) continue;
+    seen.add(name);
+    deduped.push(choice);
+  }
+  return deduped;
 };
 
 const parseFormulaFormatting = (
@@ -695,12 +710,23 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           innerOptions: unwrappedInner.innerOptions,
           innerOptionsPatch: field.innerOptionsPatch(),
         });
+        const {
+          innerType: _innerType,
+          innerOptions: _innerOptions,
+          ...innerShape
+        } = innerDto as
+          | (ITableFieldPersistenceDTO & {
+              innerType?: ITableFieldPersistenceDTO['type'];
+              innerOptions?: unknown;
+            })
+          | Record<string, unknown>;
 
         return {
-          ...innerDto,
+          ...innerShape,
           ...baseDto,
           id: field.id().toString(),
           name: field.name().toString(),
+          type: unwrappedInner.innerType ?? innerDto.type,
           isLookup: true,
           isConditionalLookup,
           lookupOptions: lookupOptionsWithRelationship,
@@ -1148,7 +1174,7 @@ export class DefaultTableMapper implements ITableMapper {
             })
             .with({ type: 'singleSelect' }, (dto) => {
               const optionsDto = dto.options ?? { choices: [] };
-              const choices = optionsDto.choices ?? [];
+              const choices = deduplicateSelectChoiceDtos(optionsDto.choices ?? []);
               return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
                 (options) =>
                   optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
@@ -1170,7 +1196,7 @@ export class DefaultTableMapper implements ITableMapper {
             })
             .with({ type: 'multipleSelect' }, (dto) => {
               const optionsDto = dto.options ?? { choices: [] };
-              const choices = optionsDto.choices ?? [];
+              const choices = deduplicateSelectChoiceDtos(optionsDto.choices ?? []);
               return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
                 (options) =>
                   optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(

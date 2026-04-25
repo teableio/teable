@@ -7,6 +7,7 @@ import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -103,6 +104,23 @@ export class GeneratedColumnRule implements ISchemaRule {
       }
 
       return ok({ valid: true });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will rebuild the generated column for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair drops and recreates the physical column from its system source column. User-visible values are recalculated from underlying system data, so ad-hoc values that had drifted in the physical column will be discarded.',
+      },
     });
   }
 

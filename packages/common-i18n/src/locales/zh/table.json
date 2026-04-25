@@ -256,6 +256,7 @@
       "reset": "清空",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
+      "fieldUnavailable": "字段当前不可用，请刷新表格后重试。",
       "confirmFieldChange": "确认字段变更",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
@@ -832,7 +833,8 @@
         "ReferenceFieldNotFound": "引用字段不存在",
         "UniqueIndexNotFound": "唯一索引不存在",
         "EmptyString": "存在空字符串单元格",
-        "InvalidFilterOperator": "无效的筛选操作符"
+        "InvalidFilterOperator": "无效的筛选操作符",
+        "InvalidPrimaryLookup": "主字段被错误配置为 Lookup"
       }
     },
     "index": {
@@ -1353,7 +1355,10 @@
     },
     "retry": {
       "interrupted": "响应已中断",
-      "button": "重试"
+      "button": "重试",
+      "offline": "当前无网络连接，恢复后将自动重试。",
+      "pausedHidden": "已暂停重试，请切回此标签页以重新连接。",
+      "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
     "guide": {
       "goToScenario": "跳转到场景 {{index}}"
