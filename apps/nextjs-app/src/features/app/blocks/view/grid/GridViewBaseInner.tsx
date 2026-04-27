@@ -190,7 +190,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
   const { shareId } = useShareContext();
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
-  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
+  const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields } =
+    useGridSearchStore();
+  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns(
+    undefined,
+    undefined,
+    highlightedFieldId
+  );
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
@@ -232,7 +238,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
-  const { setGridRef, searchCursor, setRecordMap, setFields } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
   const [cellErrors, setCellErrors] = useState<ICellError[]>([]);

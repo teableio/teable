@@ -13,9 +13,11 @@ import {
   type Result,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { IClsStore } from '../../types/cls';
 import { presenceHandler } from '../base-node/helper';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
@@ -28,13 +30,18 @@ export class V2TableBaseNodeProjection
 {
   constructor(
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly shareDbService: ShareDbService
+    private readonly shareDbService: ShareDbService,
+    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>
   ) {}
 
   async handle(
     _context: IExecutionContext,
     event: TableCreated | TableTrashed | TableDeleted | TableRestored
   ): Promise<Result<void, DomainError>> {
+    const ignoreBaseNodeListener = this.cls.get('ignoreBaseNodeListener');
+    if (ignoreBaseNodeListener) {
+      return ok(undefined);
+    }
     const baseId = event.baseId.toString();
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
 
@@ -59,7 +66,8 @@ export class V2BaseNodeCompatService implements IV2ProjectionRegistrar {
 
   constructor(
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly shareDbService: ShareDbService
+    private readonly shareDbService: ShareDbService,
+    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>
   ) {}
 
   registerProjections(container: DependencyContainer): void {
@@ -67,7 +75,7 @@ export class V2BaseNodeCompatService implements IV2ProjectionRegistrar {
 
     container.registerInstance(
       V2TableBaseNodeProjection,
-      new V2TableBaseNodeProjection(this.performanceCacheService, this.shareDbService)
+      new V2TableBaseNodeProjection(this.performanceCacheService, this.shareDbService, this.cls)
     );
   }
 }
