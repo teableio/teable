@@ -109,29 +109,26 @@ export class DotTeaParser implements IDotTeaParser {
 
     const structure = structureResult.value;
 
-    // Build a map of field IDs to field types for dependency detection
-    const fieldTypesById = new Map<string, string>();
-    for (const table of structure.tables) {
-      for (const field of table.fields) {
-        if (field.id) {
-          fieldTypesById.set(field.id, field.type);
-        }
-      }
-    }
+    // Normalize all tables and their fields using table-local field IDs so
+    // legacy formulas that reference deleted fields can be downgraded safely.
+    const normalizedTables = structure.tables.map((table) => {
+      const tableFieldTypesById = new Map(
+        table.fields.filter((field) => field.id).map((field) => [field.id!, field.type] as const)
+      );
 
-    // Normalize all tables and their fields
-    const normalizedTables = structure.tables.map((table) => ({
-      ...(table.id ? { id: table.id } : {}),
-      name: table.name,
-      fields: table.fields.map((field) => normalizeField(field, fieldTypesById)),
-      views: table.views
-        ?.filter((view) => (view.type ? allowedViewTypes.has(view.type) : true))
-        .map((view) => ({
-          ...(view.id ? { id: view.id } : {}),
-          name: view.name,
-          type: view.type,
-        })),
-    }));
+      return {
+        ...(table.id ? { id: table.id } : {}),
+        name: table.name,
+        fields: table.fields.map((field) => normalizeField(field, tableFieldTypesById)),
+        views: table.views
+          ?.filter((view) => (view.type ? allowedViewTypes.has(view.type) : true))
+          .map((view) => ({
+            ...(view.id ? { id: view.id } : {}),
+            name: view.name,
+            type: view.type,
+          })),
+      };
+    });
 
     return ok({ tables: normalizedTables });
   }

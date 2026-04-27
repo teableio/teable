@@ -227,6 +227,7 @@ export class BaseService {
           spaceId,
           order,
           icon,
+          v2Enabled: true,
           createdBy: userId,
         },
         select: {
