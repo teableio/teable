@@ -138,6 +138,7 @@ export const v2SchemaIntegrityCheckStatusSchema = z.enum([
 
 export const v2SchemaIntegrityCheckResultSchema = z.object({
   id: z.string(),
+  baseId: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),
   fieldId: z.string(),
@@ -174,6 +175,7 @@ export const v2SchemaIntegrityRepairOutcomeSchema = z.enum([
 
 export const v2SchemaIntegrityRepairResultSchema = z.object({
   id: z.string(),
+  baseId: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),
   fieldId: z.string(),

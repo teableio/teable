@@ -12,6 +12,7 @@ import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { RecordId } from '../domain/table/records/RecordId';
 import { NoopRecordConditionSpecVisitor } from '../domain/table/records/specs/visitors/NoopRecordConditionSpecVisitor';
+import type { UserConditionSpec } from '../domain/table/records/specs/UserConditionSpec';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../domain/table/Table';
@@ -53,6 +54,16 @@ const buildTable = () => {
   return builder.build()._unsafeUnwrap();
 };
 
+const buildUserFilterTable = () => {
+  const builder = Table.builder()
+    .withBaseId(createBaseId('u'))
+    .withName(TableName.create('User Filter Records')._unsafeUnwrap());
+  builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+  builder.field().user().withName(FieldName.create('Assignee')._unsafeUnwrap()).done();
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
 const buildHostTableReferencing = (
   foreignTable: Table,
   relationship: 'manyMany' | 'oneMany' = 'oneMany',
@@ -90,6 +101,7 @@ class RecordingSpecVisitor extends NoopRecordConditionSpecVisitor {
   readonly visited: string[] = [];
   readonly incomingLinkSelectedModes: string[] = [];
   readonly incomingLinkCandidateModes: string[] = [];
+  readonly userValues: unknown[] = [];
 
   override visitIncomingLinkSelected(
     ...args: Parameters<NoopRecordConditionSpecVisitor['visitIncomingLinkSelected']>
@@ -112,6 +124,13 @@ class RecordingSpecVisitor extends NoopRecordConditionSpecVisitor {
   ) {
     this.visited.push(`recordByIds:${args[0].recordIds().length}`);
     return super.visitRecordByIds(...args);
+  }
+
+  override visitUserIs(spec: UserConditionSpec) {
+    this.visited.push('userIs');
+    const value = spec.value();
+    this.userValues.push(value && 'toValue' in value ? value.toValue() : value);
+    return super.visitUserIs(spec);
   }
 }
 
@@ -177,6 +196,63 @@ describe('ListTableRecordsHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expect(captured.spec).toBeDefined();
+  });
+
+  it('replaces Me in view filters with the current actor id', async () => {
+    const table = buildUserFilterTable();
+    const assigneeField = table
+      .getField((field) => field.name().toString() === 'Assignee')
+      ._unsafeUnwrap();
+    const view = table.views()[0]!;
+    const tableWithViewFilter = TableUpdateViewQueryDefaultsSpec.create([
+      {
+        viewId: view.id(),
+        queryDefaults: ViewQueryDefaults.create({
+          filter: {
+            conjunction: 'and',
+            items: [
+              {
+                fieldId: assigneeField.id().toString(),
+                operator: 'is',
+                value: 'Me',
+              },
+            ],
+          },
+        })._unsafeUnwrap(),
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    const context = createContext();
+    await tableRepository.insert(context, tableWithViewFilter);
+
+    const captured: { spec?: unknown } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, spec) => {
+        captured.spec = spec;
+        return ok({ records: [], total: 0 });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      viewId: view.id().toString(),
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(context, queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    const visitor = new RecordingSpecVisitor();
+    const acceptResult = (
+      captured.spec as {
+        accept: (visitor: RecordingSpecVisitor) => ReturnType<RecordingSpecVisitor['visit']>;
+      }
+    ).accept(visitor);
+    expect(acceptResult.isOk()).toBe(true);
+    expect(visitor.userValues).toEqual([context.actorId.toString()]);
   });
 
   it('drops filters for disabled fields from the permission read source', async () => {
