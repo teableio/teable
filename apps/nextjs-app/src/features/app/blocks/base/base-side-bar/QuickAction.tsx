@@ -200,13 +200,13 @@ export const QuickAction = () => {
                   setOpen(false);
                   setting.setOpen(true);
                 }}
-                value={t('common:settings.personal.title')}
-                keywords={[t('common:settings.personal.title')]}
+                value={t('common:settings.allSetting')}
+                keywords={[t('common:settings.allSetting')]}
               >
                 <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
                   <Settings className="size-full" />
                 </div>
-                <span>{t('common:settings.personal.title')}</span>
+                <span>{t('common:settings.allSetting')}</span>
               </CommandItem>
             </CommandGroup>
           )}
