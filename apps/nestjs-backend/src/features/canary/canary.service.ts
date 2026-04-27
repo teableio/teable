@@ -10,6 +10,11 @@ export interface IV2Decision {
   reason: V2Reason;
 }
 
+export interface IBaseV2DecisionContext {
+  spaceId?: string | null;
+  v2Enabled?: boolean | null;
+}
+
 @Injectable()
 export class CanaryService {
   constructor(
@@ -34,7 +39,7 @@ export class CanaryService {
 
   /**
    * Check if V2 is forced globally via environment variable (FORCE_V2_ALL=true)
-   * This has the highest priority over all other settings
+   * This is the fallback priority for bases that are not explicitly marked as new-base V2.
    */
   isForceV2AllEnabled(): boolean {
     return process.env.FORCE_V2_ALL === 'true';
@@ -86,7 +91,7 @@ export class CanaryService {
   /**
    * Determine if V2 implementation should be used for a specific feature
    * Priority:
-   * 1. FORCE_V2_ALL env var (highest priority, bypasses all checks)
+   * 1. FORCE_V2_ALL env var (highest priority for space-only checks)
    * 2. If canary feature is disabled globally, return false
    * 3. forceV2All in config (database setting)
    * 4. x-canary header override
@@ -128,11 +133,28 @@ export class CanaryService {
   }
 
   /**
+   * New bases are V2-first regardless of canary, request headers, or rollout config.
+   * Unsupported features still do not call this path because they have no @UseV2Feature marker.
+   */
+  async shouldUseV2ForBaseWithReason(
+    base: IBaseV2DecisionContext | null | undefined,
+    feature: V2Feature
+  ): Promise<IV2Decision> {
+    if (base?.v2Enabled) {
+      return { useV2: true, reason: 'new_base' };
+    }
+
+    return base?.spaceId
+      ? this.shouldUseV2WithReason(base.spaceId, feature)
+      : this.shouldUseV2WithReason('', feature);
+  }
+
+  /**
    * Determine if V2 implementation should be used for a specific feature,
    * with detailed reason information.
    *
    * Priority:
-   * 1. FORCE_V2_ALL env var (highest priority, bypasses all checks)
+   * 1. FORCE_V2_ALL env var (highest priority for space-only checks)
    * 2. If canary feature is disabled globally, return false
    * 3. forceV2All in config (database setting)
    * 4. x-canary header override

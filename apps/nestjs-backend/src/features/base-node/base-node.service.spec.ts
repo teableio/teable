@@ -240,4 +240,43 @@ describe('BaseNodeService', () => {
       });
     });
   });
+
+  describe('getCreateTableV2Decision', () => {
+    it('uses the base v2 marker when deciding table creation routing', async () => {
+      const canaryService = {
+        shouldUseV2ForBaseWithReason: vi
+          .fn()
+          .mockResolvedValue({ useV2: true, reason: 'new_base' }),
+      };
+      const prismaService = {
+        txClient: vi.fn(() => ({
+          base: {
+            findUnique: vi.fn().mockResolvedValue({ spaceId: 'spc1', v2Enabled: true }),
+          },
+        })),
+      };
+      const routingService = new BaseNodeService(
+        {} as never,
+        {} as never,
+        prismaService as never,
+        {} as never,
+        {} as never,
+        { get: vi.fn(), set: vi.fn() } as never,
+        {} as never,
+        canaryService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+
+      const decision = await routingService.getCreateTableV2Decision(baseId);
+
+      expect(canaryService.shouldUseV2ForBaseWithReason).toHaveBeenCalledWith(
+        { spaceId: 'spc1', v2Enabled: true },
+        'createTable'
+      );
+      expect(decision).toEqual({ useV2: true, reason: 'new_base' });
+    });
+  });
 });
