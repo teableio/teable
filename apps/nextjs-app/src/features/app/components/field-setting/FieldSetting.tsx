@@ -139,6 +139,18 @@ export const FieldSetting = (props: IFieldSetting) => {
   const autoFillModeRef = useRef<AiAutoFillMode | null>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
+  const getEditFieldId = () => {
+    if (operator !== FieldOperator.Edit) {
+      return undefined;
+    }
+
+    return props.field?.id;
+  };
+
+  const notifyMissingEditField = () => {
+    toast.error(t('table:field.editor.fieldUnavailable'));
+  };
+
   // Fetch field stats (empty/filled count) for AI field dialog
   const fetchFieldStats = async (fieldId: string) => {
     if (!tableId) return;
@@ -242,9 +254,12 @@ export const FieldSetting = (props: IFieldSetting) => {
       }
 
       if (operator === FieldOperator.Edit) {
-        const fieldId = props.field?.id;
+        const fieldId = getEditFieldId();
         if (tableId && fieldId) {
           result = await convertField({ tableId, fieldId, fieldRo: field });
+        } else {
+          notifyMissingEditField();
+          return;
         }
       }
 
@@ -264,7 +279,13 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
-      return await planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo });
+      const fieldId = getEditFieldId();
+      if (!fieldId) {
+        notifyMissingEditField();
+        return;
+      }
+
+      return await planFieldConvert({ tableId, fieldId, fieldRo });
     }
     return await planFieldCreate({ tableId, fieldRo });
   };
@@ -298,6 +319,9 @@ export const FieldSetting = (props: IFieldSetting) => {
     }
 
     const plan = await getPlan(fieldRo);
+    if (!plan) {
+      return;
+    }
     setFieldRo(fieldRo);
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
@@ -314,6 +338,9 @@ export const FieldSetting = (props: IFieldSetting) => {
     autoFillModeRef.current = mode;
 
     const plan = await getPlan(fieldRo);
+    if (!plan) {
+      return;
+    }
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
@@ -392,6 +419,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const isMissingEditField = operator === FieldOperator.Edit && !originField?.id;
 
   useEffect(() => {
     if (updateCount > 0) {
@@ -428,6 +456,11 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
   };
 
   const onSave = async () => {
+    if (isMissingEditField) {
+      toast.error(t('table:field.editor.fieldUnavailable'));
+      return;
+    }
+
     if (operator === FieldOperator.Edit && !updateCount) {
       onConfirm?.();
       return;
@@ -523,7 +556,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
               <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button size={'sm'} onClick={onSave} disabled={isSaving}>
+              <Button size={'sm'} onClick={onSave} disabled={isSaving || isMissingEditField}>
                 {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
               </Button>
             </div>

@@ -20,8 +20,8 @@ export const isSystemFileIcon = (mimetype: string) => {
 
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0B';
-  const units = ['B', 'k', 'M', 'G', 'T'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const units = ['B', 'k', 'M', 'G', 'T', 'P', 'E'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / Math.pow(1024, i);
   const formatted = value < 10 ? value.toFixed(1) : Math.round(value).toString();
   return `${formatted}${units[i]}`;

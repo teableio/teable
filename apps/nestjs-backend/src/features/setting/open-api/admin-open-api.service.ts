@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Session } from 'node:inspector';
 import { Readable } from 'node:stream';
 import {
@@ -41,11 +42,11 @@ export class AdminOpenApiService {
   }
 
   async repairTableAttachmentThumbnail() {
-    // once handle 1000 attachments
     const take = 1000;
     let total = 0;
-    for (let skip = 0; ; skip += take) {
-      const sqlNative = this.knex('attachments_table')
+    let lastToken: string | null = null;
+    for (;;) {
+      const query = this.knex('attachments_table')
         .select(
           'attachments.token',
           'attachments.height',
@@ -53,13 +54,29 @@ export class AdminOpenApiService {
           'attachments.path'
         )
         .leftJoin('attachments', 'attachments_table.token', 'attachments.token')
-        .whereNotNull('attachments.height')
+        .where((qb) =>
+          qb
+            .where((image) =>
+              image
+                .where('attachments.mimetype', 'like', 'image/%')
+                .whereNotNull('attachments.height')
+            )
+            .orWhereIn('attachments.mimetype', ['application/pdf', 'application/x-pdf'])
+        )
         .whereNull('attachments.deleted_time')
         .whereNull('attachments.thumbnail_path')
-        .limit(take)
-        .offset(skip)
-        .toSQL()
-        .toNative();
+        .groupBy(
+          'attachments.token',
+          'attachments.height',
+          'attachments.mimetype',
+          'attachments.path'
+        )
+        .orderBy('attachments.token')
+        .limit(take);
+      if (lastToken) {
+        query.where('attachments.token', '>', lastToken);
+      }
+      const sqlNative = query.toSQL().toNative();
       const attachments = await this.prismaService.$queryRawUnsafe<
         { token: string; height?: number; mimetype: string; path: string }[]
       >(sqlNative.sql, ...sqlNative.bindings);
@@ -67,6 +84,7 @@ export class AdminOpenApiService {
       if (attachments.length === 0) {
         break;
       }
+      lastToken = attachments[attachments.length - 1].token;
       total += attachments.length;
       await this.attachmentsCropQueueProcessor.queue.addBulk(
         attachments.map((attachment) => ({
