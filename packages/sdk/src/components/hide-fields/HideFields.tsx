@@ -9,8 +9,9 @@ import { HideFieldsBase } from './HideFieldsBase';
 
 export const HideFields: React.FC<{
   footer?: React.ReactNode;
+  onFieldClick?: (field: IFieldInstance) => void;
   children: (text: string, isActive: boolean) => React.ReactNode;
-}> = ({ footer, children }) => {
+}> = ({ footer, onFieldClick, children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true, withDenied: true });
   const view = useView() as GridView | undefined;
@@ -79,6 +80,7 @@ export const HideFields: React.FC<{
       hidden={hiddenFieldIds}
       onChange={onChange}
       onOrderChange={onOrderChange}
+      onFieldClick={onFieldClick}
     >
       {children(
         hiddenCount ? t('hidden.configLabel_other', { count: hiddenCount }) : t('hidden.label'),
