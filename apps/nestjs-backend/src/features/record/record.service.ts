@@ -2140,6 +2140,9 @@ export class RecordService {
               return false;
             }
             if (isSearchAllFields) {
+              if (field.cellValueType === CellValueType.DateTime) {
+                return false;
+              }
               if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
                 return false;
               }

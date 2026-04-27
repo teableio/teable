@@ -37,6 +37,7 @@ import {
   CheckCircle2,
   Clock,
   Columns3,
+  ExternalLink,
   Info,
   Loader2,
   RefreshCcw,
@@ -44,6 +45,7 @@ import {
   Wrench,
   XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
@@ -952,11 +954,13 @@ const IntegrityGroupCard = ({
 
 const IntegrityTableCard = ({
   group,
+  baseId,
   isRunning,
   activeRepairResultId,
   onRepairRule,
 }: {
   group: TableResultGroup;
+  baseId?: string;
   isRunning: boolean;
   activeRepairResultId?: string | null;
   onRepairRule?: (
@@ -965,6 +969,11 @@ const IntegrityTableCard = ({
   ) => Promise<boolean>;
 }) => {
   const displayState = getGroupDisplayState(group.results);
+  const tableHref =
+    (group.baseId || baseId) && group.tableId
+      ? `/base/${group.baseId || baseId}/table/${group.tableId}`
+      : undefined;
+  const tableLabel = group.tableName || group.tableId;
 
   return (
     <section className="rounded-xl border border-border bg-background">
@@ -972,9 +981,17 @@ const IntegrityTableCard = ({
         <div className="flex min-w-0 items-center gap-3">
           <HeaderTypeIcon type="table" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-950">
-              {group.tableName || group.tableId}
-            </div>
+            {tableHref ? (
+              <Link
+                href={tableHref}
+                className="inline-flex max-w-full items-center gap-1.5 text-sm font-semibold text-slate-950 underline-offset-4 hover:text-primary hover:underline"
+              >
+                <span className="truncate">{tableLabel}</span>
+                <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+              </Link>
+            ) : (
+              <div className="truncate text-sm font-semibold text-slate-950">{tableLabel}</div>
+            )}
             {group.tableId ? (
               <div className="truncate font-mono text-xs text-slate-500">{group.tableId}</div>
             ) : null}
@@ -1001,6 +1018,7 @@ const IntegrityTableCard = ({
 
 export const IntegrityResultsPanel = ({
   scope,
+  baseId,
   tableGroups,
   groupedResults,
   hasRun,
@@ -1012,6 +1030,7 @@ export const IntegrityResultsPanel = ({
   onRepairRule,
 }: {
   scope: IntegrityScope;
+  baseId?: string;
   tableGroups: TableResultGroup[];
   groupedResults: ResultGroup[];
   hasRun: boolean;
@@ -1074,6 +1093,7 @@ export const IntegrityResultsPanel = ({
           <IntegrityTableCard
             key={group.tableId || group.tableName}
             group={group}
+            baseId={baseId}
             isRunning={isRunning}
             activeRepairResultId={activeRepairResultId}
             onRepairRule={onRepairRule}

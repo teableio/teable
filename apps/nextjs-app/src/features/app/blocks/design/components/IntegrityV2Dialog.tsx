@@ -337,6 +337,7 @@ export const IntegrityV2Dialog = ({
         <ScrollArea className="min-h-0 flex-1 px-6 py-4">
           <IntegrityResultsPanel
             scope={scope}
+            baseId={baseId}
             tableGroups={tableGroups}
             groupedResults={groupedResults}
             hasRun={hasRun}

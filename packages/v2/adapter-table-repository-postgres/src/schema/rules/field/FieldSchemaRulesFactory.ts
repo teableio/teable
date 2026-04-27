@@ -44,6 +44,7 @@ import { LinkValueColumnRule } from './LinkValueColumnRule';
 import { NotNullConstraintRule } from './NotNullConstraintRule';
 import { OrderColumnRule } from './OrderColumnRule';
 import { ReferenceRule } from './ReferenceRule';
+import { SelectOptionsMetaRule } from './SelectOptionsMetaRule';
 import { UniqueIndexRule } from './UniqueIndexRule';
 
 /**
@@ -156,13 +157,13 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   visitSingleSelectField(
     field: SingleSelectField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok(ColumnExistsRule.createRulesFromField(field));
+    return ok([...ColumnExistsRule.createRulesFromField(field), new SelectOptionsMetaRule(field)]);
   }
 
   visitMultipleSelectField(
     field: MultipleSelectField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok(ColumnExistsRule.createRulesFromField(field));
+    return ok([...ColumnExistsRule.createRulesFromField(field), new SelectOptionsMetaRule(field)]);
   }
 
   visitCheckboxField(field: CheckboxField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
