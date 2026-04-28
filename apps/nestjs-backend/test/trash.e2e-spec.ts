@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITrashItemVo } from '@teable/openapi';
 import {
   getTrash,
@@ -43,18 +44,32 @@ const waitForBaseTrashItems = async (baseId: string, expectedCount = 1, maxRetri
 describe('Trash (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
+  let prisma: PrismaService;
 
   let awaitWithSpaceEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithBaseEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithTableEvent: <T>(fn: () => Promise<T>) => Promise<T>;
-  const awaitWithTableDeleteSync = async <T>(fn: () => Promise<T>) =>
-    isForceV2 ? await fn() : awaitWithTableEvent(fn);
+  const isBaseV2Mode = async (baseId: string) => {
+    if (isForceV2) {
+      return true;
+    }
+
+    const base = await prisma.base.findUnique({
+      where: { id: baseId },
+      select: { v2Enabled: true },
+    });
+    return Boolean(base?.v2Enabled);
+  };
+
+  const awaitWithTableDeleteSync = async <T>(baseId: string, fn: () => Promise<T>) =>
+    (await isBaseV2Mode(baseId)) ? await fn() : awaitWithTableEvent(fn);
 
   beforeAll(async () => {
     const appCtx = await initApp();
 
     app = appCtx.app;
     eventEmitterService = app.get(EventEmitterService);
+    prisma = app.get(PrismaService);
 
     awaitWithSpaceEvent = createAwaitWithEvent(eventEmitterService, Events.SPACE_DELETE);
     awaitWithBaseEvent = createAwaitWithEvent(eventEmitterService, Events.BASE_DELETE);
@@ -100,7 +115,7 @@ describe('Trash (e2e)', () => {
 
     it('should retrieve trash items for base when a table is deleted', async () => {
       const tableId = (await createTable(baseId, {})).id;
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId));
 
       const res = await waitForBaseTrashItems(baseId, 1);
 
@@ -120,7 +135,7 @@ describe('Trash (e2e)', () => {
         },
       });
 
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, foreignTableId));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, foreignTableId));
 
       const res = await waitForBaseTrashItems(baseId, 1);
 
@@ -167,7 +182,7 @@ describe('Trash (e2e)', () => {
     });
 
     it('should restore table successfully', async () => {
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId));
 
       const trash = (await waitForBaseTrashItems(baseId, 1)).data;
       const restored = await restoreTrash(trash.trashItems[0].id);
@@ -176,15 +191,27 @@ describe('Trash (e2e)', () => {
     });
 
     it('should expose restore-table canary headers when restoring a table trash item', async () => {
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId));
 
       const trash = (await waitForBaseTrashItems(baseId, 1)).data;
-      const restored = await restoreTrash(trash.trashItems[0].id);
+      const previousForceV2All = process.env.FORCE_V2_ALL;
+      const restored = await (async () => {
+        process.env.FORCE_V2_ALL = 'true';
+        try {
+          return await restoreTrash(trash.trashItems[0].id);
+        } finally {
+          if (previousForceV2All == null) {
+            delete process.env.FORCE_V2_ALL;
+          } else {
+            process.env.FORCE_V2_ALL = previousForceV2All;
+          }
+        }
+      })();
 
       expect(restored.status).toEqual(201);
-      expect(restored.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(restored.headers['x-teable-v2']).toBe('true');
       expect(restored.headers['x-teable-v2-feature']).toBe('restoreTable');
-      expect(restored.headers['x-teable-v2-reason']).toBeTruthy();
+      expect(restored.headers['x-teable-v2-reason']).toBe('new_base');
     });
   });
 
@@ -210,9 +237,9 @@ describe('Trash (e2e)', () => {
       const tableId2 = (await createTable(baseId, {})).id;
       const tableId3 = (await createTable(baseId, {})).id;
 
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId1));
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId2));
-      await awaitWithTableDeleteSync(() => deleteTable(baseId, tableId3));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId1));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId2));
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId3));
 
       const trash = (await waitForBaseTrashItems(baseId, 3)).data;
 
