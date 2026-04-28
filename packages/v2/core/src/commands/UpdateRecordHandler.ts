@@ -316,14 +316,17 @@ export class UpdateRecordHandler
 
       // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
       const changes: RecordFieldChangeDTO[] = [];
+      const mutationApplied = mutationResult.mutation.mutationApplied !== false;
       const changedFieldValues = new Map<string, unknown>(
         mutationResult.mutation.changedFields ?? []
       );
-      for (const entry of updatedRecord.fields().entries()) {
-        const fieldId = entry.fieldId.toString();
-        const newValue = entry.value.toValue();
-        if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
-          changedFieldValues.set(fieldId, newValue);
+      if (mutationApplied) {
+        for (const entry of updatedRecord.fields().entries()) {
+          const fieldId = entry.fieldId.toString();
+          const newValue = entry.value.toValue();
+          if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+            changedFieldValues.set(fieldId, newValue);
+          }
         }
       }
       const updatedFieldValues =

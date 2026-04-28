@@ -10,6 +10,36 @@ const createFieldId = () => {
   return `fld${suffix}`;
 };
 
+const getDbTableName = async (ctx: SharedTestContext, tableId: string) => {
+  const tableMeta = await ctx.testContainer.db
+    .selectFrom('table_meta')
+    .select('db_table_name')
+    .where('id', '=', tableId)
+    .executeTakeFirst();
+
+  const dbTableName = tableMeta?.db_table_name;
+  if (!dbTableName) {
+    throw new Error(`Missing db_table_name for table ${tableId}`);
+  }
+
+  return dbTableName;
+};
+
+const getDbFieldName = async (ctx: SharedTestContext, fieldId: string) => {
+  const fieldMeta = await ctx.testContainer.db
+    .selectFrom('field')
+    .select('db_field_name')
+    .where('id', '=', fieldId)
+    .executeTakeFirst();
+
+  const dbFieldName = fieldMeta?.db_field_name;
+  if (!dbFieldName) {
+    throw new Error(`Missing db_field_name for field ${fieldId}`);
+  }
+
+  return dbFieldName;
+};
+
 describe('update-field: FORCE_V2_ALL regressions', () => {
   let ctx: SharedTestContext;
   let nameCounter = 0;
@@ -198,6 +228,114 @@ describe('update-field: FORCE_V2_ALL regressions', () => {
       } finally {
         if (tableId) {
           await ctx.deleteTable(tableId).catch(() => undefined);
+        }
+      }
+    }
+  );
+
+  test(
+    'converts text to formula using stored link title snapshot when foreign display is blank',
+    { timeout: 120_000 },
+    async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+
+      try {
+        const expectedTitle = 'Snapshot Title';
+        const foreignNameFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const formulaFieldId = createFieldId();
+
+        const foreignTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName('v1p-link-formula-foreign'),
+          fields: [
+            {
+              type: 'singleLineText',
+              id: foreignNameFieldId,
+              name: 'Name',
+              isPrimary: true,
+            },
+          ],
+        });
+        foreignTableId = foreignTable.id;
+
+        const foreignRecord = await ctx.createRecord(foreignTable.id, {
+          [foreignNameFieldId]: expectedTitle,
+        });
+
+        const hostTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName('v1p-link-formula-host'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: formulaFieldId, name: 'Formula Target' },
+          ],
+        });
+        hostTableId = hostTable.id;
+
+        const hostRecord = await ctx.createRecord(hostTable.id, {
+          Name: 'Host Row',
+          [formulaFieldId]: 'will convert',
+        });
+
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Linked Record',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignNameFieldId,
+            },
+          },
+        });
+
+        await ctx.updateRecord(hostTable.id, hostRecord.id, {
+          [linkFieldId]: { id: foreignRecord.id },
+        });
+        await ctx.drainOutbox();
+
+        const linkedRows = await ctx.listRecords(hostTable.id, { limit: 10, offset: 0 });
+        const linkedRow = linkedRows.find((record) => record.id === hostRecord.id);
+        expect(linkedRow?.fields[linkFieldId]).toEqual({
+          id: foreignRecord.id,
+          title: expectedTitle,
+        });
+
+        const foreignDbTableName = await getDbTableName(ctx, foreignTable.id);
+        const foreignNameDbFieldName = await getDbFieldName(ctx, foreignNameFieldId);
+        await sql`
+          UPDATE ${sql.table(foreignDbTableName)}
+          SET ${sql.ref(foreignNameDbFieldName)} = ${''}
+          WHERE "__id" = ${foreignRecord.id}
+        `.execute(ctx.testContainer.db);
+
+        await ctx.updateField({
+          tableId: hostTable.id,
+          fieldId: formulaFieldId,
+          field: {
+            type: 'formula',
+            name: 'Formula Target',
+            options: {
+              expression: `{${linkFieldId}}`,
+            },
+          },
+        });
+        await ctx.drainOutbox();
+
+        const records = await ctx.listRecords(hostTable.id, { limit: 10, offset: 0 });
+        const record = records.find((item) => item.id === hostRecord.id);
+        expect(record?.fields[formulaFieldId]).toBe(expectedTitle);
+      } finally {
+        if (hostTableId) {
+          await ctx.deleteTable(hostTableId).catch(() => undefined);
+        }
+        if (foreignTableId) {
+          await ctx.deleteTable(foreignTableId).catch(() => undefined);
         }
       }
     }
