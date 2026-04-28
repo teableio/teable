@@ -64,6 +64,14 @@ export const v2SchemaIntegrityDetailsSchema = z.object({
     )
     .optional(),
   statementCount: z.number().optional(),
+  statements: z
+    .array(
+      z.object({
+        sql: z.string(),
+        parameters: z.array(z.unknown()).optional(),
+      })
+    )
+    .optional(),
 });
 
 export const v2SchemaIntegrityI18nMessageSchema = z.object({
@@ -138,6 +146,7 @@ export const v2SchemaIntegrityCheckStatusSchema = z.enum([
 
 export const v2SchemaIntegrityCheckResultSchema = z.object({
   id: z.string(),
+  baseId: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),
   fieldId: z.string(),
@@ -174,6 +183,7 @@ export const v2SchemaIntegrityRepairOutcomeSchema = z.enum([
 
 export const v2SchemaIntegrityRepairResultSchema = z.object({
   id: z.string(),
+  baseId: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),
   fieldId: z.string(),

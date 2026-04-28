@@ -229,6 +229,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastRecordId: RecordId | undefined;
   lastMutateSpec: ICellValueSpec | undefined;
   omitUpdateSnapshot = false;
+  mutationApplied: boolean | undefined = true;
 
   async insert(
     _: IExecutionContext,
@@ -265,8 +266,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastMutateSpec = mutateSpec;
     return ok(
       this.omitUpdateSnapshot
-        ? {}
+        ? {
+            mutationApplied: this.mutationApplied,
+          }
         : {
+            mutationApplied: this.mutationApplied,
             updateSnapshot: {
               previous: {
                 recordId: recordId.toString(),
@@ -874,6 +878,57 @@ describe('UpdateRecordHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('record.update_snapshot.unavailable');
+  });
+
+  it('does not require an update snapshot when a stale no-op update was not persisted', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.omitUpdateSnapshot = true;
+    recordRepository.mutationApplied = false;
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, new FakeUnitOfWork()),
+      eventBus,
+      undoRedoService as unknown as UndoRedoStackService,
+      new FakeUnitOfWork()
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(false);
+    expect(undoRedoService.calls).toHaveLength(0);
   });
 
   it('event changes contain resolved values after typecast user field resolution', async () => {

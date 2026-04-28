@@ -4,6 +4,7 @@ import {
   FieldType,
   CellValueType,
   DbFieldType,
+  PRIMARY_SUPPORTED_TYPES,
   Relationship,
   DriverClient,
   getValidFilterOperators,
@@ -27,6 +28,7 @@ import { LinkFieldQueryService } from '../field/field-calculate/link-field-query
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { TableDomainQueryService } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { LinkFieldIntegrityService } from './link-field.service';
@@ -44,6 +46,7 @@ export class LinkIntegrityService {
     private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
     private readonly fieldService: FieldService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -161,10 +164,100 @@ export class LinkIntegrityService {
       });
     }
 
+    const invalidPrimaryIssues = await this.checkInvalidPrimary(baseId);
+    if (invalidPrimaryIssues.length > 0) {
+      linkFieldIssues.push({
+        baseId: mainBase.id,
+        baseName: mainBase.name,
+        issues: invalidPrimaryIssues,
+      });
+    }
+
+    const missingPrimaryIssues = await this.checkMissingPrimary(baseId);
+    if (missingPrimaryIssues.length > 0) {
+      linkFieldIssues.push({
+        baseId: mainBase.id,
+        baseName: mainBase.name,
+        issues: missingPrimaryIssues,
+      });
+    }
+
     return {
       hasIssues: linkFieldIssues.length > 0,
       linkFieldIssues,
     };
+  }
+
+  // Detect primary fields that break base duplication / symmetric link generation:
+  //   1. Lookup-ish primaries — isLookup, isConditionalLookup, or stray lookupOptions.
+  //      Origin: convertField path before T3367 (e.g. AI flipped Employee→lookup).
+  //   2. Unsupported-type primaries — link/checkbox/attachment/rollup as primary.
+  //      Origin: bulk createFieldsByRo (duplicate/import/AI), now blocked at the source.
+  // Both states make `findFirstOrThrow({tableId, isPrimary: true})` return a field that can't
+  // serve as a static lookupFieldId for symmetric links.
+  private async checkInvalidPrimary(baseId: string): Promise<IIntegrityIssue[]> {
+    const fields = await this.prismaService.field.findMany({
+      where: {
+        deletedTime: null,
+        isPrimary: true,
+        table: { baseId, deletedTime: null },
+        OR: [
+          { isLookup: true },
+          { isConditionalLookup: true },
+          { lookupOptions: { not: null } },
+          { type: { notIn: Array.from(PRIMARY_SUPPORTED_TYPES) } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: true,
+        tableId: true,
+        table: { select: { name: true } },
+      },
+    });
+
+    return fields.map((f) => {
+      const isLookupish = f.isLookup || f.isConditionalLookup || f.lookupOptions !== null;
+      const type = isLookupish
+        ? IntegrityIssueType.InvalidPrimaryLookup
+        : IntegrityIssueType.InvalidPrimaryType;
+      const reason = isLookupish
+        ? 'is incorrectly configured as a lookup field'
+        : `has unsupported type "${f.type}"`;
+      return {
+        fieldId: f.id,
+        tableId: f.tableId,
+        type,
+        message: `Primary field "${f.name}" in table "${f.table.name}" ${reason}, which breaks base duplication. Fixing will demote it and promote an existing eligible field as primary; if no candidate qualifies, a new formula field mirroring the current value is added and the bad primary is renamed with a "(before-fix)" suffix.`,
+      };
+    });
+  }
+
+  // Detect tables that have no primary field at all. `field-supplement.generateSymmetricField`
+  // does `findFirstOrThrow({tableId, isPrimary: true})` when creating link fields during base
+  // duplication; a missing primary makes that throw.
+  private async checkMissingPrimary(baseId: string): Promise<IIntegrityIssue[]> {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+        fields: { none: { isPrimary: true, deletedTime: null } },
+      },
+      select: { id: true, name: true },
+    });
+
+    return tables.map((t) => ({
+      // fieldId is required by the schema; use tableId as a stable placeholder so the fix
+      // dispatcher can locate the table without a real field reference.
+      fieldId: t.id,
+      tableId: t.id,
+      type: IntegrityIssueType.MissingPrimary,
+      message: `Table "${t.name}" has no primary field, which breaks base duplication. Fixing will promote the first existing eligible field as primary, or add a new "Name" text field if none qualifies.`,
+    }));
   }
 
   private async checkReferenceField(baseId: string): Promise<IIntegrityIssue[]> {
@@ -859,6 +952,18 @@ export class LinkIntegrityService {
             result && fixResults.push(result);
             break;
           }
+          case IntegrityIssueType.InvalidPrimaryLookup:
+          case IntegrityIssueType.InvalidPrimaryType: {
+            const result = await this.fixInvalidPrimary(issue.fieldId, issue.type);
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.MissingPrimary: {
+            // For missing-primary issues fieldId carries the tableId (see checkMissingPrimary).
+            const result = await this.fixMissingPrimary(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
           default:
             break;
         }
@@ -884,6 +989,189 @@ export class LinkIntegrityService {
       fieldId,
       message: 'InvalidLinkReference fixed',
     };
+  }
+
+  async fixInvalidPrimary(
+    fieldId: string,
+    issueType: IntegrityIssueType
+  ): Promise<IIntegrityIssue | undefined> {
+    const oldField = await this.prismaService.field.findFirst({
+      where: {
+        id: fieldId,
+        deletedTime: null,
+        isPrimary: true,
+      },
+      select: { id: true, name: true, tableId: true },
+    });
+    if (!oldField) return;
+
+    // Strategy: atomic via outer $tx — inner $tx calls from updateField / createField reuse
+    // the same transaction, so any failure rolls back all partial mutations.
+    //   1. Demote the bad primary (direct DB — no service for primary toggle).
+    //   2. If the table still has a separate valid primary → keep it as-is (defensive).
+    //   3. Else if any field qualifies as primary → promote it directly.
+    //   4. Else fall back: rename the bad primary to "(before-fix)" so the original name
+    //      is free, then create + promote a formula field mirroring the old value.
+    // The old bad primary is always preserved so existing references (link preview
+    // `options.lookupFieldId`, downstream lookups/rollups/formulas) keep working.
+
+    const primaryFieldFilter = {
+      deletedTime: null,
+      isLookup: null,
+      isConditionalLookup: null,
+      lookupOptions: null,
+      type: { in: Array.from(PRIMARY_SUPPORTED_TYPES) },
+    };
+
+    const result = await this.prismaService.$tx(async (prisma) => {
+      // Demote the bad primary first. Rename is deferred — only the formula fallback path
+      // needs to free up the original name for the new field.
+      await prisma.field.update({
+        where: { id: oldField.id },
+        data: { isPrimary: null },
+      });
+
+      // Defensive: if a separate valid primary already exists in the table, leave it alone.
+      // Avoids leaving the table with multiple primaries (which the integrity check doesn't
+      // detect today). Production has zero such tables and validatePrimaryConfigurations
+      // blocks new ones, but this guards races / direct SQL writes / future regressions.
+      const existingValidPrimary = await prisma.field.findFirst({
+        where: { tableId: oldField.tableId, isPrimary: true, ...primaryFieldFilter },
+        select: { id: true, name: true },
+      });
+
+      if (existingValidPrimary) {
+        return { kind: 'kept' as const, field: existingValidPrimary };
+      }
+
+      // Prefer promoting an existing eligible candidate over creating a new formula field.
+      // Mirrors fixMissingPrimary's behavior — fewer artifact fields, simpler table shape.
+      // The promoted field's displayed value will replace the bad primary's value; the bad
+      // primary itself stays untouched (no rename needed since no name collision).
+      const candidate = await prisma.field.findFirst({
+        where: { tableId: oldField.tableId, ...primaryFieldFilter },
+        orderBy: { order: 'asc' },
+        select: { id: true, name: true },
+      });
+
+      if (candidate) {
+        await prisma.field.update({
+          where: { id: candidate.id },
+          data: { isPrimary: true },
+        });
+        return { kind: 'promoted' as const, field: candidate };
+      }
+
+      // Fallback: no eligible candidate exists. Rename the bad primary so the new formula
+      // field can take its name, then create the formula mirroring the original value.
+      const legacyName = `${oldField.name} (before-fix)`;
+      await this.fieldOpenApiService.updateField(oldField.tableId, oldField.id, {
+        name: legacyName,
+      });
+      const newField = await this.fieldOpenApiService.createField(oldField.tableId, {
+        type: FieldType.Formula,
+        name: oldField.name,
+        options: {
+          expression: `{${oldField.id}}`,
+        },
+      });
+
+      await prisma.field.update({
+        where: { id: newField.id },
+        data: { isPrimary: true },
+      });
+
+      return {
+        kind: 'created' as const,
+        field: { id: newField.id, name: oldField.name },
+        legacyName,
+      };
+    });
+
+    const baseMsg = `Demoted invalid primary "${oldField.name}" (id ${oldField.id}).`;
+    if (result.kind === 'kept') {
+      return {
+        type: issueType,
+        fieldId,
+        message: `${baseMsg} Existing valid primary "${result.field.name}" (${result.field.id}) preserved.`,
+      };
+    }
+    if (result.kind === 'promoted') {
+      return {
+        type: issueType,
+        fieldId,
+        message: `${baseMsg} Promoted existing field "${result.field.name}" (${result.field.id}) to primary.`,
+      };
+    }
+    return {
+      type: issueType,
+      fieldId,
+      message: `Demoted invalid primary "${oldField.name}" (renamed to "${result.legacyName}", id ${oldField.id}). Added new formula field "${result.field.name}" (${result.field.id}) as primary, mirroring the original value.`,
+    };
+  }
+
+  async fixMissingPrimary(tableId: string): Promise<IIntegrityIssue | undefined> {
+    const table = await this.prismaService.tableMeta.findFirst({
+      where: { id: tableId, deletedTime: null },
+      select: { id: true, name: true },
+    });
+    if (!table) return;
+
+    // Re-check inside the transaction to avoid racing with a concurrent promotion.
+    return this.prismaService.$tx(async () => {
+      const prisma = this.prismaService.txClient();
+      const existing = await prisma.field.findFirst({
+        where: { tableId, isPrimary: true, deletedTime: null },
+        select: { id: true },
+      });
+      if (existing) return undefined;
+
+      // Prefer promoting an existing valid candidate. Avoids leaving a stray "Name 2"
+      // alongside the user's existing fields and matches the natural intuition that
+      // the first usable column should be primary.
+      const candidate = await prisma.field.findFirst({
+        where: {
+          tableId,
+          deletedTime: null,
+          isLookup: null,
+          isConditionalLookup: null,
+          lookupOptions: null,
+          type: { in: Array.from(PRIMARY_SUPPORTED_TYPES) },
+        },
+        orderBy: { order: 'asc' },
+        select: { id: true, name: true },
+      });
+
+      if (candidate) {
+        await prisma.field.update({
+          where: { id: candidate.id },
+          data: { isPrimary: true },
+        });
+        return {
+          type: IntegrityIssueType.MissingPrimary,
+          fieldId: candidate.id,
+          tableId,
+          message: `Promoted existing field "${candidate.name}" (${candidate.id}) to primary in table "${table.name}".`,
+        };
+      }
+
+      // Fallback: no usable candidate (every field is link / checkbox / attachment /
+      // rollup / lookup-ish). Create a new "Name" text field as primary.
+      const newField = await this.fieldOpenApiService.createField(tableId, {
+        type: FieldType.SingleLineText,
+        name: 'Name',
+      });
+      await prisma.field.update({
+        where: { id: newField.id },
+        data: { isPrimary: true },
+      });
+      return {
+        type: IntegrityIssueType.MissingPrimary,
+        fieldId: newField.id,
+        tableId,
+        message: `Added "Name" text field (${newField.id}) as primary in table "${table.name}".`,
+      };
+    });
   }
 
   async fixOneWayLinkField(fieldId: string): Promise<IIntegrityIssue | undefined> {
