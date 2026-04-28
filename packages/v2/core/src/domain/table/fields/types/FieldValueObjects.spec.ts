@@ -24,7 +24,7 @@ import { SelectOptionId } from './SelectOptionId';
 import { SelectOptionName } from './SelectOptionName';
 import { validateSelectOptions } from './SelectOptions';
 import { TextDefaultValue } from './TextDefaultValue';
-import { TimeZone } from './TimeZone';
+import { TIME_ZONE_LIST, TimeZone, timeZoneValueSchema } from './TimeZone';
 import { UserDefaultValue } from './UserDefaultValue';
 import { UserId } from './UserId';
 import { UserMultiplicity } from './UserMultiplicity';
@@ -347,6 +347,36 @@ describe('TimeZone', () => {
     expect(TimeZone.create('Etc/GMT-8')._unsafeUnwrap().toString()).toBe('Etc/GMT-8');
     expect(TimeZone.create('Etc/GMT+8')._unsafeUnwrap().toString()).toBe('Etc/GMT+8');
     expect(TimeZone.create('Etc/UTC')._unsafeUnwrap().toString()).toBe('Etc/UTC');
+  });
+
+  it('accepts known IANA aliases supported by Intl', () => {
+    const aliases = [
+      'Africa/Asmera',
+      'America/Buenos_Aires',
+      'America/Catamarca',
+      'America/Ciudad_Juarez',
+      'America/Coral_Harbour',
+      'America/Cordoba',
+      'America/Coyhaique',
+      'America/Indianapolis',
+      'America/Jujuy',
+      'America/Louisville',
+      'America/Mendoza',
+      'Asia/Calcutta',
+      'Asia/Katmandu',
+      'Asia/Rangoon',
+      'Asia/Saigon',
+      'Atlantic/Faeroe',
+      'Europe/Kiev',
+      'Pacific/Ponape',
+      'Pacific/Truk',
+    ];
+
+    for (const alias of aliases) {
+      expect(TIME_ZONE_LIST).toContain(alias);
+      expect(TimeZone.create(alias)._unsafeUnwrap().toString()).toBe(alias);
+      expect(timeZoneValueSchema.parse(alias)).toBe(alias);
+    }
   });
 
   it('provides detailed error message for invalid timezone', () => {

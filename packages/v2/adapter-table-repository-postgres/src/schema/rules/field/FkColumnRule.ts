@@ -6,6 +6,7 @@ import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -79,6 +80,23 @@ export class FkColumnRule implements ISchemaRule {
         valid: exists,
         missing: exists ? [] : [`fk column ${columnName}`],
       });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will recreate the FK helper column for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair treats the current link-value column in the underlying table as the recovery source and only backfills rows where the FK helper column is still empty. Existing FK values are preserved. If the stored link values are already missing or stale, the missing relations cannot be fully reconstructed and linked displays may remain incomplete.',
+      },
     });
   }
 

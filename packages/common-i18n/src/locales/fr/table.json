@@ -632,6 +632,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Champ principal mal configuré comme Lookup",
+        "InvalidPrimaryType": "Le champ principal a un type non pris en charge",
+        "MissingPrimary": "La table n'a pas de champ principal"
       }
     },
     "index": {
@@ -1033,6 +1038,8 @@
       "advancedOptions": "Options avancées",
       "namingFieldLabel": "Préfixe du nom de pièce jointe",
       "selectField": "Par défaut: index de pièce jointe",
+      "noPrefixOption": "Sans préfixe",
+      "noPrefixOptionDesc": "Conserver le nom de fichier original",
       "groupByRow": "Archiver dans des dossiers",
       "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
     }

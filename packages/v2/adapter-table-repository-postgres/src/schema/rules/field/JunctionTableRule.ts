@@ -1,7 +1,7 @@
 import { domainError, type DomainError, type LinkField } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { sql } from 'kysely';
 
 import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
@@ -224,6 +224,23 @@ export class JunctionTableExistsRule implements ISchemaRule {
         valid: missing.length === 0,
         missing,
       });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will recreate the junction table for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair treats the current link-value column in the underlying source table as the recovery source. It recreates only the relation rows that can still be derived from those stored link values. Missing historical links cannot be recovered, and rebuilt ordering/display may follow the stored link-value order.',
+      },
     });
   }
 

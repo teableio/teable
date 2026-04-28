@@ -88,7 +88,7 @@ export const GeneralPage = () => {
               </div>
 
               {/* Space name */}
-              <div className="flex max-w-sm flex-col gap-y-1 overflow-visible">
+              <div className="flex w-full flex-col gap-y-2 overflow-visible sm:max-w-sm">
                 <label className="text-sm font-medium">{t('space:spaceSetting.spaceName')}</label>
                 {isEditing ? (
                   <Input
@@ -96,7 +96,6 @@ export const GeneralPage = () => {
                     onBlur={onBlur}
                     onKeyDown={onKeydown}
                     autoFocus
-                    size="lg"
                     className="px-3"
                   />
                 ) : (
@@ -104,21 +103,19 @@ export const GeneralPage = () => {
                     value={space.name}
                     readOnly
                     onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
-                    size="lg"
                     className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
                   />
                 )}
               </div>
 
               {/* Space ID */}
-              <div className="flex max-w-sm flex-col gap-y-1">
+              <div className="flex w-full flex-col gap-y-2 sm:max-w-sm">
                 <label className="text-sm font-medium">{t('space:spaceSetting.spaceId')}</label>
                 <div className="relative">
                   <Input
                     value={spaceId}
                     readOnly
                     tabIndex={-1}
-                    size="lg"
                     className="cursor-default px-3 pr-10"
                   />
                   <CopyButton

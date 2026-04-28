@@ -375,6 +375,20 @@ describe('OpenAPI TableController (e2e)', () => {
     expect(fields[2].type).toEqual(FieldType.LongText);
   });
 
+  it('should reject createTable when first field has unsupported primary type', async () => {
+    // Without the fix, the service would auto-promote a checkbox first field to primary
+    // (bypassing prepareCreateFields validation), persisting a bad-type primary.
+    await expect(
+      createTable(baseId, {
+        name: 'bad primary table',
+        fields: [
+          { name: 'Done', type: FieldType.Checkbox },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+      })
+    ).rejects.toThrow(/primary/i);
+  });
+
   it('should update table simple properties', async () => {
     const result = await createTable(baseId, {
       name: 'table',
