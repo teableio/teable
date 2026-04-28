@@ -241,7 +241,12 @@ export class ComputedUpdatePlanner {
   ): Promise<Result<ComputedBeforeImageRequirements, DomainError>> {
     return safeTry<ComputedBeforeImageRequirements, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
-        if (context.changeType === 'insert' || context.changedFieldIds.length === 0) {
+        const impactSeedFieldIds = collectImpactSeedFieldIds(
+          context.changedFieldIds,
+          context.impact
+        );
+
+        if (context.changeType === 'insert' || impactSeedFieldIds.length === 0) {
           return ok({
             needsBeforeImage: false,
             requiredFieldIds: [],
@@ -249,12 +254,12 @@ export class ComputedUpdatePlanner {
         }
 
         const graphData = yield* await this.graph.load(context.baseId, executionContext, {
-          requiredFieldIds: context.changedFieldIds,
+          requiredFieldIds: impactSeedFieldIds,
         });
         const { fieldsById, edges } = graphData;
 
         const impactResult = resolveUpdateImpact(fieldsById, {
-          changedFieldIds: context.changedFieldIds,
+          changedFieldIds: impactSeedFieldIds,
           changeType: context.changeType,
           impact: context.impact,
         });
@@ -266,7 +271,7 @@ export class ComputedUpdatePlanner {
             edges: collectRelevantEdgesForImpact(edges, impact),
             fieldsById,
             seedTableId: context.seedTableId,
-            changedFieldIds: context.changedFieldIds,
+            changedFieldIds: impactSeedFieldIds,
             changeType: context.changeType,
           })
         );
@@ -285,10 +290,14 @@ export class ComputedUpdatePlanner {
         // For INSERT, we need initial values for all stored computed fields, including those
         // that depend on "unprovided" (implicitly null) inputs, or have no dependencies at all.
         // Seed planning with all table fields so the incremental graph can include every computed field.
+        const impactSeedFieldIds = collectImpactSeedFieldIds(
+          context.changedFieldIds,
+          context.impact
+        );
         const planningSeedFieldIds =
           context.changeType === 'insert' && context.table
             ? context.table.getFields().map((field) => field.id())
-            : context.changedFieldIds;
+            : impactSeedFieldIds;
 
         const graphData = yield* await this.graph.load(context.baseId, executionContext, {
           requiredFieldIds: planningSeedFieldIds,
@@ -296,7 +305,10 @@ export class ComputedUpdatePlanner {
         const { fieldsById, edges } = graphData;
 
         const impactResult = resolveUpdateImpact(fieldsById, {
-          changedFieldIds: planningSeedFieldIds,
+          changedFieldIds:
+            context.changeType === 'insert' && context.table
+              ? planningSeedFieldIds
+              : impactSeedFieldIds,
           changeType: context.changeType,
           impact: context.impact,
         });
@@ -761,7 +773,7 @@ export class ComputedUpdatePlanner {
               .filter((group) => group.recordIds.length > 0)
               .map((group) => group.tableId.toString())
           ),
-          context.changedFieldIds,
+          impactSeedFieldIds,
           context.changeType,
           countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0,
           beforeImageRecords
@@ -833,6 +845,26 @@ export class ComputedUpdatePlanner {
     );
   }
 }
+
+const collectImpactSeedFieldIds = (
+  changedFieldIds: ReadonlyArray<FieldId>,
+  impact?: UpdateImpactHint
+): ReadonlyArray<FieldId> => {
+  if (!impact) return changedFieldIds;
+
+  const fieldIds = new Map<string, FieldId>();
+  for (const fieldId of changedFieldIds) {
+    fieldIds.set(fieldId.toString(), fieldId);
+  }
+  for (const fieldId of impact.valueFieldIds) {
+    fieldIds.set(fieldId.toString(), fieldId);
+  }
+  for (const fieldId of impact.linkFieldIds) {
+    fieldIds.set(fieldId.toString(), fieldId);
+  }
+
+  return [...fieldIds.values()];
+};
 
 const resolveUpdateImpact = (
   fieldsById: Map<string, FieldMeta>,

@@ -186,6 +186,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
   const treeItemsRef = useRef(treeItems);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const focusedNodeIdRef = useRef<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [expandedItemsMap, setExpandedItemsMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.BaseNodeTreeExpandedItems,
@@ -474,12 +475,18 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   ]);
 
   useEffect(() => {
-    if (selectedItems.length === 0) return;
     if (Object.keys(treeItems).length === 0) return;
-    const focusItem = tree.getItemInstance(selectedItems[0]);
+    if (selectedItems.length === 0) {
+      focusedNodeIdRef.current = null;
+      return;
+    }
+    const currentId = selectedItems[0];
+    if (focusedNodeIdRef.current === currentId) return;
+    const focusItem = tree.getItemInstance(currentId);
     if (focusItem) {
       focusItem.setFocused();
       focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
+      focusedNodeIdRef.current = currentId;
     }
   }, [selectedItems, tree, treeItems]);
 
