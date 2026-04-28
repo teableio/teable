@@ -42,6 +42,14 @@ export interface RecordUpdateSnapshot {
  */
 export interface RecordMutationResult {
   /**
+   * Whether the repository actually persisted a storage mutation.
+   *
+   * `false` is distinct from a missing snapshot: it means the requested mutation
+   * was skipped because storage already matched the desired state.
+   */
+  mutationApplied?: boolean;
+
+  /**
    * Final stored values for fields changed by this operation.
    * Map of fieldId -> persisted newValue.
    */

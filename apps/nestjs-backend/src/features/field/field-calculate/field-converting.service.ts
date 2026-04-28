@@ -7,10 +7,8 @@ import type {
   IConvertFieldRo,
   ILinkFieldOptions,
   FieldCore,
-  LinkFieldCore,
 } from '@teable/core';
 import {
-  CellValueType,
   ColorUtils,
   DbFieldType,
   FIELD_VO_PROPERTIES,
@@ -1488,10 +1486,7 @@ export class FieldConvertingService {
         select: { dbTableName: true, name: true },
       });
 
-    // index do not support date cell value type
-    if (newField.cellValueType !== CellValueType.DateTime) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
-    }
+    await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
 
     if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
       return;
@@ -1589,6 +1584,28 @@ export class FieldConvertingService {
           localization: {
             i18nKey: 'httpErrors.field.unsupportedPrimaryFieldType',
             context: { type: updateFieldRo.type },
+          },
+        }
+      );
+    }
+
+    // Primary fields must stay as regular (editable) fields. Converting a primary to a
+    // lookup / conditional-lookup produces a computed primary whose cell value is derived
+    // from a link, which in turn breaks base duplication (findFirstOrThrow for the foreign
+    // table's primary can't locate a valid static primary). See T3367.
+    // lookupOptions is included for symmetry with the createField guard — leaving stray
+    // lookupOptions on a primary is the same semantic corruption even without isLookup=true.
+    if (
+      oldField.isPrimary &&
+      (updateFieldRo.isLookup || updateFieldRo.isConditionalLookup || updateFieldRo.lookupOptions)
+    ) {
+      throw new CustomHttpException(
+        'Primary field cannot be configured as a lookup field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.primaryCannotBeLookup',
+            context: {},
           },
         }
       );
