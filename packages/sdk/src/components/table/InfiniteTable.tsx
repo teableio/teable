@@ -12,12 +12,22 @@ interface IInfiniteTableProps<T> {
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
   emptyText?: string;
+  density?: 'default' | 'compact';
 }
 
 export const InfiniteTable = <T extends { [key: string]: unknown }>(
   props: IInfiniteTableProps<T>
 ) => {
-  const { rows, columns, className, fetchNextPage, sorting, onSortingChange, emptyText } = props;
+  const {
+    rows,
+    columns,
+    className,
+    fetchNextPage,
+    sorting,
+    onSortingChange,
+    emptyText,
+    density = 'default',
+  } = props;
 
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
@@ -51,13 +61,15 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
     fetchMoreOnBottomReached(listRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const cellPaddingClass = density === 'compact' ? 'px-2.5' : 'px-4';
+
   return (
     <div
       ref={listRef}
       className={cn('relative size-full overflow-auto', className)}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
     >
-      <Table className="relative scroll-smooth">
+      <Table className="relative w-full scroll-smooth">
         <TableHeader className="sticky top-0 z-10 bg-muted">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
@@ -70,7 +82,11 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                 return (
                   <TableHead
                     key={header.id}
-                    className={cn('flex items-center px-4', isAutoSize ? 'flex-1' : 'truncate')}
+                    className={cn(
+                      'flex items-center',
+                      cellPaddingClass,
+                      isAutoSize ? 'min-w-0 flex-1' : 'truncate'
+                    )}
                     style={{
                       minWidth: header.column.columnDef.minSize,
                       width: isAutoSize ? undefined : width,
@@ -96,8 +112,9 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        'flex min-h-[40px] items-center px-4 overflow-hidden',
-                        isAutoSize && 'flex-1'
+                        'flex min-h-[40px] items-center overflow-hidden',
+                        cellPaddingClass,
+                        isAutoSize && 'min-w-0 flex-1'
                       )}
                       style={{
                         minWidth: cell.column.columnDef.minSize,

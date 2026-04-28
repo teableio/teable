@@ -25,10 +25,12 @@ const createField = (params: {
   name: string;
   type: string;
   accept: () => ReturnType<typeof ok> | ReturnType<typeof err>;
+  hasError?: boolean;
 }) => ({
   id: () => asId(params.id),
   name: () => asId(params.name),
   type: () => asId(params.type),
+  hasError: () => ({ isError: () => params.hasError === true }),
   accept: params.accept,
 });
 
@@ -187,5 +189,36 @@ describe('MetaChecker', () => {
     ]);
     expect(standaloneIssues).toEqual([{ fieldId: 'fld9', message: 'healthy' }]);
     expect(standaloneWithTablesIssues).toEqual([{ fieldId: 'fld9', message: 'healthy' }]);
+  });
+
+  it('skips fields already marked hasError in standalone table checks', async () => {
+    const { checkTableMetaWithTables } = await loadMetaCheckerModule();
+    const accept = vi.fn(() => ok([{ fieldId: 'fldBroken', message: 'should not emit' }]));
+    const table = createTable({
+      id: 'tblHasError',
+      name: 'Stories',
+      fields: [
+        createField({
+          id: 'fldBroken',
+          name: 'Broken Lookup',
+          type: 'lookup',
+          hasError: true,
+          accept,
+        }),
+      ],
+    });
+
+    mocks.createMetaValidationContextFromTables.mockReturnValue({ table });
+
+    const issues = await collect(
+      checkTableMetaWithTables(
+        table as never,
+        BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap(),
+        [table as never]
+      )
+    );
+
+    expect(issues).toEqual([]);
+    expect(accept).not.toHaveBeenCalled();
   });
 });

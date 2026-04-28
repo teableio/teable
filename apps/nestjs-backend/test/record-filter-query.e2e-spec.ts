@@ -157,8 +157,8 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       test.each(MULTIPLE_SELECT_FIELD_CASES)(testDesc, async (param) => doTest(table, param));
     });
 
-    describe('dateRange filter error cases', () => {
-      it('should throw error when start > end (invalid range)', async () => {
+    describe('dateRange invalid filters are skipped instead of crashing the query', () => {
+      it('skips when start > end (compiler-level validation)', async () => {
         const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidRange;
         const filter: IFilter = {
           filterSet: [
@@ -170,10 +170,11 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
           ],
           conjunction: and.value,
         };
-        await expect(getFilterRecord(table.id, table.views[0].id, filter)).rejects.toThrow();
+        const result = await getFilterRecord(table.id, table.views[0].id, filter);
+        expect(result.records.length).toBeGreaterThan(0);
       });
 
-      it('should throw error when dateRange is used with isNot operator', async () => {
+      it('skips when dateRange is used with isNot operator (analyzer-level validation)', async () => {
         const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidOperator;
         const filter: IFilter = {
           filterSet: [
@@ -185,7 +186,8 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
           ],
           conjunction: and.value,
         };
-        await expect(getFilterRecord(table.id, table.views[0].id, filter)).rejects.toThrow();
+        const result = await getFilterRecord(table.id, table.views[0].id, filter);
+        expect(result.records.length).toBeGreaterThan(0);
       });
     });
   });
