@@ -238,6 +238,19 @@ describe('FormulaFieldCore', () => {
       expect(converted).toBe('{fld123} + 1');
     });
 
+    it('should convert localized BLANK comparisons with spaced function calls', () => {
+      const dependFieldMap = {
+        fldWeight: { name: '入职体重(kg)' },
+      };
+
+      expect(
+        FormulaFieldCore.convertExpressionNameToId('{入职体重(kg)} !=BLANK()', dependFieldMap)
+      ).toBe('{fldWeight} !=BLANK()');
+      expect(
+        FormulaFieldCore.convertExpressionNameToId('{入职体重(kg)} != BLANK()', dependFieldMap)
+      ).toBe('{fldWeight} != BLANK()');
+    });
+
     it('should return current typed value with field context', () => {
       expect(FormulaFieldCore.getParsedValueType('2 + 2', {})).toEqual({
         cellValueType: CellValueType.Number,

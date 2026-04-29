@@ -11,6 +11,20 @@ export {
   type IMetaValidationContext,
 } from './MetaValidationContext';
 
+export {
+  createMetaRepairer,
+  getMetaIssueDetails,
+  getMetaRepairHint,
+  getMetaRuleId,
+  isMetaRuleId,
+  MetaRepairer,
+  metaRuleDescription,
+  metaRuleIdPrefix,
+  type MetaRepairerParams,
+  type MetaRepairOptions,
+  type MetaRepairTarget,
+} from './MetaRepairer';
+
 export type {
   MetaValidationCategory,
   MetaValidationSeverity,

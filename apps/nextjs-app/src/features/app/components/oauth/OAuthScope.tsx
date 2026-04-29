@@ -34,8 +34,10 @@ export const OAuthScope = (props: {
           if (!actionStaticMap) {
             return acc;
           }
+          const entry = actionStaticMap[scope as Action];
+          if (!entry) return acc;
           const prefix = scope.split('|')[0] as ActionPrefix;
-          const scopeDesc = actionStaticMap[scope as Action].description;
+          const scopeDesc = entry.description;
           if (acc[prefix]) {
             acc[prefix].push(scopeDesc);
           } else {

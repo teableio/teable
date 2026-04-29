@@ -171,6 +171,11 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   }
 
   visitTableDuplicateField(spec: TableDuplicateFieldSpec): Result<void, DomainError> {
+    const viewOrdersResult = this.collectViewOrders(spec.newField().id());
+    if (viewOrdersResult.isErr()) {
+      return err(viewOrdersResult.error);
+    }
+
     this.events.push(
       FieldDuplicated.create({
         tableId: this.table.id(),
@@ -178,6 +183,12 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
         sourceFieldId: spec.sourceField().id(),
         newFieldId: spec.newField().id(),
         includeRecordValues: spec.includeRecordValues(),
+      }),
+      FieldCreated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        fieldId: spec.newField().id(),
+        viewOrders: viewOrdersResult.value,
       })
     );
     return ok(undefined);
