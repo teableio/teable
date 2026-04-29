@@ -141,14 +141,10 @@ export class BaseNodeService {
 
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
-    if (!base?.spaceId) {
-      return { useV2: false, reason: 'disabled' };
-    }
-
-    return this.canaryService.shouldUseV2WithReason(base.spaceId, feature);
+    return this.canaryService.shouldUseV2ForBaseWithReason(base, feature);
   }
 
   async getDeleteTableV2Decision(baseId: string, nodeId: string): Promise<IV2Decision | undefined> {
@@ -158,14 +154,10 @@ export class BaseNodeService {
   async getCreateTableV2Decision(baseId: string): Promise<IV2Decision | undefined> {
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
-    if (!base?.spaceId) {
-      return { useV2: false, reason: 'disabled' };
-    }
-
-    return this.canaryService.shouldUseV2WithReason(base.spaceId, 'createTable');
+    return this.canaryService.shouldUseV2ForBaseWithReason(base, 'createTable');
   }
 
   private generateDefaultUrl(

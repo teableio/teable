@@ -34,17 +34,17 @@ export const SettingTabHeader = ({
   return (
     <div
       className={cn(
-        'flex w-full justify-between gap-4',
+        'flex w-full justify-between gap-6',
         hasDescription ? 'items-start' : 'items-center',
         className
       )}
     >
-      <div className={cn('flex flex-1 gap-2', hasDescription ? 'items-start' : 'items-center')}>
+      <div className={cn('flex flex-1 gap-3', hasDescription ? 'items-start' : 'items-center')}>
         {leading}
-        <div className="flex flex-col gap-1">
-          <div className={cn('text-base font-semibold leading-6', titleClassName)}>{title}</div>
+        <div className="flex flex-col gap-1.5">
+          <div className={cn('text-lg font-semibold leading-7', titleClassName)}>{title}</div>
           {description && (
-            <div className={cn('line-clamp-2 text-sm text-muted-foreground', descriptionClassName)}>
+            <div className={cn('text-sm text-muted-foreground', descriptionClassName)}>
               {description}
             </div>
           )}
@@ -67,16 +67,11 @@ export const SettingTabShell = ({
   footerClassName,
 }: SettingTabShellProps) => {
   return (
-    <div
-      className={cn(
-        'teable-setting-tab-shell flex h-full flex-col border-l bg-background',
-        className
-      )}
-    >
+    <div className={cn('teable-setting-tab-shell flex h-full flex-col bg-background', className)}>
       {header && (
         <div
           className={cn(
-            'teable-setting-tab-shell__header flex items-start justify-between gap-3 border-b pl-6 py-3 pr-10',
+            'teable-setting-tab-shell__header flex items-start justify-between gap-3 px-4 pb-4 pt-4 pr-16 sm:px-6 sm:pb-6 sm:pt-6 sm:pr-12',
             headerClassName
           )}
         >
@@ -85,13 +80,15 @@ export const SettingTabShell = ({
       )}
       <div
         className={cn(
-          'teable-setting-tab-shell__content flex-1 overflow-y-auto px-6 py-4',
+          'teable-setting-tab-shell__content flex-1 overflow-y-auto px-4 sm:px-6',
           contentClassName
         )}
       >
         {children}
       </div>
-      {footer && <div className={cn('px-8 py-4', footerClassName)}>{footer}</div>}
+      {footer && (
+        <div className={cn('px-4 pb-4 pt-4 sm:px-6 sm:pb-6', footerClassName)}>{footer}</div>
+      )}
     </div>
   );
 };

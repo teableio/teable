@@ -104,9 +104,9 @@ export const Account: React.FC = () => {
                 </Tooltip>
               </TooltipProvider>
             )}
-            <div className="flex-1 pt-4">
+            <div className="flex flex-1 flex-col gap-2 pt-4">
               <Input
-                className="max-w-[320px]"
+                className="w-full px-3 sm:max-w-sm"
                 defaultValue={sessionUser.name}
                 onBlur={(e) => toggleRenameUser(e)}
               />

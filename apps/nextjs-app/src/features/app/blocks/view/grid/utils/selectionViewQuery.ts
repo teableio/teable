@@ -12,12 +12,24 @@ type ISelectionViewQuery = Pick<
  */
 export const buildSelectionViewQuery = ({
   personalViewCommonQuery,
+  visibleFieldIds,
 }: {
   personalViewCommonQuery?: ISelectionViewQuery;
+  visibleFieldIds?: string[];
 }): ISelectionViewQuery | undefined => {
+  const projection = visibleFieldIds?.length
+    ? visibleFieldIds
+    : personalViewCommonQuery?.projection;
+
   if (!personalViewCommonQuery) {
+    if (projection?.length) {
+      return { projection };
+    }
     return;
   }
 
-  return personalViewCommonQuery;
+  return {
+    ...personalViewCommonQuery,
+    projection,
+  };
 };

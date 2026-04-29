@@ -19,7 +19,13 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable/core';
-import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
+import {
+  X_CANARY_HEADER,
+  axios,
+  getRecord,
+  updateRecords,
+  type ITableFullVo,
+} from '@teable/openapi';
 import {
   createField,
   createFields,
@@ -690,6 +696,69 @@ describe('OpenAPI formula (e2e)', () => {
     });
 
     expect(clearedRecord.fields[equalsEmptyField.name]).toEqual(1);
+  });
+
+  const expectBlankSpacingComparison = async (canaryHeader: 'true' | 'false') => {
+    const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+    axios.defaults.headers.common[X_CANARY_HEADER] = canaryHeader;
+
+    try {
+      const localizedNumberField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: '入职体重(kg)',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 0 },
+        },
+      });
+
+      const compactBlankField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: 'blank-compact',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${localizedNumberField.id}} !=BLANK()`,
+        },
+      });
+
+      const spacedBlankField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: 'blank-spaced',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${localizedNumberField.id}} != BLANK()`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [localizedNumberField.name]: 70,
+            },
+          },
+        ],
+      });
+
+      const { data: record } = await getRecord(table1Id, records[0].id);
+      expect(record.fields?.[compactBlankField.name]).toBe(true);
+      expect(record.fields?.[spacedBlankField.name]).toBe(true);
+    } finally {
+      if (previousCanaryHeader == null) {
+        delete axios.defaults.headers.common[X_CANARY_HEADER];
+      } else {
+        axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+      }
+    }
+  };
+
+  it('should keep BLANK() comparisons stable with spaced function calls in v1 mode', async () => {
+    await expectBlankSpacingComparison('false');
+  });
+
+  it('should keep BLANK() comparisons stable with spaced function calls in canary mode', async () => {
+    await expectBlankSpacingComparison('true');
   });
 
   it('should calculate formula containing question mark literal', async () => {

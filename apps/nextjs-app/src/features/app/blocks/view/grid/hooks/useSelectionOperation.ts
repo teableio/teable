@@ -372,9 +372,10 @@ export const useSelectionOperation = (props?: {
   }, []);
 
   const groupBy = view?.group;
+  const visibleFieldIds = useMemo(() => fields.map(({ id }) => id), [fields]);
   const selectionViewQuery = useMemo(
-    () => buildSelectionViewQuery({ personalViewCommonQuery }),
-    [personalViewCommonQuery]
+    () => buildSelectionViewQuery({ personalViewCommonQuery, visibleFieldIds }),
+    [personalViewCommonQuery, visibleFieldIds]
   );
 
   const buildSelectionRequest = useCallback(
