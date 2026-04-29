@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { HttpErrorCode } from '@teable/core';
+import { HttpErrorCode, IdPrefix, identify } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -53,6 +53,7 @@ export class BaseNodePermissionGuard extends PermissionGuard {
         },
       });
     }
+    await this.resolveRequestNodeIds(context, baseId);
     const permissionContext = await this.getPermissionContext();
     return this.checkActivate(context, baseId, permissionContext);
   }
@@ -145,6 +146,30 @@ export class BaseNodePermissionGuard extends PermissionGuard {
         resourceId: node.resourceId,
       };
     }
+  }
+
+  async resolveRequestNodeIds(context: ExecutionContext, baseId: string) {
+    const req = context.switchToHttp().getRequest();
+    const needsResolve = (id?: string): id is string =>
+      typeof id === 'string' && identify(id) !== IdPrefix.BaseNode;
+
+    const { nodeId } = req.params;
+    const { parentId, anchorId } = req.body ?? {};
+
+    const resourceIds = [nodeId, parentId, anchorId].filter(needsResolve);
+    if (!resourceIds.length) {
+      return;
+    }
+
+    const nodes = await this.prismaService.baseNode.findMany({
+      where: { baseId, resourceId: { in: [...new Set(resourceIds)] } },
+      select: { id: true, resourceId: true },
+    });
+    const resolved = new Map(nodes.map((n) => [n.resourceId, n.id]));
+
+    if (resolved.has(nodeId)) req.params.nodeId = resolved.get(nodeId)!;
+    if (resolved.has(parentId)) req.body.parentId = resolved.get(parentId)!;
+    if (resolved.has(anchorId)) req.body.anchorId = resolved.get(anchorId)!;
   }
 
   private async getPermissionContext() {

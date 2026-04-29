@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
-import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
+import { timeZoneValueSchema } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
   dateFormattingSchema,
@@ -129,7 +129,7 @@ export const buttonOptionsSchema = z.object({
 
 export const formulaOptionsSchema = z.object({
   expression: z.string(),
-  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  timeZone: timeZoneValueSchema.optional(),
   formatting: formulaFormattingSchema.optional(),
   showAs: formulaShowAsSchema.optional(),
 });
@@ -154,7 +154,7 @@ export const linkOptionsSchema = z
 export const rollupOptionsSchema = z
   .object({
     expression: z.string(),
-    timeZone: z.enum(TIME_ZONE_LIST).optional(),
+    timeZone: timeZoneValueSchema.optional(),
     formatting: formulaFormattingSchema.optional(),
     showAs: formulaShowAsSchema.optional(),
   })
@@ -205,7 +205,7 @@ export const conditionalRollupConfigSchema = z
 export const conditionalRollupOptionsSchema = z
   .object({
     expression: z.string(),
-    timeZone: z.enum(TIME_ZONE_LIST).optional(),
+    timeZone: timeZoneValueSchema.optional(),
     formatting: formulaFormattingSchema.optional(),
     showAs: formulaShowAsSchema.optional(),
   })

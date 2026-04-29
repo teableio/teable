@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { CellValueType, FieldType, HttpErrorCode } from '@teable/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
 import type { IGetAbnormalVo, ITableIndexType, IToggleIndexRo } from '@teable/openapi';
@@ -14,8 +14,6 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-
-const unSupportTableIndex = 'Unsupport table index type';
 
 @Injectable()
 export class TableIndexService {
@@ -175,10 +173,7 @@ export class TableIndexService {
   }
 
   async createSearchFieldSingleIndex(tableId: string, fieldInstance: IFieldInstance) {
-    if (
-      fieldInstance.cellValueType === CellValueType.DateTime ||
-      fieldInstance.type === FieldType.Button
-    ) {
+    if (fieldInstance.type === FieldType.Button) {
       return;
     }
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({

@@ -9,6 +9,7 @@ import type { Result } from 'neverthrow';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { normalizeStoredLinkItems } from '../../normalizeLinkItems';
+import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 
 import { FieldInsertValueVisitor, type FieldInsertResult } from '../../visitors';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -377,6 +378,23 @@ export class RecordInsertBuilder {
               if (filledValueResult.value) {
                 values[dbFieldName] = filledValueResult.value;
               }
+            }
+          }
+
+          if (field.type().equals(FieldType.attachment())) {
+            const insertQuery = buildAttachmentTableInsertQuery(builder.db, {
+              actorId: context.actorId,
+              tableId: table.id().toString(),
+              recordId: context.recordId,
+              fieldId: fieldIdStr,
+              value: rawValue,
+            });
+
+            if (insertQuery) {
+              additionalStatements.push({
+                description: `Insert attachment index rows for field ${fieldIdStr}`,
+                compiled: insertQuery,
+              });
             }
           }
         } else {

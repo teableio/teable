@@ -199,12 +199,14 @@ export class TableOpenApiService {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
 
-      const preparedFields = await this.prepareFields(tableId, tableRo.fields);
-
-      // set the first field to be the primary field if not set
-      if (!preparedFields.find((field) => field.isPrimary)) {
-        preparedFields[0].isPrimary = true;
+      // Mark the first field as primary BEFORE prepareFields so the validation in
+      // prepareCreateFields catches bad-type / lookup-ish primaries from internal callers
+      // (template/import/AI) that don't go through the prepareCreateTableRo pipe.
+      if (tableRo.fields.length && !tableRo.fields.find((field) => (field as IFieldVo).isPrimary)) {
+        (tableRo.fields[0] as IFieldVo).isPrimary = true;
       }
+
+      const preparedFields = await this.prepareFields(tableId, tableRo.fields);
 
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
