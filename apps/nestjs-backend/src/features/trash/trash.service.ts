@@ -686,14 +686,14 @@ export class TrashService {
 
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
     if (!base?.spaceId) {
       return { useV2: false, reason: 'disabled', baseId, tableId: trash.resourceId };
     }
 
-    const decision = await this.canaryService.shouldUseV2WithReason(base.spaceId, 'restoreTable');
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, 'restoreTable');
     return {
       ...decision,
       baseId,

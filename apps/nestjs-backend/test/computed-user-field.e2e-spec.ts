@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -38,16 +39,24 @@ import {
 describe('Computed user field (e2e)', () => {
   let app: INestApplication;
   let v2ContainerService: V2ContainerService;
+  let prisma: PrismaService;
   const spaceId = globalThis.testConfig.spaceId;
   const userName = globalThis.testConfig.userName;
   const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+  let isV2Mode = isForceV2;
   let baseId: string;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     v2ContainerService = app.get(V2ContainerService);
+    prisma = app.get(PrismaService);
     const base = await createBase({ name: 'base1', spaceId });
     baseId = base.id;
+    const baseMeta = await prisma.base.findUnique({
+      where: { id: baseId },
+      select: { v2Enabled: true },
+    });
+    isV2Mode = isForceV2 || Boolean(baseMeta?.v2Enabled);
   });
 
   afterAll(async () => {
@@ -56,7 +65,7 @@ describe('Computed user field (e2e)', () => {
   });
 
   async function processV2Outbox(): Promise<void> {
-    if (!isForceV2) return;
+    if (!isV2Mode) return;
 
     const container = await v2ContainerService.getContainer();
     const drainService = container.resolve<IComputedUpdateDrainService>(
@@ -132,7 +141,7 @@ describe('Computed user field (e2e)', () => {
         title: userName,
       });
 
-      if (isForceV2) {
+      if (isV2Mode) {
         expect(records.data.records[1].fields[lastModifiedByField.id]).toMatchObject({
           title: userName,
         });
@@ -191,7 +200,7 @@ describe('Computed user field (e2e)', () => {
 
       expect(records.data.records[0].fields[formulaField.id]).toEqual(userName);
 
-      if (isForceV2) {
+      if (isV2Mode) {
         expect(records.data.records[1].fields[lastModifiedByField.id]).toMatchObject({
           title: userName,
         });
@@ -255,7 +264,7 @@ describe('Computed user field (e2e)', () => {
         records.data.records[0].lastModifiedTime
       );
 
-      if (isForceV2) {
+      if (isV2Mode) {
         expect(records.data.records[1].fields[lastModifiedTimeField.id]).toEqual(
           records.data.records[1].lastModifiedTime
         );
@@ -317,7 +326,7 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      if (isForceV2) {
+      if (isV2Mode) {
         expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
           id: globalThis.testConfig.userId,
           title: globalThis.testConfig.userName,
@@ -371,7 +380,7 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      if (isForceV2) {
+      if (isV2Mode) {
         expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
           id: globalThis.testConfig.userId,
           title: globalThis.testConfig.userName,

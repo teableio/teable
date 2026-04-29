@@ -12,6 +12,7 @@ export const TIME_ZONE_LIST = [
   'Africa/Addis_Ababa',
   'Africa/Algiers',
   'Africa/Asmara',
+  'Africa/Asmera',
   'Africa/Bamako',
   'Africa/Bangui',
   'Africa/Banjul',
@@ -88,15 +89,21 @@ export const TIME_ZONE_LIST = [
   'America/Boa_Vista',
   'America/Bogota',
   'America/Boise',
+  'America/Buenos_Aires',
   'America/Cambridge_Bay',
   'America/Campo_Grande',
   'America/Cancun',
   'America/Caracas',
+  'America/Catamarca',
   'America/Cayenne',
   'America/Cayman',
   'America/Chicago',
   'America/Chihuahua',
+  'America/Ciudad_Juarez',
+  'America/Coral_Harbour',
+  'America/Cordoba',
   'America/Costa_Rica',
+  'America/Coyhaique',
   'America/Creston',
   'America/Cuiaba',
   'America/Curacao',
@@ -131,9 +138,11 @@ export const TIME_ZONE_LIST = [
   'America/Indiana/Vevay',
   'America/Indiana/Vincennes',
   'America/Indiana/Winamac',
+  'America/Indianapolis',
   'America/Inuvik',
   'America/Iqaluit',
   'America/Jamaica',
+  'America/Jujuy',
   'America/Juneau',
   'America/Kentucky/Louisville',
   'America/Kentucky/Monticello',
@@ -141,6 +150,7 @@ export const TIME_ZONE_LIST = [
   'America/La_Paz',
   'America/Lima',
   'America/Los_Angeles',
+  'America/Louisville',
   'America/Lower_Princes',
   'America/Maceio',
   'America/Managua',
@@ -149,6 +159,7 @@ export const TIME_ZONE_LIST = [
   'America/Martinique',
   'America/Matamoros',
   'America/Mazatlan',
+  'America/Mendoza',
   'America/Menominee',
   'America/Merida',
   'America/Metlakatla',
@@ -235,6 +246,7 @@ export const TIME_ZONE_LIST = [
   'Asia/Beirut',
   'Asia/Bishkek',
   'Asia/Brunei',
+  'Asia/Calcutta',
   'Asia/Chita',
   'Asia/Choibalsan',
   'Asia/Colombo',
@@ -257,6 +269,7 @@ export const TIME_ZONE_LIST = [
   'Asia/Kamchatka',
   'Asia/Karachi',
   'Asia/Kathmandu',
+  'Asia/Katmandu',
   'Asia/Khandyga',
   'Asia/Kolkata',
   'Asia/Krasnoyarsk',
@@ -279,7 +292,9 @@ export const TIME_ZONE_LIST = [
   'Asia/Qatar',
   'Asia/Qostanay',
   'Asia/Qyzylorda',
+  'Asia/Rangoon',
   'Asia/Riyadh',
+  'Asia/Saigon',
   'Asia/Sakhalin',
   'Asia/Samarkand',
   'Asia/Seoul',
@@ -306,6 +321,7 @@ export const TIME_ZONE_LIST = [
   'Atlantic/Bermuda',
   'Atlantic/Canary',
   'Atlantic/Cape_Verde',
+  'Atlantic/Faeroe',
   'Atlantic/Faroe',
   'Atlantic/Madeira',
   'Atlantic/Reykjavik',
@@ -343,6 +359,7 @@ export const TIME_ZONE_LIST = [
   'Europe/Isle_of_Man',
   'Europe/Istanbul',
   'Europe/Jersey',
+  'Europe/Kiev',
   'Europe/Kaliningrad',
   'Europe/Kirov',
   'Europe/Lisbon',
@@ -424,12 +441,14 @@ export const TIME_ZONE_LIST = [
   'Pacific/Palau',
   'Pacific/Pitcairn',
   'Pacific/Pohnpei',
+  'Pacific/Ponape',
   'Pacific/Port_Moresby',
   'Pacific/Rarotonga',
   'Pacific/Saipan',
   'Pacific/Tahiti',
   'Pacific/Tarawa',
   'Pacific/Tongatapu',
+  'Pacific/Truk',
   'Pacific/Wake',
   'Pacific/Wallis',
   'Etc/GMT',
@@ -464,8 +483,9 @@ export const TIME_ZONE_LIST = [
   'Etc/UTC',
 ] as const;
 
-const timeZoneSchema = z.enum(TIME_ZONE_LIST);
-export type TimeZoneValue = z.infer<typeof timeZoneSchema>;
+export const timeZoneValueSchema = z.enum(TIME_ZONE_LIST);
+
+export type TimeZoneValue = z.infer<typeof timeZoneValueSchema>;
 
 export class TimeZone extends ValueObject {
   private constructor(private readonly value: TimeZoneValue) {
@@ -475,7 +495,7 @@ export class TimeZone extends ValueObject {
   static create(raw: unknown): Result<TimeZone, DomainError> {
     // Handle case-insensitive 'UTC' for backwards compatibility
     const normalized = typeof raw === 'string' && raw.toUpperCase() === 'UTC' ? 'utc' : raw;
-    const parsed = timeZoneSchema.safeParse(normalized);
+    const parsed = timeZoneValueSchema.safeParse(normalized);
     if (!parsed.success)
       return err(
         domainError.validation({

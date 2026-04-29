@@ -1,6 +1,6 @@
 import { ArrowUpRight, X } from '@teable/icons';
 import { LocalStorageKeys } from '@teable/sdk/config';
-import { useIsHydrated, useShareId } from '@teable/sdk/hooks';
+import { useIsHydrated, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { Rocket } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
@@ -11,7 +11,7 @@ export const ChangelogNotification = () => {
   const { t } = useTranslation('common');
   const isHydrated = useIsHydrated();
   const isCloud = useIsCloud();
-  const shareId = useShareId();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const [visible, setVisible] = useState(false);
 
   const changelogId = t('changelog.id');
@@ -39,7 +39,7 @@ export const ChangelogNotification = () => {
     }
   }, [changelogId]);
 
-  if (!isCloud || !isHydrated || !visible || shareId) {
+  if (!isCloud || !isHydrated || !visible || isReadOnlyPreview) {
     return null;
   }
 

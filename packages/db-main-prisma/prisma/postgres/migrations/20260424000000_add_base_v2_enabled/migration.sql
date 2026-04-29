@@ -1,0 +1,1 @@
+ALTER TABLE "base" ADD COLUMN "v2_enabled" BOOLEAN NOT NULL DEFAULT false;

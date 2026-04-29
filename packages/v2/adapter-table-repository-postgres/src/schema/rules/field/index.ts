@@ -23,4 +23,5 @@ export { LinkSymmetricFieldRule } from './LinkSymmetricFieldRule';
 export { LinkValueColumnRule } from './LinkValueColumnRule';
 export { OrderColumnRule } from './OrderColumnRule';
 export { ReferenceRule, type ReferenceEntry } from './ReferenceRule';
+export { SelectOptionsMetaRule } from './SelectOptionsMetaRule';
 export { UniqueIndexRule } from './UniqueIndexRule';

@@ -7,6 +7,16 @@ describe('buildSelectionViewQuery', () => {
     expect(buildSelectionViewQuery({})).toBeUndefined();
   });
 
+  it('returns the current visible projection when there is no personal view query', () => {
+    expect(
+      buildSelectionViewQuery({
+        visibleFieldIds: ['fldVisibleA', 'fldVisibleB'],
+      })
+    ).toEqual({
+      projection: ['fldVisibleA', 'fldVisibleB'],
+    });
+  });
+
   it('returns the full personal view query to keep frontend/backend row order in sync', () => {
     const filter: NonNullable<IGetRecordsRo['filter']> = {
       conjunction: 'and',
@@ -24,6 +34,23 @@ describe('buildSelectionViewQuery', () => {
     };
 
     expect(buildSelectionViewQuery({ personalViewCommonQuery })).toEqual(personalViewCommonQuery);
+  });
+
+  it('uses the live visible projection to keep selection column indexes in sync', () => {
+    const personalViewCommonQuery = {
+      ignoreViewQuery: true,
+      projection: ['fldOldA', 'fldOldB'],
+    };
+
+    expect(
+      buildSelectionViewQuery({
+        personalViewCommonQuery,
+        visibleFieldIds: ['fldCurrentB', 'fldCurrentA'],
+      })
+    ).toEqual({
+      ignoreViewQuery: true,
+      projection: ['fldCurrentB', 'fldCurrentA'],
+    });
   });
 
   it('returns full query when filter differs', () => {
