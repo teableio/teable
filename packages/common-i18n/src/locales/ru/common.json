@@ -164,8 +164,9 @@
   },
   "settings": {
     "title": "Настройки экземпляра",
+    "allSetting": "Настройки пространства и личные настройки",
     "personal": {
-      "title": "Личные настройки"
+      "title": "Личное"
     },
     "templateAdmin": {
       "title": "Управление шаблонами",
@@ -848,6 +849,10 @@
           "runQuotaExceeded": {
             "title": "Автоматизация {{name}} достигла максимального месячного лимита запусков",
             "message": "Месячный лимит запусков для автоматизации {{name}} исчерпан, поэтому сейчас запуск недоступен. Обновите подписку или приобретите дополнительные запуски."
+          },
+          "failedSummary": {
+            "title": "Автоматизация {{name}} завершилась ошибкой {{failCount}} раз",
+            "message": "Ваша автоматизация {{name}} накопила {{failCount}} последовательных ошибок. Откройте историю запусков для просмотра деталей."
           }
         },
         "billing": {
@@ -1063,9 +1068,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ 17 АПР",
-    "title": "Claude Opus 4.7 теперь доступен в Teable",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "ОБНОВЛЕНИЕ 28 АПР",
+    "title": "Новый триггер: При получении письма (IMAP)",
+    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
+    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
   }
 }

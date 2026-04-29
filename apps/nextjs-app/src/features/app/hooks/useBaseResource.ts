@@ -103,3 +103,14 @@ export function useBaseResource(): IBaseResource {
     };
   }, [baseId, slug]);
 }
+
+export function useBaseNodeId(): string | undefined {
+  const router = useRouter();
+  const { slug } = router.query;
+  return useMemo(() => {
+    if (!slug || slug.length === 0) {
+      return;
+    }
+    return slug?.[1];
+  }, [slug]);
+}

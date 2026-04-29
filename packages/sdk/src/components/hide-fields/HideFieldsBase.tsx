@@ -34,10 +34,11 @@ interface IHideFieldsBaseProps {
   children: React.ReactNode;
   onChange: (hidden: string[]) => void;
   onOrderChange?: (fieldId: string, fromIndex: number, toIndex: number) => void;
+  onFieldClick?: (field: IFieldInstance) => void;
 }
 
 export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
-  const { fields, hidden, footer, children, onChange, onOrderChange } = props;
+  const { fields, hidden, footer, children, onChange, onOrderChange, onFieldClick } = props;
   const { t } = useTranslation();
   const fieldStaticGetter = useFieldStaticGetter();
 
@@ -129,6 +130,15 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                   hasAiConfig: Boolean(aiConfig),
                   deniedReadRecord: !canReadFieldRecord,
                 });
+                const handleFieldClick = () => {
+                  if (onFieldClick) {
+                    onFieldClick(field);
+                    return;
+                  }
+                  if (!isPrimary) {
+                    switchChange(id, !statusMap[id]);
+                  }
+                };
                 return (
                   <Draggable key={id} id={id} disabled={!dragEnabled}>
                     {({ setNodeRef, listeners, attributes, style, isDragging }) => (
@@ -150,7 +160,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                   <div className="flex flex-1 cursor-pointer items-center truncate p-0">
                                     <Label
                                       htmlFor={id}
-                                      className="flex flex-1 cursor-pointer items-center truncate p-2"
+                                      className="flex cursor-pointer items-center p-2"
                                     >
                                       <Switch
                                         id={id}
@@ -161,11 +171,17 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                         }}
                                         disabled={isPrimary}
                                       />
-                                      <Icon className="ml-2 size-4 shrink-0" />
+                                    </Label>
+                                    <button
+                                      type="button"
+                                      className="flex min-w-0 flex-1 items-center truncate py-2 pr-2 text-left"
+                                      onClick={handleFieldClick}
+                                    >
+                                      <Icon className="size-4 shrink-0" />
                                       <span className="h-full flex-1 cursor-pointer truncate pl-1 text-sm">
                                         {name}
                                       </span>
-                                    </Label>
+                                    </button>
                                     {/* forbid drag when search */}
                                     {dragEnabled && (
                                       <div {...attributes} {...listeners} className="pr-2">
@@ -175,8 +191,10 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                   </div>
                                 </TooltipTrigger>
                                 {isPrimary ? (
-                                  <TooltipContent>
-                                    <pre>{t('hidden.primaryKey')}</pre>
+                                  <TooltipContent className="max-w-[360px]">
+                                    <span className="whitespace-normal break-words">
+                                      {t('hidden.primaryKey')}
+                                    </span>
                                   </TooltipContent>
                                 ) : null}
                               </Tooltip>

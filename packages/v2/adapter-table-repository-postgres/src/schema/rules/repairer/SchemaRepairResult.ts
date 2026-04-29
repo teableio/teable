@@ -10,6 +10,12 @@ export interface SchemaRepairDetails {
   extra?: ReadonlyArray<string>;
   extraItems?: ReadonlyArray<SchemaRuleDetailItem>;
   statementCount?: number;
+  statements?: ReadonlyArray<SchemaRepairSqlStatement>;
+}
+
+export interface SchemaRepairSqlStatement {
+  sql: string;
+  parameters: ReadonlyArray<unknown>;
 }
 
 export interface SchemaRepairResult {

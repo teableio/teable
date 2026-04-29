@@ -130,7 +130,7 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
                   <TableCell title={scopes.join('; ')}>
                     {scopes
                       .slice(0, 2)
-                      .map((action) => actionStaticMap[action as Action].description)
+                      .map((action) => actionStaticMap[action as Action]?.description ?? action)
                       .join('; ')}
                     {scopesMoreLen ? ` ${t('token:moreScopes', { len: scopesMoreLen })}` : ''}
                   </TableCell>

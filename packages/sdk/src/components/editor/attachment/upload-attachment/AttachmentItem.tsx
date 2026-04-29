@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IAttachmentItem } from '@teable/core';
-import { Download, Pencil, X } from '@teable/icons';
+import { Download, X } from '@teable/icons';
 import { Button, cn, FilePreviewItem, isImage } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EllipsisFileName } from '../../../upload/EllipsisFileName';
@@ -99,46 +99,35 @@ function AttachmentItem(props: IUploadAttachment) {
               />
             )}
           </FilePreviewItem>
-          {!readonly && (
-            <Button
-              variant={'ghost'}
-              className="absolute right-1 top-1 z-10 hidden size-auto rounded-full bg-white/30 p-0.5 text-white hover:bg-white/50 focus-visible:ring-transparent focus-visible:ring-offset-0 group-hover:flex"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(attachment.id);
-              }}
+          <div className="absolute inset-x-0 top-0 z-10 hidden items-center gap-1 rounded-t-lg bg-black/60 px-1.5 py-1 text-white group-hover:flex">
+            <span
+              className="mr-auto min-w-0 truncate text-xs"
+              title={formatFileSize(attachment.size)}
             >
-              <X className="size-3 shrink-0" />
-            </Button>
-          )}
-          <div className="pointer-events-none absolute inset-0 hidden flex-col items-center justify-center rounded-lg bg-black/70 group-hover:flex">
-            <div className="pointer-events-auto flex gap-4">
-              {!readonly && (
-                <Button
-                  variant={'ghost'}
-                  className="size-auto p-0 text-white hover:bg-white/20 hover:text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartEdit();
-                  }}
-                >
-                  <Pencil className="size-5 shrink-0" />
-                </Button>
-              )}
-              <Button
-                variant={'ghost'}
-                className="size-auto p-0 text-white hover:bg-white/20 hover:text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadFile(attachment);
-                }}
-              >
-                <Download className="size-5 shrink-0" />
-              </Button>
-            </div>
-            <span className="absolute bottom-1 text-xs text-white/70">
               {formatFileSize(attachment.size)}
             </span>
+            <Button
+              variant={'ghost'}
+              className="size-auto shrink-0 p-0 text-white hover:bg-white/20 hover:text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadFile(attachment);
+              }}
+            >
+              <Download className="size-4 shrink-0" />
+            </Button>
+            {!readonly && (
+              <Button
+                variant={'ghost'}
+                className="size-auto shrink-0 p-0 text-white hover:bg-white/20 hover:text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(attachment.id);
+                }}
+              >
+                <X className="size-4 shrink-0" />
+              </Button>
+            )}
           </div>
         </div>
         {isEditing ? (
@@ -161,8 +150,8 @@ function AttachmentItem(props: IUploadAttachment) {
         ) : (
           <button
             type="button"
-            className={cn(!readonly && 'cursor-text')}
-            onClick={(e) => {
+            className={cn('w-full border border-transparent', !readonly && 'cursor-text')}
+            onDoubleClick={(e) => {
               e.stopPropagation();
               handleStartEdit();
             }}

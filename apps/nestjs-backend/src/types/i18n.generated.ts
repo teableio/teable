@@ -358,6 +358,7 @@ export type I18nTranslations = {
         };
         "settings": {
             "title": string;
+            "allSetting": string;
             "personal": {
                 "title": string;
             };
@@ -1414,6 +1415,10 @@ export type I18nTranslations = {
                             "title": string;
                             "message": string;
                         };
+                        "failedSummary": {
+                            "title": string;
+                            "message": string;
+                        };
                     };
                     "billing": {
                         "title": string;
@@ -2087,6 +2092,7 @@ export type I18nTranslations = {
             };
             "invalidateSelected": string;
             "invalidateSelectedTips": string;
+            "invalidConditionTip": string;
             "default": {
                 "empty": string;
                 "placeholder": string;
@@ -2195,6 +2201,7 @@ export type I18nTranslations = {
             "showAll": string;
             "hideAll": string;
             "primaryKey": string;
+            "notInCurrentView": string;
         };
         "expandRecord": {
             "copy": string;
@@ -3060,6 +3067,7 @@ export type I18nTranslations = {
                 "whiteListCheckError": string;
                 "databaseConnectionFailed": string;
                 "executeQuerySqlFailed": string;
+                "sqlSyntaxError": string;
                 "readOnlyCheckFailed": string;
             };
             "permission": {
@@ -3163,6 +3171,8 @@ export type I18nTranslations = {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
                 };
+                "primaryCannotBeLookup": string;
+                "primaryFieldAlreadyExists": string;
             };
             "view": {
                 "notFound": string;
@@ -3361,6 +3371,7 @@ export type I18nTranslations = {
                 "zipFileTooLarge": string;
                 "invalidZip": string;
                 "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
             "reward": {
                 "notFound": string;
@@ -3384,6 +3395,7 @@ export type I18nTranslations = {
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
                 "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
         };
         "aiError": {
@@ -3982,6 +3994,7 @@ export type I18nTranslations = {
                     "sortMissingWarningTitle": string;
                     "sortMissingWarningDescription": string;
                 };
+                "fieldUnavailable": string;
                 "lastModifiedScope": string;
                 "lastModifiedAll": string;
                 "lastModifiedSpecific": string;
@@ -4432,6 +4445,7 @@ export type I18nTranslations = {
                             "foreignKeyOrphanRows": string;
                             "junctionForeignKeyTargetTableMissing": string;
                             "junctionForeignKeyOrphanRows": string;
+                            "autoRule": string;
                         };
                         "manual": {
                             "apply": string;
@@ -4450,10 +4464,23 @@ export type I18nTranslations = {
                     };
                     "manualRepairPreview": string;
                     "manualRepairPreviewTip": string;
+                    "repairPreviewTitle": string;
+                    "repairPreviewDescription": string;
+                    "repairPreviewTooltip": string;
+                    "repairPreviewWhat": string;
+                    "repairPreviewTarget": string;
+                    "repairPreviewPrinciple": string;
+                    "repairPreviewNoPrinciple": string;
+                    "repairPreviewSql": string;
+                    "repairPreviewNoSql": string;
+                    "repairPreviewCannotConfirm": string;
+                    "repairPreviewParameters": string;
+                    "repairPreviewConfirm": string;
                 };
-                "type": string;
-                "message": string;
                 "errorType": {
+                    "InvalidPrimaryLookup": string;
+                    "InvalidPrimaryType": string;
+                    "MissingPrimary": string;
                     "ForeignTableNotFound": string;
                     "ForeignKeyNotFound": string;
                     "SelfKeyNotFound": string;
@@ -4466,6 +4493,8 @@ export type I18nTranslations = {
                     "EmptyString": string;
                     "InvalidFilterOperator": string;
                 };
+                "type": string;
+                "message": string;
             };
             "index": {
                 "description": string;
@@ -4959,6 +4988,9 @@ export type I18nTranslations = {
             "retry": {
                 "interrupted": string;
                 "button": string;
+                "offline": string;
+                "pausedHidden": string;
+                "maxAttemptsReached": string;
             };
             "guide": {
                 "goToScenario": string;
@@ -4994,6 +5026,8 @@ export type I18nTranslations = {
                 "advancedOptions": string;
                 "namingFieldLabel": string;
                 "selectField": string;
+                "noPrefixOption": string;
+                "noPrefixOptionDesc": string;
                 "groupByRow": string;
                 "groupByRowTip": string;
             };

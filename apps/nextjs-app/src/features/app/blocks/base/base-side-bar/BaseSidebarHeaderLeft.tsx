@@ -6,6 +6,7 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import {
+  Badge,
   cn,
   DropdownMenu,
   DropdownMenuItem,
@@ -40,6 +41,7 @@ const BaseDropdownMenu = ({
   collaboratorType,
   currentBaseId,
   baseName,
+  isCanary,
   isBaseShared,
   disabled,
 }: {
@@ -52,6 +54,7 @@ const BaseDropdownMenu = ({
   collaboratorType?: CollaboratorType;
   currentBaseId: string;
   baseName: string;
+  isCanary?: boolean;
   isBaseShared: boolean;
   disabled?: boolean;
 }) => {
@@ -82,14 +85,22 @@ const BaseDropdownMenu = ({
           {children}
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="min-w-[260px]"
+          className="relative min-w-[260px]"
           align="start"
           alignOffset={0}
           sideOffset={4}
           onClick={(e) => e.stopPropagation()}
         >
+          {!isCanary && (
+            <Badge
+              variant="secondary"
+              className="pointer-events-none absolute right-3 top-3 h-5 px-1.5 text-[10px] font-semibold uppercase leading-none text-muted-foreground"
+            >
+              v1
+            </Badge>
+          )}
           <DropdownMenuItem onClick={backSpace}>
-            <div className="flex w-full cursor-pointer items-center gap-2">
+            <div className="flex w-full cursor-pointer items-center gap-2 pr-10">
               <ArrowLeft className="size-4" />
               {t('common:actions.backToSpace')}
             </div>
@@ -303,12 +314,13 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
             collaboratorType={base.collaboratorType}
             currentBaseId={base.id}
             baseName={base.name}
+            isCanary={base.isCanary}
             isBaseShared={isBaseShared}
             disabled={isReadOnlyPreview}
           >
             <div
               className={cn(
-                'flex h-7 max-w-full overflow-hidden px-2 py-1 hover:bg-accent hover:cursor-pointer rounded-md items-center gap-2',
+                'flex h-7 max-w-full overflow-hidden px-2 py-1 hover:bg-accent hover:cursor-pointer rounded-md items-center gap-2 relative',
                 {
                   'cursor-default': isReadOnlyPreview,
                 }

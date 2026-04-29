@@ -56,6 +56,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+let isV2Mode = isForceV2;
 
 describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
@@ -78,6 +79,11 @@ describe('Computed Orchestrator (e2e)', () => {
     tableDomainQueryService = app.get(TableDomainQueryService);
     recordDialect = app.get<IRecordQueryDialectProvider>(RECORD_QUERY_DIALECT_SYMBOL as any);
     v2ContainerService = app.get(V2ContainerService);
+    const base = await prisma.base.findUnique({
+      where: { id: baseId },
+      select: { v2Enabled: true },
+    });
+    isV2Mode = isForceV2 || Boolean(base?.v2Enabled);
   });
 
   afterAll(async () => {
@@ -89,7 +95,7 @@ describe('Computed Orchestrator (e2e)', () => {
    * This ensures all async computed updates are completed before assertions.
    */
   async function processV2Outbox(times = 1): Promise<void> {
-    if (!isForceV2) return;
+    if (!isV2Mode) return;
 
     const container = await v2ContainerService.getContainer();
     const drainService = container.resolve<IComputedUpdateDrainService>(
@@ -132,7 +138,7 @@ describe('Computed Orchestrator (e2e)', () => {
     _count: number = 1
   ) {
     return async function fn<T>(fn: () => Promise<T>) {
-      if (isForceV2) {
+      if (isV2Mode) {
         // In v2 mode, execute and process outbox to ensure async updates complete
         const result = await fn();
         await processV2Outbox();
@@ -143,11 +149,17 @@ describe('Computed Orchestrator (e2e)', () => {
     };
   }
 
-  async function runAndCaptureRecordUpdates<T>(fn: () => Promise<T>): Promise<{
+  async function runAndCaptureRecordUpdates<T>(
+    fn: () => Promise<T>,
+    options?: {
+      isComplete?: (events: any[]) => boolean;
+      timeoutMs?: number;
+    }
+  ): Promise<{
     result: T;
     events: any[];
   }> {
-    if (isForceV2) {
+    if (isV2Mode) {
       // In v2 mode, execute and process outbox to ensure async updates complete
       // Events are not emitted in V2 mode, so we return an empty array
       const result = await fn();
@@ -160,8 +172,31 @@ describe('Computed Orchestrator (e2e)', () => {
     eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
     try {
       const result = await fn();
-      // allow async emission to flush
-      await new Promise((r) => setTimeout(r, 50));
+      // Computed updates may emit a short burst of async record.update events after
+      // the originating mutation resolves. Keep listening until the stream settles.
+      const stableWindowMs = 100;
+      const pollIntervalMs = 25;
+      const deadline = Date.now() + (options?.timeoutMs ?? 2000);
+      let stableSince = Date.now();
+      let lastCount = events.length;
+
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+
+        if (events.length !== lastCount) {
+          lastCount = events.length;
+          stableSince = Date.now();
+          continue;
+        }
+
+        if (
+          Date.now() - stableSince >= stableWindowMs &&
+          (!options?.isComplete || options.isComplete(events))
+        ) {
+          break;
+        }
+      }
+
       return { result, events };
     } finally {
       eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
@@ -279,7 +314,7 @@ describe('Computed Orchestrator (e2e)', () => {
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const event = payloads[0] as any; // RecordUpdateEvent
         expect(event.payload.tableId).toBe(table.id);
         const changes = event.payload.record.fields as Record<
@@ -498,7 +533,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const event = payloads[0] as any;
         const recs = Array.isArray(event.payload.record)
           ? event.payload.record
@@ -556,7 +591,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const event = payloads[0] as any;
         expect(event.payload.tableId).toBe(table.id);
         const rec = Array.isArray(event.payload.record)
@@ -976,7 +1011,7 @@ IF(
       });
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
@@ -1039,7 +1074,7 @@ IF(
       const symmetricFieldId = symmetric.id;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const evtOnT2 = events.find((e) => e.payload?.tableId === t2.id);
         expect(evtOnT2).toBeDefined();
         const recT2 = Array.isArray(evtOnT2!.payload.record)
@@ -1105,7 +1140,7 @@ IF(
       });
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t1.id, t1.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
@@ -1160,7 +1195,7 @@ IF(
       });
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t1.id, t1.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
@@ -1212,7 +1247,7 @@ IF(
       });
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
         const lkpChange = assertChange(changes[lkp.id]);
         expectNoOldValue(lkpChange);
@@ -1270,7 +1305,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         // Find T2 event
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const changes = t2Event.payload.record.fields as Record<
@@ -1337,7 +1372,7 @@ IF(
       });
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const t2Event = [...events]
           .reverse()
           .find((event) => event.payload.tableId === t2.id && toChangeMap(event)[roll2.id])!;
@@ -1425,7 +1460,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         // T1
         const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
         const t1Changes = (
@@ -1554,7 +1589,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const t2Changes = (
           Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
@@ -1667,7 +1702,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const t2Changes = (
           Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
@@ -1762,7 +1797,7 @@ IF(
           } as IFieldRo);
         });
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const hostCreateEvent = creationEvents.find((e) => e.payload.tableId === host.id);
         expect(hostCreateEvent).toBeDefined();
         const createRecordPayload = Array.isArray(hostCreateEvent!.payload.record)
@@ -1804,7 +1839,7 @@ IF(
         (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
       );
       expect(valueAfterStatus).toEqual(2);
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const hostFilterEvent = filterEvents.find((e) => e.payload.tableId === host.id);
         expect(hostFilterEvent).toBeDefined();
         const filterRecordPayload = Array.isArray(hostFilterEvent!.payload.record)
@@ -1825,7 +1860,7 @@ IF(
         (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
       );
       expect(valueAfterLookupColumnChange).toEqual(1);
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const hostLookupEvent = lookupColumnEvents.find((e) => e.payload.tableId === host.id);
         expect(hostLookupEvent).toBeDefined();
         const lookupRecordPayload = Array.isArray(hostLookupEvent!.payload.record)
@@ -1901,21 +1936,31 @@ IF(
         filterSet.push(...additionalFilterItems);
       }
 
-      const { result: rollupField, events } = await runAndCaptureRecordUpdates(async () => {
-        return await createField(host.id, {
-          name: `Equality ${expression}`,
-          type: FieldType.ConditionalRollup,
-          options: {
-            foreignTableId: foreign.id,
-            lookupFieldId: foreignAmountId,
-            expression,
-            filter: {
-              conjunction: 'and',
-              filterSet,
+      const { result: rollupField, events } = await runAndCaptureRecordUpdates(
+        async () => {
+          return await createField(host.id, {
+            name: `Equality ${expression}`,
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignAmountId,
+              expression,
+              filter: {
+                conjunction: 'and',
+                filterSet,
+              },
             },
-          },
-        } as IFieldRo);
-      });
+          } as IFieldRo);
+        },
+        {
+          isComplete: (events) =>
+            Boolean(
+              findRecordChangeMap(events, host.id, aliceRecordId) &&
+                findRecordChangeMap(events, host.id, nobodyRecordId)
+            ),
+          timeoutMs: 5000,
+        }
+      );
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find((f) => f.id === rollupField.id)! as any;
@@ -2106,7 +2151,7 @@ IF(
           const ctx = await setupEqualityConditionalRollup(expression);
           const { cleanup } = ctx;
           try {
-            if (!isForceV2) {
+            if (!isV2Mode) {
               const createAliceChange = findRecordChangeMap(
                 ctx.creationEvents,
                 ctx.host.id,
@@ -2146,7 +2191,7 @@ IF(
               await update(ctx);
             });
 
-            if (!isForceV2) {
+            if (!isV2Mode) {
               const updateAliceChange = findRecordChangeMap(
                 updateEvents,
                 ctx.host.id,
@@ -2192,7 +2237,7 @@ IF(
         });
         const { cleanup } = ctx;
         try {
-          if (!isForceV2) {
+          if (!isV2Mode) {
             const createAliceChange = findRecordChangeMap(
               ctx.creationEvents,
               ctx.host.id,
@@ -2233,7 +2278,7 @@ IF(
             });
           });
 
-          if (!isForceV2) {
+          if (!isV2Mode) {
             const updateAliceChange = findRecordChangeMap(
               updateEvents,
               ctx.host.id,
@@ -2310,7 +2355,7 @@ IF(
         }
       );
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const createAliceChange = findRecordChangeMap(creationEvents, host.id, aliceId);
         expect(createAliceChange).toBeDefined();
         expect(createAliceChange?.[rollupField.id]?.newValue).toEqual(30);
@@ -2327,7 +2372,7 @@ IF(
       const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[0].id, foreignAmountId, 15);
       });
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const updateAliceChange = findRecordChangeMap(updateEvents, host.id, aliceId);
         expect(updateAliceChange).toBeDefined();
         expect(updateAliceChange?.[rollupField.id]?.newValue).toEqual(35);
@@ -2422,7 +2467,7 @@ IF(
         }
       );
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const createAChange = findRecordChangeMap(creationEvents, host.id, hostAId);
         expect(createAChange).toBeDefined();
         expect(createAChange?.[rollupField.id]?.newValue).toEqual(15);
@@ -2571,7 +2616,7 @@ IF(
           } as IFieldRo);
         });
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
         expect(createChange).toBeDefined();
         expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(1);
@@ -2588,7 +2633,7 @@ IF(
       const { events: hostFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(host.id, hostRecordId, targetFieldId, 'B');
       });
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const hostFieldChange = findRecordChangeMap(hostFieldChangeEvents, host.id, hostRecordId);
         expect(hostFieldChange).toBeDefined();
         const hostFieldLookupChange = assertChange(hostFieldChange?.[conditionalRollupField.id]);
@@ -2603,7 +2648,7 @@ IF(
       const { events: foreignFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[1].id, statusId, 'B');
       });
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const foreignDrivenChange = findRecordChangeMap(
           foreignFieldChangeEvents,
           host.id,
@@ -2687,7 +2732,7 @@ IF(
         (f) => f.id === conditionalRollupField.id
       )! as any;
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const createChangeA = findRecordChangeMap(createEvents, host.id, hostRecordAId);
         expect(createChangeA).toBeDefined();
         expect(createChangeA?.[conditionalRollupField.id]?.newValue).toEqual(1);
@@ -2729,7 +2774,7 @@ IF(
         } as IFieldRo);
       });
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const updatedChangeA = findRecordChangeMap(filterChangeEvents, host.id, hostRecordAId);
         if (updatedChangeA?.[conditionalRollupField.id]) {
           const change = assertChange(updatedChangeA[conditionalRollupField.id]);
@@ -2870,7 +2915,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const event = payloads[0] as any;
         expect(event.payload.tableId).toBe(table.id);
         const rec = Array.isArray(event.payload.record)
@@ -2925,7 +2970,7 @@ IF(
       })) as any;
 
       // Event payload verification only in v1 mode
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const evt = payloads[0];
         const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
         const changes = rec.fields as FieldChangeMap;
@@ -3010,7 +3055,7 @@ IF(
         await deleteField(t1.id, aId);
       })) as any;
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         // T2
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const t2Changes = (
@@ -3086,7 +3131,7 @@ IF(
         await deleteField(t1.id, aId);
       })) as any;
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const changes = (
           Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
@@ -3179,7 +3224,7 @@ IF(
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await createField(table.id, { name: 'B', type: FieldType.SingleLineText } as IFieldRo);
         });
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const baseField = (await getFields(table.id)).find((f) => f.name === 'B')!;
           const changeMap = toChangeMap(events[0]);
@@ -3199,7 +3244,7 @@ IF(
           } as IFieldRo);
         });
         const fId = (await getFields(table.id)).find((f) => f.name === 'F')!.id;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const changeMap = toChangeMap(events[0]);
           const fChange = assertChange(changeMap[fId]);
@@ -3254,7 +3299,7 @@ IF(
           } as any);
         });
         const lkpField = (await getFields(t2.id)).find((f) => f.name === 'LK')!;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const changeMap = toChangeMap(events[0]);
           const lkpChange = assertChange(changeMap[lkpField.id]);
@@ -3285,7 +3330,7 @@ IF(
           } as any);
         });
         const rId = (await getFields(t2.id)).find((f) => f.name === 'R')!.id;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const changeMap = toChangeMap(events[0]);
           const rChange = assertChange(changeMap[rId]);
@@ -3327,7 +3372,7 @@ IF(
           options: { expression: `{${aId}} + 5` },
         } as any);
       });
-      if (!isForceV2) {
+      if (!isV2Mode) {
         expect(events.length).toBe(1);
         const changeMap = toChangeMap(events[0]);
         const fChange = assertChange(changeMap[f.id]);
@@ -3362,7 +3407,7 @@ IF(
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await duplicateField(table.id, textField.id, { name: 'Text_copy' });
         });
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const textCopyField = (await getFields(table.id)).find((f) => f.name === 'Text_copy')!;
           const changeMap = toChangeMap(events[0]);
@@ -3383,7 +3428,7 @@ IF(
           await duplicateField(table.id, f.id, { name: 'F_copy' });
         });
         const fCopyId = (await getFields(table.id)).find((x) => x.name === 'F_copy')!.id;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           expect(events.length).toBe(1);
           const changeMap = toChangeMap(events[0]);
           const fCopyChange = assertChange(changeMap[fCopyId]);
@@ -3437,7 +3482,7 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, titleId, 'Bar');
       })) as any;
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         // Find T2 event
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
         const changes = t2Event.payload.record.fields as FieldChangeMap;
@@ -3581,7 +3626,7 @@ IF(
           .map((x: any) => x?.id)
           .filter(Boolean);
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         // Expect: one event on T1[1-1] and one symmetric event on T2[2-1]
         const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
@@ -3679,7 +3724,7 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }]);
         })) as any;
 
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB1));
           expectNoOldValue(change);
@@ -3697,7 +3742,7 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }, { id: rB2 }]);
         })) as any;
 
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB2));
           expectNoOldValue(change);
@@ -3715,7 +3760,7 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB2 }]);
         })) as any;
 
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const change = assertChange(
             getChangeFromEvent(t2Event, linkOnT2.id, rB1) ||
@@ -3791,7 +3836,7 @@ IF(
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, { id: rB1 });
         })) as any;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const recs = Array.isArray(t2Event.payload.record)
             ? t2Event.payload.record
@@ -3814,7 +3859,7 @@ IF(
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, { id: rB2 });
         })) as any;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const recs = Array.isArray(t2Event.payload.record)
             ? t2Event.payload.record
@@ -3892,7 +3937,7 @@ IF(
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }]);
         })) as any;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const recs = Array.isArray(t2Event.payload.record)
             ? t2Event.payload.record
@@ -3915,7 +3960,7 @@ IF(
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }, { id: rB2 }]);
         })) as any;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const recs = Array.isArray(t2Event.payload.record)
             ? t2Event.payload.record
@@ -3938,7 +3983,7 @@ IF(
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB2 }]);
         })) as any;
-        if (!isForceV2) {
+        if (!isV2Mode) {
           const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
           const recs = Array.isArray(t2Event.payload.record)
             ? t2Event.payload.record
@@ -4037,7 +4082,7 @@ IF(
         await updateRecordByApi(t2.id, r2_1, linkOnT2.id, [{ id: r1_1 }]);
       })) as any;
 
-      if (!isForceV2) {
+      if (!isV2Mode) {
         const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
         const recs = Array.isArray(t1Event.payload.record)
           ? t1Event.payload.record
