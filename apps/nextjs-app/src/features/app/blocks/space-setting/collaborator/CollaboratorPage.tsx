@@ -11,21 +11,23 @@ import { Collaborators } from '@/features/app/components/collaborator-manage/spa
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
-export const CollaboratorPage = () => {
+export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {}) => {
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
   const { data: space } = useQuery({
-    queryKey: ReactQueryKeys.space(spaceId),
+    queryKey: ReactQueryKeys.space(spaceId as string),
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: Boolean(spaceId),
   });
 
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, { includeBase: true }),
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, { includeBase: true }),
     queryFn: ({ queryKey }) =>
       getSpaceCollaboratorList(queryKey[1], { includeBase: true }).then((res) => res.data),
+    enabled: Boolean(spaceId),
   });
 
   return (
@@ -35,7 +37,7 @@ export const CollaboratorPage = () => {
         <Trans
           ns="common"
           i18nKey={'invite.dialog.desc'}
-          count={collaborators?.uniqTotal}
+          count={collaborators?.uniqTotal ?? 0}
           components={{ b: <b /> }}
         />
       }
@@ -44,7 +46,7 @@ export const CollaboratorPage = () => {
       {isHydrated && !!space && (
         <div className="size-full">
           <Collaborators
-            spaceId={spaceId}
+            spaceId={space.id}
             role={space.role}
             collaboratorQuery={{ includeBase: true }}
           >

@@ -39,7 +39,6 @@ const testFolder = 'Test Folder';
 const updatedName = 'Updated Name';
 const testTableName = 'Test Table';
 const windowIdHeader = 'x-window-id';
-const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
   let app: INestApplication;
@@ -185,9 +184,9 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       );
 
       expect(response.status).toBe(201);
-      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('createTable');
-      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
 
       nodesToCleanup.push(response.data.id);
     });
@@ -384,9 +383,9 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       );
 
       expect(response.status).toBe(201);
-      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('createTable');
-      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
 
       nodesToCleanup.push(response.data.id);
 
@@ -673,9 +672,9 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       );
 
       expect(response.status).toBe(200);
-      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('deleteTable');
-      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
 
       const error = await getError(() => getBaseNode(baseId, table.data.id));
       expect(error?.status).toBeGreaterThanOrEqual(400);
@@ -1032,9 +1031,9 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       );
 
       expect(response.status).toBe(201);
-      expect(response.headers['x-teable-v2']).toBe(isForceV2 ? 'true' : 'false');
+      expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('duplicateTable');
-      expect(response.headers['x-teable-v2-reason']).toBeTruthy();
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
 
       nodesToCleanup.push(response.data.id);
       expect(response.data.resourceMeta?.name).toBe('Duplicated Table Via Node Route');
@@ -1905,6 +1904,172 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         );
         expect(viewerDashboardNode).toBeDefined();
       });
+    });
+  });
+
+  describe('Resource ID resolution (using resourceId instead of nodeId)', () => {
+    const nodesToCleanup: string[] = [];
+
+    afterEach(async () => {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
+        await deleteBaseNode(baseId, nodeId);
+      }
+      nodesToCleanup.length = 0;
+    });
+
+    it('should get node by resourceId (tableId)', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Get Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await getBaseNode(baseId, node.data.resourceId);
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.resourceId).toBe(node.data.resourceId);
+      expect(response.data.resourceMeta?.name).toBe('Resolve Get Test');
+    });
+
+    it('should update node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Update Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await updateBaseNode(baseId, node.data.resourceId, {
+        name: 'Resolve Updated',
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.resourceMeta?.name).toBe('Resolve Updated');
+    });
+
+    it('should duplicate node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Duplicate Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const duplicate = await duplicateBaseNode(baseId, node.data.resourceId, {
+        name: 'Resolve Duplicated',
+      });
+      nodesToCleanup.push(duplicate.data.id);
+
+      expect(duplicate.data.id).not.toBe(node.data.id);
+      expect(duplicate.data.resourceMeta?.name).toBe('Resolve Duplicated');
+    });
+
+    it('should move node by resourceId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Move Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Move Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.resourceId, {
+        parentId: folder.data.id,
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should delete node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Delete Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+
+      await deleteBaseNode(baseId, node.data.resourceId);
+
+      const error = await getError(() => getBaseNode(baseId, node.data.id));
+      expect(error?.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('should move node with resourceId as parentId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Parent Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Parent Move Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.id, {
+        parentId: folder.data.resourceId,
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should create node with resourceId as parentId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Create Parent Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Create In Folder Test',
+        parentId: folder.data.resourceId,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      expect(node.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should move node with resourceId as anchorId', async () => {
+      const anchor = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Anchor Table',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(anchor.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Movable Table',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.id, {
+        anchorId: anchor.data.resourceId,
+        position: 'before',
+      });
+
+      expect(response.data.id).toBe(node.data.id);
     });
   });
 });

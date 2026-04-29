@@ -638,6 +638,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo principal mal configurado como Lookup",
+        "InvalidPrimaryType": "El campo principal tiene un tipo no admitido",
+        "MissingPrimary": "La tabla no tiene campo principal"
       }
     },
     "index": {
@@ -1047,6 +1052,8 @@
       "advancedOptions": "Opciones avanzadas",
       "namingFieldLabel": "Prefijo del nombre del adjunto",
       "selectField": "Por defecto: índice de adjunto",
+      "noPrefixOption": "Sin prefijo",
+      "noPrefixOptionDesc": "Mantener el nombre original",
       "groupByRow": "Archivar en carpetas",
       "groupByRowTip": "Cuando una fila tiene múltiples adjuntos, se colocarán en la misma carpeta; las filas con solo un adjunto no crearán una carpeta."
     }

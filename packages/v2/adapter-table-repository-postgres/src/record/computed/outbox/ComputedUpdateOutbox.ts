@@ -527,18 +527,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', DEFAULT_STATUS)
                   .where('o.next_run_at', '<=', now)
-                  .where(
-                    sql<boolean>`not exists (
-                    select 1
-                    from computed_update_outbox active
-                    where active.base_id = o.base_id
-                      and active.seed_table_id = o.seed_table_id
-                      and active.status = 'processing'
-                      and active.locked_at is not null
-                      and active.locked_at > ${reclaimBefore}
-                  )`
-                  )
                   .where(buildComputedTaskNotPausedCondition('o', now))
+                  .orderBy('o.estimated_complexity', 'asc')
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')
                   .limit(remaining)

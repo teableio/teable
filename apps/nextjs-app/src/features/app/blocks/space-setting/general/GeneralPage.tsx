@@ -12,17 +12,18 @@ import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceC
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
-export const GeneralPage = () => {
+export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {}) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: Boolean(spaceId),
   });
 
   const { mutateAsync: updateSpaceMutator } = useMutation({
@@ -88,7 +89,7 @@ export const GeneralPage = () => {
               </div>
 
               {/* Space name */}
-              <div className="flex max-w-sm flex-col gap-y-1 overflow-visible">
+              <div className="flex w-full flex-col gap-y-2 overflow-visible sm:max-w-sm">
                 <label className="text-sm font-medium">{t('space:spaceSetting.spaceName')}</label>
                 {isEditing ? (
                   <Input
@@ -96,7 +97,6 @@ export const GeneralPage = () => {
                     onBlur={onBlur}
                     onKeyDown={onKeydown}
                     autoFocus
-                    size="lg"
                     className="px-3"
                   />
                 ) : (
@@ -104,21 +104,19 @@ export const GeneralPage = () => {
                     value={space.name}
                     readOnly
                     onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
-                    size="lg"
                     className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
                   />
                 )}
               </div>
 
               {/* Space ID */}
-              <div className="flex max-w-sm flex-col gap-y-1">
+              <div className="flex w-full flex-col gap-y-2 sm:max-w-sm">
                 <label className="text-sm font-medium">{t('space:spaceSetting.spaceId')}</label>
                 <div className="relative">
                   <Input
                     value={spaceId}
                     readOnly
                     tabIndex={-1}
-                    size="lg"
                     className="cursor-default px-3 pr-10"
                   />
                   <CopyButton
@@ -136,6 +134,7 @@ export const GeneralPage = () => {
             {hasPermission(space.role, 'space|delete') && (
               <Button
                 variant="outline"
+                size="sm"
                 className="w-fit text-destructive hover:text-destructive/80"
                 onClick={() => setDeleteConfirm(true)}
               >
