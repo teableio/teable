@@ -8,11 +8,14 @@ import {
   AlertTriangle,
 } from '@teable/icons';
 import { HideFields, RowHeight, Sort, Group, ViewFilter } from '@teable/sdk';
+import { useFields } from '@teable/sdk/hooks';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useGridSearchStore } from '../../grid/useGridSearchStore';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { useToolBarStore } from './useToolBarStore';
@@ -20,6 +23,9 @@ import { useToolBarStore } from './useToolBarStore';
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView();
+  const fields = useFields();
+  const allFields = useFields({ withHidden: true, withDenied: true });
+  const { gridRef, setHighlightedFieldId } = useGridSearchStore();
   const {
     onFilterChange,
     onRowHeightChange,
@@ -32,6 +38,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const filterRef = useRef<HTMLButtonElement>(null);
   const sortRef = useRef<HTMLButtonElement>(null);
   const groupRef = useRef<HTMLButtonElement>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setFilterRef(filterRef);
@@ -39,12 +46,39 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     setGroupRef(groupRef);
   }, [setFilterRef, setGroupRef, setSortRef]);
 
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+      setHighlightedFieldId(null);
+    };
+  }, [setHighlightedFieldId]);
+
   if (!view) {
     return <div></div>;
   }
   return (
     <div className="flex min-w-0 flex-1 gap-1">
-      <HideFields>
+      <HideFields
+        onFieldClick={(field) => {
+          const columnIndex = fields.findIndex(({ id }) => id === field.id);
+          if (columnIndex === -1) {
+            const fieldName = allFields.find(({ id }) => id === field.id)?.name ?? field.name;
+            toast.warning(t('sdk:hidden.notInCurrentView', { fieldName }));
+            return;
+          }
+          gridRef?.current?.scrollToItem([columnIndex, 0]);
+          setHighlightedFieldId(field.id);
+          if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current);
+          }
+          highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedFieldId(null);
+            highlightTimeoutRef.current = null;
+          }, 1000);
+        }}
+      >
         {(text, isActive) => (
           <ToolBarButton
             disabled={disabled}
@@ -125,38 +159,6 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Group>
-      {/* <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {
-              // disabled doesn't trigger the tooltip, so wrap div
-            }
-            <div>
-              <Color>
-                {(text: string, isActive) => (
-                  <ToolBarButton
-                    disabled={true}
-                    isActive={isActive}
-                    text={text}
-                    className={cn(
-                      GUIDE_VIEW_GROUPING,
-                      'max-w-xs',
-                      isActive &&
-                        'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
-                    )}
-                    textClassName="@2xl/toolbar:inline"
-                  >
-                    <PaintBucket className="size-4 text-sm" />
-                  </ToolBarButton>
-                )}
-              </Color>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('table:toolbar.comingSoon')}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider> */}
 
       <RowHeight
         rowHeight={(view?.options as IGridViewOptions)?.rowHeight}

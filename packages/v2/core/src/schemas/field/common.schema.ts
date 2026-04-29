@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { TimeFormatting } from '../../domain/table/fields/types/DateTimeFormatting';
 import { fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
+import { longTextShowAsValues } from '../../domain/table/fields/types/LongTextShowAs';
 import { NumberFormattingType } from '../../domain/table/fields/types/NumberFormatting';
 import {
   MultiNumberDisplayType,
@@ -9,9 +10,8 @@ import {
 } from '../../domain/table/fields/types/NumberShowAs';
 import { ratingColorValues } from '../../domain/table/fields/types/RatingColor';
 import { ratingIconValues } from '../../domain/table/fields/types/RatingIcon';
-import { longTextShowAsValues } from '../../domain/table/fields/types/LongTextShowAs';
 import { singleLineTextShowAsValues } from '../../domain/table/fields/types/SingleLineTextShowAs';
-import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
+import { timeZoneValueSchema } from '../../domain/table/fields/types/TimeZone';
 
 // Basic enum schemas (re-export or define locally)
 export const ratingIconSchema = z.enum(ratingIconValues);
@@ -61,7 +61,7 @@ export const numberShowAsSchema = z.union([singleNumberShowAsSchema, multiNumber
 export const dateFormattingSchema = z.object({
   date: z.string(),
   time: z.enum([TimeFormatting.Hour24, TimeFormatting.Hour12, TimeFormatting.None]),
-  timeZone: z.enum(TIME_ZONE_LIST),
+  timeZone: timeZoneValueSchema,
 });
 
 // Formula formatting (union of number and date)
