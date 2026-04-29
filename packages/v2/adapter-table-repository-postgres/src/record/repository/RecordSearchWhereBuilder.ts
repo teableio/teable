@@ -21,10 +21,9 @@ import {
 import { sql, type Expression, type SqlBool } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { getDateSearchRange } from './dateSearchRange';
 
 const fieldValueTypeVisitor = new FieldValueTypeVisitor();
-const DEFAULT_DATE_TIME_FORMAT = 'YYYY-MM-DD HH24:MI';
-
 const escapeLikeWildcards = (input: string): string => {
   return input.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 };
@@ -106,20 +105,20 @@ const buildNumberMultipleCondition = (
 const buildDateMultipleCondition = (
   columnRef: Expression<unknown>,
   searchValue: string,
-  timeZone: string
+  formatting?: DateTimeFormatting
 ) => {
+  const range = getDateSearchRange(searchValue, formatting);
+  if (!range) {
+    return sql<SqlBool>`false`;
+  }
+
   const arrayExpr = normalizeToJsonArray(columnRef);
   return sql<SqlBool>`
     EXISTS (
       SELECT 1
-      FROM (
-        SELECT string_agg(
-          TO_CHAR(TIMEZONE(${timeZone}, CAST(elem.value AS timestamp with time zone)), ${DEFAULT_DATE_TIME_FORMAT}),
-          ', '
-        ) AS aggregated
-        FROM jsonb_array_elements_text(${arrayExpr}) AS elem(value)
-      ) AS sub
-      WHERE sub.aggregated ILIKE ${`%${escapeLikeWildcards(searchValue)}%`} ESCAPE '\\'
+      FROM jsonb_array_elements_text(${arrayExpr}) AS elem(value)
+      WHERE CAST(elem.value AS timestamp with time zone) >= ${range.start}
+        AND CAST(elem.value AS timestamp with time zone) < ${range.end}
     )
   `;
 };
@@ -231,10 +230,6 @@ const resolveNumberPrecision = (field: Field): number => {
   return resolveNumberFormatting(field)?.precision().toNumber() ?? 0;
 };
 
-const resolveSearchTimeZone = (field: Field): string => {
-  return resolveDateTimeFormatting(field)?.timeZone().toString() ?? 'UTC';
-};
-
 const resolveColumnRef = (
   field: Field,
   tableAlias: string
@@ -282,11 +277,16 @@ const buildFieldSearchCondition = (
     }
 
     if (cellValueType.equals(CellValueType.dateTime())) {
-      const timeZone = resolveSearchTimeZone(field);
+      const formatting = resolveDateTimeFormatting(field);
+      const range = getDateSearchRange(search.value, formatting);
+      if (!range) {
+        return ok(sql<SqlBool>`false`);
+      }
+
       return ok(
         isMultiple
-          ? buildDateMultipleCondition(columnRef, search.value, timeZone)
-          : sql<SqlBool>`TO_CHAR(TIMEZONE(${timeZone}, ${columnRef}), ${DEFAULT_DATE_TIME_FORMAT}) ILIKE ${`%${escapeLikeWildcards(search.value)}%`} ESCAPE '\\'`
+          ? buildDateMultipleCondition(columnRef, search.value, formatting)
+          : sql<SqlBool>`${columnRef} >= ${range.start} AND ${columnRef} < ${range.end}`
       );
     }
 

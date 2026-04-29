@@ -6,6 +6,7 @@ import { FieldKeyResolverService } from '../application/services/FieldKeyResolve
 import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { type ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldType } from '../domain/table/fields/FieldType';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldCondition } from '../domain/table/fields/types/FieldCondition';
@@ -36,9 +37,12 @@ import {
   type RecordFilter,
   type RecordFilterCondition,
   type RecordFilterNode,
+  type RecordFilterValue,
 } from './RecordFilterDto';
 import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
 import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
+
+const currentUserFilterValue = 'Me';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -152,6 +156,60 @@ function resolveFilterNodeFieldKeys(
   }
 
   return ok(node);
+}
+
+function isUserLikeFieldType(type: FieldType): boolean {
+  return (
+    type.equals(FieldType.user()) ||
+    type.equals(FieldType.createdBy()) ||
+    type.equals(FieldType.lastModifiedBy())
+  );
+}
+
+function replaceCurrentUserTagInFilter(
+  table: Table,
+  filter: RecordFilter | null | undefined,
+  actorId: string
+): RecordFilter | null | undefined {
+  if (!filter) {
+    return filter;
+  }
+
+  const replaceNode = (node: RecordFilterNode): RecordFilterNode => {
+    if (isRecordFilterNot(node)) {
+      return { not: replaceNode(node.not) };
+    }
+
+    if (isRecordFilterGroup(node)) {
+      return {
+        ...node,
+        items: node.items.map((item) => replaceNode(item)),
+      };
+    }
+
+    if (!isRecordFilterCondition(node)) {
+      return node;
+    }
+
+    const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
+    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
+      return node;
+    }
+
+    const replaceValue = (value: RecordFilterValue): RecordFilterValue => {
+      if (Array.isArray(value)) {
+        return value.map((item) => (item === currentUserFilterValue ? actorId : item));
+      }
+      return value === currentUserFilterValue ? actorId : value;
+    };
+
+    return {
+      ...node,
+      value: replaceValue(node.value),
+    };
+  };
+
+  return replaceNode(filter);
 }
 
 type IRecordReadQuerySource = {
@@ -356,6 +414,11 @@ export class ListTableRecordsHandler
           const resolvedFilter = query.filter
             ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
             : undefined;
+          const actorResolvedFilter = replaceCurrentUserTagInFilter(
+            table,
+            resolvedFilter,
+            context.actorId.toString()
+          );
 
           // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
           const linkCandidatePlan = query.filterLinkCellCandidate
@@ -387,12 +450,14 @@ export class ListTableRecordsHandler
           const effectiveQueryDefaults = effectiveView
             ? yield* effectiveView.queryDefaults()
             : undefined;
-          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(
+          const defaultFilter = replaceCurrentUserTagInFilter(
             table,
-            effectiveQueryDefaults?.filter()
+            effectiveQueryDefaults?.filter(),
+            context.actorId.toString()
           );
+          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(table, defaultFilter);
           const effectiveFilter = sanitizeFilterByEnabledFieldIds(
-            mergeFilterWithViewDefaults(sanitizedDefaultFilter, resolvedFilter),
+            mergeFilterWithViewDefaults(sanitizedDefaultFilter, actorResolvedFilter),
             enabledFieldIds
           );
           const effectiveSort = mergeSortWithViewDefaults(

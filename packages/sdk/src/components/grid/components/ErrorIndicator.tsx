@@ -23,7 +23,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="pointer-events-none absolute left-0 top-0 z-10">
+      <div className="pointer-events-none absolute left-0 top-0">
         {cellErrors.map(({ cellItem, errorMsg, onRetry, onDismiss }) => {
           const [columnIndex, rowIndex] = cellItem;
           const rowHeight = coordInstance.getRowHeight(rowIndex);

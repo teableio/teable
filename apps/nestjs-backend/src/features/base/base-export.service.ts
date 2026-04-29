@@ -28,6 +28,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -460,7 +461,7 @@ export class BaseExportService {
       id: baseId,
       name: baseName,
       icon: baseIcon,
-      version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
+      version: resolveBuildVersion(),
       tables,
       plugins,
       folders,

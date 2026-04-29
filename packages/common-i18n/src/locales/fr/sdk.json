@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
+    "invalidConditionTip": "Cette condition de filtre est invalide et sera ignorée. Veuillez ajuster la valeur.",
     "default": {
       "empty": "Aucune condition de filtrage appliquée",
       "placeholder": "Entrez une valeur"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} champs visibles",
     "showAll": "Tout afficher",
     "hideAll": "Tout masquer",
-    "primaryKey": "Champ principal : utilisé pour identifier les enregistrements, ne peut pas être caché ou supprimé"
+    "primaryKey": "Champ principal : utilisé pour identifier les enregistrements, ne peut pas être caché ou supprimé",
+    "notInCurrentView": "Le champ « {{fieldName}} » n'est pas visible dans la vue actuelle et ne peut pas être atteint"
   },
   "expandRecord": {
     "copy": "Copier dans le presse-papiers",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Non autorisé à exécuter SQL avec le mot-clé {{keyword}}",
       "whiteListCheckError": "Une erreur s'est produite lors de la vérification de l'accès à la table : {{message}}",
       "databaseConnectionFailed": "La connexion à la base de données a échoué : {{message}}",
-      "executeQuerySqlFailed": "L'exécution de la requête SQL a échoué : {{message}}"
+      "executeQuerySqlFailed": "L'exécution de la requête SQL a échoué : {{message}}",
+      "sqlSyntaxError": "Erreur de syntaxe SQL, veuillez vérifier votre requête"
     },
     "permission": {
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "Le nombre de clics sur le bouton a atteint la limite maximale",
         "notSupportReset": "Le champ de bouton ne prend pas en charge la réinitialisation"
-      }
+      },
+      "primaryCannotBeLookup": "Le champ principal ne peut pas être configuré comme un champ Lookup",
+      "primaryFieldAlreadyExists": "La table a déjà un champ principal"
     },
     "view": {
       "notFound": "Vue introuvable",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
       "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
       "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}",
-      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application"
+      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application",
+      "domainReserved": "Sous-domaine réservé"
     }
   }
 }

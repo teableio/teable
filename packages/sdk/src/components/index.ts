@@ -13,6 +13,7 @@ export * from './select-field-dialog';
 export * from './search';
 export * from './record-list';
 export * from './create-record';
+export * from './ReadOnlyTip';
 export * from './collaborator';
 export * from './color';
 export * from './base-query';

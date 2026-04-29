@@ -234,6 +234,58 @@ export const IntegrityV2Dialog = ({
     [stopStream, t]
   );
 
+  const runRuleRepairDryRun = useCallback(
+    async (result: IntegrityResult, manualRepairValues?: ManualRepairValues) => {
+      if (!result.tableId) {
+        return [];
+      }
+
+      stopStream();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setIsRunning(true);
+      setActiveRepairResultId(result.id);
+      setStreamError(null);
+
+      const dryRunResults: IntegrityResult[] = [];
+
+      try {
+        await streamV2TableSchemaIntegrityRepair(
+          result.tableId,
+          {
+            fieldId: result.fieldId || undefined,
+            ruleId: result.fieldId ? result.ruleId : undefined,
+            dryRun: true,
+            targetStatuses: ['warn', 'error'],
+            manualRepairValues,
+          },
+          {
+            signal: controller.signal,
+            onResult: (nextResult) => {
+              dryRunResults.push(nextResult);
+            },
+          }
+        );
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message = getErrorMessage(error, t('table:table.integrity.v2.streamError'));
+          setStreamError(message);
+          toast.error(message);
+        }
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsRunning(false);
+          setActiveRepairResultId(null);
+        }
+      }
+
+      return dryRunResults;
+    },
+    [stopStream, t]
+  );
+
   useEffect(() => {
     if (!open) {
       stopStream();
@@ -337,6 +389,7 @@ export const IntegrityV2Dialog = ({
         <ScrollArea className="min-h-0 flex-1 px-6 py-4">
           <IntegrityResultsPanel
             scope={scope}
+            baseId={baseId}
             tableGroups={tableGroups}
             groupedResults={groupedResults}
             hasRun={hasRun}
@@ -346,6 +399,7 @@ export const IntegrityV2Dialog = ({
             hasFilteredOutAll={hasFilteredOutAll}
             activeRepairResultId={activeRepairResultId}
             onRepairRule={runRuleRepair}
+            onPreviewRepairRule={runRuleRepairDryRun}
           />
         </ScrollArea>
 
