@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Неверное значение",
     "invalidateSelectedTips": "Выбранное значение было удалено, выберите другое",
+    "invalidConditionTip": "Это условие фильтра недопустимо и будет проигнорировано. Измените значение.",
     "default": {
       "empty": "Фильтры не применены",
       "placeholder": "Введите значение"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} видимых поля",
     "showAll": "Показать все",
     "hideAll": "Скрыть все",
-    "primaryKey": "Основное поле: Идентифицирует записи\nнельзя скрыть или удалить, видно в связанных записях."
+    "primaryKey": "Основное поле: Идентифицирует записи\nнельзя скрыть или удалить, видно в связанных записях.",
+    "notInCurrentView": "Поле «{{fieldName}}» не отображается в текущем представлении, поэтому перейти к нему нельзя"
   },
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Не разрешено выполнять SQL с ключевым словом {{keyword}}",
       "whiteListCheckError": "Произошла ошибка при проверке доступа к таблице: {{message}}",
       "databaseConnectionFailed": "Не удалось подключиться к базе данных: {{message}}",
-      "executeQuerySqlFailed": "Не удалось выполнить запрос SQL: {{message}}"
+      "executeQuerySqlFailed": "Не удалось выполнить запрос SQL: {{message}}",
+      "sqlSyntaxError": "Ошибка синтаксиса SQL, проверьте ваш запрос"
     },
     "permission": {
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "Количество нажатий кнопки достигло максимального предела",
         "notSupportReset": "Кнопка не поддерживает сброс"
-      }
+      },
+      "primaryCannotBeLookup": "Основное поле не может быть настроено как поле Lookup",
+      "primaryFieldAlreadyExists": "В таблице уже есть основное поле"
     },
     "view": {
       "notFound": "Представление не найдено",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "Публикация LinkedIn не найдена: {{postId}}",
       "linkedInAuthorNotFound": "Автор LinkedIn не найден: {{postId}}",
       "fetchLinkedInUserFailed": "Не удалось получить пользователя LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Этот домен уже привязан к другому приложению"
+      "domainAlreadyInUse": "Этот домен уже привязан к другому приложению",
+      "domainReserved": "Поддомен зарезервирован"
     }
   }
 }

@@ -1,6 +1,7 @@
 import type { IColorConfig } from '@teable/core';
 import { CellValueType, ColorConfigType, Colors, FieldType } from '@teable/core';
-import { useFields, useFieldStaticGetter, useView } from '@teable/sdk/hooks';
+import { ReadOnlyTip } from '@teable/sdk';
+import { useFields, useFieldStaticGetter, usePersonalView, useView } from '@teable/sdk/hooks';
 import type { CalendarView } from '@teable/sdk/model';
 import {
   Popover,
@@ -28,6 +29,8 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const fields = useFields({ withHidden: true, withDenied: true });
   const fieldStaticGetter = useFieldStaticGetter();
+  const { isPersonalView } = usePersonalView();
+  const readOnly = Boolean(view?.isLocked && !isPersonalView);
 
   const { primaryField, filteredDateFields, filteredSelectFields } = useMemo(
     () => ({
@@ -43,10 +46,12 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   );
 
   const onSelectChange = (key: string, value: string) => {
+    if (readOnly) return;
     view?.updateOption({ [key]: value });
   };
 
   const onColorTypeChange = (type: ColorConfigType) => {
+    if (readOnly) return;
     let config: IColorConfig = null;
 
     if (type === ColorConfigType.Field) {
@@ -62,10 +67,12 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   };
 
   const onColorChange = (value: string) => {
+    if (readOnly) return;
     view?.updateOption({ colorConfig: { type: ColorConfigType.Custom, color: value as Colors } });
   };
 
   const onColorFieldIdChange = (value: string) => {
+    if (readOnly) return;
     view?.updateOption({
       colorConfig: { type: ColorConfigType.Field, color: null, fieldId: value },
     });
@@ -98,7 +105,12 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   return (
     <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="flex w-[272px] flex-col gap-4 p-4">
+      <PopoverContent
+        side="bottom"
+        align="start"
+        className="relative flex w-[272px] flex-col gap-4 p-4"
+      >
+        {readOnly && <ReadOnlyTip />}
         {fields.length > 0 ? (
           <Fragment>
             {dateSelects.map(({ label, key, value }) => (

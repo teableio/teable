@@ -632,6 +632,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "主フィールドが Lookup として誤設定",
+        "InvalidPrimaryType": "主フィールドのタイプが非対応",
+        "MissingPrimary": "テーブルに主フィールドがありません"
       }
     },
     "index": {
@@ -956,6 +961,7 @@
     "expand": "展開",
     "history": "履歴",
     "close": "折りたたむ",
+    "noModel": "利用可能なモデルがありません",
     "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
@@ -973,7 +979,14 @@
       "emptyContext": "追加するコンテキストがありません",
       "selectionRows": "行 {{start}}-{{end}}"
     },
-    "inputPlaceholder": "メッセージを送信...",
+    "mention": {
+      "tables": "テーブル",
+      "apps": "アプリ",
+      "workflows": "ワークフロー",
+      "folders": "フォルダ"
+    },
+    "inputPlaceholder": "@ でコンテキストを追加",
+    "inputPlaceholderFiles": "ファイルを貼り付けまたはドロップ",
     "thought": "思考中",
     "meta": {
       "input": "入力",
@@ -1032,6 +1045,8 @@
       "advancedOptions": "詳細オプション",
       "namingFieldLabel": "添付ファイル名のプレフィックス",
       "selectField": "デフォルト: 添付ファイル番号",
+      "noPrefixOption": "プレフィックスなし",
+      "noPrefixOptionDesc": "元のファイル名を保持",
       "groupByRow": "フォルダにアーカイブ",
       "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
     }

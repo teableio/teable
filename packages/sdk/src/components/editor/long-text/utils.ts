@@ -2,6 +2,10 @@ import type { Editor } from '@milkdown/core';
 import { editorViewCtx, serializerCtx } from '@milkdown/core';
 import removeMd from 'remove-markdown';
 
+const escapedAutolinkRegExp = /\\<(https?\\?:\/\/[^>]+)>/g;
+
+const normalizeEscapedAutolinkUrl = (url: string) => url.replace(/\\:/g, ':');
+
 export const isMarkdownShowAs = (options: unknown): boolean =>
   (options as { showAs?: { type?: string } } | undefined)?.showAs?.type === 'markdown';
 
@@ -20,6 +24,8 @@ export const normalizeMarkdownValue = (value: unknown): string => {
 export const stripMarkdown = (text: string): string => {
   // Preserve URLs from empty-label links [](url) and autolinks <url> before stripping
   const normalized = text
+    .replace(/\\?<(\[[^\]]*\]\([^)]+\))>/g, '$1')
+    .replace(escapedAutolinkRegExp, (_, url) => normalizeEscapedAutolinkUrl(url))
     .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, label, url) =>
       label.trim() ? `[${label}](${url})` : url
     )

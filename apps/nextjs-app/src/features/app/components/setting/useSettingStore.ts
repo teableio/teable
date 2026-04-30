@@ -11,16 +11,18 @@ export enum SettingTab {
   LicensePlan = 'license-plan',
 }
 
+export type SettingDialogTab = string;
+
 interface ISettingState {
-  tab?: SettingTab;
-  setTab: (tab: SettingTab) => void;
+  tab?: SettingDialogTab;
+  setTab: (tab: SettingDialogTab) => void;
   open: boolean;
-  setOpen: (open: boolean, tab?: SettingTab) => void;
+  setOpen: (open: boolean, tab?: SettingDialogTab) => void;
 }
 
 export const useSettingStore = create<ISettingState>((set) => ({
   open: false,
-  setOpen: (open: boolean, tab?: SettingTab) => {
+  setOpen: (open: boolean, tab?: SettingDialogTab) => {
     set((state) => {
       return {
         ...state,
@@ -29,7 +31,7 @@ export const useSettingStore = create<ISettingState>((set) => ({
       };
     });
   },
-  setTab: (tab: SettingTab) => {
+  setTab: (tab: SettingDialogTab) => {
     set((state) => {
       return {
         ...state,

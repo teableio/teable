@@ -39,12 +39,16 @@ describe('PostgresTableRepository helpers', () => {
     expect(legacy.choices[0].name).toBe('Todo');
 
     const modern = repo.normalizeSelectOptions({
-      choices: [{ id: '', name: 'Ready', color: 'invalid' }],
+      choices: [
+        { id: '', name: 'Ready', color: 'invalid' },
+        { id: 'choReadyTrimmed', name: ' Ready ', color: 'blue' },
+      ],
       defaultValue: 'ready',
       preventAutoNewOptions: true,
     });
     expect(modern.defaultValue).toBe('ready');
     expect(modern.preventAutoNewOptions).toBe(true);
+    expect(modern.choices).toHaveLength(1);
     expect(modern.choices[0].id).toMatch(/^cho/);
 
     expect(repo.resolveSortColumn({ toString: () => 'name' })).toBe('name');

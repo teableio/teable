@@ -77,7 +77,8 @@ const MarkdownEditorInner = ({
     <div className="relative">
       <div
         className={cn(
-          'milkdown-editor-wrap w-full max-h-64 overflow-auto rounded-md border bg-background dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 text-sm focus-within:border-primary',
+          'milkdown-editor-wrap w-full max-h-64 overflow-auto rounded-md border bg-background hover:border-primary/30 text-sm focus-within:border-primary',
+          !gridMode && 'dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))]',
           className
         )}
         onBlur={handleBlur}
@@ -89,7 +90,7 @@ const MarkdownEditorInner = ({
           <ExpandMarkdownEditor value={latestValueRef.current} onChange={onChange} />
         </div>
       )}
-      {hideExpand && (
+      {hideExpand && !gridMode && (
         <span
           className="absolute bottom-1.5 right-2 select-none rounded-sm bg-foreground/80 px-1 py-px text-[9px] font-semibold tracking-wide text-background backdrop-blur-sm"
           title="Markdown enabled"

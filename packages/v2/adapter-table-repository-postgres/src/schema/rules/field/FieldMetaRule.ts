@@ -1,10 +1,12 @@
 import type { DomainError, Field } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -108,11 +110,31 @@ export class FieldMetaRule implements ISchemaRule {
     return ok({ valid: true });
   }
 
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will update metadata for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair changes field metadata only and preserves unrelated meta keys. Record cell values are not rewritten, but field behavior or display can change immediately after the metadata update takes effect.',
+      },
+    });
+  }
+
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldId = this.field.id().toString();
+    const patch = JSON.stringify(this.meta);
     const updateMeta = ctx.db
       .updateTable('field')
-      .set({ meta: JSON.stringify(this.meta) })
+      .set({
+        meta: sql`(coalesce(meta::jsonb, '{}'::jsonb) || ${patch}::jsonb)::text`,
+      })
       .where('id', '=', fieldId);
 
     return ok([updateMeta]);
@@ -120,10 +142,16 @@ export class FieldMetaRule implements ISchemaRule {
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldId = this.field.id().toString();
-    // Clear metadata on down (set to empty object)
+    const keys = Object.keys(this.meta);
+    const quotedKeys = keys.map((key) => `'${key.replaceAll("'", "''")}'`).join(', ');
     const updateMeta = ctx.db
       .updateTable('field')
-      .set({ meta: JSON.stringify({}) })
+      .set({
+        meta:
+          keys.length === 0
+            ? sql`coalesce(meta::jsonb, '{}'::jsonb)::text`
+            : sql.raw(`(coalesce(meta::jsonb, '{}'::jsonb) - array[${quotedKeys}])::text`),
+      })
       .where('id', '=', fieldId);
 
     return ok([updateMeta]);

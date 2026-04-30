@@ -1062,4 +1062,84 @@ describe('v2 http updateRecord (e2e)', () => {
       | undefined;
     expect((updatedLinks ?? []).some((link) => link.id === project.id)).toBe(false);
   });
+
+  it('updates original link values when generated symmetric relations change', async () => {
+    const items = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Items For Reverse Link',
+      fields: [{ type: 'singleLineText', name: 'Item', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+
+    const itemNameFieldId = items.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!itemNameFieldId) {
+      throw new Error('Missing item primary field for reverse symmetric link test');
+    }
+
+    const orderItemsLinkId = createFieldId();
+
+    const orders = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Orders With Link',
+      fields: [
+        { type: 'singleLineText', name: 'Order', isPrimary: true },
+        {
+          type: 'link',
+          id: orderItemsLinkId,
+          name: 'Items',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: items.id,
+            lookupFieldId: itemNameFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const orderNameFieldId = orders.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!orderNameFieldId) {
+      throw new Error('Missing order primary field for reverse symmetric link test');
+    }
+
+    const orderLinkField = orders.fields.find((f) => f.id === orderItemsLinkId);
+    if (!orderLinkField || orderLinkField.type !== 'link') {
+      throw new Error('Missing order link field');
+    }
+    const symmetricFieldId = orderLinkField.options.symmetricFieldId ?? '';
+    if (!symmetricFieldId) throw new Error('Missing reverse symmetric link field id');
+
+    const item = await ctx.createRecord(items.id, {
+      [itemNameFieldId]: 'Item 1',
+    });
+
+    const order = await ctx.createRecord(orders.id, {
+      [orderNameFieldId]: 'Order 1',
+    });
+    await processOutbox(2);
+
+    await ctx.updateRecord(items.id, item.id, {
+      [symmetricFieldId]: [{ id: order.id }],
+    });
+    await processOutbox(2);
+
+    let orderRecords = await ctx.listRecords(orders.id);
+    let orderRow = orderRecords.find((r) => r.id === order.id);
+    const originalLinks = normalizeLookupArray(orderRow?.fields[orderItemsLinkId]) as
+      | Array<{ id: string }>
+      | undefined;
+    expect(originalLinks?.some((link) => link.id === item.id)).toBe(true);
+
+    await ctx.updateRecord(items.id, item.id, {
+      [symmetricFieldId]: [],
+    });
+    await processOutbox(2);
+
+    orderRecords = await ctx.listRecords(orders.id);
+    orderRow = orderRecords.find((r) => r.id === order.id);
+    const updatedOriginalLinks = normalizeLookupArray(orderRow?.fields[orderItemsLinkId]) as
+      | Array<{ id: string }>
+      | undefined;
+    expect((updatedOriginalLinks ?? []).some((link) => link.id === item.id)).toBe(false);
+  });
 });

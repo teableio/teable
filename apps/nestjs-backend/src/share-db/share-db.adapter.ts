@@ -195,6 +195,21 @@ export class ShareDbAdapter extends ShareDb.DB {
     }, {});
   }
 
+  private snapshots2MapWithMissing(
+    ids: string[],
+    snapshotData: ISnapshotBase<unknown>[]
+  ): Record<string, Snapshot> {
+    const snapshotDataMap = new Map(snapshotData.map((snapshot) => [snapshot.id, snapshot]));
+    const snapshots = ids.map((id) => {
+      const snapshot = snapshotDataMap.get(id);
+      if (!snapshot) {
+        return new Snapshot(id, 0, null, undefined, null);
+      }
+      return new Snapshot(snapshot.id, snapshot.v, snapshot.type, snapshot.data, null);
+    });
+    return this.snapshots2Map(snapshots);
+  }
+
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
@@ -216,16 +231,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         // For internal (server-side) connections without auth, resolve field docs directly
         if (docType === IdPrefix.Field && this.fieldServiceInner) {
           const snapshotData = await this.fieldServiceInner.getSnapshotBulk(collectionId, ids);
-          if (snapshotData.length) {
-            const snapshots = snapshotData.map(
-              (snapshot) =>
-                new Snapshot(snapshot.id, snapshot.v, snapshot.type, snapshot.data, null)
-            );
-            callback(null, this.snapshots2Map(snapshots));
-          } else {
-            const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, null));
-            callback(null, this.snapshots2Map(snapshots));
-          }
+          callback(null, this.snapshots2MapWithMissing(ids, snapshotData));
           return;
         }
         throw new UnauthorizedException('Unauthorized request not authorized');
@@ -243,22 +249,7 @@ export class ShareDbAdapter extends ShareDb.DB {
           );
         }
       );
-      if (snapshotData.length) {
-        const snapshots = snapshotData.map(
-          (snapshot) =>
-            new Snapshot(
-              snapshot.id,
-              snapshot.v,
-              snapshot.type,
-              snapshot.data,
-              null // TODO: metadata
-            )
-        );
-        callback(null, this.snapshots2Map(snapshots));
-      } else {
-        const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, null));
-        callback(null, this.snapshots2Map(snapshots));
-      }
+      callback(null, this.snapshots2MapWithMissing(ids, snapshotData));
     } catch (err) {
       this.logger.error(err);
       callback(exceptionParse(err as Error));

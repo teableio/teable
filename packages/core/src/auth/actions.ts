@@ -134,13 +134,29 @@ export type ActionPrefixMap = {
   [ActionPrefix.View]: ViewAction[];
   [ActionPrefix.Field]: FieldAction[];
   [ActionPrefix.Record]: RecordAction[];
+  [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
   [ActionPrefix.Automation]: AutomationAction[];
   [ActionPrefix.App]: AppAction[];
   [ActionPrefix.User]: UserAction[];
-  [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
   [ActionPrefix.Instance]: InstanceAction[];
   [ActionPrefix.Enterprise]: EnterpriseAction[];
 };
+
+export const allActions: readonly Action[] = [
+  ...spaceActions,
+  ...baseActions,
+  ...tableActions,
+  ...viewActions,
+  ...fieldActions,
+  ...recordActions,
+  ...tableRecordHistoryActions,
+  ...automationActions,
+  ...appActions,
+  ...userActions,
+  ...instanceActions,
+  ...enterpriseActions,
+];
+
 export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Space]: [...spaceActions],
   [ActionPrefix.Base]: [...baseActions],
@@ -148,9 +164,9 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.View]: [...viewActions],
   [ActionPrefix.Field]: [...fieldActions],
   [ActionPrefix.Record]: [...recordActions],
+  [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.Automation]: [...automationActions],
   [ActionPrefix.App]: [...appActions],
-  [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.User]: [...userActions],
   [ActionPrefix.Instance]: [...instanceActions],
   [ActionPrefix.Enterprise]: [...enterpriseActions],

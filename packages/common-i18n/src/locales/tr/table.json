@@ -640,6 +640,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Birincil alan Lookup olarak yanlış yapılandırıldı",
+        "InvalidPrimaryType": "Birincil alanın türü desteklenmiyor",
+        "MissingPrimary": "Tabloda birincil alan yok"
       }
     }
   },
@@ -878,6 +883,8 @@
       "advancedOptions": "Gelişmiş seçenekler",
       "namingFieldLabel": "Ek adı öneki",
       "selectField": "Varsayılan: ek dizini",
+      "noPrefixOption": "Önek yok",
+      "noPrefixOptionDesc": "Orijinal dosya adını koru",
       "groupByRow": "Klasörlere arşivle",
       "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
     }
@@ -951,10 +958,19 @@
     "shareNodeTab": "Düğümü paylaş"
   },
   "aiChat": {
+    "noModel": "Kullanılabilir model yok",
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…"
       }
-    }
+    },
+    "mention": {
+      "tables": "Tablolar",
+      "apps": "Uygulamalar",
+      "workflows": "İş akışları",
+      "folders": "Klasörler"
+    },
+    "inputPlaceholder": "Bağlam eklemek için @ yazın",
+    "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın"
   }
 }

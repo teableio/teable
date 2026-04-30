@@ -6,6 +6,7 @@ import {
   FieldId,
   FieldName,
   FormulaExpression,
+  LinkFieldConfig,
   Table,
   TableId,
   TableName,
@@ -207,6 +208,77 @@ const createChainedFormulaTable = () => {
     ._unsafeUnwrap();
 
   return { table, plusOneId, plusOneDoubleId };
+};
+
+const createLinkFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const mainTableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+  const lookupFieldId = createFieldId(`fld${'p'.repeat(16)}`);
+  const linkFieldId = createFieldId(`fld${'q'.repeat(16)}`);
+  const formulaFieldId = createFieldId(`fld${'r'.repeat(16)}`);
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(lookupFieldId)
+    .withName(createFieldName('Title'))
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+  foreignTable
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('Title')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'manyOne',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    symmetricFieldId: `fld${'s'.repeat(16)}`,
+  })._unsafeUnwrap();
+
+  const mainBuilder = Table.builder()
+    .withId(mainTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('MainTable')._unsafeUnwrap());
+  mainBuilder.field().singleLineText().withName(createFieldName('Name')).done();
+  mainBuilder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(createFieldName('Link'))
+    .withConfig(linkConfig)
+    .done();
+  mainBuilder
+    .field()
+    .formula()
+    .withId(formulaFieldId)
+    .withName(createFieldName('LinkTitleFormula'))
+    .withExpression(FormulaExpression.create(`{${linkFieldId.toString()}}`)._unsafeUnwrap())
+    .done();
+  mainBuilder.view().defaultGrid().done();
+
+  const table = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+  table
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('Name')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  table
+    .getFields()[1]
+    .setDbFieldName(DbFieldName.rehydrate('Link')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  table
+    .getFields()[2]
+    .setDbFieldName(DbFieldName.rehydrate('LinkTitleFormula')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { table, formulaFieldId };
 };
 
 const createIsErrorFormulaChainTable = () => {
@@ -492,6 +564,30 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = compiled._unsafeUnwrap().sql;
       expect(sqlText).toContain(`"level_0"."AlwaysError" LIKE '#ERROR:%'`);
       expect(sqlText).toContain('TRUE OR');
+    });
+
+    it('extracts link title when a same-table formula directly references a link field', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, formulaFieldId } = createLinkFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain(`COALESCE(("t"."Link")::jsonb->>'title'`);
+      expect(sqlText).not.toContain(`"t"."Link" as "LinkTitleFormula"`);
     });
   });
 
