@@ -32,6 +32,8 @@ import {
   Morph,
   Inception,
   Stealth,
+  Prodia,
+  Recraft,
 } from '@teable/icons';
 import type { GatewayModelProvider } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
@@ -199,6 +201,8 @@ export const GATEWAY_PROVIDER_ICONS: Record<
   openai: Openai,
   perplexity: Perplexity,
   'prime-intellect': PrimeIntellect,
+  prodia: Prodia,
+  recraft: Recraft,
   stealth: Stealth,
   vercel: Vercel,
   voyage: Voyage,

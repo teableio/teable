@@ -11,6 +11,7 @@ import { Button, Progress } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { IModelTestResult } from './LlmproviderManage';
+import { testImageModelCapability, TEXT_MODEL_TIMEOUT_MS, withTimeout } from './model-test-utils';
 import { generateModelKeyList, parseModelKey } from './utils';
 
 interface IBatchTestModelsProps {
@@ -33,16 +34,6 @@ interface IBatchTestModelsProps {
 }
 
 const CONCURRENCY = 5;
-const TEXT_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for text models
-const IMAGE_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for image models
-
-// Helper to wrap promise with timeout
-const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms)),
-  ]);
-};
 
 export const BatchTestModels = ({
   providers,
@@ -170,71 +161,11 @@ export const BatchTestModels = ({
       modelKey: string,
       provider: Required<LLMProvider>
     ): Promise<Partial<IModelTestResult>> => {
-      try {
-        const { type, name, apiKey, baseUrl, models } = provider;
-
-        // Test image generation (text-to-image)
-        const generationResult = await withTimeout(
-          onTest({
-            type,
-            name,
-            apiKey,
-            baseUrl,
-            models,
-            modelKey,
-            testImageGeneration: true,
-          }),
-          IMAGE_MODEL_TIMEOUT_MS,
-          `Timeout after ${IMAGE_MODEL_TIMEOUT_MS / 1000}s`
-        );
-
-        // Test image-to-image if generation works
-        let imageToImage = false;
-        if (generationResult.success) {
-          try {
-            const i2iResult = await withTimeout(
-              onTest({
-                type,
-                name,
-                apiKey,
-                baseUrl,
-                models,
-                modelKey,
-                testImageGeneration: true,
-                testImageToImage: true,
-              }),
-              IMAGE_MODEL_TIMEOUT_MS,
-              `Timeout`
-            );
-            imageToImage = i2iResult.success;
-          } catch {
-            // Image-to-image not supported, that's ok
-          }
-        }
-
-        if (!generationResult.success) {
-          return {
-            status: 'failed',
-            error: generationResult.response || 'Image generation test failed',
-            isImageModel: true,
-          };
-        }
-
-        return {
-          status: 'success',
-          isImageModel: true,
-          imageAbility: {
-            generation: true,
-            imageToImage,
-          },
-        };
-      } catch (error) {
-        return {
-          status: 'failed',
-          isImageModel: true,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
+      return testImageModelCapability({
+        modelKey,
+        provider,
+        onTest,
+      });
     },
     [onTest]
   );

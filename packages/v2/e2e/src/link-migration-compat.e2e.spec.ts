@@ -3,6 +3,7 @@ import {
   createRecordOkResponseSchema,
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
+  getTableByIdOkResponseSchema,
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
   updateRecordsOkResponseSchema,
@@ -261,10 +262,44 @@ describe('v2 link migration compatibility – step-by-step debug', () => {
       expect(es001Links[0].title).toBe('Alice Johnson');
     });
 
-    // TODO: Symmetric link population after updateRecord requires the computed update pipeline
-    // to detect junction changes and rebuild the symmetric field's JSON value on the foreign table.
-    // This is a separate issue from title resolution.
-    it.todo('Step 7 – symmetric link on Speakers table populated after updateRecord');
+    it('Step 7 – symmetric link on Speakers table populated after updateRecord', async () => {
+      console.log('\n======= Step 7: listRecords – check symmetric links =======');
+
+      const tableRes = await apiGet(`/tables/get?baseId=${ctx.baseId}&tableId=${speakersTableId}`);
+      expect(tableRes.status).toBe(200);
+      const speakerTable = getTableByIdOkResponseSchema.parse(tableRes.body).data.table;
+      const symmetricField = speakerTable.fields.find((field) => {
+        if (field.type !== 'link') return false;
+        const options = field.options as { symmetricFieldId?: string };
+        return options.symmetricFieldId === esLinkFieldId;
+      });
+      expect(symmetricField).toBeDefined();
+      if (!symmetricField) return;
+
+      await ctx.testContainer.processOutbox();
+
+      const res = await apiGet(
+        `/tables/listRecords?tableId=${speakersTableId}&fieldKeyType=${FieldKeyType.Id}`
+      );
+      expect(res.status).toBe(200);
+      const records = listTableRecordsOkResponseSchema.parse(res.body).data.records;
+
+      const alice = records.find((r) => r.id === spkAliceId);
+      const bob = records.find((r) => r.id === spkBobId);
+      expect(alice).toBeDefined();
+      expect(bob).toBeDefined();
+      if (!alice || !bob) return;
+
+      const aliceLinks = alice.fields[symmetricField.id] as Array<{ id: string; title?: string }>;
+      const bobLinks = bob.fields[symmetricField.id] as Array<{ id: string; title?: string }>;
+      console.log('  Alice symmetric links:', JSON.stringify(aliceLinks));
+      console.log('  Bob symmetric links:', JSON.stringify(bobLinks));
+
+      expect(aliceLinks).toHaveLength(1);
+      expect(aliceLinks[0]).toMatchObject({ id: es001Id, title: 'ES001' });
+      expect(bobLinks).toHaveLength(1);
+      expect(bobLinks[0]).toMatchObject({ id: es002Id, title: 'ES002' });
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

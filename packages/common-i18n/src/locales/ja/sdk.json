@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "無効な値",
     "invalidateSelectedTips": "選択した値は削除されました。もう一度選択してください",
+    "invalidConditionTip": "このフィルター条件は無効なため無視されます。値を調整してください。",
     "default": {
       "empty": "フィルター条件は適用されません",
       "placeholder": "値を入力してください"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}}表示フィールド",
     "showAll": "すべて表示",
     "hideAll": "すべて非表示",
-    "primaryKey": "プライマリフィールド: レコードを識別するために使用され、非表示にしたり削除したりすることはできません"
+    "primaryKey": "プライマリフィールド: レコードを識別するために使用され、非表示にしたり削除したりすることはできません",
+    "notInCurrentView": "フィールド「{{fieldName}}」は現在のビューに表示されていないため、移動できません"
   },
   "expandRecord": {
     "copy": "クリップボードにコピー",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "キーワード {{keyword}} を含むSQLの実行は許可されていません",
       "whiteListCheckError": "テーブルアクセスの確認中にエラーが発生しました: {{message}}",
       "databaseConnectionFailed": "データベース接続に失敗しました: {{message}}",
-      "executeQuerySqlFailed": "クエリSQLの実行に失敗しました: {{message}}"
+      "executeQuerySqlFailed": "クエリSQLの実行に失敗しました: {{message}}",
+      "sqlSyntaxError": "SQL構文エラーです。クエリを確認してください"
     },
     "permission": {
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "ボタンのクリック数が最大制限に達しました",
         "notSupportReset": "ボタンはリセットをサポートしていません"
-      }
+      },
+      "primaryCannotBeLookup": "主フィールドを Lookup フィールドとして設定することはできません",
+      "primaryFieldAlreadyExists": "テーブルには既に主フィールドがあります"
     },
     "view": {
       "notFound": "ビューが見つかりません",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "LinkedIn投稿が見つかりません: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn投稿者が見つかりません: {{postId}}",
       "fetchLinkedInUserFailed": "LinkedInユーザーの取得に失敗しました: {{error}}",
-      "domainAlreadyInUse": "このドメインはすでに別のアプリに紐付けられています"
+      "domainAlreadyInUse": "このドメインはすでに別のアプリに紐付けられています",
+      "domainReserved": "サブドメインは予約済みです"
     }
   }
 }

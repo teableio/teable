@@ -7,6 +7,23 @@ import { z } from '../zod';
 
 export const GET_BASE = '/base/{baseId}';
 
+export const v2ReasonSchema = z.enum([
+  'env_force_v2_all',
+  'config_force_v2_all',
+  'new_base',
+  'header_override',
+  'space_feature',
+  'unsupported_feature',
+  'disabled',
+  'feature_not_enabled',
+  'no_feature',
+]);
+
+export const baseV2StatusSchema = z.object({
+  useV2: z.boolean(),
+  reason: v2ReasonSchema,
+});
+
 export const getBaseItemSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -33,11 +50,13 @@ export const getBaseItemSchema = z.object({
     })
     .optional(),
   isCanary: z.boolean().optional(),
+  v2Status: baseV2StatusSchema.optional(),
   isShared: z.boolean().optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;
 
+export type IBaseV2StatusVo = z.infer<typeof baseV2StatusSchema>;
 export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;
 
 export const GetBaseRoute: RouteConfig = registerRoute({

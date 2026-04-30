@@ -35,6 +35,22 @@ const formatSpecDetails = (specInfo: TableWhereSpecInfo): string => {
   return parts.join(' ');
 };
 
+type SelectChoiceDto = { id: string; name: string; color: string };
+
+const deduplicateSelectChoices = (
+  choices: ReadonlyArray<SelectChoiceDto>
+): ReadonlyArray<SelectChoiceDto> => {
+  const seen = new Set<string>();
+  const deduped: SelectChoiceDto[] = [];
+  for (const choice of choices) {
+    const normalizedName = choice.name.trim();
+    if (seen.has(normalizedName)) continue;
+    seen.add(normalizedName);
+    deduped.push(choice);
+  }
+  return deduped;
+};
+
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -1904,7 +1920,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   }
 
   private normalizeSelectOptions(raw: Record<string, unknown>): {
-    choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+    choices: ReadonlyArray<SelectChoiceDto>;
     defaultValue?: string | ReadonlyArray<string>;
     preventAutoNewOptions?: boolean;
   } {
@@ -1921,7 +1937,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         name: String(name),
         color: normalizeColor(undefined, index),
       }));
-      return { choices };
+      return { choices: deduplicateSelectChoices(choices) };
     }
 
     const choices = Array.isArray(raw.choices)
@@ -1943,7 +1959,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;
 
     return {
-      choices: choices as ReadonlyArray<{ id: string; name: string; color: string }>,
+      choices: deduplicateSelectChoices(choices),
       ...(defaultValue !== undefined ? { defaultValue: defaultValue as string | string[] } : {}),
       ...(preventAutoNewOptions !== undefined ? { preventAutoNewOptions } : {}),
     };

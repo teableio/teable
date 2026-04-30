@@ -24,9 +24,17 @@ import type {
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
+  IImageSize,
 } from '@teable/openapi';
-import { chatModelAbilityType, UploadType, LLMProviderType, SettingKey } from '@teable/openapi';
-import { createGateway, generateText, tool, experimental_generateImage } from 'ai';
+import {
+  chatModelAbilityType,
+  getImageModelConfig,
+  getImageModelConfigByGatewayId,
+  UploadType,
+  LLMProviderType,
+  SettingKey,
+} from '@teable/openapi';
+import { createGateway, generateText, tool, generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
 import { uniq } from 'lodash';
@@ -36,13 +44,14 @@ import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { resolveBuildVersion } from '../../../utils/build-version';
 import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
-import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init/builtin-assets-init.service';
+import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
 
@@ -324,18 +333,27 @@ export class SettingOpenApiService {
   }
 
   /**
+   * Get test file buffer
+   */
+  private async getTestFileBuffer(filePath: string): Promise<Buffer | null> {
+    try {
+      const fullPath = resolve(process.cwd(), filePath);
+      return await readFile(fullPath);
+    } catch (error) {
+      this.logger.error(`Failed to read test file ${filePath}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
    * Get base64 data URL for a test file
    */
   private async getTestFileBase64(filePath: string, contentType: string): Promise<string | null> {
-    try {
-      const fullPath = resolve(process.cwd(), filePath);
-      const fileBuffer = await readFile(fullPath);
-      const base64 = fileBuffer.toString('base64');
-      return `data:${contentType};base64,${base64}`;
-    } catch (error) {
-      this.logger.error(`Failed to read file for base64 ${filePath}: ${error}`);
-      return null;
-    }
+    const fileBuffer = await this.getTestFileBuffer(filePath);
+    if (!fileBuffer) return null;
+
+    const base64 = fileBuffer.toString('base64');
+    return `data:${contentType};base64,${base64}`;
   }
 
   /**
@@ -504,7 +522,7 @@ export class SettingOpenApiService {
 
         // Handle image generation model testing
         if (testImageGeneration) {
-          // Gemini image models via Gateway use generateText, not experimental_generateImage
+          // Gemini image models via Gateway use generateText, not generateImage
           throw new CustomHttpException(
             'Image generation testing not supported for AI Gateway models yet',
             HttpErrorCode.VALIDATION_ERROR
@@ -527,6 +545,11 @@ export class SettingOpenApiService {
         };
       }
 
+      const shouldTestImageGeneration = this.shouldTestImageGenerationModel(
+        type,
+        model,
+        testImageGeneration
+      );
       const provider = modelProviders[type as keyof typeof modelProviders];
       const providerOptions = getAdaptedProviderOptions(type, {
         name: model,
@@ -538,7 +561,7 @@ export class SettingOpenApiService {
       } as never) as OpenAIProvider;
 
       // Handle image generation model testing
-      if (testImageGeneration) {
+      if (shouldTestImageGeneration) {
         return await this.testImageGenerationModel(modelProvider, model, type, testImageToImage);
       }
 
@@ -570,6 +593,20 @@ export class SettingOpenApiService {
     }
   }
 
+  private shouldTestImageGenerationModel(
+    providerType: LLMProviderType,
+    model: string,
+    testImageGeneration?: boolean
+  ): boolean {
+    if (testImageGeneration != null) return testImageGeneration;
+
+    const config =
+      providerType === LLMProviderType.AI_GATEWAY
+        ? getImageModelConfigByGatewayId(model)
+        : getImageModelConfig(providerType, model);
+    return config?.modelType === 'image';
+  }
+
   private async testImageGenerationModel(
     modelProvider: OpenAIProvider,
     model: string,
@@ -582,33 +619,38 @@ export class SettingOpenApiService {
         return await this.testGoogleImageGeneration(modelProvider, model, testImageToImage);
       }
 
-      // OpenAI-style image generation (DALL-E, etc.)
-
+      // OpenAI-style image generation (DALL-E, GPT Image, etc.)
       const imageModel = modelProvider.image(model);
+      const size = this.getImageGenerationTestSize(providerType, model);
+      const sizeOptions = size ? { size } : {};
 
       if (testImageToImage) {
+        const testImageBuffer = await this.getTestFileBuffer(testImagePath);
+        if (!testImageBuffer) {
+          return {
+            success: false,
+            response: 'Test image file not found',
+          };
+        }
+
         // Test image-to-image: provide an image as input
         // Note: Not all image models support this, so we catch errors gracefully
-        const testImageUrl =
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-        await experimental_generateImage({
+        await generateImage({
           model: imageModel,
-          prompt: 'A simple test image',
-          n: 1,
-          size: '256x256',
-          providerOptions: {
-            openai: {
-              image: testImageUrl,
-            },
+          prompt: {
+            text: 'Create a very simple variation of this image.',
+            images: [testImageBuffer],
           },
+          n: 1,
+          ...sizeOptions,
         });
       } else {
         // Test basic text-to-image generation
-        await experimental_generateImage({
+        await generateImage({
           model: imageModel,
           prompt: 'A simple test: draw a small red circle',
           n: 1,
-          size: '256x256',
+          ...sizeOptions,
         });
       }
 
@@ -619,12 +661,22 @@ export class SettingOpenApiService {
           : 'Image generation successful',
       };
     } catch (error) {
+      this.logger.error('testImageGenerationModel Error', (error as Error)?.stack);
       const message = error instanceof Error ? error.message : 'Image generation failed';
       return {
         success: false,
         response: message,
       };
     }
+  }
+
+  private getImageGenerationTestSize(
+    providerType: LLMProviderType,
+    model: string
+  ): IImageSize | undefined {
+    const config = getImageModelConfig(providerType, model);
+    if (!config || config.modelType !== 'image') return undefined;
+    return config.defaultSize ?? config.supportedSizes?.[0];
   }
 
   /**
@@ -949,7 +1001,7 @@ export class SettingOpenApiService {
       params: {
         url,
         instanceId: setting.instanceId || '',
-        version: process.env.NEXT_PUBLIC_BUILD_VERSION || '',
+        version: resolveBuildVersion(),
         deployedAt,
       },
       headers: {

@@ -33,6 +33,8 @@ interface IGridRefState {
   setGridRef: (ref: React.RefObject<IGridRef>) => void;
   searchCursor: [number, number] | null;
   setSearchCursor: (cell: [number, number] | null) => void;
+  highlightedFieldId: string | null;
+  setHighlightedFieldId: (fieldId: string | null) => void;
   resetSearchHandler: () => void;
   setResetSearchHandler: (fn: () => void) => void;
   recordMap: IRecordIndexMap | null;
@@ -48,6 +50,7 @@ interface IGridRefState {
 export const useGridSearchStore = create<IGridRefState>((set) => ({
   gridRef: null,
   searchCursor: null,
+  highlightedFieldId: null,
   recordMap: null,
   fields: null,
   highlightedTableId: null,
@@ -74,6 +77,14 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
       return {
         ...state,
         searchCursor: cell,
+      };
+    });
+  },
+  setHighlightedFieldId: (fieldId: string | null) => {
+    set((state) => {
+      return {
+        ...state,
+        highlightedFieldId: fieldId,
       };
     });
   },
