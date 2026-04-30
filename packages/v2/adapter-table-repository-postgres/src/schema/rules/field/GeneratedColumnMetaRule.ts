@@ -9,6 +9,7 @@ import {
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -61,6 +62,23 @@ export class GeneratedColumnMetaRule implements ISchemaRule {
       }
 
       return ok({ valid: true });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will convert "${this.field.name().toString()}" back to a normal stored column.`,
+      },
+      description: {
+        fallback:
+          'This repair drops the current generated column and recreates a plain stored column to match field metadata. The old generated display values in that physical column are discarded, so the recreated column starts empty until another process repopulates it.',
+      },
     });
   }
 

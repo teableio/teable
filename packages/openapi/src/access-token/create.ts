@@ -1,3 +1,4 @@
+import { allActions } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -12,7 +13,7 @@ const isValidDateString = (dateString: string) => {
 export const createAccessTokenRoSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  scopes: z.array(z.string()).min(1),
+  scopes: z.array(z.enum(allActions)).min(1),
   spaceIds: z.array(z.string()).min(1).nullable().optional(),
   baseIds: z.array(z.string()).min(1).nullable().optional(),
   hasFullAccess: z.boolean().optional(),
@@ -24,7 +25,11 @@ export const createAccessTokenRoSchema = z.object({
     .meta({ type: 'string', example: '2024-03-25' }),
 });
 
-export type CreateAccessTokenRo = z.infer<typeof createAccessTokenRoSchema>;
+type CreateAccessTokenRoSchema = z.infer<typeof createAccessTokenRoSchema>;
+
+export type CreateAccessTokenRo = Omit<CreateAccessTokenRoSchema, 'scopes'> & {
+  scopes: string[];
+};
 
 export const createAccessTokenVoSchema = z.object({
   id: z.string(),

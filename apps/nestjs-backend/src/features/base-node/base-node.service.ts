@@ -141,14 +141,10 @@ export class BaseNodeService {
 
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
-    if (!base?.spaceId) {
-      return { useV2: false, reason: 'disabled' };
-    }
-
-    return this.canaryService.shouldUseV2WithReason(base.spaceId, feature);
+    return this.canaryService.shouldUseV2ForBaseWithReason(base, feature);
   }
 
   async getDeleteTableV2Decision(baseId: string, nodeId: string): Promise<IV2Decision | undefined> {
@@ -158,14 +154,10 @@ export class BaseNodeService {
   async getCreateTableV2Decision(baseId: string): Promise<IV2Decision | undefined> {
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
-    if (!base?.spaceId) {
-      return { useV2: false, reason: 'disabled' };
-    }
-
-    return this.canaryService.shouldUseV2WithReason(base.spaceId, 'createTable');
+    return this.canaryService.shouldUseV2ForBaseWithReason(base, 'createTable');
   }
 
   private generateDefaultUrl(
@@ -969,22 +961,8 @@ export class BaseNodeService {
         );
       }
 
-      if (node.resourceType === BaseNodeResourceType.Folder && parentId) {
-        await this.assertFolderDepth(baseId, parentId);
-      }
-
-      // Check for circular reference
-      const isCircular = await this.isCircularReference(baseId, nodeId, parentId);
-      if (isCircular) {
-        throw new CustomHttpException(
-          'Cannot move node to its own child (circular reference)',
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.circularReference',
-            },
-          }
-        );
+      if (node.resourceType === BaseNodeResourceType.Folder) {
+        await this.assertFolderMoveDepth(baseId, parentId, nodeId);
       }
 
       const maxOrder = await this.getMaxOrder(baseId);
@@ -1032,7 +1010,7 @@ export class BaseNodeService {
         });
 
       if (node.resourceType === BaseNodeResourceType.Folder && anchor.parentId) {
-        await this.assertFolderDepth(baseId, anchor.parentId);
+        await this.assertFolderMoveDepth(baseId, anchor.parentId, nodeId);
       }
 
       await updateOrder({
@@ -1125,21 +1103,54 @@ export class BaseNodeService {
     }
   }
 
-  private async getFolderDepth(baseId: string, id: string) {
-    const prisma = this.prismaService.txClient();
-    const allFolders = await prisma.baseNode.findMany({
+  private async assertFolderMoveDepth(baseId: string, parentId: string, nodeId: string) {
+    const allFolders = await this.getAllFolders(baseId);
+
+    const parentDepth = this.getFolderDepthFromList(allFolders, parentId, nodeId);
+    const subtreeDepth = this.getFolderSubtreeDepth(allFolders, nodeId);
+
+    if (parentDepth + subtreeDepth >= this.maxFolderDepth) {
+      throw new CustomHttpException('Folder depth limit exceeded', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.folderDepthLimitExceeded',
+        },
+      });
+    }
+  }
+
+  private async getAllFolders(baseId: string) {
+    return this.prismaService.txClient().baseNode.findMany({
       where: { baseId, resourceType: BaseNodeResourceType.Folder },
       select: { id: true, parentId: true },
     });
+  }
 
+  private getFolderDepthFromList(
+    allFolders: { id: string; parentId: string | null }[],
+    id: string,
+    circularCheckNodeId?: string
+  ) {
     let depth = 0;
     if (allFolders.length === 0) {
       return depth;
     }
 
     const folderMap = keyBy(allFolders, 'id');
+    const visited = new Set<string>();
     let current = id;
     while (current) {
+      if ((circularCheckNodeId && current === circularCheckNodeId) || visited.has(current)) {
+        throw new CustomHttpException(
+          'Circular reference detected in folder hierarchy',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.circularReference',
+            },
+          }
+        );
+      }
+      visited.add(current);
       depth++;
       const folder = folderMap[current];
       if (!folder) {
@@ -1149,63 +1160,32 @@ export class BaseNodeService {
           },
         });
       }
-      if (folder.parentId === id) {
-        throw new CustomHttpException(
-          'A folder cannot be its own parent',
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.circularReference',
-            },
-          }
-        );
-      }
       current = folder.parentId ?? '';
     }
     return depth;
   }
 
-  private async isCircularReference(
-    baseId: string,
-    nodeId: string,
-    parentId: string
-  ): Promise<boolean> {
-    const knex = this.knex;
+  private getFolderSubtreeDepth(
+    allFolders: { id: string; parentId: string | null }[],
+    nodeId: string
+  ) {
+    const childrenMap: Record<string, string[]> = {};
+    for (const folder of allFolders) {
+      if (folder.parentId) {
+        (childrenMap[folder.parentId] ??= []).push(folder.id);
+      }
+    }
+    const calc = (id: string): number => {
+      const children = childrenMap[id];
+      if (!children?.length) return 0;
+      return 1 + Math.max(...children.map(calc));
+    };
+    return calc(nodeId);
+  }
 
-    // Non-recursive query: Start with the parent node
-    const nonRecursiveQuery = knex
-      .select('id', 'parent_id', 'base_id')
-      .from('base_node')
-      .where('id', parentId)
-      .andWhere('base_id', baseId);
-
-    // Recursive query: Traverse up the parent chain
-    const recursiveQuery = knex
-      .select('bn.id', 'bn.parent_id', 'bn.base_id')
-      .from('base_node as bn')
-      .innerJoin('ancestors as a', function () {
-        // Join condition: bn.id = a.parent_id (get parent of current ancestor)
-        this.on('bn.id', '=', 'a.parent_id').andOn('bn.base_id', '=', knex.raw('?', [baseId]));
-      });
-
-    // Combine non-recursive and recursive queries
-    const cteQuery = nonRecursiveQuery.union(recursiveQuery);
-
-    // Build final query with recursive CTE
-    const finalQuery = knex
-      .withRecursive('ancestors', ['id', 'parent_id', 'base_id'], cteQuery)
-      .select('id')
-      .from('ancestors')
-      .where('id', nodeId)
-      .limit(1)
-      .toQuery();
-
-    // Execute query
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<Array<{ id: string }>>(finalQuery);
-
-    return result.length > 0;
+  private async getFolderDepth(baseId: string, id: string) {
+    const allFolders = await this.getAllFolders(baseId);
+    return this.getFolderDepthFromList(allFolders, id);
   }
 
   async batchUpdateBaseNodes(data: { id: string; values: { [key: string]: unknown } }[]) {

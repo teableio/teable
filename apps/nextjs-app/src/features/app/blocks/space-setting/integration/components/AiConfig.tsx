@@ -22,14 +22,15 @@ import { parseModelKey } from '../../../admin/setting/components/ai-config/utils
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
   onChange: (value: IAIIntegrationConfig) => void;
+  spaceId?: string;
 }
 
 const emptyArray: never[] = [];
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange } = props;
+  const { config, onChange, spaceId: spaceIdProp } = props;
   const router = useRouter();
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
   const defaultValues = useMemo(
     () =>

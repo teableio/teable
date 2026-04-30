@@ -641,6 +641,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Primärfeld fälschlich als Lookup konfiguriert",
+        "InvalidPrimaryType": "Primärfeld hat einen nicht unterstützten Typ",
+        "MissingPrimary": "Tabelle hat kein Primärfeld"
       }
     },
     "index": {
@@ -1054,6 +1059,8 @@
       "advancedOptions": "Erweiterte Optionen",
       "namingFieldLabel": "Präfix für Anhangsname",
       "selectField": "Standard: Anhangsindex",
+      "noPrefixOption": "Kein Präfix",
+      "noPrefixOptionDesc": "Originaldateiname beibehalten",
       "groupByRow": "In Ordner archivieren",
       "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
     }

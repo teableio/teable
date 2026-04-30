@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Valor no válido",
     "invalidateSelectedTips": "Se ha eliminado el valor seleccionado, seleccione nuevamente",
+    "invalidConditionTip": "Esta condición de filtro no es válida y se ignorará. Ajuste el valor.",
     "default": {
       "empty": "No se aplican condiciones de filtro",
       "placeholder": "Ingrese un valor"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Mostrar todo",
     "hideAll": "Esconderse",
-    "primaryKey": "Campo primario: identifica registros\n"
+    "primaryKey": "Campo primario: identifica registros\n",
+    "notInCurrentView": "El campo \"{{fieldName}}\" no está visible en la vista actual y no se puede localizar"
   },
   "expandRecord": {
     "copy": "Copiar al portapapeles",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "No se permite ejecutar SQL con la palabra clave {{keyword}}",
       "whiteListCheckError": "Ocurrió un error al verificar el acceso a la tabla: {{message}}",
       "databaseConnectionFailed": "Conexión a la base de datos fallida: {{message}}",
-      "executeQuerySqlFailed": "Error al ejecutar la consulta SQL: {{message}}"
+      "executeQuerySqlFailed": "Error al ejecutar la consulta SQL: {{message}}",
+      "sqlSyntaxError": "Error de sintaxis SQL, por favor verifique su consulta"
     },
     "permission": {
       "createRecordWithDeniedFields": "No tienes permiso para crear registros con campos({{fields}})",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
         "notSupportReset": "El campo de botón no admite restablecimiento"
-      }
+      },
+      "primaryCannotBeLookup": "El campo principal no puede configurarse como un campo Lookup",
+      "primaryFieldAlreadyExists": "La tabla ya tiene un campo principal"
     },
     "view": {
       "notFound": "Vista no encontrada",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "Publicación de LinkedIn no encontrada: {{postId}}",
       "linkedInAuthorNotFound": "Autor de LinkedIn no encontrado: {{postId}}",
       "fetchLinkedInUserFailed": "Error al obtener el usuario de LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Este dominio ya está vinculado a otra aplicación"
+      "domainAlreadyInUse": "Este dominio ya está vinculado a otra aplicación",
+      "domainReserved": "Subdominio reservado"
     }
   }
 }

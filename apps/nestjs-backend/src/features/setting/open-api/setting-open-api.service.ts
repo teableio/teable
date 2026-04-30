@@ -36,6 +36,7 @@ import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { resolveBuildVersion } from '../../../utils/build-version';
 import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
@@ -949,7 +950,7 @@ export class SettingOpenApiService {
       params: {
         url,
         instanceId: setting.instanceId || '',
-        version: process.env.NEXT_PUBLIC_BUILD_VERSION || '',
+        version: resolveBuildVersion(),
         deployedAt,
       },
       headers: {

@@ -632,6 +632,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "主フィールドが Lookup として誤設定",
+        "InvalidPrimaryType": "主フィールドのタイプが非対応",
+        "MissingPrimary": "テーブルに主フィールドがありません"
       }
     },
     "index": {
@@ -1032,6 +1037,8 @@
       "advancedOptions": "詳細オプション",
       "namingFieldLabel": "添付ファイル名のプレフィックス",
       "selectField": "デフォルト: 添付ファイル番号",
+      "noPrefixOption": "プレフィックスなし",
+      "noPrefixOptionDesc": "元のファイル名を保持",
       "groupByRow": "フォルダにアーカイブ",
       "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
     }
