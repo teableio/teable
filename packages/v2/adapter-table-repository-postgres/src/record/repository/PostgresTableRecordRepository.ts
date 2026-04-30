@@ -1720,7 +1720,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           if (changedFieldColumns.length > 0 && !updatedRow) {
             await snapshotCaptureSession.abort();
             snapshotCaptureSession = undefined;
-            return ok({});
+            return ok({ mutationApplied: false });
           }
 
           // Acquire advisory locks for linked records to prevent deadlocks
@@ -1765,7 +1765,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(db, table.id().toString(), actorId);
           const computedChanges = extractChangesForRecord(computedResult, recordIdStr);
           const changedFields = toChangedFieldsMap(updatedRow, changedFieldColumns);
-          return ok({ changedFields, computedChanges, updateSnapshot });
+          return ok({ mutationApplied: true, changedFields, computedChanges, updateSnapshot });
         } catch (error) {
           await snapshotCaptureSession?.abort();
           return err(

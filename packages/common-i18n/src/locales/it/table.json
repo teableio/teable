@@ -641,6 +641,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo primario configurato erroneamente come Lookup",
+        "InvalidPrimaryType": "Il campo primario ha un tipo non supportato",
+        "MissingPrimary": "La tabella non ha un campo primario"
       }
     },
     "index": {
@@ -1058,6 +1063,8 @@
       "advancedOptions": "Opzioni avanzate",
       "namingFieldLabel": "Prefisso nome allegato",
       "selectField": "Predefinito: indice allegato",
+      "noPrefixOption": "Nessun prefisso",
+      "noPrefixOptionDesc": "Mantieni il nome file originale",
       "groupByRow": "Archivia in cartelle",
       "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
     }

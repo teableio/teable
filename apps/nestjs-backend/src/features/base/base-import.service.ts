@@ -87,6 +87,7 @@ export class BaseImportService {
           spaceId,
           order,
           icon,
+          v2Enabled: true,
           createdBy: userId,
         },
         select: {

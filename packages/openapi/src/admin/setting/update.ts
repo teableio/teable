@@ -32,7 +32,8 @@ export const GatewayModelTypeValues = ['language', 'embedding', 'image'] as cons
 export type GatewayModelType = (typeof GatewayModelTypeValues)[number];
 export const gatewayModelTypeSchema = z.enum(GatewayModelTypeValues);
 
-// Gateway model capability tags from API
+// Known gateway model capability tags from API.
+// Tags are external API metadata, so validation accepts any non-empty string for forward compatibility.
 export const GatewayModelTagValues = [
   'reasoning',
   'tool-use',
@@ -40,9 +41,12 @@ export const GatewayModelTagValues = [
   'file-input',
   'image-generation',
   'implicit-caching',
+  'explicit-caching',
+  'web-search',
 ] as const;
-export type GatewayModelTag = (typeof GatewayModelTagValues)[number];
-export const gatewayModelTagSchema = z.enum(GatewayModelTagValues);
+export type KnownGatewayModelTag = (typeof GatewayModelTagValues)[number];
+export type GatewayModelTag = string;
+export const gatewayModelTagSchema = z.string().min(1);
 
 // Gateway model provider (owned_by) from API
 export const GatewayModelProviderValues = [
@@ -693,6 +697,18 @@ export const sandboxAgentModelSchema = z.object({
   name: z.string(),
 });
 
+export const SANDBOX_AGENT_EFFORT_VALUES = [
+  'auto',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+export const sandboxAgentEffortSchema = z.enum(SANDBOX_AGENT_EFFORT_VALUES);
+export type EffortLevel = z.infer<typeof sandboxAgentEffortSchema>;
+export const DEFAULT_SANDBOX_AGENT_EFFORT: EffortLevel = 'auto';
+
 export type ISandboxAgentModel = z.infer<typeof sandboxAgentModelSchema>;
 
 export const sandboxAgentConfigSchema = z.object({
@@ -705,10 +721,7 @@ export const sandboxAgentConfigSchema = z.object({
   maxConcurrentChats: z.number().min(1).max(20).default(3).optional(),
   activeSnapshotId: z.string().optional(),
   activeAppBuilderSnapshotId: z.string().optional(),
-  defaultEffort: z
-    .enum(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
-    .default('auto')
-    .optional(),
+  defaultEffort: sandboxAgentEffortSchema.default(DEFAULT_SANDBOX_AGENT_EFFORT).optional(),
 });
 
 export type ISandboxAgentConfig = z.infer<typeof sandboxAgentConfigSchema>;

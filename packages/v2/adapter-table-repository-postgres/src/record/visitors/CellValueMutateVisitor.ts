@@ -8,7 +8,6 @@ import type {
   LastModifiedTimeField,
   LinkField,
   MultipleSelectField,
-  SetAttachmentValueSpec,
   SetCheckboxValueSpec,
   SetDateValueSpec,
   SetLinkValueByTitleSpec,
@@ -31,6 +30,7 @@ import {
   FieldId,
   FieldType,
   ok,
+  SetAttachmentValueSpec,
   SetLinkValueSpec as SetLinkValueSpecClass,
 } from '@teable/v2-core';
 import type { CompiledQuery, Kysely } from 'kysely';
@@ -38,6 +38,7 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { buildAttachmentTableReplaceQueries } from '../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
@@ -503,7 +504,22 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   visitSetAttachmentValue(spec: SetAttachmentValueSpec): Result<void, DomainError> {
-    return this.addJsonValue(spec.fieldId, spec.value.toValue());
+    const addResult = this.addJsonValue(spec.fieldId, spec.value.toValue());
+    if (addResult.isErr()) {
+      return addResult;
+    }
+
+    this.additionalStatements.push(
+      ...buildAttachmentTableReplaceQueries(this.db, {
+        actorId: this.ctx.actorId,
+        tableId: this.table.id().toString(),
+        recordId: this.ctx.recordId,
+        fieldId: spec.fieldId.toString(),
+        value: spec.value.toValue(),
+      })
+    );
+
+    return ok(undefined);
   }
 
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {
@@ -534,6 +550,11 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       // Link fields need junction table cleanup — delegate to existing link handling
       const nullSpec = new SetLinkValueSpecClass(field.id(), CellValue.null());
       return this.visitSetLinkValue(nullSpec);
+    }
+
+    if (field.type().equals(FieldType.attachment())) {
+      const nullSpec = new SetAttachmentValueSpec(field.id(), CellValue.null());
+      return this.visitSetAttachmentValue(nullSpec);
     }
 
     // Non-link fields: directly SET col = NULL

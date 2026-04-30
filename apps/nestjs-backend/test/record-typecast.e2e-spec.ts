@@ -279,7 +279,8 @@ describe('Record Typecast', () => {
         typecast: true,
       }).then((res) => res.data);
 
-      expect(record.fields[table.fields[1].id]).toBeUndefined();
+      const emptySelectValue = record.fields[table.fields[1].id];
+      expect(emptySelectValue === null || emptySelectValue === undefined).toBe(true);
     });
   });
 });

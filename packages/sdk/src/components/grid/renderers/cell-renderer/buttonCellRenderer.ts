@@ -100,7 +100,7 @@ const calcPosition = (
   const { fieldOptions } = data;
   const { width, ctx, theme, height } = props;
   const { fontSizeXS, fontFamily } = theme;
-  const cacheKey = `${fieldOptions.label}-${width}`;
+  const cacheKey = `${fieldOptions.label}-${width}-${height}`;
   if (!flush) {
     const cachedRect = positionCache.get(cacheKey);
     if (cachedRect) return cachedRect;
@@ -187,10 +187,10 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
     const { data } = cell;
     const { fieldOptions } = data;
-    const { hoverCellPosition, width } = props;
+    const { hoverCellPosition, width, height } = props;
     const [x, y] = hoverCellPosition;
 
-    const cacheKey = `${fieldOptions.label}-${width}`;
+    const cacheKey = `${fieldOptions.label}-${width}-${height}`;
     const rect = positionCache.get(cacheKey);
     if (
       rect &&

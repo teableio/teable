@@ -88,7 +88,12 @@ export const GridViewBase = (props: IGridViewProps) => {
   const isTouchDevice = useIsTouchDevice();
   const { setSelection, openStatisticMenu, openGroupHeaderMenu, openHeaderMenu } =
     useGridViewStore();
-  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
+  const { setGridRef, searchCursor, highlightedFieldId } = useGridSearchStore();
+  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns(
+    undefined,
+    undefined,
+    highlightedFieldId
+  );
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
@@ -97,7 +102,6 @@ export const GridViewBase = (props: IGridViewProps) => {
   const allFields = useFields({ withHidden: true });
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
-  const { setGridRef, searchCursor } = useGridSearchStore();
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
 
   const prepare = isHydrated && view && columns.length;
