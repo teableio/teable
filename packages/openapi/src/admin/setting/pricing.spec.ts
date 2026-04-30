@@ -1,13 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { describe, it, expect } from 'vitest';
-import type { IModelPricing, IPricingTier } from './update';
+import type { IModelPricing, IPricingTier } from './pricing';
 import {
   calculateTieredCost,
   pricingToCredits,
   pricingToCreditsFromUsage,
   normalizeGatewayPricing,
   USD_PER_CREDIT,
-} from './update';
+} from './pricing';
 
 describe('pricing', () => {
   describe('USD_PER_CREDIT', () => {

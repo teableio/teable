@@ -40,11 +40,11 @@ body {
   background-color: hsl(var(--muted-foreground)) !important;
 }
 
-.fc-scrollgrid-section > td {
+.fc-scrollgrid-section>td {
   border-radius: 0px 0px 8px 8px !important;
 }
 
-.fc-scrollgrid-section > th {
+.fc-scrollgrid-section>th {
   border-radius: 0px 8px 0px 0px !important;
 }
 
@@ -166,4 +166,22 @@ body {
 
 .react-flow__controls-button svg {
   fill: currentColor !important;
+}
+
+@keyframes ui-attention-pulse {
+  0% {
+    box-shadow: inset 0 0 0 0 hsl(var(--primary) / 0);
+  }
+
+  35% {
+    box-shadow: inset 0 0 0 5px hsl(var(--primary)/ 0.15);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 0 hsl(var(--primary) / 0);
+  }
+}
+
+.ui-attention-pulse {
+  animation: ui-attention-pulse 700ms ease-in-out 2;
 }

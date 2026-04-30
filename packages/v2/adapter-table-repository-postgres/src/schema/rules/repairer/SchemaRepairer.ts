@@ -1,7 +1,7 @@
 import type { Table } from '@teable/v2-core';
 
 import { executeTableSchemaStatements } from '../../../shared/db';
-import type { SchemaRuleManualRepairValues } from '../core';
+import type { SchemaRuleManualRepairValues, TableSchemaStatementBuilder } from '../core';
 import { getRuleRepairHint } from '../core/RuleRepairMetadata';
 import {
   createSchemaRulePlanner,
@@ -10,6 +10,7 @@ import {
 } from '../planner/SchemaRulePlanner';
 import {
   type SchemaRepairResult,
+  type SchemaRepairSqlStatement,
   pendingResult,
   runningResult,
   successResult,
@@ -25,6 +26,19 @@ export interface SchemaRepairOptions {
   readonly manualRepairValues?: SchemaRuleManualRepairValues;
   readonly targetStatuses?: ReadonlyArray<'warn' | 'error'>;
 }
+
+const compileRepairStatements = (
+  db: SchemaRepairerParams['db'],
+  statements: ReadonlyArray<TableSchemaStatementBuilder>
+): ReadonlyArray<SchemaRepairSqlStatement> =>
+  statements.map((statement) => {
+    const compiled = statement.compile(db);
+
+    return {
+      sql: compiled.sql,
+      parameters: compiled.parameters ?? [],
+    };
+  });
 
 export class SchemaRepairer {
   constructor(private readonly params: SchemaRepairerParams) {}
@@ -248,12 +262,17 @@ export class SchemaRepairer {
           }
 
           if (options?.dryRun) {
+            const compiledStatements = compileRepairStatements(ctx.db, statements);
             yield {
               ...successResult(
                 pending,
                 `Dry run: ${statements.length} statements ready`,
                 'repaired',
-                { ...details, statementCount: statements.length }
+                {
+                  ...details,
+                  statementCount: statements.length,
+                  statements: compiledStatements,
+                }
               ),
               repair,
             };

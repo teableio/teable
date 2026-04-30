@@ -30,10 +30,11 @@ import { scrollToTarget } from './utils';
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
   rewardManage?: React.ReactNode;
+  canarySettings?: React.ReactNode;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData, rewardManage } = props;
+  const { settingServerData, rewardManage, canarySettings } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -283,7 +284,7 @@ export const SettingPage = (props: ISettingPageProps) => {
 
           {rewardManage}
 
-          <CanarySettings setting={setting} />
+          {canarySettings ?? <CanarySettings setting={setting} />}
 
           {/* email config */}
           <div className="pb-6" ref={emailRef}>
