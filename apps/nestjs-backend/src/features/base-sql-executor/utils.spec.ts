@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { DriverClient } from '@teable/core';
+import { CustomHttpException } from '../../custom.exception';
 import { validateRoleOperations, checkTableAccess } from './utils';
 
 describe('base sql executor utils', () => {
@@ -114,6 +115,16 @@ describe('base sql executor utils', () => {
           message: expect.not.stringContaining('Biao_Ge_5'),
         })
       );
+    });
+
+    it('should throw CustomHttpException for SQL syntax errors instead of SyntaxError', () => {
+      const invalidSql = 'SELEC * FORM users';
+      expect(() =>
+        checkTableAccess(invalidSql, {
+          tableNames: ['users'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(CustomHttpException);
     });
 
     it('correctly-split "schema"."table" form passes the whitelist', () => {

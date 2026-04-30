@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
@@ -66,6 +67,23 @@ export class OrderColumnRule implements ISchemaRule {
         valid: exists,
         missing: exists ? [] : [`order column ${columnName}`],
       });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: `Automatic repair will recreate the order column for "${this.field.name().toString()}".`,
+      },
+      description: {
+        fallback:
+          'This repair restores only the helper column that stores link display order. Relation data stays intact, but custom ordering may be lost until order values are repopulated.',
+      },
     });
   }
 

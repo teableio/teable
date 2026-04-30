@@ -10,6 +10,16 @@ import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
 type EditorMode = 'markdown' | 'text';
 
+const toCommitValue = (value: string): string | null => {
+  const trimmed = value.trim();
+  return trimmed || null;
+};
+
+const getChangedCommitValue = (value: string, initialValue: string): string | null | undefined => {
+  const nextValue = toCommitValue(value);
+  return nextValue === toCommitValue(initialValue) ? undefined : nextValue;
+};
+
 interface IExpandMarkdownEditorProps {
   value: string | null;
   field?: Field;
@@ -23,16 +33,34 @@ interface IExpandMarkdownEditorProps {
 const ExpandedEditorInner = ({
   value,
   onChange,
+  onDirtyChange,
   open,
 }: {
   value: string;
   onChange?: (value: string | null) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   open: boolean;
 }) => {
+  const initialValueRef = useRef(value);
   const latestValueRef = useRef(value);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEditor((root) => createMilkdownEditor(root, { value, latestValueRef }), []);
+  const handleMarkdownUpdated = useCallback(
+    (markdown: string) => {
+      onDirtyChange?.(getChangedCommitValue(markdown, initialValueRef.current) !== undefined);
+    },
+    [onDirtyChange]
+  );
+
+  useEditor(
+    (root) =>
+      createMilkdownEditor(root, {
+        value,
+        latestValueRef,
+        onMarkdownUpdated: handleMarkdownUpdated,
+      }),
+    []
+  );
 
   const [loading, getEditor] = useInstance();
 
@@ -43,9 +71,15 @@ const ExpandedEditorInner = ({
         latestValueRef.current = markdown;
       }
     }
-    const trimmed = latestValueRef.current.trim();
-    onChange?.(trimmed || null);
-  }, [onChange, loading, getEditor]);
+    const nextValue = getChangedCommitValue(latestValueRef.current, initialValueRef.current);
+    if (nextValue !== undefined) {
+      onChange?.(nextValue);
+      initialValueRef.current = latestValueRef.current;
+      onDirtyChange?.(false);
+      return;
+    }
+    onDirtyChange?.(false);
+  }, [onChange, onDirtyChange, loading, getEditor]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +119,7 @@ const ExpandedEditorInner = ({
       ref={wrapperRef}
       className="milkdown-editor-wrap flex-1 overflow-auto text-sm"
       onBlur={handleBlur}
+      onInput={() => onDirtyChange?.(true)}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           (document.activeElement as HTMLElement)?.blur();
@@ -99,13 +134,16 @@ const ExpandedEditorInner = ({
 const ExpandedTextEditorInner = ({
   value,
   onChange,
+  onDirtyChange,
   open,
 }: {
   value: string;
   onChange?: (value: string | null) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   open: boolean;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const initialValueRef = useRef(value);
   const latestValueRef = useRef(value);
 
   useEffect(() => {
@@ -121,9 +159,15 @@ const ExpandedTextEditorInner = ({
   }, [open]);
 
   const handleBlur = useCallback(() => {
-    const trimmed = latestValueRef.current.trim();
-    onChange?.(trimmed || null);
-  }, [onChange]);
+    const nextValue = getChangedCommitValue(latestValueRef.current, initialValueRef.current);
+    if (nextValue !== undefined) {
+      onChange?.(nextValue);
+      initialValueRef.current = latestValueRef.current;
+      onDirtyChange?.(false);
+      return;
+    }
+    onDirtyChange?.(false);
+  }, [onChange, onDirtyChange]);
 
   return (
     <textarea
@@ -132,6 +176,9 @@ const ExpandedTextEditorInner = ({
       defaultValue={value}
       onChange={(e) => {
         latestValueRef.current = e.target.value;
+        onDirtyChange?.(
+          getChangedCommitValue(e.target.value, initialValueRef.current) !== undefined
+        );
       }}
       onBlur={handleBlur}
       onKeyDown={(e) => {
@@ -346,8 +393,11 @@ export const ExpandMarkdownEditor = ({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [converting, setConverting] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const dirtyRef = useRef(false);
+  const syncedValueRef = useRef(normalizeMarkdownValue(value));
   const { offset, setOffset, offsetRef, initOffset, onPointerDown, onPointerMove, onPointerUp } =
     useDrag();
 
@@ -361,8 +411,39 @@ export const ExpandMarkdownEditor = ({
 
   const { size, onResizePointerDown } = useResize(open, scheduleClamp);
 
+  const normalized = normalizeMarkdownValue(value);
+
+  useEffect(() => {
+    if (!open) {
+      dirtyRef.current = false;
+      syncedValueRef.current = normalized;
+      return;
+    }
+
+    if (dirtyRef.current || syncedValueRef.current === normalized) {
+      return;
+    }
+
+    syncedValueRef.current = normalized;
+    setEditorKey((key) => key + 1);
+  }, [normalized, open]);
+
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+  }, []);
+
+  const handleEditorChange = useCallback(
+    (nextValue: string | null) => {
+      syncedValueRef.current = normalizeMarkdownValue(nextValue);
+      onChange?.(nextValue);
+    },
+    [onChange]
+  );
+
   const handleExpandClick = useCallback(() => {
     onExpandOpen?.();
+    dirtyRef.current = false;
+    syncedValueRef.current = normalizeMarkdownValue(value);
     const el = triggerRef.current;
     if (el) {
       const saved = getSavedSize();
@@ -374,7 +455,7 @@ export const ExpandMarkdownEditor = ({
       initOffset({ x: 0, y: 0 });
     }
     setOpen(true);
-  }, [onExpandOpen, initOffset]);
+  }, [onExpandOpen, initOffset, value]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (converting) return;
@@ -392,19 +473,26 @@ export const ExpandMarkdownEditor = ({
     }
     setConverting(true);
     try {
+      const nextOptions = {
+        ...(field.options as ILongTextFieldOptions),
+        showAs: nextMode === 'markdown' ? { type: 'markdown' as const } : null,
+      } as ILongTextFieldOptions;
       await field.convert({
         type: FieldType.LongText,
-        options: (nextMode === 'markdown'
-          ? { showAs: { type: 'markdown' } }
-          : { showAs: null }) as ILongTextFieldOptions,
+        name: field.name,
+        dbFieldName: field.dbFieldName,
+        description: field.description,
+        isLookup: field.isLookup,
+        isConditionalLookup: field.isConditionalLookup,
+        lookupOptions: field.lookupOptions,
+        aiConfig: field.aiConfig,
+        options: nextOptions,
       });
       setMode(nextMode);
     } finally {
       setConverting(false);
     }
   };
-
-  const normalized = normalizeMarkdownValue(value);
 
   const renderEditor = () => {
     if (readonly) {
@@ -420,12 +508,26 @@ export const ExpandMarkdownEditor = ({
     }
 
     if (mode === 'text') {
-      return <ExpandedTextEditorInner value={normalized} onChange={onChange} open={open} />;
+      return (
+        <ExpandedTextEditorInner
+          key={`text-${editorKey}`}
+          value={normalized}
+          onChange={handleEditorChange}
+          onDirtyChange={handleDirtyChange}
+          open={open}
+        />
+      );
     }
 
     return (
       <MilkdownProvider>
-        <ExpandedEditorInner value={normalized} onChange={onChange} open={open} />
+        <ExpandedEditorInner
+          key={`markdown-${editorKey}`}
+          value={normalized}
+          onChange={handleEditorChange}
+          onDirtyChange={handleDirtyChange}
+          open={open}
+        />
       </MilkdownProvider>
     );
   };

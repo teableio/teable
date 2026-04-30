@@ -426,7 +426,7 @@ describe('Auth Controller (e2e)', () => {
     // token
     const tokenRes = await userAxios.post<CreateAccessTokenVo>(CREATE_ACCESS_TOKEN, {
       name: 'test-delete-user-token',
-      scopes: ['record:read'],
+      scopes: ['record|read'],
       expiredTime: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
     });
     const accessTokenId = tokenRes.data.id;

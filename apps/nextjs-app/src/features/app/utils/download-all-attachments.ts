@@ -40,6 +40,8 @@ export interface IDownloadAllAttachmentsOptions {
   shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
   namingField?: IFieldInstance;
+  /** When true, keep the original filename without any prefix (collisions resolved via _N suffix) */
+  noPrefix?: boolean;
   groupByRow?: boolean;
   onProgress?: (progress: IDownloadProgress) => void;
   abortController?: AbortController;
@@ -333,9 +335,19 @@ function generateZipFileName(
   rowAttachmentCount: number,
   namingValue?: string,
   isNamingValueDuplicated?: boolean,
-  groupByRow?: boolean
+  groupByRow?: boolean,
+  noPrefix?: boolean
 ): string {
   const hasMultipleInRow = rowAttachmentCount > 1;
+
+  // No-prefix mode: keep original filename. groupByRow still wraps multi-attachment rows
+  // in a row-numbered folder so files within the same row stay together.
+  if (noPrefix) {
+    if (groupByRow && hasMultipleInRow) {
+      return `${getPaddedRowNumber(rowIndex, totalRows)}/${fileName}`;
+    }
+    return fileName;
+  }
 
   // When groupByRow is enabled and row has multiple attachments, use folder structure
   if (groupByRow && hasMultipleInRow) {
@@ -385,6 +397,7 @@ export async function downloadAllAttachments(
     shareId,
     personalViewCommonQuery,
     namingField,
+    noPrefix,
     groupByRow,
     onProgress,
     abortController,
@@ -451,6 +464,9 @@ export async function downloadAllAttachments(
     let downloadedBytes = 0;
     let processedFiles = 0;
 
+    // Track final zip entry names for noPrefix mode to dedupe cross-row collisions.
+    const usedZipPaths = new Map<string, number>();
+
     // 6. Create zip stream
     const zip = new Zip((err, chunk, final) => {
       if (err) {
@@ -477,7 +493,7 @@ export async function downloadAllAttachments(
       }
 
       const isNamingValueDuplicated = namingValue ? duplicatedNamingValues.has(namingValue) : false;
-      const fileName = generateZipFileName(
+      let fileName = generateZipFileName(
         rowIndex,
         attachmentIndex,
         attachment.name,
@@ -485,8 +501,12 @@ export async function downloadAllAttachments(
         attachmentCountInRow,
         namingValue,
         isNamingValueDuplicated,
-        groupByRow
+        groupByRow,
+        noPrefix
       );
+      if (noPrefix) {
+        fileName = generateUniqueFileName(fileName, usedZipPaths);
+      }
 
       // Skip attachments without valid presignedUrl
       if (!attachment.presignedUrl) {

@@ -164,8 +164,9 @@
   },
   "settings": {
     "title": "Örnek Ayarları",
+    "allSetting": "Alan ve kişisel ayarlar",
     "personal": {
-      "title": "Kişisel ayarlar"
+      "title": "Kişisel"
     },
     "templateAdmin": {
       "title": "Şablon yönetimi",
@@ -849,6 +850,10 @@
           "runQuotaExceeded": {
             "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
             "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
+          },
+          "failedSummary": {
+            "title": "Otomasyon {{name}} {{failCount}} kez başarısız oldu",
+            "message": "Otomasyonunuz {{name}} art arda {{failCount}} kez başarısız oldu. Ayrıntıları görmek için çalıştırma geçmişini açın."
           }
         },
         "billing": {
@@ -1095,9 +1100,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "17 NİS GÜNCELLEMESİ",
-    "title": "Claude Opus 4.7 artık Teable'da",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "28 NİS GÜNCELLEMESİ",
+    "title": "Yeni Tetikleyici: E-posta Alındığında (IMAP)",
+    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
+    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
   }
 }

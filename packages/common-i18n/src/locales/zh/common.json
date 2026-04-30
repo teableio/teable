@@ -174,8 +174,9 @@
   },
   "settings": {
     "title": "实例设置",
+    "allSetting": "个人 & 空间设置",
     "personal": {
-      "title": "个人设置"
+      "title": "个人"
     },
     "templateAdmin": {
       "title": "模板管理",
@@ -1201,6 +1202,10 @@
           "runQuotaExceeded": {
             "title": "自动化 {{name}} 已触及每月最大运行次数",
             "message": "自动化 {{name}} 本月可运行次数已用完，暂时无法继续运行。请升级订阅或购买额外运行次数。"
+          },
+          "failedSummary": {
+            "title": "自动化 {{name}} 已连续失败 {{failCount}} 次",
+            "message": "自动化 {{name}} 已累计连续失败 {{failCount}} 次，请前往运行历史查看详情。"
           }
         },
         "billing": {
@@ -1449,9 +1454,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月17日 更新",
-    "title": "Claude Opus 4.7 现已接入 Teable",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "4月28日 更新",
+    "title": "邮件接收触发器（IMAP）上线",
+    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
+    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
   }
 }

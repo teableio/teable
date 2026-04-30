@@ -10,6 +10,7 @@ import {
   Task,
   convertGatewayApiModel,
   normalizeGatewayPricing,
+  supportsImageInputForImageGeneration,
 } from '@teable/openapi';
 import type {
   IAIConfig,
@@ -558,18 +559,8 @@ export class AiService {
     if (type === LLMProviderType.AI_GATEWAY) {
       try {
         const gatewayModel = await this.getGatewayModelConfig(model);
-        if (gatewayModel?.tags?.length) {
-          const tags = [...gatewayModel.tags];
-          // Patch: Google models with image-generation capability also support vision (image-to-image)
-          // This is because Gemini image models can accept images as input for image generation
-          if (
-            model.startsWith('google/') &&
-            tags.includes('image-generation') &&
-            !tags.includes('vision')
-          ) {
-            tags.push('vision');
-          }
-          return tags;
+        if (gatewayModel) {
+          return this.addImageInputTagForImageGeneration(model, gatewayModel.tags ?? []);
         }
       } catch (error) {
         this.logger.warn(`[getModelTags] Failed to get gateway config for ${model}: ${error}`);
@@ -592,6 +583,19 @@ export class AiService {
     }
 
     return [];
+  }
+
+  private addImageInputTagForImageGeneration(
+    modelId: string,
+    tags: readonly GatewayModelTag[]
+  ): GatewayModelTag[] {
+    const nextTags = [...tags];
+    // Some image generation models accept image inputs but Gateway may only report
+    // image-generation. Add vision so AI fields forward attachment source images.
+    if (supportsImageInputForImageGeneration(modelId, nextTags) && !nextTags.includes('vision')) {
+      nextTags.push('vision');
+    }
+    return nextTags;
   }
 
   /**
