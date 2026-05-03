@@ -142,6 +142,7 @@ const insertOutboxRow = async (
     nextRunAt?: Date;
     createdAt?: Date;
     updatedAt?: Date;
+    estimatedComplexity?: number;
   }
 ) => {
   const now = params.createdAt ?? new Date('2026-01-05T12:00:00Z');
@@ -167,7 +168,7 @@ const insertOutboxRow = async (
       locked_at: params.lockedAt ?? null,
       locked_by: params.lockedBy ?? null,
       last_error: null,
-      estimated_complexity: 1,
+      estimated_complexity: params.estimatedComplexity ?? 1,
       plan_hash: `hash-${params.id}`,
       dirty_stats: JSON.stringify([]),
       affected_table_ids: params.affectedTableIds ?? [params.seedTableId ?? PRIMARY_SEED_TABLE_ID],
@@ -468,6 +469,48 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
 
     expect(claimed.isOk()).toBe(true);
     expect(claimed._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('claims lightweight pending work while another same-table task is processing', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+
+    await insertOutboxRow(db, {
+      id: 'cuo-processing',
+      status: 'processing',
+      lockedAt: new Date(now.getTime() - 100),
+      lockedBy: 'worker-busy:cuc_busy',
+      createdAt: new Date(now.getTime() - 20_000),
+      updatedAt: new Date(now.getTime() - 100),
+      estimatedComplexity: 200,
+    });
+
+    await insertOutboxRow(db, {
+      id: 'cuo-heavy',
+      status: 'pending',
+      nextRunAt: new Date(now.getTime() - 10_000),
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 10_000),
+      estimatedComplexity: 100,
+    });
+
+    await insertOutboxRow(db, {
+      id: 'cuo-light',
+      status: 'pending',
+      nextRunAt: now,
+      createdAt: now,
+      updatedAt: now,
+      estimatedComplexity: 2,
+    });
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({
+      workerId: 'worker-new',
+      limit: 10,
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-light']);
   });
 
   it('a second worker does not reclaim the same task after the first reclaim commits', async () => {

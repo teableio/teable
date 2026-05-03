@@ -115,7 +115,7 @@ describe('TableEventGeneratingSpecVisitor', () => {
     expect((events[0] as FieldOptionsAdded).options).toEqual([option.toDto()]);
   });
 
-  it('generates FieldDuplicated event for TableDuplicateFieldSpec', () => {
+  it('generates FieldDuplicated and FieldCreated events for TableDuplicateFieldSpec', () => {
     const table = buildTable();
     const visitor = new TableEventGeneratingSpecVisitor(table);
     const sourceField = table.getFields()[0];
@@ -127,10 +127,12 @@ describe('TableEventGeneratingSpecVisitor', () => {
     TableDuplicateFieldSpec.create(sourceField, newField, true).accept(visitor)._unsafeUnwrap();
 
     const events = visitor.getEvents();
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
     expect(events[0]).toBeInstanceOf(FieldDuplicated);
     expect((events[0] as FieldDuplicated).sourceFieldId).toEqual(sourceField.id());
     expect((events[0] as FieldDuplicated).newFieldId).toEqual(newField.id());
+    expect(events[1]).toBeInstanceOf(FieldCreated);
+    expect((events[1] as FieldCreated).fieldId).toEqual(newField.id());
   });
 
   it('generates FieldDeleted event for TableRemoveFieldSpec', () => {

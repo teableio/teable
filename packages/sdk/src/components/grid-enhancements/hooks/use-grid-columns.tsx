@@ -61,6 +61,7 @@ interface IGenerateColumnsProps {
   sortFieldIds?: Set<string>;
   groupFieldIds?: Set<string>;
   filterFieldIds?: Set<string>;
+  highlightedFieldId?: string | null;
 }
 
 const getColumnThemeByField = ({
@@ -69,7 +70,11 @@ const getColumnThemeByField = ({
   sortFieldIds,
   groupFieldIds,
   filterFieldIds,
-}: Pick<IGenerateColumnsProps, 'theme' | 'sortFieldIds' | 'groupFieldIds' | 'filterFieldIds'> & {
+  highlightedFieldId,
+}: Pick<
+  IGenerateColumnsProps,
+  'theme' | 'sortFieldIds' | 'groupFieldIds' | 'filterFieldIds' | 'highlightedFieldId'
+> & {
   field: IFieldInstance;
 }) => {
   const { id, isPending, hasError } = field;
@@ -116,6 +121,13 @@ const getColumnThemeByField = ({
     };
   }
 
+  if (highlightedFieldId === id) {
+    customTheme = {
+      ...customTheme,
+      ...getHighlightedColumnTheme(theme),
+    };
+  }
+
   if (hasError || isPending) {
     const c = hasError
       ? { light: [rose[100], rose[200]] as const, dark: [rose[500], rose[400]] as const }
@@ -132,6 +144,21 @@ const getColumnThemeByField = ({
   return customTheme;
 };
 
+const getHighlightedColumnTheme = (theme: string | undefined) => {
+  const isDark = theme === 'dark';
+  const { blue } = colors;
+
+  return isDark
+    ? {
+        cellBg: hexToRGBA(blue[500], 0.1),
+        columnHeaderBg: hexToRGBA(blue[500], 0.1),
+      }
+    : {
+        cellBg: blue[50],
+        columnHeaderBg: blue[50],
+      };
+};
+
 const useGenerateColumns = () => {
   const { t } = useTranslation();
   return useCallback(
@@ -143,6 +170,7 @@ const useGenerateColumns = () => {
       sortFieldIds,
       groupFieldIds,
       filterFieldIds,
+      highlightedFieldId,
     }: IGenerateColumnsProps): (IGridColumn & { id: string })[] => {
       return fields
         .map((field, i) => {
@@ -156,6 +184,7 @@ const useGenerateColumns = () => {
             sortFieldIds,
             groupFieldIds,
             filterFieldIds,
+            highlightedFieldId,
           });
 
           return {
@@ -562,7 +591,11 @@ export const useCreateCellValue2GridDisplay = (
   );
 };
 
-export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
+export function useGridColumns(
+  hasMenu?: boolean,
+  hiddenFieldIds?: string[],
+  highlightedFieldId?: string | null
+) {
   const view = useView() as GridView | undefined;
   const originFields = useFields();
   const totalFields = useFields({ withHidden: true, withDenied: true });
@@ -616,6 +649,7 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
         sortFieldIds,
         groupFieldIds,
         filterFieldIds,
+        highlightedFieldId,
       }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
@@ -628,6 +662,7 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
       sortFieldIds,
       groupFieldIds,
       filterFieldIds,
+      highlightedFieldId,
       createCellValue2GridDisplay,
     ]
   );

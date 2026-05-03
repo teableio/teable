@@ -17,19 +17,23 @@ import { AIControlCard } from '../../../admin/setting/components/ai-config/AICon
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
 import type { IModelTestResult } from '../../../admin/setting/components/ai-config/LlmproviderManage';
-import { parseModelKey } from '../../../admin/setting/components/ai-config/utils';
+import {
+  normalizeLLMProviderModelConfigs,
+  parseModelKey,
+} from '../../../admin/setting/components/ai-config/utils';
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
   onChange: (value: IAIIntegrationConfig) => void;
+  spaceId?: string;
 }
 
 const emptyArray: never[] = [];
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange } = props;
+  const { config, onChange, spaceId: spaceIdProp } = props;
   const router = useRouter();
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
   const defaultValues = useMemo(
     () =>
@@ -69,20 +73,28 @@ export const AIConfig = (props: IAIConfigProps) => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const normalizeAiConfig = useCallback((data: IAIIntegrationConfig): IAIIntegrationConfig => {
+    return {
+      ...data,
+      llmProviders: data.llmProviders?.map(normalizeLLMProviderModelConfigs) ?? [],
+    };
+  }, []);
+
   const onSubmit = useCallback(
     async (data: IAIIntegrationConfig) => {
-      onChange(data);
+      onChange(normalizeAiConfig(data));
       toast({
         title: t('admin.setting.ai.configUpdated'),
       });
     },
-    [onChange, t]
+    [normalizeAiConfig, onChange, t]
   );
 
   const onProvidersUpdate = (providers: LLMProvider[]) => {
-    form.setValue('llmProviders', providers);
+    const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
+    form.setValue('llmProviders', normalizedProviders);
     form.trigger('llmProviders');
-    onSubmit(form.getValues());
+    onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
   };
 
   const onTest = async (data: ITestLLMRo) => testIntegrationLLM(spaceId, data);
@@ -104,7 +116,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -115,16 +127,16 @@ export const AIConfig = (props: IAIConfigProps) => {
             testedAt: Date.now(),
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
       // Silent save without toast
-      onChange(form.getValues());
+      onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, onChange]
+    [form, normalizeAiConfig, onChange]
   );
 
   // Toggle image model flag
@@ -140,7 +152,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -149,18 +161,17 @@ export const AIConfig = (props: IAIConfigProps) => {
             isImageModel,
             // Clear previous test results when toggling
             ability: isImageModel ? undefined : provider.modelConfigs?.[model]?.ability,
-            imageAbility: isImageModel ? provider.modelConfigs?.[model]?.imageAbility : undefined,
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      onChange(form.getValues());
+      onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, onChange]
+    [form, normalizeAiConfig, onChange]
   );
 
   const instanceAIDisableActions = setting?.aiConfig?.capabilities?.disableActions || [];

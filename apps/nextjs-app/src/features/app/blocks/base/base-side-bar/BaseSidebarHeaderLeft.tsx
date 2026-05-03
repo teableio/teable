@@ -1,11 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { ChevronsLeft, ChevronDown, Database, HelpCircle, Pencil, Share2 } from '@teable/icons';
-import { CollaboratorType, getBaseList, getSharedBase, updateBase } from '@teable/openapi';
+import {
+  CollaboratorType,
+  getBaseList,
+  getSharedBase,
+  type IBaseV2StatusVo,
+  updateBase,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import {
+  Badge,
   cn,
   DropdownMenu,
   DropdownMenuItem,
@@ -15,6 +22,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   DropdownMenuSeparator,
 } from '@teable/ui-lib';
 import { ArrowLeft, Send } from 'lucide-react';
@@ -40,6 +51,8 @@ const BaseDropdownMenu = ({
   collaboratorType,
   currentBaseId,
   baseName,
+  isCanary,
+  v2Status,
   isBaseShared,
   disabled,
 }: {
@@ -52,6 +65,8 @@ const BaseDropdownMenu = ({
   collaboratorType?: CollaboratorType;
   currentBaseId: string;
   baseName: string;
+  isCanary?: boolean;
+  v2Status?: IBaseV2StatusVo;
   isBaseShared: boolean;
   disabled?: boolean;
 }) => {
@@ -59,6 +74,11 @@ const BaseDropdownMenu = ({
   const isCloud = useIsCloud();
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const useV2 = v2Status?.useV2 ?? Boolean(isCanary);
+  const versionLabel = useV2 ? 'v2' : 'v1';
+  const versionTitle = v2Status?.reason
+    ? `${versionLabel.toUpperCase()}: ${v2Status.reason}`
+    : versionLabel.toUpperCase();
 
   const isSpaceCollaborator = collaboratorType === CollaboratorType.Space;
   const { data: spaceBases } = useQuery({
@@ -82,14 +102,29 @@ const BaseDropdownMenu = ({
           {children}
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="min-w-[260px]"
+          className="relative min-w-[260px]"
           align="start"
           alignOffset={0}
           sideOffset={4}
           onClick={(e) => e.stopPropagation()}
         >
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="absolute right-3 top-2.5 z-10 inline-flex h-5 items-center">
+                  <Badge
+                    variant="secondary"
+                    className="h-5 rounded-sm bg-surface px-1.5 text-[10px] font-semibold uppercase leading-none text-muted-foreground"
+                  >
+                    {versionLabel}
+                  </Badge>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{versionTitle}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenuItem onClick={backSpace}>
-            <div className="flex w-full cursor-pointer items-center gap-2">
+            <div className="flex w-full cursor-pointer items-center gap-2 pr-10">
               <ArrowLeft className="size-4" />
               {t('common:actions.backToSpace')}
             </div>
@@ -303,12 +338,14 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
             collaboratorType={base.collaboratorType}
             currentBaseId={base.id}
             baseName={base.name}
+            isCanary={base.isCanary}
+            v2Status={base.v2Status}
             isBaseShared={isBaseShared}
             disabled={isReadOnlyPreview}
           >
             <div
               className={cn(
-                'flex h-7 max-w-full overflow-hidden px-2 py-1 hover:bg-accent hover:cursor-pointer rounded-md items-center gap-2',
+                'flex h-7 max-w-full overflow-hidden px-2 py-1 hover:bg-accent hover:cursor-pointer rounded-md items-center gap-2 relative',
                 {
                   'cursor-default': isReadOnlyPreview,
                 }

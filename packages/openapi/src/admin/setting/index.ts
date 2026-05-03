@@ -1,4 +1,7 @@
 export * from './key.enum';
+export * from './gateway-model';
+export * from './model-ability';
+export * from './pricing';
 export * from './get';
 export * from './get-public';
 export * from './update';

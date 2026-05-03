@@ -22,7 +22,12 @@ import { GatewayModelsStep } from './GatewayModelsStep';
 import { LLMApiConfigStep } from './LLMApiConfigStep';
 import type { IModelTestResult } from './LlmproviderManage';
 import { SetupStepCard } from './SetupStepCard';
-import { generateModelKeyList, generateGatewayModelKeyList, parseModelKey } from './utils';
+import {
+  generateModelKeyList,
+  generateGatewayModelKeyList,
+  normalizeLLMProviderModelConfigs,
+  parseModelKey,
+} from './utils';
 
 // Props to control whether to show pricing-related UI
 interface IAIConfigFormWizardProps {
@@ -125,20 +130,28 @@ export function AIConfigFormWizard({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const normalizeAiConfig = useCallback((data: NonNullable<ISettingVo['aiConfig']>) => {
+    return {
+      ...data,
+      llmProviders: data.llmProviders?.map(normalizeLLMProviderModelConfigs) ?? [],
+    };
+  }, []);
+
   const onSubmit = useCallback(
     (data: NonNullable<ISettingVo['aiConfig']>) => {
-      console.log('onSubmit', data);
-      setAiConfig(data);
+      const normalizedData = normalizeAiConfig(data);
+      setAiConfig(normalizedData);
       toast.success(t('admin.setting.ai.configUpdated'));
     },
-    [setAiConfig, t]
+    [normalizeAiConfig, setAiConfig, t]
   );
 
   const updateProviders = useCallback(
     (providers: LLMProvider[]) => {
-      form.setValue('llmProviders', providers);
+      const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
+      form.setValue('llmProviders', normalizedProviders);
       form.trigger('llmProviders');
-      onSubmit(form.getValues());
+      onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
     },
     [form, onSubmit]
   );
@@ -175,7 +188,7 @@ export function AIConfigFormWizard({
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -186,15 +199,15 @@ export function AIConfigFormWizard({
             testedAt: Date.now(),
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      setAiConfig(form.getValues());
+      setAiConfig(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, setAiConfig]
+    [form, normalizeAiConfig, setAiConfig]
   );
 
   const onToggleImageModel = useCallback(
@@ -209,26 +222,26 @@ export function AIConfigFormWizard({
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const currentConfig = provider.modelConfigs?.[model];
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
           [model]: {
-            ...provider.modelConfigs?.[model],
+            ...currentConfig,
             isImageModel,
             ability: isImageModel ? undefined : provider.modelConfigs?.[model]?.ability,
-            imageAbility: isImageModel ? provider.modelConfigs?.[model]?.imageAbility : undefined,
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      setAiConfig(form.getValues());
+      setAiConfig(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, setAiConfig]
+    [form, normalizeAiConfig, setAiConfig]
   );
 
   // Handler for updating gateway-related fields in aiConfig
@@ -241,9 +254,9 @@ export function AIConfigFormWizard({
         form.setValue(key as keyof typeof updates, value);
       });
       // Save to backend
-      setAiConfig(updatedConfig);
+      setAiConfig(normalizeAiConfig(updatedConfig));
     },
-    [form, setAiConfig]
+    [form, normalizeAiConfig, setAiConfig]
   );
 
   // Unified wizard view for both Cloud and EE

@@ -632,6 +632,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Champ principal mal configuré comme Lookup",
+        "InvalidPrimaryType": "Le champ principal a un type non pris en charge",
+        "MissingPrimary": "La table n'a pas de champ principal"
       }
     },
     "index": {
@@ -957,6 +962,7 @@
     "expand": "Développer",
     "history": "Historique",
     "close": "Réduire",
+    "noModel": "Aucun modèle disponible",
     "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
@@ -974,7 +980,14 @@
       "emptyContext": "Aucun contexte à ajouter",
       "selectionRows": "Lignes {{start}}-{{end}}"
     },
-    "inputPlaceholder": "Envoyer un message...",
+    "mention": {
+      "tables": "Tables",
+      "apps": "Applications",
+      "workflows": "Workflows",
+      "folders": "Dossiers"
+    },
+    "inputPlaceholder": "Tapez @ pour ajouter du contexte",
+    "inputPlaceholderFiles": "Collez ou déposez des fichiers ici",
     "thought": "En train de penser",
     "meta": {
       "input": "Entrée",
@@ -1033,6 +1046,8 @@
       "advancedOptions": "Options avancées",
       "namingFieldLabel": "Préfixe du nom de pièce jointe",
       "selectField": "Par défaut: index de pièce jointe",
+      "noPrefixOption": "Sans préfixe",
+      "noPrefixOptionDesc": "Conserver le nom de fichier original",
       "groupByRow": "Archiver dans des dossiers",
       "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
     }
