@@ -96,6 +96,8 @@ export * from './commands/ReorderRecordsCommand';
 export * from './commands/ReorderRecordsHandler';
 export * from './commands/RestoreRecordsCommand';
 export * from './commands/RestoreRecordsHandler';
+export * from './commands/RestoreRecordsStreamCommand';
+export * from './commands/RestoreRecordsStreamHandler';
 export * from './commands/UpdateRecordCommand';
 export * from './commands/UpdateRecordHandler';
 export * from './commands/UpdateRecordsCommand';

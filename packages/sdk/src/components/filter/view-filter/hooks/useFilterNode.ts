@@ -1,5 +1,5 @@
-import type { FieldType, IFilter } from '@teable/core';
-import { validateFilterOperatorModeCompatibility } from '@teable/core';
+import type { FieldType, IFilter, IFilterValidationFieldMeta } from '@teable/core';
+import { analyzeFilterValidationIssues } from '@teable/core';
 import { Filter as FilterIcon } from '@teable/icons';
 import { keyBy } from 'lodash';
 import { useCallback, useMemo } from 'react';
@@ -44,20 +44,23 @@ export const useFilterNode = (filters: IFilter | null | undefined, fields: IFiel
     return generateFilterButtonText(filteredIds, fields);
   }, [fields, filters, generateFilterButtonText]);
 
-  // Check if filter has any validation errors (e.g., invalid operator+mode combination)
+  // Show a compact warning state when stored filters contain ignored conditions.
   const hasWarning = useMemo(() => {
     if (!filters || !fields.length) return false;
 
-    const fieldTypeMap = fields.reduce(
+    const fieldMetaMap = fields.reduce(
       (acc, field) => {
-        acc[field.id] = field.type as FieldType;
+        acc[field.id] = {
+          type: field.type as FieldType,
+          cellValueType: field.cellValueType,
+          isMultipleCellValue: field.isMultipleCellValue,
+        };
         return acc;
       },
-      {} as Record<string, FieldType>
+      {} as Record<string, IFilterValidationFieldMeta>
     );
 
-    const errors = validateFilterOperatorModeCompatibility(filters, fieldTypeMap);
-    return errors.length > 0;
+    return analyzeFilterValidationIssues(filters, fieldMetaMap).length > 0;
   }, [filters, fields]);
 
   return {

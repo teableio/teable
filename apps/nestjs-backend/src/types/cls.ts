@@ -10,8 +10,10 @@ import type { IDataLoaderCache } from './data-loader';
 export type V2Reason =
   | 'env_force_v2_all'
   | 'config_force_v2_all'
+  | 'new_base'
   | 'header_override'
   | 'space_feature'
+  | 'unsupported_feature'
   | 'disabled'
   | 'feature_not_enabled'
   | 'no_feature';
@@ -51,6 +53,7 @@ export interface IClsStore extends ClsStore {
     rawOpMaps?: IRawOpMap[];
   };
   shareViewId?: string;
+  baseShareId?: string;
   permissions: Action[];
   // this is used to check if the user is in the space when the user operate in a space
   spaceId?: string;

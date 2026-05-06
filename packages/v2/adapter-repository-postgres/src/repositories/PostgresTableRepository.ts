@@ -35,6 +35,32 @@ const formatSpecDetails = (specInfo: TableWhereSpecInfo): string => {
   return parts.join(' ');
 };
 
+type SelectChoiceDto = { id: string; name: string; color: string };
+
+const deduplicateSelectChoices = (
+  choices: ReadonlyArray<SelectChoiceDto>
+): ReadonlyArray<SelectChoiceDto> => {
+  const seen = new Set<string>();
+  const deduped: SelectChoiceDto[] = [];
+  for (const choice of choices) {
+    const normalizedName = choice.name.trim();
+    if (seen.has(normalizedName)) continue;
+    seen.add(normalizedName);
+    deduped.push(choice);
+  }
+  return deduped;
+};
+
+const META_INSERT_BATCH_SIZE = 500;
+
+const chunks = <T>(values: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+};
+
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -492,13 +518,19 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
 
       if (tableMetaRows.length > 0) {
-        await trx.insertInto('table_meta').values(tableMetaRows).execute();
+        for (const rows of chunks(tableMetaRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('table_meta').values(rows).execute();
+        }
       }
       if (fieldRows.length > 0) {
-        await trx.insertInto('field').values(fieldRows).execute();
+        for (const rows of chunks(fieldRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('field').values(rows).execute();
+        }
       }
       if (viewRows.length > 0) {
-        await trx.insertInto('view').values(viewRows).execute();
+        for (const rows of chunks(viewRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('view').values(rows).execute();
+        }
       }
 
       return ok(tableDbMetaById);
@@ -1904,7 +1936,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   }
 
   private normalizeSelectOptions(raw: Record<string, unknown>): {
-    choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+    choices: ReadonlyArray<SelectChoiceDto>;
     defaultValue?: string | ReadonlyArray<string>;
     preventAutoNewOptions?: boolean;
   } {
@@ -1921,7 +1953,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         name: String(name),
         color: normalizeColor(undefined, index),
       }));
-      return { choices };
+      return { choices: deduplicateSelectChoices(choices) };
     }
 
     const choices = Array.isArray(raw.choices)
@@ -1943,7 +1975,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;
 
     return {
-      choices: choices as ReadonlyArray<{ id: string; name: string; color: string }>,
+      choices: deduplicateSelectChoices(choices),
       ...(defaultValue !== undefined ? { defaultValue: defaultValue as string | string[] } : {}),
       ...(preventAutoNewOptions !== undefined ? { preventAutoNewOptions } : {}),
     };

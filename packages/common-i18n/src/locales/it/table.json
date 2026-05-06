@@ -641,6 +641,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo primario configurato erroneamente come Lookup",
+        "InvalidPrimaryType": "Il campo primario ha un tipo non supportato",
+        "MissingPrimary": "La tabella non ha un campo primario"
       }
     },
     "index": {
@@ -982,6 +987,7 @@
     "expand": "Espandi",
     "history": "Cronologia",
     "close": "Comprimi",
+    "noModel": "Nessun modello disponibile",
     "addAttachment": "Aggiungi allegato",
     "noHistory": "Nessun chat history",
     "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
@@ -999,7 +1005,14 @@
       "emptyContext": "Nessun contesto da aggiungere",
       "selectionRows": "Righe {{start}}-{{end}}"
     },
-    "inputPlaceholder": "Invia messaggio...",
+    "mention": {
+      "tables": "Tabelle",
+      "apps": "App",
+      "workflows": "Workflow",
+      "folders": "Cartelle"
+    },
+    "inputPlaceholder": "Digita @ per aggiungere contesto",
+    "inputPlaceholderFiles": "Incolla o trascina file qui",
     "thought": "Pensando",
     "meta": {
       "input": "Input",
@@ -1058,6 +1071,8 @@
       "advancedOptions": "Opzioni avanzate",
       "namingFieldLabel": "Prefisso nome allegato",
       "selectField": "Predefinito: indice allegato",
+      "noPrefixOption": "Nessun prefisso",
+      "noPrefixOptionDesc": "Mantieni il nome file originale",
       "groupByRow": "Archivia in cartelle",
       "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
     }

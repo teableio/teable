@@ -30,6 +30,7 @@ export type ResultGroup = {
 };
 
 export type TableResultGroup = {
+  baseId: string;
   tableId: string;
   tableName: string;
   results: IntegrityResult[];
@@ -190,7 +191,7 @@ export const groupResultsByTable = (results: IntegrityResult[]): TableResultGrou
   const groups = new Map<string, IntegrityResult[]>();
 
   for (const result of results) {
-    const key = result.tableId || '__unknown_table__';
+    const key = `${result.baseId || '__unknown_base__'}:${result.tableId || '__unknown_table__'}`;
     const existing = groups.get(key);
 
     if (existing) {
@@ -201,8 +202,9 @@ export const groupResultsByTable = (results: IntegrityResult[]): TableResultGrou
     groups.set(key, [result]);
   }
 
-  return Array.from(groups.entries()).map(([tableId, tableResults]) => ({
-    tableId: tableId === '__unknown_table__' ? '' : tableId,
+  return Array.from(groups.values()).map((tableResults) => ({
+    baseId: tableResults[0]?.baseId || '',
+    tableId: tableResults[0]?.tableId || '',
     tableName: tableResults[0]?.tableName || '',
     results: tableResults,
     groups: groupResults(tableResults),
@@ -479,4 +481,8 @@ export const getLocalizedRepairReason = (t: Translate, result: IntegrityResult) 
 
 export const getLocalizedRepairDescription = (t: Translate, result: IntegrityResult) => {
   return translateIntegrityMessage(t, result.repair?.description);
+};
+
+export const hasExecutableRepairStatements = (results: ReadonlyArray<IntegrityResult>) => {
+  return results.some((result) => Boolean(result.details?.statements?.length));
 };

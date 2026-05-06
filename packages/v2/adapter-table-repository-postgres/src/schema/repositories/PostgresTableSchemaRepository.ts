@@ -179,6 +179,126 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     });
   }
 
+  private async insertTableSkeleton(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
+      const builder = schemaBuilder
+        .createTable(tableName)
+        .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
+        .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
+        .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
+          col.notNull().defaultTo(sql`now()`)
+        )
+        .addColumn('__last_modified_time', 'timestamptz')
+        .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
+        .addColumn('__last_modified_by', 'text')
+        .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
+
+      try {
+        const compiledStatements: CompiledQuery[] = [];
+        if (schema && schema !== 'public') {
+          compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
+        }
+        compiledStatements.push(builder.compile());
+
+        await executeCompiledQueries(db, compiledStatements);
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to insert table schema: ${describeError(error)}`,
+          })
+        );
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private async insertTableFieldSchemas(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      const visitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+      });
+      const statements = yield* visitor.apply(table);
+
+      if (statements.length === 0) {
+        return ok(undefined);
+      }
+
+      try {
+        await executeTableSchemaStatements(db, statements, {
+          tracer: context.tracer,
+          attributes: {
+            [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
+            'teable.base_id': table.baseId().toString(),
+            'teable.table_name': tableName,
+            'teable.schema': schema ?? 'public',
+            'teable.schema.statement.source': 'table_schema_insert_fields',
+          },
+        });
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to insert table schema: ${describeError(error)}`,
+          })
+        );
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private async ensureUndoCaptureForTable(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      try {
+        await ensureUndoCaptureInfrastructure(
+          repository.db,
+          db,
+          toQualifiedIdentifierLiteral(schema, tableName),
+          `${schema ?? 'public'}.${tableName}`
+        );
+      } catch {
+        // Snapshot capture wiring is best-effort and must not block table creation.
+      }
+
+      return ok(undefined);
+    });
+  }
+
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const repository = this;
@@ -253,7 +373,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>> {
     for (const table of tables) {
-      const result = await this.insert(context, table);
+      const result = await this.insertTableSkeleton(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+
+    for (const table of tables) {
+      const result = await this.insertTableFieldSchemas(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+
+    for (const table of tables) {
+      const result = await this.ensureUndoCaptureForTable(context, table);
       if (result.isErr()) return err(result.error);
     }
 

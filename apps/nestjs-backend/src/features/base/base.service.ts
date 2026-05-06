@@ -103,6 +103,7 @@ export class BaseService {
           name: true,
           icon: true,
           spaceId: true,
+          v2Enabled: true,
           createdBy: true,
         },
         where: {
@@ -124,18 +125,25 @@ export class BaseService {
         ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
         : await this.getRoleByBaseId(baseId, base.spaceId);
 
-    // Check if this base's space is in canary release
-    const isCanary = await this.canaryService.isSpaceInCanary(base.spaceId);
+    const [v2Status, isCanary] = await Promise.all([
+      this.canaryService.shouldUseV2ForBaseWithReason(base, 'getRecords'),
+      this.canaryService.isSpaceInCanary(base.spaceId),
+    ]);
 
     return {
-      ...base,
+      id: base.id,
+      name: base.name,
+      icon: base.icon,
+      spaceId: base.spaceId,
+      createdBy: base.createdBy,
       role,
       collaboratorType,
       template:
         template?.baseId === baseId
           ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
           : undefined,
-      isCanary: isCanary || undefined, // Only include if true
+      isCanary: isCanary || undefined,
+      v2Status,
     };
   }
 
@@ -227,6 +235,7 @@ export class BaseService {
           spaceId,
           order,
           icon,
+          v2Enabled: true,
           createdBy: userId,
         },
         select: {

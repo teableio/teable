@@ -10,6 +10,7 @@ export type DotTeaSource =
 export interface DotTeaFieldInput {
   readonly id?: string;
   readonly name?: string;
+  readonly dbFieldName?: string;
   readonly type: string;
   readonly isPrimary?: boolean;
   readonly isLookup?: boolean;
@@ -37,6 +38,7 @@ export interface DotTeaTableInput {
 }
 
 export interface DotTeaStructure {
+  readonly id?: string;
   readonly tables: ReadonlyArray<DotTeaTableInput>;
 }
 
@@ -46,6 +48,7 @@ export interface DotTeaStructure {
  */
 export interface NormalizedDotTeaField {
   readonly id?: string;
+  readonly dbFieldName?: string;
   readonly type: string;
   readonly name: string;
   readonly isPrimary?: boolean;
@@ -72,6 +75,7 @@ export interface NormalizedDotTeaTable {
  * Ready to be used with CreateTablesCommand.
  */
 export interface NormalizedDotTeaStructure {
+  readonly id?: string;
   readonly tables: ReadonlyArray<NormalizedDotTeaTable>;
 }
 

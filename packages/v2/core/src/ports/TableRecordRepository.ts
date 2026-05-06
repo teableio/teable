@@ -42,6 +42,14 @@ export interface RecordUpdateSnapshot {
  */
 export interface RecordMutationResult {
   /**
+   * Whether the repository actually persisted a storage mutation.
+   *
+   * `false` is distinct from a missing snapshot: it means the requested mutation
+   * was skipped because storage already matched the desired state.
+   */
+  mutationApplied?: boolean;
+
+  /**
    * Final stored values for fields changed by this operation.
    * Map of fieldId -> persisted newValue.
    */
@@ -131,6 +139,20 @@ export interface InsertManyStreamOptions {
    * Default: false (computed updates run inline after each batch)
    */
   deferComputedUpdates?: boolean;
+
+  /**
+   * When true with `deferComputedUpdates`, deferred computed work is enqueued
+   * into the computed outbox in the same transaction instead of being started
+   * as a legacy async compute call.
+   */
+  enqueueDeferredComputedUpdates?: boolean;
+
+  /**
+   * When true, computed field updates are skipped entirely for this stream.
+   * Callers that restore raw data can run a separate full backfill after all
+   * related tables and junction rows are present.
+   */
+  skipComputedUpdates?: boolean;
 }
 
 /**
@@ -146,6 +168,8 @@ export interface InsertManyStreamBatch {
   table?: Table;
   /** Records to insert for this batch. */
   records: ReadonlyArray<TableRecord>;
+  /** Optional system/raw column restore values for records in this batch. */
+  restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
 }
 
 export type InsertManyStreamBatchInput = ReadonlyArray<TableRecord> | InsertManyStreamBatch;
@@ -190,6 +214,23 @@ export interface UpdateManyStreamProgress {
 export interface UpdateManyStreamOptions {
   /** Callback invoked after each batch is updated */
   onBatchUpdated?: (progress: UpdateManyStreamProgress) => void;
+
+  /**
+   * When true, computed field updates are deferred to a background worker
+   * instead of being processed inline after the streamed update batches.
+   */
+  deferComputedUpdates?: boolean;
+
+  /**
+   * When true with `deferComputedUpdates`, deferred computed work is enqueued
+   * into the computed outbox in the same transaction.
+   */
+  enqueueDeferredComputedUpdates?: boolean;
+
+  /**
+   * When true, computed field updates are skipped entirely for this stream.
+   */
+  skipComputedUpdates?: boolean;
 
   /**
    * When true, generate SQL to fill missing link titles by JOINing
@@ -273,6 +314,12 @@ export interface RecordRestoreSystemValues {
   lastModifiedBy?: string;
   /** Preserve per-view row-order snapshot during undo/redo restore. */
   orders?: Readonly<Record<string, number>>;
+  /**
+   * Preserve raw storage columns during bulk restore/import.
+   * Used by `.tea` imports for db-field columns and relation/order helper columns
+   * that are not represented as editable domain field values.
+   */
+  extraColumnValues?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -314,6 +361,23 @@ export interface InsertOptions {
 }
 
 export interface UpdateOptions {
+  /**
+   * When true, computed field updates are deferred to a background worker
+   * instead of being processed inline after the update statement.
+   */
+  deferComputedUpdates?: boolean;
+
+  /**
+   * When true with `deferComputedUpdates`, deferred computed work is enqueued
+   * into the computed outbox in the same transaction.
+   */
+  enqueueDeferredComputedUpdates?: boolean;
+
+  /**
+   * When true, computed field updates are skipped entirely for this update.
+   */
+  skipComputedUpdates?: boolean;
+
   /**
    * When true, generate SQL to fill missing link titles by JOINing
    * the foreign table's primary field.

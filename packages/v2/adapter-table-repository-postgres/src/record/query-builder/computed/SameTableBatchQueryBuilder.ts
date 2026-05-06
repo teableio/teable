@@ -9,9 +9,11 @@ import type {
   Table,
 } from '@teable/v2-core';
 import {
+  extractJsonScalarText,
   FormulaSqlPgTranslator,
   guardValueSql,
   makeExpr,
+  normalizeToJsonArrayWithStrategy,
   type IPgTypeValidationStrategy,
   type SqlExpr,
   type SqlValueType,
@@ -248,8 +250,45 @@ export class SameTableBatchQueryBuilder {
     }
 
     const expr = translated.value;
-    const typedSql = guardValueSql(expr.valueSql, expr.errorConditionSql);
+    const valueSql = this.normalizeFormulaValueSql(formulaField, expr);
+    const typedSql = guardValueSql(valueSql, expr.errorConditionSql);
     return ok(sql.raw(typedSql));
+  }
+
+  private normalizeFormulaValueSql(formulaField: FormulaField, expr: SqlExpr): string {
+    if (expr.storageKind !== 'json' || !this.shouldExtractJsonDisplay(expr)) {
+      return expr.valueSql;
+    }
+
+    const formulaIsMultiple = formulaField
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.isMultiple())
+      .unwrapOr(false);
+
+    if (formulaIsMultiple || expr.isArray) {
+      const normalized = normalizeToJsonArrayWithStrategy(
+        expr.valueSql,
+        this.typeValidationStrategy
+      );
+      return `(
+        SELECT jsonb_agg(to_jsonb(${extractJsonScalarText('elem')}) ORDER BY ord)
+        FROM jsonb_array_elements(${normalized}) WITH ORDINALITY AS _jae(elem, ord)
+      )`;
+    }
+
+    return extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+  }
+
+  private shouldExtractJsonDisplay(expr: SqlExpr): boolean {
+    const referenced = expr.field;
+    if (!referenced) return false;
+
+    const type = referenced.type();
+    return (
+      type.equals(FieldType.link()) ||
+      type.equals(FieldType.button()) ||
+      type.equals(FieldType.user())
+    );
   }
 
   /**

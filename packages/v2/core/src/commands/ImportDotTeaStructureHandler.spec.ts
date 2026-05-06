@@ -86,10 +86,13 @@ class FakeEventBus implements IEventBus {
 }
 
 class FakeUnitOfWork implements IUnitOfWork {
+  calls = 0;
+
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
   ): Promise<Result<T, DomainError>> {
+    this.calls += 1;
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     return work({ ...context, transaction });
   }
@@ -119,9 +122,11 @@ describe('ImportDotTeaStructureHandler', () => {
   it('imports tables and publishes events', async () => {
     const tableId = `tbl${'t'.repeat(16)}`;
     const fieldId = `fld${'f'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
 
     const parser = new FakeDotTeaParser(
       ok({
+        id: `bse${'s'.repeat(16)}`,
         tables: [
           {
             id: tableId,
@@ -134,7 +139,7 @@ describe('ImportDotTeaStructureHandler', () => {
                 isPrimary: true,
               },
             ],
-            views: [{ type: 'grid', name: 'Grid' }],
+            views: [{ id: viewId, type: 'grid', name: 'Grid' }],
           },
         ],
       })
@@ -143,11 +148,122 @@ describe('ImportDotTeaStructureHandler', () => {
     const tableCreationService = new FakeTableCreationService();
     const eventBus = new FakeEventBus();
 
+    const unitOfWork = new FakeUnitOfWork();
     const handler = new ImportDotTeaStructureHandler(
       parser,
       new FakeForeignTableLoaderService() as never,
       tableCreationService as never,
       eventBus,
+      unitOfWork
+    );
+
+    const progressEvents: unknown[] = [];
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+      onProgress: (event) => progressEvents.push(event),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    const value = result._unsafeUnwrap();
+    expect(value.tables).toHaveLength(1);
+    expect(value.tables[0]?.id).not.toBe(tableId);
+    expect(value.tableIdMap[tableId]).toBe(value.tables[0]?.id);
+    expect(value.fieldIdMap[fieldId]).toBeDefined();
+    expect(value.viewIdMap[viewId]).toBeDefined();
+    expect(value.tables[0]?.name).toBe('Products');
+    expect(eventBus.published.length).toBeGreaterThan(0);
+    expect(tableCreationService.lastInput?.tables).toHaveLength(1);
+    expect(tableCreationService.lastInput?.tables[0]?.id().toString()).toBe(value.tables[0]?.id);
+    expect(unitOfWork.calls).toBe(1);
+    expect(progressEvents).toEqual([
+      {
+        phase: 'table_structure_started',
+        tableId: value.tables[0]?.id,
+        tableName: 'Products',
+        tableIndex: 1,
+        totalTables: 1,
+      },
+      {
+        phase: 'table_structure_validating',
+      },
+      {
+        phase: 'table_structure_committing',
+      },
+      {
+        phase: 'table_structure_done',
+        tableId: value.tables[0]?.id,
+        tableName: 'Products',
+        tableIndex: 1,
+        totalTables: 1,
+      },
+    ]);
+  });
+
+  it('can commit imported structures without one large unit of work transaction', async () => {
+    const parser = new FakeDotTeaParser(
+      ok({
+        tables: [
+          {
+            name: 'Products',
+            fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+          },
+        ],
+      })
+    );
+    const unitOfWork = new FakeUnitOfWork();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableCreationService() as never,
+      new FakeEventBus(),
+      unitOfWork
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+      commitInSingleTransaction: false,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(unitOfWork.calls).toBe(0);
+  });
+
+  it('generates fresh target ids when importing the same structure repeatedly', async () => {
+    const tableId = `tbl${'t'.repeat(16)}`;
+    const fieldId = `fld${'f'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+    const parser = new FakeDotTeaParser(
+      ok({
+        id: `bse${'s'.repeat(16)}`,
+        tables: [
+          {
+            id: tableId,
+            name: 'Products',
+            fields: [
+              {
+                id: fieldId,
+                name: 'Name',
+                type: 'singleLineText',
+                isPrimary: true,
+              },
+            ],
+            views: [{ id: viewId, type: 'grid', name: 'Grid' }],
+          },
+        ],
+      })
+    );
+
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableCreationService() as never,
+      new FakeEventBus(),
       new FakeUnitOfWork()
     );
 
@@ -156,14 +272,19 @@ describe('ImportDotTeaStructureHandler', () => {
       dotTeaData: new Uint8Array([1]),
     })._unsafeUnwrap();
 
-    const result = await handler.handle(createContext(), command);
-    expect(result.isOk()).toBe(true);
+    const first = await handler.handle(createContext(), command);
+    const second = await handler.handle(createContext(), command);
 
-    const value = result._unsafeUnwrap();
-    expect(value.tables).toHaveLength(1);
-    expect(value.tables[0]?.id).toBe(tableId);
-    expect(value.tables[0]?.name).toBe('Products');
-    expect(eventBus.published.length).toBeGreaterThan(0);
-    expect(tableCreationService.lastInput?.tables).toHaveLength(1);
+    expect(first.isOk()).toBe(true);
+    expect(second.isOk()).toBe(true);
+
+    const firstValue = first._unsafeUnwrap();
+    const secondValue = second._unsafeUnwrap();
+    expect(firstValue.tables[0]?.id).not.toBe(secondValue.tables[0]?.id);
+    expect(firstValue.tableIdMap[tableId]).toBe(firstValue.tables[0]?.id);
+    expect(secondValue.tableIdMap[tableId]).toBe(secondValue.tables[0]?.id);
+    expect(firstValue.tableIdMap[tableId]).not.toBe(secondValue.tableIdMap[tableId]);
+    expect(firstValue.fieldIdMap[fieldId]).not.toBe(secondValue.fieldIdMap[fieldId]);
+    expect(firstValue.viewIdMap[viewId]).not.toBe(secondValue.viewIdMap[viewId]);
   });
 });

@@ -191,6 +191,7 @@
     },
     "invalidateSelected": "已删除选项",
     "invalidateSelectedTips": "该选项已被删除，请重新选择",
+    "invalidConditionTip": "此筛选条件无效，将被忽略。请调整后重试。",
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"
@@ -298,7 +299,8 @@
     "configLabel_other_visible": "字段配置({{count}} 显示)",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
-    "primaryKey": "主字段：用于标识记录，不可隐藏或删除\n其值会在关联记录中显示"
+    "primaryKey": "主字段：用于标识记录，不可隐藏或删除\n其值会在关联记录中显示",
+    "notInCurrentView": "字段“{{fieldName}}”不在当前视图中显示，无法跳转"
   },
   "expandRecord": {
     "copy": "复制到剪贴板",
@@ -1139,7 +1141,8 @@
       "whiteListCheckError": "检查表访问时发生错误：{{message}}",
       "databaseConnectionFailed": "数据库连接失败：{{message}}",
       "executeQuerySqlFailed": "执行查询 SQL 失败：{{message}}",
-      "readOnlyCheckFailed": "只读检查失败：{{message}}"
+      "readOnlyCheckFailed": "只读检查失败：{{message}}",
+      "sqlSyntaxError": "SQL 语法错误，请检查查询语句"
     },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
@@ -1241,7 +1244,9 @@
       "button": {
         "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
         "notSupportReset": "按钮不支持重置"
-      }
+      },
+      "primaryCannotBeLookup": "主字段不能配置为 Lookup 字段",
+      "primaryFieldAlreadyExists": "表已经有主字段"
     },
     "view": {
       "notFound": "视图不存在",
@@ -1439,7 +1444,8 @@
       "noFilesInZip": "ZIP 文件中没有找到文件",
       "zipFileTooLarge": "ZIP 文件大小超过 5MB 限制",
       "invalidZip": "无效的 ZIP 文件",
-      "domainAlreadyInUse": "该域名已被其他应用绑定"
+      "domainAlreadyInUse": "该域名已被其他应用绑定",
+      "domainReserved": "子域名已被保留"
     },
     "reward": {
       "notFound": "奖励记录不存在",

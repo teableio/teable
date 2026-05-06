@@ -311,12 +311,11 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     cteName: string,
     fieldId: string,
     isMultiple: boolean,
-    dbFieldType: DbFieldType
+    _dbFieldType: DbFieldType
   ): string | null {
     if (!isMultiple) return null;
     const columnRef = `"${cteName}"."lookup_${fieldId}"`;
-    const normalized =
-      dbFieldType === DbFieldType.Json ? `${columnRef}::jsonb` : `to_jsonb(${columnRef})`;
+    const normalized = `to_jsonb(${columnRef})`;
     return `(
             WITH RECURSIVE f(e) AS (
               SELECT ${normalized}

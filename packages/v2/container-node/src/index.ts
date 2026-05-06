@@ -31,6 +31,7 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
+import { DotTeaParser } from '@teable/v2-dottea';
 
 /**
  * Node.js crypto-based hasher implementation.
@@ -142,6 +143,12 @@ export const registerV2NodePgDependencies = async (
   // Register CSV parser
   if (!c.isRegistered(v2CoreTokens.csvParser)) {
     c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (!c.isRegistered(v2CoreTokens.dotTeaParser)) {
+    c.register(v2CoreTokens.dotTeaParser, DotTeaParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }

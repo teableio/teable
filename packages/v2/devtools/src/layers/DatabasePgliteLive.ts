@@ -80,7 +80,10 @@ export const DatabasePgliteLive = Layer.effect(
     });
 
     // Register table repository postgres adapter
-    registerV2TableRepositoryPostgresAdapter(c, { db });
+    registerV2TableRepositoryPostgresAdapter(c, {
+      db,
+      computedUpdate: { mode: 'sync', pollingConfig: { enabled: false } },
+    });
 
     // Register core dependencies
     c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
