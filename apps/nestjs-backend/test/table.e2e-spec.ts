@@ -375,6 +375,20 @@ describe('OpenAPI TableController (e2e)', () => {
     expect(fields[2].type).toEqual(FieldType.LongText);
   });
 
+  it('should reject createTable when first field has unsupported primary type', async () => {
+    // Without the fix, the service would auto-promote a checkbox first field to primary
+    // (bypassing prepareCreateFields validation), persisting a bad-type primary.
+    await expect(
+      createTable(baseId, {
+        name: 'bad primary table',
+        fields: [
+          { name: 'Done', type: FieldType.Checkbox },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+      })
+    ).rejects.toThrow(/primary/i);
+  });
+
   it('should update table simple properties', async () => {
     const result = await createTable(baseId, {
       name: 'table',
@@ -501,10 +515,10 @@ describe('OpenAPI TableController (e2e)', () => {
     const refreshedRollupField = fields.find((field) => field.id === rollupFieldId);
 
     if (!isForceV2) {
-      expect(fields[1].type).toEqual(FieldType.SingleLineText);
-      expect(records[0].fields[fields[1].id]).toEqual('A');
-      expect(fields[2].hasError).toBeTruthy();
-      expect(fields[3].hasError).toBeTruthy();
+      expect(twoWayLinkField?.type).toEqual(FieldType.SingleLineText);
+      expect(records[0].fields[twoWayLink.id]).toEqual('A');
+      expect(refreshedLookupField?.hasError).toBeTruthy();
+      expect(refreshedRollupField?.hasError).toBeTruthy();
       return;
     }
 

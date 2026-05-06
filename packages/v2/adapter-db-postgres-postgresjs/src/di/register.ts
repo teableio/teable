@@ -1,5 +1,7 @@
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-shared';
 import {
+  v2DataDbTokens,
+  v2MetaDbTokens,
   v2PostgresDbConfigSchema,
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-shared';
@@ -20,6 +22,10 @@ export const registerV2PostgresJsDb = async (
   const config = parsed.data;
   const db = await createV2PostgresJsDb(config);
 
+  c.registerInstance(v2MetaDbTokens.db, db);
+  c.registerInstance(v2MetaDbTokens.config, config);
+  c.registerInstance(v2DataDbTokens.db, db);
+  c.registerInstance(v2DataDbTokens.config, config);
   c.registerInstance(v2PostgresDbTokens.db, db);
   c.registerInstance(v2PostgresDbTokens.config, config);
 

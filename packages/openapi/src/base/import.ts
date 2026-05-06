@@ -24,9 +24,29 @@ export const importBaseRoSchema = z.object({
 
 export type ImportBaseRo = z.infer<typeof importBaseRoSchema>;
 
+export interface IImportBaseProgressEvent {
+  type: 'progress';
+  phase: string;
+  detail?: string;
+  tableId?: string;
+  tableName?: string;
+  tableIndex?: number;
+  totalTables?: number;
+  totalRows?: number;
+  processedRows?: number;
+  batchProcessedRows?: number;
+  currentBatch?: number;
+}
+
+export type ImportBaseProgressCallback = (
+  phase: string,
+  detail?: string,
+  event?: IImportBaseProgressEvent
+) => void;
+
 // SSE event types for import base progress
 export type IImportBaseSSEEvent =
-  | { type: 'progress'; phase: string; detail?: string }
+  | IImportBaseProgressEvent
   | { type: 'done'; data: IImportBaseVo }
   | { type: 'error'; message: string };
 
@@ -97,11 +117,11 @@ const buildSSERequestHeaders = (): Record<string, string> => {
 
 const handleSSEEvent = (
   event: IImportBaseSSEEvent,
-  onProgress?: (phase: string, detail?: string) => void
+  onProgress?: ImportBaseProgressCallback
 ): IImportBaseVo | undefined => {
   switch (event.type) {
     case 'progress':
-      onProgress?.(event.phase, event.detail);
+      onProgress?.(event.phase, event.detail, event);
       return undefined;
     case 'done':
       return event.data;
@@ -119,22 +139,22 @@ const parseSSELine = (line: string): IImportBaseSSEEvent | undefined => {
 
 const processSSELine = (
   line: string,
-  onProgress?: (phase: string, detail?: string) => void
+  onProgress?: ImportBaseProgressCallback
 ): IImportBaseVo | undefined => {
   try {
     const event = parseSSELine(line);
     if (!event) return undefined;
     return handleSSEEvent(event, onProgress);
   } catch (e) {
-    // Re-throw domain errors, ignore JSON parse errors for incomplete chunks
-    if (e instanceof Error && !e.message.startsWith('Unexpected')) throw e;
+    // Re-throw stream domain errors, only ignore malformed JSON chunks.
+    if (!(e instanceof SyntaxError)) throw e;
     return undefined;
   }
 };
 
 const readSSEStream = async (
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  onProgress?: (phase: string, detail?: string) => void
+  onProgress?: ImportBaseProgressCallback
 ): Promise<IImportBaseVo | null> => {
   const decoder = new TextDecoder();
   let buffer = '';
@@ -174,7 +194,8 @@ const readSSEStream = async (
  */
 export const importBaseStream = async (
   importBaseRo: ImportBaseRo,
-  onProgress?: (phase: string, detail?: string) => void
+  onProgress?: ImportBaseProgressCallback,
+  onV2Change?: (isV2: boolean) => void
 ): Promise<{ data: IImportBaseVo }> => {
   const baseURL = axios.defaults.baseURL || '/api';
   const url = `${baseURL}${urlBuilder(IMPORT_BASE_STREAM)}`;
@@ -190,6 +211,8 @@ export const importBaseStream = async (
     const errorText = await response.text();
     throw new Error(`Import base failed: ${response.status} ${errorText}`);
   }
+
+  onV2Change?.(response.headers.get('x-teable-v2') === 'true');
 
   const reader = response.body?.getReader();
   if (!reader) {

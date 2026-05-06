@@ -15,6 +15,7 @@ import { RecordModule } from '../record/record.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
+import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportService } from './base-export.service';
@@ -48,6 +49,7 @@ import { DbConnectionService } from './db-connection.service';
     BaseImportCsvModule,
     BaseImportAttachmentsCsvModule,
     GraphModule,
+    V2Module,
   ],
   providers: [
     DbProvider,

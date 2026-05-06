@@ -26,6 +26,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('order', 'double precision', (col) => col.notNull())
     .addColumn('icon', 'text')
     .addColumn('schema_pass', 'text')
+    .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('deleted_time', 'timestamptz')
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('created_by', 'text', (col) => col.notNull())
@@ -43,6 +44,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('icon', 'text')
     .addColumn('db_table_name', 'text', (col) => col.notNull())
     .addColumn('db_view_name', 'text')
+    .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('version', 'integer', (col) => col.notNull())
     .addColumn('order', 'double precision', (col) => col.notNull())
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
@@ -50,6 +52,60 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('deleted_time', 'timestamptz')
     .addColumn('created_by', 'text', (col) => col.notNull())
     .addColumn('last_modified_by', 'text')
+    .execute();
+
+  await db.schema
+    .createTable('schema_operation')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('type', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('phase', 'text', (col) => col.notNull())
+    .addColumn('resource_type', 'text', (col) => col.notNull())
+    .addColumn('resource_id', 'text', (col) => col.notNull())
+    .addColumn('base_id', 'text')
+    .addColumn('table_id', 'text')
+    .addColumn('idempotency_key', 'text', (col) => col.notNull().unique())
+    .addColumn('payload', 'jsonb')
+    .addColumn('result', 'jsonb')
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('max_attempts', 'integer', (col) => col.notNull().defaultTo(8))
+    .addColumn('next_run_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('locked_at', 'timestamptz')
+    .addColumn('locked_by', 'text')
+    .addColumn('last_error', 'text')
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('last_modified_time', 'timestamptz')
+    .addColumn('last_modified_by', 'text')
+    .execute();
+
+  await db.schema
+    .createIndex('schema_operation_status_next_run_at_idx')
+    .ifNotExists()
+    .on('schema_operation')
+    .columns(['status', 'next_run_at'])
+    .execute();
+
+  await db.schema
+    .createIndex('schema_operation_resource_status_idx')
+    .ifNotExists()
+    .on('schema_operation')
+    .columns(['resource_type', 'resource_id', 'status'])
+    .execute();
+
+  await db.schema
+    .createIndex('schema_operation_base_status_idx')
+    .ifNotExists()
+    .on('schema_operation')
+    .columns(['base_id', 'status'])
+    .execute();
+
+  await db.schema
+    .createIndex('schema_operation_table_status_idx')
+    .ifNotExists()
+    .on('schema_operation')
+    .columns(['table_id', 'status'])
     .execute();
 
   await db.schema
@@ -66,6 +122,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('is_multiple_cell_value', 'boolean')
     .addColumn('db_field_type', 'text', (col) => col.notNull())
     .addColumn('db_field_name', 'text', (col) => col.notNull())
+    .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('not_null', 'boolean')
     .addColumn('unique', 'boolean')
     .addColumn('is_primary', 'boolean')

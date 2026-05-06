@@ -1,9 +1,14 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
@@ -84,53 +89,95 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
             ).values(),
           ]
         : foreignTables;
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
+      const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => {
-          return safeTry<
-            { table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> },
-            DomainError
-          >(async function* () {
+        async (metaTransactionContext) =>
+          safeTry<Table, DomainError>(async function* () {
             const persistedTable = yield* await handler.tableRepository.insert(
-              transactionContext,
+              metaTransactionContext,
               table
             );
-            yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
-            const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
-              transactionContext,
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              persistedTable,
               {
-                table,
-                fields: tableFields,
-                foreignTables: foreignTablesForSideEffects,
+                type: 'table.create',
+                payload: {
+                  recordCount: recordsFieldValues.length,
+                },
               }
             );
-            const sideEffectEvents = sideEffectResult.events;
-            if (recordsFieldValues.length > 0) {
-              const recordSpan = transactionContext.tracer?.startSpan(
-                'teable.CreateTableHandler.createRecords'
-              );
-              const { records } = yield* persistedTable.createRecords(recordsFieldValues);
-              recordSpan?.end();
-              yield* await handler.tableRecordRepository.insertMany(
-                transactionContext,
-                persistedTable,
-                records
-              );
-            }
-            return ok<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, DomainError>(
-              {
-                table: persistedTable,
-                sideEffectEvents,
-              }
-            );
-          });
-        }
+            return ok(persistedTable);
+          }),
+        { scope: 'meta' }
       );
-      const { table: persistedTable, sideEffectEvents } = transactionResult;
+
+      const dataResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          safeTry<{ sideEffectEvents: ReadonlyArray<IDomainEvent> }, DomainError>(
+            async function* () {
+              yield* await handler.tableSchemaRepository.insert(
+                dataTransactionContext,
+                persistedTable
+              );
+              const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
+                dataTransactionContext,
+                {
+                  table,
+                  fields: tableFields,
+                  foreignTables: foreignTablesForSideEffects,
+                }
+              );
+              if (recordsFieldValues.length > 0) {
+                const recordSpan = dataTransactionContext.tracer?.startSpan(
+                  'teable.CreateTableHandler.createRecords'
+                );
+                const { records } = yield* persistedTable.createRecords(recordsFieldValues);
+                recordSpan?.end();
+                yield* await handler.tableRecordRepository.insertMany(
+                  dataTransactionContext,
+                  persistedTable,
+                  records
+                );
+              }
+              return ok({ sideEffectEvents: sideEffectResult.events });
+            }
+          ),
+        { scope: 'data' }
+      );
+
+      if (dataResult.isErr()) {
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTable,
+          {
+            lastError: dataResult.error.message,
+            type: 'table.create',
+            payload: {
+              recordCount: recordsFieldValues.length,
+            },
+          }
+        );
+        return err(dataResult.error);
+      }
+
+      yield* await completeTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTable,
+        { type: 'table.create' }
+      );
+
       const events = [
         ...table.pullDomainEvents(),
         ...persistedTable.pullDomainEvents(),
-        ...sideEffectEvents,
+        ...dataResult.value.sideEffectEvents,
       ];
       yield* await handler.eventBus.publishMany(context, events);
       return ok(CreateTableResult.create(persistedTable, events));

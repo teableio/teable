@@ -35,6 +35,32 @@ const formatSpecDetails = (specInfo: TableWhereSpecInfo): string => {
   return parts.join(' ');
 };
 
+type SelectChoiceDto = { id: string; name: string; color: string };
+
+const deduplicateSelectChoices = (
+  choices: ReadonlyArray<SelectChoiceDto>
+): ReadonlyArray<SelectChoiceDto> => {
+  const seen = new Set<string>();
+  const deduped: SelectChoiceDto[] = [];
+  for (const choice of choices) {
+    const normalizedName = choice.name.trim();
+    if (seen.has(normalizedName)) continue;
+    seen.add(normalizedName);
+    deduped.push(choice);
+  }
+  return deduped;
+};
+
+const META_INSERT_BATCH_SIZE = 500;
+
+const chunks = <T>(values: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+};
+
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -50,6 +76,21 @@ const v1SymbolOperatorMap: Record<string, string> = {
   'IS NULL': 'isEmpty',
   'IS NOT NULL': 'isNotEmpty',
   'IS WITH IN': 'isWithIn',
+};
+
+const tableProvisionStateToOperationStatus = (
+  state: core.TableProvisionState
+): core.SchemaOperationStatus => {
+  if (state === 'ready') return 'ready';
+  if (state === 'error') return 'error';
+  return 'pending';
+};
+
+const jsonbValue = (value: unknown): ReturnType<typeof sql> => {
+  if (value === undefined) {
+    return sql`NULL`;
+  }
+  return sql`${JSON.stringify(value)}::jsonb`;
 };
 
 @injectable()
@@ -72,7 +113,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const tableToPersist = table;
 
     let tableDbMeta: ITableDbMeta | undefined;
-    const transaction = getPostgresTransaction<V1TeableDatabase>(context);
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context, 'meta');
     const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, DomainError>> => {
       const order = sql<number>`
         (
@@ -378,7 +419,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const now = new Date();
     const actorId = context.actorId.toString();
 
-    const transaction = getPostgresTransaction<V1TeableDatabase>(context);
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context, 'meta');
     const persist = async (
       trx: Kysely<V1TeableDatabase>
     ): Promise<Result<ReadonlyMap<string, ITableDbMeta>, DomainError>> => {
@@ -492,13 +533,19 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
 
       if (tableMetaRows.length > 0) {
-        await trx.insertInto('table_meta').values(tableMetaRows).execute();
+        for (const rows of chunks(tableMetaRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('table_meta').values(rows).execute();
+        }
       }
       if (fieldRows.length > 0) {
-        await trx.insertInto('field').values(fieldRows).execute();
+        for (const rows of chunks(fieldRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('field').values(rows).execute();
+        }
       }
       if (viewRows.length > 0) {
-        await trx.insertInto('view').values(viewRows).execute();
+        for (const rows of chunks(viewRows, META_INSERT_BATCH_SIZE)) {
+          await trx.insertInto('view').values(rows).execute();
+        }
       }
 
       return ok(tableDbMetaById);
@@ -570,7 +617,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
       const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
@@ -687,7 +734,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const whereFactory = whereResult.value;
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
       const effectiveState = options?.state ?? 'active';
       const fieldsLateral = db
         .selectNoFrom((eb) => [
@@ -810,7 +857,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         eb.eb('deleted_time', 'is', null),
       ]);
 
-    const db = resolvePostgresDbOrTx(this.db, context);
+    const db = resolvePostgresDbOrTx(this.db, context, 'meta');
     try {
       const updateVisitor = new TableMetaUpdateVisitor({
         db,
@@ -1011,7 +1058,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const mode = options?.mode ?? 'soft';
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
       if (mode === 'permanent') {
         const statements: CompiledQuery[] = [
           sql`
@@ -1102,7 +1149,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const tableId = table.id().toString();
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
       const tableUpdate = await db
         .updateTable('table_meta')
         .set({
@@ -1116,6 +1163,12 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
       if (updatedRows === 0) return err(domainError.notFound({ message: 'Not found' }));
+
+      await sql`
+        UPDATE "table_meta"
+        SET "provision_state" = ${'ready'}
+        WHERE "id" = ${tableId}
+      `.execute(db);
 
       await db
         .updateTable('field')
@@ -1144,6 +1197,149 @@ export class PostgresTableRepository implements core.ITableRepository {
       return err(
         domainError.infrastructure({ message: `Failed to restore table: ${describeError(error)}` })
       );
+    }
+  }
+
+  @core.TraceSpan()
+  async setProvisionState(
+    context: core.IExecutionContext,
+    table: core.Table,
+    state: core.TableProvisionState,
+    operation?: core.TableProvisionOperationOptions
+  ): Promise<Result<void, DomainError>> {
+    return this.setProvisionStateMany(context, [table], state, operation);
+  }
+
+  @core.TraceSpan()
+  async setProvisionStateMany(
+    context: core.IExecutionContext,
+    tables: ReadonlyArray<core.Table>,
+    state: core.TableProvisionState,
+    operation?: core.TableProvisionOperationOptions
+  ): Promise<Result<void, DomainError>> {
+    if (!tables.length) {
+      return ok(undefined);
+    }
+
+    const now = new Date();
+    const actorId = context.actorId.toString();
+    const tableIds = [...new Set(tables.map((table) => table.id().toString()))];
+
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+      await sql`
+        UPDATE "table_meta"
+        SET
+          "provision_state" = ${state},
+          "last_modified_time" = ${now},
+          "last_modified_by" = ${actorId}
+        WHERE "id" IN (${sql.join(tableIds.map((tableId) => sql`${tableId}`))})
+      `.execute(db);
+
+      await this.recordSchemaOperations(db, context, tables, state, operation);
+
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to set table provision state: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
+  private async recordSchemaOperations(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    context: core.IExecutionContext,
+    tables: ReadonlyArray<core.Table>,
+    state: core.TableProvisionState,
+    operation?: core.TableProvisionOperationOptions
+  ): Promise<void> {
+    const now = new Date();
+    const actorId = context.actorId.toString();
+    const operationType = operation?.operationType ?? 'table.provision';
+    const status = operation?.status ?? tableProvisionStateToOperationStatus(state);
+    const phase = operation?.phase ?? state;
+    const maxAttempts = operation?.maxAttempts ?? 8;
+    const nextRunAt = operation?.nextRunAt ?? now;
+    const result = operation?.result;
+    const payload = operation?.payload;
+    const lastError = operation?.lastError ?? null;
+
+    for (const table of tables) {
+      const tableId = table.id().toString();
+      const baseId = table.baseId().toString();
+      const operationId = operation?.operationId ?? context.requestId ?? operationType;
+      const idempotencyKey =
+        tables.length === 1 && operation?.idempotencyKey
+          ? operation.idempotencyKey
+          : `${operationId}:table:${tableId}`;
+      const attempts = status === 'error' ? 1 : 0;
+
+      await sql`
+        INSERT INTO "schema_operation" (
+          "id",
+          "type",
+          "status",
+          "phase",
+          "resource_type",
+          "resource_id",
+          "base_id",
+          "table_id",
+          "idempotency_key",
+          "payload",
+          "result",
+          "attempts",
+          "max_attempts",
+          "next_run_at",
+          "last_error",
+          "created_time",
+          "created_by",
+          "last_modified_time",
+          "last_modified_by"
+        )
+        VALUES (
+          ${core.generatePrefixedId('sgo', 16)},
+          ${operationType},
+          ${status},
+          ${phase},
+          ${'table'},
+          ${tableId},
+          ${baseId},
+          ${tableId},
+          ${idempotencyKey},
+          ${jsonbValue(payload)},
+          ${jsonbValue(result)},
+          ${attempts},
+          ${maxAttempts},
+          ${nextRunAt},
+          ${lastError},
+          ${now},
+          ${actorId},
+          ${now},
+          ${actorId}
+        )
+        ON CONFLICT ("idempotency_key")
+        DO UPDATE SET
+          "type" = EXCLUDED."type",
+          "status" = EXCLUDED."status",
+          "phase" = EXCLUDED."phase",
+          "resource_type" = EXCLUDED."resource_type",
+          "resource_id" = EXCLUDED."resource_id",
+          "base_id" = EXCLUDED."base_id",
+          "table_id" = EXCLUDED."table_id",
+          "payload" = COALESCE(EXCLUDED."payload", "schema_operation"."payload"),
+          "result" = COALESCE(EXCLUDED."result", "schema_operation"."result"),
+          "attempts" = CASE
+            WHEN EXCLUDED."status" = 'error' THEN "schema_operation"."attempts" + 1
+            ELSE "schema_operation"."attempts"
+          END,
+          "max_attempts" = EXCLUDED."max_attempts",
+          "next_run_at" = EXCLUDED."next_run_at",
+          "last_error" = EXCLUDED."last_error",
+          "last_modified_time" = EXCLUDED."last_modified_time",
+          "last_modified_by" = EXCLUDED."last_modified_by"
+      `.execute(db);
     }
   }
 
@@ -1904,7 +2100,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   }
 
   private normalizeSelectOptions(raw: Record<string, unknown>): {
-    choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+    choices: ReadonlyArray<SelectChoiceDto>;
     defaultValue?: string | ReadonlyArray<string>;
     preventAutoNewOptions?: boolean;
   } {
@@ -1921,7 +2117,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         name: String(name),
         color: normalizeColor(undefined, index),
       }));
-      return { choices };
+      return { choices: deduplicateSelectChoices(choices) };
     }
 
     const choices = Array.isArray(raw.choices)
@@ -1943,7 +2139,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;
 
     return {
-      choices: choices as ReadonlyArray<{ id: string; name: string; color: string }>,
+      choices: deduplicateSelectChoices(choices),
       ...(defaultValue !== undefined ? { defaultValue: defaultValue as string | string[] } : {}),
       ...(preventAutoNewOptions !== undefined ? { preventAutoNewOptions } : {}),
     };

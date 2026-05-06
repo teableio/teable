@@ -3,6 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { context, trace } from '@opentelemetry/api';
 import { PrismaModule } from '@teable/db-main-prisma';
+import { DataPrismaModule } from '@teable/db-data-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
@@ -27,6 +28,7 @@ import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
+import { DatabaseRouter } from './database-router.service';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -54,6 +56,7 @@ const globalModules = {
     KnexModule.register(),
     ModelModule,
     PrismaModule,
+    DataPrismaModule,
     PermissionModule,
     DataLoaderModule,
     PerformanceCacheModule,
@@ -88,6 +91,7 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
+    DatabaseRouter,
     RequestInfoMiddleware,
     {
       provide: APP_GUARD,
@@ -102,7 +106,7 @@ const globalModules = {
       useClass: RouteTracingInterceptor,
     },
   ],
-  exports: [DbProvider],
+  exports: [DbProvider, DatabaseRouter, KnexModule, PrismaModule, DataPrismaModule],
 };
 
 @Global()

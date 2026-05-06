@@ -179,7 +179,18 @@ export class ForeignTableLoaderService implements IForeignTableLoaderService {
         (reference) => !foreignTableIds.has(reference.foreignTableId.toString())
       );
       if (missing.length > 0)
-        return err(domainError.notFound({ message: 'Foreign tables not found' }));
+        return err(
+          domainError.notFound({
+            message: `Foreign tables not found: ${missing
+              .map((reference) => reference.foreignTableId.toString())
+              .join(', ')}`,
+            details: {
+              missingForeignTableIds: missing.map((reference) =>
+                reference.foreignTableId.toString()
+              ),
+            },
+          })
+        );
 
       return ok(foreignTables);
     });

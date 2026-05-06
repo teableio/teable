@@ -1,5 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
 import {
   createBaseRoSchema,
@@ -55,12 +68,17 @@ import type {
   ICreateBaseFromTemplateVo,
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
+import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
+import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { BaseExportService } from './base-export.service';
@@ -76,7 +94,8 @@ export class BaseController {
     private readonly baseImportService: BaseImportService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly invitationService: InvitationService
+    private readonly invitationService: InvitationService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Post()
@@ -91,6 +110,9 @@ export class BaseController {
   }
 
   @Post('import')
+  @UseV2Feature('importBase')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   @EmitControllerEvent(Events.BASE_CREATE)
@@ -98,10 +120,16 @@ export class BaseController {
     @Body(new ZodValidationPipe(importBaseRoSchema))
     importBaseRo: ImportBaseRo
   ): Promise<IImportBaseVo> {
+    if (this.cls.get('useV2')) {
+      return await this.baseImportService.importBaseV2(importBaseRo);
+    }
     return await this.baseImportService.importBase(importBaseRo);
   }
 
   @Post('import-stream')
+  @UseV2Feature('importBase')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   async importBaseStream(
@@ -130,10 +158,17 @@ export class BaseController {
     res.on('close', () => clearInterval(heartbeat));
 
     try {
-      const result = await this.baseImportService.importBase(
+      const importer = this.cls.get('useV2')
+        ? this.baseImportService.importBaseV2.bind(this.baseImportService)
+        : this.baseImportService.importBase.bind(this.baseImportService);
+      const result = await importer(
         importBaseRo,
-        (phase: string, detail?: string) => {
-          sendEvent({ type: 'progress', phase, detail });
+        (phase: string | { phase: string }, detail?: string) => {
+          sendEvent(
+            typeof phase === 'string'
+              ? { type: 'progress', phase, detail }
+              : { type: 'progress', ...phase }
+          );
         }
       );
 

@@ -18,6 +18,7 @@ import {
   isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IBaseJson, IFieldJson, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
 import { pick, get } from 'lodash';
@@ -25,6 +26,7 @@ import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
 import { replaceStringByMap } from '../../base/utils';
@@ -40,9 +42,10 @@ export class FieldDuplicateService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
@@ -220,7 +223,7 @@ export class FieldDuplicateService {
           this.logger.debug(
             "Executing SQL to modify primary formula field's column: " + alterTableQuery
           );
-          await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+          await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
         }
         await this.prismaService.txClient().field.update({
           where: {
@@ -677,7 +680,7 @@ export class FieldDuplicateService {
       const exists = await this.dbProvider.checkColumnExist(
         resolvedDbTableName,
         genDbFieldName,
-        this.prismaService.txClient()
+        this.dataPrismaService.txClient()
       );
       if (exists) {
         // Debug logging for rename operation to diagnose failures
@@ -697,7 +700,7 @@ export class FieldDuplicateService {
         for (const sql of alterTableSql) {
           // eslint-disable-next-line no-console
           console.log('[repairSymmetricField] executing SQL', sql);
-          await this.prismaService.txClient().$executeRawUnsafe(sql);
+          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
         }
       }
     }
@@ -1423,7 +1426,7 @@ export class FieldDuplicateService {
       );
 
       for (const alterTableQuery of modifyColumnSql) {
-        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
       }
 
       await this.prismaService.txClient().field.update({
@@ -1571,7 +1574,7 @@ export class FieldDuplicateService {
         .toSQL();
 
       for (const sql of fieldValidationSqls) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(sql.sql);
       }
     }
   }

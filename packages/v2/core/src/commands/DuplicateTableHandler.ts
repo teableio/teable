@@ -1,7 +1,12 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -99,39 +104,81 @@ export class DuplicateTableHandler
         restoreRecordsById = prepared.restoreRecordsById;
       }
 
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
+      const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) =>
+        async (metaTransactionContext) =>
           safeTry<Table, DomainError>(async function* () {
             const persistedTable = yield* await handler.tableRepository.insert(
-              transactionContext,
+              metaTransactionContext,
               duplicated.table
             );
-            yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              persistedTable,
+              { type: 'table.duplicate' }
+            );
+
+            return ok(persistedTable);
+          }),
+        { scope: 'meta' }
+      );
+
+      const duplicateResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          safeTry<void, DomainError>(async function* () {
+            yield* await handler.tableSchemaRepository.insert(
+              dataTransactionContext,
+              persistedTable
+            );
 
             if (records.length > 0) {
               yield* await handler.tableRecordRepository.insertMany(
-                transactionContext,
+                dataTransactionContext,
                 persistedTable,
                 records,
                 restoreRecordsById ? { restoreRecordsById } : undefined
               );
             }
 
-            return ok(persistedTable);
-          })
+            return ok(undefined);
+          }),
+        { scope: 'data' }
+      );
+      if (duplicateResult.isErr()) {
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTable,
+          {
+            lastError: duplicateResult.error.message,
+            type: 'table.duplicate',
+          }
+        );
+        return err(duplicateResult.error);
+      }
+
+      yield* await completeTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTable,
+        { type: 'table.duplicate' }
       );
 
       const events = aggregateDuplicateTableEvents(
-        [...duplicated.table.pullDomainEvents(), ...transactionResult.pullDomainEvents()],
-        transactionResult,
+        [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+        persistedTable,
         restoreRecordsById
       );
 
       const previousDuplicateContext = context.duplicateTable;
       context.duplicateTable = {
         sourceTableId: command.tableId.toString(),
-        duplicatedTableId: transactionResult.id().toString(),
+        duplicatedTableId: persistedTable.id().toString(),
         includeRecords: command.includeRecords,
       };
 
@@ -143,7 +190,7 @@ export class DuplicateTableHandler
 
       return ok(
         DuplicateTableResult.create(
-          transactionResult,
+          persistedTable,
           duplicated.fieldIdMap,
           duplicated.viewIdMap,
           events

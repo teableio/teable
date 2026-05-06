@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
 import { generateRecordTrashId } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { IExecutionContext } from '@teable/v2-core';
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
 import { V2ContainerService } from '../v2/v2-container.service';
@@ -12,6 +12,7 @@ interface ITableTrashInsert {
   resource_type: string;
   snapshot: string;
   created_by: string;
+  created_time: Date;
 }
 
 interface IRecordTrashInsert {
@@ -20,6 +21,7 @@ interface IRecordTrashInsert {
   record_id: string;
   snapshot: string;
   created_by: string;
+  created_time: Date;
 }
 
 type TrashDbTransaction = {
@@ -58,8 +60,9 @@ export class V2RecordTrashService {
     }
 
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve(v2PostgresDbTokens.db) as TrashDbClient;
+    const db = container.resolve(v2DataDbTokens.db) as TrashDbClient;
     const recordIds = records.map((record) => record.id);
+    const createdTime = new Date();
 
     await this.runInSpan(
       context,
@@ -78,6 +81,7 @@ export class V2RecordTrashService {
               resource_type: RECORD_TRASH_RESOURCE_TYPE,
               snapshot: JSON.stringify(recordIds),
               created_by: userId,
+              created_time: createdTime,
             })
             .executeTakeFirst();
 
@@ -92,6 +96,7 @@ export class V2RecordTrashService {
                   record_id: record.id,
                   snapshot: JSON.stringify(record),
                   created_by: userId,
+                  created_time: createdTime,
                 }))
               )
               .execute();

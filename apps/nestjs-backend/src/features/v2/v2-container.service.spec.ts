@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
 import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -93,8 +93,9 @@ const createProviderWrapper = (instance: object, staticTree = true): InstanceWra
     isDependencyTreeStatic: () => staticTree,
   }) as InstanceWrapper<object>;
 
-const createContainerMock = (): DependencyContainer =>
-  ({
+const createContainerMock = (): DependencyContainer => {
+  const db = { destroy: vi.fn() };
+  return {
     isRegistered: vi.fn(
       (token: symbol) =>
         token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig ||
@@ -102,8 +103,14 @@ const createContainerMock = (): DependencyContainer =>
     ),
     registerInstance: vi.fn(),
     resolve: vi.fn((token: symbol) => {
-      if (token === v2PostgresDbTokens.db) {
-        return { destroy: vi.fn() };
+      if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
+        return db;
+      }
+      if (token === v2CoreTokens.attachmentLookupService) {
+        return {};
+      }
+      if (token === v2CoreTokens.attachmentValueDecoratorService) {
+        return {};
       }
       if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig) {
         return { enabled: true };
@@ -116,7 +123,8 @@ const createContainerMock = (): DependencyContainer =>
       }
       throw new Error(`Unexpected token: ${String(token)}`);
     }),
-  }) as unknown as DependencyContainer;
+  } as unknown as DependencyContainer;
+};
 
 const createService = (providers: InstanceWrapper[] = []) => {
   const configService = {
@@ -239,6 +247,52 @@ describe('V2ContainerService', () => {
     expect(registrar.registerProjections).toHaveBeenCalledTimes(1);
   });
 
+  it('accepts split meta/data envs without requiring the legacy alias', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PRISMA_META_DATABASE_URL') {
+        return 'postgres://meta-db';
+      }
+      if (key === 'PRISMA_DATA_DATABASE_URL') {
+        return 'postgres://data-db';
+      }
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metaConnectionString: 'postgres://meta-db',
+        dataConnectionString: 'postgres://data-db',
+      })
+    );
+  });
+
+  it('falls back to DATABASE_URL when neither meta nor legacy alias is configured', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockReturnValue(undefined);
+    configService.getOrThrow.mockImplementation((key: string) => {
+      expect(key).toBe('DATABASE_URL');
+      return 'postgres://fallback-db';
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metaConnectionString: 'postgres://fallback-db',
+        dataConnectionString: 'postgres://fallback-db',
+      })
+    );
+  });
+
   it('fails fast during Nest bootstrap when shared container initialization fails', async () => {
     const registrar = new TestProjectionRegistrar();
     const { module, discoveryService } = await createTestingModule([
@@ -256,6 +310,7 @@ describe('V2ContainerService', () => {
   it('stops computed polling before destroying the shared V2 db driver', async () => {
     const stop = vi.fn().mockResolvedValue(undefined);
     const destroy = vi.fn().mockResolvedValue(undefined);
+    const db = { destroy };
     const container = {
       isRegistered: vi.fn(
         (token: symbol) =>
@@ -270,8 +325,14 @@ describe('V2ContainerService', () => {
         if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingService) {
           return { stop };
         }
-        if (token === v2PostgresDbTokens.db) {
-          return { destroy };
+        if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
+          return db;
+        }
+        if (token === v2CoreTokens.attachmentLookupService) {
+          return {};
+        }
+        if (token === v2CoreTokens.attachmentValueDecoratorService) {
+          return {};
         }
         if (token === v2CoreTokens.undoRedoStore) {
           return undefined;

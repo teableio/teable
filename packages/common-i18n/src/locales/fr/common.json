@@ -164,8 +164,9 @@
   },
   "settings": {
     "title": "Paramètres d'instance",
+    "allSetting": "Paramètres de l'espace et personnels",
     "personal": {
-      "title": "Paramètres personnels"
+      "title": "Personnel"
     },
     "back": "Retour à l'accueil",
     "account": {
@@ -890,6 +891,10 @@
           "runQuotaExceeded": {
             "title": "L'automatisation {{name}} a atteint le nombre maximal d'exécutions mensuelles",
             "message": "Le quota mensuel d'exécutions de l'automatisation {{name}} est épuisé. L'exécution est temporairement indisponible. Veuillez mettre à niveau votre abonnement ou acheter des exécutions supplémentaires."
+          },
+          "failedSummary": {
+            "title": "L'automatisation {{name}} a échoué {{failCount}} fois",
+            "message": "Votre automatisation {{name}} a cumulé {{failCount}} échecs consécutifs. Ouvrez l'historique des exécutions pour voir les détails."
           }
         },
         "billing": {
@@ -1105,9 +1110,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE À JOUR DU 17 AVR",
-    "title": "Claude Opus 4.7 est désormais disponible dans Teable",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "MISE À JOUR DU 28 AVR",
+    "title": "Nouveau déclencheur : À la réception d’un e-mail (IMAP)",
+    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
+    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
   }
 }

@@ -29,7 +29,7 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     const now = new Date();
     const actorId = context.actorId.toString();
 
-    const transaction = getPostgresTransaction<V1TeableDatabase>(context);
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context, 'meta');
     const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, DomainError>> => {
       const order = sql<number>`
         (
@@ -79,7 +79,7 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     baseId: core.BaseId
   ): Promise<Result<core.Base | null, DomainError>> {
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
       const row = await db
         .selectFrom('base')
         .select(['id', 'name'])
@@ -106,7 +106,7 @@ export class PostgresBaseRepository implements core.IBaseRepository {
     pagination: core.OffsetPagination
   ): Promise<Result<core.IFindBasesResult, DomainError>> {
     try {
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
 
       // Get total count
       const countResult = await db

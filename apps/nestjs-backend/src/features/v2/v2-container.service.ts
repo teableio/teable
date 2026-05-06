@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
@@ -64,7 +64,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   private async createContainer(): Promise<DependencyContainer> {
-    const connectionString = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+    const metaConnectionString =
+      this.configService.get<string>('PRISMA_META_DATABASE_URL') ??
+      this.configService.get<string>('PRISMA_DATABASE_URL') ??
+      this.configService.getOrThrow<string>('DATABASE_URL');
+    const dataConnectionString =
+      this.configService.get<string>('PRISMA_DATA_DATABASE_URL') ?? metaConnectionString;
     const logger = new PinoLoggerAdapter(this.pinoLogger);
     const tracer = new OpenTelemetryTracer();
     const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
@@ -74,7 +79,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     this.logger.log('Initializing shared V2 container');
 
     const container = await createV2NodePgContainer({
-      connectionString,
+      metaConnectionString,
+      dataConnectionString,
       logger,
       tracer,
       commandBusMiddlewares,
@@ -164,8 +170,13 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
     const container = await this.containerPromise;
     await this.stopComputedUpdatePolling(container);
-    const db = container.resolve<{ destroy(): Promise<void> }>(v2PostgresDbTokens.db);
-    await db.destroy();
+    const closers = Array.from(
+      new Set([
+        container.resolve<{ destroy(): Promise<void> }>(v2MetaDbTokens.db),
+        container.resolve<{ destroy(): Promise<void> }>(v2DataDbTokens.db),
+      ])
+    );
+    await Promise.all(closers.map((db) => db.destroy()));
   }
 
   private async stopComputedUpdatePolling(container: DependencyContainer): Promise<void> {

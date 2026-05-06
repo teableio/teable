@@ -17,11 +17,19 @@ import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { IEventBus } from '../../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
-import type { ITableRepository, TableUpdatePersistResult } from '../../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableProvisionState,
+  TableUpdatePersistResult,
+} from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 
 import { TableUpdateFlow } from './TableUpdateFlow';
 import {
@@ -50,6 +58,8 @@ const buildTable = () => {
 };
 
 class FakeTableRepository implements ITableRepository {
+  provisionStateChanges: TableProvisionState[] = [];
+
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     return ok(table);
   }
@@ -85,6 +95,15 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionState(
+    _: IExecutionContext,
+    __: Table,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    this.provisionStateChanges.push(state);
     return ok(undefined);
   }
 }
@@ -141,10 +160,39 @@ class FakeEventBus implements IEventBus {
 class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    return work({ ...context, transaction });
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const existing = context.transactions?.[scope];
+    if (existing) {
+      return work({ ...context, transaction: existing });
+    }
+    const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+    const afterRollbackHandlers: Array<() => Promise<void> | void> = [];
+    const transaction: IUnitOfWorkTransaction = {
+      kind: 'unitOfWorkTransaction',
+      scope,
+      afterCommit(handler) {
+        afterCommitHandlers.push(handler);
+      },
+      afterRollback(handler) {
+        afterRollbackHandlers.push(handler);
+      },
+    };
+    const result = await work({
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    });
+    const handlers = result.isOk() ? afterCommitHandlers : afterRollbackHandlers;
+    for (const handler of handlers) {
+      await handler();
+    }
+    return result;
   }
 }
 
@@ -152,8 +200,9 @@ describe('TableUpdateFlow', () => {
   it('publishes repository-added post-persist events without returning them', async () => {
     const table = buildTable();
     const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
     const flow = new TableUpdateFlow(
-      new FakeTableRepository(),
+      repository,
       new FakeTableSchemaRepository(),
       eventBus,
       new FakeUnitOfWork()
@@ -172,6 +221,7 @@ describe('TableUpdateFlow', () => {
     expect(responseEventNames).not.toContain('TableActionTriggerRequested');
     expect(publishedEventNames).toContain('TableRenamed');
     expect(publishedEventNames).toContain('TableActionTriggerRequested');
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
   });
 
   it('flushes repository deferred tasks after afterPersist hooks', async () => {
@@ -318,5 +368,33 @@ describe('TableUpdateFlow', () => {
 
     expect(result.isOk()).toBe(true);
     expect(observedNames).toEqual(['Flow Table Final']);
+  });
+
+  it('marks tables error when an outer transaction rolls back after deferring ready', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      unitOfWork
+    );
+
+    const nestedName = TableName.create('Flow Table Nested Rollback')._unsafeUnwrap();
+    const outerResult = await unitOfWork.withTransaction(
+      createContext(),
+      async (outerContext) => {
+        const innerResult = await flow.execute(outerContext, { table }, (tableToUpdate) =>
+          tableToUpdate.update((mutator) => mutator.rename(nestedName))
+        );
+        expect(innerResult.isOk()).toBe(true);
+        return err(domainError.unexpected({ message: 'outer rollback' }));
+      },
+      { scope: 'data' }
+    );
+
+    expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
+    expect(repository.provisionStateChanges).toEqual(['pending', 'error']);
   });
 });

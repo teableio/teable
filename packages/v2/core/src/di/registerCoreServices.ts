@@ -25,10 +25,15 @@ import { RecordReorderService } from '../application/services/RecordReorderServi
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
+import {
+  SchemaOperationRunnerService,
+  type ISchemaOperationHandler,
+} from '../application/services/SchemaOperationRunnerService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { TableSchemaOperationRepairHandler } from '../application/services/TableSchemaOperationRepairHandler';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
@@ -73,6 +78,7 @@ import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
  * | recordWritePluginRunner          | RecordWritePluginRunner        | Run typed record-write plugins               |
  * | recordWriteSideEffectService     | RecordWriteSideEffectService   | Collect table side effects on record writes  |
  * | recordCreationService            | RecordCreationService          | Shared single-record creation workflow        |
+ * | schemaOperationRunnerService     | SchemaOperationRunnerService   | Run repair handlers for schema operations     |
  *
  * ## Usage
  *
@@ -341,6 +347,28 @@ export const registerV2CoreServices = (
 
   if (!container.isRegistered(v2CoreTokens.recordBatchCreationService)) {
     container.register(v2CoreTokens.recordBatchCreationService, RecordBatchCreationService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.schemaOperationHandlers)) {
+    const defaultSchemaOperationHandlers: ISchemaOperationHandler[] = [];
+    if (
+      container.isRegistered(v2CoreTokens.schemaOperationRepository) &&
+      container.isRegistered(v2CoreTokens.tableRepository) &&
+      container.isRegistered(v2CoreTokens.tableSchemaRepository) &&
+      container.isRegistered(v2CoreTokens.unitOfWork)
+    ) {
+      defaultSchemaOperationHandlers.push(container.resolve(TableSchemaOperationRepairHandler));
+    }
+    container.registerInstance(
+      v2CoreTokens.schemaOperationHandlers,
+      defaultSchemaOperationHandlers
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.schemaOperationRunnerService)) {
+    container.register(v2CoreTokens.schemaOperationRunnerService, SchemaOperationRunnerService, {
       lifecycle,
     });
   }

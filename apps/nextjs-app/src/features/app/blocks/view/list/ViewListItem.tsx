@@ -47,6 +47,7 @@ interface IProps {
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const tableId = useTableId() as string;
   const baseId = useBaseId() as string;
   const router = useRouter();
@@ -125,6 +126,19 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const isInIframe = useIsInIframe();
 
   useEffect(() => {
+    let timeout: NodeJS.Timeout | null = null;
+    if (isEditing) {
+      timeout = setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 200);
+    }
+    return () => {
+      timeout && clearTimeout(timeout);
+    };
+  }, [isEditing]);
+
+  useEffect(() => {
     if (isActive && !isInIframe) {
       setTimeout(() => {
         viewItemRef.current?.scrollIntoView({
@@ -167,12 +181,11 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       {isPin && <Star className="ml-1 size-4 shrink-0 fill-yellow-400 text-yellow-400" />}
       {isEditing && (
         <Input
+          ref={inputRef}
           type="text"
           placeholder="name"
           defaultValue={view.name}
           className="absolute left-0 top-0 size-full py-0 text-xs"
-          // eslint-disable-next-line jsx-a11y/no-autofocus
-          autoFocus
           onBlur={(e) => {
             if (e.target.value && e.target.value !== view.name) {
               view.updateName(e.target.value);

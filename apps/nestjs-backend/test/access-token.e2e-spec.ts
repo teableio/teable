@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import type { Action } from '@teable/core';
 import { Role } from '@teable/core';
 import type {
   CreateAccessTokenRo,
@@ -95,6 +96,16 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
     const error = await getError(() => createAccessToken(ro));
     expect(error?.status).toEqual(400);
     expect(error?.message).contain('expiredTime');
+  });
+
+  it('create access token with invalid scopes', async () => {
+    const error = await getError(() =>
+      createAccessToken({
+        ...defaultCreateRo,
+        scopes: ['table|write', 'invalid_scope'] as unknown as CreateAccessTokenRo['scopes'],
+      })
+    );
+    expect(error?.status).toEqual(400);
   });
 
   it('check access token', async () => {

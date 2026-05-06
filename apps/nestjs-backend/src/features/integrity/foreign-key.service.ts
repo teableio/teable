@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType, type ILinkFieldOptions } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 
 @Injectable()
@@ -12,7 +14,8 @@ export class ForeignKeyIntegrityService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   async getIssues(tableId: string, field: LinkFieldDto): Promise<IIntegrityIssue[]> {
@@ -86,7 +89,7 @@ export class ForeignKeyIntegrityService {
 
     try {
       const invalidRefs =
-        await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
+        await this.dataPrismaService.txClient().$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
       const refCount = Number(invalidRefs[0]?.count || 0);
 
       if (refCount > 0) {
@@ -181,6 +184,6 @@ export class ForeignKeyIntegrityService {
       )
       .delete()
       .toQuery();
-    return await this.prismaService.$executeRawUnsafe(deleteQuery);
+    return await this.dataPrismaService.txClient().$executeRawUnsafe(deleteQuery);
   }
 }

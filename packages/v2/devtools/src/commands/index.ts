@@ -24,6 +24,11 @@ import { mockGenerate } from './mock';
 import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
 import { schemaTable, schemaField, schemaRepair } from './schema';
+import {
+  schemaOperationList,
+  schemaOperationMarkDead,
+  schemaOperationRetry,
+} from './schema-operation';
 import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
   underlyingTables,
@@ -84,6 +89,12 @@ export const schema = Command.make('schema').pipe(
   Command.withSubcommands([schemaTable, schemaField, schemaRepair])
 );
 
+// schema operation subcommand group
+export const schemaOperation = Command.make('schema-operation').pipe(
+  Command.withDescription('Inspect and control schema operation repair sagas'),
+  Command.withSubcommands([schemaOperationList, schemaOperationRetry, schemaOperationMarkDead])
+);
+
 // tables subcommand group
 export const tables = Command.make('tables').pipe(
   Command.withDescription('Table management operations'),
@@ -115,6 +126,7 @@ export const root = Command.make('teable-devtools').pipe(
     records,
     relations,
     schema,
+    schemaOperation,
     tables,
     underlying,
     dottea,

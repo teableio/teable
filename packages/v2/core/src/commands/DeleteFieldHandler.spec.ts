@@ -286,7 +286,7 @@ describe('DeleteFieldHandler', () => {
     expect(sideEffectService.calls.length).toBe(1);
     expect(sideEffectService.calls[0]?.fields[0]?.equals(secondaryFieldId)).toBe(true);
     expect(eventBus.published.length).toBeGreaterThan(0);
-    expect(unitOfWork.transactions.length).toBe(1);
+    expect(unitOfWork.transactions.length).toBe(2);
     expect(foreignTableLoader.lastBaseId).toBeUndefined();
     expect(fieldUndoRedoSnapshotService.captured).toHaveLength(1);
   });

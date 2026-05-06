@@ -24,7 +24,11 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
@@ -33,9 +37,9 @@ import type {
   InsertManyStreamResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTableCommand } from './CreateTableCommand';
 import { CreateTableHandler } from './CreateTableHandler';
 
@@ -49,6 +53,7 @@ const createContext = (): IExecutionContext => {
 class FakeTableRepository implements ITableRepository {
   inserted: Table[] = [];
   updated: Table[] = [];
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   lastContext: IExecutionContext | undefined;
   failInsert: DomainError | undefined;
   failUpdate: DomainError | undefined;
@@ -101,6 +106,26 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionState(
+    _context: IExecutionContext,
+    table: Table,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    }
     return ok(undefined);
   }
 }
@@ -233,10 +258,23 @@ class FakeUnitOfWork implements IUnitOfWork {
 
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    const transactionContext = { ...context, transaction };
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const existing = context.transactions?.[scope];
+    if (existing) {
+      return work({ ...context, transaction: existing });
+    }
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
+    const transactionContext = {
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    };
     this.transactions.push(transactionContext);
     return work(transactionContext);
   }
@@ -286,7 +324,16 @@ describe('CreateTableHandler', () => {
     expect(tableRepository.inserted.length).toBe(1);
     expect(schemaRepository.inserted.length).toBe(1);
     expect(eventBus.published.length).toBeGreaterThan(0);
-    expect(unitOfWork.transactions.length).toBe(1);
+    expect(unitOfWork.transactions.length).toBe(3);
+    expect(unitOfWork.transactions.map((context) => context.transaction?.scope)).toEqual([
+      'meta',
+      'data',
+      'meta',
+    ]);
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'ready',
+    ]);
     expect(tableRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
   });
 
@@ -425,6 +472,7 @@ describe('CreateTableHandler', () => {
     schemaRepository.failInsert = domainError.unexpected({ message: 'schema failed' });
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema failed');
+    expect(tableRepository.provisionStateChanges.at(-1)?.state).toBe('error');
 
     schemaRepository.failInsert = undefined;
     eventBus.failPublish = domainError.unexpected({ message: 'publish failed' });

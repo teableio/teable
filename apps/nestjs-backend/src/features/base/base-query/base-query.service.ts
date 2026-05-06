@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
 import { CellFormat, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -10,6 +11,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
 import { FieldService } from '../../field/field.service';
 import {
@@ -30,11 +32,12 @@ export class BaseQueryService {
   private logger = new Logger(BaseQueryService.name);
 
   constructor(
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
 
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly recordService: RecordService
   ) {}
@@ -134,7 +137,8 @@ export class BaseQueryService {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
     this.logger.log('baseQuery SQL: ', query);
-    const rows = await this.prismaService
+    const rows = await this.dataPrismaService
+      .txClient()
       .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
       .catch((e) => {
         this.logger.error(e);

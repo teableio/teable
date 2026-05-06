@@ -4,7 +4,8 @@ import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
   registerV2PostgresPgliteDb,
-  v2PostgresDbTokens,
+  v2DataDbTokens,
+  v2MetaDbTokens,
 } from '@teable/v2-adapter-db-postgres-pglite';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
@@ -67,20 +68,24 @@ export const DatabasePgliteLive = Layer.effect(
       catch: (error) => new Error(`Failed to register pglite database: ${error}`),
     });
 
-    const db = c.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+    const metaDb = c.resolve(v2MetaDbTokens.db) as Kysely<V1TeableDatabase>;
+    const dataDb = c.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
 
     // Register state adapter (creates schema if needed)
     yield* Effect.tryPromise({
       try: () =>
         registerV2PostgresStateAdapter(c, {
-          db,
+          db: metaDb,
           ensureSchema: true,
         }),
       catch: (error) => new Error(`Failed to register state adapter: ${error}`),
     });
 
     // Register table repository postgres adapter
-    registerV2TableRepositoryPostgresAdapter(c, { db });
+    registerV2TableRepositoryPostgresAdapter(c, {
+      db: dataDb,
+      computedUpdate: { mode: 'sync', pollingConfig: { enabled: false } },
+    });
 
     // Register core dependencies
     c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -121,7 +126,7 @@ export const DatabasePgliteLive = Layer.effect(
     const existingBase = yield* Effect.tryPromise({
       try: async () => {
         try {
-          const result = await db.selectFrom('base').select('id').limit(1).execute();
+          const result = await metaDb.selectFrom('base').select('id').limit(1).execute();
           return result.length > 0 ? result[0].id : null;
         } catch {
           // Table doesn't exist yet, return null
@@ -149,12 +154,12 @@ export const DatabasePgliteLive = Layer.effect(
 
       yield* Effect.tryPromise({
         try: async () => {
-          await db
+          await metaDb
             .insertInto('space')
             .values({ id: spaceId, name: 'CLI Space', created_by: actorId })
             .execute();
 
-          await db
+          await metaDb
             .insertInto('base')
             .values({
               id: baseId,

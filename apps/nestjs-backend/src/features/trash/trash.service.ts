@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
 import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
 import { PrismaService, type Prisma } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   IResetTrashItemsRo,
   IResourceMapVo,
@@ -39,12 +40,14 @@ import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewService } from '../view/view.service';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
+import { META_KNEX } from '../../global/knex';
 
 @Injectable()
 export class TrashService {
   constructor(
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     protected readonly prismaService: PrismaService,
+    protected readonly dataPrismaService: DataPrismaService,
     protected readonly cls: ClsService<IClsStore>,
     protected readonly userService: UserService,
     protected readonly permissionService: PermissionService,
@@ -60,7 +63,7 @@ export class TrashService {
     protected readonly v2ExecutionContextFactory: V2ExecutionContextFactory,
     protected readonly canaryService: CanaryService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
-    @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex
+    @InjectModel(META_KNEX) protected readonly knex: Knex
   ) {}
 
   async getAuthorizedSpacesAndBases() {
@@ -381,7 +384,7 @@ export class TrashService {
         }, {} as IResourceMapVo);
       }
       case TableTrashType.Record: {
-        const recordList = await this.prismaService.recordTrash.findMany({
+        const recordList = await this.dataPrismaService.recordTrash.findMany({
           where: { tableId, recordId: { in: resourceIds } },
           select: {
             recordId: true,
@@ -416,7 +419,7 @@ export class TrashService {
       true
     );
 
-    const list = await this.prismaService.tableTrash.findMany({
+    const list = await this.dataPrismaService.tableTrash.findMany({
       where: {
         tableId,
       },
@@ -686,14 +689,14 @@ export class TrashService {
 
     const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
+      select: { spaceId: true, v2Enabled: true },
     });
 
     if (!base?.spaceId) {
       return { useV2: false, reason: 'disabled', baseId, tableId: trash.resourceId };
     }
 
-    const decision = await this.canaryService.shouldUseV2WithReason(base.spaceId, 'restoreTable');
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, 'restoreTable');
     return {
       ...decision,
       baseId,
@@ -752,7 +755,7 @@ export class TrashService {
       resourceType,
       snapshot: originSnapshot,
       createdTime,
-    } = await this.prismaService.tableTrash
+    } = await this.dataPrismaService.tableTrash
       .findUniqueOrThrow({
         where: { id: trashId },
         select: {
@@ -783,104 +786,108 @@ export class TrashService {
 
     const snapshot = JSON.parse(originSnapshot);
 
-    return await this.prismaService.$tx(
-      async (prisma) => {
-        switch (resourceType) {
-          case TableTrashType.View: {
-            await this.viewService.restoreView(tableId, snapshot[0]);
-            break;
-          }
-          case TableTrashType.Field: {
-            const { fields, records } = snapshot as ICreateFieldsOperation['result'];
-            await this.fieldOpenApiService.createFields(tableId, fields);
-            if (records) {
-              const existingSnapshots = await this.recordService.getSnapshotBulk(
-                tableId,
-                records.map((r) => r.id)
-              );
-              const existingIdSet = new Set(existingSnapshots.map((s) => s.data.id));
-              const filteredRecords = records.filter((r) => existingIdSet.has(r.id));
-              if (filteredRecords.length) {
-                await this.recordOpenApiService.updateRecords(tableId, {
-                  fieldKeyType: FieldKeyType.Id,
-                  records: filteredRecords,
-                });
-              }
-            }
-            break;
-          }
-          case TableTrashType.Record: {
-            const recordIds = snapshot as string[];
-            type IRecordTrashSnapshotRow = Prisma.RecordTrashGetPayload<{
-              select: {
-                id: true;
-                recordId: true;
-                snapshot: true;
-                createdTime: true;
-              };
-            }>;
-            const recordTrashRows = await prisma.recordTrash.findMany({
-              where: { tableId, recordId: { in: recordIds } },
-              select: {
-                id: true,
-                recordId: true,
-                snapshot: true,
-                createdTime: true,
-              },
-              orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
+    switch (resourceType) {
+      case TableTrashType.View: {
+        await this.viewService.restoreView(tableId, snapshot[0]);
+        break;
+      }
+      case TableTrashType.Field: {
+        const { fields, records } = snapshot as ICreateFieldsOperation['result'];
+        await this.fieldOpenApiService.createFields(tableId, fields);
+        if (records) {
+          const existingSnapshots = await this.recordService.getSnapshotBulk(
+            tableId,
+            records.map((r) => r.id)
+          );
+          const existingIdSet = new Set(existingSnapshots.map((s) => s.data.id));
+          const filteredRecords = records.filter((r) => existingIdSet.has(r.id));
+          if (filteredRecords.length) {
+            await this.recordOpenApiService.updateRecords(tableId, {
+              fieldKeyType: FieldKeyType.Id,
+              records: filteredRecords,
             });
+          }
+        }
+        break;
+      }
+      case TableTrashType.Record: {
+        const recordIds = snapshot as string[];
+        type IRecordTrashSnapshotRow = Prisma.RecordTrashGetPayload<{
+          select: {
+            id: true;
+            recordId: true;
+            snapshot: true;
+            createdTime: true;
+          };
+        }>;
+        const recordTrashRows = await this.dataPrismaService.recordTrash.findMany({
+          where: { tableId, recordId: { in: recordIds } },
+          select: {
+            id: true,
+            recordId: true,
+            snapshot: true,
+            createdTime: true,
+          },
+          orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
+        });
 
-            // A record can be deleted, restored through undo, then deleted again with the same id.
-            // Restore should use the snapshot that belongs to this trash item, not every historical
-            // record_trash row for the same record id.
-            const latestSnapshotsByRecordId = recordTrashRows.reduce<
-              Map<string, IRecordTrashSnapshotRow>
-            >((acc, row) => {
-              if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
-                acc.set(row.recordId, row);
-              }
-              return acc;
-            }, new Map<string, IRecordTrashSnapshotRow>());
+        // A record can be deleted, restored through undo, then deleted again with the same id.
+        // Restore should use the snapshot that belongs to this trash item, not every historical
+        // record_trash row for the same record id.
+        const latestSnapshotsByRecordId = recordTrashRows.reduce<Map<string, IRecordTrashSnapshotRow>>(
+          (acc, row) => {
+            if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
+              acc.set(row.recordId, row);
+            }
+            return acc;
+          },
+          new Map<string, IRecordTrashSnapshotRow>()
+        );
 
-            const matchedRecordTrashRows = recordIds
-              .map((recordId) => latestSnapshotsByRecordId.get(recordId))
-              .filter((row): row is IRecordTrashSnapshotRow => row != null);
-            const records = matchedRecordTrashRows.map(({ snapshot }) => JSON.parse(snapshot));
+        const matchedRecordTrashRows = recordIds
+          .map((recordId) => latestSnapshotsByRecordId.get(recordId))
+          .filter((row): row is IRecordTrashSnapshotRow => row != null);
+        const records = matchedRecordTrashRows.map(({ snapshot }) => JSON.parse(snapshot));
 
-            await this.recordOpenApiService.multipleCreateRecords(
-              tableId,
-              {
-                fieldKeyType: FieldKeyType.Id,
-                records,
-                typecast: true,
-              },
-              true
-            );
+        await this.recordOpenApiService.multipleCreateRecords(
+          tableId,
+          {
+            fieldKeyType: FieldKeyType.Id,
+            records,
+            typecast: true,
+          },
+          true
+        );
+        await this.dataPrismaService.$tx(
+          async (prisma) => {
             await prisma.recordTrash.deleteMany({
               where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
             });
-            break;
+            await prisma.tableTrash.delete({
+              where: { id: trashId },
+            });
+          },
+          {
+            timeout: this.thresholdConfig.bigTransactionTimeout,
           }
-          default:
-            throw new CustomHttpException(
-              `Invalid resource type ${resourceType}`,
-              HttpErrorCode.VALIDATION_ERROR,
-              {
-                localization: {
-                  i18nKey: 'httpErrors.trash.invalidResourceType',
-                },
-              }
-            );
-        }
-
-        await prisma.tableTrash.delete({
-          where: { id: trashId },
-        });
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
+        );
+        return;
       }
-    );
+      default:
+        throw new CustomHttpException(
+          `Invalid resource type ${resourceType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.invalidResourceType',
+            },
+          }
+        );
+    }
+
+    await this.dataPrismaService.tableTrash.delete({
+      where: { id: trashId },
+    });
   }
 
   async restoreTrash(trashId: string) {
@@ -980,7 +987,7 @@ export class TrashService {
       true
     );
 
-    const deletedList = await this.prismaService.tableTrash.findMany({
+    const deletedList = await this.dataPrismaService.tableTrash.findMany({
       where: { tableId },
       select: { resourceType: true, snapshot: true },
     });
@@ -1029,7 +1036,9 @@ export class TrashService {
           docId: { in: [...deletedViewIds, ...deletedFieldIds, ...deletedRecordIds] },
         },
       });
+    });
 
+    await this.dataPrismaService.$tx(async (prisma) => {
       await prisma.recordTrash.deleteMany({
         where: { tableId },
       });

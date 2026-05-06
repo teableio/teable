@@ -3,6 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkCellValue, ILinkFieldOptions, IRecord, TableDomain } from '@teable/core';
 import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -11,6 +12,7 @@ import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -58,10 +60,11 @@ export class LinkService {
   private logger = new Logger(LinkService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly batchService: BatchService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   private validateLinkCell(cell: ILinkCellContext) {
@@ -611,7 +614,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
+    return this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
@@ -628,7 +631,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
+    return this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
@@ -650,7 +653,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
+    return this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
@@ -998,7 +1001,7 @@ export class LinkService {
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
       this.logger.debug(`Fetch records with query: ${nativeQuery}`);
-      const recordRaw = await this.prismaService
+      const recordRaw = await this.dataPrismaService
         .txClient()
         .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(nativeQuery);
 
@@ -1204,7 +1207,7 @@ export class LinkService {
         .whereIn(selfKeyName, recordIdsToDeleteAll)
         .delete()
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(deleteAllQuery);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(deleteAllQuery);
 
       // Re-insert all records in correct order
       const reinsertData = toDeleteAndReinsert.flatMap(([recordId, newKeys]) =>
@@ -1224,7 +1227,7 @@ export class LinkService {
 
       if (reinsertData.length) {
         const reinsertQuery = this.knex(fkHostTableName).insert(reinsertData).toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(reinsertQuery);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(reinsertQuery);
       }
     }
 
@@ -1234,7 +1237,7 @@ export class LinkService {
         .whereIn([selfKeyName, foreignKeyName], toDelete)
         .delete()
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
     }
 
     // Handle regular additions
@@ -1281,7 +1284,7 @@ export class LinkService {
       }
 
       const query = this.knex(fkHostTableName).insert(insertData).toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
     }
   }
 
@@ -1300,7 +1303,7 @@ export class LinkService {
       .first()
       .toQuery();
 
-    const maxOrderResult = await this.prismaService
+    const maxOrderResult = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ maxOrder: unknown }[]>(maxOrderQuery);
     const raw = maxOrderResult[0]?.maxOrder as unknown;
@@ -1340,7 +1343,7 @@ export class LinkService {
         .update(updateFields)
         .whereIn([selfKeyName, foreignKeyName], toDelete)
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
     }
 
     if (toAdd.length) {
@@ -1419,7 +1422,7 @@ export class LinkService {
       .forUpdate()
       .toQuery();
 
-    await this.prismaService.txClient().$queryRawUnsafe(lockQuery);
+    await this.dataPrismaService.txClient().$queryRawUnsafe(lockQuery);
   }
 
   private async saveForeignKeyForOneMany(
@@ -1459,7 +1462,7 @@ export class LinkService {
           .update(clearFields)
           .where(selfKeyName, recordId)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(clearQuery);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(clearQuery);
 
         // Re-establish all links with correct order
         const dbFields = [
@@ -1501,7 +1504,7 @@ export class LinkService {
             .update(updateFields)
             .whereIn([selfKeyName, foreignKeyName], deleteConditions)
             .toQuery();
-          await this.prismaService.txClient().$executeRawUnsafe(query);
+          await this.dataPrismaService.txClient().$executeRawUnsafe(query);
         }
 
         // Add new links and update order for all current links
@@ -1600,7 +1603,7 @@ export class LinkService {
           .update(updateFields)
           .whereIn([selfKeyName, foreignKeyName], toDelete)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(query);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(query);
       }
 
       if (toAdd.length) {
@@ -1909,7 +1912,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
+    return this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }

@@ -57,6 +57,10 @@ export type TableCreationServiceResult = {
   sideEffectEvents: ReadonlyArray<IDomainEvent>;
 };
 
+export type TableMetadataPersistenceResult = {
+  persistedTables: ReadonlyArray<Table>;
+};
+
 const isInternalReference = (
   ref: LinkForeignTableReference,
   baseId: BaseId,
@@ -140,20 +144,16 @@ export class TableCreationService {
   ) {}
 
   @TraceSpan()
-  async execute(
+  async persistMetadata(
     context: ExecutionContextPort.IExecutionContext,
     input: TableCreationServiceInput
-  ): Promise<Result<TableCreationServiceResult, DomainError>> {
+  ): Promise<Result<TableMetadataPersistenceResult, DomainError>> {
     const service = this;
-    return safeTry<TableCreationServiceResult, DomainError>(async function* () {
-      const { baseId, tables, externalTables, referencesByTable } = input;
+    return safeTry<TableMetadataPersistenceResult, DomainError>(async function* () {
+      const { baseId, tables, referencesByTable } = input;
 
       if (tables.length === 0) {
-        return ok({
-          persistedTables: [],
-          tableState: new Map(externalTables.map((t) => [t.id().toString(), t] as const)),
-          sideEffectEvents: [],
-        });
+        return ok({ persistedTables: [] });
       }
 
       const internalTableIds = new Set(tables.map((t) => t.id().toString()));
@@ -170,6 +170,37 @@ export class TableCreationService {
       const persistedTables = yield* await service.tableRepository.insertMany(
         context,
         sortedTables
+      );
+
+      return ok({ persistedTables });
+    });
+  }
+
+  @TraceSpan()
+  async provisionData(
+    context: ExecutionContextPort.IExecutionContext,
+    input: TableCreationServiceInput & {
+      persistedTables: ReadonlyArray<Table>;
+    }
+  ): Promise<Result<TableCreationServiceResult, DomainError>> {
+    const service = this;
+    return safeTry<TableCreationServiceResult, DomainError>(async function* () {
+      const { baseId, tables, externalTables, referencesByTable, persistedTables } = input;
+
+      if (persistedTables.length === 0) {
+        return ok({
+          persistedTables: [],
+          tableState: new Map(externalTables.map((t) => [t.id().toString(), t] as const)),
+          sideEffectEvents: [],
+        });
+      }
+
+      const internalTableIds = new Set(tables.map((t) => t.id().toString()));
+      const sortedTables = sortTablesByForeignDependencies(
+        tables,
+        referencesByTable,
+        baseId,
+        internalTableIds
       );
 
       // Create physical table structures
@@ -225,6 +256,22 @@ export class TableCreationService {
         tableState,
         sideEffectEvents,
       });
+    });
+  }
+
+  @TraceSpan()
+  async execute(
+    context: ExecutionContextPort.IExecutionContext,
+    input: TableCreationServiceInput
+  ): Promise<Result<TableCreationServiceResult, DomainError>> {
+    const persisted = await this.persistMetadata(context, input);
+    if (persisted.isErr()) {
+      return err(persisted.error);
+    }
+
+    return this.provisionData(context, {
+      ...input,
+      persistedTables: persisted.value.persistedTables,
     });
   }
 }

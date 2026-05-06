@@ -18,6 +18,13 @@ export const quoteTableIdentifier = (target: TableIdentifier): string =>
     ? `${quoteIdentifier(target.schema)}.${quoteIdentifier(target.tableName)}`
     : quoteIdentifier(target.tableName);
 
+export const metaStatement = (
+  statement: TableSchemaStatementBuilder
+): TableSchemaStatementBuilder => ({
+  scope: 'meta',
+  compile: (executorProvider) => statement.compile(executorProvider),
+});
+
 /**
  * Builds a qualified table reference for SQL statements.
  */
@@ -314,6 +321,7 @@ export const backfillForeignHostFkColumnFromLinkValueStatement = (params: {
 
 export const backfillJunctionTableFromLinkValueStatement = (params: {
   sourceTable: TableIdentifier;
+  sourceTableId?: string;
   sourceLinkValueColumnName: string;
   junctionTable: TableIdentifier;
   selfKeyName: string;
@@ -339,6 +347,9 @@ export const backfillJunctionTableFromLinkValueStatement = (params: {
   return sql.raw(
     compressSql(`
       DO $$
+      DECLARE
+        same_db_field_count integer := 0;
+        has_field_deleted_time boolean := false;
       BEGIN
         IF EXISTS (
           SELECT 1
@@ -347,6 +358,36 @@ export const backfillJunctionTableFromLinkValueStatement = (params: {
             AND table_name = ${quoteLiteral(sourceTableName)}
             AND column_name = ${quoteLiteral(params.sourceLinkValueColumnName)}
         ) THEN
+          IF ${params.sourceTableId ? 'TRUE' : 'FALSE'} AND EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'field'
+              AND column_name = 'db_field_name'
+          ) THEN
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'field'
+                AND column_name = 'deleted_time'
+            ) INTO has_field_deleted_time;
+
+            IF has_field_deleted_time THEN
+              EXECUTE 'SELECT count(*) FROM field WHERE table_id = $1 AND db_field_name = $2 AND deleted_time IS NULL'
+              INTO same_db_field_count
+              USING ${quoteLiteral(params.sourceTableId ?? '')}, ${quoteLiteral(params.sourceLinkValueColumnName)};
+            ELSE
+              EXECUTE 'SELECT count(*) FROM field WHERE table_id = $1 AND db_field_name = $2'
+              INTO same_db_field_count
+              USING ${quoteLiteral(params.sourceTableId ?? '')}, ${quoteLiteral(params.sourceLinkValueColumnName)};
+            END IF;
+
+            IF same_db_field_count > 1 THEN
+              RETURN;
+            END IF;
+          END IF;
+
           WITH pairs AS (
             SELECT
               s."__id" AS self_id,

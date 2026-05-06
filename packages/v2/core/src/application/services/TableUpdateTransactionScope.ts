@@ -4,7 +4,11 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import {
+  getUnitOfWorkTransaction,
+  type IExecutionContext,
+  type IUnitOfWorkTransaction,
+} from '../../ports/ExecutionContext';
 
 export type TableUpdateDeferredTask = () => Promise<Result<void, DomainError>>;
 
@@ -31,8 +35,14 @@ const getOrCreateState = (transaction: IUnitOfWorkTransaction): TableUpdateTrans
   return created;
 };
 
+const resolveScopeAnchorTransaction = (
+  context: IExecutionContext
+): IUnitOfWorkTransaction | undefined => {
+  return getUnitOfWorkTransaction(context, 'meta') ?? context.transaction;
+};
+
 export const enterTableUpdateTransactionScope = (context: IExecutionContext): void => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     return;
   }
@@ -45,7 +55,7 @@ export const scheduleTableUpdateDeferredTask = (
   context: IExecutionContext,
   task: TableUpdateDeferredTask
 ): void => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     throw new Error('Table update deferred tasks require an active transaction');
   }
@@ -58,7 +68,7 @@ export const recordLatestTableInTransactionScope = (
   context: IExecutionContext,
   table: Table
 ): void => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     return;
   }
@@ -72,7 +82,7 @@ export const resolveLatestTableInTransactionScope = (
   tableId: TableId,
   fallbackTable: Table
 ): Table => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     return fallbackTable;
   }
@@ -84,7 +94,7 @@ export const resolveLatestTableInTransactionScope = (
 export const flushTableUpdateTransactionScope = async (
   context: IExecutionContext
 ): Promise<Result<void, DomainError>> => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     return ok(undefined);
   }
@@ -117,7 +127,7 @@ export const flushTableUpdateTransactionScope = async (
 };
 
 export const abortTableUpdateTransactionScope = (context: IExecutionContext): void => {
-  const transaction = context.transaction;
+  const transaction = resolveScopeAnchorTransaction(context);
   if (!transaction) {
     return;
   }

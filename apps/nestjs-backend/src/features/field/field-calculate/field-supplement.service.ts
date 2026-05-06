@@ -29,6 +29,7 @@ import {
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
   NumberFieldCore,
+  PRIMARY_SUPPORTED_TYPES,
   RatingFieldCore,
   Relationship,
   RelationshipRevert,
@@ -57,6 +58,7 @@ import type {
   INumberFieldOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { uniq, keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -65,6 +67,7 @@ import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { extractFieldReferences } from '../../../utils';
 import {
   majorFieldKeysChanged,
@@ -90,9 +93,10 @@ export class FieldSupplementService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly referenceService: ReferenceService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   private async getDbTableName(tableId: string) {
@@ -1764,8 +1768,68 @@ export class FieldSupplementService {
 
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
+    await this.validatePrimaryConfigurations(tableId, [fieldVo]);
 
     return fieldVo;
+  }
+
+  // Primary fields must be a static, supported type with no lookup configuration, and a table
+  // can have at most one primary. Bulk paths (table/base/field duplicate, .tea import, AI tools)
+  // historically passed isPrimary=true on raw field VOs, allowing link/checkbox/attachment/rollup
+  // primaries to slip in and tables to end up with multiple primaries. See T3367 follow-up.
+  // Aligns with v2's CreateFieldCommand guard (community/packages/v2/.../CreateFieldCommand.ts:52).
+  private async validatePrimaryConfigurations(tableId: string, fieldVos: IFieldVo[]) {
+    const newPrimaries = fieldVos.filter((f) => f.isPrimary);
+    if (newPrimaries.length === 0) return;
+
+    if (newPrimaries.length > 1) {
+      throw new CustomHttpException(
+        'Cannot create more than one primary field in a single batch',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.field.primaryFieldAlreadyExists', context: {} },
+        }
+      );
+    }
+
+    for (const fieldVo of newPrimaries) {
+      if (!PRIMARY_SUPPORTED_TYPES.has(fieldVo.type)) {
+        throw new CustomHttpException(
+          `Field type ${fieldVo.type} is not supported as primary field`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.unsupportedPrimaryFieldType',
+              context: { type: fieldVo.type },
+            },
+          }
+        );
+      }
+
+      if (fieldVo.isLookup || fieldVo.isConditionalLookup || fieldVo.lookupOptions) {
+        throw new CustomHttpException(
+          'Primary field cannot be configured as a lookup field',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: { i18nKey: 'httpErrors.field.primaryCannotBeLookup', context: {} },
+          }
+        );
+      }
+    }
+
+    const existing = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new CustomHttpException(
+        'Table already has a primary field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.field.primaryFieldAlreadyExists', context: {} },
+        }
+      );
+    }
   }
 
   async prepareCreateFields(tableId: string, fieldRos: IFieldRo[], batchFieldVos?: IFieldVo[]) {
@@ -1807,7 +1871,7 @@ export class FieldSupplementService {
 
     const dbFieldNames = await this.fieldService.generateDbFieldNames(tableId, uniqFieldNames);
 
-    return fieldRos.map((fieldRo, index) => {
+    const fieldVos = fieldRos.map((fieldRo, index) => {
       const field = fields[index];
       const fieldId = field.id || generateFieldId();
       const fieldName = uniqFieldNames[index];
@@ -1823,6 +1887,8 @@ export class FieldSupplementService {
       this.validateAiConfig(fieldVo);
       return fieldVo;
     });
+    await this.validatePrimaryConfigurations(tableId, fieldVos);
+    return fieldVos;
   }
 
   async prepareUpdateField(
@@ -1950,14 +2016,14 @@ export class FieldSupplementService {
     const dropTable = async (tableName: string) => {
       // Use provider to generate dialect-correct DROP TABLE SQL
       const sql = this.dbProvider.dropTable(tableName);
-      await this.prismaService.txClient().$executeRawUnsafe(sql);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
       const sqls = this.dbProvider.dropColumnAndIndex(tableName, columnName, `index_${columnName}`);
 
       for (const sql of sqls) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
       }
 
       // Drop the associated order column if it exists
@@ -1965,7 +2031,7 @@ export class FieldSupplementService {
       const exists = await this.dbProvider.checkColumnExist(
         tableName,
         orderColumn,
-        this.prismaService.txClient()
+        this.dataPrismaService.txClient()
       );
       if (exists) {
         const dropOrderSqls = this.dbProvider.dropColumnAndIndex(
@@ -1974,7 +2040,7 @@ export class FieldSupplementService {
           `index_${orderColumn}`
         );
         for (const sql of dropOrderSqls) {
-          await this.prismaService.txClient().$executeRawUnsafe(sql);
+          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
         }
       }
     };

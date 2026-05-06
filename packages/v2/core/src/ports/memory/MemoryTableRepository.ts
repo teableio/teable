@@ -94,6 +94,17 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async setProvisionState(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _: IExecutionContext,
+    __: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   private applySort(tables: ReadonlyArray<Table>, sort?: Sort<TableSortKey>): ReadonlyArray<Table> {
     if (!sort || sort.isEmpty()) return [...tables];
     const sorted = [...tables];

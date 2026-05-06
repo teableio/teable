@@ -1,6 +1,7 @@
 import { defineConfig, configDefaults } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
+const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   resolve: {
@@ -24,7 +25,8 @@ export default defineConfig({
       enabled: false,
     },
     pool: 'forks',
-    fileParallelism: true,
+    fileParallelism: !isCI,
+    maxWorkers: isCI ? 1 : undefined,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{js,ts}'],

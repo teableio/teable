@@ -42,8 +42,10 @@ import {
 import { v2RecordRepositoryPostgresTokens } from './tokens';
 
 export interface IV2RecordRepositoryPostgresConfig {
-  /** Kysely database instance */
+  /** Kysely database instance for data-plane record storage */
   db: Kysely<V1TeableDatabase>;
+  /** Kysely database instance for metadata reads needed by record operations */
+  metaDb?: Kysely<V1TeableDatabase>;
   computedUpdate?: {
     /**
      * Strategy mode for computed field updates.
@@ -73,6 +75,7 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   config: IV2RecordRepositoryPostgresConfig
 ): DependencyContainer => {
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, config.metaDb ?? config.db);
 
   c.register(
     v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,

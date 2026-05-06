@@ -1,5 +1,5 @@
 import { FieldType as CoreFieldType } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { describe, expect, it, vi } from 'vitest';
 import { Events } from '../../event-emitter/events';
 import {
@@ -51,7 +51,7 @@ const createV2ContainerService = () => {
   };
   const container = {
     resolve: vi.fn((token: symbol) => {
-      if (token !== v2PostgresDbTokens.db) {
+      if (token !== v2DataDbTokens.db) {
         throw new Error(`Unexpected token ${String(token)}`);
       }
 

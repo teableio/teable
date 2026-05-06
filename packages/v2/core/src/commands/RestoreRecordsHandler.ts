@@ -165,6 +165,7 @@ export class RestoreRecordsHandler
           ...(record.createdBy ? { createdBy: record.createdBy } : {}),
           ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
           ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+          ...(record.extraColumnValues ? { extraColumnValues: record.extraColumnValues } : {}),
         },
       ])
     );

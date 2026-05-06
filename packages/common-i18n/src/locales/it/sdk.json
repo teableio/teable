@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Valore non valido",
     "invalidateSelectedTips": "Il valore selezionato è stato eliminato, per favore seleziona di nuovo",
+    "invalidConditionTip": "Questa condizione di filtro non è valida e verrà ignorata. Regola il valore.",
     "default": {
       "empty": "Nessuna condizione di filtro applicata",
       "placeholder": "Inserisci un valore"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} campi visibili",
     "showAll": "Mostra tutto",
     "hideAll": "Nascondi tutto",
-    "primaryKey": "Campo principale: Identifica i record\nnon può essere nascosto o eliminato, visibile nei record collegati."
+    "primaryKey": "Campo principale: Identifica i record\nnon può essere nascosto o eliminato, visibile nei record collegati.",
+    "notInCurrentView": "Il campo \"{{fieldName}}\" non è visibile nella vista corrente e non può essere raggiunto"
   },
   "expandRecord": {
     "copy": "Copia negli appunti",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Non è consentito eseguire SQL con la parola chiave {{keyword}}",
       "whiteListCheckError": "Si è verificato un errore durante il controllo dell'accesso alla tabella: {{message}}",
       "databaseConnectionFailed": "Connessione al database fallita: {{message}}",
-      "executeQuerySqlFailed": "Esecuzione della query SQL fallita: {{message}}"
+      "executeQuerySqlFailed": "Esecuzione della query SQL fallita: {{message}}",
+      "sqlSyntaxError": "Errore di sintassi SQL, controlla la tua query"
     },
     "permission": {
       "createRecordWithDeniedFields": "Non hai il permesso di creare record con campi({{fields}})",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "Il conteggio dei clic sul pulsante ha raggiunto il limite massimo",
         "notSupportReset": "Il campo pulsante non supporta il ripristino"
-      }
+      },
+      "primaryCannotBeLookup": "Il campo primario non può essere configurato come campo Lookup",
+      "primaryFieldAlreadyExists": "La tabella ha già un campo primario"
     },
     "view": {
       "notFound": "Vista non trovata",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "Post LinkedIn non trovato: {{postId}}",
       "linkedInAuthorNotFound": "Autore LinkedIn non trovato: {{postId}}",
       "fetchLinkedInUserFailed": "Impossibile recuperare l'utente LinkedIn: {{error}}",
-      "domainAlreadyInUse": "Questo dominio è già associato a un'altra app"
+      "domainAlreadyInUse": "Questo dominio è già associato a un'altra app",
+      "domainReserved": "Sottodominio riservato"
     }
   }
 }

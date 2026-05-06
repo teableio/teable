@@ -16,6 +16,7 @@ const isPgliteConnection = () => {
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const quoteIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
+const POSTGRES_SETUP_TIMEOUT_MS = 120000;
 
 const createDeferred = <T = void>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -39,7 +40,7 @@ describe.skipIf(isPgliteConnection())('field conversion deadlock regression (e2e
 
   beforeAll(async () => {
     ctx = await getSharedTestContext({ dbMode: 'postgres' });
-  }, 30000);
+  }, POSTGRES_SETUP_TIMEOUT_MS);
 
   it('retries singleLineText -> formula conversion when a concurrent transaction creates the same deadlock shape as v1', async () => {
     const primaryFieldId = createFieldId();

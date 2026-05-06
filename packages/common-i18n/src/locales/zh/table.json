@@ -256,6 +256,7 @@
       "reset": "清空",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
+      "fieldUnavailable": "字段当前不可用，请刷新表格后重试。",
       "confirmFieldChange": "确认字段变更",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
@@ -662,6 +663,20 @@
         "manualRepairDialogClose": "关闭",
         "manualRepairPreview": "手动修复配置",
         "manualRepairPreviewTip": "当前仅展示规则要求用户提供的修复选项，尚未真正提交执行。",
+        "repairPreviewTitle": "确认修复内容",
+        "repairPreviewDescription": "下面是 dry-run 返回的修复说明和将要执行的 SQL。确认后才会真正执行修复。",
+        "repairPreviewTooltip": "点击查看 dry-run 修复计划，弹窗会显示实际返回的 SQL；如果没有 SQL，也会明确提示。",
+        "repairPreviewMissingTable": "当前检查结果缺少表信息，无法定位 dry-run 修复目标。",
+        "repairPreviewUnavailableStatus": "当前状态不需要修复，无法生成 dry-run 修复计划。",
+        "repairPreviewWhat": "将修复什么",
+        "repairPreviewTarget": "字段「{{fieldName}}」的「{{ruleName}}」规则",
+        "repairPreviewPrinciple": "修复原理",
+        "repairPreviewNoPrinciple": "该规则未返回额外的修复原理说明。",
+        "repairPreviewSql": "将执行的 SQL",
+        "repairPreviewNoSql": "dry-run 没有返回可执行 SQL，当前不能直接执行自动修复。",
+        "repairPreviewCannotConfirm": "dry-run 返回了 SQL，但该规则当前不支持自动修复确认，只能查看修复计划。",
+        "repairPreviewParameters": "参数",
+        "repairPreviewConfirm": "确认执行修复",
         "checking": "正在检查 schema...",
         "repairing": "正在修复 schema...",
         "streamError": "Schema 完整性流式请求失败。",
@@ -771,6 +786,7 @@
             "junctionForeignKeyOrphanRows": "当前无法自动修复：中间表仍存在无效关系行"
           },
           "description": {
+            "autoRule": "修复会执行该规则生成的 schema 语句，然后重新校验规则，确认 schema 已恢复为正确状态。",
             "symmetricFieldConflict": "有多个字段同时指向同一个对称关联目标。需要先决定哪一个字段应该保留双向关联关系，再继续修复。",
             "foreignKeyTargetTableMissing": "请先确认关联目标表 {{targetPhysicalTableName}} 是否已被删除或重命名。恢复目标表后可重新执行修复；如果该关联已经不再需要，请修改或删除字段「{{fieldName}}」的关联配置。",
             "foreignKeyOrphanRows": "请先清理字段「{{fieldName}}」中指向不存在记录的无效关联数据，然后再重新执行修复。",
@@ -832,7 +848,10 @@
         "ReferenceFieldNotFound": "引用字段不存在",
         "UniqueIndexNotFound": "唯一索引不存在",
         "EmptyString": "存在空字符串单元格",
-        "InvalidFilterOperator": "无效的筛选操作符"
+        "InvalidFilterOperator": "无效的筛选操作符",
+        "InvalidPrimaryLookup": "主字段被错误配置为 Lookup",
+        "InvalidPrimaryType": "主字段类型不支持",
+        "MissingPrimary": "表缺少主字段"
       }
     },
     "index": {
@@ -947,6 +966,8 @@
       "advancedOptions": "高级选项",
       "namingFieldLabel": "附件名前缀",
       "selectField": "默认附件序号",
+      "noPrefixOption": "无前缀",
+      "noPrefixOptionDesc": "保留原始文件名",
       "groupByRow": "归档到文件夹",
       "groupByRowTip": "同一行有多个附件时，会放入同一个文件夹中；只有一个附件的行不会创建文件夹。"
     }
@@ -1262,9 +1283,12 @@
     "expand": "展开",
     "history": "历史记录",
     "close": "收起",
+    "noModel": "没有可用的模型",
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",
+    "modelSwitchTitle": "切换模型",
+    "modelSwitchHint": "本对话当前由 {{previous}} 处理，发送后切换至新模型，仅携带最近 3 轮对话。",
     "sandboxExpiry": {
       "expiresIn": "智能体的计算机将在 {{time}} 后到期",
       "reset": "续期",
@@ -1296,7 +1320,14 @@
       "emptyContext": "暂无可添加的上下文",
       "selectionRows": "行 {{start}}-{{end}}"
     },
-    "inputPlaceholder": "描述你想要做什么",
+    "mention": {
+      "tables": "数据表",
+      "apps": "应用",
+      "workflows": "工作流",
+      "folders": "文件夹"
+    },
+    "inputPlaceholder": "输入 @ 添加上下文",
+    "inputPlaceholderFiles": "粘贴或拖入文件",
     "thought": "深度思考",
     "meta": {
       "input": "输入",
@@ -1353,7 +1384,10 @@
     },
     "retry": {
       "interrupted": "响应已中断",
-      "button": "重试"
+      "button": "重试",
+      "offline": "当前无网络连接，恢复后将自动重试。",
+      "pausedHidden": "已暂停重试，请切回此标签页以重新连接。",
+      "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
     "guide": {
       "goToScenario": "跳转到场景 {{index}}"

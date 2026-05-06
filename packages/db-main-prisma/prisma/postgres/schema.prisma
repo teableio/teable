@@ -8,6 +8,13 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
+enum ProvisionState {
+  pending
+  ready
+  error
+  deleting
+}
+
 model Space {
   id               String    @id @default(cuid())
   name             String
@@ -44,6 +51,8 @@ model Base {
   order            Float
   icon             String?
   schemaPass       String?     @map("schema_pass")
+  v2Enabled        Boolean     @default(false) @map("v2_enabled")
+  provisionState   ProvisionState @default(ready) @map("provision_state")
   deletedTime      DateTime?   @map("deleted_time")
   createdTime      DateTime    @default(now()) @map("created_time")
   createdBy        String      @map("created_by")
@@ -64,6 +73,7 @@ model TableMeta {
   icon              String?
   dbTableName       String              @map("db_table_name")
   dbViewName        String?             @map("db_view_name")
+  provisionState    ProvisionState      @default(ready) @map("provision_state")
   version           Int
   order             Float
   createdTime       DateTime            @default(now()) @map("created_time")
@@ -83,6 +93,36 @@ model TableMeta {
   @@map("table_meta")
 }
 
+model SchemaOperation {
+  id               String    @id
+  type             String
+  status           String
+  phase            String
+  resourceType     String    @map("resource_type")
+  resourceId       String    @map("resource_id")
+  baseId           String?   @map("base_id")
+  tableId          String?   @map("table_id")
+  idempotencyKey   String    @unique @map("idempotency_key")
+  payload          Json?
+  result           Json?
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(8) @map("max_attempts")
+  nextRunAt        DateTime  @default(now()) @map("next_run_at")
+  lockedAt         DateTime? @map("locked_at")
+  lockedBy         String?   @map("locked_by")
+  lastError        String?   @map("last_error")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  @@index([status, nextRunAt])
+  @@index([resourceType, resourceId, status])
+  @@index([baseId, status])
+  @@index([tableId, status])
+  @@map("schema_operation")
+}
+
 model Field {
   id                  String    @id
   name                String
@@ -95,6 +135,7 @@ model Field {
   isMultipleCellValue Boolean?  @map("is_multiple_cell_value")
   dbFieldType         String    @map("db_field_type")
   dbFieldName         String    @map("db_field_name")
+  provisionState      ProvisionState @default(ready) @map("provision_state")
   notNull             Boolean?  @map("not_null")
   unique              Boolean?
   isPrimary           Boolean?  @map("is_primary")

@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -19,6 +20,7 @@ export class RecordComputedUpdateService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -128,7 +130,7 @@ export class RecordComputedUpdateService {
     if (!sql) {
       return;
     }
-    await this.prismaService.txClient().$queryRawUnsafe(sql);
+    await this.dataPrismaService.txClient().$queryRawUnsafe(sql);
   }
 
   @retryOnDeadlock()
@@ -169,7 +171,7 @@ export class RecordComputedUpdateService {
     });
     this.logger.debug('updateFromSelect SQL:', sql);
     try {
-      return await this.prismaService
+      return await this.dataPrismaService
         .txClient()
         .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);
     } catch (error) {

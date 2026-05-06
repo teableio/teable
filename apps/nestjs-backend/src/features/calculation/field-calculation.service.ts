@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { FieldType, type IRecord } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
@@ -33,9 +35,10 @@ export interface ITopoOrdersContext {
 export class FieldCalculationService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly referenceService: ReferenceService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -111,7 +114,7 @@ export class FieldCalculationService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    return this.prismaService
+    return this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
   }
@@ -151,7 +154,7 @@ export class FieldCalculationService {
   @Timing()
   async getRowCount(dbTableName: string) {
     const query = this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    const [{ count }] = await this.prismaService
+    const [{ count }] = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ count: bigint }[]>(query);
     return Number(count);

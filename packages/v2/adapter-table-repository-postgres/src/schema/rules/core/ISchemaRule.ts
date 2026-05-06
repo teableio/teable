@@ -9,6 +9,7 @@ import type { SchemaRuleContext } from '../context/SchemaRuleContext';
  * This is the same type used in the existing visitors.
  */
 export type TableSchemaStatementBuilder = {
+  scope?: 'data' | 'meta';
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
 };
 

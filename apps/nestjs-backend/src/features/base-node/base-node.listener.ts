@@ -111,14 +111,17 @@ export class BaseNodeListener {
         resourceId = event.payload.folder.id;
         name = event.payload.folder.name;
         break;
-      case Events.TABLE_CREATE:
+      case Events.TABLE_CREATE: {
         baseId = event.payload.baseId;
         resourceType = BaseNodeResourceType.Table;
-        // get the table id from the table op
-        resourceId = (event.payload.table as unknown as { id: string }).id;
-        name = event.payload.table.name;
-        icon = event.payload.table.icon;
+        const table = event.payload.table as
+          | Partial<{ id: string; name: string; icon: string }>
+          | undefined;
+        resourceId = table?.id ?? (event.payload as Partial<{ tableId: string }>).tableId;
+        name = table?.name;
+        icon = table?.icon;
         break;
+      }
       case Events.WORKFLOW_CREATE:
         baseId = event.payload.baseId;
         resourceType = BaseNodeResourceType.Workflow;

@@ -1,4 +1,4 @@
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { domainError, FieldId, TableId, type BaseId, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import {
@@ -67,7 +67,7 @@ type ReferenceRow = {
 @injectable()
 export class PostgresFieldRelationGraph implements IDebugFieldRelationGraph {
   constructor(
-    @inject(v2PostgresDbTokens.db)
+    @inject(v2MetaDbTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
 

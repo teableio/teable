@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import type {
   IV2BaseSchemaIntegrityRepairRo,
   IV2SchemaIntegrityFilterStatus,
@@ -10,22 +11,32 @@ import type {
   IV2SchemaIntegrityRepairCapability,
   IV2SchemaIntegrityRepairRo,
 } from '@teable/openapi';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  checkTableMetaWithTables,
+  createMetaRepairer,
   createSchemaChecker,
   createSchemaRepairer,
+  getMetaIssueDetails,
+  getMetaRepairHint,
+  getMetaRuleId,
+  isMetaRuleId,
+  metaRuleDescription,
   PostgresSchemaIntrospector,
+  type MetaValidationIssue,
   type SchemaCheckResult,
   type SchemaRepairResult,
   type SchemaRuleRepairHint,
 } from '@teable/v2-adapter-table-repository-postgres';
 import {
   BaseId,
+  TeableSpanAttributes,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
   type IBaseRepository,
+  type ITracer,
   type ITableRepository,
   type Table,
 } from '@teable/v2-core';
@@ -33,6 +44,17 @@ import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 
 type ISchemaIntegrityDb = Parameters<typeof createSchemaChecker>[0]['db'];
+type IRepairTelemetryScope = 'table' | 'base';
+type IRepairTelemetryKind = 'result_error' | 'stream_exception';
+
+const schemaIntegrityRepairFeatureTag = 'schema-integrity-repair';
+const teableBaseIdAttribute = 'teable.base_id';
+const integrityScopeAttribute = 'teable.integrity.scope';
+const integrityTargetIdAttribute = 'teable.integrity.target_id';
+const integrityFailureKindAttribute = 'teable.integrity.failure_kind';
+const integrityRuleIdAttribute = 'teable.integrity.rule_id';
+const integrityOutcomeAttribute = 'teable.integrity.outcome';
+const integrityRequiredAttribute = 'teable.integrity.required';
 
 @Injectable()
 export class IntegrityV2Service {
@@ -45,27 +67,48 @@ export class IntegrityV2Service {
     tableId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
-    const { table, db, schema } = await this.resolveSchemaTarget(tableId);
+    const { table, tables, db, schema } = await this.resolveSchemaTarget(tableId, {
+      includeBaseTables: true,
+    });
     const checker = createSchemaChecker({
       db,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
 
-    return this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    return this.streamTableChecks(table, tables, checker, statuses);
   }
 
   async createRepairStream(
     tableId: string,
     repairRo: IV2SchemaIntegrityRepairRo
   ): Promise<AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown>> {
-    const { table, db, schema } = await this.resolveSchemaTarget(tableId);
+    const { table, tables, db, schema, context } = await this.resolveSchemaTarget(tableId, {
+      includeBaseTables: true,
+    });
 
     const repairer = createSchemaRepairer({
       db,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
+    const metaRepairer = createMetaRepairer({ db });
+
+    if (repairRo.fieldId && isMetaRuleId(repairRo.ruleId)) {
+      return this.decorateRepairStream(
+        table,
+        metaRepairer.repairRule(table, tables, repairRo.fieldId, repairRo.ruleId, {
+          dryRun: repairRo.dryRun,
+          targetStatuses: repairRo.targetStatuses,
+        }),
+        repairRo.statuses,
+        {
+          tracer: context.tracer,
+          scope: 'table',
+          targetId: tableId,
+        }
+      );
+    }
 
     if (repairRo.fieldId && repairRo.ruleId) {
       return this.decorateRepairStream(
@@ -75,28 +118,55 @@ export class IntegrityV2Service {
           manualRepairValues: repairRo.manualRepairValues,
           targetStatuses: repairRo.targetStatuses,
         }),
-        repairRo.statuses
+        repairRo.statuses,
+        {
+          tracer: context.tracer,
+          scope: 'table',
+          targetId: tableId,
+        }
       );
     }
 
     if (repairRo.fieldId) {
       return this.decorateRepairStream(
         table,
-        repairer.repairField(table, repairRo.fieldId, {
-          dryRun: repairRo.dryRun,
-          targetStatuses: repairRo.targetStatuses,
-        }),
-        repairRo.statuses
+        this.combineRepairStreams(
+          repairer.repairField(table, repairRo.fieldId, {
+            dryRun: repairRo.dryRun,
+            targetStatuses: repairRo.targetStatuses,
+          }),
+          metaRepairer.repairField(table, tables, repairRo.fieldId, {
+            dryRun: repairRo.dryRun,
+            targetStatuses: repairRo.targetStatuses,
+          })
+        ),
+        repairRo.statuses,
+        {
+          tracer: context.tracer,
+          scope: 'table',
+          targetId: tableId,
+        }
       );
     }
 
     return this.decorateRepairStream(
       table,
-      repairer.repairTable(table, {
-        dryRun: repairRo.dryRun,
-        targetStatuses: repairRo.targetStatuses,
-      }),
-      repairRo.statuses
+      this.combineRepairStreams(
+        repairer.repairTable(table, {
+          dryRun: repairRo.dryRun,
+          targetStatuses: repairRo.targetStatuses,
+        }),
+        metaRepairer.repairTable(table, tables, {
+          dryRun: repairRo.dryRun,
+          targetStatuses: repairRo.targetStatuses,
+        })
+      ),
+      repairRo.statuses,
+      {
+        tracer: context.tracer,
+        scope: 'table',
+        targetId: tableId,
+      }
     );
   }
 
@@ -118,17 +188,27 @@ export class IntegrityV2Service {
     baseId: string,
     repairRo: IV2BaseSchemaIntegrityRepairRo
   ): Promise<AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown>> {
-    const { tables, db, schema } = await this.resolveBaseTarget(baseId);
+    const { tables, db, schema, context } = await this.resolveBaseTarget(baseId);
     const repairer = createSchemaRepairer({
       db,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
+    const metaRepairer = createMetaRepairer({ db });
 
-    return this.streamBaseRepairs(tables, repairer, repairRo);
+    return this.streamBaseRepairs(tables, repairer, metaRepairer, repairRo, {
+      tracer: context.tracer,
+      scope: 'base',
+      targetId: baseId,
+    });
   }
 
-  private async resolveSchemaTarget(tableId: string) {
+  private async resolveSchemaTarget(
+    tableId: string,
+    options?: {
+      includeBaseTables?: boolean;
+    }
+  ) {
     const parsedTableId = TableId.create(tableId);
     if (parsedTableId.isErr()) {
       throw new HttpException(parsedTableId.error.message, HttpStatus.BAD_REQUEST);
@@ -146,13 +226,29 @@ export class IntegrityV2Service {
       throw new HttpException(tableResult.error.message, HttpStatus.NOT_FOUND);
     }
 
-    const db = container.resolve<ISchemaIntegrityDb>(v2PostgresDbTokens.db);
+    const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
     const table = tableResult.value;
+    let tables: ReadonlyArray<Table> = [table];
+
+    if (options?.includeBaseTables) {
+      const tablesResult = await tableRepository.find(
+        context,
+        TableByBaseIdSpec.create(table.baseId())
+      );
+
+      if (tablesResult.isErr()) {
+        throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      tables = tablesResult.value;
+    }
 
     return {
       table,
+      tables,
       db,
       schema: table.baseId().toString(),
+      context,
     };
   }
 
@@ -185,7 +281,7 @@ export class IntegrityV2Service {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const db = container.resolve<ISchemaIntegrityDb>(v2PostgresDbTokens.db);
+    const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
     const tables = [...tablesResult.value].sort((left, right) =>
       left.name().toString().localeCompare(right.name().toString())
     );
@@ -194,7 +290,22 @@ export class IntegrityV2Service {
       tables,
       db,
       schema: parsedBaseId.value.toString(),
+      context,
     };
+  }
+
+  private async *streamTableChecks(
+    table: Table,
+    allTables: ReadonlyArray<Table>,
+    checker: ReturnType<typeof createSchemaChecker>,
+    statuses?: IV2SchemaIntegrityFilterStatus[]
+  ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    yield* this.decorateMetaCheckStream(
+      table,
+      checkTableMetaWithTables(table, table.baseId(), allTables),
+      statuses
+    );
   }
 
   private async *streamBaseChecks(
@@ -203,23 +314,36 @@ export class IntegrityV2Service {
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
     for (const table of tables) {
-      yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+      yield* this.streamTableChecks(table, tables, checker, statuses);
     }
   }
 
   private async *streamBaseRepairs(
     tables: ReadonlyArray<Table>,
     repairer: ReturnType<typeof createSchemaRepairer>,
-    repairRo: IV2BaseSchemaIntegrityRepairRo
+    metaRepairer: ReturnType<typeof createMetaRepairer>,
+    repairRo: IV2BaseSchemaIntegrityRepairRo,
+    telemetry: {
+      tracer?: ITracer;
+      scope: IRepairTelemetryScope;
+      targetId: string;
+    }
   ): AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown> {
     for (const table of tables) {
       yield* this.decorateRepairStream(
         table,
-        repairer.repairTable(table, {
-          dryRun: repairRo.dryRun,
-          targetStatuses: repairRo.targetStatuses,
-        }),
-        repairRo.statuses
+        this.combineRepairStreams(
+          repairer.repairTable(table, {
+            dryRun: repairRo.dryRun,
+            targetStatuses: repairRo.targetStatuses,
+          }),
+          metaRepairer.repairTable(table, tables, {
+            dryRun: repairRo.dryRun,
+            targetStatuses: repairRo.targetStatuses,
+          })
+        ),
+        repairRo.statuses,
+        telemetry
       );
     }
   }
@@ -243,16 +367,176 @@ export class IntegrityV2Service {
   private async *decorateRepairStream(
     table: Table,
     stream: AsyncGenerator<SchemaRepairResult, void, unknown>,
-    statuses?: IV2SchemaIntegrityFilterStatus[]
+    statuses?: IV2SchemaIntegrityFilterStatus[],
+    telemetry?: {
+      tracer?: ITracer;
+      scope: IRepairTelemetryScope;
+      targetId: string;
+    }
   ): AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown> {
     const statusFilter = this.createStatusFilterSet(statuses);
-    for await (const result of stream) {
-      const serialized = this.serializeRepairResult(table, result);
-      if (!this.shouldIncludeResult(serialized.status, statusFilter)) {
+    try {
+      for await (const result of stream) {
+        const serialized = this.serializeRepairResult(table, result);
+        if (serialized.status === 'error' && telemetry) {
+          await this.captureRepairFailure(
+            table,
+            result,
+            new Error(result.message),
+            telemetry,
+            'result_error'
+          );
+        }
+
+        if (!this.shouldIncludeResult(serialized.status, statusFilter)) {
+          continue;
+        }
+
+        yield serialized;
+      }
+    } catch (error) {
+      if (telemetry) {
+        await this.captureRepairFailure(table, undefined, error, telemetry, 'stream_exception');
+      }
+      throw error;
+    }
+  }
+
+  private async *combineRepairStreams(
+    ...streams: ReadonlyArray<AsyncGenerator<SchemaRepairResult, void, unknown>>
+  ): AsyncGenerator<SchemaRepairResult, void, unknown> {
+    for (const stream of streams) {
+      yield* stream;
+    }
+  }
+
+  private async captureRepairFailure(
+    table: Table,
+    result: SchemaRepairResult | undefined,
+    error: unknown,
+    telemetry: {
+      tracer?: ITracer;
+      scope: IRepairTelemetryScope;
+      targetId: string;
+    },
+    kind: IRepairTelemetryKind
+  ): Promise<void> {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const tableId = table.id().toString();
+    const baseId = table.baseId().toString();
+    const spanAttributes: Record<string, string | number | boolean> = {
+      [TeableSpanAttributes.VERSION]: 'v2',
+      [TeableSpanAttributes.COMPONENT]: 'service',
+      [TeableSpanAttributes.OPERATION]: 'integrity.repair.failure',
+      [TeableSpanAttributes.TABLE_ID]: tableId,
+      [teableBaseIdAttribute]: baseId,
+      [integrityScopeAttribute]: telemetry.scope,
+      [integrityTargetIdAttribute]: telemetry.targetId,
+      [integrityFailureKindAttribute]: kind,
+    };
+
+    if (result?.fieldId && result.fieldId !== '__system__') {
+      spanAttributes[TeableSpanAttributes.FIELD_ID] = result.fieldId;
+    }
+    if (result?.ruleId) {
+      spanAttributes[integrityRuleIdAttribute] = result.ruleId;
+    }
+    if (result?.outcome) {
+      spanAttributes[integrityOutcomeAttribute] = result.outcome;
+    }
+    if (result?.required != null) {
+      spanAttributes[integrityRequiredAttribute] = result.required;
+    }
+
+    const reportToSentry = () => {
+      Sentry.withScope((scope) => {
+        scope.setLevel?.('error');
+        scope.setTag('feature', schemaIntegrityRepairFeatureTag);
+        scope.setTag('integrity.scope', telemetry.scope);
+        scope.setTag('integrity.target_id', telemetry.targetId);
+        scope.setTag('integrity.failure_kind', kind);
+        scope.setTag('base.id', baseId);
+        scope.setTag('table.id', tableId);
+
+        if (result?.ruleId) {
+          scope.setTag('integrity.rule_id', result.ruleId);
+        }
+        if (result?.fieldId && result.fieldId !== '__system__') {
+          scope.setTag('field.id', result.fieldId);
+        }
+
+        scope.setContext('schema-integrity-repair', {
+          baseId,
+          tableId,
+          tableName: table.name().toString(),
+          scope: telemetry.scope,
+          targetId: telemetry.targetId,
+          failureKind: kind,
+          resultId: result?.id,
+          fieldId: result?.fieldId,
+          fieldName: result?.fieldName,
+          ruleId: result?.ruleId,
+          ruleDescription: result?.ruleDescription,
+          outcome: result?.outcome,
+          required: result?.required,
+          details: result?.details,
+        });
+
+        Sentry.captureException(err);
+      });
+    };
+
+    const tracer = telemetry.tracer;
+    if (!tracer) {
+      reportToSentry();
+      return;
+    }
+
+    const span = tracer.startSpan('teable.IntegrityV2Service.reportRepairFailure', spanAttributes);
+    try {
+      span.recordError(err.message);
+      await tracer.withSpan(span, async () => {
+        reportToSentry();
+      });
+    } finally {
+      span.end();
+    }
+  }
+
+  private async *decorateMetaCheckStream(
+    table: Table,
+    stream: AsyncGenerator<MetaValidationIssue, void, unknown>,
+    statuses?: IV2SchemaIntegrityFilterStatus[]
+  ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    const statusFilter = this.createStatusFilterSet(statuses);
+
+    for await (const issue of stream) {
+      const status = this.toMetaCheckStatus(issue.severity);
+      if (!status || !this.shouldIncludeResult(status, statusFilter)) {
         continue;
       }
 
-      yield serialized;
+      yield {
+        id: this.createScopedResultId(table, `${issue.fieldId}:${getMetaRuleId(issue)}`),
+        baseId: table.baseId().toString(),
+        tableId: table.id().toString(),
+        tableName: table.name().toString(),
+        fieldId: issue.fieldId,
+        fieldName: issue.fieldName,
+        ruleId: getMetaRuleId(issue),
+        ruleDescription: metaRuleDescription,
+        status,
+        message: issue.message,
+        details: this.toMutableDetails(getMetaIssueDetails(issue)),
+        repair:
+          status === 'error' || status === 'warn'
+            ? this.toMutableRepairHint(getMetaRepairHint(issue))
+            : undefined,
+        required: true,
+        timestamp: Date.now(),
+        dependencies: [],
+        depth: 0,
+      };
     }
   }
 
@@ -262,6 +546,7 @@ export class IntegrityV2Service {
   ): IV2SchemaIntegrityCheckResult {
     return {
       id: this.createScopedResultId(table, result.id),
+      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
       tableName: table.name().toString(),
       fieldId: result.fieldId,
@@ -270,14 +555,7 @@ export class IntegrityV2Service {
       ruleDescription: result.ruleDescription,
       status: result.status,
       message: result.message,
-      details: result.details
-        ? {
-            missing: this.toMutableArray(result.details.missing),
-            missingItems: this.toMutableDetailItems(result.details.missingItems),
-            extra: this.toMutableArray(result.details.extra),
-            extraItems: this.toMutableDetailItems(result.details.extraItems),
-          }
-        : undefined,
+      details: this.toMutableDetails(result.details),
       repair: result.repair ? this.toMutableRepairHint(result.repair) : undefined,
       required: result.required,
       timestamp: result.timestamp,
@@ -292,6 +570,7 @@ export class IntegrityV2Service {
   ): IV2SchemaIntegrityRepairResult {
     return {
       id: this.createScopedResultId(table, result.id),
+      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
       tableName: table.name().toString(),
       fieldId: result.fieldId,
@@ -301,15 +580,7 @@ export class IntegrityV2Service {
       status: result.status,
       outcome: result.outcome,
       message: result.message,
-      details: result.details
-        ? {
-            missing: this.toMutableArray(result.details.missing),
-            missingItems: this.toMutableDetailItems(result.details.missingItems),
-            extra: this.toMutableArray(result.details.extra),
-            extraItems: this.toMutableDetailItems(result.details.extraItems),
-            statementCount: result.details.statementCount,
-          }
-        : undefined,
+      details: this.toMutableDetails(result.details),
       repair: result.repair ? this.toMutableRepairHint(result.repair) : undefined,
       required: result.required,
       timestamp: result.timestamp,
@@ -320,6 +591,22 @@ export class IntegrityV2Service {
 
   private createScopedResultId(table: Table, id: string): string {
     return `${table.id().toString()}:${id}`;
+  }
+
+  private toMutableDetails(details?: SchemaRepairResult['details']) {
+    return details
+      ? {
+          missing: this.toMutableArray(details.missing),
+          missingItems: this.toMutableDetailItems(details.missingItems),
+          extra: this.toMutableArray(details.extra),
+          extraItems: this.toMutableDetailItems(details.extraItems),
+          statementCount: details.statementCount,
+          statements: details.statements?.map((statement) => ({
+            sql: statement.sql,
+            parameters: [...statement.parameters],
+          })),
+        }
+      : undefined;
   }
 
   private toMutableArray(values?: ReadonlyArray<string>): string[] | undefined {
@@ -460,5 +747,13 @@ export class IntegrityV2Service {
     }
 
     return statusFilter.has(status as IV2SchemaIntegrityFilterStatus);
+  }
+
+  private toMetaCheckStatus(
+    severity: MetaValidationIssue['severity']
+  ): IV2SchemaIntegrityCheckResult['status'] | undefined {
+    if (severity === 'error') return 'error';
+    if (severity === 'warning') return 'warn';
+    return undefined;
   }
 }

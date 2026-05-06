@@ -2231,6 +2231,7 @@ export class TableViewBuilder {
 
 export class GridViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2239,6 +2240,11 @@ export class GridViewBuilder {
 
   withName(name: ViewName): GridViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): GridViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2254,7 +2260,9 @@ export class GridViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => GridView.create({ id, name }));
+    const result = this.id
+      ? GridView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => GridView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }
@@ -2273,6 +2281,7 @@ export class GridViewBuilder {
 
 export class KanbanViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2281,6 +2290,11 @@ export class KanbanViewBuilder {
 
   withName(name: ViewName): KanbanViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): KanbanViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2296,7 +2310,9 @@ export class KanbanViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => KanbanView.create({ id, name }));
+    const result = this.id
+      ? KanbanView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => KanbanView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }
@@ -2315,6 +2331,7 @@ export class KanbanViewBuilder {
 
 export class GalleryViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2323,6 +2340,11 @@ export class GalleryViewBuilder {
 
   withName(name: ViewName): GalleryViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): GalleryViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2338,7 +2360,9 @@ export class GalleryViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => GalleryView.create({ id, name }));
+    const result = this.id
+      ? GalleryView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => GalleryView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }
@@ -2357,6 +2381,7 @@ export class GalleryViewBuilder {
 
 export class CalendarViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2365,6 +2390,11 @@ export class CalendarViewBuilder {
 
   withName(name: ViewName): CalendarViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): CalendarViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2380,7 +2410,9 @@ export class CalendarViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => CalendarView.create({ id, name }));
+    const result = this.id
+      ? CalendarView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => CalendarView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }
@@ -2399,6 +2431,7 @@ export class CalendarViewBuilder {
 
 export class FormViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2407,6 +2440,11 @@ export class FormViewBuilder {
 
   withName(name: ViewName): FormViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): FormViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2422,7 +2460,9 @@ export class FormViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => FormView.create({ id, name }));
+    const result = this.id
+      ? FormView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => FormView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }
@@ -2441,6 +2481,7 @@ export class FormViewBuilder {
 
 export class PluginViewBuilder {
   private name: ViewName | undefined;
+  private id: ViewId | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -2449,6 +2490,11 @@ export class PluginViewBuilder {
 
   withName(name: ViewName): PluginViewBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: ViewId): PluginViewBuilder {
+    this.id = id;
     return this;
   }
 
@@ -2464,7 +2510,9 @@ export class PluginViewBuilder {
       return this.parent;
     }
 
-    const result = ViewId.generate().andThen((id) => PluginView.create({ id, name }));
+    const result = this.id
+      ? PluginView.create({ id: this.id, name })
+      : ViewId.generate().andThen((id) => PluginView.create({ id, name }));
     this.sink.addViewResult(result);
     return this.parent;
   }

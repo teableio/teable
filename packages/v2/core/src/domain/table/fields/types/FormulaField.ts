@@ -411,7 +411,11 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
 
     if (cellValueType.equals(CellValueType.number())) {
       if (formatting && !(formatting instanceof NumberFormattingValue))
-        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+        return err(
+          domainError.validation({
+            message: 'Invalid FormulaField formatting: number result requires number formatting',
+          })
+        );
       if (showAs && !(showAs instanceof NumberShowAsValue))
         return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       if (showAs) {
@@ -427,14 +431,23 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
 
     if (cellValueType.equals(CellValueType.dateTime())) {
       if (formatting && !(formatting instanceof DateTimeFormattingValue))
-        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+        return err(
+          domainError.validation({
+            message:
+              'Invalid FormulaField formatting: dateTime result requires dateTime formatting',
+          })
+        );
       if (showAs) return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.string())) {
       if (formatting)
-        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+        return err(
+          domainError.validation({
+            message: 'Invalid FormulaField formatting: string result does not support formatting',
+          })
+        );
       if (showAs && !(showAs instanceof SingleLineTextShowAsValue))
         return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
@@ -442,7 +455,11 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
 
     if (cellValueType.equals(CellValueType.boolean())) {
       if (formatting)
-        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+        return err(
+          domainError.validation({
+            message: 'Invalid FormulaField formatting: boolean result does not support formatting',
+          })
+        );
       if (showAs) return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
     }

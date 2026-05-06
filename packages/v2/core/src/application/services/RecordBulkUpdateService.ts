@@ -125,6 +125,8 @@ export interface IRecordBulkUpdateInput {
   readonly recordIds: ReadonlyArray<RecordId> | undefined;
   readonly records: ReadonlyArray<IRecordBulkUpdateItem> | undefined;
   readonly typecast: boolean;
+  readonly deferComputedUpdates?: boolean;
+  readonly enqueueDeferredComputedUpdates?: boolean;
   readonly fieldKeyType: FieldKeyType;
   readonly order: RecordInsertOrder | undefined;
 }
@@ -423,6 +425,8 @@ export class RecordBulkUpdateService {
                 filterSpec,
                 mutateSpec,
                 {
+                  deferComputedUpdates: input.deferComputedUpdates,
+                  enqueueDeferredComputedUpdates: input.enqueueDeferredComputedUpdates,
                   ...(input.typecast ? { fillLinkTitles: true } : {}),
                   ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
                 }
@@ -714,6 +718,8 @@ export class RecordBulkUpdateService {
                   preparedWrite.tableForWrite,
                   service.createSyncUpdateBatchesGenerator(persistedBatches),
                   {
+                    deferComputedUpdates: input.deferComputedUpdates,
+                    enqueueDeferredComputedUpdates: input.enqueueDeferredComputedUpdates,
                     ...(input.typecast ? { fillLinkTitles: true } : {}),
                     ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
                   }

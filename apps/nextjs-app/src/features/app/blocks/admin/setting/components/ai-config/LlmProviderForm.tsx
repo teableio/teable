@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, Loader2, Plus, X, Eye, Image, HelpCircle } from '@teable/icons';
-import { llmProviderSchema, LLMProviderType, chatModelAbilityType } from '@teable/openapi';
+import {
+  getImageModelTagsFromAbility,
+  llmProviderSchema,
+  LLMProviderType,
+  chatModelAbilityType,
+} from '@teable/openapi';
 import type {
   ITestLLMVo,
   ITestLLMRo,
@@ -42,6 +47,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDERS } from './constant';
+import { testImageModelCapability, TEXT_MODEL_TIMEOUT_MS, withTimeout } from './model-test-utils';
 
 const CUSTOM_MODEL_DOC_URL = 'https://help.teable.ai/en/basic/ai/custom-model';
 
@@ -61,17 +67,7 @@ interface IModelTestStatus {
   isImageModel?: boolean;
 }
 
-const TEXT_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for text models
-const IMAGE_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for image models
 const CONCURRENCY = 3; // Concurrent test count
-
-// Helper to wrap promise with timeout
-const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms)),
-  ]);
-};
 
 type ErrorPattern = {
   keywords: string[];
@@ -565,72 +561,11 @@ export const LLMProviderForm = ({
       if (!onTest) {
         return { status: 'failed', error: 'Test function not provided', isImageModel: true };
       }
-      try {
-        const { type, name, apiKey, baseUrl, models } = provider;
-        const modelKey = `${type}@${model}@${name}`;
-
-        // Test image generation (text-to-image)
-        const generationResult = await withTimeout(
-          onTest({
-            type,
-            name,
-            apiKey,
-            baseUrl,
-            models,
-            modelKey,
-            testImageGeneration: true,
-          }),
-          IMAGE_MODEL_TIMEOUT_MS,
-          `Timeout after ${IMAGE_MODEL_TIMEOUT_MS / 1000}s`
-        );
-
-        // Test image-to-image if generation works
-        let imageToImage = false;
-        if (generationResult.success) {
-          try {
-            const i2iResult = await withTimeout(
-              onTest({
-                type,
-                name,
-                apiKey,
-                baseUrl,
-                models,
-                modelKey,
-                testImageGeneration: true,
-                testImageToImage: true,
-              }),
-              IMAGE_MODEL_TIMEOUT_MS,
-              `Timeout`
-            );
-            imageToImage = i2iResult.success;
-          } catch {
-            // Image-to-image not supported, that's ok
-          }
-        }
-
-        if (!generationResult.success) {
-          return {
-            status: 'failed',
-            error: generationResult.response || 'Image generation test failed',
-            isImageModel: true,
-          };
-        }
-
-        return {
-          status: 'success',
-          isImageModel: true,
-          imageAbility: {
-            generation: true,
-            imageToImage,
-          },
-        };
-      } catch (error) {
-        return {
-          status: 'failed',
-          isImageModel: true,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
+      return testImageModelCapability({
+        modelKey: `${provider.type}@${model}@${provider.name}`,
+        provider,
+        onTest,
+      });
     },
     [onTest]
   );
@@ -723,12 +658,14 @@ export const LLMProviderForm = ({
         successCount++;
         // Save test result to form's modelConfigs so it persists on submit
         const currentConfigs = form.getValues('modelConfigs') ?? {};
+        const tags = getImageModelTagsFromAbility(result.imageAbility, currentConfigs[model]?.tags);
         form.setValue('modelConfigs', {
           ...currentConfigs,
           [model]: {
             ...currentConfigs[model],
             ability: result.ability,
             imageAbility: result.imageAbility,
+            ...(result.imageAbility ? { tags } : {}),
             testedAt: Date.now(),
           },
         });

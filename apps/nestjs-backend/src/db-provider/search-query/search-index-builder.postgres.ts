@@ -1,7 +1,6 @@
 /* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { assertNever, CellValueType, FieldType } from '@teable/core';
-import type { IDateFieldOptions } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
@@ -14,7 +13,17 @@ interface IPgIndex {
   indexdef: string;
 }
 
-const unSupportCellValueType = [CellValueType.DateTime, CellValueType.Boolean];
+const unSupportCellValueType = [CellValueType.Boolean];
+
+type ISearchIndexSpec =
+  | {
+      kind: 'btree';
+      expression: string;
+    }
+  | {
+      kind: 'trgm';
+      expression: string;
+    };
 
 export class FieldFormatter {
   static getSearchableExpression(field: IFieldInstance, isArray = false): string | null {
@@ -29,8 +38,8 @@ export class FieldFormatter {
           return `ROUND(value::numeric, ${precision})::text`;
         }
         case CellValueType.DateTime: {
-          const timeZone = (options as IDateFieldOptions).formatting.timeZone.replace(/'/g, "''");
-          return `TO_CHAR(TIMEZONE('${timeZone}', value), 'YYYY-MM-DD HH24:MI')`;
+          // date type not support full text search
+          return null;
         }
         case CellValueType.Boolean: {
           // date type not support full text search
@@ -67,11 +76,27 @@ export class FieldFormatter {
   }
 
   // expression for generating index
-  static getIndexExpression(field: IFieldInstance): string | null {
+  static getIndexSpec(field: IFieldInstance): ISearchIndexSpec | null {
     if (field.cellValueType === CellValueType.DateTime) {
+      if (field.isMultipleCellValue) {
+        return null;
+      }
+
+      return {
+        kind: 'btree',
+        expression: `"${field.dbFieldName}"`,
+      };
+    }
+
+    const expression = this.getSearchableExpression(field, field.isMultipleCellValue);
+    if (!expression) {
       return null;
     }
-    return this.getSearchableExpression(field, field.isMultipleCellValue);
+
+    return {
+      kind: 'trgm',
+      expression,
+    };
   }
 }
 
@@ -112,12 +137,16 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
   createSingleIndexSql(dbTableName: string, field: IFieldInstance): string | null {
     const [schema, table] = dbTableName.split('.');
     const indexName = this.getIndexName(table, field);
-    const expression = FieldFormatter.getIndexExpression(field);
-    if (expression === null) {
+    const indexSpec = FieldFormatter.getIndexSpec(field);
+    if (indexSpec === null) {
       return null;
     }
 
-    return `CREATE INDEX IF NOT EXISTS "${indexName}" ON "${schema}"."${table}" USING gin ((${expression}) gin_trgm_ops)`;
+    if (indexSpec.kind === 'btree') {
+      return `CREATE INDEX IF NOT EXISTS "${indexName}" ON "${schema}"."${table}" USING btree (${indexSpec.expression})`;
+    }
+
+    return `CREATE INDEX IF NOT EXISTS "${indexName}" ON "${schema}"."${table}" USING gin ((${indexSpec.expression}) gin_trgm_ops)`;
   }
 
   getDropIndexSql(dbTableName: string): string {
@@ -145,8 +174,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     const fieldSql = searchFields
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((field) => {
-        const expression = FieldFormatter.getIndexExpression(field);
-        return expression ? this.createSingleIndexSql(dbTableName, field) : null;
+        return this.createSingleIndexSql(dbTableName, field);
       })
       .filter((sql): sql is string => sql !== null);
 
@@ -202,9 +230,8 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     const [, table] = dbTableName.split('.');
     const expectExistIndex = fields
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
-      .map((field) => {
-        return this.getIndexName(table, field);
-      });
+      .filter((field) => this.createSingleIndexSql(dbTableName, field) !== null)
+      .map((field) => this.getIndexName(table, field));
 
     // 1: find the lack or redundant index
     const lackingIndex = expectExistIndex.filter(
@@ -223,11 +250,16 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     // 2: find the abnormal index definition
     const expectIndexDef = fields
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
-      .map((f) => {
-        return {
-          indexName: this.getIndexName(table, f),
-          indexDef: this.createSingleIndexSql(dbTableName, f) as string,
-        };
+      .flatMap((f) => {
+        const indexDef = this.createSingleIndexSql(dbTableName, f);
+        return indexDef
+          ? [
+              {
+                indexName: this.getIndexName(table, f),
+                indexDef,
+              },
+            ]
+          : [];
       });
 
     return expectIndexDef

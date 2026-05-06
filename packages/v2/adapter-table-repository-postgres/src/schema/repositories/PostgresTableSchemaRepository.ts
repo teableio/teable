@@ -11,6 +11,8 @@ import type {
   ITableSpecVisitor,
   Table,
   DomainError,
+  ITracer,
+  SpanAttributes,
 } from '@teable/v2-core';
 import {
   TraceSpan,
@@ -27,7 +29,13 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
-import type { Kysely, ColumnDefinitionBuilder, CreateTableBuilder, CompiledQuery } from 'kysely';
+import type {
+  Kysely,
+  ColumnDefinitionBuilder,
+  CreateTableBuilder,
+  CompiledQuery,
+  Transaction,
+} from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -39,12 +47,12 @@ import {
   executeTableSchemaStatements,
   resolvePostgresDbOrTx,
 } from '../../shared/db';
+import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
+import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import {
   ensureUndoCaptureInfrastructure,
   invalidateUndoCaptureTableCache,
 } from '../../shared/undoCapture';
-import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
-import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
@@ -52,6 +60,7 @@ import {
   createSchemaRuleContext,
   PostgresSchemaIntrospector,
 } from '../rules';
+import type { TableSchemaStatementBuilder } from '../rules/core';
 import { DependencyChangeDetectorVisitor } from '../visitors/DependencyChangeDetectorVisitor';
 import { FieldValueChangeCollectorVisitor } from '../visitors/FieldValueChangeCollectorVisitor';
 import type { ICreateTableBuilderRef } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
@@ -91,6 +100,11 @@ type FieldValueChangeSet = {
   hasDbStorageTypeChange: boolean;
 };
 
+type SchemaStatementTraceOptions = {
+  readonly tracer?: ITracer;
+  readonly attributes?: SpanAttributes;
+};
+
 const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainError> => {
   for (const field of fields) {
     if (field.dbFieldName().isOk()) continue;
@@ -116,8 +130,45 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
     private readonly computedUpdatePlanner: ComputedUpdatePlanner,
     @inject(v2RecordRepositoryPostgresTokens.computedDependencyGraph)
-    private readonly fieldDependencyGraph: FieldDependencyGraph
+    private readonly fieldDependencyGraph: FieldDependencyGraph,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
+
+  private resolveMetaDb(
+    context: IExecutionContext
+  ): Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase> {
+    const scope = this.db === this.metaDb ? 'data' : 'meta';
+    return resolvePostgresDbOrTx(this.metaDb, context, scope);
+  }
+
+  private async executeScopedTableSchemaStatements(
+    context: IExecutionContext,
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    statements: ReadonlyArray<TableSchemaStatementBuilder>,
+    trace?: SchemaStatementTraceOptions
+  ): Promise<void> {
+    let currentScope: 'data' | 'meta' | undefined;
+    let batch: TableSchemaStatementBuilder[] = [];
+
+    const flush = async () => {
+      if (!currentScope || batch.length === 0) return;
+      const targetDb = currentScope === 'meta' ? this.resolveMetaDb(context) : db;
+      await executeTableSchemaStatements(targetDb, batch, trace);
+      batch = [];
+    };
+
+    for (const statement of statements) {
+      const statementScope = statement.scope ?? 'data';
+      if (currentScope && currentScope !== statementScope) {
+        await flush();
+      }
+      currentScope = statementScope;
+      batch.push(statement);
+    }
+
+    await flush();
+  }
 
   private async ensureDeferredForeignKeys(
     context: IExecutionContext,
@@ -179,6 +230,126 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     });
   }
 
+  private async insertTableSkeleton(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
+      const builder = schemaBuilder
+        .createTable(tableName)
+        .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
+        .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
+        .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
+          col.notNull().defaultTo(sql`now()`)
+        )
+        .addColumn('__last_modified_time', 'timestamptz')
+        .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
+        .addColumn('__last_modified_by', 'text')
+        .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
+
+      try {
+        const compiledStatements: CompiledQuery[] = [];
+        if (schema && schema !== 'public') {
+          compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
+        }
+        compiledStatements.push(builder.compile());
+
+        await executeCompiledQueries(db, compiledStatements);
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to insert table schema: ${describeError(error)}`,
+          })
+        );
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private async insertTableFieldSchemas(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      const visitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+      });
+      const statements = yield* visitor.apply(table);
+
+      if (statements.length === 0) {
+        return ok(undefined);
+      }
+
+      try {
+        await executeTableSchemaStatements(db, statements, {
+          tracer: context.tracer,
+          attributes: {
+            [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
+            'teable.base_id': table.baseId().toString(),
+            'teable.table_name': tableName,
+            'teable.schema': schema ?? 'public',
+            'teable.schema.statement.source': 'table_schema_insert_fields',
+          },
+        });
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to insert table schema: ${describeError(error)}`,
+          })
+        );
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private async ensureUndoCaptureForTable(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context);
+
+      try {
+        await ensureUndoCaptureInfrastructure(
+          repository.db,
+          db,
+          toQualifiedIdentifierLiteral(schema, tableName),
+          `${schema ?? 'public'}.${tableName}`
+        );
+      } catch {
+        // Snapshot capture wiring is best-effort and must not block table creation.
+      }
+
+      return ok(undefined);
+    });
+  }
+
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const repository = this;
@@ -221,9 +392,18 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
         }
         compiledStatements.push(builderRef.builder.compile());
-        compiledStatements.push(...fieldStatements.map((statement) => statement.compile(db)));
 
         await executeCompiledQueries(db, compiledStatements);
+        await repository.executeScopedTableSchemaStatements(context, db, fieldStatements, {
+          tracer: context.tracer,
+          attributes: {
+            [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
+            'teable.base_id': table.baseId().toString(),
+            'teable.table_name': tableName,
+            'teable.schema': schema ?? 'public',
+            'teable.schema.statement.source': 'table_schema_insert',
+          },
+        });
       } catch (error) {
         return err(
           domainError.infrastructure({
@@ -253,13 +433,75 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>> {
     for (const table of tables) {
-      const result = await this.insert(context, table);
+      const result = await this.insertTableSkeleton(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+
+    for (const table of tables) {
+      const result = await this.insertTableFieldSchemas(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+
+    for (const table of tables) {
+      const result = await this.ensureUndoCaptureForTable(context, table);
       if (result.isErr()) return err(result.error);
     }
 
     // Some FK constraints are conditionally created only if the target table already exists.
     // In batch table creation, referenced tables might be created later, so we do a second pass
     // to (idempotently) add any missing FK constraints once all tables exist.
+    const ensureFkResult = await this.ensureDeferredForeignKeys(context, tables);
+    if (ensureFkResult.isErr()) return err(ensureFkResult.error);
+
+    return ok(undefined);
+  }
+
+  @TraceSpan()
+  async ensureInserted(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
+      const introspector = new PostgresSchemaIntrospector(db);
+      const exists = yield* await introspector.tableExists(schema, tableName);
+
+      if (!exists) {
+        yield* await repository.insert(context, table);
+        return ok(undefined);
+      }
+
+      try {
+        await ensureUndoCaptureInfrastructure(
+          repository.db,
+          db,
+          toQualifiedIdentifierLiteral(schema, tableName),
+          `${schema ?? 'public'}.${tableName}`
+        );
+      } catch {
+        // Snapshot capture wiring is best-effort and must not block schema repair.
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  @TraceSpan()
+  async ensureInsertedMany(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      const result = await this.ensureInserted(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+
     const ensureFkResult = await this.ensureDeferredForeignKeys(context, tables);
     if (ensureFkResult.isErr()) return err(ensureFkResult.error);
 
@@ -292,7 +534,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const statements = yield* visitor.where();
       if (statements.length > 0) {
         try {
-          await executeTableSchemaStatements(db, statements, {
+          await repository.executeScopedTableSchemaStatements(context, db, statements, {
             tracer: context.tracer,
             attributes: {
               [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
@@ -425,7 +667,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         return ok(table);
       }
 
-      const db = resolvePostgresDbOrTx(this.db, context);
+      const db = this.resolveMetaDb(context);
       const rows = await db
         .selectFrom('field')
         .select(['id', 'options'])
@@ -450,7 +692,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       let nextTable = table;
       for (const fieldId of selectFieldIds) {
         const selectOptions = optionsByFieldId.get(fieldId.toString());
-        if (!selectOptions || selectOptions.length === 0) continue;
+        if (!selectOptions) continue;
         const nextTableResult = nextTable.addSelectOptions(fieldId, selectOptions);
         if (nextTableResult.isErr()) return err(nextTableResult.error);
         nextTable = nextTableResult.value;

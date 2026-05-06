@@ -160,6 +160,142 @@ describe('ComputedUpdatePlanner', () => {
     expect(plannedFieldIds).not.toContain(lookupNumberFieldId.toString());
   });
 
+  it('plans symmetric link updates from impact link fields when changed fields are empty', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}1`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'b'.repeat(15)}1`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'c'.repeat(15)}1`)._unsafeUnwrap();
+    const hostPrimaryFieldId = FieldId.create(`fld${'d'.repeat(15)}1`)._unsafeUnwrap();
+    const foreignPrimaryFieldId = FieldId.create(`fld${'e'.repeat(15)}1`)._unsafeUnwrap();
+    const hostLinkFieldId = FieldId.create(`fld${'f'.repeat(15)}1`)._unsafeUnwrap();
+    const symmetricLinkFieldId = FieldId.create(`fld${'g'.repeat(15)}1`)._unsafeUnwrap();
+    const recordId = RecordId.create(`rec${'h'.repeat(15)}1`)._unsafeUnwrap();
+
+    const fields: FieldMeta[] = [
+      {
+        id: hostPrimaryFieldId,
+        tableId: hostTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: foreignPrimaryFieldId,
+        tableId: foreignTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: hostLinkFieldId,
+        tableId: hostTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryFieldId.toString(),
+          symmetricFieldId: symmetricLinkFieldId.toString(),
+          relationship: 'manyMany',
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: symmetricLinkFieldId,
+        tableId: foreignTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: hostTableId.toString(),
+          lookupFieldId: hostPrimaryFieldId.toString(),
+          symmetricFieldId: hostLinkFieldId.toString(),
+          relationship: 'manyMany',
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+    ];
+
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: foreignPrimaryFieldId,
+        toFieldId: hostLinkFieldId,
+        fromTableId: foreignTableId,
+        toTableId: hostTableId,
+        kind: 'cross_record',
+        linkFieldId: hostLinkFieldId,
+        semantic: 'link_title',
+      },
+      {
+        fromFieldId: hostPrimaryFieldId,
+        toFieldId: symmetricLinkFieldId,
+        fromTableId: hostTableId,
+        toTableId: foreignTableId,
+        kind: 'cross_record',
+        linkFieldId: symmetricLinkFieldId,
+        semantic: 'link_title',
+      },
+    ];
+
+    const graphData: FieldDependencyGraphData = {
+      fieldsById: new Map<string, FieldMeta>(fields.map((field) => [field.id.toString(), field])),
+      edges,
+    };
+    const graph = {
+      load: vi
+        .fn()
+        .mockImplementation(
+          (
+            _baseId: BaseId,
+            _executionContext: unknown,
+            options?: { requiredFieldIds?: ReadonlyArray<FieldId> }
+          ) => {
+            const requiredFieldIds = options?.requiredFieldIds ?? [];
+            if (!requiredFieldIds.some((fieldId) => fieldId.equals(hostLinkFieldId))) {
+              return Promise.resolve(ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] }));
+            }
+            return Promise.resolve(ok(graphData));
+          }
+        ),
+    };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.planStage({
+      baseId,
+      seedTableId: hostTableId,
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      changedFieldIds: [],
+      changeType: 'update',
+      impact: {
+        valueFieldIds: [],
+        linkFieldIds: [hostLinkFieldId],
+      },
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    expect(graph.load).toHaveBeenCalledWith(baseId, undefined, {
+      requiredFieldIds: [hostLinkFieldId],
+    });
+    const plan = planResult._unsafeUnwrap();
+    const plannedFieldIds = plan.steps.flatMap((step) => step.fieldIds.map((id) => id.toString()));
+
+    expect(plannedFieldIds).toEqual(
+      expect.arrayContaining([hostLinkFieldId.toString(), symmetricLinkFieldId.toString()])
+    );
+
+    const symmetricEdge = plan.edges.find(
+      (edge) =>
+        edgeTargetsField(edge, symmetricLinkFieldId) &&
+        edge.fromTableId.equals(hostTableId) &&
+        edge.toTableId.equals(foreignTableId)
+    );
+    expect(symmetricEdge?.linkFieldId?.equals(symmetricLinkFieldId)).toBe(true);
+  });
+
   it('skips cycle fields for delete while keeping ordered updates', async () => {
     const baseId = BaseId.create(`bse${'j'.repeat(16)}`)._unsafeUnwrap();
     const seedTableId = TableId.create(`tbl${'k'.repeat(16)}`)._unsafeUnwrap();

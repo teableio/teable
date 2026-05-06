@@ -9,7 +9,12 @@ import type { TableDeleteOptions } from './TableRepository';
 
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  ensureInserted?(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   insertMany(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>>;
+  ensureInsertedMany?(
     context: IExecutionContext,
     tables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>>;

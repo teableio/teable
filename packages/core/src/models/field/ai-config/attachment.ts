@@ -48,7 +48,9 @@ export const attachmentFieldAIConfigBaseSchema = commonFieldAIConfig.extend({
   // Aspect ratio for multimodal LLMs (Gemini, etc.) - injected into prompt
   aspectRatio: z
     .string()
-    .regex(/^\d+:\d+$/, { message: 'Aspect ratio must be in "width:height" format, e.g., "16:9"' })
+    .regex(/^\d+(?:\.\d+)?:\d+(?:\.\d+)?$/, {
+      message: 'Aspect ratio must be in "width:height" format, e.g., "16:9"',
+    })
     .optional(),
   // Resolution for multimodal LLMs (1K, 2K, 4K) - injected into prompt
   resolution: z.enum(IMAGE_RESOLUTIONS).optional(),

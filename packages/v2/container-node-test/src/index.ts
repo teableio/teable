@@ -7,7 +7,8 @@ import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
   PostgresUnitOfWork,
   registerV2PostgresDb,
-  v2PostgresDbTokens,
+  v2DataDbTokens,
+  v2MetaDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
@@ -78,6 +79,8 @@ export interface IV2NodeTestContainer {
   tableRepository: ITableRepository;
   eventBus: MemoryEventBus;
   baseId: BaseId;
+  metaDb: Kysely<V1TeableDatabase>;
+  dataDb: Kysely<V1TeableDatabase>;
   db: Kysely<V1TeableDatabase>;
   connectionString: string;
   /**
@@ -276,7 +279,7 @@ export const createV2NodeTestContainer = async (
 
   const ensureSchema = options.ensureSchema ?? true;
 
-  if (!c.isRegistered(v2PostgresDbTokens.db)) {
+  if (!c.isRegistered(v2MetaDbTokens.db) || !c.isRegistered(v2DataDbTokens.db)) {
     await time('register-db', async () => {
       if (shouldUsePglite) {
         await registerV2PostgresPgliteDb(c, dbConfig);
@@ -286,24 +289,26 @@ export const createV2NodeTestContainer = async (
     });
   }
 
-  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+  const metaDb = c.resolve<Kysely<V1TeableDatabase>>(v2MetaDbTokens.db);
+  const dataDb = c.resolve<Kysely<V1TeableDatabase>>(v2DataDbTokens.db);
+  const db = dataDb;
 
   const maxFreeRowLimit = resolveMaxFreeRowLimit(options.maxFreeRowLimit);
 
   await time('register-state-adapter', async () =>
     registerV2PostgresStateAdapter(c, {
-      db,
+      db: metaDb,
       ensureSchema,
       ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
     })
   );
 
   await time('type-validation-polyfill', async () =>
-    ensureTypeValidationPolyfillMigrationApplied(db as unknown as Kysely<unknown>)
+    ensureTypeValidationPolyfillMigrationApplied(dataDb as unknown as Kysely<unknown>)
   );
 
   await time('undo-capture-globals', async () =>
-    ensureUndoCaptureMigrationApplied(db as unknown as Kysely<unknown>)
+    ensureUndoCaptureMigrationApplied(dataDb as unknown as Kysely<unknown>)
   );
 
   // Register SpyLogger BEFORE other services so they get the spy instance
@@ -312,11 +317,11 @@ export const createV2NodeTestContainer = async (
 
   // Register table repository postgres adapter (schema + record repositories)
   const typeValidationStrategy = await time('create-type-validation-strategy', async () =>
-    createTypeValidationStrategy(db as unknown as Kysely<unknown>)
+    createTypeValidationStrategy(dataDb as unknown as Kysely<unknown>)
   );
   await time('register-table-repository-adapter', async () => {
     registerV2TableRepositoryPostgresAdapter(c, {
-      db,
+      db: dataDb,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
         pollingConfig: { enabled: false },
@@ -384,7 +389,7 @@ export const createV2NodeTestContainer = async (
 
   // Ensure users table exists in public schema for createdBy/lastModifiedBy formula references
   await time('ensure-users-table', async () =>
-    db.schema
+    metaDb.schema
       .withSchema('public')
       .createTable('users')
       .ifNotExists()
@@ -396,7 +401,7 @@ export const createV2NodeTestContainer = async (
 
   // Insert system user for tests
   await time('seed-system-user', async () =>
-    db
+    metaDb
       .withSchema('public')
       .insertInto('users')
       .values({ id: 'system', name: 'System', email: null })
@@ -410,7 +415,7 @@ export const createV2NodeTestContainer = async (
 
     if (shouldSeedSpace) {
       await time('seed-space', async () =>
-        db
+        metaDb
           .insertInto('space')
           .values({ id: spaceId, name: 'Test Space', created_by: actorId })
           .execute()
@@ -418,7 +423,7 @@ export const createV2NodeTestContainer = async (
     }
 
     await time('seed-base', async () =>
-      db
+      metaDb
         .insertInto('base')
         .values({
           id: baseId.toString(),
@@ -444,7 +449,7 @@ export const createV2NodeTestContainer = async (
     );
     const getActiveOutboxState = async () => {
       const now = new Date();
-      const rows = await db
+      const rows = await dataDb
         .selectFrom('computed_update_outbox')
         .select(['run_id as runId', 'status'])
         .where((eb) =>
@@ -514,13 +519,16 @@ export const createV2NodeTestContainer = async (
     tableRepository,
     eventBus,
     baseId,
+    metaDb,
+    dataDb,
     db,
     connectionString,
     processOutbox,
     dispose: async () => {
       try {
         await computedUpdatePollingService?.stop();
-        await db.destroy();
+        const closers = Array.from(new Set([metaDb, dataDb]));
+        await Promise.all(closers.map((db) => db.destroy()));
       } finally {
         if (pgContainer) {
           await pgContainer.stop();

@@ -13,7 +13,10 @@ export const envValidationSchema = Joi.object({
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 
   // database_url
-  PRISMA_DATABASE_URL: Joi.string().required(),
+  PRISMA_DATABASE_URL: Joi.string(),
+  PRISMA_META_DATABASE_URL: Joi.string(),
+  PRISMA_DATA_DATABASE_URL: Joi.string(),
+  DATABASE_URL: Joi.string(),
 
   STORAGE_PREFIX: Joi.string().uri().optional(),
 
@@ -56,4 +59,9 @@ export const envValidationSchema = Joi.object({
   }),
 
   PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
-});
+})
+  .or('PRISMA_META_DATABASE_URL', 'PRISMA_DATABASE_URL', 'DATABASE_URL')
+  .messages({
+    'object.missing':
+      'One of `PRISMA_META_DATABASE_URL`, legacy `PRISMA_DATABASE_URL`, or `DATABASE_URL` is required',
+  });

@@ -15,6 +15,11 @@ import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteTableCommand } from './DeleteTableCommand';
 
@@ -90,25 +95,57 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
       const table = tableResult.value;
       const sideEffectEvents: IDomainEvent[] = [];
       const sideEffectPostPersistEvents: IDomainEvent[] = [];
-      yield* await unitOfWork.withTransaction(context, async (transactionContext) => {
-        const resultAsync = safeTry<void, DomainError>(async function* () {
-          if (shouldRunSideEffects) {
-            const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
-              transactionContext,
-              { table }
-            );
-            sideEffectEvents.push(...sideEffectResult.events);
-            sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
-          }
-          yield* await tableSchemaRepository.delete(transactionContext, table, {
-            mode: command.mode,
-          });
-          yield* await tableRepository.delete(transactionContext, table, {
-            mode: command.mode,
-          });
-          return ok(undefined);
+      yield* await beginTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+        type: 'table.delete',
+        phase: 'deleting',
+        state: 'deleting',
+        payload: { mode: command.mode },
+      });
+
+      const dataPhaseResult = await unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          safeTry<void, DomainError>(async function* () {
+            if (shouldRunSideEffects) {
+              const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
+                dataTransactionContext,
+                { table }
+              );
+              sideEffectEvents.push(...sideEffectResult.events);
+              sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
+            }
+            yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
+              mode: command.mode,
+            });
+            return ok(undefined);
+          }),
+        { scope: 'data' }
+      );
+      if (dataPhaseResult.isErr()) {
+        yield* await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+          type: 'table.delete',
+          lastError: dataPhaseResult.error.message,
         });
-        return await resultAsync;
+        return err(dataPhaseResult.error);
+      }
+
+      const finalizeMetaResult = await unitOfWork.withTransaction(
+        context,
+        async (metaTransactionContext) =>
+          tableRepository.delete(metaTransactionContext, table, {
+            mode: command.mode,
+          }),
+        { scope: 'meta' }
+      );
+      if (finalizeMetaResult.isErr()) {
+        yield* await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+          type: 'table.delete',
+          lastError: finalizeMetaResult.error.message,
+        });
+        return err(finalizeMetaResult.error);
+      }
+      yield* await completeTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+        type: 'table.delete',
       });
       if (command.mode === 'permanent') {
         yield* table.markDeleted();

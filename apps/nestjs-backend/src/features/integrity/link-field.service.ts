@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType, type ILinkFieldOptions } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -13,6 +14,7 @@ export class LinkFieldIntegrityService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -57,7 +59,7 @@ export class LinkFieldIntegrityService {
     const linkColumnExists = await this.dbProvider.checkColumnExist(
       params.dbTableName,
       params.linkDbFieldName,
-      this.prismaService
+      this.dataPrismaService
     );
 
     if (!linkColumnExists) {
@@ -66,7 +68,7 @@ export class LinkFieldIntegrityService {
 
     const query = this.dbProvider.integrityQuery().checkLinks(params);
     try {
-      return await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
+      return await this.dataPrismaService.$queryRawUnsafe<{ id: string }[]>(query);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2010') {
         this.logger.warn(
@@ -93,7 +95,7 @@ export class LinkFieldIntegrityService {
     const linkColumnExists = await this.dbProvider.checkColumnExist(
       params.dbTableName,
       params.linkDbFieldName,
-      this.prismaService
+      this.dataPrismaService
     );
 
     if (!linkColumnExists) {
@@ -101,7 +103,7 @@ export class LinkFieldIntegrityService {
     }
 
     const query = this.dbProvider.integrityQuery().fixLinks(params);
-    return await this.prismaService.$executeRawUnsafe(query);
+    return await this.dataPrismaService.$executeRawUnsafe(query);
   }
 
   private async checkAndFix(params: {

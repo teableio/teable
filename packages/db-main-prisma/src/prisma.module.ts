@@ -3,19 +3,40 @@
 import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { PrismaService } from './prisma.service';
+import { DataPrismaService, MetaPrismaService, PrismaService } from './prisma.service';
 
-export const PrismaProvider: Provider = {
-  provide: PrismaService,
+export const MetaPrismaProvider: Provider = {
+  provide: MetaPrismaService,
   useFactory: async (cls: ClsService<any>) => {
-    return new PrismaService(cls);
+    return new MetaPrismaService(cls);
   },
   inject: [ClsService],
 };
 
 @Global()
 @Module({
-  providers: [PrismaProvider],
-  exports: [PrismaProvider],
+  providers: [
+    MetaPrismaProvider,
+    {
+      provide: PrismaService,
+      useExisting: MetaPrismaService,
+    },
+  ],
+  exports: [MetaPrismaProvider, PrismaService],
 })
 export class PrismaModule {}
+
+export const DataPrismaProvider: Provider = {
+  provide: DataPrismaService,
+  useFactory: async (cls: ClsService<any>) => {
+    return new DataPrismaService(cls);
+  },
+  inject: [ClsService],
+};
+
+@Global()
+@Module({
+  providers: [DataPrismaProvider],
+  exports: [DataPrismaProvider],
+})
+export class DataPrismaModule {}

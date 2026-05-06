@@ -2,7 +2,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import {
   BaseDuplicateMode,
   CreateRecordAction,
@@ -17,6 +18,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { PersistedComputedBackfillService } from '../record/computed/services/persisted-computed-backfill.service';
@@ -25,17 +27,20 @@ import { BaseExportService } from './base-export.service';
 import { BaseImportService } from './base-import.service';
 import { mergeLinkFieldTableMaps } from './utils';
 
+type DuplicatedBase = Awaited<ReturnType<BaseImportService['createBaseStructure']>>['base'];
+
 @Injectable()
 export class BaseDuplicateService {
   private logger = new Logger(BaseDuplicateService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly tableDuplicateService: TableDuplicateService,
     private readonly baseExportService: BaseExportService,
     private readonly baseImportService: BaseImportService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService
@@ -47,73 +52,111 @@ export class BaseDuplicateService {
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
   ) {
     const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
+    const userId = this.cls.get('user.id');
+    const prisma = this.prismaService.txClient();
 
     // For CopyShareBase mode, don't collect parent nodes - the shared node becomes the root
     const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
 
-    const { base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = await this.duplicateStructure(
-      fromBaseId,
-      spaceId,
-      name,
-      allowCrossBase,
-      baseId,
-      nodes,
-      duplicateMode
-    );
+    let base: DuplicatedBase | undefined;
 
-    const crossBaseLinkFieldTableMap = allowCrossBase
-      ? ({} as Record<
-          string,
-          {
-            dbFieldName: string;
-            selfKeyName: string;
-            isMultipleCellValue: boolean;
-          }[]
-        >)
-      : await this.getCrossBaseLinkFieldTableMap(tableIdMap);
-
-    const disconnectedLinkFieldTableMap = await this.getDisconnectedLinkFieldTableMap(
-      tableIdMap,
-      fromBaseId,
-      nodes,
-      skipParentNodes
-    );
-
-    const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
-      crossBaseLinkFieldTableMap,
-      disconnectedLinkFieldTableMap
-    );
-
-    const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
-      tableIdMap,
-      fromBaseId,
-      nodes,
-      skipParentNodes
-    );
-
-    let recordsLength = 0;
-    if (withRecords) {
-      recordsLength = await this.duplicateTableData(
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap,
-        mergedLinkFieldTableMap
-      );
-      await this.duplicateAttachments(tableIdMap, fieldIdMap);
-      await this.duplicateLinkJunction(
-        tableIdMap,
-        fieldIdMap,
+    try {
+      const duplicated = await this.duplicateStructure(
+        fromBaseId,
+        spaceId,
+        name,
         allowCrossBase,
-        disconnectedLinkFieldIds
+        baseId,
+        nodes,
+        duplicateMode
       );
 
-      // Persist computed/link/lookup/rollup columns for duplicated data so that
-      // reads via useQueryModel (tableCache/raw table) return correct values.
-      // This mirrors what the computed pipeline does during regular record writes.
-      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
-    }
+      ({ base } = duplicated);
+      const { base: _base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = duplicated;
 
-    return { base, tableIdMap, fieldIdMap, viewIdMap, recordsLength, ...rest };
+      const crossBaseLinkFieldTableMap = allowCrossBase
+        ? ({} as Record<
+            string,
+            {
+              dbFieldName: string;
+              selfKeyName: string;
+              isMultipleCellValue: boolean;
+            }[]
+          >)
+        : await this.getCrossBaseLinkFieldTableMap(tableIdMap);
+
+      const disconnectedLinkFieldTableMap = await this.getDisconnectedLinkFieldTableMap(
+        tableIdMap,
+        fromBaseId,
+        nodes,
+        skipParentNodes
+      );
+
+      const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
+        crossBaseLinkFieldTableMap,
+        disconnectedLinkFieldTableMap
+      );
+
+      const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
+        tableIdMap,
+        fromBaseId,
+        nodes,
+        skipParentNodes
+      );
+
+      let recordsLength = 0;
+      if (withRecords) {
+        await prisma.base.update({
+          where: { id: base.id },
+          data: {
+            provisionState: ProvisionState.pending,
+            lastModifiedBy: userId,
+          },
+        });
+
+        recordsLength = await this.duplicateTableData(
+          tableIdMap,
+          fieldIdMap,
+          viewIdMap,
+          mergedLinkFieldTableMap
+        );
+        await this.duplicateAttachments(tableIdMap, fieldIdMap);
+        await this.duplicateLinkJunction(
+          tableIdMap,
+          fieldIdMap,
+          allowCrossBase,
+          disconnectedLinkFieldIds
+        );
+
+        // Persist computed/link/lookup/rollup columns for duplicated data so that
+        // reads via useQueryModel (tableCache/raw table) return correct values.
+        // This mirrors what the computed pipeline does during regular record writes.
+        await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+
+        await prisma.base.update({
+          where: { id: base.id },
+          data: {
+            provisionState: ProvisionState.ready,
+            lastModifiedBy: userId,
+          },
+        });
+      }
+
+      return { base, tableIdMap, fieldIdMap, viewIdMap, recordsLength, ...rest };
+    } catch (error) {
+      if (base?.id) {
+        await prisma.base
+          .update({
+            where: { id: base.id },
+            data: {
+              provisionState: ProvisionState.error,
+              lastModifiedBy: userId,
+            },
+          })
+          .catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   private async getDisconnectedLinkFieldIds(
@@ -517,17 +560,18 @@ export class BaseDuplicateService {
       { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
     >
   ): Promise<number> {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
+    const metaPrisma = this.prismaService.txClient();
     const tableId2DbTableNameMap: Record<string, string> = {};
     const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
-    const sourceTableRaws = await prisma.tableMeta.findMany({
+    const sourceTableRaws = await metaPrisma.tableMeta.findMany({
       where: { id: { in: allTableId }, deletedTime: null },
       select: {
         id: true,
         dbTableName: true,
       },
     });
-    const targetTableRaws = await prisma.tableMeta.findMany({
+    const targetTableRaws = await metaPrisma.tableMeta.findMany({
       where: { id: { in: allTableId }, deletedTime: null },
       select: {
         id: true,
@@ -563,7 +607,7 @@ export class BaseDuplicateService {
     // delete foreign keys if(exist) then duplicate table data
     for (const dbTableName of dbTableNames) {
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-      const foreignKeysInfo = await this.prismaService.txClient().$queryRawUnsafe<
+      const foreignKeysInfo = await prisma.$queryRawUnsafe<
         {
           constraint_name: string;
           column_name: string;

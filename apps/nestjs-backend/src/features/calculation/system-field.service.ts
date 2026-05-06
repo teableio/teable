@@ -4,9 +4,11 @@ import { Injectable } from '@nestjs/common';
 import type { LastModifiedByFieldCore, LastModifiedTimeFieldCore } from '@teable/core';
 import { FieldKeyType, TableDomain, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
@@ -16,7 +18,8 @@ export class SystemFieldService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   private async updateSystemField(
@@ -35,7 +38,7 @@ export class SystemFieldService {
       .whereIn('__id', recordIds)
       .toQuery();
 
-    await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
+    await this.dataPrismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
   @Timing()
@@ -157,7 +160,7 @@ export class SystemFieldService {
         })
         .whereIn('__id', recordIds)
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(nativeQuery);
     }
 
     // Persist tracked Last Modified By columns that are not generated from the system column
@@ -171,7 +174,7 @@ export class SystemFieldService {
           })
           .whereIn('__id', recordIds)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
+        await this.dataPrismaService.txClient().$executeRawUnsafe(nativeQuery);
       }
     }
 

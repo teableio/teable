@@ -1,6 +1,6 @@
 import type { IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
-import type { PrismaService } from '@teable/db-main-prisma';
+import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { IThresholdConfig } from '../../../configs/threshold.config';
@@ -17,7 +17,7 @@ export interface IDeleteRecordsPayload {
 export class DeleteRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -37,22 +37,22 @@ export class DeleteRecordsOperation {
   async undo(operation: IDeleteRecordsOperation) {
     const { params, result, operationId = '' } = operation;
 
-    const count = await this.prismaService.tableTrash.count({
+    const count = await this.dataPrismaService.tableTrash.count({
       where: { id: operationId },
     });
 
     if (operationId && Number(count) === 0) return operation;
 
-    await this.prismaService.$tx(
-      async (prisma) => {
-        await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
-          fieldKeyType: FieldKeyType.Id,
-          records: result.records,
-        });
+    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: result.records,
+    });
 
-        if (operationId) {
-          const recordIds = result.records.map((record) => record.id);
+    if (operationId) {
+      const recordIds = result.records.map((record) => record.id);
 
+      await this.dataPrismaService.$tx(
+        async (prisma) => {
           await prisma.tableTrash.delete({
             where: { id: operationId },
           });
@@ -62,12 +62,12 @@ export class DeleteRecordsOperation {
               recordId: { in: recordIds },
             },
           });
+        },
+        {
+          timeout: this.thresholdConfig.bigTransactionTimeout,
         }
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
-    );
+      );
+    }
 
     return operation;
   }
