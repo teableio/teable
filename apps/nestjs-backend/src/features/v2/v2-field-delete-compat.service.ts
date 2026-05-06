@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ResourceType } from '@teable/openapi';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { FieldDeleted, ProjectionHandler, ok } from '@teable/v2-core';
 import type { DomainError, IEventHandler, IExecutionContext, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -81,7 +81,7 @@ export class V2FieldDeletedCompatProjection implements IEventHandler<FieldDelete
     }
 
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2PostgresDbTokens.db);
+    const db = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2DataDbTokens.db);
 
     await db
       .insertInto('table_trash')

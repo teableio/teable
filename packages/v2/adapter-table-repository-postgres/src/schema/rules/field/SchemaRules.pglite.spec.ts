@@ -13,7 +13,9 @@ import {
   createConditionalLookupFieldPending,
   createCreatedTimeField,
   createLinkField,
+  createMultipleSelectField,
   createLookupFieldPending,
+  createSingleSelectField,
   createSingleLineTextField,
   ConditionalLookupOptions,
   DbFieldName,
@@ -26,10 +28,12 @@ import {
   FieldUnique,
   GeneratedColumnMeta,
   LookupOptions,
+  SelectOption,
   Table,
   TableId,
   TableName,
 } from '@teable/v2-core';
+import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
 import {
@@ -44,6 +48,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { ComputedFieldBackfillService } from '../../../record/computed/ComputedFieldBackfillService';
 import { createSchemaChecker } from '../checker/SchemaChecker';
 import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
@@ -73,6 +78,7 @@ import { LinkValueColumnRule } from './LinkValueColumnRule';
 import { NotNullConstraintRule } from './NotNullConstraintRule';
 import { OrderColumnRule } from './OrderColumnRule';
 import { ReferenceRule } from './ReferenceRule';
+import { SelectOptionsMetaRule } from './SelectOptionsMetaRule';
 import { UniqueIndexRule } from './UniqueIndexRule';
 
 const TEST_SCHEMA = 'test_schema';
@@ -202,6 +208,35 @@ const createRealField = (
   return fieldResult;
 };
 
+const createRealFieldWithFieldId = (
+  id: string,
+  name: string,
+  dbFieldName: string
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(id);
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const fieldResult = createSingleLineTextField({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    notNull: FieldNotNull.optional(),
+    unique: FieldUnique.disabled(),
+  });
+
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
 const createCreatedTimeFieldWithGeneratedMeta = (
   id: string,
   name: string,
@@ -224,6 +259,84 @@ const createCreatedTimeFieldWithGeneratedMeta = (
     id: fieldIdResult.value,
     name: fieldNameResult.value,
     meta: metaResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
+const createSelectOptions = (
+  choices: ReadonlyArray<{ id: string; name: string; color: string }>
+): Result<ReadonlyArray<SelectOption>, DomainError> => {
+  const options: SelectOption[] = [];
+
+  for (const choice of choices) {
+    const optionResult = SelectOption.create(choice);
+    if (optionResult.isErr()) {
+      return err(optionResult.error);
+    }
+    options.push(optionResult.value);
+  }
+
+  return ok(options);
+};
+
+const createRealSingleSelectField = (params: {
+  id: string;
+  name: string;
+  dbFieldName: string;
+  choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+}): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(params.id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(params.name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(params.dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const optionsResult = createSelectOptions(params.choices);
+  if (optionsResult.isErr()) return err(optionsResult.error);
+
+  const fieldResult = createSingleSelectField({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    options: optionsResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
+const createRealMultipleSelectField = (params: {
+  id: string;
+  name: string;
+  dbFieldName: string;
+  choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+}): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(params.id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(params.name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(params.dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const optionsResult = createSelectOptions(params.choices);
+  if (optionsResult.isErr()) return err(optionsResult.error);
+
+  const fieldResult = createMultipleSelectField({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    options: optionsResult.value,
   });
   if (fieldResult.isErr()) return err(fieldResult.error);
 
@@ -446,10 +559,12 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       name TEXT,
       description TEXT,
       type TEXT,
-      options JSONB,
+      options TEXT,
       table_id TEXT,
       tableId TEXT,
-      meta JSONB
+      db_field_name TEXT,
+      deleted_time TIMESTAMPTZ,
+      meta TEXT
     )`.execute(db);
 
     await sql`CREATE TABLE IF NOT EXISTS table_meta (
@@ -550,6 +665,73 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
     return tableResult.value;
   };
+
+  const createTableAggregateWithId = (
+    tableId: string,
+    tableName: string,
+    fields: ReadonlyArray<Field>,
+    primaryFieldId = fields[0]?.id()
+  ): Table => {
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new Error(tableIdResult.error.message);
+    }
+
+    const baseIdSeed = sanitizeIdSeed(tableName).padEnd(16, '0').slice(0, 16);
+    const baseIdResult = BaseId.create(`bse${baseIdSeed}`);
+    if (baseIdResult.isErr()) {
+      throw new Error(baseIdResult.error.message);
+    }
+
+    const tableNameResult = TableName.create(tableName);
+    if (tableNameResult.isErr()) {
+      throw new Error(tableNameResult.error.message);
+    }
+
+    const dbTableNameResult = DbTableName.rehydrate(`${TEST_SCHEMA}.${tableName}`);
+    if (dbTableNameResult.isErr()) {
+      throw new Error(dbTableNameResult.error.message);
+    }
+
+    if (!primaryFieldId) {
+      throw new Error('primaryFieldId is required');
+    }
+
+    const tableResult = Table.rehydrate({
+      id: tableIdResult.value,
+      baseId: baseIdResult.value,
+      name: tableNameResult.value,
+      fields,
+      views: [],
+      primaryFieldId,
+      dbTableName: dbTableNameResult.value,
+    });
+
+    if (tableResult.isErr()) {
+      throw new Error(tableResult.error.message);
+    }
+
+    return tableResult.value;
+  };
+
+  const createComputedBackfillService = (foreignTables: ReadonlyArray<Table>) =>
+    new ComputedFieldBackfillService(
+      {
+        find: async () => ok(foreignTables),
+        findOne: async () => ok(foreignTables[0]),
+      } as never,
+      {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      } as never,
+      { hash: () => 'hash' } as never,
+      db,
+      { enqueueFieldBackfill: async () => ok({ taskId: 'task' }) } as never,
+      { mode: 'sync', hybridThreshold: 5000 },
+      new Pg16TypeValidationStrategy()
+    );
 
   const collectFinalResults = async (
     generator: AsyncGenerator<SchemaCheckResult, void, unknown>
@@ -2174,6 +2356,401 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       // After down, meta is set to {} which doesn't have hasOrderColumn
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
+
+    it('should merge metadata updates instead of overwriting unrelated keys', async () => {
+      await createTestTable(TABLE_NAME);
+
+      const fieldResult = createRealField('fmr004', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'Link', '{"foo":"bar","nested":{"keep":true}}') ON CONFLICT (id) DO NOTHING`.execute(
+        db
+      );
+
+      const rule = FieldMetaRule.forOrderColumn(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const row = await db
+        .selectFrom('field')
+        .select('meta')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const meta =
+        typeof row.meta === 'string' ? JSON.parse(row.meta) : (row.meta as Record<string, unknown>);
+
+      expect(meta).toMatchObject({
+        foo: 'bar',
+        nested: { keep: true },
+        hasOrderColumn: true,
+      });
+
+      for (const stmt of rule.down(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const revertedRow = await db
+        .selectFrom('field')
+        .select('meta')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const revertedMeta =
+        typeof revertedRow.meta === 'string'
+          ? JSON.parse(revertedRow.meta)
+          : (revertedRow.meta as Record<string, unknown>);
+
+      expect(revertedMeta).toMatchObject({
+        foo: 'bar',
+        nested: { keep: true },
+      });
+      expect(revertedMeta).not.toHaveProperty('hasOrderColumn');
+    });
+
+    it('should repair text-backed field meta columns', async () => {
+      await createTestTable(TABLE_NAME);
+
+      const fieldResult = createRealField('fmr005', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      try {
+        await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'Link', ${JSON.stringify({ foo: 'bar' })})`.execute(
+          db
+        );
+
+        const rule = FieldMetaRule.forOrderColumn(field);
+        const ctx = createContext(TABLE_NAME, field);
+
+        for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+          await db.executeQuery(stmt.compile(db));
+        }
+
+        const row = await db
+          .selectFrom('field')
+          .select('meta')
+          .where('id', '=', field.id().toString())
+          .executeTakeFirstOrThrow();
+
+        expect(typeof row.meta).toBe('string');
+        expect(JSON.parse(row.meta as string)).toMatchObject({
+          foo: 'bar',
+          hasOrderColumn: true,
+        });
+      } finally {
+        await sql`DELETE FROM field WHERE id = ${field.id().toString()}`.execute(db);
+      }
+    });
+  });
+
+  describe('SelectOptionsMetaRule', () => {
+    const TABLE_NAME = 'test_select_options_rule';
+    const expectedChoices = [
+      { id: 'choKeep', name: 'Keep', color: 'blueBright' },
+      { id: 'choDone', name: 'Done', color: 'greenBright' },
+    ] as const;
+
+    it('should validate and repair select option choices without rewriting stored record values', async () => {
+      await createTestTable(TABLE_NAME, ['status_col TEXT']);
+
+      const fieldResult = createRealSingleSelectField({
+        id: 'som001',
+        name: 'Status',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      });
+      expect(fieldResult.isOk()).toBe(true);
+      const field = fieldResult._unsafeUnwrap();
+
+      await sql
+        .raw(
+          `INSERT INTO ${TEST_SCHEMA}.${TABLE_NAME} (__id, status_col) VALUES ('rec_status_1', 'choKeep')`
+        )
+        .execute(db);
+      await sql`INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Status',
+          'singleSelect',
+          ${JSON.stringify({
+            choices: [
+              { id: 'choDup', name: 'Legacy', color: 'redBright' },
+              { id: 'choDup', name: 'Legacy Duplicate', color: 'yellowBright' },
+            ],
+            defaultValue: 'choKeep',
+            preventAutoNewOptions: true,
+          })},
+          ${TABLE_NAME}
+        )`.execute(db);
+
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const invalidResult = await rule.isValid(ctx);
+      expect(invalidResult.isOk()).toBe(true);
+      expect(invalidResult._unsafeUnwrap().valid).toBe(false);
+      expect(invalidResult._unsafeUnwrap().missing).toContain(
+        'options.choices does not match the field definition'
+      );
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      const fieldRow = await db
+        .selectFrom('field')
+        .select('options')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const options =
+        typeof fieldRow.options === 'string'
+          ? JSON.parse(fieldRow.options)
+          : (fieldRow.options as Record<string, unknown>);
+
+      expect(options).toMatchObject({
+        choices: expectedChoices,
+        defaultValue: 'choKeep',
+        preventAutoNewOptions: true,
+      });
+
+      const recordRow = await sql<{ status_col: string }>`
+        SELECT status_col
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(TABLE_NAME)}
+        WHERE __id = 'rec_status_1'
+      `.execute(db);
+      expect(recordRow.rows[0]?.status_col).toBe('choKeep');
+    });
+
+    it('should remap single-select values that point to removed duplicate choices', async () => {
+      await createTestTable(TABLE_NAME, ['status_col TEXT']);
+
+      const fieldResult = createRealSingleSelectField({
+        id: 'som006',
+        name: 'Status Duplicate Choices',
+        dbFieldName: 'status_col',
+        choices: [
+          { id: 'choDup', name: 'Legacy', color: 'blueBright' },
+          { id: 'choDup', name: 'Legacy Duplicate', color: 'yellowBright' },
+          { id: 'choKeep', name: 'Keep', color: 'greenBright' },
+        ],
+      });
+      expect(fieldResult.isOk()).toBe(true);
+      const field = fieldResult._unsafeUnwrap();
+
+      await sql
+        .raw(
+          `INSERT INTO ${TEST_SCHEMA}.${TABLE_NAME} (__id, status_col) VALUES
+            ('rec_duplicate_name', 'Legacy Duplicate'),
+            ('rec_canonical_name', 'Legacy'),
+            ('rec_keep', 'Keep')`
+        )
+        .execute(db);
+      await sql`INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Status Duplicate Choices',
+          'singleSelect',
+          ${JSON.stringify({
+            choices: [
+              { id: 'choDup', name: 'Legacy', color: 'blueBright' },
+              { id: 'choDup', name: 'Legacy Duplicate', color: 'yellowBright' },
+              { id: 'choKeep', name: 'Keep', color: 'greenBright' },
+            ],
+          })},
+          ${TABLE_NAME}
+        )`.execute(db);
+
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const rows = await sql<{ __id: string; status_col: string }>`
+        SELECT __id, status_col
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(TABLE_NAME)}
+        ORDER BY __id
+      `.execute(db);
+      expect(rows.rows).toEqual([
+        { __id: 'rec_canonical_name', status_col: 'Legacy' },
+        { __id: 'rec_duplicate_name', status_col: 'Legacy' },
+        { __id: 'rec_keep', status_col: 'Keep' },
+      ]);
+
+      const fieldRow = await db
+        .selectFrom('field')
+        .select('options')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const options = JSON.parse(fieldRow.options as string) as {
+        choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+      };
+      expect(options.choices).toEqual([
+        { id: 'choDup', name: 'Legacy', color: 'blueBright' },
+        { id: 'choKeep', name: 'Keep', color: 'greenBright' },
+      ]);
+    });
+
+    it('should remap and dedupe multiple-select values that point to removed duplicate choices', async () => {
+      await createTestTable(TABLE_NAME, ['tags_col JSONB']);
+
+      const fieldResult = createRealMultipleSelectField({
+        id: 'som007',
+        name: 'Tags Duplicate Choices',
+        dbFieldName: 'tags_col',
+        choices: [
+          { id: 'choDup', name: 'Legacy', color: 'blueBright' },
+          { id: 'choDup', name: 'Legacy Duplicate', color: 'yellowBright' },
+          { id: 'choKeep', name: 'Keep', color: 'greenBright' },
+        ],
+      });
+      expect(fieldResult.isOk()).toBe(true);
+      const field = fieldResult._unsafeUnwrap();
+
+      await sql
+        .raw(
+          `INSERT INTO ${TEST_SCHEMA}.${TABLE_NAME} (__id, tags_col) VALUES
+            ('rec_tags', '["Legacy Duplicate","Legacy","Keep"]'::jsonb)`
+        )
+        .execute(db);
+      await sql`INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Tags Duplicate Choices',
+          'multipleSelect',
+          ${JSON.stringify({
+            choices: [
+              { id: 'choDup', name: 'Legacy', color: 'blueBright' },
+              { id: 'choDup', name: 'Legacy Duplicate', color: 'yellowBright' },
+              { id: 'choKeep', name: 'Keep', color: 'greenBright' },
+            ],
+          })},
+          ${TABLE_NAME}
+        )`.execute(db);
+
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const recordRow = await sql<{ tags_col: unknown }>`
+        SELECT tags_col
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(TABLE_NAME)}
+        WHERE __id = 'rec_tags'
+      `.execute(db);
+      expect(recordRow.rows[0]?.tags_col).toEqual(['Legacy', 'Keep']);
+    });
+
+    it('should repair text-backed field options columns', async () => {
+      await createTestTable(TABLE_NAME, ['status_col TEXT']);
+
+      const fieldResult = createRealSingleSelectField({
+        id: 'som005',
+        name: 'Status Text Options',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      });
+      expect(fieldResult.isOk()).toBe(true);
+      const field = fieldResult._unsafeUnwrap();
+
+      try {
+        await sql`INSERT INTO field (id, name, type, options, table_id)
+          VALUES (
+            ${field.id().toString()},
+            'Status Text Options',
+            'singleSelect',
+            ${JSON.stringify({
+              choices: [{ id: 'choLegacy', name: 'Legacy', color: 'redBright' }],
+              defaultValue: 'choKeep',
+            })},
+            ${TABLE_NAME}
+          )`.execute(db);
+
+        const rule = new SelectOptionsMetaRule(field);
+        const ctx = createContext(TABLE_NAME, field);
+
+        for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+          await db.executeQuery(stmt.compile(db));
+        }
+
+        const row = await db
+          .selectFrom('field')
+          .select('options')
+          .where('id', '=', field.id().toString())
+          .executeTakeFirstOrThrow();
+
+        expect(typeof row.options).toBe('string');
+        expect(JSON.parse(row.options as string)).toMatchObject({
+          choices: expectedChoices,
+          defaultValue: 'choKeep',
+        });
+      } finally {
+        await sql`DELETE FROM field WHERE id = ${field.id().toString()}`.execute(db);
+      }
+    });
+
+    it('should surface display impact in the repair hint', () => {
+      const field = createRealSingleSelectField({
+        id: 'som002',
+        name: 'Status',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      })._unsafeUnwrap();
+      const rule = new SelectOptionsMetaRule(field);
+
+      const repairHint = rule.getRepairHint({} as SchemaRuleContext, { valid: false });
+
+      expect(repairHint.isOk()).toBe(true);
+      expect(repairHint._unsafeUnwrap()).toMatchObject({
+        available: true,
+        mode: 'auto',
+        description: {
+          fallback: expect.stringContaining(
+            'migrates cells that point at removed duplicate choice'
+          ),
+        },
+      });
+      expect(repairHint._unsafeUnwrap()?.description?.fallback).toContain('display');
+    });
+
+    it('should register the select options rule for both single and multiple select fields', () => {
+      const singleField = createRealSingleSelectField({
+        id: 'som003',
+        name: 'Single Status',
+        dbFieldName: 'single_status_col',
+        choices: expectedChoices,
+      })._unsafeUnwrap();
+      const multipleField = createRealMultipleSelectField({
+        id: 'som004',
+        name: 'Multiple Status',
+        dbFieldName: 'multiple_status_col',
+        choices: expectedChoices,
+      })._unsafeUnwrap();
+
+      const singleRules = createFieldSchemaRules(singleField, {
+        schema: TEST_SCHEMA,
+        tableName: TABLE_NAME,
+        tableId: TABLE_NAME,
+      })._unsafeUnwrap();
+      const multipleRules = createFieldSchemaRules(multipleField, {
+        schema: TEST_SCHEMA,
+        tableName: TABLE_NAME,
+        tableId: TABLE_NAME,
+      })._unsafeUnwrap();
+
+      expect(
+        singleRules.some((rule) => rule.id === `select_options:${singleField.id().toString()}`)
+      ).toBe(true);
+      expect(
+        multipleRules.some((rule) => rule.id === `select_options:${multipleField.id().toString()}`)
+      ).toBe(true);
+    });
   });
 
   describe('ReferenceRule', () => {
@@ -2381,7 +2958,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${symmetricFieldId!},
           'Back Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId: field.id().toString() })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId: field.id().toString() })},
           ${FOREIGN_TABLE_NAME}
         )
       `.execute(db);
@@ -2391,7 +2968,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${createValidFieldId('symdup01')},
           'Legacy One Way',
           'link',
-          ${JSON.stringify({ symmetricFieldId, isOneWay: true })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId, isOneWay: true })},
           ${TABLE_NAME}
         )
       `.execute(db);
@@ -2431,7 +3008,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${symmetricFieldId!},
           'Back Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId: field.id().toString() })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId: field.id().toString() })},
           ${FOREIGN_TABLE_NAME}
         )
       `.execute(db);
@@ -2441,7 +3018,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${createValidFieldId('symdup02')},
           'Competing Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId })},
           ${TABLE_NAME}
         )
       `.execute(db);
@@ -2458,6 +3035,95 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(result._unsafeUnwrap().missingItems?.[0]?.message.values).toEqual({
         symmetricFieldId,
         conflictFieldName: 'Competing Link',
+      });
+    });
+  });
+
+  describe('repair hints for high-risk rules', () => {
+    it('explains fk-column repair uses the stored link value column as recovery source', () => {
+      const field = createRealField('fkhint1', 'Link', 'link_col')._unsafeUnwrap();
+      const rule = FkColumnRule.forField(field, 'fk_link_col', 'target_table');
+
+      const repairHint = rule.getRepairHint({} as SchemaRuleContext, { valid: false });
+
+      expect(repairHint.isOk()).toBe(true);
+      expect(repairHint._unsafeUnwrap()).toMatchObject({
+        available: true,
+        mode: 'auto',
+        description: {
+          fallback: expect.stringContaining('underlying table as the recovery source'),
+        },
+      });
+    });
+
+    it('explains junction-table repair only reconstructs relations that still exist in stored link values', () => {
+      const field = createRealLinkField({
+        id: 'jhint01',
+        name: 'Projects',
+        dbFieldName: 'projects_link',
+        relationship: 'manyMany',
+        foreignTableId: createValidTableId('projects'),
+        fkHostTableName: 'projects_junction',
+        selfKeyName: 'task_id',
+        foreignKeyName: 'project_id',
+      })._unsafeUnwrap() as LinkField;
+
+      const rule = new JunctionTableExistsRule(field, {
+        junctionTable: { schema: TEST_SCHEMA, tableName: 'projects_junction' },
+        selfKeyName: 'task_id',
+        foreignKeyName: 'project_id',
+        sourceTable: { schema: TEST_SCHEMA, tableName: 'tasks' },
+        foreignTable: { schema: TEST_SCHEMA, tableName: 'projects' },
+        withIndexes: true,
+      });
+
+      const repairHint = rule.getRepairHint({} as SchemaRuleContext, { valid: false });
+
+      expect(repairHint.isOk()).toBe(true);
+      expect(repairHint._unsafeUnwrap()).toMatchObject({
+        available: true,
+        mode: 'auto',
+        description: {
+          fallback: expect.stringContaining('Missing historical links cannot be recovered'),
+        },
+      });
+    });
+
+    it('explains link-value-column repair may still leave display values empty or stale', () => {
+      const field = createRealField('lvhint1', 'Link Display', 'link_display_col')._unsafeUnwrap();
+      const rule = LinkValueColumnRule.forField(field, 'twoWay');
+
+      const repairHint = rule.getRepairHint({} as SchemaRuleContext, { valid: false });
+
+      expect(repairHint.isOk()).toBe(true);
+      expect(repairHint._unsafeUnwrap()).toMatchObject({
+        available: true,
+        mode: 'auto',
+        description: {
+          fallback: expect.stringContaining('display empty or stale values'),
+        },
+      });
+    });
+
+    it('explains generated-column-meta repair discards old generated display values when recreating a stored column', () => {
+      const field = createCreatedTimeFieldWithGeneratedMeta(
+        'gchint1',
+        'Created At',
+        'created_at_copy',
+        true
+      )._unsafeUnwrap();
+      const generatedRule = GeneratedColumnRule.forCreatedTime(field);
+      const rule = new GeneratedColumnMetaRule(field, generatedRule, generatedRule);
+
+      const repairHint = rule.getRepairHint({} as SchemaRuleContext, { valid: false });
+
+      expect(repairHint.isOk()).toBe(true);
+      expect(repairHint._unsafeUnwrap()).toMatchObject({
+        available: true,
+        mode: 'auto',
+        description: {
+          fallback: expect.stringContaining('old generated display values'),
+        },
       });
     });
   });
@@ -2533,7 +3199,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${symmetricFieldId!},
           'Back Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId: field.id().toString() })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId: field.id().toString() })},
           ${foreignTableName}
         )
       `.execute(db);
@@ -2543,7 +3209,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${createValidFieldId('symmreq3')},
           'Competing Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId })},
           ${table.id().toString()}
         )
       `.execute(db);
@@ -2584,7 +3250,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${symmetricFieldId!},
           'Back Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId: field.id().toString() })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId: field.id().toString() })},
           ${foreignTableName}
         )
       `.execute(db);
@@ -2594,7 +3260,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ${duplicateFieldId},
           'Competing Link',
           'link',
-          ${JSON.stringify({ symmetricFieldId })}::jsonb,
+          ${JSON.stringify({ symmetricFieldId })},
           ${table.id().toString()}
         )
       `.execute(db);
@@ -2821,9 +3487,12 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       );
 
       expect(columnRule?.status).toBe('error');
-      expect(columnRule?.repair).toEqual({
+      expect(columnRule?.repair).toMatchObject({
         available: true,
         mode: 'auto',
+        reason: {
+          fallback: 'Automatic repair will recreate the missing physical column for "Name".',
+        },
       });
     });
 
@@ -3304,6 +3973,23 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           { record_id: 'rec_source_b', fk_value: 'rec_target_b' },
         ]);
 
+        const sourceRows = await sql<{ record_id: string; link_value: unknown }>`
+          SELECT __id AS record_id, link_value
+          FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+          ORDER BY __id
+        `.execute(db);
+
+        expect(sourceRows.rows).toEqual([
+          {
+            record_id: 'rec_source_a',
+            link_value: { id: 'rec_target_a', title: 'Target A' },
+          },
+          {
+            record_id: 'rec_source_b',
+            link_value: { id: 'rec_target_b', title: 'Target B' },
+          },
+        ]);
+
         const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
         const checkResults = await collectFinalResults(
           checker.checkField(table, field.id().toString())
@@ -3400,6 +4086,26 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         { record_id: 'rec_target_c', fk_value: 'rec_source_b' },
       ]);
 
+      const sourceRows = await sql<{ record_id: string; link_value: unknown }>`
+        SELECT __id AS record_id, link_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+        ORDER BY __id
+      `.execute(db);
+
+      expect(sourceRows.rows).toEqual([
+        {
+          record_id: 'rec_source_a',
+          link_value: [
+            { id: 'rec_target_a', title: 'Target A' },
+            { id: 'rec_target_b', title: 'Target B' },
+          ],
+        },
+        {
+          record_id: 'rec_source_b',
+          link_value: [{ id: 'rec_target_c', title: 'Target C' }],
+        },
+      ]);
+
       const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
       const checkResults = await collectFinalResults(
         checker.checkField(table, field.id().toString())
@@ -3493,6 +4199,17 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         { self_id: 'rec_source_a', foreign_id: 'rec_target_a' },
         { self_id: 'rec_source_a', foreign_id: 'rec_target_b' },
       ]);
+
+      const sourceRows = await sql<{ link_value: unknown }>`
+        SELECT link_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+        WHERE __id = 'rec_source_a'
+      `.execute(db);
+
+      expect(sourceRows.rows[0]?.link_value).toEqual([
+        { id: 'rec_target_a', title: 'Target A' },
+        { id: 'rec_target_b', title: 'Target B' },
+      ]);
     });
 
     it('should repair a dropped junction table and backfill manyMany link rows with order', async () => {
@@ -3575,6 +4292,332 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         { self_id: 'rec_source_a', foreign_id: 'rec_target_b', order_value: 1 },
         { self_id: 'rec_source_a', foreign_id: 'rec_target_a', order_value: 2 },
       ]);
+
+      const sourceRows = await sql<{ link_value: unknown }>`
+        SELECT link_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+        WHERE __id = 'rec_source_a'
+      `.execute(db);
+
+      expect(sourceRows.rows[0]?.link_value).toEqual([
+        { id: 'rec_target_b', title: 'Target B' },
+        { id: 'rec_target_a', title: 'Target A' },
+      ]);
+    });
+
+    it('should not backfill a repaired junction table from an ambiguous shared link value column', async () => {
+      const sourceTableName = createValidTableId('src_many_many_ambiguous');
+      const targetTableName = createValidTableId('tgt_many_many_ambiguous');
+      const junctionTableName = 'junction_many_many_ambiguous';
+      const selfKeyName = '__fk_many_many_ambiguous_self';
+      const foreignKeyName = '__fk_many_many_ambiguous_foreign';
+
+      await createTestTable(sourceTableName, ['link_value JSONB']);
+      await createTestTable(targetTableName);
+      await createExplicitTestTable(junctionTableName, [
+        '__id SERIAL PRIMARY KEY',
+        `${selfKeyName} TEXT`,
+        `${foreignKeyName} TEXT`,
+        '__order DOUBLE PRECISION',
+      ]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+          VALUES ('rec_source_a', '[{"id":"rec_target_a","title":"Target A"}]'::jsonb)
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id)
+          VALUES ('rec_target_a')
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: 'ambiguousA',
+        name: 'ManyMany Ambiguous Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: junctionTableName,
+        selfKeyName,
+        foreignKeyName,
+        hasOrderColumn: true,
+      })._unsafeUnwrap();
+      const table = createTableAggregate(sourceTableName, field);
+      const sourceTableId = table.id().toString();
+
+      await sql`
+        INSERT INTO field (id, name, type, table_id, db_field_name)
+        VALUES
+          (${field.id().toString()}, 'ManyMany Ambiguous Link', 'link', ${sourceTableId}, 'link_value'),
+          (${createValidFieldId('otherLinkB')}, 'Other Link', 'link', ${sourceTableId}, 'link_value')
+      `.execute(db);
+
+      await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(table, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `junction_table:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const junctionRows = await sql<{ self_id: string; foreign_id: string }>`
+        SELECT
+          ${sql.id(selfKeyName)} AS self_id,
+          ${sql.id(foreignKeyName)} AS foreign_id
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(junctionTableName)}
+      `.execute(db);
+
+      expect(junctionRows.rows).toEqual([]);
+
+      await sql`DELETE FROM field WHERE table_id = ${sourceTableId}`.execute(db);
+    });
+
+    it('should preserve FK-backed link values after repair and computed backfill', async () => {
+      const sourceTableName = createValidTableId('src_fk_recompute');
+      const targetTableName = createValidTableId('tgt_fk_recompute');
+      const fkColumnName = '__fk_recompute_link';
+      const fieldSeed = 'rpfkrecompute';
+      const lookupFieldId = createValidFieldId(`lookup_${fieldSeed}`);
+
+      await createTestTable(targetTableName, [
+        '__version INTEGER DEFAULT 1',
+        '__auto_number INTEGER',
+        'title_col TEXT',
+      ]);
+      await createTestTable(sourceTableName, [
+        '__version INTEGER DEFAULT 1',
+        'link_value JSONB',
+        `"${fkColumnName}" TEXT`,
+      ]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id, __auto_number, title_col)
+          VALUES ('rec_target_a', 1, 'Target A'), ('rec_target_b', 2, 'Target B')
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value, "${fkColumnName}")
+          VALUES
+            ('rec_source_a', '{"id":"rec_target_a","title":"Target A"}'::jsonb, 'rec_target_a'),
+            ('rec_source_b', '{"id":"rec_target_b","title":"Target B"}'::jsonb, 'rec_target_b')
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: fieldSeed,
+        name: 'FK Recompute Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyOne',
+        foreignTableId: targetTableName,
+        fkHostTableName: `${TEST_SCHEMA}.${sourceTableName}`,
+        selfKeyName: '__id',
+        foreignKeyName: fkColumnName,
+        hasOrderColumn: false,
+      })._unsafeUnwrap();
+      const titleField = createRealFieldWithFieldId(
+        lookupFieldId,
+        'Title',
+        'title_col'
+      )._unsafeUnwrap();
+      const sourceTable = createTableAggregateWithId(sourceTableName, sourceTableName, [field]);
+      const targetTable = createTableAggregateWithId(
+        targetTableName,
+        targetTableName,
+        [titleField],
+        titleField.id()
+      );
+
+      await sql
+        .raw(`ALTER TABLE ${TEST_SCHEMA}.${sourceTableName} DROP COLUMN "${fkColumnName}" CASCADE`)
+        .execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(sourceTable, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `fk_column:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const backfillService = createComputedBackfillService([targetTable]);
+      const backfillResult = await backfillService.backfillMany({} as never, {
+        table: sourceTable,
+        fields: [field],
+      });
+
+      expect(backfillResult.isOk()).toBe(true);
+
+      const sourceRows = await sql<{ record_id: string; link_value: unknown }>`
+        SELECT __id AS record_id, link_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+        ORDER BY __id
+      `.execute(db);
+
+      expect(sourceRows.rows).toEqual([
+        {
+          record_id: 'rec_source_a',
+          link_value: { id: 'rec_target_a', title: 'Target A' },
+        },
+        {
+          record_id: 'rec_source_b',
+          link_value: { id: 'rec_target_b', title: 'Target B' },
+        },
+      ]);
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(sourceTable, field.id().toString())
+      );
+      expect(
+        checkResults.find((result) => result.ruleId === `fk_column:${field.id().toString()}`)
+          ?.status
+      ).toBe('success');
+      expect(
+        checkResults.find(
+          (result) => result.ruleId === `fk:${field.id().toString()}:${fkColumnName}`
+        )?.status
+      ).toBe('success');
+    });
+
+    it('should preserve junction-backed link values after repair and computed backfill', async () => {
+      const sourceTableName = createValidTableId('src_junction_recompute');
+      const targetTableName = createValidTableId('tgt_junction_recompute');
+      const junctionTableName = 'junction_recompute_link';
+      const selfKeyName = '__fk_recompute_self';
+      const foreignKeyName = '__fk_recompute_foreign';
+      const fieldSeed = 'rpjctrecompute';
+      const lookupFieldId = createValidFieldId(`lookup_${fieldSeed}`);
+
+      await createTestTable(sourceTableName, ['__version INTEGER DEFAULT 1', 'link_value JSONB']);
+      await createTestTable(targetTableName, [
+        '__version INTEGER DEFAULT 1',
+        '__auto_number INTEGER',
+        'title_col TEXT',
+      ]);
+      await createExplicitTestTable(junctionTableName, [
+        '__id SERIAL PRIMARY KEY',
+        `"${selfKeyName}" TEXT`,
+        `"${foreignKeyName}" TEXT`,
+        '__order DOUBLE PRECISION',
+      ]);
+
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${sourceTableName} (__id, link_value)
+          VALUES
+            ('rec_source_a', '[{"id":"rec_target_b","title":"Target B"},{"id":"rec_target_a","title":"Target A"}]'::jsonb)
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${targetTableName} (__id, __auto_number, title_col)
+          VALUES ('rec_target_a', 1, 'Target A'), ('rec_target_b', 2, 'Target B')
+        `
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `
+          INSERT INTO ${TEST_SCHEMA}.${junctionTableName} ("${selfKeyName}", "${foreignKeyName}", "__order")
+          VALUES ('rec_source_a', 'rec_target_b', 1), ('rec_source_a', 'rec_target_a', 2)
+        `
+        )
+        .execute(db);
+
+      const field = createRealLinkField({
+        id: fieldSeed,
+        name: 'Junction Recompute Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: `${TEST_SCHEMA}.${junctionTableName}`,
+        selfKeyName,
+        foreignKeyName,
+        hasOrderColumn: true,
+      })._unsafeUnwrap();
+      const titleField = createRealFieldWithFieldId(
+        lookupFieldId,
+        'Title',
+        'title_col'
+      )._unsafeUnwrap();
+      const sourceTable = createTableAggregateWithId(sourceTableName, sourceTableName, [field]);
+      const targetTable = createTableAggregateWithId(
+        targetTableName,
+        targetTableName,
+        [titleField],
+        titleField.id()
+      );
+
+      await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairField(sourceTable, field.id().toString())
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === `junction_table:${field.id().toString()}`)
+          ?.outcome
+      ).toBe('repaired');
+
+      const backfillService = createComputedBackfillService([targetTable]);
+      const backfillResult = await backfillService.backfillMany({} as never, {
+        table: sourceTable,
+        fields: [field],
+      });
+
+      expect(backfillResult.isOk()).toBe(true);
+
+      const sourceRows = await sql<{ link_value: unknown }>`
+        SELECT link_value
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(sourceTableName)}
+        WHERE __id = 'rec_source_a'
+      `.execute(db);
+
+      expect(sourceRows.rows[0]?.link_value).toEqual([
+        { id: 'rec_target_b', title: 'Target B' },
+        { id: 'rec_target_a', title: 'Target A' },
+      ]);
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(sourceTable, field.id().toString())
+      );
+      expect(
+        checkResults.find((result) => result.ruleId === `junction_table:${field.id().toString()}`)
+          ?.status
+      ).toBe('success');
+      expect(
+        checkResults.find((result) => result.ruleId === `junction_fk:${field.id().toString()}:self`)
+          ?.status
+      ).toBe('success');
+      expect(
+        checkResults.find(
+          (result) => result.ruleId === `junction_fk:${field.id().toString()}:foreign`
+        )?.status
+      ).toBe('success');
     });
 
     it('should repair a single reference rule using a checker-provided rule id', async () => {
@@ -3979,7 +5022,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         })._unsafeUnwrap();
         const table = createTableAggregate(sourceTableName, field);
 
-        await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'Field Meta Rule', '{}') ON CONFLICT (id) DO UPDATE SET meta = '{}'::jsonb`.execute(
+        await sql`INSERT INTO field (id, name, meta) VALUES (${field.id().toString()}, 'Field Meta Rule', '{}') ON CONFLICT (id) DO UPDATE SET meta = '{}'`.execute(
           db
         );
 
@@ -3988,13 +5031,17 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           fieldId: field.id().toString(),
           ruleId: `field_meta:${field.id().toString()}`,
           verifyAfterRepair: async () => {
-            const record = await sql<{ meta: Record<string, unknown> }>`
+            const record = await sql<{ meta: string | Record<string, unknown> }>`
               SELECT meta
               FROM field
               WHERE id = ${field.id().toString()}
             `.execute(db);
+            const meta =
+              typeof record.rows[0]?.meta === 'string'
+                ? JSON.parse(record.rows[0].meta)
+                : record.rows[0]?.meta;
 
-            expect(record.rows[0]?.meta).toMatchObject({ hasOrderColumn: true });
+            expect(meta).toMatchObject({ hasOrderColumn: true });
           },
         });
       });

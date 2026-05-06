@@ -188,23 +188,23 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               <DropdownMenuContent>
                 {!!onDuplicate && (
                   <DropdownMenuItem
-                    className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm outline-none"
+                    className="flex cursor-pointer items-center gap-2 text-sm outline-none"
                     onClick={async () => {
                       await onDuplicate();
                       setTimeout(() => onClose?.(), 100);
                     }}
                   >
-                    <CopyPlus /> {t('expandRecord.duplicateRecord')}
+                    <CopyPlus className="size-4 shrink-0" /> {t('expandRecord.duplicateRecord')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+                  className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
                   onClick={async () => {
                     await onDelete?.();
                     setTimeout(() => onClose?.(), 100);
                   }}
                 >
-                  <Trash /> {t('expandRecord.deleteRecord')}
+                  <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

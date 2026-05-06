@@ -2,7 +2,8 @@ import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
   registerV2PostgresPgliteDb,
-  v2PostgresDbTokens,
+  v2DataDbTokens,
+  v2MetaDbTokens,
 } from '@teable/v2-adapter-db-postgres-pglite';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
@@ -75,16 +76,17 @@ export const registerV2BrowserPgliteDependencies = async (
     pg: { connectionString },
   });
 
-  const db = c.resolve(v2PostgresDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
+  const metaDb = c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
+  const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
 
   await registerV2PostgresStateAdapter(c, {
-    db,
+    db: metaDb,
     ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
     ...(options.maxFreeRowLimit ? { maxFreeRowLimit: options.maxFreeRowLimit } : {}),
   });
 
-  registerV2TableRepositoryPostgresAdapter(c, { db });
+  registerV2TableRepositoryPostgresAdapter(c, { db: dataDb });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,

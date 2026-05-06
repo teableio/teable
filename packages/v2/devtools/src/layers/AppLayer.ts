@@ -9,6 +9,7 @@ import type { MockRecords } from '../services/MockRecords';
 import type { Output } from '../services/Output';
 import type { RecordMutation } from '../services/RecordMutation';
 import type { SchemaChecker } from '../services/SchemaChecker';
+import type { SchemaOperationControl } from '../services/SchemaOperationControl';
 import type { SchemaRepairer } from '../services/SchemaRepairer';
 import type { TableCreator } from '../services/TableCreator';
 import { CommandExplainLive } from './CommandExplainLive';
@@ -21,6 +22,7 @@ import { MockRecordsLive } from './MockRecordsLive';
 import { OutputLive } from './OutputLive';
 import { RecordMutationLive } from './RecordMutationLive';
 import { SchemaCheckerLive } from './SchemaCheckerLive';
+import { SchemaOperationControlLive } from './SchemaOperationControlLive';
 import { SchemaRepairerLive } from './SchemaRepairerLive';
 import { TableCreatorLive } from './TableCreatorLive';
 
@@ -68,6 +70,7 @@ export const FullLayer = (connectionString?: string) => {
     ComputedTaskInspectorLive.pipe(Layer.provide(dbLayer)),
     MockRecordsLive.pipe(Layer.provide(dbLayer)),
     SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
+    SchemaOperationControlLive.pipe(Layer.provide(dbLayer)),
     SchemaRepairerLive.pipe(Layer.provide(dbLayer)),
     TableCreatorLive.pipe(Layer.provide(dbLayer)),
     DotTeaImporterLive.pipe(Layer.provide(dbLayer)),
@@ -86,6 +89,7 @@ export type AppLayerType = Layer.Layer<
     ComputedTaskInspector['Type'] &
     MockRecords['Type'] &
     SchemaChecker['Type'] &
+    SchemaOperationControl['Type'] &
     SchemaRepairer['Type'] &
     TableCreator['Type'] &
     DotTeaImporter['Type'] &

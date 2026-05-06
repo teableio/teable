@@ -44,6 +44,7 @@ import {
   TableDomain,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   CreateRecordAction,
   ICreateRecordsRo,
@@ -69,6 +70,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Events } from '../../event-emitter/events';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
@@ -122,13 +124,14 @@ export class RecordService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly batchService: BatchService,
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly recordPermissionService: RecordPermissionService,
     private readonly tableIndexService: TableIndexService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly dataLoaderService: DataLoaderService,
@@ -181,7 +184,7 @@ export class RecordService {
       .toSQL()
       .toNative();
 
-    const rows = await this.prismaService
+    const rows = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<IGeneratedColumnStateRow[]>(sqlNative.sql, ...sqlNative.bindings);
     const columnStateMap = new Map(rows.map((row) => [row.column_name, row.is_generated]));
@@ -221,7 +224,7 @@ export class RecordService {
   async getAllRecordCount(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
-    const queryResult = await this.prismaService
+    const queryResult = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
     return Number(queryResult[0]?.count ?? 0);
@@ -276,6 +279,7 @@ export class RecordService {
 
   private async getLinkCellIds(tableId: string, field: IFieldInstance, recordId: string) {
     const prisma = this.prismaService.txClient();
+    const dataPrisma = this.dataPrismaService.txClient();
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -292,7 +296,7 @@ export class RecordService {
     );
     const sql = queryBuilder.where('__id', recordId).toQuery();
 
-    const result = await prisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
+    const result = await dataPrisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
     return result
       .map((item) => {
         return field.convertDBValue2CellValue(item[field.dbFieldName]) as
@@ -769,7 +773,7 @@ export class RecordService {
     const exists = await this.dbProvider.checkColumnExist(
       dbTableName,
       columnName,
-      this.prismaService.txClient()
+      this.dataPrismaService.txClient()
     );
 
     if (exists) {
@@ -1109,7 +1113,7 @@ export class RecordService {
   async getMaxRecordOrder(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).max('__auto_number', { as: 'max' }).toSQL().toNative();
 
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ max?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
 
@@ -1123,7 +1127,7 @@ export class RecordService {
       .select('__id as id', '__version as version')
       .whereIn('__id', recordIds)
       .toQuery();
-    const recordRaw = await this.prismaService
+    const recordRaw = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
@@ -1156,7 +1160,7 @@ export class RecordService {
 
   private async getViewIndexColumns(dbTableName: string) {
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
-    const columns = await this.prismaService
+    const columns = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
     return columns
@@ -1199,7 +1203,7 @@ export class RecordService {
       .select('__id')
       .whereIn('__id', recordIds)
       .toQuery();
-    const indexValues = await this.prismaService
+    const indexValues = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<Record<string, number>[]>(indexQuery);
 
@@ -1247,7 +1251,7 @@ export class RecordService {
       .filter(Boolean) as string[];
 
     for (const sql of updateRecordSqls) {
-      await this.prismaService.txClient().$executeRawUnsafe(sql);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
     }
   }
 
@@ -1331,7 +1335,7 @@ export class RecordService {
       });
     });
     const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
-    await this.prismaService.txClient().$executeRawUnsafe(sql);
+    await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
   }
 
   async creditCheck(tableId: string) {
@@ -1370,7 +1374,9 @@ export class RecordService {
 
   private async getAllViewIndexesField(dbTableName: string) {
     const query = this.dbProvider.columnInfo(dbTableName);
-    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
+    const columns = await this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(query);
     return columns
       .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
       .map((column) => column.name)
@@ -1548,7 +1554,7 @@ export class RecordService {
     );
 
     await handleDBValidationErrors({
-      fn: () => this.prismaService.txClient().$executeRawUnsafe(sql),
+      fn: () => this.dataPrismaService.txClient().$executeRawUnsafe(sql),
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Fields ${validationFields.map((f) => f.id).join(', ')} unique validation failed`,
@@ -1588,7 +1594,7 @@ export class RecordService {
     const dbTableName = await this.getDbTableName(tableId);
 
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
-    await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
+    await this.dataPrismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
   public async getFieldsByProjection(
@@ -1819,7 +1825,7 @@ export class RecordService {
 
     let result: ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[];
     try {
-      result = await this.prismaService
+      result = await this.dataPrismaService
         .txClient()
         .$queryRawUnsafe<
           ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
@@ -2002,7 +2008,7 @@ export class RecordService {
     this.logger.debug('getRecordsQuery: %s', sqlDebug);
     let result: { __id: string }[];
     try {
-      result = await this.prismaService
+      result = await this.dataPrismaService
         .txClient()
         .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
     } catch (error) {
@@ -2140,6 +2146,9 @@ export class RecordService {
               return false;
             }
             if (isSearchAllFields) {
+              if (field.cellValueType === CellValueType.DateTime) {
+                return false;
+              }
               if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
                 return false;
               }
@@ -2218,7 +2227,9 @@ export class RecordService {
     this.logger.debug('getSearchHitIndex query: %s', searchQuery);
 
     const result =
-      await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
+      await this.dataPrismaService
+        .txClient()
+        .$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
 
     if (!result.length) {
       return null;
@@ -2294,7 +2305,7 @@ export class RecordService {
 
     this.logger.debug('getRecordsFields query: %s', sql);
 
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(sql);
 
@@ -2339,7 +2350,9 @@ export class RecordService {
 
     const querySql = queryBuilder.toQuery();
 
-    return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+    return this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
   }
 
   async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
@@ -2352,7 +2365,7 @@ export class RecordService {
 
     const querySql = queryBuilder.toQuery();
 
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ id: string; title: unknown }[]>(querySql);
 
@@ -2375,7 +2388,7 @@ export class RecordService {
       true
     );
     queryBuilder.whereIn(`${alias}.__id`, recordIds);
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     return result.map((r) => r.__id);
@@ -2587,7 +2600,7 @@ export class RecordService {
     const rowCountSql = qb.count({ count: '*' });
     const sql = rowCountSql.toQuery();
     this.logger.debug('getRowCountSql: %s', sql);
-    const result = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(sql);
+    const result = await this.dataPrismaService.txClient().$queryRawUnsafe<{ count?: number }[]>(sql);
     return Number(result[0].count);
   }
 
@@ -2698,7 +2711,7 @@ export class RecordService {
 
     try {
       const result =
-        await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
+        await this.dataPrismaService.txClient().$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
           groupSql
         );
       const pointsResult = await this.groupDbCollection2GroupPoints(
@@ -2737,7 +2750,7 @@ export class RecordService {
     const dbTableName = await this.getDbTableName(tableId);
     const queryBuilder = this.knex(dbTableName).select('__id').where('__id', recordId).limit(1);
 
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
 
@@ -2826,25 +2839,38 @@ export class RecordService {
       isMultipleCellValue
     );
 
-    const resQuery = this.knex('users')
-      .with('coll', collaboratorsQueryBuilder)
-      .select('id', 'email', 'name', 'avatar')
-      .from('coll')
-      .leftJoin('users', 'users.id', '=', 'coll.user_id')
-      .limit(take ?? 50)
-      .offset(skip ?? 0);
-    if (search) {
-      this.dbProvider.searchBuilder(resQuery, [
-        ['users.name', search],
-        ['users.email', search],
-      ]);
-    }
-    const users = await this.prismaService
+    const collaboratorIdsQuery = collaboratorsQueryBuilder.distinct('user_id').toQuery();
+    const collaboratorIds = await this.dataPrismaService
       .txClient()
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      .$queryRawUnsafe<{ id: string; email: string; name: string; avatar: string | null }[]>(
-        resQuery.toQuery()
-      );
+      .$queryRawUnsafe<{ user_id: string | null }[]>(collaboratorIdsQuery);
+    const userIds = Array.from(
+      new Set(
+        collaboratorIds
+          .map(({ user_id }) => user_id)
+          .filter((userId): userId is string => Boolean(userId))
+      )
+    );
+
+    if (!userIds.length) {
+      return [];
+    }
+
+    const users = await this.prismaService.txClient().user.findMany({
+      where: {
+        id: { in: userIds },
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: { id: true, email: true, name: true, avatar: true },
+      take: take ?? 50,
+      skip: skip ?? 0,
+    });
 
     return users.map(({ id, email, name, avatar }) => ({
       userId: id,

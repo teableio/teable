@@ -1,5 +1,6 @@
 export const v2RecordRepositoryPostgresTokens = {
   db: Symbol('v2.adapter.recordRepositoryPostgres.db'),
+  metaDb: Symbol('v2.adapter.recordRepositoryPostgres.metaDb'),
   recordMutationSnapshotCaptureService: Symbol(
     'v2.adapter.recordRepositoryPostgres.recordMutationSnapshotCaptureService'
   ),

@@ -7,7 +7,8 @@ import {
   Role,
   generateTemplateId,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -54,6 +55,7 @@ export class BaseService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
@@ -103,6 +105,7 @@ export class BaseService {
           name: true,
           icon: true,
           spaceId: true,
+          v2Enabled: true,
           createdBy: true,
         },
         where: {
@@ -124,18 +127,25 @@ export class BaseService {
         ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
         : await this.getRoleByBaseId(baseId, base.spaceId);
 
-    // Check if this base's space is in canary release
-    const isCanary = await this.canaryService.isSpaceInCanary(base.spaceId);
+    const [v2Status, isCanary] = await Promise.all([
+      this.canaryService.shouldUseV2ForBaseWithReason(base, 'getRecords'),
+      this.canaryService.isSpaceInCanary(base.spaceId),
+    ]);
 
     return {
-      ...base,
+      id: base.id,
+      name: base.name,
+      icon: base.icon,
+      spaceId: base.spaceId,
+      createdBy: base.createdBy,
       role,
       collaboratorType,
       template:
         template?.baseId === baseId
           ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
           : undefined,
-      isCanary: isCanary || undefined, // Only include if true
+      isCanary: isCanary || undefined,
+      v2Status,
     };
   }
 
@@ -216,36 +226,54 @@ export class BaseService {
   async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
     const { name, spaceId, icon } = createBaseRo;
+    const order = (await this.getMaxOrder(spaceId)) + 1;
 
-    return this.prismaService.$transaction(async (prisma) => {
-      const order = (await this.getMaxOrder(spaceId)) + 1;
+    const base = await this.prismaService.base.create({
+      data: {
+        id: generateBaseId(),
+        name: name || 'Untitled Base',
+        spaceId,
+        order,
+        icon,
+        v2Enabled: true,
+        createdBy: userId,
+        provisionState: ProvisionState.pending,
+      },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        spaceId: true,
+      },
+    });
 
-      const base = await prisma.base.create({
-        data: {
-          id: generateBaseId(),
-          name: name || 'Untitled Base',
-          spaceId,
-          order,
-          icon,
-          createdBy: userId,
-        },
-        select: {
-          id: true,
-          name: true,
-          icon: true,
-          spaceId: true,
-        },
-      });
-
+    try {
       const sqlList = this.dbProvider.createSchema(base.id);
       if (sqlList) {
         for (const sql of sqlList) {
-          await prisma.$executeRawUnsafe(sql);
+          await this.dataPrismaService.$executeRawUnsafe(sql);
         }
       }
 
+      await this.prismaService.base.update({
+        where: { id: base.id },
+        data: {
+          provisionState: ProvisionState.ready,
+          lastModifiedBy: userId,
+        },
+      });
+
       return base;
-    });
+    } catch (error) {
+      await this.prismaService.base.update({
+        where: { id: base.id },
+        data: {
+          provisionState: ProvisionState.error,
+          lastModifiedBy: userId,
+        },
+      });
+      throw error;
+    }
   }
 
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
@@ -351,7 +379,11 @@ export class BaseService {
     const userId = this.cls.get('user.id');
 
     await this.prismaService.base.update({
-      data: { deletedTime: new Date(), lastModifiedBy: userId },
+      data: {
+        deletedTime: new Date(),
+        lastModifiedBy: userId,
+        provisionState: ProvisionState.deleting,
+      },
       where: { id: baseId, deletedTime: null },
     });
   }
@@ -604,7 +636,7 @@ export class BaseService {
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
     if (sql) {
-      return await this.prismaService.txClient().$executeRawUnsafe(sql);
+      return await this.dataPrismaService.$executeRawUnsafe(sql);
     }
     await this.tableOpenApiService.dropTables(tableIds);
   }

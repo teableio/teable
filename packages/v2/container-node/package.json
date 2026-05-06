@@ -38,7 +38,8 @@
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-core": "workspace:*",
-    "@teable/v2-di": "workspace:*"
+    "@teable/v2-di": "workspace:*",
+    "@teable/v2-dottea": "workspace:*"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

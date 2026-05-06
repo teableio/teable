@@ -9,7 +9,8 @@ import {
   HttpErrorCode,
 } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import {
   CreateRecordAction,
   type IDuplicateTableRo,
@@ -20,12 +21,12 @@ import { Knex } from 'knex';
 import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
@@ -43,13 +44,14 @@ export class TableDuplicateService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly tableService: TableService,
     private readonly fieldOpenService: FieldOpenApiService,
     private readonly fieldDuplicateService: FieldDuplicateService,
     private readonly dataLoaderService: DataLoaderService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     private readonly eventEmitterService: EventEmitterService
   ) {}
 
@@ -74,76 +76,101 @@ export class TableDuplicateService {
     } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
     });
-    return await this.prismaService.$tx(
-      async () => {
-        const newTableVo = await this.tableService.createTable(baseId, {
-          name,
-          icon,
-          description,
-        });
-        const sourceToTargetFieldMap = await this.duplicateFields(sourceTableId, newTableVo.id);
-        const sourceToTargetViewMap = await this.duplicateViews(
-          sourceTableId,
-          newTableVo.id,
-          sourceToTargetFieldMap
-        );
-        await this.repairDuplicateOmit(
-          sourceToTargetFieldMap,
-          sourceToTargetViewMap,
-          newTableVo.id
-        );
-
-        if (includeRecords) {
-          const count = await this.duplicateTableData(
-            dbTableName,
-            newTableVo.dbTableName,
-            sourceToTargetViewMap,
-            sourceToTargetFieldMap,
-            []
-          );
-
-          await this.emitTableDuplicateAuditLog(newTableVo.id, count, duplicateRo);
-
-          await this.duplicateAttachments(sourceTableId, newTableVo.id, sourceToTargetFieldMap);
-          await this.duplicateLinkJunction(
-            { [sourceTableId]: newTableVo.id },
-            sourceToTargetFieldMap
-          );
+    const userId = this.cls.get('user.id');
+    let newTableVo:
+      | {
+          id: string;
+          dbTableName: string;
         }
+      | undefined;
 
-        const viewPlain = await this.prismaService.txClient().view.findMany({
-          where: {
-            tableId: newTableVo.id,
-            deletedTime: null,
-          },
-          orderBy: {
-            order: 'asc',
-          },
-        });
+    try {
+      newTableVo = await this.tableService.createTable(baseId, {
+        name,
+        icon,
+        description,
+      });
 
-        const fieldPlain = await this.prismaService.txClient().field.findMany({
-          where: {
-            tableId: newTableVo.id,
-            deletedTime: null,
-          },
-          orderBy: {
-            createdTime: 'asc',
-          },
-        });
+      await this.prismaService.tableMeta.update({
+        where: { id: newTableVo.id },
+        data: {
+          provisionState: ProvisionState.pending,
+          lastModifiedBy: userId,
+        },
+      });
 
-        return {
-          ...newTableVo,
-          views: viewPlain.map((v) => createViewVoByRaw(v)),
-          fields: fieldPlain.map((f) => omit(rawField2FieldObj(f), ['meta'])),
-          viewMap: sourceToTargetViewMap,
-          fieldMap: sourceToTargetFieldMap,
-          defaultViewId: viewPlain[0]?.id,
-        } as IDuplicateTableVo;
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
+      const sourceToTargetFieldMap = await this.duplicateFields(sourceTableId, newTableVo.id);
+      const sourceToTargetViewMap = await this.duplicateViews(
+        sourceTableId,
+        newTableVo.id,
+        sourceToTargetFieldMap
+      );
+      await this.repairDuplicateOmit(sourceToTargetFieldMap, sourceToTargetViewMap, newTableVo.id);
+
+      if (includeRecords) {
+        const count = await this.duplicateTableData(
+          dbTableName,
+          newTableVo.dbTableName,
+          sourceToTargetViewMap,
+          sourceToTargetFieldMap,
+          []
+        );
+
+        await this.duplicateAttachments(sourceTableId, newTableVo.id, sourceToTargetFieldMap);
+        await this.duplicateLinkJunction({ [sourceTableId]: newTableVo.id }, sourceToTargetFieldMap);
+        await this.emitTableDuplicateAuditLog(newTableVo.id, count, duplicateRo);
       }
-    );
+
+      const viewPlain = await this.prismaService.txClient().view.findMany({
+        where: {
+          tableId: newTableVo.id,
+          deletedTime: null,
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      });
+
+      const fieldPlain = await this.prismaService.txClient().field.findMany({
+        where: {
+          tableId: newTableVo.id,
+          deletedTime: null,
+        },
+        orderBy: {
+          createdTime: 'asc',
+        },
+      });
+
+      await this.prismaService.tableMeta.update({
+        where: { id: newTableVo.id },
+        data: {
+          provisionState: ProvisionState.ready,
+          lastModifiedBy: userId,
+        },
+      });
+
+      return {
+        ...newTableVo,
+        views: viewPlain.map((v) => createViewVoByRaw(v)),
+        fields: fieldPlain.map((f) => omit(rawField2FieldObj(f), ['meta'])),
+        viewMap: sourceToTargetViewMap,
+        fieldMap: sourceToTargetFieldMap,
+        defaultViewId: viewPlain[0]?.id,
+      } as IDuplicateTableVo;
+    } catch (error) {
+      if (newTableVo?.id) {
+        await this.prismaService.tableMeta
+          .update({
+            where: { id: newTableVo.id },
+            data: {
+              provisionState: ProvisionState.error,
+              lastModifiedBy: userId,
+            },
+          })
+          .catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   async duplicateTableData(
@@ -153,8 +180,9 @@ export class TableDuplicateService {
     sourceToTargetFieldMap: Record<string, string>,
     crossBaseLinkInfo: { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
   ) {
-    const prisma = this.prismaService.txClient();
-    const qb = this.knex.queryBuilder();
+    const prisma = this.dataPrismaService.txClient();
+    const metaPrisma = this.prismaService.txClient();
+    const qb = this.dataKnex.queryBuilder();
 
     const columnInfoQuery = this.dbProvider.columnInfo(sourceDbTableName);
 
@@ -195,12 +223,12 @@ export class TableDuplicateService {
     // because generated columns cannot be directly inserted into
     let computedDbFieldNames: string[] = [];
     try {
-      const targetTable = await prisma.tableMeta.findFirst({
+      const targetTable = await metaPrisma.tableMeta.findFirst({
         where: { dbTableName: targetDbTableName, deletedTime: null },
         select: { id: true },
       });
       if (targetTable?.id) {
-        const computedFields = await prisma.field.findMany({
+        const computedFields = await metaPrisma.field.findMany({
           where: { tableId: targetTable.id, deletedTime: null, isComputed: true },
           select: { dbFieldName: true },
         });
@@ -246,7 +274,7 @@ export class TableDuplicateService {
       '__last_modified_by',
     ];
 
-    const excludeFields = await prisma.field.findMany({
+    const excludeFields = await metaPrisma.field.findMany({
       where: {
         id: {
           in: Object.keys(sourceToTargetFieldMap),
@@ -287,7 +315,7 @@ export class TableDuplicateService {
       )
       .toQuery();
 
-    const sourceTableCountSql = await this.knex(sourceDbTableName)
+    const sourceTableCountSql = this.dataKnex(sourceDbTableName)
       .count('*', { as: 'count' })
       .toQuery();
 
@@ -300,7 +328,7 @@ export class TableDuplicateService {
   }
 
   private async createRowOrderField(dbTableName: string, viewId: string) {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
 
     const rowIndexFieldName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
 
@@ -312,7 +340,7 @@ export class TableDuplicateService {
 
     if (!columnExists) {
       // add a field for maintain row order number
-      const addRowIndexColumnSql = this.knex.schema
+      const addRowIndexColumnSql = this.dataKnex.schema
         .alterTable(dbTableName, (table) => {
           table.double(rowIndexFieldName);
         })
@@ -322,7 +350,7 @@ export class TableDuplicateService {
 
     // create index
     const indexName = `idx_${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
-    const createRowIndexSQL = this.knex
+    const createRowIndexSQL = this.dataKnex
       .raw(
         `
   CREATE INDEX IF NOT EXISTS ?? ON ?? (??)
@@ -335,14 +363,14 @@ export class TableDuplicateService {
   }
 
   private async createFkField(dbTableName: string, fieldId: string) {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
 
     const fkFieldName = `__fk_${fieldId}`;
 
     const columnExists = await this.dbProvider.checkColumnExist(dbTableName, fkFieldName, prisma);
 
     if (!columnExists) {
-      const addFkColumnSql = this.knex.schema
+      const addFkColumnSql = this.dataKnex.schema
         .alterTable(dbTableName, (table) => {
           table.string(fkFieldName);
         })
@@ -554,11 +582,11 @@ export class TableDuplicateService {
 
       // Only attempt to rename if a physical column exists.
       // Link fields do not create standard columns; self-link symmetric side definitely doesn't.
-      const prisma = this.prismaService.txClient();
+      const dataPrisma = this.dataPrismaService.txClient();
       const exists = await this.dbProvider.checkColumnExist(
         targetDbTableName,
         genDbFieldName,
-        prisma
+        dataPrisma
       );
       if (exists) {
         const alterTableSql = this.dbProvider.renameColumn(
@@ -567,7 +595,7 @@ export class TableDuplicateService {
           groupField.dbFieldName
         );
         for (const sql of alterTableSql) {
-          await prisma.$executeRawUnsafe(sql);
+          await dataPrisma.$executeRawUnsafe(sql);
         }
       }
     }
@@ -867,8 +895,9 @@ export class TableDuplicateService {
     allowCrossBase: boolean = true,
     disconnectedLinkFieldIds?: string[]
   ) {
-    const prisma = this.prismaService.txClient();
-    const sourceLinkFieldRaws = await prisma.field.findMany({
+    const metaPrisma = this.prismaService.txClient();
+    const dataPrisma = this.dataPrismaService.txClient();
+    const sourceLinkFieldRaws = await metaPrisma.field.findMany({
       where: {
         tableId: { in: Object.keys(tableIdMap) },
         type: FieldType.Link,
@@ -876,7 +905,7 @@ export class TableDuplicateService {
       },
     });
 
-    const targetLinkFieldRaws = await prisma.field.findMany({
+    const targetLinkFieldRaws = await metaPrisma.field.findMany({
       where: {
         tableId: { in: Object.values(tableIdMap) },
         type: FieldType.Link,
@@ -947,14 +976,14 @@ export class TableDuplicateService {
         targetForeignKeyName,
         targetFkHostTableName,
       } = targetJunctionInfo;
-      const sql = this.knex
+      const sql = this.dataKnex
         .raw(
           `INSERT INTO ?? ("${targetSelfKeyName}","${targetForeignKeyName}") SELECT "${sourceSelfKeyName}", "${sourceForeignKeyName}" FROM ??`,
           [targetFkHostTableName, sourceJunctionDbTableName]
         )
         .toQuery();
 
-      await prisma.$executeRawUnsafe(sql);
+      await dataPrisma.$executeRawUnsafe(sql);
     }
   }
 

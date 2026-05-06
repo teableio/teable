@@ -19,6 +19,7 @@ export const restoreRecordsInputSchema = z.object({
         createdBy: z.string().optional(),
         lastModifiedTime: z.string().optional(),
         lastModifiedBy: z.string().optional(),
+        extraColumnValues: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .min(1, 'At least one record is required'),

@@ -7,6 +7,11 @@ import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IExecutionContext } from './ExecutionContext';
 import type { IFindOptions } from './RepositoryQuery';
+import type {
+  SchemaOperationPhase,
+  SchemaOperationStatus,
+  SchemaOperationType,
+} from './SchemaOperationRepository';
 
 export type TableQueryState = 'active' | 'deleted' | 'all';
 
@@ -32,6 +37,20 @@ export type TableUpdatePersistResult = {
 };
 
 export type TableDeleteMode = 'soft' | 'permanent';
+export type TableProvisionState = 'pending' | 'ready' | 'error' | 'deleting';
+
+export type TableProvisionOperationOptions = {
+  operationId?: string;
+  idempotencyKey?: string;
+  operationType?: SchemaOperationType;
+  phase?: SchemaOperationPhase;
+  status?: SchemaOperationStatus;
+  payload?: unknown;
+  result?: unknown;
+  lastError?: string | null;
+  maxAttempts?: number;
+  nextRunAt?: Date;
+};
 
 export type TableDeleteOptions = {
   mode?: TableDeleteMode;
@@ -64,5 +83,17 @@ export interface ITableRepository {
     context: IExecutionContext,
     table: Table,
     options?: TableDeleteOptions
+  ): Promise<Result<void, DomainError>>;
+  setProvisionState?(
+    context: IExecutionContext,
+    table: Table,
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
+  ): Promise<Result<void, DomainError>>;
+  setProvisionStateMany?(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>>;
 }

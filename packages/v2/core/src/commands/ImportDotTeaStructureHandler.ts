@@ -4,15 +4,25 @@ import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
+import {
+  beginTablesSchemaOperation,
+  completeTablesSchemaOperation,
+  failTablesSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
+import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
+import { ViewId } from '../domain/table/views/ViewId';
 import * as DotTeaParserPort from '../ports/DotTeaParser';
+import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
@@ -105,19 +115,50 @@ const sortTablesByForeignDependencies = (
 export class ImportDotTeaStructureResult {
   private constructor(
     readonly baseId: string,
-    readonly tables: ReadonlyArray<{ id: string; name: string }>
+    readonly tables: ReadonlyArray<{ id: string; name: string }>,
+    readonly tableIdMap: Record<string, string>,
+    readonly fieldIdMap: Record<string, string>,
+    readonly viewIdMap: Record<string, string>
   ) {}
 
-  static create(baseId: string, tables: ReadonlyArray<Table>): ImportDotTeaStructureResult {
+  static create(
+    baseId: string,
+    tables: ReadonlyArray<Table>,
+    maps: {
+      tableIdMap: Record<string, string>;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+    }
+  ): ImportDotTeaStructureResult {
     return new ImportDotTeaStructureResult(
       baseId,
       tables.map((table) => ({
         id: table.id().toString(),
         name: table.name().toString(),
-      }))
+      })),
+      maps.tableIdMap,
+      maps.fieldIdMap,
+      maps.viewIdMap
     );
   }
 }
+
+const replaceMappedIds = <T>(value: T, replacements: ReadonlyMap<string, string>): T => {
+  if (value == null || replacements.size === 0) {
+    return value;
+  }
+
+  let serialized = JSON.stringify(value);
+  if (serialized == null) {
+    return value;
+  }
+
+  for (const [sourceId, targetId] of replacements) {
+    serialized = serialized.split(sourceId).join(targetId);
+  }
+
+  return JSON.parse(serialized) as T;
+};
 
 @CommandHandler(ImportDotTeaStructureCommand)
 @injectable()
@@ -129,6 +170,8 @@ export class ImportDotTeaStructureHandler
     private readonly dotTeaParser: DotTeaParserPort.IDotTeaParser,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableCreationService)
     private readonly tableCreationService: TableCreationService,
     @inject(v2CoreTokens.eventBus)
@@ -155,17 +198,93 @@ export class ImportDotTeaStructureHandler
         );
       }
 
+      const tableIdMap: Record<string, string> = {};
+      const fieldIdMap: Record<string, string> = {};
+      const viewIdMap: Record<string, string> = {};
+      const tablePlans: Array<{
+        tableId: string;
+        fieldIds: string[];
+        viewIds: string[];
+      }> = [];
+
+      for (const table of normalized.tables) {
+        const targetTableId = (yield* TableId.generate()).toString();
+        if (table.id) {
+          tableIdMap[table.id] = targetTableId;
+        }
+
+        const fieldIds: string[] = [];
+        for (const field of table.fields) {
+          const targetFieldId = (yield* FieldId.generate()).toString();
+          fieldIds.push(targetFieldId);
+          if (field.id) {
+            fieldIdMap[field.id] = targetFieldId;
+          }
+        }
+
+        const viewIds: string[] = [];
+        for (const view of table.views ?? []) {
+          const targetViewId = (yield* ViewId.generate()).toString();
+          viewIds.push(targetViewId);
+          if (view.id) {
+            viewIdMap[view.id] = targetViewId;
+          }
+        }
+
+        tablePlans.push({ tableId: targetTableId, fieldIds, viewIds });
+      }
+
+      const replacements = new Map<string, string>([
+        ...(normalized.id ? ([[normalized.id, command.baseId.toString()]] as const) : []),
+        ...Object.entries(tableIdMap),
+        ...Object.entries(fieldIdMap),
+        ...Object.entries(viewIdMap),
+      ]);
+
+      const remapped: NormalizedDotTeaStructure = {
+        tables: normalized.tables.map((table, tableIndex) => {
+          const tablePlan = tablePlans[tableIndex]!;
+          return {
+            ...table,
+            id: tablePlan.tableId,
+            fields: table.fields.map((field, fieldIndex) => ({
+              ...field,
+              id: tablePlan.fieldIds[fieldIndex]!,
+              options: replaceMappedIds(field.options, replacements),
+              config: replaceMappedIds(field.config, replacements),
+            })),
+            views: table.views?.map((view, viewIndex) => ({
+              ...view,
+              id: tablePlan.viewIds[viewIndex]!,
+            })),
+          };
+        }),
+      };
+
       // Build tables directly using TableInputParser (no CreateTableCommand dependency)
+      const totalTables = remapped.tables.length;
       const buildResults = yield* sequence(
-        normalized.tables.map((table) =>
-          buildTableFromInput(
+        remapped.tables.map((table, tableIndex) => {
+          const tableId = table.id ?? tablePlans[tableIndex]!.tableId;
+          const tableName = table.name ?? `Table ${tableIndex + 1}`;
+
+          command.onProgress?.({
+            phase: 'table_structure_started',
+            tableId,
+            tableName,
+            tableIndex: tableIndex + 1,
+            totalTables,
+          });
+
+          return buildTableFromInput(
             {
               baseId: command.baseId.toString(),
-              tableId: table.id,
-              name: table.name,
+              tableId,
+              name: tableName,
               // Cast fields to ITableFieldInput[] - the normalized structure already has valid field types
               fields: table.fields.map((field) => ({
                 id: field.id,
+                dbFieldName: field.dbFieldName,
                 type: field.type as ITableFieldInput['type'],
                 name: field.name,
                 isPrimary: field.isPrimary,
@@ -177,6 +296,7 @@ export class ImportDotTeaStructureHandler
                 isMultipleCellValue: field.isMultipleCellValue,
               })) as ITableFieldInput[],
               views: table.views?.map((view) => ({
+                id: view.id,
                 type: view.type,
                 name: view.name,
               })),
@@ -184,15 +304,21 @@ export class ImportDotTeaStructureHandler
             {
               executionContext: context,
             }
-          )
-        )
+          );
+        })
       );
 
       // Extract tables and foreign references from build results
       const builtTables = buildResults.map((r) => r.table);
+      const recordCountByTableId = Object.fromEntries(
+        builtTables.map((table) => [table.id().toString(), 0])
+      );
       const referencesByTable = buildResults.map((r) => r.foreignTableReferences);
 
       // Collect and filter foreign table references
+      command.onProgress?.({
+        phase: 'table_structure_validating',
+      });
       const allReferences = uniqueForeignTableReferences(referencesByTable.flat());
       const internalTableIds = new Set(builtTables.map((t) => t.id().toString()));
       const externalReferences = allReferences.filter(
@@ -221,28 +347,112 @@ export class ImportDotTeaStructureHandler
       }
 
       // Execute table creation using TableCreationService
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
+      command.onProgress?.({
+        phase: 'table_structure_committing',
+      });
+      const creationInput = {
+        baseId: command.baseId,
+        tables: builtTables,
+        externalTables,
+        referencesByTable,
+      };
+      const persistedTables = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => {
-          return handler.tableCreationService.execute(transactionContext, {
+        async (metaTransactionContext) =>
+          safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
+            const metadataResult = yield* await handler.tableCreationService.persistMetadata(
+              metaTransactionContext,
+              {
+                baseId: command.baseId,
+                tables: builtTables,
+                externalTables,
+                referencesByTable,
+              }
+            );
+            yield* await beginTablesSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              metadataResult.persistedTables,
+              {
+                type: 'table.import',
+                payload: {
+                  baseId: command.baseId.toString(),
+                  source: 'dottea',
+                  recordCountByTableId,
+                },
+              }
+            );
+            return ok(metadataResult.persistedTables);
+          }),
+        { scope: 'meta' }
+      );
+
+      const provisionResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          handler.tableCreationService.provisionData(dataTransactionContext, {
             baseId: command.baseId,
             tables: builtTables,
             externalTables,
             referencesByTable,
-          });
-        }
+            persistedTables,
+          }),
+        { scope: 'data' }
+      );
+      if (provisionResult.isErr()) {
+        yield* await failTablesSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTables,
+          {
+            lastError: provisionResult.error.message,
+            type: 'table.import',
+            payload: {
+              baseId: command.baseId.toString(),
+              source: 'dottea',
+              recordCountByTableId,
+            },
+          }
+        );
+        return err(provisionResult.error);
+      }
+
+      yield* await completeTablesSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTables,
+        { type: 'table.import' }
       );
 
       // Build and publish events
       const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
-      const events = [...hostEvents, ...transactionResult.sideEffectEvents];
+      const events = [...hostEvents, ...provisionResult.value.sideEffectEvents];
       yield* await handler.eventBus.publishMany(context, events);
 
-      const resultTables = transactionResult.persistedTables.map(
-        (table) => transactionResult.tableState.get(table.id().toString()) ?? table
+      const resultTables = provisionResult.value.persistedTables.map(
+        (table) => provisionResult.value.tableState.get(table.id().toString()) ?? table
       );
 
-      return ok(ImportDotTeaStructureResult.create(command.baseId.toString(), resultTables));
+      resultTables.forEach((table, tableIndex) => {
+        command.onProgress?.({
+          phase: 'table_structure_done',
+          tableId: table.id().toString(),
+          tableName: table.name().toString(),
+          tableIndex: tableIndex + 1,
+          totalTables,
+        });
+      });
+
+      return ok(
+        ImportDotTeaStructureResult.create(command.baseId.toString(), resultTables, {
+          tableIdMap,
+          fieldIdMap,
+          viewIdMap,
+        })
+      );
     });
   }
 }

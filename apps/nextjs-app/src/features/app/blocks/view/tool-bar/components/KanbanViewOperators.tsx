@@ -20,6 +20,7 @@ import {
   useTablePermission,
   CreateRecordModal,
   useIsReadOnlyPreview,
+  usePersonalView,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -42,10 +43,13 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const { isPersonalView } = usePersonalView();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
+  const readOnly = Boolean(view?.isLocked && !isPersonalView);
 
   const onFieldSelected = async (field: IFieldVo | IFieldInstance) => {
+    if (readOnly) return;
     if (field.id === stackFieldId) return;
     await view?.updateOption({ stackFieldId: field.id });
     const localId = generateLocalId(tableId, view?.id);
@@ -65,6 +69,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   };
 
   const onEmptyStackHiddenChange = (checked: boolean) => {
+    if (readOnly) return;
     view?.updateOption({ isEmptyStackHidden: checked });
   };
 
@@ -104,6 +109,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             <Switch
               id="hide-empty-stack"
               checked={isEmptyStackHidden}
+              disabled={readOnly}
               onCheckedChange={(checked) => onEmptyStackHiddenChange(checked)}
             />
             <Label htmlFor="hide-empty-stack" className="text-sm font-normal">
@@ -112,6 +118,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </div>
         }
         isCreatable={permission['field|create']}
+        readOnly={readOnly}
         selectedFieldId={stackFieldId}
         onConfirm={onFieldSelected}
         getCreateBtnText={(fieldName) => (

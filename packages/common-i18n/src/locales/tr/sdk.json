@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Geçersiz değer",
     "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
+    "invalidConditionTip": "Bu filtre koşulu geçersiz ve yok sayılacak. Lütfen değeri ayarlayın.",
     "default": {
       "empty": "Filtre koşulu uygulanmadı",
       "placeholder": "Bir değer girin"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} görünür alan",
     "showAll": "Tümünü Göster",
     "hideAll": "Tümünü Gizle",
-    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür."
+    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür.",
+    "notInCurrentView": "\"{{fieldName}}\" alanı mevcut görünümde görünmüyor, bu yüzden alana gidilemiyor"
   },
   "expandRecord": {
     "copy": "Panoya kopyala",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
       "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
       "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
-      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}",
+      "sqlSyntaxError": "SQL sözdizimi hatası, lütfen sorgunuzu kontrol edin"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
@@ -1221,7 +1224,9 @@
       "button": {
         "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
         "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
-      }
+      },
+      "primaryCannotBeLookup": "Birincil alan Lookup alanı olarak yapılandırılamaz",
+      "primaryFieldAlreadyExists": "Tablonun zaten bir birincil alanı var"
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
@@ -1432,7 +1437,8 @@
       "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
       "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}",
-      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı"
+      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı",
+      "domainReserved": "Alt alan adı ayrılmış"
     }
   }
 }

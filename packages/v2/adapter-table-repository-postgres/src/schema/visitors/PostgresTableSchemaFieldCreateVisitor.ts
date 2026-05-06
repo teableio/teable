@@ -41,6 +41,7 @@ import {
 } from '../rules';
 
 export type TableSchemaStatementBuilder = {
+  scope?: 'data' | 'meta';
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
 };
 

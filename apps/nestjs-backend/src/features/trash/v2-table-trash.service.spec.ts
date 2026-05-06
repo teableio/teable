@@ -1,5 +1,5 @@
 import { ResourceType } from '@teable/openapi';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ActorId,
   BaseId,
@@ -15,7 +15,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@teable/db-main-prisma', () => ({
   PrismaModule: class PrismaModule {},
+  DataPrismaModule: class DataPrismaModule {},
   PrismaService: class PrismaService {},
+  MetaPrismaService: class MetaPrismaService {},
+  DataPrismaService: class DataPrismaService {},
 }));
 
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
@@ -55,6 +58,7 @@ class FakeTracer {
 interface IRecordTrashInsertRow {
   /* eslint-disable @typescript-eslint/naming-convention */
   record_id: string;
+  created_time: Date;
 }
 
 const createV2ContainerService = () => {
@@ -79,17 +83,26 @@ const createV2ContainerService = () => {
     insertInto: vi.fn().mockReturnValue(insertQuery),
     selectFrom: vi.fn().mockReturnValue(selectQuery),
   };
+  const dataDb = {
+    transaction: vi.fn(() => ({
+      execute: vi.fn(async () => undefined),
+    })),
+  };
   const container = {
     resolve: vi.fn((token: symbol) => {
-      if (token !== v2PostgresDbTokens.db) {
-        throw new Error(`Unexpected token ${String(token)}`);
+      if (token === v2MetaDbTokens.db) {
+        return db;
       }
-      return db;
+      if (token === v2DataDbTokens.db) {
+        return dataDb;
+      }
+      throw new Error(`Unexpected token ${String(token)}`);
     }),
   };
 
   return {
     db,
+    dataDb,
     deleteQuery,
     insertQuery,
     selectQuery,
@@ -188,7 +201,12 @@ describe('V2RecordTrashService', () => {
       })),
     };
     const container = {
-      resolve: vi.fn().mockReturnValue(db),
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
     };
     const v2ContainerService = {
       getContainer: vi.fn().mockResolvedValue(container),
@@ -224,14 +242,20 @@ describe('V2RecordTrashService', () => {
         resource_type: 'record',
         snapshot: JSON.stringify(['recFirstRecordId01', 'recSecondRecordId2']),
         created_by: 'usrTestUserId',
+        created_time: expect.any(Date),
       },
     });
     expect(operations[1].table).toBe('record_trash');
     expect(Array.isArray(operations[1].values)).toBe(true);
-    expect((operations[1].values as IRecordTrashInsertRow[]).map((row) => row.record_id)).toEqual([
+    const tableTrashValue = operations[0].values as { created_time: Date };
+    const recordTrashValues = operations[1].values as IRecordTrashInsertRow[];
+    expect(recordTrashValues.map((row) => row.record_id)).toEqual([
       'recFirstRecordId01',
       'recSecondRecordId2',
     ]);
+    expect(
+      recordTrashValues.every((row) => row.created_time === tableTrashValue.created_time)
+    ).toBe(true);
     expect(tracer.spans.map((span) => span.name)).toContain(
       'teable.V2RecordTrashService.persistDeletedRecords'
     );

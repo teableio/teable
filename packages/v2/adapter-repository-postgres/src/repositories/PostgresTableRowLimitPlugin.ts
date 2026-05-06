@@ -41,7 +41,7 @@ export class PostgresTableRowLimitPlugin
         );
       }
 
-      const db = resolvePostgresDbOrTx(this.db, context.executionContext);
+      const db = resolvePostgresDbOrTx(this.db, context.executionContext, 'meta');
       const creditRow = await db
         .selectFrom('base')
         .innerJoin('space', 'space.id', 'base.space_id')
@@ -86,7 +86,7 @@ export class PostgresTableRowLimitPlugin
     }
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context.executionContext);
+      const db = resolvePostgresDbOrTx(this.db, context.executionContext, 'meta');
       const countResult = await sql<{ count: string }>`
         select count(*) as count from ${sql.table(preparedState.dbTableName)}
       `.execute(db);

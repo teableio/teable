@@ -1,6 +1,6 @@
 import type { IAttachmentCellValue } from '@teable/core';
+import { Info } from '@teable/icons';
 import { cn } from '@teable/ui-lib';
-import { AlertCircle } from 'lucide-react';
 import { useContext } from 'react';
 import { TaskStatusCollectionContext } from '../../context';
 import type { IButtonClickStatusHook } from '../../hooks';
@@ -58,7 +58,9 @@ export const RecordEditorItem = (props: {
           </span>
           {field.description && (
             <TooltipWrap description={field.description}>
-              <AlertCircle className="ml-0.5 mt-[3px] size-4 shrink-0 cursor-pointer text-muted-foreground" />
+              <span className="ml-0.5 mt-[3px] inline-flex shrink-0 cursor-pointer text-muted-foreground">
+                <Info className="size-4" />
+              </span>
             </TooltipWrap>
           )}
         </div>

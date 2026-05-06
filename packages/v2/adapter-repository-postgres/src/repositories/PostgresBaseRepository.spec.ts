@@ -60,7 +60,7 @@ describe('PostgresBaseRepository', () => {
       const result = await repo.insert(
         {
           actorId: ActorId.create('system')._unsafeUnwrap(),
-          transaction: new PostgresUnitOfWorkTransaction(trx),
+          transaction: new PostgresUnitOfWorkTransaction(trx, 'meta'),
         } as never,
         base
       );
@@ -69,6 +69,29 @@ describe('PostgresBaseRepository', () => {
     });
 
     expect(transactionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reuse a data-scoped transaction for base metadata inserts', async () => {
+    const db = createTestDb();
+    const transactionSpy = vi.spyOn(db, 'transaction');
+    const repo = new PostgresBaseRepository(db);
+    const base = createBase(`bse${'i'.repeat(16)}`, 'Meta Tx Base');
+
+    await db.transaction().execute(async (trx) => {
+      const dataTransaction = new PostgresUnitOfWorkTransaction(trx, 'data');
+      const result = await repo.insert(
+        {
+          actorId: ActorId.create('system')._unsafeUnwrap(),
+          transaction: dataTransaction,
+          transactions: { data: dataTransaction },
+        } as never,
+        base
+      );
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    expect(transactionSpy).toHaveBeenCalledTimes(2);
   });
 
   it('wraps insert failures as infrastructure errors', async () => {

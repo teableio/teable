@@ -1,4 +1,4 @@
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { domainError, type BaseId, type FieldId, type TableId } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -96,7 +96,7 @@ const FIELD_TABLE_ID_KEY = 'f.table_id';
 @injectable()
 export class PostgresDebugMetaStore implements IDebugMetaStore {
   constructor(
-    @inject(v2PostgresDbTokens.db)
+    @inject(v2MetaDbTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
 

@@ -180,7 +180,7 @@ describe('RenameTableHandler', () => {
     expect(repo.updated).toHaveLength(1);
     expect(result._unsafeUnwrap().table.name().toString()).toBe('New Name');
     expect(eventBus.published.some((event) => event instanceof TableRenamed)).toBe(true);
-    expect(unitOfWork.transactions.length).toBe(1);
+    expect(unitOfWork.transactions.length).toBe(2);
   });
 
   it('returns not found when table is missing', async () => {

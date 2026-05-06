@@ -52,4 +52,15 @@ export class NoopTableRepository implements ITableRepository {
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async setProvisionState(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _: IExecutionContext,
+    __: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 }

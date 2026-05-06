@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PRISMA_DATA_DATABASE_URL")
+}
+
+model ComputedUpdateOutbox {
+  id                      String                     @id @default(cuid())
+  baseId                  String                     @map("base_id")
+  seedTableId             String                     @map("seed_table_id")
+  seedRecordIds           Json?                      @map("seed_record_ids")
+  changeType              String                     @map("change_type")
+  steps                   Json?
+  edges                   Json?
+  status                  String
+  attempts                Int                        @default(0)
+  maxAttempts             Int                        @default(8) @map("max_attempts")
+  nextRunAt               DateTime                   @default(now()) @map("next_run_at")
+  lockedAt                DateTime?                  @map("locked_at")
+  lockedBy                String?                    @map("locked_by")
+  lastError               String?                    @map("last_error")
+  estimatedComplexity     Int                        @default(0) @map("estimated_complexity")
+  planHash                String                     @map("plan_hash")
+  dirtyStats              Json?                      @map("dirty_stats")
+  runId                   String                     @map("run_id")
+  originRunIds            String[]                   @default([]) @map("origin_run_ids")
+  runTotalSteps           Int                        @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int                        @default(0) @map("run_completed_steps_before")
+  affectedTableIds        String[]                   @default([]) @map("affected_table_ids")
+  affectedFieldIds        String[]                   @default([]) @map("affected_field_ids")
+  syncMaxLevel            Int?                       @map("sync_max_level")
+  createdAt               DateTime                   @default(now()) @map("created_at")
+  updatedAt               DateTime                   @updatedAt @map("updated_at")
+
+  seeds ComputedUpdateOutboxSeed[]
+
+  @@index([status, nextRunAt])
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_outbox")
+}
+
+model ComputedUpdateOutboxSeed {
+  id       String               @id @default(cuid())
+  taskId   String               @map("task_id")
+  tableId  String               @map("table_id")
+  recordId String               @map("record_id")
+  task     ComputedUpdateOutbox @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tableId, recordId])
+  @@index([taskId])
+  @@map("computed_update_outbox_seed")
+}
+
+model ComputedUpdateDeadLetter {
+  id                      String   @id
+  baseId                  String   @map("base_id")
+  seedTableId             String   @map("seed_table_id")
+  seedRecordIds           Json?    @map("seed_record_ids")
+  changeType              String   @map("change_type")
+  steps                   Json?
+  edges                   Json?
+  status                  String
+  attempts                Int      @default(0)
+  maxAttempts             Int      @default(8) @map("max_attempts")
+  nextRunAt               DateTime @map("next_run_at")
+  lockedAt                DateTime? @map("locked_at")
+  lockedBy                String?  @map("locked_by")
+  lastError               String?  @map("last_error")
+  estimatedComplexity     Int      @default(0) @map("estimated_complexity")
+  planHash                String   @map("plan_hash")
+  dirtyStats              Json?    @map("dirty_stats")
+  runId                   String   @map("run_id")
+  originRunIds            String[] @default([]) @map("origin_run_ids")
+  runTotalSteps           Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int      @default(0) @map("run_completed_steps_before")
+  affectedTableIds        String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds        String[] @default([]) @map("affected_field_ids")
+  syncMaxLevel            Int?     @map("sync_max_level")
+  traceData               Json?    @map("trace_data")
+  failedAt                DateTime @map("failed_at")
+  createdAt               DateTime @map("created_at")
+  updatedAt               DateTime @map("updated_at")
+
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_dead_letter")
+}
+
+model ComputedUpdatePauseScope {
+  id        String    @id
+  scopeType String    @map("scope_type")
+  scopeId   String    @map("scope_id")
+  pausedAt  DateTime  @default(now()) @map("paused_at")
+  pausedBy  String?   @map("paused_by")
+  resumeAt  DateTime? @map("resume_at")
+  reason    String?
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([scopeType, scopeId])
+  @@index([resumeAt])
+  @@map("computed_update_pause_scope")
+}
+
+model RecordHistory {
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  fieldId     String   @map("field_id")
+  before      String   @map("before")
+  after       String   @map("after")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@index([tableId, recordId, createdTime])
+  @@index([tableId, createdTime])
+  @@map("record_history")
+}
+
+model TableTrash {
+  id           String   @id @default(cuid())
+  tableId      String   @map("table_id")
+  resourceType String   @map("resource_type")
+  snapshot     String   @map("snapshot")
+  createdTime  DateTime @default(now()) @map("created_time")
+  createdBy    String   @map("created_by")
+
+  @@index([tableId])
+  @@map("table_trash")
+}
+
+model RecordTrash {
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  snapshot    String   @map("snapshot")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@index([tableId, recordId])
+  @@map("record_trash")
+}

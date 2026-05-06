@@ -4,7 +4,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType as CoreFieldType, generateRecordHistoryId } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   FieldId,
   FieldValueTypeVisitor,
@@ -67,7 +67,7 @@ const getRecordHistoryDb = async (
   v2ContainerService: V2ContainerService
 ): Promise<Kysely<IRecordHistoryDb>> => {
   const container = await v2ContainerService.getContainer();
-  return container.resolve<Kysely<IRecordHistoryDb>>(v2PostgresDbTokens.db);
+  return container.resolve<Kysely<IRecordHistoryDb>>(v2DataDbTokens.db);
 };
 
 const insertRecordHistoryEntries = async (

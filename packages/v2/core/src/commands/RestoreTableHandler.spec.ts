@@ -16,10 +16,14 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository } from '../ports/TableRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RestoreTableCommand } from './RestoreTableCommand';
 import { RestoreTableHandler } from './RestoreTableHandler';
 
@@ -43,6 +47,7 @@ class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   deletedTableIds = new Set<string>();
   restored: Table[] = [];
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   failRestore: DomainError | undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -93,6 +98,7 @@ class FakeTableRepository implements ITableRepository {
     }
     this.deletedTableIds.delete(table.id().toString());
     this.restored.push(table);
+    this.provisionStateChanges.push({ tableId: table.id().toString(), state: 'ready' });
     return ok(undefined);
   }
 
@@ -121,10 +127,19 @@ class FakeUnitOfWork implements IUnitOfWork {
 
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    const transactionContext = { ...context, transaction };
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
+    const transactionContext = {
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    };
     this.transactions.push(transactionContext);
     return work(transactionContext);
   }
@@ -150,7 +165,9 @@ describe('RestoreTableHandler', () => {
 
     expect(result._unsafeUnwrap().table.id().toString()).toBe(table.id().toString());
     expect(repository.restored).toHaveLength(1);
+    expect(repository.provisionStateChanges.map(({ state }) => state)).toEqual(['ready']);
     expect(unitOfWork.transactions).toHaveLength(1);
+    expect(unitOfWork.transactions[0]?.transaction?.scope).toBe('meta');
     expect(eventBus.published).toHaveLength(1);
     expect(eventBus.published[0]).toBeInstanceOf(TableRestored);
   });

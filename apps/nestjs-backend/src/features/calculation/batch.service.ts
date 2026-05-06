@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, IdPrefix, RecordOpBuilder, FieldType } from '@teable/core';
 import type { IOtOperation, IRecord, TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
@@ -13,6 +14,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -39,7 +41,8 @@ export class BatchService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly recordQueryService: RecordQueryService,
@@ -228,7 +231,7 @@ export class BatchService {
       .select('__id', '__version', '__last_modified_time', '__last_modified_by')
       .toQuery();
 
-    return this.prismaService.txClient().$queryRawUnsafe<
+    return this.dataPrismaService.txClient().$queryRawUnsafe<
       {
         __version: number;
         __id: string;
@@ -325,7 +328,7 @@ export class BatchService {
 
     const validDbFieldNames = schemas.map((s) => s.dbFieldName).filter((f) => !f.startsWith('__'));
 
-    await this.prismaService.$tx(async (tx) => {
+    await this.dataPrismaService.$tx(async (tx) => {
       // temp table should in one transaction
       await tx.$executeRawUnsafe(createTempTableSql);
       // 2.initialize temporary table data

@@ -3,6 +3,18 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
+import {
+  gatewayModelProviderSchema,
+  gatewayModelSchema,
+  gatewayModelTagSchema,
+  gatewayModelTypeSchema,
+} from './gateway-model';
+import {
+  chatModelAbilitySchema,
+  imageModelAbilitySchema,
+  modelAbilitySchema,
+} from './model-ability';
+import { pricingSchema } from './pricing';
 
 export enum LLMProviderType {
   OPENAI = 'openai',
@@ -25,270 +37,6 @@ export enum LLMProviderType {
   AI_GATEWAY = 'aiGateway',
   // Claude Code
   CLAUDE_CODE = 'claudeCode',
-}
-
-// Gateway model type from API (language, embedding, image)
-export const GatewayModelTypeValues = ['language', 'embedding', 'image'] as const;
-export type GatewayModelType = (typeof GatewayModelTypeValues)[number];
-export const gatewayModelTypeSchema = z.enum(GatewayModelTypeValues);
-
-// Gateway model capability tags from API
-export const GatewayModelTagValues = [
-  'reasoning',
-  'tool-use',
-  'vision',
-  'file-input',
-  'image-generation',
-  'implicit-caching',
-] as const;
-export type GatewayModelTag = (typeof GatewayModelTagValues)[number];
-export const gatewayModelTagSchema = z.enum(GatewayModelTagValues);
-
-// Gateway model provider (owned_by) from API
-export const GatewayModelProviderValues = [
-  'alibaba',
-  'amazon',
-  'anthropic',
-  'arcee-ai',
-  'bfl',
-  'bytedance',
-  'cohere',
-  'deepseek',
-  'google',
-  'inception',
-  'kwaipilot',
-  'meituan',
-  'meta',
-  'minimax',
-  'mistral',
-  'moonshotai',
-  'morph',
-  'nvidia',
-  'openai',
-  'perplexity',
-  'prime-intellect',
-  'stealth',
-  'vercel',
-  'voyage',
-  'xai',
-  'xiaomi',
-  'zai',
-] as const;
-export type GatewayModelProvider = (typeof GatewayModelProviderValues)[number];
-export const gatewayModelProviderSchema = z.enum(GatewayModelProviderValues);
-
-// Detailed ability support with URL and base64 variants
-export const abilityDetailSchema = z.object({
-  url: z.boolean().optional(),
-  base64: z.boolean().optional(),
-});
-
-export type IAbilityDetail = z.infer<typeof abilityDetailSchema>;
-
-// Model ability schema for test results
-export const modelAbilitySchema = z.object({
-  image: z.union([z.boolean(), abilityDetailSchema]).optional(), // vision/image input
-  pdf: z.union([z.boolean(), abilityDetailSchema]).optional(), // PDF/file input
-  webSearch: z.boolean().optional(),
-  toolCall: z.boolean().optional(), // tool/function calling
-  reasoning: z.boolean().optional(), // extended thinking/reasoning
-  imageGeneration: z.boolean().optional(), // can generate images
-});
-
-export type IModelAbility = z.infer<typeof modelAbilitySchema>;
-
-// Image model ability schema
-export const imageModelAbilitySchema = z.object({
-  generation: z.boolean().optional(), // can generate images from text
-  imageToImage: z.boolean().optional(), // can generate images from image input
-});
-
-export type IImageModelAbility = z.infer<typeof imageModelAbilitySchema>;
-
-// Tiered pricing tier - for volume-based pricing where cost changes at token thresholds
-export const pricingTierSchema = z.object({
-  cost: z.string(), // USD per token at this tier
-  min: z.number(), // Tier start (inclusive)
-  max: z.number().optional(), // Tier end (absent = open-ended last tier)
-});
-
-export type IPricingTier = z.infer<typeof pricingTierSchema>;
-
-// Unified pricing schema - USD per token (string format, same as Vercel AI Gateway API)
-// 100 credits = $1 USD. Credits = totalUSD / USD_PER_CREDIT
-export const pricingSchema = z.object({
-  // Flat rates (USD per token/unit as string)
-  input: z.string().optional(),
-  output: z.string().optional(),
-  inputCacheRead: z.string().optional(),
-  inputCacheWrite: z.string().optional(),
-  reasoning: z.string().optional(),
-  image: z.string().optional(),
-  webSearch: z.string().optional(),
-
-  // Tiered pricing (overrides flat rate when present)
-  inputTiers: z.array(pricingTierSchema).optional(),
-  outputTiers: z.array(pricingTierSchema).optional(),
-  inputCacheReadTiers: z.array(pricingTierSchema).optional(),
-  inputCacheWriteTiers: z.array(pricingTierSchema).optional(),
-});
-
-export type IModelPricing = z.infer<typeof pricingSchema>;
-
-// Legacy rates schema (credits per 1M tokens) - for backward compatibility
-// Will be converted to new pricing format when reading
-export const legacyRatesSchema = z.object({
-  inputRate: z.number().min(0).optional(),
-  outputRate: z.number().min(0).optional(),
-  cacheReadRate: z.number().min(0).optional(),
-  cacheWriteRate: z.number().min(0).optional(),
-  reasoningRate: z.number().min(0).optional(),
-  imageRate: z.number().min(0).optional(),
-  webSearchRate: z.number().min(0).optional(),
-});
-
-export type ILegacyRates = z.infer<typeof legacyRatesSchema>;
-
-// Conversion constants
-// 1 credit = $0.01 USD (100 credits = $1)
-export const USD_PER_CREDIT = 0.01;
-// Legacy rates were in credits per 1M tokens
-export const TOKENS_PER_RATE_UNIT = 1_000_000;
-
-/**
- * Calculate cost for tokens using tiered (progressive) pricing.
- * Each tier covers a range [min, max). The last tier has no max (open-ended).
- */
-export function calculateTieredCost(tokenCount: number, tiers: IPricingTier[]): number {
-  let totalCost = 0;
-  for (const tier of tiers) {
-    if (tokenCount <= tier.min) break;
-    const tierMax = tier.max ?? Infinity;
-    const tokensInTier = Math.min(tokenCount, tierMax) - tier.min;
-    totalCost += tokensInTier * parseFloat(tier.cost);
-  }
-  return totalCost;
-}
-
-/**
- * Calculate USD cost for a single pricing category.
- * Uses tiered pricing if available, otherwise falls back to flat rate.
- */
-function categoryUsd(
-  tokenCount: number | undefined,
-  flatRate: string | undefined,
-  tiers: IPricingTier[] | undefined
-): number {
-  if (!tokenCount) return 0;
-  if (tiers?.length) return calculateTieredCost(tokenCount, tiers);
-  if (flatRate) return parseFloat(flatRate) * tokenCount;
-  return 0;
-}
-
-// Convert pricing (USD/token) to credits for billing
-// 100 credits = $1 USD
-export function pricingToCredits(
-  pricing: IModelPricing | undefined,
-  usage: {
-    inputTokens?: number;
-    outputTokens?: number;
-    cacheReadTokens?: number;
-    cacheWriteTokens?: number;
-    reasoningTokens?: number;
-    images?: number;
-    webSearches?: number;
-  }
-): number {
-  if (!pricing) return 0;
-
-  let totalUsd = 0;
-
-  totalUsd += categoryUsd(usage.inputTokens, pricing.input, pricing.inputTiers);
-  totalUsd += categoryUsd(usage.outputTokens, pricing.output, pricing.outputTiers);
-  totalUsd += categoryUsd(
-    usage.cacheReadTokens,
-    pricing.inputCacheRead,
-    pricing.inputCacheReadTiers
-  );
-  totalUsd += categoryUsd(
-    usage.cacheWriteTokens,
-    pricing.inputCacheWrite,
-    pricing.inputCacheWriteTiers
-  );
-  totalUsd += categoryUsd(usage.reasoningTokens, pricing.reasoning, undefined);
-
-  if (pricing.image && usage.images) {
-    totalUsd += parseFloat(pricing.image) * usage.images;
-  }
-  if (pricing.webSearch && usage.webSearches) {
-    // pricing.webSearch is USD per 1,000 searches
-    totalUsd += (parseFloat(pricing.webSearch) * usage.webSearches) / 1000;
-  }
-
-  return totalUsd / USD_PER_CREDIT;
-}
-
-/**
- * AI SDK LanguageModelUsage compatible interface
- * This is a subset of the AI SDK's LanguageModelUsage type
- */
-export interface IAIModelUsage {
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  reasoningTokens?: number;
-  cachedInputTokens?: number;
-  inputTokenDetails?: {
-    cacheReadTokens?: number;
-    cacheWriteTokens?: number;
-    noCacheTokens?: number;
-  };
-  outputTokenDetails?: {
-    reasoningTokens?: number;
-    textTokens?: number;
-  };
-}
-
-/**
- * Calculate credits from AI SDK LanguageModelUsage
- * Supports detailed token breakdown (cached tokens, reasoning tokens, etc.)
- * Round up to 2 decimal places
- */
-export function pricingToCreditsFromUsage(
-  pricing: IModelPricing | undefined,
-  usage: IAIModelUsage
-): number {
-  if (!pricing) return 0;
-
-  // Extract detailed token info
-  const inputDetails = usage.inputTokenDetails || {};
-  const outputDetails = usage.outputTokenDetails || {};
-
-  // Calculate INPUT token counts (avoid double counting)
-  // inputTokens = noCacheTokens + cacheReadTokens
-  const totalInputTokens = usage.inputTokens ?? 0;
-  const cacheReadTokens = inputDetails.cacheReadTokens ?? usage.cachedInputTokens ?? 0;
-  const cacheWriteTokens = inputDetails.cacheWriteTokens ?? 0;
-  const noCacheTokens =
-    inputDetails.noCacheTokens ?? Math.max(0, totalInputTokens - cacheReadTokens);
-
-  // Calculate OUTPUT token counts (avoid double counting)
-  // outputTokens = textTokens + reasoningTokens
-  const totalOutputTokens = usage.outputTokens ?? 0;
-  const reasoningTokens = outputDetails.reasoningTokens ?? usage.reasoningTokens ?? 0;
-  const textOutputTokens =
-    outputDetails.textTokens ?? Math.max(0, totalOutputTokens - reasoningTokens);
-
-  const credits = pricingToCredits(pricing, {
-    inputTokens: noCacheTokens,
-    outputTokens: textOutputTokens,
-    cacheReadTokens,
-    cacheWriteTokens,
-    reasoningTokens,
-  });
-
-  // Round up to 2 decimal places
-  return Math.ceil(credits * 100) / 100;
 }
 
 // Model-specific configuration - unified structure for all model types
@@ -342,194 +90,12 @@ export const llmProviderSchema = z.object({
 
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
-// chatModelAbilitySchema is same as modelAbilitySchema, for backward compatibility
-export const chatModelAbilitySchema = modelAbilitySchema;
-
-export const chatModelAbilityType = chatModelAbilitySchema.keyof();
-
-export type IChatModelAbilityType = z.infer<typeof chatModelAbilityType>;
-
-export type IChatModelAbility = z.infer<typeof chatModelAbilitySchema>;
-
 export const chatModelSchema = z.object({
   lg: z.string().optional(),
   md: z.string().optional(),
   sm: z.string().optional(),
   ability: chatModelAbilitySchema.optional(),
 });
-
-// Gateway model default assignment targets
-export enum GatewayModelDefaultFor {
-  CHAT_LG = 'chatLg',
-  CHAT_MD = 'chatMd',
-  CHAT_SM = 'chatSm',
-  AI_FIELD_TEXT = 'aiFieldText',
-  AI_FIELD_IMAGE = 'aiFieldImage',
-}
-
-// Individual gateway model configuration (admin-maintained)
-export const gatewayModelSchema = z.object({
-  // modelId used directly with AI Gateway (e.g., "anthropic/claude-sonnet-4")
-  id: z.string(),
-  // Display label (e.g., "Claude Sonnet 4")
-  label: z.string(),
-  // Whether this model is visible to end users
-  enabled: z.boolean().default(true),
-  // Model capabilities (for UI tags and validation)
-  capabilities: modelAbilitySchema.optional(),
-  // Pricing in USD (new unified format)
-  pricing: pricingSchema.optional(),
-  // @deprecated Legacy rates in credits per 1M tokens - use pricing instead
-  rates: legacyRatesSchema.optional(),
-  // Mark as image generation model
-  isImageModel: z.boolean().optional(),
-  // Default assignment (which use cases this model is default for)
-  defaultFor: z.array(z.nativeEnum(GatewayModelDefaultFor)).optional(),
-  // Last test timestamp
-  testedAt: z.number().optional(),
-  // === Metadata from AI Gateway API ===
-  // Provider that owns this model (e.g., "anthropic", "google", "openai")
-  ownedBy: gatewayModelProviderSchema.optional(),
-  // Model type from API (e.g., "language", "image")
-  modelType: gatewayModelTypeSchema.optional(),
-  // Capability tags from API (e.g., ["image-generation", "vision", "tool-use"])
-  tags: z.array(gatewayModelTagSchema).optional(),
-  // Context window size (input tokens)
-  contextWindow: z.number().optional(),
-  // Maximum output tokens
-  maxTokens: z.number().optional(),
-  // Model description
-  description: z.string().optional(),
-  // Admin-curated i18n description (e.g., "Most capable for ambitious work")
-  i18nDescription: z
-    .object({
-      en: z.string().optional(),
-      zh: z.string().optional(),
-    })
-    .optional(),
-});
-
-export type IGatewayModel = z.infer<typeof gatewayModelSchema>;
-
-/* eslint-disable @typescript-eslint/naming-convention */
-// Raw pricing schema matching Vercel AI Gateway API response (snake_case)
-// @see https://ai-gateway.vercel.sh/v1/models
-export const rawPricingSchema = z.object({
-  // Flat rates (USD per token/unit as string)
-  input: z.string().optional(),
-  output: z.string().optional(),
-  input_cache_read: z.string().optional(),
-  input_cache_write: z.string().optional(),
-  reasoning: z.string().optional(),
-  image: z.string().optional(),
-  web_search: z.string().optional(),
-
-  // Tiered pricing (overrides flat rate when present)
-  input_tiers: z.array(pricingTierSchema).optional(),
-  output_tiers: z.array(pricingTierSchema).optional(),
-  input_cache_read_tiers: z.array(pricingTierSchema).optional(),
-  input_cache_write_tiers: z.array(pricingTierSchema).optional(),
-});
-
-export type IRawPricing = z.infer<typeof rawPricingSchema>;
-
-// Raw API response structure from Vercel AI Gateway (snake_case as returned by API)
-export const gatewayApiModelRawSchema = z.object({
-  id: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  type: gatewayModelTypeSchema.optional(),
-  tags: z.array(gatewayModelTagSchema).optional(),
-  context_window: z.number().optional(),
-  max_tokens: z.number().optional(),
-  created: z.number().optional(),
-  owned_by: gatewayModelProviderSchema.optional(),
-  pricing: rawPricingSchema.optional(),
-});
-/* eslint-enable @typescript-eslint/naming-convention */
-
-export type IGatewayApiModelRaw = z.infer<typeof gatewayApiModelRawSchema>;
-
-// Gateway API model structure (camelCase, converted from API snake_case)
-export const gatewayApiModelSchema = z.object({
-  id: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  type: gatewayModelTypeSchema.optional(),
-  tags: z.array(gatewayModelTagSchema).optional(),
-  contextWindow: z.number().optional(),
-  maxTokens: z.number().optional(),
-  created: z.number().optional(),
-  ownedBy: gatewayModelProviderSchema.optional(),
-  pricing: pricingSchema.optional(),
-});
-
-export type IGatewayApiModel = z.infer<typeof gatewayApiModelSchema>;
-
-/**
- * Normalize a pricing object from any source (gateway API snake_case or admin config camelCase)
- * into our canonical camelCase IModelPricing format.
- */
-// Field mappings: [snakeCase, camelCase] pairs for pricing normalization
-const PRICING_STRING_FIELDS: [string, keyof IModelPricing][] = [
-  ['input', 'input'],
-  ['output', 'output'],
-  ['reasoning', 'reasoning'],
-  ['image', 'image'],
-  ['input_cache_read', 'inputCacheRead'],
-  ['input_cache_write', 'inputCacheWrite'],
-  ['web_search', 'webSearch'],
-];
-
-const PRICING_TIER_FIELDS: [string, keyof IModelPricing][] = [
-  ['input_tiers', 'inputTiers'],
-  ['output_tiers', 'outputTiers'],
-  ['input_cache_read_tiers', 'inputCacheReadTiers'],
-  ['input_cache_write_tiers', 'inputCacheWriteTiers'],
-];
-
-/**
- * Normalize a pricing object from any source (gateway API snake_case or admin config camelCase)
- * into our canonical camelCase IModelPricing format.
- */
-export function normalizeGatewayPricing(
-  raw: IRawPricing | IModelPricing | Record<string, unknown> | undefined
-): IModelPricing | undefined {
-  if (!raw || Object.keys(raw).length === 0) return undefined;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = raw as Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pricing: Record<string, any> = {};
-
-  for (const [snake, camel] of PRICING_STRING_FIELDS) {
-    const val = r[snake] ?? (snake !== camel ? r[camel] : undefined);
-    if (val != null) pricing[camel] = String(val);
-  }
-
-  for (const [snake, camel] of PRICING_TIER_FIELDS) {
-    const val = r[snake] ?? (snake !== camel ? r[camel] : undefined);
-    if (Array.isArray(val)) pricing[camel] = val;
-  }
-
-  return Object.keys(pricing).length > 0 ? (pricing as IModelPricing) : undefined;
-}
-
-// Helper function to convert raw API response to camelCase
-export function convertGatewayApiModel(raw: IGatewayApiModelRaw): IGatewayApiModel {
-  return {
-    id: raw.id,
-    name: raw.name,
-    description: raw.description,
-    type: raw.type,
-    tags: raw.tags,
-    contextWindow: raw.context_window,
-    maxTokens: raw.max_tokens,
-    created: raw.created,
-    ownedBy: raw.owned_by,
-    pricing: normalizeGatewayPricing(raw.pricing),
-  };
-}
 
 // Attachment transfer mode test result for a single mode
 export const attachmentModeTestResultSchema = z.object({
@@ -666,6 +232,7 @@ export const v2FeatureSchema = z.enum([
   'paste',
   'clear',
   'importRecords',
+  'importBase',
   'createField',
   'deleteField',
   'deleteTable',
@@ -693,6 +260,18 @@ export const sandboxAgentModelSchema = z.object({
   name: z.string(),
 });
 
+export const SANDBOX_AGENT_EFFORT_VALUES = [
+  'auto',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+export const sandboxAgentEffortSchema = z.enum(SANDBOX_AGENT_EFFORT_VALUES);
+export type EffortLevel = z.infer<typeof sandboxAgentEffortSchema>;
+export const DEFAULT_SANDBOX_AGENT_EFFORT: EffortLevel = 'auto';
+
 export type ISandboxAgentModel = z.infer<typeof sandboxAgentModelSchema>;
 
 export const sandboxAgentConfigSchema = z.object({
@@ -705,10 +284,7 @@ export const sandboxAgentConfigSchema = z.object({
   maxConcurrentChats: z.number().min(1).max(20).default(3).optional(),
   activeSnapshotId: z.string().optional(),
   activeAppBuilderSnapshotId: z.string().optional(),
-  defaultEffort: z
-    .enum(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
-    .default('auto')
-    .optional(),
+  defaultEffort: sandboxAgentEffortSchema.default(DEFAULT_SANDBOX_AGENT_EFFORT).optional(),
 });
 
 export type ISandboxAgentConfig = z.infer<typeof sandboxAgentConfigSchema>;

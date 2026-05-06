@@ -4,12 +4,13 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError, isDomainError } from '../../domain/shared/DomainError';
 import type { IExecutionContext } from '../ExecutionContext';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../UnitOfWork';
 
 export class NoopUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    _options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
     try {
       return await work(context);

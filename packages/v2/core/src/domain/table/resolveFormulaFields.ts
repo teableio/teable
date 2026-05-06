@@ -14,6 +14,17 @@ import {
 } from './fields/visitors/FieldValueTypeVisitor';
 import type { Table } from './Table';
 
+const withFormulaFieldContext = (field: FormulaField, error: DomainError): DomainError => {
+  const message = `Formula field "${field.name().toString()}" (${field
+    .id()
+    .toString()}) invalid options: ${error.message}`;
+  return {
+    ...error,
+    message,
+    toString: () => message,
+  };
+};
+
 export const resolveFormulaFields = (
   table: Table,
   options?: {
@@ -150,7 +161,8 @@ export const resolveFormulaFields = (
     }
 
     const setTypeResult = formulaField.setResultType(cellValueType, isMultipleCellValue);
-    if (setTypeResult.isErr()) return err(setTypeResult.error);
+    if (setTypeResult.isErr())
+      return err(withFormulaFieldContext(formulaField, setTypeResult.error));
 
     if (!formulaField.formatting()) {
       const defaultFormatting = FormulaFieldType.defaultFormatting(cellValueType);

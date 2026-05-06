@@ -13,6 +13,7 @@ import {
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { StatisticsFunc } from '@teable/openapi';
 import type {
   IAggregationField,
@@ -39,6 +40,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
@@ -70,7 +72,8 @@ export class AggregationService implements IAggregationService {
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
     private readonly prisma: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
@@ -280,7 +283,7 @@ export class AggregationService implements IAggregationService {
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
-    return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
+    return this.dataPrismaService.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
   }
   /**
    * Perform grouped aggregation operations
@@ -575,7 +578,7 @@ export class AggregationService implements IAggregationService {
     const rawQuery = qb.toQuery();
 
     this.logger.debug('handleRowCount raw query: %s', rawQuery);
-    return await this.prisma.$queryRawUnsafe<{ count: number }[]>(rawQuery);
+    return await this.dataPrismaService.$queryRawUnsafe<{ count: number }[]>(rawQuery);
   }
 
   private async fetchStatisticsParams(params: {
@@ -813,7 +816,7 @@ export class AggregationService implements IAggregationService {
 
     const sql = queryBuilder.toQuery();
 
-    const result = await this.prisma.$queryRawUnsafe<{ count: number }[] | null>(sql);
+    const result = await this.dataPrismaService.$queryRawUnsafe<{ count: number }[] | null>(sql);
 
     return {
       count: result ? Number(result[0]?.count) : 0,
@@ -932,7 +935,7 @@ export class AggregationService implements IAggregationService {
     this.logger.debug('getRecordIndexBySearchOrder sql: %s', sql);
 
     try {
-      return await this.prisma.$tx(async (prisma) => {
+      return await this.dataPrismaService.$tx(async (prisma) => {
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
 
         // no result found
@@ -974,7 +977,9 @@ export class AggregationService implements IAggregationService {
         this.logger.debug('getRecordIndexBySearchOrder indexSql: %s', indexSql);
         const indexResult =
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(indexSql);
+          await this.dataPrismaService.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
+            indexSql
+          );
 
         if (indexResult?.length === 0) {
           return null;
@@ -1039,7 +1044,7 @@ export class AggregationService implements IAggregationService {
     this.logger.debug('getRecordIndex sql: %s', sql);
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const result = await this.prisma.$queryRawUnsafe<{ row_num: number }[]>(sql);
+    const result = await this.dataPrismaService.$queryRawUnsafe<{ row_num: number }[]>(sql);
 
     if (!result?.length) {
       return null;
@@ -1164,7 +1169,7 @@ export class AggregationService implements IAggregationService {
       endField: endField as DateFieldDto,
       dbTableName: viewCte || dbTableName,
     });
-    const result = await this.prisma
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<
         { date: Date | string; count: number; ids: string[] | string }[]

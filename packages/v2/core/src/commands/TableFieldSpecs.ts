@@ -50,7 +50,11 @@ import { FieldColor, fieldColorValues } from '../domain/table/fields/types/Field
 import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
-import type { FormulaFormatting, FormulaShowAs } from '../domain/table/fields/types/FormulaField';
+import {
+  FormulaField,
+  type FormulaFormatting,
+  type FormulaShowAs,
+} from '../domain/table/fields/types/FormulaField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
@@ -2363,9 +2367,11 @@ const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, DomainErr
 };
 
 const parseFormulaFormatting = (
-  raw: unknown
+  raw: unknown,
+  cellValueType?: CellValueType
 ): Result<FormulaFormatting | undefined, DomainError> => {
-  if (raw == null) return ok(undefined);
+  if (raw == null)
+    return ok(cellValueType ? FormulaField.defaultFormatting(cellValueType) : undefined);
   const numberResult = NumberFormatting.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
@@ -2507,7 +2513,10 @@ export const parseTableFieldSpec = (
                   .isMultipleCellValue,
               }).andThen((resultType) =>
                 optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                  parseFormulaFormatting(
+                    field.options.formatting,
+                    resultType?.cellValueType
+                  ).andThen((formatting) =>
                     parseFormulaShowAs(field.options.showAs).map((showAs) =>
                       CreateFormulaFieldSpec.create(id, name, {
                         isPrimary: options.isPrimary,
@@ -2531,7 +2540,10 @@ export const parseTableFieldSpec = (
                   isMultipleCellValue: field.isMultipleCellValue,
                 }).andThen((resultType) =>
                   optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-                    parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                    parseFormulaFormatting(
+                      field.options.formatting,
+                      resultType?.cellValueType
+                    ).andThen((formatting) =>
                       parseFormulaShowAs(field.options.showAs).map((showAs) =>
                         CreateRollupFieldSpec.create(id, name, {
                           isPrimary: options.isPrimary,
@@ -2741,7 +2753,10 @@ export const parseTableFieldSpec = (
                   isMultipleCellValue: field.isMultipleCellValue,
                 }).andThen((resultType) =>
                   optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-                    parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                    parseFormulaFormatting(
+                      field.options.formatting,
+                      resultType?.cellValueType
+                    ).andThen((formatting) =>
                       parseFormulaShowAs(field.options.showAs).map((showAs) =>
                         CreateConditionalRollupFieldSpec.create(id, name, {
                           isPrimary: options.isPrimary,

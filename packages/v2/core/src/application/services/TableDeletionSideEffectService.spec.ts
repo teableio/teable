@@ -393,7 +393,7 @@ describe('TableDeletionSideEffectService', () => {
 
     const result = await service.execute(createContext(), { table: deletedTable });
     expect(result.isOk()).toBe(true);
-    expect(unitOfWork.transactionCount).toBe(4);
+    expect(unitOfWork.transactionCount).toBe(8);
   });
 
   it('reacts to cross-base incoming references when deleting a foreign table', async () => {

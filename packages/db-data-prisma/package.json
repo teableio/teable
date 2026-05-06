@@ -1,0 +1,62 @@
+{
+  "name": "@teable/db-data-prisma",
+  "version": "1.10.0",
+  "license": "MIT",
+  "private": true,
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma",
+    "src"
+  ],
+  "scripts": {
+    "build": "pnpm prisma-generate-ci && tsc && rm -rf ./dist/generated && mkdir -p ./dist/generated && cp -R ./src/generated/client ./dist/generated/client",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache ./src/generated",
+    "dev": "tsc --watch",
+    "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-data-prisma.eslintcache",
+    "postinstall": "pnpm prisma-generate-ci",
+    "prisma-generate": "node ./scripts/run-prisma-command.mjs generate --schema ./prisma/schema.prisma",
+    "prisma-generate-ci": "cross-env PRISMA_DATA_DATABASE_URL=\"postgresql://teable:teable@127.0.0.1:5432/teable-data?schema=public\" prisma generate --schema ./prisma/schema.prisma",
+    "prisma-migrate": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate",
+    "prisma-migrate-reset": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate reset --schema ./prisma/schema.prisma",
+    "prisma-migrate-status": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate status --schema ./prisma/schema.prisma",
+    "prisma-db-push": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs db push --schema ./prisma/schema.prisma",
+    "prisma-studio": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs studio --schema ./prisma/schema.prisma",
+    "test": "run-s test-unit",
+    "test-unit": "echo \"No unit tests yet\"",
+    "test-e2e": "echo \"No e2e tests yet\"",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0",
+    "nestjs-cls": "^4.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "6.2.1",
+    "nanoid": "3.3.7",
+    "prisma": "6.2.1"
+  },
+  "devDependencies": {
+    "@teable/eslint-config-bases": "workspace:^",
+    "@types/node": "22.18.0",
+    "cross-env": "7.0.3",
+    "dotenv-flow-cli": "1.1.1",
+    "eslint": "8.57.0",
+    "npm-run-all2": "6.1.2",
+    "prettier": "3.2.5",
+    "rimraf": "5.0.5",
+    "typescript": "5.4.3"
+  }
+}

@@ -22,7 +22,11 @@ export const DatabasePgLive = Layer.effect(
     });
 
     const container = yield* Effect.tryPromise({
-      try: () => createV2NodePgContainer({ connectionString: config.connectionString }),
+      try: () =>
+        createV2NodePgContainer({
+          connectionString: config.connectionString,
+          computedUpdate: { mode: 'sync', pollingConfig: { enabled: false } },
+        }),
       catch: (error) => new Error(`Failed to create database container: ${error}`),
     });
 

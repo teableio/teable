@@ -266,12 +266,13 @@ export const ensureUndoCaptureInfrastructure = async <DB>(
 
 export const setUndoCaptureBatchId = async <DB>(
   db: DbOrTx<DB>,
-  batchId: string
+  batchId: string,
+  options?: { local?: boolean }
 ): Promise<boolean> => {
   try {
-    await sql`SELECT set_config('teable.undo_batch_id', ${batchId}, ${isTransactionDb(db)})`.execute(
-      db
-    );
+    await sql`SELECT set_config('teable.undo_batch_id', ${batchId}, ${
+      options?.local ?? isTransactionDb(db)
+    })`.execute(db);
     return true;
   } catch {
     return false;
@@ -288,15 +289,21 @@ export const getUndoCaptureBatchId = async <DB>(db: DbOrTx<DB>): Promise<string 
 
 export const restoreUndoCaptureBatchId = async <DB>(
   db: DbOrTx<DB>,
-  batchId?: string
+  batchId?: string,
+  options?: { local?: boolean }
 ): Promise<void> => {
   await sql`
-    SELECT set_config('teable.undo_batch_id', ${batchId ?? ''}, ${isTransactionDb(db)})
+    SELECT set_config('teable.undo_batch_id', ${batchId ?? ''}, ${
+      options?.local ?? isTransactionDb(db)
+    })
   `.execute(db);
 };
 
-export const clearUndoCaptureBatchId = async <DB>(db: DbOrTx<DB>): Promise<void> => {
-  await restoreUndoCaptureBatchId(db);
+export const clearUndoCaptureBatchId = async <DB>(
+  db: DbOrTx<DB>,
+  options?: { local?: boolean }
+): Promise<void> => {
+  await restoreUndoCaptureBatchId(db, undefined, options);
 };
 
 export const loadAndClearUndoLogRows = async <DB>(

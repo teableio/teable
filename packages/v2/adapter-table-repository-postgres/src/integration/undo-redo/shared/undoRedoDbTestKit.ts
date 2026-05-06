@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createV2NodeTestContainer,
   type IV2NodeTestContainer,
@@ -83,7 +83,7 @@ export const createUndoRedoDbHarness = async () => {
   testContainer.container.registerInstance(v2CoreTokens.undoRedoStore, new MemoryUndoRedoStore());
 
   const commandBus = testContainer.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-  const db = testContainer.container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
+  const db = testContainer.container.resolve<Kysely<DynamicDb>>(v2DataDbTokens.db);
   const actorId = ActorId.create('system')._unsafeUnwrap();
 
   const context: IExecutionContext = {

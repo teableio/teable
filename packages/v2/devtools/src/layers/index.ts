@@ -7,6 +7,7 @@ export * from './MockRecordsLive';
 export * from './NodeCryptoHasher';
 export * from './OutputLive';
 export * from './SchemaCheckerLive';
+export * from './SchemaOperationControlLive';
 export * from './SchemaRepairerLive';
 export * from './TableCreatorLive';
 export * from './DotTeaImporterLive';

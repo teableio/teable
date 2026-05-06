@@ -2,11 +2,17 @@ import { DeepThinking, Eye, ImageGeneration, Audio } from '@teable/icons';
 import type {
   IGatewayModel,
   IImageModelDefination,
+  IModelConfig,
   ISimpleLLMProvider,
   ITextModelDefination,
   LLMProvider,
 } from '@teable/openapi';
-import { LLMProviderType } from '@teable/openapi';
+import {
+  getImageModelTagsFromAbility,
+  getImageModelConfig,
+  getKnownImageModelAbility,
+  LLMProviderType,
+} from '@teable/openapi';
 import type { TFunction } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { Trans } from 'react-i18next';
@@ -14,12 +20,81 @@ import { Trans } from 'react-i18next';
 // Fixed name for AI Gateway provider in modelKey
 export const AI_GATEWAY_PROVIDER_NAME = 'teable';
 
+export const parseProviderModels = (models: string | undefined): string[] =>
+  models
+    ?.split(',')
+    .map((model) => model.trim())
+    .filter(Boolean) ?? [];
+
+const compactModelConfig = (config: IModelConfig): IModelConfig =>
+  Object.fromEntries(
+    Object.entries(config).filter(([, value]) => value !== undefined)
+  ) as IModelConfig;
+
+const hasModelConfigValue = (config: IModelConfig): boolean => Object.keys(config).length > 0;
+
+const clearImageGenerationTag = (
+  tags: IModelConfig['tags'] | undefined
+): IModelConfig['tags'] | undefined => {
+  const nextTags = tags?.filter((tag) => tag !== 'image-generation');
+  return nextTags?.length ? nextTags : undefined;
+};
+
+export const normalizeLLMProviderModelConfigs = (provider: LLMProvider): LLMProvider => {
+  const models = parseProviderModels(provider.models);
+  const currentConfigs = provider.modelConfigs ?? {};
+  const modelConfigs = models.reduce<Record<string, IModelConfig>>((acc, model) => {
+    const currentConfig = currentConfigs[model];
+    if (!currentConfig) return acc;
+
+    if (!currentConfig.isImageModel) {
+      const nextConfig = compactModelConfig({
+        ...currentConfig,
+        imageAbility: undefined,
+        modelType: undefined,
+        tags: clearImageGenerationTag(currentConfig.tags),
+      });
+
+      if (hasModelConfigValue(nextConfig)) {
+        acc[model] = nextConfig;
+      }
+
+      return acc;
+    }
+
+    const imageAbility =
+      currentConfig.imageAbility ?? getKnownImageModelAbility(provider.type, model);
+    const knownImageModelConfig = getImageModelConfig(provider.type, model);
+    const tags = imageAbility
+      ? getImageModelTagsFromAbility(imageAbility, currentConfig.tags)
+      : currentConfig.tags;
+    const nextConfig = compactModelConfig({
+      ...currentConfig,
+      ability: undefined,
+      imageAbility,
+      modelType: currentConfig.modelType ?? knownImageModelConfig?.modelType,
+      tags,
+    });
+
+    if (hasModelConfigValue(nextConfig)) {
+      acc[model] = nextConfig;
+    }
+
+    return acc;
+  }, {});
+
+  return {
+    ...provider,
+    modelConfigs: Object.keys(modelConfigs).length ? modelConfigs : undefined,
+  };
+};
+
 export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[] | LLMProvider[]) => {
   return llmProviders
     .map((provider) => {
       const { models, type, name, isInstance } = provider;
       const modelConfigs = 'modelConfigs' in provider ? provider.modelConfigs : undefined;
-      return models.split(',').map((model) => {
+      return parseProviderModels(models).map((model) => {
         const config = modelConfigs?.[model];
         return {
           modelKey: `${type}@${model}@${name}`,

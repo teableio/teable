@@ -158,6 +158,7 @@
     },
     "invalidateSelected": "Unzulässiger Wert",
     "invalidateSelectedTips": "Der ausgewählte Wert wurde gelöscht, bitte wählen Sie erneut",
+    "invalidConditionTip": "Diese Filterbedingung ist ungültig und wird ignoriert. Bitte passen Sie den Wert an.",
     "default": {
       "empty": "Es werden keine Filterbedingungen angewendet",
       "placeholder": "Einen Wert eingeben"
@@ -264,7 +265,8 @@
     "configLabel_other_visible": "{{count}} sichtbare Felder",
     "showAll": "Alle zeigen",
     "hideAll": "Alle verstecken",
-    "primaryKey": "Primäres Feld: Identifiziert Datensätze\nKann nicht ausgeblendet oder gelöscht werden, sichtbar in verknüpften Datensätzen."
+    "primaryKey": "Primäres Feld: Identifiziert Datensätze\nKann nicht ausgeblendet oder gelöscht werden, sichtbar in verknüpften Datensätzen.",
+    "notInCurrentView": "Feld „{{fieldName}}“ ist in der aktuellen Ansicht nicht sichtbar und kann nicht angesteuert werden"
   },
   "expandRecord": {
     "copy": "In die Zwischenablage kopieren",
@@ -1121,7 +1123,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Ausführung von SQL mit Schlüsselwort {{keyword}} nicht erlaubt",
       "whiteListCheckError": "Fehler beim Überprüfen des Tabellenzugriffs: {{message}}",
       "databaseConnectionFailed": "Datenbankverbindung fehlgeschlagen: {{message}}",
-      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}"
+      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}",
+      "sqlSyntaxError": "SQL-Syntaxfehler, bitte überprüfen Sie Ihre Abfrage"
     },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
@@ -1223,7 +1226,9 @@
       "button": {
         "clickCountReachedMaxCount": "Anzahl der Schaltflächenklicks hat das Maximum erreicht",
         "notSupportReset": "Schaltflächenfeld unterstützt kein Zurücksetzen"
-      }
+      },
+      "primaryCannotBeLookup": "Primärfeld kann nicht als Lookup-Feld konfiguriert werden",
+      "primaryFieldAlreadyExists": "Tabelle hat bereits ein Primärfeld"
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
@@ -1438,7 +1443,8 @@
       "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
       "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}",
-      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden"
+      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden",
+      "domainReserved": "Subdomain ist reserviert"
     }
   }
 }

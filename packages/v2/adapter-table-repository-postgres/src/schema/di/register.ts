@@ -48,6 +48,10 @@ export const registerV2PostgresDdlAdapter = async (
   c.registerInstance(v2PostgresDdlTokens.config, config);
   c.registerInstance(v2PostgresDdlTokens.db, db);
 
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.metaDb)) {
+    c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, db);
+  }
+
   if (!c.isRegistered(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)) {
     c.registerInstance(
       v2RecordRepositoryPostgresTokens.computedFieldBackfillService,

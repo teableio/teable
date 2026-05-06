@@ -9,6 +9,7 @@ import type {
   PreviewData,
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
+import { getAppDatabaseUrl } from './database-url';
 
 type GetServerSideProps<
   P extends { [key: string]: any } = { [key: string]: any },
@@ -20,7 +21,7 @@ export default function withEnv<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>
 ): NextGetServerSideProps<P> {
   return async (context: GetServerSidePropsContext) => {
-    const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
+    const { driver } = parseDsn(getAppDatabaseUrl());
     const envMaxSearchFieldCount = toNumber(process.env.MAX_SEARCH_FIELD_COUNT);
     const task = {
       maxTaskRows: toNumber(process.env.MAX_TASK_ROWS),

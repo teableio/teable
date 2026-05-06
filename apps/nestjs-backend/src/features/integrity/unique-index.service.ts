@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import { InjectDbProvider } from '../../db-provider/db.provider';
-import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { FieldService } from '../field/field.service';
 
 @Injectable()
 export class UniqueIndexService {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     private readonly fieldService: FieldService
   ) {}
 
@@ -98,7 +98,7 @@ export class UniqueIndexService {
     if (!sql) {
       return;
     }
-    await this.prismaService.txClient().$executeRawUnsafe(sql);
+    await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
 
     return {
       type: IntegrityIssueType.UniqueIndexNotFound,

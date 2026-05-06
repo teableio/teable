@@ -124,6 +124,30 @@ export interface V1ReferenceTable {
   created_time: ColumnType<Date, Date | undefined, never>;
 }
 
+export interface V1SchemaOperationTable {
+  id: string;
+  type: string;
+  status: string;
+  phase: string;
+  resource_type: string;
+  resource_id: string;
+  base_id: string | null;
+  table_id: string | null;
+  idempotency_key: string;
+  payload: unknown | null;
+  result: unknown | null;
+  attempts: number;
+  max_attempts: number;
+  next_run_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  locked_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  locked_by: string | null;
+  last_error: string | null;
+  created_time: ColumnType<Date, Date | undefined, never>;
+  created_by: string;
+  last_modified_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  last_modified_by: string | null;
+}
+
 export interface V1ComputedUpdateOutboxTable {
   id: string;
   base_id: string;
@@ -231,6 +255,7 @@ export interface V1TeableDatabase {
   field: V1FieldTable;
   view: V1ViewTable;
   reference: V1ReferenceTable;
+  schema_operation: V1SchemaOperationTable;
   computed_update_outbox: V1ComputedUpdateOutboxTable;
   computed_update_outbox_seed: V1ComputedUpdateOutboxSeedTable;
   computed_update_dead_letter: V1ComputedUpdateDeadLetterTable;

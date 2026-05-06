@@ -34,6 +34,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { isEmpty, isNull, isString, merge, snakeCase, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -42,6 +43,7 @@ import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -59,7 +61,9 @@ export class ViewService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -94,7 +98,7 @@ export class ViewService implements IReadonlyAdapterService {
     const exists = await this.dbProvider.checkColumnExist(
       dbTableName,
       columnName,
-      this.prismaService.txClient()
+      this.dataPrismaService.txClient()
     );
 
     if (exists) {
@@ -103,12 +107,12 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async createViewIndexField(dbTableName: string, viewId: string) {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
 
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
 
     // add a field for maintain row order number
-    const addRowIndexColumnSql = this.knex.schema
+    const addRowIndexColumnSql = this.dataKnex.schema
       .alterTable(dbTableName, (table) => {
         table.double(rowIndexFieldName);
       })
@@ -116,15 +120,15 @@ export class ViewService implements IReadonlyAdapterService {
     await prisma.$executeRawUnsafe(addRowIndexColumnSql);
 
     // fill initial order for every record, with auto increment integer
-    const updateRowIndexSql = this.knex(dbTableName)
+    const updateRowIndexSql = this.dataKnex(dbTableName)
       .update({
-        [rowIndexFieldName]: this.knex.ref('__auto_number'),
+        [rowIndexFieldName]: this.dataKnex.ref('__auto_number'),
       })
       .toQuery();
     await prisma.$executeRawUnsafe(updateRowIndexSql);
 
     // create index
-    const createRowIndexSQL = this.knex.schema
+    const createRowIndexSQL = this.dataKnex.schema
       .alterTable(dbTableName, (table) => {
         table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
       })

@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { generateRecordTrashId } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { ResourceType } from '@teable/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events } from '../../../event-emitter/events';
 import { IDeleteFieldsPayload } from '../../undo-redo/operations/delete-fields.operation';
@@ -14,8 +12,7 @@ import { IDeleteViewPayload } from '../../undo-redo/operations/delete-view.opera
 @Injectable()
 export class TableTrashListener {
   constructor(
-    private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly dataPrismaService: DataPrismaService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -26,8 +23,9 @@ export class TableTrashListener {
     if (!operationId) return;
 
     const recordIds = records.map((record) => record.id);
+    const createdTime = new Date();
 
-    await this.prismaService.$tx(
+    await this.dataPrismaService.$tx(
       async (prisma) => {
         await prisma.tableTrash.create({
           data: {
@@ -36,22 +34,23 @@ export class TableTrashListener {
             createdBy: userId,
             resourceType: ResourceType.Record,
             snapshot: JSON.stringify(recordIds),
+            createdTime,
           },
         });
 
         const batchSize = 5000;
         for (let i = 0; i < records.length; i += batchSize) {
           const batch = records.slice(i, i + batchSize);
-          const recordTrashData = batch.map((record) => ({
-            id: generateRecordTrashId(),
-            table_id: tableId,
-            record_id: record.id,
-            snapshot: JSON.stringify(record),
-            created_by: userId,
-          }));
-
-          const query = this.knex.insert(recordTrashData).into('record_trash').toQuery();
-          await prisma.$executeRawUnsafe(query);
+          await prisma.recordTrash.createMany({
+            data: batch.map((record) => ({
+              id: generateRecordTrashId(),
+              tableId,
+              recordId: record.id,
+              snapshot: JSON.stringify(record),
+              createdBy: userId,
+              createdTime,
+            })),
+          });
         }
       },
       {
@@ -66,7 +65,7 @@ export class TableTrashListener {
 
     if (!operationId) return;
 
-    await this.prismaService.tableTrash.create({
+    await this.dataPrismaService.tableTrash.create({
       data: {
         id: operationId,
         tableId,
@@ -83,7 +82,7 @@ export class TableTrashListener {
 
     if (!operationId) return;
 
-    await this.prismaService.tableTrash.create({
+    await this.dataPrismaService.tableTrash.create({
       data: {
         id: operationId,
         tableId,

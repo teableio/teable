@@ -16,7 +16,11 @@ import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { ICsvParser, CsvParseResult, CsvSource } from '../ports/CsvParser';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordRepository,
@@ -25,9 +29,9 @@ import type {
   RecordMutationResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ImportCsvCommand } from './ImportCsvCommand';
 import { ImportCsvHandler } from './ImportCsvHandler';
 
@@ -58,6 +62,7 @@ class FakeCsvParser implements ICsvParser {
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
@@ -104,6 +109,15 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionState(
+    _: IExecutionContext,
+    table: Table,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    this.provisionStateChanges.push({ tableId: table.id().toString(), state });
     return ok(undefined);
   }
 }
@@ -239,10 +253,23 @@ class FakeEventBus implements IEventBus {
 class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    return work({ ...context, transaction });
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const existing = context.transactions?.[scope];
+    if (existing) {
+      return work({ ...context, transaction: existing });
+    }
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
+    return work({
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    });
   }
 }
 
@@ -289,6 +316,10 @@ describe('ImportCsvHandler', () => {
     expect(value.table.primaryField()._unsafeUnwrap().name().toString()).toBe('Name');
     expect(tableRecordRepository.inserted).toHaveLength(2);
     expect(eventBus.published.length).toBeGreaterThan(0);
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'ready',
+    ]);
   });
 
   it('returns error when csv has no headers', async () => {

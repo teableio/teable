@@ -238,8 +238,11 @@ db-migration:		## Reruns the existing migration history in the shadow database i
 
 postgres.mode:		## postgres.mode
 	@cd ./packages/db-main-prisma; \
-		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
+		pnpm prisma-generate; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+	@cd ./packages/db-data-prisma; \
+		pnpm prisma-generate; \
+		pnpm prisma-migrate deploy --schema ./prisma/schema.prisma
 # Override environment variable files based on variables
 RUN_DB_MODE ?= postgres
 FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*

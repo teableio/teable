@@ -118,6 +118,7 @@ class PostgresRecordMutationSnapshotCaptureSession
     private readonly db: DbOrTx,
     private readonly batchId: string,
     private readonly previousBatchId: string | undefined,
+    private readonly batchIdLocal: boolean,
     private readonly tableName: string,
     private readonly logger: ILogger,
     private readonly traceContext?: RecordMutationSnapshotTraceContext
@@ -186,10 +187,12 @@ class PostgresRecordMutationSnapshotCaptureSession
   private async clearBatchId(): Promise<void> {
     try {
       if (this.previousBatchId !== undefined) {
-        await restoreUndoCaptureBatchId(this.db, this.previousBatchId);
+        await restoreUndoCaptureBatchId(this.db, this.previousBatchId, {
+          local: this.batchIdLocal,
+        });
         return;
       }
-      await clearUndoCaptureBatchId(this.db);
+      await clearUndoCaptureBatchId(this.db, { local: this.batchIdLocal });
     } catch (error) {
       this.logger.warn('undo:capture:reset_failed', {
         batchId: this.batchId,
@@ -261,7 +264,15 @@ export class PostgresRecordMutationSnapshotCaptureService
 
         const batchId = generateUuid();
         const previousBatchId = await getUndoCaptureBatchId(db);
-        const setResult = await setUndoCaptureBatchId(db, batchId);
+        let batchIdLocal = true;
+        let setResult = await setUndoCaptureBatchId(db, batchId, { local: true });
+        const verifiedBatchId = await getUndoCaptureBatchId(db);
+        if (setResult && verifiedBatchId !== batchId) {
+          batchIdLocal = false;
+          setResult = await setUndoCaptureBatchId(db, batchId, { local: false });
+        }
+        const finalVerifiedBatchId =
+          verifiedBatchId === batchId ? verifiedBatchId : await getUndoCaptureBatchId(db);
         if (!setResult) {
           this.logger.warn('undo:capture:begin_failed', {
             tableName,
@@ -273,12 +284,25 @@ export class PostgresRecordMutationSnapshotCaptureService
             )
           );
         }
+        if (finalVerifiedBatchId !== batchId) {
+          this.logger.warn('undo:capture:begin_verify_failed', {
+            tableName,
+            batchId,
+            verifiedBatchId: finalVerifiedBatchId ?? null,
+          });
+          return err(
+            buildUndoCaptureInfrastructureError(
+              `Failed to verify undo capture batch "${batchId}" for "${tableName}".`
+            )
+          );
+        }
 
         return ok(
           new PostgresRecordMutationSnapshotCaptureSession(
             db,
             batchId,
             previousBatchId,
+            batchIdLocal,
             tableName,
             this.logger,
             traceContext

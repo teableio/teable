@@ -29,6 +29,8 @@ export const updateRecordsInputSchema = z
     filter: recordFilterNodeSchema.optional(),
     recordIds: z.array(z.string()).min(1, 'At least one recordId is required').optional(),
     typecast: z.boolean().optional().default(false),
+    deferComputedUpdates: z.boolean().optional().default(false),
+    enqueueDeferredComputedUpdates: z.boolean().optional().default(false),
     fieldKeyType: fieldKeyTypeSchema,
     order: recordInsertOrderSchema.optional(),
   })
@@ -93,6 +95,8 @@ export class UpdateRecordsCommand {
     readonly recordIds: ReadonlyArray<RecordId> | undefined,
     readonly records: ReadonlyArray<IUpdateRecordsItem> | undefined,
     readonly typecast: boolean,
+    readonly deferComputedUpdates: boolean,
+    readonly enqueueDeferredComputedUpdates: boolean,
     readonly fieldKeyType: FieldKeyType,
     readonly order: RecordInsertOrder | undefined
   ) {}
@@ -120,6 +124,8 @@ export class UpdateRecordsCommand {
                 recordIds,
                 records,
                 parsed.data.typecast,
+                parsed.data.deferComputedUpdates,
+                parsed.data.enqueueDeferredComputedUpdates,
                 parsed.data.fieldKeyType,
                 order
               )

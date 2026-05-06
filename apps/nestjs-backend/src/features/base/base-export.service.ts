@@ -12,6 +12,7 @@ import type {
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
 import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -26,8 +27,10 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -65,10 +68,11 @@ export class BaseExportService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
@@ -460,7 +464,7 @@ export class BaseExportService {
       id: baseId,
       name: baseName,
       icon: baseIcon,
-      version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
+      version: resolveBuildVersion(),
       tables,
       plugins,
       folders,
@@ -562,7 +566,7 @@ export class BaseExportService {
   ) {
     const { dbTableName, id } = tableRaw;
     const csvStream = new PassThrough();
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -708,7 +712,7 @@ export class BaseExportService {
     archive: archiver.Archiver
   ) {
     const csvStream = new PassThrough();
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
     const columnInfoQuery = this.dbProvider.columnInfo(fkHostTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -785,7 +789,7 @@ export class BaseExportService {
     convertFields: [string, string],
     excludeFieldNames: string[]
   ) {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
     const recordsQuery = await this.knex(fkHostTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
@@ -811,7 +815,7 @@ export class BaseExportService {
   }
 
   private async getChunkRecords(dbTableName: string, offset: number) {
-    const prisma = this.prismaService.txClient();
+    const prisma = this.dataPrismaService.txClient();
     const recordsQuery = await this.knex(dbTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)

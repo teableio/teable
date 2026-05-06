@@ -638,6 +638,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo principal mal configurado como Lookup",
+        "InvalidPrimaryType": "El campo principal tiene un tipo no admitido",
+        "MissingPrimary": "La tabla no tiene campo principal"
       }
     },
     "index": {
@@ -971,6 +976,7 @@
     "expand": "Expandir",
     "history": "Historial",
     "close": "Contraer",
+    "noModel": "No hay modelos disponibles",
     "addAttachment": "Añadir archivo adjunto",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
@@ -988,7 +994,14 @@
       "emptyContext": "No hay contexto para agregar",
       "selectionRows": "Filas {{start}}-{{end}}"
     },
-    "inputPlaceholder": "Enviar mensaje...",
+    "mention": {
+      "tables": "Tablas",
+      "apps": "Aplicaciones",
+      "workflows": "Flujos de trabajo",
+      "folders": "Carpetas"
+    },
+    "inputPlaceholder": "Escribe @ para añadir contexto",
+    "inputPlaceholderFiles": "Pega o suelta archivos aquí",
     "thought": "Pensando",
     "meta": {
       "input": "Entrada",
@@ -1047,6 +1060,8 @@
       "advancedOptions": "Opciones avanzadas",
       "namingFieldLabel": "Prefijo del nombre del adjunto",
       "selectField": "Por defecto: índice de adjunto",
+      "noPrefixOption": "Sin prefijo",
+      "noPrefixOptionDesc": "Mantener el nombre original",
       "groupByRow": "Archivar en carpetas",
       "groupByRowTip": "Cuando una fila tiene múltiples adjuntos, se colocarán en la misma carpeta; las filas con solo un adjunto no crearán una carpeta."
     }

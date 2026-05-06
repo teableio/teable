@@ -1318,6 +1318,82 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('jsonb_array_elements');
     });
 
+    test('formula reference to link uses stored link title snapshot', () => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const foreignTitleFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignTitleFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_title')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignTitleFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('LinkTitleFormula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(`{${linkFieldId.toString()}}`)._unsafeUnwrap())
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link_title_formula')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const db = createTestDb();
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select([formulaFieldId])
+      );
+
+      expect(sql).toContain(`COALESCE(("t"."col_link")::jsonb->>'title'`);
+      expect(sql).not.toContain('"f"."col_title"');
+    });
+
     test('shares LATERAL JOIN between link and lookup on same link', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
@@ -1387,6 +1463,27 @@ describe('ComputedTableRecordQueryBuilder', () => {
         db,
         new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
           .from(mainTable)
+          .select([lookupField.id()])
+      );
+
+      expect(sql).toContain('NULL::jsonb as "col_lookup"');
+      expect(sql).not.toContain('inner join lateral');
+    });
+
+    test('returns NULL lookup when lookup link field is missing', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createLookupTable();
+      const lookupField = mainTable.getFields()[2];
+      const tableWithoutLink = Object.create(mainTable) as Table;
+      (tableWithoutLink as unknown as { getField: () => { isErr(): true } }).getField = () => ({
+        isErr: () => true,
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(tableWithoutLink)
           .select([lookupField.id()])
       );
 

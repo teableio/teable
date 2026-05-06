@@ -53,6 +53,7 @@ import { Knex } from 'knex';
 import { groupBy, isEqual, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { FieldReferenceCompatibilityException } from '../../../db-provider/filter-query/cell-value-filter.abstract';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
@@ -114,6 +115,7 @@ export class FieldOpenApiService {
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly viewOpenApiService: ViewOpenApiService,
@@ -2145,7 +2147,9 @@ export class FieldOpenApiService {
     });
 
     const query = qb.toQuery();
-    const result = await this.prismaService.txClient().$queryRawUnsafe<{ count: number }[]>(query);
+    const result = await this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ count: number }[]>(query);
     return Number(result[0].count);
   }
 
@@ -2185,7 +2189,7 @@ export class FieldOpenApiService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result = await this.prismaService
+    const result = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
     this.logger.debug('getFieldRecords: ', result);

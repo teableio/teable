@@ -2,6 +2,7 @@ import type { Provider } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { getDriverName } from '../../../utils/db-helpers';
 import { PgRecordQueryDialect } from './providers/pg-record-query-dialect';
 import { RECORD_QUERY_BUILDER_SYMBOL } from './record-query-builder.symbol';
@@ -28,5 +29,5 @@ export const RecordQueryDialectProvider: Provider = {
         throw new Error(`Unsupported database driver: ${driverClient}`);
     }
   },
-  inject: ['CUSTOM_KNEX'],
+  inject: [DATA_KNEX],
 };

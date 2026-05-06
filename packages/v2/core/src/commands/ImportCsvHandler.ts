@@ -2,6 +2,11 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -99,74 +104,111 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
         parseResult.headers
       );
 
-      // 4. 事务：创建表 + 流式导入数据
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
+      const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => {
-          return safeTry<{ persistedTable: Table; totalImported: number }, DomainError>(
-            async function* () {
-              // 4.1 持久化表结构
-              const persistedTable = yield* await handler.tableRepository.insert(
-                transactionContext,
-                table
-              );
-              yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
+        async (metaTransactionContext) =>
+          safeTry<Table, DomainError>(async function* () {
+            const persistedTable = yield* await handler.tableRepository.insert(
+              metaTransactionContext,
+              table
+            );
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              persistedTable,
+              {
+                type: 'table.import',
+                payload: {
+                  source: 'csv',
+                  durableSource: false,
+                },
+              }
+            );
+            return ok(persistedTable);
+          }),
+        { scope: 'meta' }
+      );
 
-              // 4.2 获取字段 ID 映射（CSV 列名 → 字段 ID）
-              const fieldIdMap = handler.buildFieldIdMap(persistedTable, parseResult.headers);
+      const importResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) => {
+          return safeTry<{ totalImported: number }, DomainError>(async function* () {
+            yield* await handler.tableSchemaRepository.insert(
+              dataTransactionContext,
+              persistedTable
+            );
 
-              // 4.3 流式创建记录（支持同步和异步迭代器）
-              const recordsIterable = parseResult.rowsAsync
-                ? handler.createRecordsIterableAsync(parseResult.rowsAsync, fieldIdMap)
-                : handler.createRecordsIterable(parseResult.rows, fieldIdMap);
+            const fieldIdMap = handler.buildFieldIdMap(persistedTable, parseResult.headers);
 
-              // 4.4 使用域层流式处理
-              const batchGenerator = parseResult.rowsAsync
-                ? persistedTable.createRecordsStreamAsync(
-                    recordsIterable as AsyncIterable<ReadonlyMap<string, unknown>>,
-                    {
-                      batchSize: command.batchSize,
-                    }
+            const recordsIterable = parseResult.rowsAsync
+              ? handler.createRecordsIterableAsync(parseResult.rowsAsync, fieldIdMap)
+              : handler.createRecordsIterable(parseResult.rows, fieldIdMap);
+
+            const batchGenerator = parseResult.rowsAsync
+              ? persistedTable.createRecordsStreamAsync(
+                  recordsIterable as AsyncIterable<ReadonlyMap<string, unknown>>,
+                  {
+                    batchSize: command.batchSize,
+                  }
+                )
+              : persistedTable.createRecordsStream(
+                  recordsIterable as Iterable<ReadonlyMap<string, unknown>>,
+                  {
+                    batchSize: command.batchSize,
+                  }
+                );
+
+            const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
+              dataTransactionContext,
+              persistedTable,
+              parseResult.rowsAsync
+                ? handler.consumeBatchesAsync(
+                    batchGenerator as AsyncGenerator<
+                      Result<ReadonlyArray<TableRecord>, DomainError>
+                    >
                   )
-                : persistedTable.createRecordsStream(
-                    recordsIterable as Iterable<ReadonlyMap<string, unknown>>,
-                    {
-                      batchSize: command.batchSize,
-                    }
-                  );
+                : handler.consumeBatches(
+                    batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>
+                  )
+            );
 
-              // 4.5 流式插入数据库
-              const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
-                transactionContext,
-                persistedTable,
-                parseResult.rowsAsync
-                  ? handler.consumeBatchesAsync(
-                      batchGenerator as AsyncGenerator<
-                        Result<ReadonlyArray<TableRecord>, DomainError>
-                      >
-                    )
-                  : handler.consumeBatches(
-                      batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>
-                    )
-              );
+            return ok({ totalImported: insertResult.totalInserted });
+          });
+        },
+        { scope: 'data' }
+      );
+      if (importResult.isErr()) {
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTable,
+          {
+            lastError: importResult.error.message,
+            type: 'table.import',
+            payload: {
+              source: 'csv',
+              durableSource: false,
+            },
+          }
+        );
+        return err(importResult.error);
+      }
 
-              return ok({ persistedTable, totalImported: insertResult.totalInserted });
-            }
-          );
-        }
+      yield* await completeTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTable,
+        { type: 'table.import' }
       );
 
       // 5. 发布事件
       const events = [...table.pullDomainEvents()];
       yield* await handler.eventBus.publishMany(context, events);
 
-      return ok(
-        ImportCsvResult.create(
-          transactionResult.persistedTable,
-          transactionResult.totalImported,
-          events
-        )
-      );
+      return ok(ImportCsvResult.create(persistedTable, importResult.value.totalImported, events));
     });
   }
 

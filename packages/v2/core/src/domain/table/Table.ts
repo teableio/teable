@@ -935,8 +935,12 @@ export class Table extends AggregateRoot<TableId> {
     const existingOptions = isSingle
       ? (field as SingleSelectField).selectOptions()
       : (field as MultipleSelectField).selectOptions();
+    const existingIds = new Set(existingOptions.map((option) => option.id().toString()));
     const existingNames = new Set(existingOptions.map((option) => option.name().toString()));
-    const newOptions = options.filter((option) => !existingNames.has(option.name().toString()));
+    const newOptions = options.filter(
+      (option) =>
+        !existingIds.has(option.id().toString()) && !existingNames.has(option.name().toString())
+    );
     if (newOptions.length === 0) {
       return ok(this);
     }
@@ -1006,7 +1010,6 @@ export class Table extends AggregateRoot<TableId> {
 
     return Table.rehydrate(props);
   }
-
   /**
    * Update a field's name.
    * @param fieldId - The field to update

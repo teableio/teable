@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ProjectionHandler,
   RecordsDeleted,
@@ -154,7 +154,7 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
     }
 
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
 
     await db
       .deleteFrom('attachments_table')
@@ -179,7 +179,7 @@ export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
     event: TableTrashed
   ): Promise<Result<void, DomainError>> {
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
     const table = await db
       .selectFrom('table_meta')
       .where('id', '=', event.tableId.toString())
@@ -221,7 +221,7 @@ export class V2TableRestoredProjection implements IEventHandler<TableRestored> {
     event: TableRestored
   ): Promise<Result<void, DomainError>> {
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2PostgresDbTokens.db);
+    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
     await db
       .deleteFrom('trash')
       .where('resource_id', '=', event.tableId.toString())

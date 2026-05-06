@@ -110,6 +110,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(getInstance(container, v2PostgresDdlTokens.config)).toEqual({ db });
     expect(getInstance(container, v2PostgresDdlTokens.db)).toBe(db);
     expect(getInstance(container, v2RecordRepositoryPostgresTokens.db)).toBe(db);
+    expect(getInstance(container, v2RecordRepositoryPostgresTokens.metaDb)).toBe(db);
     expect(
       getInstance(container, formulaSqlPgTokens.typeValidationStrategy)?.constructor?.name
     ).toBe(Pg16TypeValidationStrategy.name);
@@ -153,10 +154,12 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
 
     const container = createContainer();
     const db = createDb();
+    const metaDb = createDb();
     const customStrategy = new PgLegacyTypeValidationStrategy();
 
     registerV2TableRepositoryPostgresAdapter(container as never, {
       db,
+      metaDb,
       typeValidationStrategy: customStrategy,
       computedUpdate: {
         mode: 'async',
@@ -182,6 +185,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     });
 
     expect(getInstance(container, formulaSqlPgTokens.typeValidationStrategy)).toBe(customStrategy);
+    expect(getInstance(container, v2RecordRepositoryPostgresTokens.metaDb)).toBe(metaDb);
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig)
     ).toMatchObject({

@@ -23,6 +23,7 @@ import {
   getBasePermission,
   isLinkLookupOptions,
 } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
@@ -65,6 +66,7 @@ export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
@@ -142,6 +144,27 @@ export class TableOpenApiService {
     return this.recordOpenApiService.createRecords(tableId, data);
   }
 
+  private async cleanupCreatedDataTable(
+    table: Pick<ITableVo, 'id' | 'dbTableName'> | undefined,
+    reason: unknown
+  ) {
+    if (!table?.dbTableName) {
+      return;
+    }
+
+    try {
+      await this.dataPrismaService.$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
+      await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to clean up data table ${table.dbTableName} (${table.id}) after table creation rollback: ${
+          reason instanceof Error ? reason.message : String(reason)
+        }`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined
+      );
+    }
+  }
+
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
     const independentFields: IFieldRo[] = [];
     const dependentFields: IFieldRo[] = [];
@@ -195,42 +218,54 @@ export class TableOpenApiService {
   }
 
   async createTable(baseId: string, tableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
-    const schema = await this.prismaService.$tx(async () => {
-      const tableVo = await this.createTableMeta(baseId, tableRo);
-      const tableId = tableVo.id;
+    let createdTable: ITableVo | undefined;
+    const schema = await this.prismaService
+      .$tx(async () => {
+        const tableVo = await this.createTableMeta(baseId, tableRo);
+        createdTable = tableVo;
+        const tableId = tableVo.id;
 
-      const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+        // Mark the first field as primary BEFORE prepareFields so the validation in
+        // prepareCreateFields catches bad-type / lookup-ish primaries from internal callers
+        // (template/import/AI) that don't go through the prepareCreateTableRo pipe.
+        if (
+          tableRo.fields.length &&
+          !tableRo.fields.find((field) => (field as IFieldVo).isPrimary)
+        ) {
+          (tableRo.fields[0] as IFieldVo).isPrimary = true;
+        }
 
-      // set the first field to be the primary field if not set
-      if (!preparedFields.find((field) => field.isPrimary)) {
-        preparedFields[0].isPrimary = true;
-      }
+        const preparedFields = await this.prepareFields(tableId, tableRo.fields);
 
-      // create teable should not set computed field isPending, because noting need to calculate when create
-      preparedFields.forEach((field) => delete field.isPending);
-      await this.createFields(tableId, preparedFields);
+        // create teable should not set computed field isPending, because noting need to calculate when create
+        preparedFields.forEach((field) => delete field.isPending);
+        await this.createFields(tableId, preparedFields);
 
-      const viewVos = await this.createView(tableId, tableRo.views);
-      const allFieldVos = await this.fieldOpenApiService.getFields(tableId, {
-        filterHidden: false,
+        const viewVos = await this.createView(tableId, tableRo.views);
+        const allFieldVos = await this.fieldOpenApiService.getFields(tableId, {
+          filterHidden: false,
+        });
+
+        // Maintain original field order from input to ensure consistent API response
+        const fieldIdOrder = new Map(preparedFields.map((f, i) => [f.id, i]));
+        const fieldVos = allFieldVos.sort((a, b) => {
+          const orderA = fieldIdOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+          const orderB = fieldIdOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+          return orderA - orderB;
+        });
+
+        return {
+          ...tableVo,
+          total: tableRo.records?.length || 0,
+          fields: fieldVos,
+          views: viewVos,
+          defaultViewId: viewVos[0].id,
+        };
+      })
+      .catch(async (error) => {
+        await this.cleanupCreatedDataTable(createdTable, error);
+        throw error;
       });
-
-      // Maintain original field order from input to ensure consistent API response
-      const fieldIdOrder = new Map(preparedFields.map((f, i) => [f.id, i]));
-      const fieldVos = allFieldVos.sort((a, b) => {
-        const orderA = fieldIdOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-        const orderB = fieldIdOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-        return orderA - orderB;
-      });
-
-      return {
-        ...tableVo,
-        total: tableRo.records?.length || 0,
-        fields: fieldVos,
-        views: viewVos,
-        defaultViewId: viewVos[0].id,
-      };
-    });
 
     const isDefaultRecords =
       tableRo.records?.length === 3 &&
@@ -310,26 +345,8 @@ export class TableOpenApiService {
   }
 
   async detachLink(tableId: string) {
-    // handle the link field in this table
-    const linkFields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, type: FieldType.Link, isLookup: null, deletedTime: null },
-      select: { id: true, options: true },
-    });
-
-    for (const field of linkFields) {
-      if (field.options) {
-        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-        // if the link field is a self-link field, skip it
-        if (options.foreignTableId === tableId) {
-          continue;
-        }
-      }
-      await this.fieldOpenApiService.convertField(tableId, field.id, {
-        type: FieldType.SingleLineText,
-      });
-    }
-
-    // handle the link field in related tables
+    // Only surviving tables need detaching. The deleted table's own link fields can remain intact
+    // so that a later restore can preserve their original link configuration.
     const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
 
     for (const field of relatedLinkFieldRaws) {
@@ -371,6 +388,7 @@ export class TableOpenApiService {
       where: { id: { in: tableIds } },
       select: { dbTableName: true, version: true, id: true, baseId: true, deletedTime: true },
     });
+    const dataPrisma = this.dataPrismaService.txClient();
 
     for (const table of tables) {
       if (!table.deletedTime) {
@@ -378,9 +396,7 @@ export class TableOpenApiService {
           { docId: table.id, version: table.version },
         ]);
       }
-      await this.prismaService
-        .txClient()
-        .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
+      await dataPrisma.$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
       await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
     }
   }
@@ -426,52 +442,57 @@ export class TableOpenApiService {
   }
 
   async cleanTablesRelatedData(baseId: string, tableIds: string[]) {
+    const metaPrisma = this.prismaService.txClient();
+
     // delete field for table
-    await this.prismaService.txClient().field.deleteMany({
+    await metaPrisma.field.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // delete view for table
-    await this.prismaService.txClient().view.deleteMany({
+    await metaPrisma.view.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean attachment for table
-    await this.prismaService.txClient().attachmentsTable.deleteMany({
+    await metaPrisma.attachmentsTable.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clear ops for view/field/record
-    await this.prismaService.txClient().ops.deleteMany({
+    await metaPrisma.ops.deleteMany({
       where: { collection: { in: tableIds } },
     });
 
     // clean ops for table
-    await this.prismaService.txClient().ops.deleteMany({
+    await metaPrisma.ops.deleteMany({
       where: { collection: baseId, docId: { in: tableIds } },
     });
 
-    await this.prismaService.txClient().tableMeta.deleteMany({
+    await metaPrisma.tableMeta.deleteMany({
       where: { id: { in: tableIds } },
     });
 
+    // record history and trash snapshots live with the physical record tables on the data DB.
+    const dataPrisma = this.dataPrismaService.txClient();
+
     // clean record history for table
-    await this.prismaService.txClient().recordHistory.deleteMany({
+    await dataPrisma.recordHistory.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean trash for table
-    await this.prismaService.txClient().trash.deleteMany({
+    await metaPrisma.trash.deleteMany({
       where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
     });
 
     // clean table trash
-    await this.prismaService.txClient().tableTrash.deleteMany({
+    await dataPrisma.tableTrash.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean record trash
-    await this.prismaService.txClient().recordTrash.deleteMany({
+    await dataPrisma.recordTrash.deleteMany({
       where: { tableId: { in: tableIds } },
     });
   }
@@ -564,7 +585,7 @@ export class TableOpenApiService {
     `;
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
-    return this.prismaService.$queryRawUnsafe(combinedQuery);
+    return this.dataPrismaService.$queryRawUnsafe(combinedQuery);
   }
 
   async updateName(baseId: string, tableId: string, name: string) {
@@ -628,46 +649,75 @@ export class TableOpenApiService {
     );
     const lookupFieldsQuery = this.dbProvider.lookupOptionsQuery('fkHostTableName', oldDbTableName);
 
-    await this.prismaService.$tx(async (prisma) => {
-      const linkFieldsRaw =
-        await this.prismaService.$queryRawUnsafe<{ id: string; options: string }[]>(
-          linkFieldsQuery
-        );
-      const lookupFieldsRaw =
-        await this.prismaService.$queryRawUnsafe<{ id: string; lookupOptions: string }[]>(
-          lookupFieldsQuery
-        );
+    const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
+    const rollbackRenameSql = this.dbProvider.renameTableName(dbTableName, oldDbTableName);
 
-      for (const field of linkFieldsRaw) {
-        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-        await prisma.field.update({
-          where: { id: field.id },
-          data: { options: JSON.stringify({ ...options, fkHostTableName: dbTableName }) },
-        });
-      }
-
-      for (const field of lookupFieldsRaw) {
-        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
-        if (!isLinkLookupOptions(lookupOptions)) {
-          continue;
+    await this.dataPrismaService.$tx(
+      async (prisma) => {
+        for (const sql of renameSql) {
+          await prisma.$executeRawUnsafe(sql);
         }
-        await prisma.field.update({
-          where: { id: field.id },
-          data: {
-            lookupOptions: JSON.stringify({
-              ...lookupOptions,
-              fkHostTableName: dbTableName,
-            }),
-          },
-        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
       }
+    );
 
-      await this.tableService.updateTable(baseId, tableId, { dbTableName });
-      const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
-      for (const sql of renameSql) {
-        await prisma.$executeRawUnsafe(sql);
-      }
-    });
+    try {
+      await this.prismaService.$tx(async (prisma) => {
+        const linkFieldsRaw =
+          await prisma.$queryRawUnsafe<{ id: string; options: string }[]>(linkFieldsQuery);
+        const lookupFieldsRaw =
+          await prisma.$queryRawUnsafe<{ id: string; lookupOptions: string }[]>(lookupFieldsQuery);
+
+        for (const field of linkFieldsRaw) {
+          const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+          await prisma.field.update({
+            where: { id: field.id },
+            data: { options: JSON.stringify({ ...options, fkHostTableName: dbTableName }) },
+          });
+        }
+
+        for (const field of lookupFieldsRaw) {
+          const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
+          if (!isLinkLookupOptions(lookupOptions)) {
+            continue;
+          }
+          await prisma.field.update({
+            where: { id: field.id },
+            data: {
+              lookupOptions: JSON.stringify({
+                ...lookupOptions,
+                fkHostTableName: dbTableName,
+              }),
+            },
+          });
+        }
+
+        await this.tableService.updateTable(baseId, tableId, { dbTableName });
+      });
+    } catch (error) {
+      await this.dataPrismaService
+        .$tx(
+          async (prisma) => {
+            for (const sql of rollbackRenameSql) {
+              await prisma.$executeRawUnsafe(sql);
+            }
+          },
+          {
+            timeout: this.thresholdConfig.bigTransactionTimeout,
+          }
+        )
+        .catch((rollbackError) => {
+          this.logger.error(
+            `Failed to rollback data table rename ${dbTableName} -> ${oldDbTableName}: ${
+              rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
+            }`,
+            rollbackError instanceof Error ? rollbackError.stack : undefined
+          );
+        });
+      throw error;
+    }
   }
 
   async shuffle(baseId: string) {

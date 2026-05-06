@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { assertNever } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
@@ -66,6 +67,7 @@ export class UndoRedoOperationService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
@@ -76,7 +78,7 @@ export class UndoRedoOperationService {
     );
     this.deleteRecords = new DeleteRecordsOperation(
       this.recordOpenApiService,
-      this.prismaService,
+      this.dataPrismaService,
       this.thresholdConfig
     );
     this.updateRecords = new UpdateRecordsOperation(this.recordOpenApiService, this.recordService);
@@ -88,7 +90,7 @@ export class UndoRedoOperationService {
     this.deleteFields = new DeleteFieldsOperation(
       this.fieldOpenApiService,
       this.recordOpenApiService,
-      this.prismaService
+      this.dataPrismaService
     );
     this.convertField = new ConvertFieldOperation(
       this.fieldOpenApiService,
@@ -103,7 +105,7 @@ export class UndoRedoOperationService {
     this.deleteView = new DeleteViewOperation(
       this.viewOpenApiService,
       this.viewService,
-      this.prismaService
+      this.dataPrismaService
     );
     this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
     this.updateView = new UpdateViewOperation(this.viewOpenApiService);

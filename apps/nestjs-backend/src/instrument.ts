@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
+import { resolveBuildVersion } from './utils/build-version';
 
 if (process.env.BACKEND_SENTRY_DSN) {
   const traceRate = Number(process.env.BACKEND_SENTRY_TRACE_SAMPLING_RATE ?? 0.1);
@@ -11,7 +12,7 @@ if (process.env.BACKEND_SENTRY_DSN) {
     _experiments: {
       enableMetrics: true,
     },
-    release: process.env.NEXT_PUBLIC_BUILD_VERSION || 'development',
+    release: resolveBuildVersion() || 'development',
     environment: process.env.NODE_ENV || 'development',
     defaultIntegrations: false,
     // Only keep error-related integrations, tracing is handled by OTEL

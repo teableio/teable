@@ -1,5 +1,5 @@
 import { ViewOpBuilder } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { describe, expect, it, vi } from 'vitest';
 import { V2_FIELD_DELETE_COMPAT_CONTEXT_KEY } from './v2-field-delete-compat.constants';
 import { V2FieldDeletedCompatProjection } from './v2-field-delete-compat.service';
@@ -19,7 +19,7 @@ const createInsertDb = () => {
 const createV2ContainerService = (db: unknown) => ({
   getContainer: vi.fn().mockResolvedValue({
     resolve: vi.fn((token: symbol) => {
-      if (token !== v2PostgresDbTokens.db) {
+      if (token !== v2DataDbTokens.db) {
         throw new Error(`Unexpected token ${String(token)}`);
       }
 
@@ -41,6 +41,7 @@ describe('V2FieldDeletedCompatProjection', () => {
       tableId: 'tblCompatTable0001',
       userId: 'usrCompatWriter00001',
       operationId: 'opCompatDelete000001',
+      completed: undefined as boolean | undefined,
       remainingFieldIds: new Set(['fldCompatA00000001', 'fldCompatB00000001']),
       frozenFieldOps: {
         viwCompat000000001: [
@@ -87,6 +88,7 @@ describe('V2FieldDeletedCompatProjection', () => {
       tableId: 'tblCompatTable0001',
       userId: 'usrCompatWriter00001',
       operationId: 'opCompatDelete000001',
+      completed: undefined as boolean | undefined,
       remainingFieldIds: new Set(['fldCompatA00000001']),
       frozenFieldOps: {
         viwCompat000000001: [

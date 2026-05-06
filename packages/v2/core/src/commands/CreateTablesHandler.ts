@@ -1,9 +1,14 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
+import {
+  beginTablesSchemaOperation,
+  completeTablesSchemaOperation,
+  failTablesSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -291,6 +296,12 @@ export class CreateTablesHandler
       const builtTables = yield* sequence(
         tableCommands.map((tableCommand) => buildTable(tableCommand))
       );
+      const recordCountByTableId = Object.fromEntries(
+        builtTables.map((table, index) => [
+          table.id().toString(),
+          tableCommands[index]?.records.length ?? 0,
+        ])
+      );
 
       // Validate foreign tables for all fields
       const foreignTables = [...externalTables, ...builtTables];
@@ -307,14 +318,12 @@ export class CreateTablesHandler
         });
       }
 
-      // Execute table creation and record insertion in a single transaction
-      const transactionResult = yield* await handler.unitOfWork.withTransaction(
+      const metadataResult = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => {
-          return safeTry<TransactionResult, DomainError>(async function* () {
-            // Use TableCreationService for table creation and side effects
-            const creationResult = yield* await handler.tableCreationService.execute(
-              transactionContext,
+        async (metaTransactionContext) =>
+          safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
+            const metadataResult = yield* await handler.tableCreationService.persistMetadata(
+              metaTransactionContext,
               {
                 baseId: command.baseId,
                 tables: builtTables,
@@ -322,8 +331,39 @@ export class CreateTablesHandler
                 referencesByTable,
               }
             );
+            yield* await beginTablesSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              metadataResult.persistedTables,
+              {
+                type: 'table.create_many',
+                payload: {
+                  baseId: command.baseId.toString(),
+                  recordCountByTableId,
+                },
+              }
+            );
+            return ok(metadataResult.persistedTables);
+          }),
+        { scope: 'meta' }
+      );
 
-            // Build list of tables with their records for dependency sorting
+      const dataResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          safeTry<TransactionResult, DomainError>(async function* () {
+            const creationResult = yield* await handler.tableCreationService.provisionData(
+              dataTransactionContext,
+              {
+                baseId: command.baseId,
+                tables: builtTables,
+                externalTables,
+                referencesByTable,
+                persistedTables: metadataResult,
+              }
+            );
+
             const tablesWithRecords: TableWithRecords[] = [];
             for (let index = 0; index < tableCommands.length; index += 1) {
               const persistedTable = creationResult.persistedTables[index];
@@ -337,17 +377,16 @@ export class CreateTablesHandler
               }
             }
 
-            // Sort tables by record-level dependencies and insert records
             const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
 
             for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
-              const recordSpan = transactionContext.tracer?.startSpan(
+              const recordSpan = dataTransactionContext.tracer?.startSpan(
                 'teable.CreateTablesHandler.createRecords'
               );
               const { records } = yield* persistedTable.createRecords(recordsFieldValues);
               recordSpan?.end();
               yield* await handler.tableRecordRepository.insertMany(
-                transactionContext,
+                dataTransactionContext,
                 persistedTable,
                 records
               );
@@ -358,20 +397,46 @@ export class CreateTablesHandler
               tableState: creationResult.tableState,
               sideEffectEvents: creationResult.sideEffectEvents,
             });
-          });
-        }
+          }),
+        { scope: 'data' }
+      );
+
+      if (dataResult.isErr()) {
+        yield* await failTablesSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          metadataResult,
+          {
+            lastError: dataResult.error.message,
+            type: 'table.create_many',
+            payload: {
+              baseId: command.baseId.toString(),
+              recordCountByTableId,
+            },
+          }
+        );
+        return err(dataResult.error);
+      }
+
+      yield* await completeTablesSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        metadataResult,
+        { type: 'table.create_many' }
       );
 
       // Build and publish events
       const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
-      const recordEvents = [...transactionResult.tableState.values()].flatMap((table) =>
+      const recordEvents = [...dataResult.value.tableState.values()].flatMap((table) =>
         table.pullDomainEvents()
       );
-      const events = [...hostEvents, ...recordEvents, ...transactionResult.sideEffectEvents];
+      const events = [...hostEvents, ...recordEvents, ...dataResult.value.sideEffectEvents];
       yield* await handler.eventBus.publishMany(context, events);
 
-      const resultTables = transactionResult.persistedTables.map(
-        (table) => transactionResult.tableState.get(table.id().toString()) ?? table
+      const resultTables = dataResult.value.persistedTables.map(
+        (table) => dataResult.value.tableState.get(table.id().toString()) ?? table
       );
 
       return ok(CreateTablesResult.create(resultTables, events));
