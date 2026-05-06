@@ -21,6 +21,7 @@ import type { DynamicDB } from '../../query-builder';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
+import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
 import type {
   ComputedRealtimeOrchestrationDto,
   ComputedUpdateOutboxItem,
@@ -130,7 +131,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig)
     private readonly config: ComputedUpdateOutboxConfig = defaultComputedUpdateOutboxConfig,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
 
   async enqueueOrMerge(
@@ -498,6 +501,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const reclaimLimit = Math.min(params.limit, this.config.reclaimBatchSize);
       const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      const includeSpaceScopeInSql = this.db === this.metaDb;
 
       return runInTransaction(
         db,
@@ -510,7 +514,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', 'processing')
                   .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
-                  .where(buildComputedTaskNotPausedCondition('o', now))
+                  .where(
+                    buildComputedTaskNotPausedCondition('o', now, {
+                      includeSpaceScope: includeSpaceScopeInSql,
+                    })
+                  )
                   .orderBy('locked_at', 'asc')
                   .orderBy('created_at', 'asc')
                   .limit(reclaimLimit)
@@ -528,17 +536,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .where('o.status', '=', DEFAULT_STATUS)
                   .where('o.next_run_at', '<=', now)
                   .where(
-                    sql<boolean>`not exists (
-                    select 1
-                    from computed_update_outbox active
-                    where active.base_id = o.base_id
-                      and active.seed_table_id = o.seed_table_id
-                      and active.status = 'processing'
-                      and active.locked_at is not null
-                      and active.locked_at > ${reclaimBefore}
-                  )`
+                    buildComputedTaskNotPausedCondition('o', now, {
+                      includeSpaceScope: includeSpaceScopeInSql,
+                    })
                   )
-                  .where(buildComputedTaskNotPausedCondition('o', now))
+                  .orderBy('o.estimated_complexity', 'asc')
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')
                   .limit(remaining)
@@ -547,7 +549,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .execute()
               : [];
 
-          const rows = dedupeClaimRowsByScope([...staleRows, ...pendingRows]);
+          const candidateRows = dedupeClaimRowsByScope([...staleRows, ...pendingRows]);
+          const rows = includeSpaceScopeInSql
+            ? candidateRows
+            : await this.filterRowsPausedBySpace(trx, candidateRows, now, context);
 
           if (rows.length === 0) return ok([]);
 
@@ -615,6 +620,47 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     } finally {
       span?.end();
     }
+  }
+
+  private async filterRowsPausedBySpace(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    rows: ReadonlyArray<OutboxRow>,
+    now: Date,
+    context?: IExecutionContext
+  ): Promise<OutboxRow[]> {
+    if (rows.length === 0) return [];
+
+    const pausedSpaceRows = (await db
+      .selectFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .select('scope_id')
+      .where('scope_type', '=', 'space')
+      .where((eb) => eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', now)]))
+      .execute()) as Array<{ scope_id: string }>;
+
+    const pausedSpaceIds = new Set(pausedSpaceRows.map((row) => String(row.scope_id)));
+    if (pausedSpaceIds.size === 0) return [...rows];
+
+    const baseIds = [...new Set(rows.map((row) => String(row.base_id)))];
+    if (baseIds.length === 0) return [...rows];
+
+    const metaDb = resolvePostgresDbOrTx(
+      this.metaDb,
+      context,
+      'meta'
+    ) as unknown as Kysely<DynamicDB>;
+    const baseRows = (await metaDb
+      .selectFrom('base')
+      .select(['id', 'space_id'])
+      .where('id', 'in', baseIds)
+      .execute()) as Array<{ id: string; space_id: string | null }>;
+
+    const pausedBaseIds = new Set(
+      baseRows
+        .filter((row) => row.space_id != null && pausedSpaceIds.has(String(row.space_id)))
+        .map((row) => String(row.id))
+    );
+
+    return rows.filter((row) => !pausedBaseIds.has(String(row.base_id)));
   }
 
   async claimById(

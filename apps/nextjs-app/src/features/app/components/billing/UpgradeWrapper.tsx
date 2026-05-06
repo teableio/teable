@@ -148,7 +148,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
 
       openModal(UsageLimitModalType.Upgrade);
     } else {
-      window.open('https://app.teable.ai/public/pricing?host=self-hosted', '_blank');
+      window.open('https://teable.ai/pricing', '_blank');
     }
   }, [isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 

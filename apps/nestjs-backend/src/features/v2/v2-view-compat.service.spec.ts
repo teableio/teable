@@ -1,12 +1,12 @@
 import { IdPrefix, ViewOpBuilder } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { describe, expect, it, vi } from 'vitest';
 import { V2ViewCompatService } from './v2-view-compat.service';
 
 const createV2ContainerService = (db: unknown) => ({
   getContainer: vi.fn().mockResolvedValue({
     resolve: vi.fn((token: symbol) => {
-      if (token !== v2PostgresDbTokens.db) {
+      if (token !== v2MetaDbTokens.db) {
         throw new Error(`Unexpected token ${String(token)}`);
       }
 

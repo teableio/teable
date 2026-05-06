@@ -159,6 +159,13 @@ export const SpaceInnerPage: React.FC = () => {
     return null;
   };
 
+  useEffect(() => {
+    const { subscribeLevel } = router.query;
+    if (subscribeLevel && isCloud && space?.role === Role.Owner) {
+      setSettingModalOpen(true);
+    }
+  }, [router.query, isCloud, space?.role]);
+
   return (
     space && (
       <div ref={ref} className={cn('flex h-full min-w-0 flex-1 flex-col py-6 sm:min-w-[760px]')}>

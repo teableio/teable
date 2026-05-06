@@ -11,7 +11,8 @@ import {
   nullsToUndefined,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { ICreateTableRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -23,6 +24,7 @@ import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { DATA_KNEX } from '../../global/knex';
 import { BatchService } from '../calculation/batch.service';
 
 @Injectable()
@@ -32,9 +34,10 @@ export class TableService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   generateValidName(name: string) {
@@ -46,6 +49,21 @@ export class TableService implements IReadonlyAdapterService {
 
     await this.prismaService.txClient()
       .$executeRaw`select id from base where id = ${baseId} for update`;
+  }
+
+  private async cleanupCreatedDataTable(dbTableName: string, reason: unknown) {
+    try {
+      await this.dataPrismaService
+        .txClient()
+        .$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to clean up data table ${dbTableName} after table metadata provisioning error: ${
+          reason instanceof Error ? reason.message : String(reason)
+        }`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined
+      );
+    }
   }
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
@@ -113,6 +131,7 @@ export class TableService implements IReadonlyAdapterService {
       order,
       createdBy: userId,
       version: 1,
+      provisionState: createTable ? ProvisionState.pending : ProvisionState.ready,
     };
 
     const tableMeta = await this.prismaService.txClient().tableMeta.create({
@@ -133,9 +152,30 @@ export class TableService implements IReadonlyAdapterService {
       table.integer('__version').notNullable();
     });
 
-    for (const sql of createTableSchema.toSQL()) {
-      await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
+    try {
+      const dataPrisma = this.dataPrismaService.txClient();
+      for (const sql of createTableSchema.toSQL()) {
+        await dataPrisma.$executeRawUnsafe(sql.sql);
+      }
+      await this.prismaService.txClient().tableMeta.update({
+        where: { id: tableMeta.id },
+        data: {
+          provisionState: ProvisionState.ready,
+          lastModifiedBy: userId,
+        },
+      });
+    } catch (error) {
+      await this.cleanupCreatedDataTable(dbTableName, error);
+      await this.prismaService.txClient().tableMeta.update({
+        where: { id: tableMeta.id },
+        data: {
+          provisionState: ProvisionState.error,
+          lastModifiedBy: userId,
+        },
+      });
+      throw error;
     }
+
     return tableMeta;
   }
 
@@ -230,16 +270,17 @@ export class TableService implements IReadonlyAdapterService {
     createTable: boolean = true
   ): Promise<ITableVo> {
     const tableVo = await this.createDBTable(baseId, snapshot, createTable);
+    const { provisionState: _provisionState, ...tableData } = tableVo;
     await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       {
-        docId: tableVo.id,
+        docId: tableData.id,
         version: 0,
-        data: tableVo,
+        data: tableData,
       },
     ]);
     return nullsToUndefined({
-      ...tableVo,
-      lastModifiedTime: tableVo.lastModifiedTime?.toISOString(),
+      ...tableData,
+      lastModifiedTime: tableData.lastModifiedTime?.toISOString(),
     });
   }
 
@@ -265,7 +306,12 @@ export class TableService implements IReadonlyAdapterService {
 
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId, baseId },
-      data: { version: version + 1, deletedTime, lastModifiedBy: userId },
+      data: {
+        version: version + 1,
+        deletedTime,
+        lastModifiedBy: userId,
+        provisionState: ProvisionState.deleting,
+      },
     });
 
     await this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
@@ -291,7 +337,12 @@ export class TableService implements IReadonlyAdapterService {
 
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId, baseId },
-      data: { version: version + 1, deletedTime: null, lastModifiedBy: userId },
+      data: {
+        version: version + 1,
+        deletedTime: null,
+        lastModifiedBy: userId,
+        provisionState: ProvisionState.ready,
+      },
     });
 
     await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [

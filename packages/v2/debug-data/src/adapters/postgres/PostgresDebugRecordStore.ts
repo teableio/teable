@@ -1,4 +1,4 @@
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { domainError, type RecordId, type TableId } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -20,7 +20,7 @@ const MAX_LIMIT = 1000;
 @injectable()
 export class PostgresDebugRecordStore implements IDebugRecordStore {
   constructor(
-    @inject(v2PostgresDbTokens.db)
+    @inject(v2DataDbTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2DebugDataTokens.metaStore)
     private readonly metaStore: IDebugMetaStore

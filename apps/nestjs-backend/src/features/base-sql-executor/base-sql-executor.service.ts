@@ -2,10 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
-import { Prisma, PrismaService, PrismaClient } from '@teable/db-main-prisma';
+import { Prisma, PrismaService, PrismaClient, getDatabaseUrl } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
+import { DATA_KNEX } from '../../global/knex';
 import { BASE_READ_ONLY_ROLE_PREFIX, BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME } from './const';
 import { checkTableAccess, validateRoleOperations } from './utils';
 
@@ -19,8 +21,9 @@ export class BaseSqlExecutorService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly configService: ConfigService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {
     this.dsn = parseDsn(this.getDatabaseUrl());
     this.driver = this.dsn.driver as DriverClient;
@@ -29,7 +32,8 @@ export class BaseSqlExecutorService {
   private getDatabaseUrl() {
     return (
       this.configService.get<string>('PRISMA_DATABASE_URL_FOR_SQL_EXECUTOR') ||
-      this.configService.getOrThrow<string>('PRISMA_DATABASE_URL')
+      this.configService.get<string>('PRISMA_DATA_DATABASE_URL') ||
+      getDatabaseUrl('data')
     );
   }
 
@@ -43,7 +47,7 @@ export class BaseSqlExecutorService {
     }
     const isExistReadOnlyRole = await this.roleExits(BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME);
     if (!isExistReadOnlyRole) {
-      await this.prismaService.$tx(async (prisma) => {
+      await this.dataPrismaService.$tx(async (prisma) => {
         try {
           await prisma.$executeRawUnsafe(
             this.knex
@@ -147,7 +151,7 @@ export class BaseSqlExecutorService {
 
   async createReadOnlyRole(baseId: string) {
     const roleName = this.getReadOnlyRoleName(baseId);
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex
@@ -157,17 +161,17 @@ export class BaseSqlExecutorService {
           )
           .toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex.raw(`GRANT USAGE ON SCHEMA ?? TO ??`, [baseId, roleName]).toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ?? TO ??`, [baseId, roleName]).toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex
@@ -181,19 +185,19 @@ export class BaseSqlExecutorService {
 
   async dropReadOnlyRole(baseId: string) {
     const roleName = this.getReadOnlyRoleName(baseId);
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex.raw(`REVOKE USAGE ON SCHEMA ?? FROM ??`, [baseId, roleName]).toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex
           .raw(`REVOKE SELECT ON ALL TABLES IN SCHEMA ?? FROM ??`, [baseId, roleName])
           .toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex
@@ -203,24 +207,24 @@ export class BaseSqlExecutorService {
           ])
           .toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(this.knex.raw(`DROP ROLE IF EXISTS ??`, [roleName]).toQuery());
   }
 
   async grantReadOnlyRole(baseId: string) {
     const roleName = this.getReadOnlyRoleName(baseId);
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex.raw(`GRANT USAGE ON SCHEMA ?? TO ??`, [baseId, roleName]).toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ?? TO ??`, [baseId, roleName]).toQuery()
       );
-    await this.prismaService
+    await this.dataPrismaService
       .txClient()
       .$executeRawUnsafe(
         this.knex
@@ -233,7 +237,7 @@ export class BaseSqlExecutorService {
   }
 
   private async roleExits(role: string): Promise<boolean> {
-    const roleExists = await this.prismaService.$queryRaw<
+    const roleExists = await this.dataPrismaService.$queryRaw<
       { count: bigint }[]
     >`SELECT count(*) FROM pg_roles WHERE rolname=${role}`;
     return Boolean(roleExists[0].count);
@@ -263,12 +267,15 @@ export class BaseSqlExecutorService {
     }
   }
 
-  private async setRole(prisma: Prisma.TransactionClient, baseId: string) {
+  private async setRole(
+    prisma: { $executeRawUnsafe(query: string): Promise<unknown> },
+    baseId: string
+  ) {
     const roleName = this.getReadOnlyRoleName(baseId);
     await prisma.$executeRawUnsafe(this.knex.raw(`SET ROLE ??`, [roleName]).toQuery());
   }
 
-  private async resetRole(prisma: Prisma.TransactionClient) {
+  private async resetRole(prisma: { $executeRawUnsafe(query: string): Promise<unknown> }) {
     await prisma.$executeRawUnsafe(this.knex.raw(`RESET ROLE`).toQuery());
   }
 
@@ -339,7 +346,7 @@ export class BaseSqlExecutorService {
   ) {
     await this.safeCheckSql(baseId, sql, opts);
     await this.roleCheckAndCreate(baseId);
-    return this.prismaService.$tx(async (prisma) => {
+    return this.dataPrismaService.$tx(async (prisma) => {
       try {
         await this.setRole(prisma, baseId);
         return await prisma.$queryRawUnsafe<T>(sql);

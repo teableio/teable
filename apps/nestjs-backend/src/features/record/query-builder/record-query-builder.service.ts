@@ -4,6 +4,7 @@ import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { isUserOrLink } from '../../../utils/is-user-or-link';
 import { ID_FIELD_NAME, preservedDbFieldNames } from '../../field/constant';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -29,7 +30,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectDbProvider()
     private readonly dbProvider: IDbProvider,
-    @Inject('CUSTOM_KNEX') private readonly knex: Knex,
+    @Inject(DATA_KNEX) private readonly knex: Knex,
     @InjectRecordQueryDialect()
     private readonly dialect: IRecordQueryDialectProvider
   ) {}

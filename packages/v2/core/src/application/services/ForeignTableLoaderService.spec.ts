@@ -75,7 +75,12 @@ describe('ForeignTableLoaderService', () => {
       references,
     });
 
-    expect(result._unsafeUnwrapErr().message).toBe('Foreign tables not found');
+    expect(result._unsafeUnwrapErr().message).toBe(
+      `Foreign tables not found: ${missingId.toString()}`
+    );
+    expect(result._unsafeUnwrapErr().details).toEqual({
+      missingForeignTableIds: [missingId.toString()],
+    });
   });
 
   it('loads link-title fill foreign tables directly from mutate specs', async () => {

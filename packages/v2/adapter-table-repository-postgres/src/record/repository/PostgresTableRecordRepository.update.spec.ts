@@ -8,6 +8,7 @@ import {
   RecordByIdsSpec,
   RecordId,
   Table,
+  TableRecord,
   TableId,
   TableName,
   ViewId,
@@ -24,7 +25,6 @@ import type {
   LinkField,
   IRecordOrderCalculator,
   ITableRecordConditionSpecVisitor,
-  TableRecord,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
@@ -143,6 +143,7 @@ class RecordingDriver implements Driver {
 }
 
 const createRecordingDb = (rowProvider?: RowProvider) => {
+  let currentUndoBatchId: string | undefined;
   const defaultUndoLogRowProvider: RowProvider = (compiledQuery) => {
     if (compiledQuery.sql.includes('FROM information_schema.tables')) {
       return [{ exists: true }];
@@ -155,6 +156,14 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
     }
     if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
       return [{ exists: true }];
+    }
+    if (compiledQuery.sql.includes("set_config('teable.undo_batch_id'")) {
+      const batchId = compiledQuery.parameters[0];
+      currentUndoBatchId = typeof batchId === 'string' && batchId.length > 0 ? batchId : undefined;
+      return [{ set_config: currentUndoBatchId ?? '' }];
+    }
+    if (compiledQuery.sql.includes("current_setting('teable.undo_batch_id', true)")) {
+      return [{ batch_id: currentUndoBatchId ?? null }];
     }
     if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
       return [
@@ -407,7 +416,24 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       accept: () => ok(undefined as never),
     };
 
-    const { db, driver } = createRecordingDb();
+    const { db, driver } = createRecordingDb(
+      createUndoLogRowProvider([
+        {
+          operation: 'UPDATE',
+          record_id: RECORD_ID,
+          old_row: {
+            __id: RECORD_ID,
+            __version: 1,
+            col_name: 'Before',
+          },
+          new_row: {
+            __id: RECORD_ID,
+            __version: 2,
+            col_name: 'Alice',
+          },
+        },
+      ])
+    );
     const repo = createRepository(db, table);
 
     const result = await repo.updateMany({ actorId }, table, emptySpec, mutateSpec);
@@ -2003,5 +2029,83 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     expect(planStageSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
+  });
+});
+
+describe('PostgresTableRecordRepository deferred computed scheduling', () => {
+  it('enqueues deferred computed work in the row transaction and dispatches after commit', async () => {
+    const afterCommitHandlers: Array<() => void> = [];
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const transaction = {
+      kind: 'unitOfWorkTransaction' as const,
+      afterCommit: vi.fn((handler: () => void) => {
+        afterCommitHandlers.push(handler);
+      }),
+    };
+
+    const tableBuilder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeferredComputedTable')._unsafeUnwrap());
+    tableBuilder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    tableBuilder.view().defaultGrid().done();
+    const table = tableBuilder.build()._unsafeUnwrap();
+    const record = TableRecord.fromRawFieldValues({
+      id: RECORD_ID,
+      tableId,
+      fields: { [NAME_FIELD_ID]: 'Alice' },
+    })._unsafeUnwrap();
+
+    const enqueueSeedTask = vi.fn(async () => ok({ taskId: 'cuo_deferred', merged: false }));
+    const scheduleDispatch = vi.fn();
+    const repositoryLike = {
+      computedUpdateOutbox: { enqueueSeedTask },
+      computedUpdateStrategy: { scheduleDispatch },
+      expandComputedSeedFieldIds: vi.fn(() => [textFieldId]),
+      hasher: { sha256: () => 'computed-seed-hash' },
+    };
+
+    const result = await (
+      PostgresTableRecordRepository.prototype as unknown as {
+        enqueueDeferredComputedUpdateMany: (
+          context: unknown,
+          table: unknown,
+          records: ReadonlyArray<unknown>
+        ) => Promise<ReturnType<typeof ok>>;
+      }
+    ).enqueueDeferredComputedUpdateMany.call(
+      repositoryLike,
+      { actorId, requestId: 'req-deferred-computed', transaction },
+      table,
+      [record]
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(enqueueSeedTask).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTask.mock.calls[0]?.[1]).toMatchObject({
+      actorId,
+      requestId: 'req-deferred-computed',
+      transaction,
+    });
+    expect(transaction.afterCommit).toHaveBeenCalledTimes(1);
+    expect(scheduleDispatch).not.toHaveBeenCalled();
+
+    afterCommitHandlers[0]!();
+
+    expect(scheduleDispatch).toHaveBeenCalledTimes(1);
+    expect(scheduleDispatch.mock.calls[0]?.[0]).toMatchObject({
+      actorId,
+      requestId: 'req-deferred-computed',
+    });
+    expect(scheduleDispatch.mock.calls[0]?.[0]).not.toHaveProperty('transaction');
   });
 });

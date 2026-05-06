@@ -8,6 +8,7 @@ import type {
   IMakeOptional,
 } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CreateRecordAction,
@@ -48,6 +49,7 @@ import type { IUpdateRecordsInternalRo } from '../type';
 export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly recordService: RecordService,
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
@@ -229,7 +231,7 @@ export class RecordOpenApiService {
       dateFilter['lte'] = new Date(endDate);
     }
 
-    const list = await this.prismaService.recordHistory.findMany({
+    const list = await this.dataPrismaService.recordHistory.findMany({
       where: {
         tableId,
         ...(recordId ? { recordId } : {}),

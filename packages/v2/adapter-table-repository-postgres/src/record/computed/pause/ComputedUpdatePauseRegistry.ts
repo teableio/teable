@@ -71,7 +71,9 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
 
   async pauseScope(
@@ -90,7 +92,8 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     }
 
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
-    const metadata = await this.resolveScopeMetadata(db, params.scopeType, params.scopeId);
+    const metadataDb = this.resolveMetadataDb(context);
+    const metadata = await this.resolveScopeMetadata(metadataDb, params.scopeType, params.scopeId);
     if (metadata.isErr()) return err(metadata.error);
 
     const now = new Date();
@@ -119,7 +122,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
       )
       .execute();
 
-    const paused = await this.getScopeByKey(db, params.scopeType, params.scopeId, now);
+    const paused = await this.getScopeByKey(db, metadataDb, params.scopeType, params.scopeId, now);
     if (paused.isErr()) return err(paused.error);
     if (!paused.value) {
       return err(
@@ -181,6 +184,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
     context?: IExecutionContext
   ): Promise<Result<ReadonlyArray<ComputedUpdatePauseScope>, DomainError>> {
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const metadataDb = this.resolveMetadataDb(context);
     const now = new Date();
     let query = db.selectFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE).selectAll();
     const activeOnly = params?.activeOnly ?? true;
@@ -197,7 +201,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
       | PauseScopeRow[]
       | [];
 
-    const metadata = await this.resolveScopeMetadataBatch(db, rows);
+    const metadata = await this.resolveScopeMetadataBatch(metadataDb, rows);
     if (metadata.isErr()) return err(metadata.error);
 
     const mapped = rows.map((row) => this.toPauseScope(row, metadata.value, now));
@@ -207,6 +211,7 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
 
   private async getScopeByKey(
     db: Kysely<DynamicDB>,
+    metadataDb: Kysely<DynamicDB>,
     scopeType: ComputedUpdatePauseScopeType,
     scopeId: string,
     now: Date
@@ -219,10 +224,15 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
       .executeTakeFirst()) as PauseScopeRow | undefined;
 
     if (!row) return ok(null);
-    const metadata = await this.resolveScopeMetadataBatch(db, [row]);
+    const metadata = await this.resolveScopeMetadataBatch(metadataDb, [row]);
     if (metadata.isErr()) return err(metadata.error);
 
     return ok(this.toPauseScope(row, metadata.value, now));
+  }
+
+  private resolveMetadataDb(context?: IExecutionContext): Kysely<DynamicDB> {
+    const scope = this.db === this.metaDb ? 'data' : 'meta';
+    return resolvePostgresDbOrTx(this.metaDb, context, scope) as unknown as Kysely<DynamicDB>;
   }
 
   private async resolveScopeMetadata(
@@ -377,11 +387,22 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
   }
 }
 
-export const buildComputedTaskNotPausedCondition = (alias: string, now: Date) => sql<boolean>`
+export const buildComputedTaskNotPausedCondition = (
+  alias: string,
+  now: Date,
+  options: { includeSpaceScope?: boolean } = {}
+) => {
+  const includeSpaceScope = options.includeSpaceScope ?? true;
+
+  return sql<boolean>`
   not exists (
     select 1
     from ${sql.table(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)} as cps
-    left join "base" as cb on cb."id" = ${sql.ref(`${alias}.base_id`)}
+    ${
+      includeSpaceScope
+        ? sql`left join "base" as cb on cb."id" = ${sql.ref(`${alias}.base_id`)}`
+        : sql``
+    }
     where (cps."resume_at" is null or cps."resume_at" > ${now})
       and (
         (cps."scope_type" = 'base' and cps."scope_id" = ${sql.ref(`${alias}.base_id`)})
@@ -392,7 +413,12 @@ export const buildComputedTaskNotPausedCondition = (alias: string, now: Date) =>
             or cps."scope_id" = any(coalesce(${sql.ref(`${alias}.affected_table_ids`)}, ARRAY[]::text[]))
           )
         )
-        or (cps."scope_type" = 'space' and cps."scope_id" = cb."space_id")
+        ${
+          includeSpaceScope
+            ? sql`or (cps."scope_type" = 'space' and cps."scope_id" = cb."space_id")`
+            : sql``
+        }
       )
   )
 `;
+};

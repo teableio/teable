@@ -1,4 +1,4 @@
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createSchemaChecker,
   PostgresSchemaIntrospector,
@@ -35,7 +35,7 @@ export const SchemaCheckerLive = Layer.effect(
         Effect.tryPromise({
           try: async () => {
             const tableRepo = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
-            const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+            const db = container.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
             const actorIdResult = ActorId.create('cli-schema-checker');
             if (actorIdResult.isErr()) throw actorIdResult.error;
             const context = { actorId: actorIdResult.value };
@@ -103,7 +103,7 @@ export const SchemaCheckerLive = Layer.effect(
         Effect.tryPromise({
           try: async () => {
             const tableRepo = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
-            const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+            const db = container.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
             const actorIdResult = ActorId.create('cli-schema-checker');
             if (actorIdResult.isErr()) throw actorIdResult.error;
             const context = { actorId: actorIdResult.value };

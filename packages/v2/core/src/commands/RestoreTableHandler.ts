@@ -55,9 +55,11 @@ export class RestoreTableHandler
         command.tableId
       );
 
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        return await handler.tableRepository.restore(transactionContext, table);
-      });
+      yield* await handler.unitOfWork.withTransaction(
+        context,
+        async (transactionContext) => handler.tableRepository.restore(transactionContext, table),
+        { scope: 'meta' }
+      );
 
       yield* table.markRestored();
       const events = table.pullDomainEvents();

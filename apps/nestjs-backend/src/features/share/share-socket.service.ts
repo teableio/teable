@@ -1,9 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { HttpErrorCode, type IGetFieldsQuery } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { Knex } from 'knex';
 import { difference } from 'lodash';
-import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
@@ -15,8 +13,7 @@ export class ShareSocketService {
   constructor(
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
-    private readonly recordService: RecordService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly recordService: RecordService
   ) {}
 
   getViewDocIdsByQuery(shareInfo: IShareViewInfo) {

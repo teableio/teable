@@ -8,6 +8,7 @@ import {
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
@@ -18,6 +19,7 @@ import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
@@ -41,8 +43,9 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE)
     public readonly queue: Queue<IBaseImportJunctionCsvJob>,
@@ -226,7 +229,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       dbTableName: string;
     }[];
 
-    await this.prismaService.$tx(async (prisma) => {
+    await this.dataPrismaService.$tx(async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(targetFkHostTableName);
       const foreignKeysInfo = await prisma.$queryRawUnsafe<

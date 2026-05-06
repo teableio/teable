@@ -93,9 +93,11 @@ export type FieldDependencyGraphLoadOptions = {
 export class FieldDependencyGraph {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>,
+    db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
 
   async load(
@@ -103,7 +105,7 @@ export class FieldDependencyGraph {
     executionContext?: IExecutionContext,
     options: FieldDependencyGraphLoadOptions = {}
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
-    const db = resolvePostgresDbOrTx(this.db, executionContext);
+    const db = resolvePostgresDbOrTx(this.metaDb, executionContext, 'meta');
     const seedFieldIds = options.requiredFieldIds ?? [];
 
     // Use incremental mode when seed field IDs are provided

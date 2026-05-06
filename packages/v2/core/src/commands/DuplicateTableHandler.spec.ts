@@ -20,7 +20,11 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
@@ -37,9 +41,9 @@ import type {
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
 
@@ -159,6 +163,7 @@ const createSourceTable = (): Table => {
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   insertedTables: Table[] = [];
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
 
   async insert(_context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     const persisted = table.clone(tableMapper)._unsafeUnwrap();
@@ -210,6 +215,26 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionState(
+    _context: IExecutionContext,
+    table: Table,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    }
     return ok(undefined);
   }
 }
@@ -387,11 +412,24 @@ class FakeUnitOfWork implements IUnitOfWork {
 
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const existing = context.transactions?.[scope];
+    if (existing) {
+      return work({ ...context, transaction: existing });
+    }
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
     this.transactions.push(transaction);
-    return work({ ...context, transaction });
+    return work({
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    });
   }
 }
 
@@ -462,8 +500,17 @@ describe('DuplicateTableHandler', () => {
     const result = await handler.handle(createContext(), command);
     const duplicated = result._unsafeUnwrap();
 
-    expect(unitOfWork.transactions).toHaveLength(1);
+    expect(unitOfWork.transactions).toHaveLength(3);
+    expect(unitOfWork.transactions.map((transaction) => transaction.scope)).toEqual([
+      'meta',
+      'data',
+      'meta',
+    ]);
     expect(tableRepository.insertedTables).toHaveLength(1);
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'ready',
+    ]);
     expect(tableSchemaRepository.insertedTables).toHaveLength(1);
     expect(tableRecordRepository.insertedRecords).toHaveLength(2);
     expect(eventBus.published.length).toBeGreaterThan(0);

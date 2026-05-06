@@ -486,6 +486,98 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('records schema operation state when table provision state changes', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId, requestId: 'req-schema-operation-test' };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Schema Operation Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Schema Operation Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Schema Operation Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
+
+      const pendingResult = await repo.setProvisionState!(context, persistedTable, 'pending', {
+        operationType: 'table.create',
+        phase: 'metadata_pending',
+        payload: { source: 'test' },
+      });
+      pendingResult._unsafeUnwrap();
+
+      const readyResult = await repo.setProvisionState!(context, persistedTable, 'ready', {
+        operationType: 'table.create',
+        phase: 'ready',
+      });
+      readyResult._unsafeUnwrap();
+
+      const rows = await db
+        .selectFrom('schema_operation')
+        .select([
+          'type',
+          'status',
+          'phase',
+          'resource_type',
+          'resource_id',
+          'base_id',
+          'table_id',
+          'idempotency_key',
+          'payload',
+          'attempts',
+        ])
+        .where('resource_id', '=', persistedTable.id().toString())
+        .execute();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toEqual({
+        type: 'table.create',
+        status: 'ready',
+        phase: 'ready',
+        resource_type: 'table',
+        resource_id: persistedTable.id().toString(),
+        base_id: baseId.toString(),
+        table_id: persistedTable.id().toString(),
+        idempotency_key: `req-schema-operation-test:table:${persistedTable.id().toString()}`,
+        payload: { source: 'test' },
+        attempts: 0,
+      });
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('hydrates fields in the same fallback visible order as the field list API', async () => {
     const c = container.createChildContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());

@@ -60,8 +60,10 @@ import { hasPgInputIsValid } from '../utils';
 
 // Combined config for unified table repository postgres adapter
 export interface IV2TableRepositoryPostgresConfig {
-  /** Kysely database instance */
+  /** Kysely database instance for data-plane table and record storage */
   db: Kysely<V1TeableDatabase>;
+  /** Kysely database instance for metadata reads needed by record operations */
+  metaDb?: Kysely<V1TeableDatabase>;
   /**
    * Type validation strategy for PostgreSQL version compatibility.
    *
@@ -130,6 +132,7 @@ export const registerV2TableRepositoryPostgresAdapter = (
 
   // Register record (DML) components
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, config.metaDb ?? config.db);
 
   c.register(
     v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,

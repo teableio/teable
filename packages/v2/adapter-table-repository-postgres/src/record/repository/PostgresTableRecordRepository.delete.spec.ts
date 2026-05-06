@@ -43,14 +43,35 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
 
+type RecordingSessionState = {
+  undoBatchId?: string;
+};
+
 class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
-    private readonly rowProvider?: RowProvider
+    private readonly rowProvider?: RowProvider,
+    private readonly sessionState: RecordingSessionState = {}
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+
+    if (compiledQuery.sql.includes("set_config('teable.undo_batch_id'")) {
+      const batchId = compiledQuery.parameters[0];
+      this.sessionState.undoBatchId =
+        typeof batchId === 'string' && batchId.length > 0 ? batchId : undefined;
+      return {
+        rows: [{ set_config: this.sessionState.undoBatchId ?? '' }] as R[],
+      };
+    }
+
+    if (compiledQuery.sql.includes("current_setting('teable.undo_batch_id', true)")) {
+      return {
+        rows: [{ batch_id: this.sessionState.undoBatchId ?? null }] as R[],
+      };
+    }
+
     const rows = (this.rowProvider?.(compiledQuery) ?? []) as R[];
     return { rows };
   }
@@ -62,6 +83,7 @@ class RecordingConnection implements DatabaseConnection {
 
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
+  private readonly sessionState: RecordingSessionState = {};
 
   constructor(private readonly rowProvider?: RowProvider) {}
 
@@ -70,7 +92,7 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.rowProvider);
+    return new RecordingConnection(this.queries, this.rowProvider, this.sessionState);
   }
 
   async beginTransaction(): Promise<void> {
@@ -117,9 +139,11 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
       return [
         {
           record_id: RECORD_ID,
+          operation: 'DELETE',
           old_row: {
             __id: RECORD_ID,
           },
+          new_row: null,
         },
       ];
     }
@@ -327,7 +351,9 @@ const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowP
 const createUndoLogRowProvider = (
   rows: ReadonlyArray<{
     record_id: string;
+    operation?: string;
     old_row: Record<string, unknown>;
+    new_row?: Record<string, unknown> | null;
   }>
 ): RowProvider => {
   return (compiledQuery) => {

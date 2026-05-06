@@ -97,6 +97,11 @@ export class MetaChecker {
     const visitor = new MetaValidationVisitor(ctx);
 
     for (const field of table.getFields()) {
+      const hasError = typeof field.hasError === 'function' ? field.hasError().isError() : false;
+      if (hasError) {
+        continue;
+      }
+
       try {
         const issuesResult = field.accept(visitor);
 
@@ -224,6 +229,11 @@ export async function* checkTableMetaWithTables(
   const visitor = new MetaValidationVisitor(ctx);
 
   for (const field of table.getFields()) {
+    const hasError = typeof field.hasError === 'function' ? field.hasError().isError() : false;
+    if (hasError) {
+      continue;
+    }
+
     try {
       const issuesResult = field.accept(visitor);
       if (issuesResult.isErr()) {

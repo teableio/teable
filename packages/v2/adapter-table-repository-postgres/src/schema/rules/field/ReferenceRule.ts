@@ -8,6 +8,7 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import { metaStatement } from '../helpers/StatementBuilders';
 
 /**
  * A single reference entry (from_field_id -> to_field_id).
@@ -157,7 +158,7 @@ export class ReferenceRule implements ISchemaRule {
       .values(values)
       .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
 
-    return ok([insert]);
+    return ok([metaStatement(insert)]);
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -170,11 +171,11 @@ export class ReferenceRule implements ISchemaRule {
         .where((eb) =>
           eb.or([eb.eb('to_field_id', '=', fieldId), eb.eb('from_field_id', '=', fieldId)])
         );
-      return ok([deleteStatement]);
+      return ok([metaStatement(deleteStatement)]);
     }
 
     // Update/convert (default): only remove references pointing TO this field
     const deleteStatement = ctx.db.deleteFrom('reference').where('to_field_id', '=', fieldId);
-    return ok([deleteStatement]);
+    return ok([metaStatement(deleteStatement)]);
   }
 }

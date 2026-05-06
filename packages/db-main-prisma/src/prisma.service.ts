@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
+import { getDatabaseUrl, type IDatabaseTarget } from './database-url';
 import { TimeoutHttpException } from './utils';
 
 interface ITx {
@@ -11,6 +12,8 @@ interface ITx {
   id?: string;
   rawOpMaps?: unknown;
 }
+
+type ITxStoreKey = 'tx' | 'dataTx';
 
 function proxyClient(tx: Prisma.TransactionClient) {
   return new Proxy(tx, {
@@ -33,11 +36,11 @@ function proxyClient(tx: Prisma.TransactionClient) {
 }
 
 @Injectable()
-export class PrismaService
+class NamedPrismaService
   extends PrismaClient<Prisma.PrismaClientOptions, 'query'>
   implements OnModuleInit
 {
-  private readonly logger = new Logger(PrismaService.name);
+  private readonly logger: Logger;
 
   private afterTxCb?: () => void;
 
@@ -46,7 +49,11 @@ export class PrismaService
   private readonly defaultTxTimeout = Number(process.env.PRISMA_TRANSACTION_TIMEOUT ?? 5000);
   private readonly defaultTxMaxWait = Number(process.env.PRISMA_TRANSACTION_MAX_WAIT ?? 2000);
 
-  constructor(private readonly cls: ClsService<{ tx: ITx }>) {
+  constructor(
+    private readonly cls: ClsService<Record<ITxStoreKey, ITx>>,
+    private readonly target: IDatabaseTarget,
+    private readonly txStoreKey: ITxStoreKey
+  ) {
     const logConfig = {
       log: [
         // {
@@ -69,11 +76,21 @@ export class PrismaService
     };
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
 
-    super(initialConfig);
+    const databaseUrl = getDatabaseUrl(target);
+    super({
+      ...initialConfig,
+      datasources: {
+        db: {
+          url: databaseUrl,
+        },
+      },
+    });
+
+    this.logger = new Logger(target === 'meta' ? MetaPrismaService.name : DataPrismaService.name);
 
     // Log transaction timeout configuration on startup (must be after super())
     console.log(
-      `[PrismaService] Transaction defaults: timeout=${this.defaultTxTimeout}ms, maxWait=${this.defaultTxMaxWait}ms (from env: PRISMA_TRANSACTION_TIMEOUT=${process.env.PRISMA_TRANSACTION_TIMEOUT}, PRISMA_TRANSACTION_MAX_WAIT=${process.env.PRISMA_TRANSACTION_MAX_WAIT})`
+      `[${target} PrismaService] Transaction defaults: timeout=${this.defaultTxTimeout}ms, maxWait=${this.defaultTxMaxWait}ms (from env: PRISMA_TRANSACTION_TIMEOUT=${process.env.PRISMA_TRANSACTION_TIMEOUT}, PRISMA_TRANSACTION_MAX_WAIT=${process.env.PRISMA_TRANSACTION_MAX_WAIT})`
     );
   }
 
@@ -98,7 +115,7 @@ export class PrismaService
     }
   ): Promise<R> {
     let result: R = undefined as R;
-    const txClient = this.cls.get('tx.client');
+    const txClient = this.cls.get(`${this.txStoreKey}.client`);
     if (txClient) {
       return await fn(txClient);
     }
@@ -113,16 +130,16 @@ export class PrismaService
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
         prisma = proxyClient(prisma);
-        this.cls.set('tx.client', prisma);
-        this.cls.set('tx.id', nanoid());
-        this.cls.set('tx.timeStr', new Date().toISOString());
+        this.cls.set(`${this.txStoreKey}.client`, prisma);
+        this.cls.set(`${this.txStoreKey}.id`, nanoid());
+        this.cls.set(`${this.txStoreKey}.timeStr`, new Date().toISOString());
         try {
           // can not delete await here
           return await fn(prisma);
         } finally {
-          this.cls.set('tx.client', undefined);
-          this.cls.set('tx.id', undefined);
-          this.cls.set('tx.timeStr', undefined);
+          this.cls.set(`${this.txStoreKey}.client`, undefined);
+          this.cls.set(`${this.txStoreKey}.id`, undefined);
+          this.cls.set(`${this.txStoreKey}.timeStr`, undefined);
         }
       }, txOptions);
       this.afterTxCb?.();
@@ -132,7 +149,7 @@ export class PrismaService
   }
 
   txClient(): Prisma.TransactionClient {
-    const txClient = this.cls.get('tx.client');
+    const txClient = this.cls.get(`${this.txStoreKey}.client`);
     if (!txClient) {
       // console.log('transactionId', 'none');
       return this;
@@ -159,5 +176,22 @@ export class PrismaService
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+}
+
+@Injectable()
+export class MetaPrismaService extends NamedPrismaService {
+  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>) {
+    super(cls, 'meta', 'tx');
+  }
+}
+
+@Injectable()
+export class PrismaService extends MetaPrismaService {}
+
+@Injectable()
+export class DataPrismaService extends NamedPrismaService {
+  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>) {
+    super(cls, 'data', 'dataTx');
   }
 }

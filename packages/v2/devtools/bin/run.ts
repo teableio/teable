@@ -3,7 +3,6 @@ import { Command } from '@effect/cli';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { root } from '../src/commands';
-import { FullLayer } from '../src/layers/AppLayer';
 
 /**
  * Extract connection string from command line args
@@ -23,10 +22,15 @@ const cli = Command.run(root, {
 
 // Run - Effect CLI expects full process.argv, it handles slicing internally
 const connectionString = getConnectionFromArgs(process.argv);
+const isDotteaInspect = process.argv.includes('dottea') && process.argv.includes('inspect');
+
+const appLayer = isDotteaInspect
+  ? (await import('../src/layers/OutputLive')).OutputLive
+  : (await import('../src/layers/AppLayer')).FullLayer(connectionString);
 
 const program = cli(process.argv).pipe(
-  Effect.provide(FullLayer(connectionString)),
+  Effect.provide(appLayer),
   Effect.provide(NodeContext.layer)
-);
+) as Effect.Effect<void, unknown, never>;
 
 NodeRuntime.runMain(program);

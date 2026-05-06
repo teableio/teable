@@ -2,8 +2,9 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
+import { gatewayModelSchema } from './gateway-model';
 import { settingVoSchema } from './get';
-import { chatModelSchema, gatewayModelSchema, llmProviderSchema } from './update';
+import { chatModelSchema, llmProviderSchema } from './update';
 
 export const simpleLLMProviderSchema = llmProviderSchema.pick({
   type: true,

@@ -65,6 +65,8 @@ export class UpdateRecordsHandler
         recordIds: command.recordIds,
         records: command.records,
         typecast: command.typecast,
+        deferComputedUpdates: command.deferComputedUpdates,
+        enqueueDeferredComputedUpdates: command.enqueueDeferredComputedUpdates,
         fieldKeyType: command.fieldKeyType,
         order: command.order,
       });

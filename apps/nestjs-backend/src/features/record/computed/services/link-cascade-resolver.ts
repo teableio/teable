@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { chunk } from 'lodash';
 import { Timing } from '../../../../utils/timing';
 
@@ -36,7 +36,7 @@ const IN_CHUNK = 500;
 
 @Injectable()
 export class LinkCascadeResolver {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(private readonly dataPrismaService: DataPrismaService) {}
 
   /**
    * Iterative BFS over link edges using only frontier ids; avoids full edge table scans and keeps
@@ -186,7 +186,7 @@ from ${fkTableRef}
 where ${srcCol} in (${placeholders})
   and ${srcCol} is not null
   and ${dstCol} is not null`;
-    return await this.prismaService
+    return await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
   }
@@ -211,7 +211,7 @@ where ${srcCol} in (${placeholders})
 from ${fkTableRef}
 where ${srcCol} is not null
   and ${dstCol} is not null`;
-    return this.prismaService.txClient().$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
+    return this.dataPrismaService.txClient().$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
   }
 
   private quoteIdentifier(identifier: string): string {

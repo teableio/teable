@@ -16,13 +16,13 @@ describe('PgRecordQueryDialect#flattenLookupCteValue', () => {
     expect(result).toBeNull();
   });
 
-  it('keeps jsonb payloads when field is stored as json', () => {
+  it('normalizes json-stored lookup payloads with to_jsonb', () => {
     const sql = dialect.flattenLookupCteValue('cte_lookup', 'fld_json', true, DbFieldType.Json);
-    expect(sql).toContain('"cte_lookup"."lookup_fld_json"::jsonb');
-    expect(sql).not.toContain('to_jsonb("cte_lookup"."lookup_fld_json")');
+    expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_json")');
+    expect(sql).not.toContain('"cte_lookup"."lookup_fld_json"::jsonb');
   });
 
-  it('wraps scalar payloads with to_jsonb for non-json fields', () => {
+  it('normalizes scalar lookup payloads with to_jsonb', () => {
     const sql = dialect.flattenLookupCteValue('cte_lookup', 'fld_scalar', true, DbFieldType.Text);
     expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_scalar")');
   });

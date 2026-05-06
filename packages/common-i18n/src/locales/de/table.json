@@ -641,6 +641,11 @@
             }
           }
         }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Primärfeld fälschlich als Lookup konfiguriert",
+        "InvalidPrimaryType": "Primärfeld hat einen nicht unterstützten Typ",
+        "MissingPrimary": "Tabelle hat kein Primärfeld"
       }
     },
     "index": {
@@ -978,6 +983,7 @@
     "expand": "Erweitern",
     "history": "Verlauf",
     "close": "Einklappen",
+    "noModel": "Keine verfügbaren Modelle",
     "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
@@ -995,7 +1001,14 @@
       "emptyContext": "Kein Kontext zum Hinzufügen",
       "selectionRows": "Zeilen {{start}}-{{end}}"
     },
-    "inputPlaceholder": "Nachricht senden...",
+    "mention": {
+      "tables": "Tabellen",
+      "apps": "Apps",
+      "workflows": "Workflows",
+      "folders": "Ordner"
+    },
+    "inputPlaceholder": "@ tippen, um Kontext hinzuzufügen",
+    "inputPlaceholderFiles": "Dateien hier einfügen oder ablegen",
     "thought": "Denken",
     "meta": {
       "input": "Eingabe",
@@ -1054,6 +1067,8 @@
       "advancedOptions": "Erweiterte Optionen",
       "namingFieldLabel": "Präfix für Anhangsname",
       "selectField": "Standard: Anhangsindex",
+      "noPrefixOption": "Kein Präfix",
+      "noPrefixOptionDesc": "Originaldateiname beibehalten",
       "groupByRow": "In Ordner archivieren",
       "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
     }

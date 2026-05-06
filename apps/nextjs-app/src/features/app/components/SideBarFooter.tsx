@@ -1,9 +1,10 @@
 import { useSession } from '@teable/sdk';
+import { BaseContext } from '@teable/sdk/context';
 import { useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans } from 'next-i18next';
-import React from 'react';
+import React, { useContext } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
@@ -17,6 +18,7 @@ import { UserNav } from './user/UserNav';
 
 export const SideBarFooter: React.FC = () => {
   const { user } = useSession();
+  const { base } = useContext(BaseContext);
   const isAnonymous = useIsAnonymous();
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const { brandName } = useBrand();
@@ -61,7 +63,7 @@ export const SideBarFooter: React.FC = () => {
             </p>
           </Button>
         </UserNav>
-        <SettingDialog />
+        <SettingDialog spaceId={base?.spaceId} />
         <DuplicateBaseModal />
         <TemplateCreateBaseModal />
         <SpaceSubscriptionModal />

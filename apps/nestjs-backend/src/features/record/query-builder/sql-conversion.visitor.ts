@@ -1621,9 +1621,26 @@ abstract class BaseSqlConversionVisitor<
     return `((${valueSql}))::boolean`;
   }
 
+  private unwrapExpression(ctx: ExprContext): ExprContext {
+    if (ctx instanceof BracketsContext) {
+      return this.unwrapExpression(ctx.expr());
+    }
+
+    if (
+      ctx instanceof LeftWhitespaceOrCommentsContext ||
+      ctx instanceof RightWhitespaceOrCommentsContext
+    ) {
+      return this.unwrapExpression(ctx.expr());
+    }
+
+    return ctx;
+  }
+
   private isBlankLikeExpression(ctx: ExprContext): boolean {
-    if (ctx instanceof StringLiteralContext) {
-      const raw = ctx.text;
+    const normalizedCtx = this.unwrapExpression(ctx);
+
+    if (normalizedCtx instanceof StringLiteralContext) {
+      const raw = normalizedCtx.text;
       if (raw.startsWith("'") && raw.endsWith("'")) {
         const unescaped = unescapeString(raw.slice(1, -1));
         return unescaped === '';
@@ -1631,8 +1648,8 @@ abstract class BaseSqlConversionVisitor<
       return false;
     }
 
-    if (ctx instanceof FunctionCallContext) {
-      const rawName = ctx.func_name().text.toUpperCase();
+    if (normalizedCtx instanceof FunctionCallContext) {
+      const rawName = normalizedCtx.func_name().text.toUpperCase();
       const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
       return fnName === FunctionName.Blank;
     }

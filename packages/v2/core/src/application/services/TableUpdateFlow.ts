@@ -16,11 +16,20 @@ import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as EventBusPort from '../../ports/EventBus';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import {
+  registerAfterCommit,
+  registerAfterRollback,
+  type IExecutionContext,
+} from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from './TableSchemaOperationLifecycleService';
 import {
   abortTableUpdateTransactionScope,
   enterTableUpdateTransactionScope,
@@ -119,17 +128,25 @@ export class TableUpdateFlow {
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
+      yield* await beginTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        latestTable,
+        { type: 'table.update' }
+      );
+
       let transactionContextRef: IExecutionContext | undefined;
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => {
-          transactionContextRef = transactionContext;
+        async (metaTransactionContext) => {
+          transactionContextRef = metaTransactionContext;
           return safeTry<void, DomainError>(async function* () {
-            enterTableUpdateTransactionScope(transactionContext);
+            enterTableUpdateTransactionScope(metaTransactionContext);
 
             if (options?.hooks?.prepare) {
               const prepareHookResult = yield* await options.hooks.prepare(
-                transactionContext,
+                metaTransactionContext,
                 latestTable,
                 mutateSpec
               );
@@ -139,40 +156,102 @@ export class TableUpdateFlow {
             }
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
-              transactionContext,
+              metaTransactionContext,
               latestTable,
               mutateSpec
             );
-            latestTable = yield* await handler.tableSchemaRepository.update(
-              transactionContext,
-              latestTable,
-              mutateSpec
+            const dataPhaseResult = yield* await handler.unitOfWork.withTransaction(
+              metaTransactionContext,
+              async (dataTransactionContext) => {
+                transactionContextRef = dataTransactionContext;
+                return safeTry<void, DomainError>(async function* () {
+                  latestTable = yield* await handler.tableSchemaRepository.update(
+                    dataTransactionContext,
+                    latestTable,
+                    mutateSpec
+                  );
+                  recordLatestTableInTransactionScope(dataTransactionContext, latestTable);
+                  postPersistEvents.push(...latestTable.pullDomainEvents());
+
+                  if (options?.hooks?.afterPersist) {
+                    const afterPersistHookResult = yield* await options.hooks.afterPersist(
+                      dataTransactionContext,
+                      latestTable,
+                      mutateSpec
+                    );
+                    const normalizedResult = normalizeHookResult(afterPersistHookResult);
+                    events.push(...normalizedResult.events);
+                    latestTable = normalizedResult.table ?? latestTable;
+                    recordLatestTableInTransactionScope(dataTransactionContext, latestTable);
+                  }
+
+                  yield* await flushTableUpdateTransactionScope(dataTransactionContext);
+                  return ok(undefined);
+                });
+              },
+              { scope: 'data' }
             );
-            recordLatestTableInTransactionScope(transactionContext, latestTable);
-            postPersistEvents.push(...latestTable.pullDomainEvents());
-
-            if (options?.hooks?.afterPersist) {
-              const afterPersistHookResult = yield* await options.hooks.afterPersist(
-                transactionContext,
-                latestTable,
-                mutateSpec
-              );
-              const normalizedResult = normalizeHookResult(afterPersistHookResult);
-              events.push(...normalizedResult.events);
-              latestTable = normalizedResult.table ?? latestTable;
-              recordLatestTableInTransactionScope(transactionContext, latestTable);
-            }
-
-            yield* await flushTableUpdateTransactionScope(transactionContext);
-            return ok(undefined);
+            return ok(dataPhaseResult);
           });
-        }
+        },
+        { scope: 'meta' }
       );
       if (transactionResult.isErr()) {
         if (transactionContextRef) {
           abortTableUpdateTransactionScope(transactionContextRef);
         }
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          latestTable,
+          {
+            lastError: transactionResult.error.message,
+            type: 'table.update',
+          }
+        );
         return err(transactionResult.error);
+      }
+
+      const finalizeReady = async (): Promise<void> => {
+        const readyResult = await completeTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          latestTable,
+          { type: 'table.update' }
+        );
+        if (readyResult.isErr()) {
+          throw new Error(readyResult.error.message);
+        }
+      };
+      if (registerAfterCommit(context, finalizeReady)) {
+        registerAfterRollback(context, async () => {
+          const errorResult = await failTableSchemaOperation(
+            handler.unitOfWork,
+            handler.tableRepository,
+            context,
+            latestTable,
+            {
+              lastError: 'Parent transaction rolled back',
+              type: 'table.update',
+            }
+          );
+          if (errorResult.isErr()) {
+            throw new Error(errorResult.error.message);
+          }
+        });
+        // Reused outer data transactions finalize ready only after the parent
+        // transaction commits, while a later outer rollback now flips the table
+        // back to error for reconciliation instead of leaving it pending forever.
+      } else {
+        yield* await completeTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          latestTable,
+          { type: 'table.update' }
+        );
       }
 
       const normalizedEvents = handler.attachPersistedEventVersions(

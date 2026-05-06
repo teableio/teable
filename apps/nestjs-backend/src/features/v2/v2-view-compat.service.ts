@@ -8,7 +8,7 @@ import {
   type IOtOperation,
   type ISetViewPropertyOpContext,
 } from '@teable/core';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { snakeCase } from 'lodash';
@@ -48,7 +48,7 @@ export class V2ViewCompatService {
 
   private async getDb(): Promise<Kysely<IV2ViewCompatDb>> {
     const container = await this.v2ContainerService.getContainer();
-    return container.resolve<Kysely<IV2ViewCompatDb>>(v2PostgresDbTokens.db);
+    return container.resolve<Kysely<IV2ViewCompatDb>>(v2MetaDbTokens.db);
   }
 
   private mergeSetViewPropertyByOpContexts(opContexts: ISetViewPropertyOpContext[]) {

@@ -232,4 +232,4 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 Teable Community Edition (CE) is free for self-hosting under the AGPL license. See [./LICENSE](./LICENSE) for details.
 
-Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://app.teable.ai/public/pricing?host=self-hosted&billing=year).
+Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://teable.ai/pricing).

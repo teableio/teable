@@ -186,6 +186,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
   const treeItemsRef = useRef(treeItems);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const focusedNodeIdRef = useRef<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [expandedItemsMap, setExpandedItemsMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.BaseNodeTreeExpandedItems,
@@ -328,6 +329,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     getItemName: (item) => getNodeName(item.getItemData()),
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
+    canDrag: () => !editingNodeId,
     canDrop: (items, target) => {
       // Basic validation
       if (editingNodeId || !canMoveNode || items.length !== 1) return false;
@@ -344,13 +346,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
 
       // === Folder items ===
+      const subtreeDepth = getMaxFolderSubtreeDepth(items[0].getId(), treeItemsRef.current);
+
       if (isReordering) {
-        // Reorder at level 0, 1: ✅ | Reorder at level >= 2: ❌
-        return target.dragLineLevel < maxFolderDepth;
+        return target.dragLineLevel + subtreeDepth < maxFolderDepth;
       }
 
-      // Drop into level 0 folder: ✅ | Drop into level 1+ folder or non-folder: ❌
-      return target.item.isFolder() && getItemLevel(target.item) < maxFolderDepth - 1;
+      return (
+        target.item.isFolder() && getItemLevel(target.item) + subtreeDepth < maxFolderDepth - 1
+      );
     },
     onDrop: handleDrop,
     onPrimaryAction: handlePrimaryAction,
@@ -447,41 +451,55 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     }
   }, [baseResource]);
 
-  useEffect(() => {
-    if (Object.keys(treeItems).length === 0) return;
+  const currentRouteNodeId = useMemo(() => {
     const nodes = Object.values(treeItems);
     const { resourceType } = baseResource;
-    const node = nodes.find(
-      (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
+    return (
+      nodes.find(
+        (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
+      )?.id ?? null
     );
-    if (!node) {
+  }, [treeItems, baseResource, currentResourceId]);
+
+  useEffect(() => {
+    if (Object.keys(treeItems).length === 0) return;
+    if (!currentRouteNodeId) {
       setSelectedItems([]);
       return;
     }
 
-    const parentIds = getAllParentIds(node.id);
+    const parentIds = getAllParentIds(currentRouteNodeId);
     if (parentIds.length > 0) {
       setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     }
-    setSelectedItems([node.id]);
-  }, [
-    treeItems,
-    baseResource,
-    currentResourceId,
-    getAllParentIds,
-    setExpandedItems,
-    setSelectedItems,
-  ]);
+    setSelectedItems([currentRouteNodeId]);
+  }, [treeItems, currentRouteNodeId, getAllParentIds, setExpandedItems, setSelectedItems]);
 
   useEffect(() => {
-    if (selectedItems.length === 0) return;
     if (Object.keys(treeItems).length === 0) return;
-    const focusItem = tree.getItemInstance(selectedItems[0]);
-    if (focusItem) {
-      focusItem.setFocused();
-      focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
+    if (selectedItems.length === 0) {
+      focusedNodeIdRef.current = null;
+      return;
     }
-  }, [selectedItems, tree, treeItems]);
+    const currentId = selectedItems[0];
+    if (focusedNodeIdRef.current === currentId) return;
+    const focusItem = tree.getItemInstance(currentId);
+    if (!focusItem) return;
+
+    focusItem.setFocused();
+    focusedNodeIdRef.current = currentId;
+
+    const draggedNodeId = draggedItemsRef.current[0]?.getId();
+    if (!draggedNodeId) {
+      focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
+      return;
+    }
+
+    const isCurrentRouteNode = currentId === currentRouteNodeId;
+    if (draggedNodeId !== currentId || isCurrentRouteNode) {
+      draggedItemsRef.current = [];
+    }
+  }, [currentRouteNodeId, selectedItems, tree, treeItems]);
 
   useEffect(() => {
     if (!highlightedTableId || Object.keys(treeItems).length === 0) return;
@@ -738,9 +756,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                         <Input
                           ref={inputRef}
                           type="text"
-                          placeholder="name"
                           defaultValue={item.getItemName()}
-                          className="size-full cursor-text rounded-none"
+                          className="size-full cursor-text select-text rounded-none"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;
@@ -941,6 +958,19 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 const getItemLevel = (item: ItemInstance<TreeItemData>) => {
   const meta = item.getItemMeta();
   return meta.level;
+};
+
+const getMaxFolderSubtreeDepth = (
+  itemId: string,
+  treeItems: Record<string, TreeItemData>
+): number => {
+  const item = treeItems[itemId];
+  if (!item?.children?.length) return 0;
+  const folderChildren = item.children.filter(
+    (childId) => treeItems[childId]?.resourceType === BaseNodeResourceType.Folder
+  );
+  if (folderChildren.length === 0) return 0;
+  return 1 + Math.max(...folderChildren.map((id) => getMaxFolderSubtreeDepth(id, treeItems)));
 };
 
 const checkCanCreateFolder = (item: ItemInstance<TreeItemData>, maxFolderDepth: number) => {

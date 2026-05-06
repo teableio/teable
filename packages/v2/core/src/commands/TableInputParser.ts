@@ -9,6 +9,7 @@ import { Table } from '../domain/table/Table';
 import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import { ViewId } from '../domain/table/views/ViewId';
 import { ViewName } from '../domain/table/views/ViewName';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { ITableFieldInput } from '../schemas/field';
@@ -27,7 +28,7 @@ export interface TableBuildInput {
   readonly tableId?: string;
   readonly name: string;
   readonly fields: ReadonlyArray<ITableFieldInput>;
-  readonly views?: ReadonlyArray<{ type?: string; name?: string }>;
+  readonly views?: ReadonlyArray<{ id?: string; type?: string; name?: string }>;
 }
 
 /**
@@ -69,44 +70,86 @@ const sequence = <T>(
 // --- View Spec implementations ---
 
 class GridViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().grid().withName(this.name).done();
+    const viewBuilder = builder.view().grid().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
 class KanbanViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().kanban().withName(this.name).done();
+    const viewBuilder = builder.view().kanban().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
 class GalleryViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().gallery().withName(this.name).done();
+    const viewBuilder = builder.view().gallery().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
 class CalendarViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().calendar().withName(this.name).done();
+    const viewBuilder = builder.view().calendar().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
 class FormViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().form().withName(this.name).done();
+    const viewBuilder = builder.view().form().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
 class PluginViewSpec implements ITableViewSpec {
-  constructor(private readonly name: ViewName) {}
+  constructor(
+    private readonly name: ViewName,
+    private readonly id?: ViewId
+  ) {}
   applyTo(builder: TableBuilder): void {
-    builder.view().plugin().withName(this.name).done();
+    const viewBuilder = builder.view().plugin().withName(this.name);
+    if (this.id) {
+      viewBuilder.withId(this.id);
+    }
+    viewBuilder.done();
   }
 }
 
@@ -158,7 +201,7 @@ export function parseFieldSpecs(
  * Parse raw view inputs into view specifications.
  */
 export function parseViewSpecs(
-  rawViews?: ReadonlyArray<{ type?: string; name?: string }>
+  rawViews?: ReadonlyArray<{ id?: string; type?: string; name?: string }>
 ): Result<ReadonlyArray<ITableViewSpec>, DomainError> {
   const viewsToUse =
     rawViews && rawViews.length > 0 ? rawViews : [{ type: 'grid' as const, name: 'Grid' }];
@@ -177,14 +220,19 @@ export function parseViewSpecs(
     const rawName = view.name ?? defaultViewNameByType(type);
 
     return ViewName.create(rawName).andThen((name) => {
-      return match(type)
-        .with('grid', () => ok(new GridViewSpec(name) as ITableViewSpec))
-        .with('kanban', () => ok(new KanbanViewSpec(name) as ITableViewSpec))
-        .with('gallery', () => ok(new GalleryViewSpec(name) as ITableViewSpec))
-        .with('calendar', () => ok(new CalendarViewSpec(name) as ITableViewSpec))
-        .with('form', () => ok(new FormViewSpec(name) as ITableViewSpec))
-        .with('plugin', () => ok(new PluginViewSpec(name) as ITableViewSpec))
-        .otherwise(() => err(domainError.validation({ message: 'Unsupported view type' })));
+      const viewIdResult: Result<ViewId | undefined, DomainError> = view.id
+        ? ViewId.create(view.id).map((viewId) => viewId as ViewId | undefined)
+        : ok<ViewId | undefined, DomainError>(undefined);
+      return viewIdResult.andThen((viewId) => {
+        return match(type)
+          .with('grid', () => ok(new GridViewSpec(name, viewId) as ITableViewSpec))
+          .with('kanban', () => ok(new KanbanViewSpec(name, viewId) as ITableViewSpec))
+          .with('gallery', () => ok(new GalleryViewSpec(name, viewId) as ITableViewSpec))
+          .with('calendar', () => ok(new CalendarViewSpec(name, viewId) as ITableViewSpec))
+          .with('form', () => ok(new FormViewSpec(name, viewId) as ITableViewSpec))
+          .with('plugin', () => ok(new PluginViewSpec(name, viewId) as ITableViewSpec))
+          .otherwise(() => err(domainError.validation({ message: 'Unsupported view type' })));
+      });
     });
   });
 

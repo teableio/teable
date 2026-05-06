@@ -22,6 +22,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'r
 import { useTranslation } from '../../context/app/i18n';
 import { useFieldOperations, useFieldStaticGetter, useFields, useTableId } from '../../hooks';
 import type { IFieldInstance } from '../../model';
+import { ReadOnlyTip } from '../ReadOnlyTip';
 import { FieldCreator } from './FieldCreator';
 
 interface IFieldCreateOrSelectModalProps {
@@ -30,6 +31,7 @@ interface IFieldCreateOrSelectModalProps {
   description?: ReactNode;
   selectedFieldId?: string;
   isCreatable?: boolean;
+  readOnly?: boolean;
   getCreateBtnText: (fieldName: string) => ReactNode;
   children: (isActive: boolean) => React.ReactNode;
   onConfirm?: (field: IFieldVo | IFieldInstance) => void;
@@ -51,6 +53,7 @@ export const FieldCreateOrSelectModal = forwardRef<
     selectedFieldId: _selectedFieldId,
     children,
     onConfirm,
+    readOnly,
   } = props;
   const tableId = useTableId();
   const totalFields = useFields({ withHidden: true, withDenied: true });
@@ -71,10 +74,12 @@ export const FieldCreateOrSelectModal = forwardRef<
   }, [_selectedFieldId]);
 
   const onFieldSelect = (value: string) => {
+    if (readOnly) return;
     setSelectedFieldId(value);
   };
 
   const onConfirmInner = async () => {
+    if (readOnly) return;
     if (newField != null) {
       if (tableId == null) return setNewField(undefined);
       const result = createFieldRoSchema.safeParse(newField);
@@ -115,7 +120,8 @@ export const FieldCreateOrSelectModal = forwardRef<
           {description && <DialogDescription className="text-xs">{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="rounded-md bg-muted p-4 pr-0">
+        <div className="relative rounded-md bg-muted p-4 pr-0">
+          {readOnly && <ReadOnlyTip />}
           <ScrollArea className="h-52 w-full" type="always">
             {newField ? (
               <FieldCreator field={newField} setField={setNewField} />
@@ -131,8 +137,14 @@ export const FieldCreateOrSelectModal = forwardRef<
                   });
                   return (
                     <div key={id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={id} id={id} />
-                      <Label className="flex cursor-pointer items-center space-x-1" htmlFor={id}>
+                      <RadioGroupItem value={id} id={id} disabled={readOnly} />
+                      <Label
+                        className={cn(
+                          'flex items-center space-x-1',
+                          readOnly ? 'cursor-not-allowed' : 'cursor-pointer'
+                        )}
+                        htmlFor={id}
+                      >
                         <Icon className="size-4" />
                         <span>{name}</span>
                       </Label>
@@ -144,17 +156,20 @@ export const FieldCreateOrSelectModal = forwardRef<
           </ScrollArea>
         </div>
 
-        {content}
+        <div className="relative">
+          {readOnly && <ReadOnlyTip />}
+          {content}
+        </div>
 
         <DialogFooter className={cn(newField && 'justify-between sm:justify-between')}>
           {newField && (
-            <Button variant={'ghost'} onClick={() => setNewField(undefined)}>
+            <Button variant={'ghost'} disabled={readOnly} onClick={() => setNewField(undefined)}>
               <ArrowLeft className="size-4 shrink-0" />
               {t('common.back')}
             </Button>
           )}
           <DialogClose asChild>
-            <Button disabled={!selectedFieldId && !newField} onClick={onConfirmInner}>
+            <Button disabled={!readOnly && !selectedFieldId && !newField} onClick={onConfirmInner}>
               {t('common.done')}
             </Button>
           </DialogClose>

@@ -37,6 +37,7 @@ import {
   CheckCircle2,
   Clock,
   Columns3,
+  ExternalLink,
   Info,
   Loader2,
   RefreshCcw,
@@ -44,6 +45,7 @@ import {
   Wrench,
   XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
@@ -54,6 +56,7 @@ import {
   getLocalizedRuleDescription,
   getGroupDisplayName,
   getGroupDisplayState,
+  hasExecutableRepairStatements,
   integrityFilterStatuses,
   getPhaseText,
   translateIntegrityMessage,
@@ -227,6 +230,14 @@ const inferFieldTypeFromGroup = (group: ResultGroup) => {
 type ManualRepairSchema = NonNullable<NonNullable<IntegrityResult['repair']>['manualRepairSchema']>;
 type ManualRepairProperty = ManualRepairSchema['properties'][string];
 type ManualRepairValues = Record<string, string | boolean>;
+type RepairRuleHandler = (
+  result: IntegrityResult,
+  manualRepairValues?: ManualRepairValues
+) => Promise<boolean>;
+type RepairRulePreviewHandler = (
+  result: IntegrityResult,
+  manualRepairValues?: ManualRepairValues
+) => Promise<IntegrityResult[]>;
 
 const getManualRepairDefaultValues = (manualRepairSchema?: ManualRepairSchema) => {
   return Object.fromEntries(
@@ -436,49 +447,336 @@ const ManualRepairDialog = ({
   );
 };
 
+const getPreviewResults = (results: IntegrityResult[]) =>
+  results.filter((result) => result.status !== 'running' && result.status !== 'pending');
+
+const canPreviewRepairResult = (result: IntegrityResult) =>
+  result.status === 'error' || result.status === 'warn' || result.status === 'skipped';
+
+const getRuleRepairTooltipText = (
+  t: Translate,
+  result: IntegrityResult,
+  canPreview: boolean,
+  reason?: string,
+  description?: string
+) =>
+  reason ||
+  description ||
+  (result.repair || canPreview
+    ? t('table:table.integrity.v2.repairPreviewTooltip')
+    : t('table:table.integrity.v2.repairUnavailable'));
+
+const getRepairPreviewDisabledReason = (
+  t: Translate,
+  result: IntegrityResult,
+  onPreviewRepairRule?: RepairRulePreviewHandler
+) => {
+  if (!canPreviewRepairResult(result)) {
+    return t('table:table.integrity.v2.repairPreviewUnavailableStatus');
+  }
+
+  if (!onPreviewRepairRule) {
+    return t('table:table.integrity.v2.repairUnavailable');
+  }
+
+  if (!result.tableId) {
+    return t('table:table.integrity.v2.repairPreviewMissingTable');
+  }
+
+  return undefined;
+};
+
+const formatRepairParameters = (parameters?: ReadonlyArray<unknown>) => {
+  if (!parameters?.length) {
+    return undefined;
+  }
+
+  return JSON.stringify(parameters, null, 2);
+};
+
+const RepairRulePreviewDialog = ({
+  result,
+  open,
+  dryRunResults,
+  isSubmitting,
+  canConfirm,
+  onOpenChange,
+  onConfirm,
+}: {
+  result: IntegrityResult;
+  open: boolean;
+  dryRunResults: IntegrityResult[];
+  isSubmitting: boolean;
+  canConfirm: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) => {
+  const { t } = useTranslation(['table', 'common']);
+  const previewResults = getPreviewResults(dryRunResults);
+  const displayResults = previewResults.length ? previewResults : [result];
+  const statements = displayResults.flatMap(
+    (previewResult) => previewResult.details?.statements || []
+  );
+  const canExecute = canConfirm && statements.length > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[82vh] max-w-3xl flex-col">
+        <DialogHeader>
+          <DialogTitle>{t('table:table.integrity.v2.repairPreviewTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('table:table.integrity.v2.repairPreviewDescription')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+          {displayResults.map((previewResult) => {
+            const localizedMessage = getLocalizedResultMessage(t as Translate, previewResult);
+            const localizedRuleName = getLocalizedRuleDescription(t as Translate, previewResult);
+            const repairReason = getLocalizedRepairReason(t as Translate, previewResult);
+            const repairDescription = getLocalizedRepairDescription(t as Translate, previewResult);
+            const localizedMissing = getLocalizedDetailItems(
+              t as Translate,
+              previewResult.details?.missingItems || previewResult.details?.missing
+            );
+            const localizedExtra = getLocalizedDetailItems(
+              t as Translate,
+              previewResult.details?.extraItems || previewResult.details?.extra
+            );
+
+            return (
+              <div
+                key={previewResult.id}
+                className="rounded-lg border border-border bg-muted/20 p-4 text-sm"
+              >
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <StatusIcon status={previewResult.status} />
+                  <span className="font-medium text-foreground">{localizedRuleName}</span>
+                  <StatusBadge status={previewResult.status} />
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs font-medium uppercase text-muted-foreground">
+                      {t('table:table.integrity.v2.repairPreviewWhat')}
+                    </div>
+                    <div className="mt-1 text-foreground">
+                      {t('table:table.integrity.v2.repairPreviewTarget', {
+                        fieldName: previewResult.fieldName,
+                        ruleName: localizedRuleName,
+                      })}
+                    </div>
+                    {localizedMessage ? (
+                      <div className="mt-1 text-muted-foreground">{localizedMessage}</div>
+                    ) : null}
+                    {localizedMissing?.length ? (
+                      <div className="mt-1 text-muted-foreground">
+                        {t('table:table.integrity.v2.detailsMissing', {
+                          details: localizedMissing.join(', '),
+                        })}
+                      </div>
+                    ) : null}
+                    {localizedExtra?.length ? (
+                      <div className="mt-1 text-muted-foreground">
+                        {t('table:table.integrity.v2.detailsExtra', {
+                          details: localizedExtra.join(', '),
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase text-muted-foreground">
+                      {t('table:table.integrity.v2.repairPreviewPrinciple')}
+                    </div>
+                    <div className="mt-1 text-foreground">
+                      {repairDescription ||
+                        repairReason ||
+                        t('table:table.integrity.v2.repairPreviewNoPrinciple')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="mb-3 text-sm font-medium text-foreground">
+              {t('table:table.integrity.v2.repairPreviewSql')}
+            </div>
+            {statements.length ? (
+              <div className="space-y-3">
+                {statements.map((statement, index) => {
+                  const parameters = formatRepairParameters(statement.parameters);
+
+                  return (
+                    <div key={`${statement.sql}:${index}`} className="space-y-2">
+                      <pre className="max-h-64 overflow-auto rounded-md bg-slate-950 p-3 text-xs leading-relaxed text-slate-50">
+                        <code>{statement.sql}</code>
+                      </pre>
+                      {parameters ? (
+                        <pre className="max-h-32 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
+                          <code>
+                            {t('table:table.integrity.v2.repairPreviewParameters')}
+                            {': '}
+                            {parameters}
+                          </code>
+                        </pre>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                {t('table:table.integrity.v2.repairPreviewNoSql')}
+              </div>
+            )}
+          </div>
+
+          {!canExecute ? (
+            <Alert>
+              <AlertDescription>
+                {statements.length
+                  ? t('table:table.integrity.v2.repairPreviewCannotConfirm')
+                  : t('table:table.integrity.v2.repairPreviewNoSql')}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            {t('common:actions.cancel')}
+          </Button>
+          <Button type="button" onClick={onConfirm} disabled={isSubmitting || !canExecute}>
+            {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {t('table:table.integrity.v2.repairPreviewConfirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ManualRuleRepairAction = ({
+  result,
+  reason,
+  description,
+  onRepairRule,
+}: {
+  result: IntegrityResult;
+  reason?: string;
+  description?: string;
+  onRepairRule: RepairRuleHandler;
+}) => {
+  const { t } = useTranslation(['table']);
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">
+            <ManualRepairDialog
+              result={result}
+              triggerLabel={t('table:table.integrity.v2.manual')}
+              onSubmit={onRepairRule}
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs whitespace-normal">
+          <div>{reason || t('table:table.integrity.v2.manualRepairNotice')}</div>
+          {description ? <div className="mt-1 opacity-80">{description}</div> : null}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 const RuleRepairAction = ({
   result,
   isRunning,
   isActive,
   onRepairRule,
+  onPreviewRepairRule,
 }: {
   result: IntegrityResult;
   isRunning: boolean;
   isActive: boolean;
-  onRepairRule?: (
-    result: IntegrityResult,
-    manualRepairValues?: ManualRepairValues
-  ) => Promise<boolean>;
+  onRepairRule?: RepairRuleHandler;
+  onPreviewRepairRule?: RepairRulePreviewHandler;
 }) => {
   const { t } = useTranslation(['table']);
-  const canRepair = Boolean(result.repair?.available && result.tableId && result.fieldId);
+  const previewDisabledReason = getRepairPreviewDisabledReason(
+    t as Translate,
+    result,
+    onPreviewRepairRule
+  );
+  const canShowPreview = !previewDisabledReason;
+  const canRepair = Boolean(
+    result.repair?.available && result.tableId && result.fieldId && onRepairRule
+  );
   const reason = getLocalizedRepairReason(t as Translate, result);
   const description = getLocalizedRepairDescription(t as Translate, result);
+  const tooltipReason = getRuleRepairTooltipText(
+    t as Translate,
+    result,
+    canShowPreview,
+    reason,
+    description
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [dryRunResults, setDryRunResults] = useState<IntegrityResult[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const canConfirmRepair = canRepair || hasExecutableRepairStatements(dryRunResults);
 
-  if (!result.repair) {
+  if (!canPreviewRepairResult(result) || (!onRepairRule && !onPreviewRepairRule)) {
     return null;
   }
 
+  const handlePreview = async () => {
+    if (!onPreviewRepairRule) {
+      void onRepairRule?.(result);
+      return;
+    }
+
+    setIsPreviewLoading(true);
+    setDryRunResults([]);
+    try {
+      const nextDryRunResults = await onPreviewRepairRule(result);
+      setDryRunResults(nextDryRunResults);
+      setPreviewOpen(true);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!canConfirmRepair || !onRepairRule) {
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      const repaired = await onRepairRule(result);
+      if (repaired) {
+        setPreviewOpen(false);
+      }
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   return (
     <div className="ml-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
-      {result.repair.mode === 'manual' ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <ManualRepairDialog
-                  result={result}
-                  triggerLabel={t('table:table.integrity.v2.manual')}
-                  onSubmit={onRepairRule}
-                />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs whitespace-normal">
-              <div>{reason || t('table:table.integrity.v2.manualRepairNotice')}</div>
-              {description ? <div className="mt-1 opacity-80">{description}</div> : null}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      {result.repair?.mode === 'manual' && onRepairRule ? (
+        <ManualRuleRepairAction
+          result={result}
+          reason={reason}
+          description={description}
+          onRepairRule={onRepairRule}
+        />
       ) : null}
       <TooltipProvider>
         <Tooltip>
@@ -488,10 +786,10 @@ const RuleRepairAction = ({
                 size="xs"
                 variant="outline"
                 className="h-7 px-2 text-xs"
-                disabled={!canRepair || isRunning}
-                onClick={() => void onRepairRule?.(result)}
+                disabled={Boolean(previewDisabledReason) || isPreviewLoading}
+                onClick={() => void handlePreview()}
               >
-                {isRunning && isActive ? (
+                {(isRunning && isActive) || isPreviewLoading ? (
                   <Loader2 className="mr-1 size-3.5 animate-spin" />
                 ) : (
                   <Wrench className="mr-1 size-3.5" />
@@ -500,14 +798,23 @@ const RuleRepairAction = ({
               </Button>
             </span>
           </TooltipTrigger>
-          {!canRepair || reason ? (
-            <TooltipContent className="max-w-xs whitespace-normal">
-              <div>{reason || t('table:table.integrity.v2.repairUnavailable')}</div>
-              {description ? <div className="mt-1 opacity-80">{description}</div> : null}
-            </TooltipContent>
-          ) : null}
+          <TooltipContent className="max-w-xs whitespace-normal">
+            <div>{previewDisabledReason || tooltipReason}</div>
+            {!previewDisabledReason && reason && description ? (
+              <div className="mt-1 opacity-80">{description}</div>
+            ) : null}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      <RepairRulePreviewDialog
+        result={result}
+        open={previewOpen}
+        dryRunResults={dryRunResults}
+        isSubmitting={isConfirming}
+        canConfirm={canConfirmRepair}
+        onOpenChange={setPreviewOpen}
+        onConfirm={() => void handleConfirm()}
+      />
     </div>
   );
 };
@@ -559,14 +866,13 @@ const RuleResultItem = ({
   isRunning,
   isActive,
   onRepairRule,
+  onPreviewRepairRule,
 }: {
   result: IntegrityResult;
   isRunning: boolean;
   isActive: boolean;
-  onRepairRule?: (
-    result: IntegrityResult,
-    manualRepairValues?: ManualRepairValues
-  ) => Promise<boolean>;
+  onRepairRule?: RepairRuleHandler;
+  onPreviewRepairRule?: RepairRulePreviewHandler;
 }) => {
   const { t } = useTranslation(['table']);
   const localizedMessage = getLocalizedResultMessage(t as Translate, result);
@@ -609,6 +915,7 @@ const RuleResultItem = ({
           isRunning={isRunning}
           isActive={isActive}
           onRepairRule={onRepairRule}
+          onPreviewRepairRule={onPreviewRepairRule}
         />
       </div>
       {shouldShowMessage ? (
@@ -885,15 +1192,14 @@ const IntegrityGroupCard = ({
   isRunning,
   activeRepairResultId,
   onRepairRule,
+  onPreviewRepairRule,
   nested = false,
 }: {
   group: ResultGroup;
   isRunning: boolean;
   activeRepairResultId?: string | null;
-  onRepairRule?: (
-    result: IntegrityResult,
-    manualRepairValues?: ManualRepairValues
-  ) => Promise<boolean>;
+  onRepairRule?: RepairRuleHandler;
+  onPreviewRepairRule?: RepairRulePreviewHandler;
   nested?: boolean;
 }) => {
   const { t } = useTranslation(['table']);
@@ -943,6 +1249,7 @@ const IntegrityGroupCard = ({
             isRunning={isRunning}
             isActive={activeRepairResultId === result.id}
             onRepairRule={onRepairRule}
+            onPreviewRepairRule={onPreviewRepairRule}
           />
         ))}
       </div>
@@ -952,19 +1259,25 @@ const IntegrityGroupCard = ({
 
 const IntegrityTableCard = ({
   group,
+  baseId,
   isRunning,
   activeRepairResultId,
   onRepairRule,
+  onPreviewRepairRule,
 }: {
   group: TableResultGroup;
+  baseId?: string;
   isRunning: boolean;
   activeRepairResultId?: string | null;
-  onRepairRule?: (
-    result: IntegrityResult,
-    manualRepairValues?: ManualRepairValues
-  ) => Promise<boolean>;
+  onRepairRule?: RepairRuleHandler;
+  onPreviewRepairRule?: RepairRulePreviewHandler;
 }) => {
   const displayState = getGroupDisplayState(group.results);
+  const tableHref =
+    (group.baseId || baseId) && group.tableId
+      ? `/base/${group.baseId || baseId}/table/${group.tableId}`
+      : undefined;
+  const tableLabel = group.tableName || group.tableId;
 
   return (
     <section className="rounded-xl border border-border bg-background">
@@ -972,9 +1285,17 @@ const IntegrityTableCard = ({
         <div className="flex min-w-0 items-center gap-3">
           <HeaderTypeIcon type="table" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-950">
-              {group.tableName || group.tableId}
-            </div>
+            {tableHref ? (
+              <Link
+                href={tableHref}
+                className="inline-flex max-w-full items-center gap-1.5 text-sm font-semibold text-slate-950 underline-offset-4 hover:text-primary hover:underline"
+              >
+                <span className="truncate">{tableLabel}</span>
+                <ExternalLink className="size-3.5 shrink-0 text-slate-500" />
+              </Link>
+            ) : (
+              <div className="truncate text-sm font-semibold text-slate-950">{tableLabel}</div>
+            )}
             {group.tableId ? (
               <div className="truncate font-mono text-xs text-slate-500">{group.tableId}</div>
             ) : null}
@@ -991,6 +1312,7 @@ const IntegrityTableCard = ({
             isRunning={isRunning}
             activeRepairResultId={activeRepairResultId}
             onRepairRule={onRepairRule}
+            onPreviewRepairRule={onPreviewRepairRule}
             nested
           />
         ))}
@@ -1001,6 +1323,7 @@ const IntegrityTableCard = ({
 
 export const IntegrityResultsPanel = ({
   scope,
+  baseId,
   tableGroups,
   groupedResults,
   hasRun,
@@ -1010,8 +1333,10 @@ export const IntegrityResultsPanel = ({
   hasFilteredOutAll,
   activeRepairResultId,
   onRepairRule,
+  onPreviewRepairRule,
 }: {
   scope: IntegrityScope;
+  baseId?: string;
   tableGroups: TableResultGroup[];
   groupedResults: ResultGroup[];
   hasRun: boolean;
@@ -1020,10 +1345,8 @@ export const IntegrityResultsPanel = ({
   hasTarget: boolean;
   hasFilteredOutAll: boolean;
   activeRepairResultId?: string | null;
-  onRepairRule?: (
-    result: IntegrityResult,
-    manualRepairValues?: ManualRepairValues
-  ) => Promise<boolean>;
+  onRepairRule?: RepairRuleHandler;
+  onPreviewRepairRule?: RepairRulePreviewHandler;
 }) => {
   const { t } = useTranslation(['table']);
   const runningText = getPhaseText(t as Translate, phase, 'running');
@@ -1074,9 +1397,11 @@ export const IntegrityResultsPanel = ({
           <IntegrityTableCard
             key={group.tableId || group.tableName}
             group={group}
+            baseId={baseId}
             isRunning={isRunning}
             activeRepairResultId={activeRepairResultId}
             onRepairRule={onRepairRule}
+            onPreviewRepairRule={onPreviewRepairRule}
           />
         ))}
       </div>
@@ -1095,6 +1420,7 @@ export const IntegrityResultsPanel = ({
               isRunning={isRunning}
               activeRepairResultId={activeRepairResultId}
               onRepairRule={onRepairRule}
+              onPreviewRepairRule={onPreviewRepairRule}
               nested
             />
           ))}

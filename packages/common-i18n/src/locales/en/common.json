@@ -170,8 +170,9 @@
   },
   "settings": {
     "title": "Instance settings",
+    "allSetting": "Space & personal settings",
     "personal": {
-      "title": "Personal settings"
+      "title": "Personal"
     },
     "templateAdmin": {
       "title": "Template admin",
@@ -1204,6 +1205,10 @@
           "runQuotaExceeded": {
             "title": "Automation {{name}} run failed due to run quota limit",
             "message": "Your automation {{name}} reached the monthly automation run quota. Please upgrade your plan or purchase additional automation runs."
+          },
+          "failedSummary": {
+            "title": "Automation {{name}} has failed {{failCount}} times",
+            "message": "Your automation {{name}} has accumulated {{failCount}} consecutive failures. Open run history to view details."
           }
         },
         "billing": {
@@ -1452,9 +1457,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "APR 17 UPDATE",
-    "title": "Claude Opus 4.7 is now in Teable",
-    "url": "https://help.teable.ai/en/changelog#apr-17-2026",
-    "id": "changelog-2026-04-17-claude-opus-4-7-is-now-in-teable"
+    "newUpdate": "APR 28 UPDATE",
+    "title": "New Trigger: When Email Receive (IMAP)",
+    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
+    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
   }
 }

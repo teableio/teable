@@ -8,7 +8,6 @@ import type {
   FieldCore,
 } from '@teable/core';
 import { DriverClient, parseFormulaToSQL, FieldType } from '@teable/core';
-import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
@@ -41,6 +40,7 @@ import type {
   ICalendarDailyCollectionQueryProps,
   IDbProvider,
   IFilterQueryExtra,
+  IRawQueryExecutor,
   ISortQueryExtra,
 } from './db.provider.interface';
 import type {
@@ -128,7 +128,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   async checkColumnExist(
     tableName: string,
     columnName: string,
-    prisma: PrismaClient
+    prisma: IRawQueryExecutor
   ): Promise<boolean> {
     const [schemaName, dbTableName] = this.splitTableName(tableName);
     const sql = this.knex

@@ -3,6 +3,7 @@ import type { Provider } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
+import { DATA_KNEX } from '../global/knex';
 import { getDriverName } from '../utils/db-helpers';
 import { PostgresProvider } from './postgres.provider';
 
@@ -19,5 +20,5 @@ export const DbProvider: Provider = {
     }
     return new PostgresProvider(knex);
   },
-  inject: ['CUSTOM_KNEX'],
+  inject: [DATA_KNEX],
 };

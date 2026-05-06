@@ -2,7 +2,6 @@
 import { pick, pullAll, uniq } from 'lodash';
 import { z } from 'zod';
 import { CellValueType, FieldType } from '../../field/constant';
-import type { FieldCore } from '../../field/field';
 
 export const is = z.literal('is');
 export const isNot = z.literal('isNot');
@@ -371,7 +370,11 @@ export const dateTimeFieldValidSubOperatorsByIsWithin = [
   nextNumberOfDays.value,
 ];
 
-export function getFilterOperatorMapping(field: FieldCore) {
+export function getFilterOperatorMapping(field: {
+  cellValueType: CellValueType;
+  type: FieldType;
+  isMultipleCellValue?: boolean;
+}) {
   const validFilterOperators = getValidFilterOperators(field);
 
   return pick(mappingOperatorSymbol, validFilterOperators);

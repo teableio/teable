@@ -18,16 +18,21 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { ILogger, LogContext } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRepository,
   TableDeleteOptions,
   TableFindOptions,
+  TableProvisionState,
 } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteTableCommand } from './DeleteTableCommand';
 import { DeleteTableHandler } from './DeleteTableHandler';
 
@@ -52,6 +57,7 @@ class FakeTableRepository implements ITableRepository {
   deleted: Table[] = [];
   deleteModes: Array<'soft' | 'permanent'> = [];
   deletedTableIds = new Set<string>();
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   failDelete: DomainError | undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -108,6 +114,26 @@ class FakeTableRepository implements ITableRepository {
     this.deleted.push(table);
     this.deleteModes.push(options?.mode ?? 'soft');
     this.deletedTableIds.add(table.id().toString());
+    return ok(undefined);
+  }
+
+  async setProvisionState(
+    _: IExecutionContext,
+    table: Table,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    }
     return ok(undefined);
   }
 }
@@ -217,10 +243,19 @@ class FakeUnitOfWork implements IUnitOfWork {
 
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    const transactionContext = { ...context, transaction };
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
+    const transactionContext = {
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    };
     this.transactions.push(transactionContext);
     return work(transactionContext);
   }
@@ -258,9 +293,16 @@ describe('DeleteTableHandler', () => {
     expect(schemaRepo.deleteModes).toEqual(['soft']);
     expect(repo.deleted).toHaveLength(1);
     expect(repo.deleteModes).toEqual(['soft']);
+    expect(repo.provisionStateChanges.map(({ state }) => state)).toEqual(['deleting', 'ready']);
     expect(eventBus.published.some((event) => event instanceof TableTrashed)).toBe(true);
     expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(false);
-    expect(unitOfWork.transactions.length).toBe(1);
+    expect(unitOfWork.transactions.length).toBe(4);
+    expect(unitOfWork.transactions.map((context) => context.transaction?.scope)).toEqual([
+      'meta',
+      'data',
+      'meta',
+      'meta',
+    ]);
   });
 
   it('publishes side-effect post-persist events without returning them in the response payload', async () => {
@@ -330,6 +372,7 @@ describe('DeleteTableHandler', () => {
     expect(schemaRepo.deleted).toHaveLength(1);
     expect(schemaRepo.deleteModes).toEqual(['permanent']);
     expect(repo.deleteModes).toEqual(['permanent']);
+    expect(repo.provisionStateChanges.map(({ state }) => state)).toEqual(['deleting', 'ready']);
     expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
   });
 
@@ -362,6 +405,7 @@ describe('DeleteTableHandler', () => {
     expect(sideEffectService.calls).toBe(0);
     expect(schemaRepo.deleteModes).toEqual(['permanent']);
     expect(repo.deleteModes).toEqual(['permanent']);
+    expect(repo.provisionStateChanges.map(({ state }) => state)).toEqual(['deleting', 'ready']);
     expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
   });
 
@@ -414,20 +458,36 @@ describe('DeleteTableHandler', () => {
     sideEffectService.failExecute = domainError.unexpected({ message: 'side effect failed' });
     const sideEffectResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(sideEffectResult._unsafeUnwrapErr().message).toBe('side effect failed');
+    expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
+      'deleting',
+      'error',
+    ]);
 
     sideEffectService.failExecute = undefined;
+    repo.provisionStateChanges = [];
     schemaRepo.failDelete = domainError.unexpected({ message: 'schema delete failed' });
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema delete failed');
+    expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
+      'deleting',
+      'error',
+    ]);
 
     schemaRepo.failDelete = undefined;
+    repo.provisionStateChanges = [];
     repo.failDelete = domainError.unexpected({ message: 'repo delete failed' });
     const repoResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(repoResult._unsafeUnwrapErr().message).toBe('repo delete failed');
+    expect(repo.provisionStateChanges.slice(-2).map(({ state }) => state)).toEqual([
+      'deleting',
+      'error',
+    ]);
 
     repo.failDelete = undefined;
+    repo.provisionStateChanges = [];
     eventBus.failPublish = domainError.unexpected({ message: 'publish failed' });
     const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(publishResult._unsafeUnwrapErr().message).toBe('publish failed');
+    expect(repo.provisionStateChanges.map(({ state }) => state)).toEqual(['deleting', 'ready']);
   });
 });

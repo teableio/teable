@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
@@ -28,6 +29,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
@@ -53,6 +55,7 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
@@ -62,7 +65,7 @@ export class ShareService {
     private readonly shareSocketService: ShareSocketService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
@@ -453,14 +456,12 @@ export class ShareService {
     return this.getViewFilterCollaborators(shareInfo, field, query);
   }
 
-  private async getViewFilterUserQuery(
+  private async getViewFilterUserIds(
     tableId: string,
     filter: IFilter | undefined,
     userField: IFieldVo,
-    fieldMap: Record<string, IFieldInstance>,
-    query?: { skip?: number; take?: number; search?: string }
+    fieldMap: Record<string, IFieldInstance>
   ) {
-    const { skip = 0, take = 50, search } = query ?? {};
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const queryBuilder = this.knex(dbTableName);
     const { isMultipleCellValue, dbFieldName } = userField;
@@ -468,24 +469,18 @@ export class ShareService {
     this.dbProvider.shareFilterCollaboratorsQuery(queryBuilder, dbFieldName, isMultipleCellValue);
     queryBuilder.whereNotNull(dbFieldName);
     this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
+    const nativeQuery = queryBuilder.toQuery();
+    const rows = await this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ user_id: string | null }[]>(nativeQuery);
 
-    const resQuery = this.knex('users')
-      .select('id', 'email', 'name', 'avatar')
-      .from(this.knex.raw(`(${queryBuilder.toQuery()}) AS coll`))
-      .leftJoin('users', 'users.id', '=', 'coll.user_id');
-    if (search) {
-      this.dbProvider.searchBuilder(resQuery, [
-        ['users.name', search],
-        ['users.email', search],
-      ]);
-    }
-    if (skip) {
-      resQuery.offset(skip);
-    }
-    if (take) {
-      resQuery.limit(take);
-    }
-    return resQuery.toQuery();
+    return Array.from(
+      new Set(
+        rows
+          .map(({ user_id }) => user_id)
+          .filter((userId): userId is string => Boolean(userId))
+      )
+    );
   }
 
   async getViewFilterCollaborators(
@@ -494,6 +489,7 @@ export class ShareService {
     query?: { skip?: number; take?: number; search?: string }
   ) {
     const { tableId, view } = shareInfo;
+    const { skip = 0, take = 50, search } = query ?? {};
     if (!view) {
       throw new CustomHttpException('view is required', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
@@ -506,7 +502,7 @@ export class ShareService {
       viewId: view.id,
     });
 
-    const nativeQuery = await this.getViewFilterUserQuery(
+    const userIds = await this.getViewFilterUserIds(
       tableId,
       view.filter,
       field,
@@ -516,16 +512,34 @@ export class ShareService {
           return acc;
         },
         {} as Record<string, IFieldInstance>
-      ),
-      query
+      )
     );
 
-    const users = await this.prismaService
-      .txClient()
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      .$queryRawUnsafe<{ id: string; email: string; name: string; avatar: string | null }[]>(
-        nativeQuery
-      );
+    if (!userIds.length) {
+      return [];
+    }
+
+    const users = await this.prismaService.user.findMany({
+      where: {
+        id: { in: userIds },
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+      },
+      skip,
+      take,
+    });
 
     return users.map(({ id, email, name, avatar }) => ({
       userId: id,

@@ -2,7 +2,8 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
-import { chatModelAbilitySchema, chatModelAbilityType, llmProviderSchema } from './update';
+import { chatModelAbilitySchema, chatModelAbilityType } from './model-ability';
+import { llmProviderSchema } from './update';
 
 export const testLLMRoSchema = llmProviderSchema
   .omit({

@@ -1,4 +1,4 @@
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { splitSchemaQualifiedTableName } from '@teable/v2-adapter-table-repository-postgres';
 import {
   v2CoreTokens,
@@ -152,7 +152,8 @@ export const DebugDataLive = Layer.effect(
 
     registerV2DebugData(container);
     const service = container.resolve(v2DebugDataTokens.debugDataService) as DebugDataService;
-    const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+    const metaDb = container.resolve(v2MetaDbTokens.db) as Kysely<V1TeableDatabase>;
+    const dataDb = container.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
 
     // Helper to create execution context
     const createContext = () => {
@@ -357,7 +358,7 @@ export const DebugDataLive = Layer.effect(
             const [undoLogExistsResult, captureFunctionResult, triggerResult] = await Promise.all([
               sql<{ present: boolean }>`
                 SELECT to_regclass('public.__undo_log') IS NOT NULL AS present
-              `.execute(db),
+              `.execute(dataDb),
               sql<{
                 schema_name: string;
                 function_name: string;
@@ -367,7 +368,7 @@ export const DebugDataLive = Layer.effect(
                 INNER JOIN pg_namespace AS n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND p.proname = '__teable_capture_undo_row'
                 LIMIT 1
-              `.execute(db),
+              `.execute(dataDb),
               sql<{
                 trigger_name: string;
                 enabled_code: string;
@@ -391,7 +392,7 @@ export const DebugDataLive = Layer.effect(
                   AND cls.relname = ${physicalTableName}
                   AND t.tgname = '__teable_undo_capture'
                 LIMIT 1
-              `.execute(db),
+              `.execute(dataDb),
             ]);
             const undoLogTableExists = Boolean(undoLogExistsResult.rows[0]?.present);
             const captureFunctionRow = captureFunctionResult.rows[0];
@@ -412,7 +413,7 @@ export const DebugDataLive = Layer.effect(
                   MAX(created_at) AS latest_created_at
                 FROM public.__undo_log
                 WHERE table_name = ${qualifiedTableName}
-              `.execute(db);
+              `.execute(dataDb);
               const undoLogStatsRow = undoLogStatsResult.rows[0];
               pendingRowCount = Number(undoLogStatsRow?.pending_row_count ?? 0);
               pendingBatchCount = Number(undoLogStatsRow?.pending_batch_count ?? 0);
@@ -473,7 +474,7 @@ export const DebugDataLive = Layer.effect(
             };
 
             const base = input.baseId
-              ? await db
+              ? await metaDb
                   .selectFrom('base')
                   .select(['id', 'name', 'space_id as spaceId', 'deleted_time as deletedTime'])
                   .where('id', '=', input.baseId)
@@ -489,7 +490,7 @@ export const DebugDataLive = Layer.effect(
               throw new Error('Either spaceId or baseId is required');
             }
 
-            const space = await db
+            const space = await metaDb
               .selectFrom('space')
               .select(['id', 'name', 'deleted_time as deletedTime'])
               .where('id', '=', resolvedSpaceId)
@@ -500,7 +501,7 @@ export const DebugDataLive = Layer.effect(
               FROM setting
               WHERE name = 'canaryConfig'
               LIMIT 1
-            `.execute(db);
+            `.execute(metaDb);
 
             const config = parseCanaryConfig(settingResult.rows[0]?.content);
             const decision = resolveCanaryMembership(env, config, resolvedSpaceId);

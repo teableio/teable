@@ -72,6 +72,23 @@ const waitForTableTrashCount = async (tableId: string, expectedCount: number, ma
 
   return await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
 };
+const waitForViewVisibility = async (
+  tableId: string,
+  viewId: string,
+  visible: boolean,
+  maxRetries = 100
+) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const views = (await getViewList(tableId)).data;
+    const view = views.find((v) => v.id === viewId);
+    if (Boolean(view) === visible) {
+      return view;
+    }
+    await sleep(100);
+  }
+
+  return (await getViewList(tableId)).data.find((v) => v.id === viewId);
+};
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -1254,8 +1271,7 @@ describe('Undo Redo (e2e)', () => {
 
     await undo(table.id);
 
-    const viewsAfterUndo = (await getViewList(table.id)).data;
-    expect(viewsAfterUndo.find((v) => v.id === view.id)).toMatchObject({
+    expect(await waitForViewVisibility(table.id, view.id, true)).toMatchObject({
       id: view.id,
       name: view.name,
       type: view.type,
@@ -1263,8 +1279,7 @@ describe('Undo Redo (e2e)', () => {
 
     await redo(table.id);
 
-    const viewsAfterRedo = (await getViewList(table.id)).data;
-    expect(viewsAfterRedo.find((v) => v.id === view.id)).toBeUndefined();
+    expect(await waitForViewVisibility(table.id, view.id, false)).toBeUndefined();
   });
 
   it('should undo / redo update view property', async () => {

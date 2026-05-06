@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { TableDomain } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -9,12 +10,15 @@ import type { IDatabaseView } from './database-view.interface';
 
 @Injectable()
 export class DatabaseViewService implements IDatabaseView {
+  private readonly logger = new Logger(DatabaseViewService.name);
+
   constructor(
     @InjectDbProvider()
     private readonly dbProvider: IDbProvider,
     @InjectRecordQueryBuilder()
     private readonly recordQueryBuilderService: IRecordQueryBuilder,
     private readonly prisma: PrismaService,
+    private readonly dataPrisma: DataPrismaService,
     private readonly referenceService: ReferenceService
   ) {}
 
@@ -23,22 +27,35 @@ export class DatabaseViewService implements IDatabaseView {
       tableIdOrDbTableName: table.id,
     });
     const sqls = this.dbProvider.createDatabaseView(table, qb, { materialized: true });
-    await this.prisma.$transaction(async (tx) => {
+    const viewName = this.dbProvider.generateDatabaseViewName(table.id);
+
+    await this.dataPrisma.$tx(async (tx) => {
       for (const sql of sqls) {
         await tx.$executeRawUnsafe(sql);
       }
-      const viewName = this.dbProvider.generateDatabaseViewName(table.id);
-      await tx.tableMeta.update({
-        where: { id: table.id },
-        data: { dbViewName: viewName },
-      });
 
       const refresh = this.dbProvider.refreshDatabaseView(table.id, { concurrently: false });
       if (refresh) {
         await tx.$executeRawUnsafe(refresh);
       }
     });
-    // persist view name to table meta
+
+    try {
+      await this.prisma.tableMeta.update({
+        where: { id: table.id },
+        data: { dbViewName: viewName },
+      });
+    } catch (error) {
+      await this.dropDataView(table.id).catch((cleanupError) => {
+        this.logger.error(
+          `Failed to clean up database view ${viewName} after metadata update failure: ${
+            cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+          }`,
+          cleanupError instanceof Error ? cleanupError.stack : undefined
+        );
+      });
+      throw error;
+    }
   }
 
   public async recreateView(table: TableDomain) {
@@ -47,15 +64,16 @@ export class DatabaseViewService implements IDatabaseView {
     });
 
     const sqls = this.dbProvider.recreateDatabaseView(table, qb);
-    await this.prisma.$transaction(sqls.map((s) => this.prisma.$executeRawUnsafe(s)));
+    await this.dataPrisma.$tx(async (tx) => {
+      for (const sql of sqls) {
+        await tx.$executeRawUnsafe(sql);
+      }
+    });
   }
 
   public async dropView(tableId: string) {
-    const sqls = this.dbProvider.dropDatabaseView(tableId);
-    for (const sql of sqls) {
-      await this.prisma.$executeRawUnsafe(sql);
-    }
-    // clear persisted view name
+    await this.dropDataView(tableId);
+
     await this.prisma.tableMeta.update({
       where: { id: tableId },
       data: { dbViewName: null },
@@ -65,7 +83,7 @@ export class DatabaseViewService implements IDatabaseView {
   public async refreshView(tableId: string) {
     const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
     if (sql) {
-      await this.prisma.$executeRawUnsafe(sql);
+      await this.dataPrisma.$executeRawUnsafe(sql);
     }
   }
 
@@ -75,8 +93,17 @@ export class DatabaseViewService implements IDatabaseView {
     for (const tableId of tableIds) {
       const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
       if (sql) {
-        await this.prisma.$executeRawUnsafe(sql);
+        await this.dataPrisma.$executeRawUnsafe(sql);
       }
     }
+  }
+
+  private async dropDataView(tableId: string) {
+    const sqls = this.dbProvider.dropDatabaseView(tableId);
+    await this.dataPrisma.$tx(async (tx) => {
+      for (const sql of sqls) {
+        await tx.$executeRawUnsafe(sql);
+      }
+    });
   }
 }

@@ -10,4 +10,5 @@ export type {
 } from '@teable/v2-postgres-schema';
 export * from './di/register';
 export * from './di/tokens';
+export * from './repositories/PostgresSchemaOperationRepository';
 export * from './repositories/PostgresTableRepository';

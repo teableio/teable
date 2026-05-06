@@ -24,7 +24,11 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkScope,
+} from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
@@ -33,9 +37,9 @@ import type {
   InsertManyStreamResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
-import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTablesCommand } from './CreateTablesCommand';
 import { CreateTablesHandler } from './CreateTablesHandler';
 
@@ -71,6 +75,7 @@ const buildTable = (params: {
 class FakeTableRepository implements ITableRepository {
   inserted: Table[] = [];
   updated: Table[] = [];
+  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   failFind: DomainError | undefined;
 
   async insert(_context: IExecutionContext, table: Table) {
@@ -115,6 +120,17 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async setProvisionStateMany(
+    _context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    state: TableProvisionState
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    }
     return ok(undefined);
   }
 }
@@ -245,10 +261,23 @@ class FakeEventBus implements IEventBus {
 class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
-    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
-    const transactionContext = { ...context, transaction };
+    const scope: UnitOfWorkScope = options?.scope ?? 'data';
+    const existing = context.transactions?.[scope];
+    if (existing) {
+      return work({ ...context, transaction: existing });
+    }
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope };
+    const transactionContext = {
+      ...context,
+      transaction,
+      transactions: {
+        ...(context.transactions ?? {}),
+        [scope]: transaction,
+      },
+    };
     return work(transactionContext);
   }
 }
@@ -323,6 +352,12 @@ describe('CreateTablesHandler', () => {
     expect(tableRepository.inserted).toHaveLength(2);
     expect(schemaRepository.inserted).toHaveLength(2);
     expect(tableRepository.updated).toHaveLength(1);
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'pending',
+      'ready',
+      'ready',
+    ]);
   });
 
   it('creates records for each table', async () => {

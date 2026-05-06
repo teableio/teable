@@ -15,6 +15,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
   Label,
   Popover,
   PopoverContent,
@@ -64,7 +65,7 @@ export const DownloadContent = ({
   const [downloading, setDownloading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const { namingFieldId, setNamingFieldId, groupByRow, setGroupByRow } =
+  const { namingFieldId, setNamingFieldId, noPrefix, setNoPrefix, groupByRow, setGroupByRow } =
     useColumnDownloadDialogStore();
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldStaticGetter = useFieldStaticGetter();
@@ -95,6 +96,12 @@ export const DownloadContent = ({
     },
     [namingFieldId, setNamingFieldId]
   );
+
+  // Handle "no prefix" option - toggle on/off
+  const handleNoPrefixSelect = useCallback(() => {
+    setSelectorOpen(false);
+    setNoPrefix(!noPrefix);
+  }, [noPrefix, setNoPrefix]);
 
   // Load preview on mount
   useEffect(() => {
@@ -184,6 +191,7 @@ export const DownloadContent = ({
         shareId,
         personalViewCommonQuery,
         namingField,
+        noPrefix,
         groupByRow,
         abortController,
         onProgress: updateProgress,
@@ -218,6 +226,7 @@ export const DownloadContent = ({
     viewId,
     shareId,
     namingField,
+    noPrefix,
     groupByRow,
     personalViewCommonQuery,
     onClose,
@@ -299,8 +308,15 @@ export const DownloadContent = ({
                     className="w-full justify-between dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
                   >
                     <div className="flex items-center gap-2 truncate">
-                      {namingFieldId ? (
-                        (() => {
+                      {(() => {
+                        if (noPrefix) {
+                          return (
+                            <span className="truncate">
+                              {t('table:download.allAttachments.noPrefixOption')}
+                            </span>
+                          );
+                        }
+                        if (namingFieldId) {
                           const selectedField = namingFields.find((f) => f.id === namingFieldId);
                           if (!selectedField) return null;
                           const { Icon } = fieldStaticGetter(selectedField.type, {
@@ -315,12 +331,13 @@ export const DownloadContent = ({
                               <span className="truncate">{selectedField.name}</span>
                             </>
                           );
-                        })()
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {t('table:download.allAttachments.selectField')}
-                        </span>
-                      )}
+                        }
+                        return (
+                          <span className="text-muted-foreground">
+                            {t('table:download.allAttachments.selectField')}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                   </Button>
@@ -330,6 +347,32 @@ export const DownloadContent = ({
                     <CommandInput placeholder={t('common:actions.search')} />
                     <CommandList className="max-h-60">
                       <CommandEmpty>{t('common:noResult')}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__no_prefix__"
+                          keywords={[
+                            t('table:download.allAttachments.noPrefixOption'),
+                            t('table:download.allAttachments.noPrefixOptionDesc'),
+                          ]}
+                          onSelect={handleNoPrefixSelect}
+                        >
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate">
+                              {t('table:download.allAttachments.noPrefixOption')}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {t('table:download.allAttachments.noPrefixOptionDesc')}
+                            </span>
+                          </div>
+                          <Check
+                            className={cn(
+                              'ml-2 size-4 shrink-0',
+                              noPrefix ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                        </CommandItem>
+                      </CommandGroup>
+                      <CommandSeparator />
                       <CommandGroup>
                         {namingFields.map((field) => {
                           const { Icon } = fieldStaticGetter(field.type, {

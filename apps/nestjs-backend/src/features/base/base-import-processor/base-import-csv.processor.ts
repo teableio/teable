@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
 import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
 import { Queue, Job } from 'bullmq';
@@ -16,6 +17,7 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -53,9 +55,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly baseImportJunctionCsvQueueProcessor: BaseImportJunctionCsvQueueProcessor,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -274,8 +277,16 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       referenced_column_name: string;
       dbTableName: string;
     }[];
+    const attachmentsTableData = [] as {
+      attachmentId: string;
+      name: string;
+      token: string;
+      tableId: string;
+      recordId: string;
+      fieldId: string;
+    }[];
 
-    await this.prismaService.$tx(async (prisma) => {
+    await this.dataPrismaService.$tx(async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
       const foreignKeysInfo = await prisma.$queryRawUnsafe<
@@ -305,15 +316,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
       const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
       const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
-
-      const attachmentsTableData = [] as {
-        attachmentId: string;
-        name: string;
-        token: string;
-        tableId: string;
-        recordId: string;
-        fieldId: string;
-      }[];
 
       const newResult = [...results].map((res) => {
         const newRes = { ...res };
@@ -398,7 +400,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
       const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
       await prisma.$executeRawUnsafe(sql);
-      await this.updateAttachmentTable(userId, attachmentsTableData);
     });
 
     // restore foreign keys with NOT VALID
@@ -425,8 +426,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           ]
         )
         .toQuery();
-      await this.prismaService.$executeRawUnsafe(addForeignKeyQuery);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(addForeignKeyQuery);
     }
+
+    await this.updateAttachmentTable(userId, attachmentsTableData);
   }
 
   private getNotNullDefault(dbFieldType: string, isMultipleCellValue: boolean): unknown {

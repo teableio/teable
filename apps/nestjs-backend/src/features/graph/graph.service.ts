@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, IConvertFieldRo } from '@teable/core';
 import { FieldType, Relationship, isLinkLookupOptions } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
-import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   IGraphEdge,
   IGraphNode,
@@ -17,6 +18,7 @@ import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
@@ -59,12 +61,13 @@ export class GraphService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly fieldService: FieldService,
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -470,7 +473,8 @@ export class GraphService {
     let total = 0;
     for (const { fieldId, fieldName, query } of queries) {
       try {
-        const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+        const [{ count }] =
+          await this.dataPrismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
         total += Number(count);
       } catch (error) {
         if (this.shouldSkipAffectedCountError(error)) {
@@ -571,16 +575,16 @@ export class GraphService {
     };
   }
 
-  private shouldSkipAffectedCountError(
-    error: unknown
-  ): error is Prisma.PrismaClientKnownRequestError & {
+  private shouldSkipAffectedCountError(error: unknown): error is {
     meta?: { code?: string; message?: string };
+    message?: string;
   } {
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2010') {
+    const prismaError = error as { code?: string; meta?: { code?: string } } | undefined;
+    if (prismaError?.code !== 'P2010') {
       return false;
     }
 
-    const storageErrorCode = (error.meta as { code?: string } | undefined)?.code;
+    const storageErrorCode = prismaError.meta?.code;
     return storageErrorCode === '42703' || storageErrorCode === '42P01';
   }
 

@@ -5,7 +5,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
-import { CanaryService } from '../canary.service';
+import { CanaryService, type IBaseV2DecisionContext } from '../canary.service';
 import { USE_V2_FEATURE_KEY } from '../decorators/use-v2-feature.decorator';
 
 /**
@@ -65,26 +65,16 @@ export class V2FeatureGuard implements CanActivate {
       return true;
     }
 
-    // 2. Check FORCE_V2_ALL first (highest priority)
-    if (this.canaryService.isForceV2AllEnabled()) {
-      this.cls.set('useV2', true);
-      this.cls.set('v2Feature', feature);
-      this.cls.set('v2Reason', 'env_force_v2_all');
-      return true;
-    }
-
-    // 3. Get spaceId from request context
-    const spaceId = await this.getSpaceIdFromContext(context);
-
-    if (!spaceId) {
+    if (this.isUnsupportedV2Payload(req.body, feature)) {
       this.cls.set('useV2', false);
       this.cls.set('v2Feature', feature);
-      this.cls.set('v2Reason', 'disabled');
+      this.cls.set('v2Reason', 'unsupported_feature');
       return true;
     }
 
-    // 4. Determine if V2 should be used with reason
-    const decision = await this.canaryService.shouldUseV2WithReason(spaceId, feature);
+    // 2. Resolve base context when possible. Marked new bases are V2-first and bypass rollout config.
+    const base = await this.getBaseV2DecisionContext(context);
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, feature);
     this.cls.set('useV2', decision.useV2);
     this.cls.set('v2Feature', feature);
     this.cls.set('v2Reason', decision.reason);
@@ -92,13 +82,36 @@ export class V2FeatureGuard implements CanActivate {
     return true;
   }
 
+  private isUnsupportedV2Payload(body: unknown, feature: V2Feature): boolean {
+    if (feature !== 'updateRecord') {
+      return false;
+    }
+
+    const updateRecordBody = body as
+      | {
+          record?: { fields?: Record<string, unknown> | null } | null;
+          order?: unknown;
+        }
+      | undefined;
+    const fields = updateRecordBody?.record?.fields ?? {};
+
+    // V2 does not yet support updateRecord calls that only reorder a record.
+    return Boolean(updateRecordBody?.order) && Object.keys(fields).length === 0;
+  }
+
   /**
-   * Extract spaceId from request context.
+   * Extract base V2 decision context from request context.
    * Supports: spaceId (direct), baseId (lookup), tableId (lookup via base)
    */
-  private async getSpaceIdFromContext(context: ExecutionContext): Promise<string | undefined> {
+  private async getBaseV2DecisionContext(
+    context: ExecutionContext
+  ): Promise<IBaseV2DecisionContext | undefined> {
     const req = context.switchToHttp().getRequest();
-    const resourceId = req.params.spaceId || req.params.baseId || req.params.tableId;
+    const resourceId =
+      req.params.spaceId ||
+      req.params.baseId ||
+      req.params.tableId ||
+      this.getStringResourceId(req.body, ['spaceId', 'baseId', 'tableId']);
 
     if (!resourceId) {
       return undefined;
@@ -106,16 +119,16 @@ export class V2FeatureGuard implements CanActivate {
 
     // Direct spaceId
     if (resourceId.startsWith(IdPrefix.Space)) {
-      return resourceId;
+      return { spaceId: resourceId };
     }
 
     // BaseId -> lookup spaceId
     if (resourceId.startsWith(IdPrefix.Base)) {
       const base = await this.prismaService.txClient().base.findUnique({
         where: { id: resourceId, deletedTime: null },
-        select: { spaceId: true },
+        select: { spaceId: true, v2Enabled: true },
       });
-      return base?.spaceId;
+      return base ?? undefined;
     }
 
     // TableId -> lookup baseId -> lookup spaceId
@@ -129,9 +142,25 @@ export class V2FeatureGuard implements CanActivate {
 
       const base = await this.prismaService.txClient().base.findUnique({
         where: { id: table.baseId, deletedTime: null },
-        select: { spaceId: true },
+        select: { spaceId: true, v2Enabled: true },
       });
-      return base?.spaceId;
+      return base ?? undefined;
+    }
+
+    return undefined;
+  }
+
+  private getStringResourceId(source: unknown, keys: string[]): string | undefined {
+    if (!source || typeof source !== 'object') {
+      return undefined;
+    }
+
+    const record = source as Record<string, unknown>;
+    for (const key of keys) {
+      const value = record[key];
+      if (typeof value === 'string') {
+        return value;
+      }
     }
 
     return undefined;

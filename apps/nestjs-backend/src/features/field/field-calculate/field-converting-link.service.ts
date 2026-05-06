@@ -9,6 +9,7 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   HttpErrorCode,
 } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
@@ -36,6 +37,7 @@ const isLink = (field: IFieldInstance): field is LinkFieldDto =>
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly dataPrismaService: DataPrismaService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -197,7 +199,7 @@ export class FieldConvertingLinkService {
     );
     // Execute all queries (FK/junction creation, order columns, etc.)
     for (const query of createColumnQueries) {
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
     }
   }
 

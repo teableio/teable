@@ -54,12 +54,14 @@
     "@toon-format/toon": "2.1.0",
     "effect": "3.12.12",
     "kysely": "0.28.9",
-    "neverthrow": "8.2.0"
+    "neverthrow": "8.2.0",
+    "unzipper": "0.12.3"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "22.18.0",
+    "@types/unzipper": "0.10.11",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",

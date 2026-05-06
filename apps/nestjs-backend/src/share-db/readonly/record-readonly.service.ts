@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { IS_TEMPLATE_HEADER, BASE_SHARE_ID_HEADER } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
 import type { IReadonlyServiceContext } from './types';
@@ -17,7 +19,8 @@ export class RecordReadonlyServiceAdapter
   constructor(
     private readonly cls: ClsService<IReadonlyServiceContext>,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly dataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {
     super(cls);
   }
@@ -96,7 +99,8 @@ export class RecordReadonlyServiceAdapter
 
   async getVersionAndType(tableId: string, recordId: string) {
     const table = await this.validateTable(tableId);
-    return this.prismaService
+    return this.dataPrismaService
+      .txClient()
       .$queryRawUnsafe<
         { version: number; deletedTime: Date | null }[]
       >(this.knex(table.dbTableName).select('__version as version').where('__id', recordId).toQuery())
@@ -111,7 +115,7 @@ export class RecordReadonlyServiceAdapter
       .select('__version as version', '__id')
       .whereIn('__id', recordIds)
       .toQuery();
-    const recordRaw = await this.prismaService
+    const recordRaw = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<{ version: number; deletedTime: Date | null; __id: string }[]>(nativeQuery);
     return recordRaw.reduce(

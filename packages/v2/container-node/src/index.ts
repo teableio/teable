@@ -2,7 +2,11 @@ import { createHash } from 'crypto';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
+  registerV2PostgresDataDb,
+  registerV2PostgresMetaDb,
   registerV2PostgresDb,
+  v2DataDbTokens,
+  v2MetaDbTokens,
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
@@ -31,6 +35,7 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
+import { DotTeaParser } from '@teable/v2-dottea';
 
 /**
  * Node.js crypto-based hasher implementation.
@@ -43,6 +48,8 @@ class NodeCryptoHasher implements IHasher {
 
 export interface IV2NodePgContainerOptions {
   connectionString?: string;
+  metaConnectionString?: string;
+  dataConnectionString?: string;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   maxFreeRowLimit?: number;
@@ -71,29 +78,47 @@ export const registerV2NodePgDependencies = async (
   c: DependencyContainer = container,
   options: IV2NodePgContainerOptions
 ): Promise<DependencyContainer> => {
-  const connectionString =
-    options.connectionString ?? process.env.PRISMA_DATABASE_URL ?? process.env.DATABASE_URL;
-  if (!connectionString) {
+  const metaConnectionString =
+    options.metaConnectionString ??
+    options.connectionString ??
+    process.env.PRISMA_META_DATABASE_URL ??
+    process.env.PRISMA_DATABASE_URL ??
+    process.env.DATABASE_URL;
+  if (!metaConnectionString) {
     throw new Error(
-      'Missing pg connectionString (options.connectionString or PRISMA_DATABASE_URL)'
+      'Missing pg meta connectionString (options.metaConnectionString or PRISMA_META_DATABASE_URL)'
     );
   }
+  const dataConnectionString =
+    options.dataConnectionString ?? process.env.PRISMA_DATA_DATABASE_URL ?? metaConnectionString;
 
-  await registerV2PostgresDb(c, { pg: { connectionString } });
-  const db = c.resolve(v2PostgresDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
+  if (metaConnectionString === dataConnectionString) {
+    await registerV2PostgresDb(c, { pg: { connectionString: metaConnectionString } });
+  } else {
+    await registerV2PostgresMetaDb(c, { pg: { connectionString: metaConnectionString } });
+    await registerV2PostgresDataDb(c, { pg: { connectionString: dataConnectionString } });
+    const metaDb = c.resolve(v2MetaDbTokens.db);
+    c.registerInstance(v2PostgresDbTokens.db, metaDb);
+    c.registerInstance(v2PostgresDbTokens.config, {
+      pg: { connectionString: metaConnectionString },
+    });
+  }
+  const metaDb = c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
+  const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
 
   const maxFreeRowLimit = resolveMaxFreeRowLimit(options.maxFreeRowLimit);
 
   await registerV2PostgresStateAdapter(c, {
-    db,
+    db: metaDb,
     ensureSchema: options.ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
     ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
   });
 
-  const typeValidationStrategy = await createTypeValidationStrategy(db);
+  const typeValidationStrategy = await createTypeValidationStrategy(dataDb);
   registerV2TableRepositoryPostgresAdapter(c, {
-    db,
+    db: dataDb,
+    metaDb,
     computedUpdate: options.computedUpdate,
     typeValidationStrategy,
   });
@@ -142,6 +167,12 @@ export const registerV2NodePgDependencies = async (
   // Register CSV parser
   if (!c.isRegistered(v2CoreTokens.csvParser)) {
     c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (!c.isRegistered(v2CoreTokens.dotTeaParser)) {
+    c.register(v2CoreTokens.dotTeaParser, DotTeaParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }

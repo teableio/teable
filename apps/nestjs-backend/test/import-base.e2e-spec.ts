@@ -3,9 +3,10 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentItem, IConditionalRollupFieldOptions, IFilter } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
+import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IImportBaseProgressEvent,
   IImportBaseSSEEvent,
   INotifyVo,
   ITableFullVo,
@@ -46,8 +47,10 @@ import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
-import { IntegrityV2Service } from '../src/features/integrity/integrity-v2.service';
 import { replaceStringByMap } from '../src/features/base/utils';
+import { IntegrityV2Service } from '../src/features/integrity/integrity-v2.service';
+import { PersistedComputedBackfillService } from '../src/features/record/computed/services/persisted-computed-backfill.service';
+import type { IClsStore } from '../src/types/cls';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
@@ -63,6 +66,8 @@ import {
   getRecord,
   deleteField,
   convertField,
+  updateRecord,
+  createRecords,
   runWithTestUser,
 } from './utils/init-app';
 
@@ -107,8 +112,80 @@ async function waitForRecordWithFieldValue(
   return undefined;
 }
 
+async function waitForFieldHasError(tableId: string, fieldId: string) {
+  const timeoutMs = 8000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const fields = (await getFields(tableId)).data;
+    const field = fields.find((f) => f.id === fieldId);
+    if (field?.hasError) {
+      return field;
+    }
+    await sleep(200);
+  }
+  return undefined;
+}
+
 function getAttachmentService(app: INestApplication) {
   return app.get<AttachmentsService>(AttachmentsService);
+}
+
+async function importBaseViaSseStream(
+  appUrl: string,
+  cookie: string,
+  spaceId: string,
+  notify: INotifyVo
+) {
+  const response = await fetch(`${appUrl}/api${IMPORT_BASE_STREAM}`, {
+    method: 'POST',
+    headers: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({
+      notify,
+      spaceId,
+    }),
+  });
+
+  expect(response.ok).toBe(true);
+  expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const progressEvents: IImportBaseProgressEvent[] = [];
+  let doneEvent: Extract<IImportBaseSSEEvent, { type: 'done' }> | null = null;
+  let errorEvent: Extract<IImportBaseSSEEvent, { type: 'error' }> | null = null;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+
+      const event = JSON.parse(jsonStr) as IImportBaseSSEEvent;
+      if (event.type === 'progress') {
+        progressEvents.push(event);
+      } else if (event.type === 'done') {
+        doneEvent = event;
+      } else if (event.type === 'error') {
+        errorEvent = event;
+      }
+    }
+  }
+
+  return { progressEvents, doneEvent, errorEvent };
 }
 
 describe('OpenAPI BaseController for base import (e2e)', () => {
@@ -405,20 +482,6 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     let hostTable: ITableFullVo;
     let lookupTable: ITableFullVo;
     let awaitErroredExport: <T>(fn: () => Promise<T>) => Promise<{ previewUrl: string }>;
-
-    const waitForFieldHasError = async (tableId: string, fieldId: string) => {
-      const timeoutMs = 8000;
-      const start = Date.now();
-      while (Date.now() - start < timeoutMs) {
-        const fields = (await getFields(tableId)).data;
-        const field = fields.find((f) => f.id === fieldId);
-        if (field?.hasError) {
-          return field;
-        }
-        await sleep(200);
-      }
-      return undefined;
-    };
 
     beforeAll(async () => {
       const base = (
@@ -866,6 +929,61 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     let canarySpaceId: string | undefined;
     let canarySourceBaseId: string | undefined;
     let importedCanaryBaseId: string | undefined;
+    let importedCanaryStreamBaseId: string | undefined;
+
+    const createCanarySpace = async (name: string) => {
+      const space = await createSpace({ name });
+      canarySpaceId = space.data.id;
+
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [canarySpaceId],
+        },
+      });
+
+      return space.data;
+    };
+
+    const uploadExportedBase = async (baseId: string) => {
+      const awaitExportWithPreview = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExportWithPreview(async () => {
+        await exportBase(baseId);
+      });
+
+      return await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await getAttachmentService(app).uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+    };
+
+    const importExportedBaseViaSse = async (baseId: string) => {
+      const notify = await uploadExportedBase(baseId);
+      const { progressEvents, doneEvent, errorEvent } = await importBaseViaSseStream(
+        appUrl,
+        cookie,
+        canarySpaceId!,
+        notify as unknown as INotifyVo
+      );
+
+      expect(errorEvent).toBeNull();
+      expect(doneEvent).not.toBeNull();
+      importedCanaryStreamBaseId = doneEvent!.data.base.id;
+
+      return { progressEvents, result: doneEvent!.data };
+    };
 
     afterEach(async () => {
       await updateSetting({
@@ -875,6 +993,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         },
       });
 
+      if (importedCanaryStreamBaseId) {
+        await permanentDeleteBase(importedCanaryStreamBaseId);
+        importedCanaryStreamBaseId = undefined;
+      }
       if (importedCanaryBaseId) {
         await permanentDeleteBase(importedCanaryBaseId);
         importedCanaryBaseId = undefined;
@@ -962,19 +1084,20 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
           spaceId: canarySpaceId,
         })
       ).data;
-      importedCanaryBaseId = importedBase.id;
+      const importedBaseId = importedBase.id;
+      importedCanaryBaseId = importedBaseId;
 
-      const integrityDecision = await getV2SchemaIntegrityDecision(importedCanaryBaseId);
+      const integrityDecision = await getV2SchemaIntegrityDecision(importedBaseId);
       expect(integrityDecision.data.useV2).toBe(true);
 
       const integrityV2Service = app.get(IntegrityV2Service);
       const integrityResults: IV2SchemaIntegrityCheckResult[] = [];
-      const integrityClsService = app.get(ClsService);
+      const integrityClsService = app.get<ClsService<IClsStore>>(ClsService);
       await runWithTestUser(integrityClsService, async () => {
-        const integrityStream = await integrityV2Service.createBaseCheckStream(
-          importedCanaryBaseId,
-          ['warn', 'error']
-        );
+        const integrityStream = await integrityV2Service.createBaseCheckStream(importedBaseId, [
+          'warn',
+          'error',
+        ]);
         for await (const result of integrityStream) {
           integrityResults.push(result);
         }
@@ -988,16 +1111,720 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const importedTable = await getTable(importedCanaryBaseId, importedTableMeta.id, {
         includeContent: true,
       });
-      const importedHoursField = importedTable.fields?.find((field) => field.name === 'Hours')!;
+      const importedHoursField = importedTable.fields?.find((field) => field.name === 'Hours');
+      expect(importedHoursField).toBeDefined();
+
+      expect(
+        await waitForRecordWithFieldValue(importedTableMeta.id, importedHoursField!.id, 1)
+      ).toBeDefined();
+      expect(
+        await waitForRecordWithFieldValue(importedTableMeta.id, importedHoursField!.id, 2)
+      ).toBeDefined();
 
       const importedRecords = await getRecords(importedTableMeta.id, {
         fieldKeyType: FieldKeyType.Id,
       });
 
       expect(
-        importedRecords.records.map((record) => record.fields?.[importedHoursField.id])
+        importedRecords.records.map((record) => record.fields?.[importedHoursField!.id])
       ).toEqual([1, 2]);
     });
+
+    it('imports a canary base through SSE stream with table and row progress', async () => {
+      const space = await createSpace({ name: 'canary_stream_import_space' });
+      canarySpaceId = space.data.id;
+
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [canarySpaceId],
+        },
+      });
+
+      const sourceBase = (
+        await createBase({
+          name: 'canary_stream_source',
+          spaceId: canarySpaceId,
+          icon: '🔄',
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const sourceTable = await createTable(sourceBase.id, {
+        name: 'Canary Stream Rows',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Tags',
+            type: FieldType.MultipleSelect,
+            options: {
+              choices: [
+                { id: 'choRap', name: 'rap', color: Colors.Cyan },
+                { id: 'choRock', name: 'rock', color: Colors.Blue },
+              ],
+            },
+          },
+          { name: 'Minutes', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'Alpha', Tags: ['rap', 'rock'], Minutes: 2 } },
+          { fields: { Name: 'Beta', Tags: ['rock'], Minutes: 4 } },
+        ],
+      });
+
+      const minutesField = sourceTable.fields.find((field) => field.name === 'Minutes')!;
+      await createField(sourceTable.id, {
+        name: 'Hours',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${minutesField.id}} / 2`,
+        },
+      });
+
+      const folderNode = await createBaseNode(sourceBase.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Imported Folder',
+      }).then((res) => res.data);
+      const sourceNodeTree = await getBaseNodeTree(sourceBase.id).then((res) => res.data);
+      const sourceTableNode = sourceNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table && node.resourceId === sourceTable.id
+      );
+      expect(sourceTableNode).toBeDefined();
+      await moveBaseNode(sourceBase.id, sourceTableNode!.id, { parentId: folderNode.id });
+
+      const awaitExportWithPreview = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExportWithPreview(async () => {
+        await exportBase(canarySourceBaseId!);
+      });
+
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await getAttachmentService(app).uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+
+      const { progressEvents, doneEvent, errorEvent } = await importBaseViaSseStream(
+        appUrl,
+        cookie,
+        canarySpaceId,
+        notify as unknown as INotifyVo
+      );
+
+      expect(errorEvent).toBeNull();
+      expect(doneEvent).not.toBeNull();
+
+      const result = doneEvent!.data;
+      importedCanaryStreamBaseId = result.base.id;
+      expect(result.base.spaceId).toBe(canarySpaceId);
+
+      const integrityDecision = await getV2SchemaIntegrityDecision(importedCanaryStreamBaseId);
+      expect(integrityDecision.data.useV2).toBe(true);
+
+      const phases = progressEvents.map((event) => event.phase);
+      expect(phases).toContain('table_structure_started');
+      expect(phases).toContain('table_structure_validating');
+      expect(phases).toContain('table_structure_committing');
+      expect(phases).toContain('table_structure_done');
+      expect(phases).toContain('restoring_base_nodes');
+      expect(phases).toContain('table_data_progress');
+      expect(phases).toContain('table_data_done');
+      expect(phases).not.toContain('computed_backfill');
+      expect(phases).not.toContain('computed_backfill_failed');
+
+      const tableStructureDone = progressEvents.find(
+        (event) =>
+          event.phase === 'table_structure_done' && event.tableName === 'Canary Stream Rows'
+      );
+      expect(tableStructureDone).toMatchObject({
+        tableIndex: 1,
+        totalTables: 1,
+      });
+
+      const tableDataDone = progressEvents.find(
+        (event) => event.phase === 'table_data_done' && event.tableName === 'Canary Stream Rows'
+      );
+      expect(tableDataDone).toMatchObject({
+        processedRows: 2,
+      });
+
+      const tableDataProgress = progressEvents.find(
+        (event) => event.phase === 'table_data_progress' && event.tableName === 'Canary Stream Rows'
+      );
+      expect(tableDataProgress).toMatchObject({
+        processedRows: 2,
+        batchProcessedRows: 2,
+        currentBatch: 1,
+      });
+
+      const tables = (await getTableList(importedCanaryStreamBaseId)).data;
+      expect(tables).toHaveLength(1);
+      const importedTableMeta = tables[0];
+      expect(importedTableMeta.name).toBe('Canary Stream Rows');
+
+      const importedNodeTree = await getBaseNodeTree(importedCanaryStreamBaseId).then(
+        (res) => res.data
+      );
+      const importedFolderNode = importedNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Folder &&
+          node.resourceMeta?.name === folderNode.resourceMeta?.name
+      );
+      expect(importedFolderNode).toBeDefined();
+      const importedTableNode = importedNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table &&
+          node.resourceId === importedTableMeta.id
+      );
+      expect(importedTableNode?.parentId).toBe(importedFolderNode!.id);
+
+      const importedTable = await getTable(importedCanaryStreamBaseId, importedTableMeta.id, {
+        includeContent: true,
+      });
+      const importedHoursField = importedTable.fields?.find((field) => field.name === 'Hours');
+      expect(importedHoursField?.type).toBe(FieldType.Formula);
+
+      let importedRecords = await getRecords(importedTableMeta.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+      expect(importedRecords.records).toHaveLength(2);
+
+      const alpha = importedRecords.records.find((record) => record.fields?.Name === 'Alpha');
+      const beta = importedRecords.records.find((record) => record.fields?.Name === 'Beta');
+      expect(alpha?.fields?.Tags).toEqual(['rap', 'rock']);
+      expect(beta?.fields?.Tags).toEqual(['rock']);
+      const alphaWithComputed = await waitForRecordWithFieldValue(
+        importedTableMeta.id,
+        importedHoursField!.id,
+        1
+      );
+      importedRecords = await getRecords(importedTableMeta.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+      const betaWithComputed = importedRecords.records.find(
+        (record) => record.fields?.Name === 'Beta'
+      );
+      expect(alphaWithComputed?.fields?.[importedHoursField!.id]).toBe(1);
+      expect(betaWithComputed?.fields?.Hours).toBe(2);
+    });
+
+    it('does not invoke legacy computed backfill during canary SSE import', async () => {
+      const space = await createSpace({ name: 'canary_stream_no_legacy_backfill_space' });
+      canarySpaceId = space.data.id;
+
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [canarySpaceId],
+        },
+      });
+
+      const sourceBase = (
+        await createBase({
+          name: 'canary_no_legacy_backfill_source',
+          spaceId: canarySpaceId,
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      await createTable(sourceBase.id, {
+        name: 'No Legacy Backfill Rows',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Alpha' } }],
+      });
+
+      const awaitExportWithPreview = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExportWithPreview(async () => {
+        await exportBase(canarySourceBaseId!);
+      });
+
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await getAttachmentService(app).uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+
+      const backfillService = app.get(PersistedComputedBackfillService);
+      const backfillSpy = vi.spyOn(backfillService, 'recomputeForTables');
+
+      try {
+        const { progressEvents, doneEvent, errorEvent } = await importBaseViaSseStream(
+          appUrl,
+          cookie,
+          canarySpaceId,
+          notify as unknown as INotifyVo
+        );
+
+        expect(errorEvent).toBeNull();
+        expect(doneEvent).not.toBeNull();
+        importedCanaryStreamBaseId = doneEvent!.data.base.id;
+
+        expect(progressEvents.map((event) => event.phase)).not.toContain('computed_backfill');
+        expect(progressEvents.map((event) => event.phase)).not.toContain(
+          'computed_backfill_failed'
+        );
+        expect(backfillSpy).not.toHaveBeenCalled();
+      } finally {
+        backfillSpy.mockRestore();
+      }
+    });
+
+    it('imports table views, dashboards, panels and plugin views through canary SSE', async () => {
+      const space = await createCanarySpace('canary_full_import_space');
+      const sourceBase = (
+        await createBase({
+          name: 'canary_full_source',
+          spaceId: space.id,
+          icon: '😄',
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const mainTable = await createTable(sourceBase.id, {
+        name: 'canary_record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+      const x20Link = x_20_link(mainTable);
+      const subTable = await createTable(sourceBase.id, {
+        name: 'canary_lookup_filter_x_20',
+        fields: x20Link.fields,
+        records: x20Link.records,
+      });
+
+      const lookupFields = x_20_link_from_lookups(mainTable, subTable.fields[2].id).fields;
+      for (const field of lookupFields) {
+        await createField(subTable.id, field);
+      }
+
+      const dashboard = (await createDashboard(sourceBase.id, { name: 'dashboard' })).data;
+      await installPlugin(sourceBase.id, dashboard.id, {
+        name: 'dashboard plugin',
+        pluginId: 'plgchart',
+      });
+
+      await installViewPlugin(mainTable.id, { name: 'sheetView1', pluginId: 'plgsheetform' });
+      await installViewPlugin(mainTable.id, { name: 'sheetView2', pluginId: 'plgsheetform' });
+
+      const panel = (await createPluginPanel(mainTable.id, { name: 'panel1' })).data;
+      await installPluginPanel(mainTable.id, panel.id, {
+        name: 'panel plugin',
+        pluginId: 'plgchart',
+      });
+
+      const { result } = await importExportedBaseViaSse(sourceBase.id);
+      const importedBaseId = result.base.id;
+
+      const tableList = (await getTableList(importedBaseId)).data;
+      expect(tableList.map((table) => table.name).sort()).toEqual(
+        [mainTable.name, subTable.name].sort()
+      );
+
+      const importedMainTable = tableList.find((table) => table.name === mainTable.name)!;
+      const importedFields = (await getFields(importedMainTable.id)).data;
+      expect(importedFields.length).toBe((await getFields(mainTable.id)).data.length);
+
+      const importedViews = (await getViewList(importedMainTable.id)).data;
+      const importedPluginViews = importedViews.filter((view) => view.type === ViewType.Plugin);
+      expect(importedPluginViews.map((view) => view.name).sort()).toEqual(
+        ['sheetView1', 'sheetView2'].sort()
+      );
+
+      const importedDashboards = (await getDashboardList(importedBaseId)).data;
+      expect(importedDashboards.map((item) => item.name)).toEqual(['dashboard']);
+
+      const importedPanels = (await listPluginPanels(importedMainTable.id)).data;
+      expect(importedPanels.map((item) => item.name)).toEqual(['panel1']);
+    });
+
+    it('converts errored lookup and rollup fields to text through canary SSE', async () => {
+      const space = await createCanarySpace('canary_errored_computed_space');
+      const sourceBase = (
+        await createBase({
+          name: 'canary_errored_computed_source',
+          spaceId: space.id,
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const hostTable = await createTable(sourceBase.id, {
+        name: 'Canary_Errored_Host',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+      const x20Link = x_20_link(hostTable);
+      const lookupTable = await createTable(sourceBase.id, {
+        name: 'Canary_Errored_Lookup',
+        fields: x20Link.fields,
+        records: x20Link.records,
+      });
+
+      const linkField = (await getFields(lookupTable.id)).data.find(
+        (field) => field.type === FieldType.Link
+      )!;
+      const hostNumberField = (await getFields(hostTable.id)).data.find(
+        (field) => field.type === FieldType.Number
+      )!;
+
+      const lookupField = (
+        await createField(lookupTable.id, {
+          name: 'Errored Lookup',
+          type: hostNumberField.type,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: hostTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: hostNumberField.id,
+          },
+        })
+      ).data;
+      const rollupField = (
+        await createField(lookupTable.id, {
+          name: 'Errored Rollup',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'count({values})',
+          },
+          lookupOptions: {
+            foreignTableId: hostTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: hostNumberField.id,
+          },
+        })
+      ).data;
+
+      await deleteField(hostTable.id, hostNumberField.id);
+      expect(await waitForFieldHasError(lookupTable.id, lookupField.id)).toBeDefined();
+      expect(await waitForFieldHasError(lookupTable.id, rollupField.id)).toBeDefined();
+
+      const { result } = await importExportedBaseViaSse(sourceBase.id);
+      const importedTables = (await getTableList(result.base.id)).data;
+      const importedLookupTable = importedTables.find((table) => table.name === lookupTable.name)!;
+      const importedFields = (await getFields(importedLookupTable.id)).data;
+
+      const importedLookupField = importedFields.find((field) => field.name === 'Errored Lookup')!;
+      expect(importedLookupField.type).toBe(FieldType.SingleLineText);
+      expect(importedLookupField.isLookup).toBeFalsy();
+      expect(importedLookupField.hasError).toBeFalsy();
+
+      const importedRollupField = importedFields.find((field) => field.name === 'Errored Rollup')!;
+      expect(importedRollupField.type).toBe(FieldType.SingleLineText);
+      expect(importedRollupField.isLookup).toBeFalsy();
+      expect(importedRollupField.hasError).toBeFalsy();
+    });
+
+    it('imports conditional rollup and conditional lookup through canary SSE', async () => {
+      const space = await createCanarySpace('canary_conditional_rollup_space');
+      const sourceBase = (
+        await createBase({ name: 'canary_conditional_rollup_source', spaceId: space.id })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const foreignTable = await createTable(sourceBase.id, {
+        name: 'Canary_CR_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Status', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Status: 'Active' } },
+          { fields: { Title: 'Beta', Status: 'Inactive' } },
+        ],
+      });
+      const hostTable = await createTable(sourceBase.id, {
+        name: 'Canary_CR_Host',
+        fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText }],
+        records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Inactive' } }],
+      });
+
+      const titleFieldId = foreignTable.fields.find((field) => field.name === 'Title')!.id;
+      const statusFieldId = foreignTable.fields.find((field) => field.name === 'Status')!.id;
+      const statusFilterFieldId = hostTable.fields.find(
+        (field) => field.name === 'StatusFilter'
+      )!.id;
+      const statusMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterFieldId },
+          },
+        ],
+      };
+
+      await createField(hostTable.id, {
+        name: 'Status Rollup',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: titleFieldId,
+          expression: 'array_join({values})',
+          filter: statusMatchFilter,
+        } as IConditionalRollupFieldOptions,
+      });
+      await createField(hostTable.id, {
+        name: 'Status Lookup',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: titleFieldId,
+          filter: statusMatchFilter,
+          sort: { fieldId: titleFieldId, order: SortFunc.Asc },
+          limit: 1,
+        },
+      });
+
+      const { result } = await importExportedBaseViaSse(sourceBase.id);
+      const importedTables = (await getTableList(result.base.id)).data;
+      const importedHost = importedTables.find((table) => table.name === hostTable.name)!;
+      const importedFields = (await getFields(importedHost.id)).data;
+      const importedRollupField = importedFields.find((field) => field.name === 'Status Rollup')!;
+      const importedLookupField = importedFields.find((field) => field.name === 'Status Lookup')!;
+      expect(importedRollupField.type).toBe(FieldType.ConditionalRollup);
+      expect(importedLookupField.isConditionalLookup).toBeTruthy();
+
+      const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+      const activeRecordMeta = await waitForRecordWithFieldValue(
+        importedHost.id,
+        importedStatusFilter.id,
+        'Active'
+      );
+      const activeRecord = await waitForComputedRecord(importedHost.id, activeRecordMeta!.id, [
+        importedRollupField.id,
+        importedLookupField.id,
+      ]);
+      expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');
+      expect(activeRecord.fields?.[importedLookupField.id]).toEqual(['Alpha']);
+    });
+
+    it('imports primary formula fields through canary SSE', async () => {
+      const space = await createCanarySpace('canary_primary_formula_space');
+      const sourceBase = (
+        await createBase({ name: 'canary_primary_formula_source', spaceId: space.id })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const table = await createTable(sourceBase.id, {
+        name: 'Canary Primary Formula Table',
+        fields: [
+          { name: 'Primary Field', type: FieldType.SingleLineText },
+          { name: 'Remaining Minutes', type: FieldType.Number },
+        ],
+      });
+      const primaryFieldId = table.fields.find((field) => field.isPrimary)!.id;
+      const remainingMinutesId = table.fields.find(
+        (field) => field.name === 'Remaining Minutes'
+      )!.id;
+      await convertField(table.id, primaryFieldId, {
+        type: FieldType.Formula,
+        options: {
+          expression: `({${remainingMinutesId}} * 45) / 60`,
+        },
+      });
+
+      const { result } = await importExportedBaseViaSse(sourceBase.id);
+      const tableList = (await getTableList(result.base.id)).data;
+      expect(tableList).toHaveLength(1);
+
+      const importedTable = await getTable(result.base.id, tableList[0].id, {
+        includeContent: true,
+      });
+      const importedPrimaryField = importedTable.fields?.find((field) => field.isPrimary);
+      const importedRemainingField = importedTable.fields?.find(
+        (field) => field.name === 'Remaining Minutes'
+      );
+      expect(importedPrimaryField?.type).toBe(FieldType.Formula);
+      expect(importedRemainingField).toBeDefined();
+
+      const primaryOptions =
+        typeof importedPrimaryField?.options === 'string'
+          ? (JSON.parse(importedPrimaryField.options) as { expression?: string })
+          : (importedPrimaryField?.options as { expression?: string }) ?? {};
+      expect(primaryOptions.expression).toContain(`{${importedRemainingField!.id}}`);
+      expect(importedPrimaryField?.hasError).toBeFalsy();
+
+      const prisma = app.get(PrismaService);
+      const primaryFieldRaw = await prisma.field.findUniqueOrThrow({
+        where: { id: importedPrimaryField!.id },
+        select: { meta: true },
+      });
+      const persistedMeta =
+        typeof primaryFieldRaw.meta === 'string'
+          ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
+          : primaryFieldRaw.meta ?? {};
+      expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
+    });
+
+    it('imports multiple link fields targeting the same table through canary SSE', async () => {
+      const space = await createCanarySpace('canary_multi_link_space');
+      const sourceBase = (await createBase({ name: 'canary_multi_link_source', spaceId: space.id }))
+        .data;
+      canarySourceBaseId = sourceBase.id;
+
+      const foreignTable = await createTable(sourceBase.id, {
+        name: 'CanarySharedTarget',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Score', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Title: 'Target A', Score: 1.5 } },
+          { fields: { Title: 'Target B', Score: 2.5 } },
+        ],
+      });
+      const hostTable = await createTable(sourceBase.id, {
+        name: 'CanaryMultiLinkHost',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Host 1' } }],
+      });
+
+      const link1Field = (
+        await createField(hostTable.id, {
+          name: 'Link1',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+          },
+        })
+      ).data;
+      const link2Field = (
+        await createField(hostTable.id, {
+          name: 'Link2',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+          },
+        })
+      ).data;
+      await createField(hostTable.id, {
+        name: 'Link3',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+      await createField(hostTable.id, {
+        name: 'Target Scores',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          linkFieldId: link1Field.id,
+          lookupFieldId: foreignTable.fields.find((field) => field.name === 'Score')!.id,
+        },
+      });
+
+      await updateRecord(hostTable.id, hostTable.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [link1Field.id]: [
+              { id: foreignTable.records[0].id },
+              { id: foreignTable.records[1].id },
+            ],
+            [link2Field.id]: [{ id: foreignTable.records[1].id }],
+          },
+        },
+      });
+      await createRecords(hostTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: Array.from({ length: 125 }, (_, index) => ({
+          fields: {
+            Name: `Batch Host ${index + 1}`,
+            [link1Field.id]: [{ id: foreignTable.records[index % 2].id }],
+            [link2Field.id]: [{ id: foreignTable.records[(index + 1) % 2].id }],
+          },
+        })),
+      });
+
+      const { progressEvents, result } = await importExportedBaseViaSse(sourceBase.id);
+      const junctionTableDataProgress = progressEvents.filter(
+        (event) => event.phase.startsWith('table_data_') && event.tableName?.includes('junction_')
+      );
+      const linkFieldProgressEvents = progressEvents.filter(
+        (event) => event.phase === 'link_fields_progress'
+      );
+      expect(junctionTableDataProgress).toHaveLength(0);
+      expect(progressEvents.map((event) => event.phase)).not.toContain('restoring_link_relations');
+      expect(linkFieldProgressEvents.length).toBeGreaterThan(0);
+      expect(new Set(linkFieldProgressEvents.map((event) => event.tableId))).toEqual(
+        new Set(['__link_fields__'])
+      );
+      expect(linkFieldProgressEvents.at(-1)?.totalRows).toBeGreaterThan(0);
+      expect(linkFieldProgressEvents.at(-1)?.processedRows).toBe(
+        linkFieldProgressEvents.at(-1)?.totalRows
+      );
+
+      const tableList = (await getTableList(result.base.id)).data;
+      expect(tableList.length).toBe(2);
+
+      const importedHostMeta = tableList.find((table) => table.name === hostTable.name)!;
+      const importedForeignMeta = tableList.find((table) => table.name === foreignTable.name)!;
+      const importedHostFields = (await getFields(importedHostMeta.id)).data;
+      const importedForeignFields = (await getFields(importedForeignMeta.id)).data;
+      const importedTargetScoresField = importedHostFields.find(
+        (field) => field.name === 'Target Scores'
+      )!;
+
+      expect(importedHostFields.filter((field) => field.type === FieldType.Link).length).toBe(3);
+      const foreignDbFieldNames = importedForeignFields
+        .filter((field) => field.type === FieldType.Link)
+        .map((field) => field.dbFieldName);
+      expect(new Set(foreignDbFieldNames).size).toBe(3);
+
+      const importedRecords = await getRecords(importedHostMeta.id, {
+        fieldKeyType: FieldKeyType.Name,
+        take: 200,
+      });
+      const importedHostRecord = importedRecords.records.find(
+        (record) => record.fields?.Name === 'Host 1'
+      );
+      const importedBatchHostRecord = importedRecords.records.find(
+        (record) => record.fields?.Name === 'Batch Host 125'
+      );
+      expect(importedRecords.records.length).toBe(126);
+      expect(importedHostRecord?.fields?.Link1).toMatchObject([
+        { title: 'Target A' },
+        { title: 'Target B' },
+      ]);
+      expect(importedHostRecord?.fields?.Link2).toMatchObject([{ title: 'Target B' }]);
+      const computedHostRecord = await waitForComputedRecord(
+        importedHostMeta.id,
+        importedHostRecord!.id,
+        [importedTargetScoresField.id]
+      );
+      expect(computedHostRecord.fields?.[importedTargetScoresField.id]).toEqual([1.5, 2.5]);
+      expect(importedBatchHostRecord?.fields?.Link1).toMatchObject([{ title: 'Target A' }]);
+      expect(importedBatchHostRecord?.fields?.Link2).toMatchObject([{ title: 'Target B' }]);
+    }, 30_000);
   });
 
   describe('export and import the base with nodes [Folder, Table, Dashboard]', () => {

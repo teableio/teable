@@ -1,5 +1,10 @@
 import type { IRole } from '@teable/core';
-import type { IGetBaseVo, ICreateTableRo, CollaboratorType } from '@teable/openapi';
+import type {
+  IGetBaseVo,
+  ICreateTableRo,
+  CollaboratorType,
+  IBaseV2StatusVo,
+} from '@teable/openapi';
 import { createTable, deleteTable, permanentDeleteTable } from '@teable/openapi';
 
 export class Base implements IGetBaseVo {
@@ -13,6 +18,7 @@ export class Base implements IGetBaseVo {
   enabledAuthority?: boolean;
   createdBy: string;
   isCanary?: boolean;
+  v2Status?: IBaseV2StatusVo;
 
   constructor(base: IGetBaseVo) {
     const {
@@ -26,6 +32,7 @@ export class Base implements IGetBaseVo {
       enabledAuthority,
       createdBy,
       isCanary,
+      v2Status,
     } = base;
     this.id = id;
     this.name = name;
@@ -37,6 +44,7 @@ export class Base implements IGetBaseVo {
     this.enabledAuthority = enabledAuthority;
     this.createdBy = createdBy;
     this.isCanary = isCanary;
+    this.v2Status = v2Status;
   }
 
   async createTable(tableRo?: ICreateTableRo) {

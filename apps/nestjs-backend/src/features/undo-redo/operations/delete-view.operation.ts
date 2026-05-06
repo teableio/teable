@@ -1,4 +1,4 @@
-import type { PrismaService } from '@teable/db-main-prisma';
+import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteViewOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -16,7 +16,7 @@ export class DeleteViewOperation {
   constructor(
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly viewService: ViewService,
-    private readonly prismaService: PrismaService
+    private readonly dataPrismaService: DataPrismaService
   ) {}
 
   async event2Operation(payload: IDeleteViewPayload): Promise<IDeleteViewOperation> {
@@ -34,18 +34,19 @@ export class DeleteViewOperation {
     const { params, operationId = '' } = operation;
     const { tableId, viewId } = params;
 
-    const count = await this.prismaService.tableTrash.count({
+    const count = await this.dataPrismaService.tableTrash.count({
       where: { id: operationId },
     });
 
     if (operationId && Number(count) === 0) return operation;
 
-    await this.prismaService.$tx(async (prisma) => {
-      await this.viewService.restoreView(tableId, viewId);
-      await prisma.tableTrash.delete({
+    await this.viewService.restoreView(tableId, viewId);
+
+    if (operationId) {
+      await this.dataPrismaService.tableTrash.delete({
         where: { id: operationId },
       });
-    });
+    }
     return operation;
   }
 
