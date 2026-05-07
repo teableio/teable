@@ -21,3 +21,4 @@ export * from './integration-update';
 export * from './integration-delete';
 export * from './test-llm-integration';
 export * from './search';
+export * from './data-db';
