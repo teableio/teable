@@ -57,6 +57,8 @@ describe('BaseService', () => {
       return {
         service: new BaseService(
           prismaService as never,
+          {} as never,
+          {} as never,
           cls as never,
           {} as never,
           {} as never,

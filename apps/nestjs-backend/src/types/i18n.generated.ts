@@ -2971,6 +2971,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
+                "ownedSpaceLimitExceeded": string;
+                "ownedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
