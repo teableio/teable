@@ -962,7 +962,6 @@
     "expand": "Développer",
     "history": "Historique",
     "close": "Réduire",
-    "noModel": "Aucun modèle disponible",
     "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
@@ -974,7 +973,7 @@
       "other": "Autre"
     },
     "context": {
-      "button": "Ajouter un contexte",
+      "button": "Ajouter un nœud",
       "search": "Ajouter des tables",
       "searchEmpty": "Aucun contexte trouvé",
       "emptyContext": "Aucun contexte à ajouter",
@@ -983,10 +982,10 @@
     "mention": {
       "tables": "Tables",
       "apps": "Applications",
-      "workflows": "Workflows",
+      "workflows": "Automatisations",
       "folders": "Dossiers"
     },
-    "inputPlaceholder": "Tapez @ pour ajouter du contexte",
+    "inputPlaceholder": "Tapez @ pour ajouter un nœud",
     "inputPlaceholderFiles": "Collez ou déposez des fichiers ici",
     "thought": "En train de penser",
     "meta": {

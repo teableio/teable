@@ -958,7 +958,6 @@
     "shareNodeTab": "Düğümü paylaş"
   },
   "aiChat": {
-    "noModel": "Kullanılabilir model yok",
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…"
@@ -967,10 +966,10 @@
     "mention": {
       "tables": "Tablolar",
       "apps": "Uygulamalar",
-      "workflows": "İş akışları",
+      "workflows": "Otomasyonlar",
       "folders": "Klasörler"
     },
-    "inputPlaceholder": "Bağlam eklemek için @ yazın",
+    "inputPlaceholder": "Düğüm eklemek için @ yazın",
     "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın"
   }
 }

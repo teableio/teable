@@ -1027,7 +1027,9 @@
       "deleted": "スペースが削除されました",
       "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
       "notBelongToOrg": "このスペースは組織に属していません",
-      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}"
+      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "管理できるスペースの上限数（{{max}}）に達しました",
+      "ownedSpaceLimitExceededOther": "{{name}} は管理できるスペースの上限数（{{max}}）に達しています"
     },
     "base": {
       "notFound": "ベース が見つかりません",
