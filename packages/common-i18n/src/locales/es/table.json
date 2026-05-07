@@ -976,7 +976,6 @@
     "expand": "Expandir",
     "history": "Historial",
     "close": "Contraer",
-    "noModel": "No hay modelos disponibles",
     "addAttachment": "Añadir archivo adjunto",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
@@ -988,7 +987,7 @@
       "other": "Otro"
     },
     "context": {
-      "button": "Agregar contexto",
+      "button": "Agregar nodo",
       "search": "Agregar tablas",
       "searchEmpty": "No se encontró contexto coincidente",
       "emptyContext": "No hay contexto para agregar",
@@ -997,10 +996,10 @@
     "mention": {
       "tables": "Tablas",
       "apps": "Aplicaciones",
-      "workflows": "Flujos de trabajo",
+      "workflows": "Automatizaciones",
       "folders": "Carpetas"
     },
-    "inputPlaceholder": "Escribe @ para añadir contexto",
+    "inputPlaceholder": "Escribe @ para añadir nodo",
     "inputPlaceholderFiles": "Pega o suelta archivos aquí",
     "thought": "Pensando",
     "meta": {
