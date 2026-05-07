@@ -1,4 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+// PGLite does not support PostgreSQL session-level set_config() used by undo capture batches.
+const isPglite =
+  process.env.TEABLE_V2_TEST_DATABASE_URL?.startsWith('pglite://') ||
+  process.env.TEABLE_V2_TEST_DATABASE_URL === 'memory://';
+
 import {
   CreateFieldCommand,
   CreateRecordCommand,
@@ -24,7 +29,7 @@ import {
   type UndoRedoDbHarness,
 } from '../../shared/undoRedoDbTestKit';
 
-describe('undo-redo/updateField (db)', () => {
+describe.skipIf(isPglite)('undo-redo/updateField (db)', () => {
   let harness: UndoRedoDbHarness | undefined;
 
   beforeEach(async () => {

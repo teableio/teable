@@ -5,6 +5,7 @@ import { AttachmentsCropModule } from '../../attachments/attachments-crop.module
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import { AdminOpenApiController } from './admin-open-api.controller';
 import { AdminOpenApiService } from './admin-open-api.service';
+import { EnterpriseLicenseController } from './enterprise-license.controller';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { AdminOpenApiService } from './admin-open-api.service';
     }),
     StorageModule,
   ],
-  controllers: [AdminOpenApiController],
+  controllers: [AdminOpenApiController, EnterpriseLicenseController],
   exports: [AdminOpenApiService],
   providers: [AdminOpenApiService],
 })

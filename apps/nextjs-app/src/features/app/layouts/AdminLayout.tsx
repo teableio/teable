@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { Settings, LayoutTemplate as TemplateIcon, ShieldUser } from '@teable/icons';
+import { Settings, LayoutTemplate as TemplateIcon, ShieldUser, Zap } from '@teable/icons';
 import type { IUser } from '@teable/sdk';
 import { SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
@@ -33,6 +33,12 @@ export const AdminLayout: React.FC<{
       label: t('settings.title'),
       route: '/admin/setting',
       pathTo: '/admin/setting',
+    },
+    {
+      Icon: Zap,
+      label: t('admin.setting.aiSettings'),
+      route: '/admin/ai-setting',
+      pathTo: '/admin/ai-setting',
     },
     {
       Icon: TemplateIcon,

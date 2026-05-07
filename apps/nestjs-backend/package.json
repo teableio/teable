@@ -274,7 +274,7 @@
     "ts-pattern": "5.0.8",
     "unzipper": "0.12.3",
     "ws": "8.18.3",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "xlsx": "0.18.5",
     "zod": "4.1.8",
     "zod-validation-error": "4.0.2"
   }
