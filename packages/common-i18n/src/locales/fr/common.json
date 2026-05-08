@@ -1110,9 +1110,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE À JOUR DU 28 AVR",
-    "title": "Nouveau déclencheur : À la réception d’un e-mail (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "MISE A JOUR DU 6 MAI",
+    "title": "Navigation visuelle pour les champs lies",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }

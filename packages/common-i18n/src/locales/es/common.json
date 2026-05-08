@@ -1108,9 +1108,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ACTUALIZACIÓN 28 ABR",
-    "title": "Nuevo disparador: Al recibir un correo electrónico (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "ACTUALIZACION DEL 6 DE MAYO",
+    "title": "Navegacion visual para campos vinculados",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }

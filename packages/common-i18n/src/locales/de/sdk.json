@@ -1027,7 +1027,9 @@
       "deleted": "Space wurde gelöscht",
       "cannotOperate": "Kann nicht auf einem Space operieren, bitte überprüfen Sie, dass es Organisationsmitglieder im Space gibt und sie Eigentümer sind",
       "notBelongToOrg": "Dieser Space gehört nicht zur Organisation",
-      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}"
+      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Sie haben die maximale Anzahl an verwaltbaren Spaces erreicht ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} hat die maximale Anzahl an verwaltbaren Spaces erreicht ({{max}})"
     },
     "base": {
       "notFound": "Base nicht gefunden",
