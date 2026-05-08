@@ -22,6 +22,7 @@ import { Knex } from 'knex';
 import { difference, keyBy, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -43,7 +44,8 @@ export class CollaboratorService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async createSpaceCollaborator({
@@ -81,6 +83,20 @@ export class CollaboratorService {
           },
         }
       );
+    }
+    if (role === Role.Owner) {
+      const userIds = collaborators
+        .filter((c) => c.principalType === PrincipalType.User)
+        .map((c) => c.principalId);
+      if (userIds.length > 0) {
+        const countMap = await this.countUserOwnedSpaces(userIds);
+        for (const uid of userIds) {
+          await this.validateOwnedSpaceLimit(
+            countMap.get(uid) ?? 0,
+            uid !== currentUserId ? uid : undefined
+          );
+        }
+      }
     }
     // if has exist base collaborator, then delete it
     const bases = await this.prismaService.txClient().base.findMany({
@@ -548,6 +564,61 @@ export class CollaboratorService {
     return collaborators.length === 1 && collaborators[0].principal_id === userId;
   }
 
+  async countUserOwnedSpaces(userId: string): Promise<number>;
+  async countUserOwnedSpaces(userIds: string[]): Promise<Map<string, number>>;
+  async countUserOwnedSpaces(
+    userIdOrIds: string | string[]
+  ): Promise<number | Map<string, number>> {
+    const isSingle = typeof userIdOrIds === 'string';
+    const userIds = isSingle ? [userIdOrIds] : userIdOrIds;
+    if (userIds.length === 0) return isSingle ? 0 : new Map();
+    const builder = this.knex('collaborator')
+      .join('space', 'collaborator.resource_id', 'space.id')
+      .whereIn('collaborator.principal_id', userIds)
+      .where('collaborator.principal_type', PrincipalType.User)
+      .where('collaborator.resource_type', CollaboratorType.Space)
+      .where('collaborator.role_name', Role.Owner)
+      .whereNull('space.deleted_time')
+      .groupBy('collaborator.principal_id')
+      .select('collaborator.principal_id as user_id')
+      .count('* as count');
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ user_id: string; count: number }[]>(builder.toQuery());
+    if (isSingle) {
+      return Number(result[0]?.count ?? 0);
+    }
+    const countMap = new Map<string, number>();
+    for (const row of result) {
+      countMap.set(row.user_id, Number(row.count));
+    }
+    return countMap;
+  }
+
+  async validateOwnedSpaceLimit(currentCount: number, userId?: string): Promise<void> {
+    const maxCount = this.thresholdConfig.maxOwnedSpaceCount;
+    if (maxCount <= 0 || currentCount < maxCount) return;
+
+    const userName = userId
+      ? await this.prismaService.user
+          .findUnique({ where: { id: userId }, select: { name: true, email: true } })
+          .then((user) => (user ? `${user.name} (${user.email})` : undefined))
+      : undefined;
+
+    throw new CustomHttpException(
+      `Owned space limit exceeded, max: ${maxCount}${userName ? `, user: ${userName}` : ''}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: userId
+            ? 'httpErrors.space.ownedSpaceLimitExceededOther'
+            : 'httpErrors.space.ownedSpaceLimitExceeded',
+          context: userId ? { max: maxCount, name: userName } : { max: maxCount },
+        },
+      }
+    );
+  }
+
   async deleteCollaborator({
     resourceId,
     resourceType,
@@ -656,6 +727,19 @@ export class CollaboratorService {
             i18nKey: 'httpErrors.collaborator.noPermissionToOperateRole',
           },
         }
+      );
+    }
+
+    if (
+      role === Role.Owner &&
+      resourceType === CollaboratorType.Space &&
+      targetColl.roleName !== Role.Owner &&
+      principalType === PrincipalType.User
+    ) {
+      const count = await this.countUserOwnedSpaces(principalId);
+      await this.validateOwnedSpaceLimit(
+        count,
+        principalId !== currentUserId ? principalId : undefined
       );
     }
 

@@ -499,6 +499,9 @@
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
     "baseInfo": "数据库信息",
+    "loginUserTable": "应用登录",
+    "loginUserTableClickTips": "打开关联应用",
+    "linkedApps": "关联的应用",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
@@ -1283,7 +1286,6 @@
     "expand": "展开",
     "history": "历史记录",
     "close": "收起",
-    "noModel": "没有可用的模型",
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",
@@ -1314,7 +1316,7 @@
       "other": "更早"
     },
     "context": {
-      "button": "添加上下文",
+      "button": "添加节点",
       "search": "添加表格",
       "searchEmpty": "暂无匹配的上下文",
       "emptyContext": "暂无可添加的上下文",
@@ -1323,10 +1325,10 @@
     "mention": {
       "tables": "数据表",
       "apps": "应用",
-      "workflows": "工作流",
+      "workflows": "自动化",
       "folders": "文件夹"
     },
-    "inputPlaceholder": "输入 @ 添加上下文",
+    "inputPlaceholder": "输入 @ 添加节点",
     "inputPlaceholderFiles": "粘贴或拖入文件",
     "thought": "深度思考",
     "meta": {

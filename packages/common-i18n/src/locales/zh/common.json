@@ -1454,9 +1454,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月28日 更新",
-    "title": "邮件接收触发器（IMAP）上线",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "5 月 6 日更新",
+    "title": "关联字段可视化导航",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }
