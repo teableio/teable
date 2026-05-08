@@ -124,13 +124,13 @@ const columnTypeVisitor = new (class extends AbstractFieldVisitor<TableColumnDat
   }
 
   visitCreatedTimeField(_field: CreatedTimeField): Result<TableColumnDataType, DomainError> {
-    return ok('text');
+    return ok('timestamptz');
   }
 
   visitLastModifiedTimeField(
     _field: LastModifiedTimeField
   ): Result<TableColumnDataType, DomainError> {
-    return ok('text');
+    return ok('timestamptz');
   }
 
   visitUserField(_field: UserField): Result<TableColumnDataType, DomainError> {
