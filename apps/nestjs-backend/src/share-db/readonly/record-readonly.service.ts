@@ -101,9 +101,12 @@ export class RecordReadonlyServiceAdapter
     const table = await this.validateTable(tableId);
     return this.dataPrismaService
       .txClient()
-      .$queryRawUnsafe<
-        { version: number; deletedTime: Date | null }[]
-      >(this.knex(table.dbTableName).select('__version as version').where('__id', recordId).toQuery())
+      .$queryRawUnsafe<{ version: number; deletedTime: Date | null }[]>(
+        this.knex(table.dbTableName)
+          .select('__version as version')
+          .where('__id', recordId)
+          .toQuery()
+      )
       .then((res) => {
         return this.formatVersionAndType(res[0]);
       });
