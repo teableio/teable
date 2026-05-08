@@ -39,6 +39,7 @@ import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
+import { DataDbBindingService } from './data-db-binding.service';
 @Injectable()
 export class SpaceService {
   constructor(
@@ -50,14 +51,19 @@ export class SpaceService {
     protected readonly settingService: SettingService,
     protected readonly settingOpenApiService: SettingOpenApiService,
     protected readonly performanceCacheService: PerformanceCacheService,
+    protected readonly dataDbBindingService: DataDbBindingService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
     @InjectDbProvider() protected readonly dbProvider: IDbProvider
   ) {}
 
-  async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
-    return await this.prismaService.$tx(async () => {
-      const result = await this.prismaService.txClient().space.create({
+  protected supportsByodbSpaceCreation() {
+    return false;
+  }
+
+  private async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
+    return await this.prismaService.$tx(async (prisma) => {
+      const result = await prisma.space.create({
         select: {
           id: true,
           name: true,
@@ -74,6 +80,7 @@ export class SpaceService {
         role: Role.Owner,
         spaceId: result.id,
       });
+      await this.createDefaultAIIntegration(result.id);
       return result;
     });
   }
@@ -199,15 +206,27 @@ export class SpaceService {
     const uniqName = getUniqName(createSpaceRo.name ?? 'Space', names);
 
     const spaceId = generateSpaceId();
+    if (createSpaceRo.dataDb?.mode === 'byodb' && !this.supportsByodbSpaceCreation()) {
+      throw new CustomHttpException(
+        'BYODB space creation is only available in Enterprise Edition',
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+    const preparedDataDbBinding = await this.dataDbBindingService.prepareBindingForNewSpace(
+      createSpaceRo.dataDb
+    );
 
-    // create default ai integration
-    await this.createDefaultAIIntegration(spaceId);
-
-    return await this.createSpaceByParams({
+    const space = await this.createSpaceByParams({
       id: spaceId,
       name: uniqName,
       createdBy: userId,
     });
+    await this.dataDbBindingService.createPreparedBindingForNewSpace(
+      spaceId,
+      userId,
+      preparedDataDbBinding
+    );
+    return space;
   }
 
   async updateSpace(spaceId: string, updateSpaceRo: IUpdateSpaceRo) {
@@ -663,8 +682,8 @@ export class SpaceService {
     return res;
   }
 
-  async createDefaultAIIntegration(spaceId: string) {
-    const res = await this.prismaService.integration.create({
+  private async createDefaultAIIntegration(spaceId: string) {
+    const res = await this.prismaService.txClient().integration.create({
       data: {
         id: generateIntegrationId(),
         resourceId: spaceId,
