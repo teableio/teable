@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Tarih Aralığı (ay)",
     "totalAttachmentSize": "Toplam Ek Boyutu"
   },
+  "selectionStatistic": {
+    "tip": "Yalnızca Sayı türündeki alanlar toplanır. İstemci tarafında, tarayıcıda yüklü satırlar üzerinden hesaplanır — kesin toplam için kaydırarak daha fazla satır yükleyin."
+  },
   "baseQuery": {
     "add": "Ekle",
     "error": {
@@ -1027,7 +1030,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
       "notBelongToOrg": "Bu alan organizasyona ait değil",
-      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}"
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Yönetebileceğiniz maksimum alan sayısına ulaştınız ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} yönetebileceği maksimum alan sayısına ulaştı ({{max}})"
     },
     "base": {
       "notFound": "Base bulunamadı",

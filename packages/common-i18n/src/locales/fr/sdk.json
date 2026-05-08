@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Plage de dates (mois)",
     "totalAttachmentSize": "Taille totale des pièces jointes"
   },
+  "selectionStatistic": {
+    "tip": "Seuls les champs de type Nombre sont agrégés. Calculé côté client sur les lignes actuellement chargées — faites défiler pour en charger davantage afin d'obtenir un total précis."
+  },
   "baseQuery": {
     "add": "Ajouter",
     "error": {
@@ -1027,7 +1030,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
       "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
-      "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}"
+      "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Vous avez atteint le nombre maximum d'espaces que vous pouvez gérer ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} a atteint le nombre maximum d'espaces qu'il peut gérer ({{max}})"
     },
     "base": {
       "notFound": "Base non trouvée",
