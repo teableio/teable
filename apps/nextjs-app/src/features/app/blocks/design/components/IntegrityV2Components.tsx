@@ -336,7 +336,7 @@ const ManualRepairDialog = ({
     setValues(getManualRepairDefaultValues(manualRepairSchema));
   }, [manualRepairSchema, open]);
 
-  if (!result.repair || result.repair.mode !== 'manual') {
+  if (!result.repair || result.repair.mode !== 'manual' || !manualRepairSchema) {
     return null;
   }
 
@@ -770,7 +770,7 @@ const RuleRepairAction = ({
 
   return (
     <div className="ml-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
-      {result.repair?.mode === 'manual' && onRepairRule ? (
+      {result.repair?.mode === 'manual' && result.repair.manualRepairSchema && onRepairRule ? (
         <ManualRuleRepairAction
           result={result}
           reason={reason}

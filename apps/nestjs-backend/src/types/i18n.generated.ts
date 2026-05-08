@@ -2971,6 +2971,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
+                "ownedSpaceLimitExceeded": string;
+                "ownedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
@@ -4170,6 +4172,9 @@ export type I18nTranslations = {
             "baseInfo": string;
             "typeOfDatabase": string;
             "descriptionForTable": string;
+            "loginUserTable": string;
+            "loginUserTableClickTips": string;
+            "linkedApps": string;
             "nameForTable": string;
             "deleteTip1": string;
             "deleteTip2": string;
@@ -4911,7 +4916,6 @@ export type I18nTranslations = {
             "expand": string;
             "history": string;
             "close": string;
-            "noModel": string;
             "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;

@@ -1457,9 +1457,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "APR 28 UPDATE",
-    "title": "New Trigger: When Email Receive (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "MAY 6 UPDATE",
+    "title": "Visual Navigation for Link Fields",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }
