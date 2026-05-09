@@ -2743,6 +2743,9 @@ export type I18nTranslations = {
             "dateRangeOfMonths": string;
             "totalAttachmentSize": string;
         };
+        "selectionStatistic": {
+            "tip": string;
+        };
         "baseQuery": {
             "add": string;
             "error": {
@@ -2930,6 +2933,10 @@ export type I18nTranslations = {
                 "tableNotInBase": string;
                 "alreadyActiveAndNotDraft": string;
                 "noActiveSnapshot": string;
+                "onlyFailedRunsCanRerun": string;
+                "workflowMustBeActiveToRerun": string;
+                "snapshotChangedOnlyFullRerun": string;
+                "controlStepsMissingOnlyFullRerun": string;
                 "triggerNodeAlreadyExists": string;
                 "generateLogicError": string;
                 "logicNotFound": string;
@@ -2971,6 +2978,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
+                "ownedSpaceLimitExceeded": string;
+                "ownedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
@@ -4008,6 +4017,8 @@ export type I18nTranslations = {
                     "source": string;
                     "sourceTable": string;
                     "typeField": string;
+                    "loginEmailFieldWarning": string;
+                    "loginEmailFieldConvertWarning": string;
                 };
                 "conditionalLookup": {
                     "sortLimitToggleLabel": string;
@@ -4170,6 +4181,9 @@ export type I18nTranslations = {
             "baseInfo": string;
             "typeOfDatabase": string;
             "descriptionForTable": string;
+            "loginUserTable": string;
+            "loginUserTableClickTips": string;
+            "linkedApps": string;
             "nameForTable": string;
             "deleteTip1": string;
             "deleteTip2": string;
@@ -4536,6 +4550,7 @@ export type I18nTranslations = {
                 "keepAsIs": string;
                 "ignoreIndexError": string;
             };
+            "loginDeleteWarning": string;
             "searchTips": {
                 "maxFieldTips_limited": string;
             };
@@ -4911,7 +4926,6 @@ export type I18nTranslations = {
             "expand": string;
             "history": string;
             "close": string;
-            "noModel": string;
             "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
@@ -4944,6 +4958,7 @@ export type I18nTranslations = {
                 "taskCompleted": string;
             };
             "attachment": {
+                "pastedTextFileName": string;
                 "imageNotSupported": string;
             };
             "suggestions": {

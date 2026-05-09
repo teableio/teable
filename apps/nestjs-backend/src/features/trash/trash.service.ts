@@ -834,15 +834,14 @@ export class TrashService {
         // A record can be deleted, restored through undo, then deleted again with the same id.
         // Restore should use the snapshot that belongs to this trash item, not every historical
         // record_trash row for the same record id.
-        const latestSnapshotsByRecordId = recordTrashRows.reduce<Map<string, IRecordTrashSnapshotRow>>(
-          (acc, row) => {
-            if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
-              acc.set(row.recordId, row);
-            }
-            return acc;
-          },
-          new Map<string, IRecordTrashSnapshotRow>()
-        );
+        const latestSnapshotsByRecordId = recordTrashRows.reduce<
+          Map<string, IRecordTrashSnapshotRow>
+        >((acc, row) => {
+          if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
+            acc.set(row.recordId, row);
+          }
+          return acc;
+        }, new Map<string, IRecordTrashSnapshotRow>());
 
         const matchedRecordTrashRows = recordIds
           .map((recordId) => latestSnapshotsByRecordId.get(recordId))
