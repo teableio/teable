@@ -1100,9 +1100,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "28 NİS GÜNCELLEMESİ",
-    "title": "Yeni Tetikleyici: E-posta Alındığında (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "6 MAYIS GUNCELLEMESI",
+    "title": "Baglanti Alanlari icin Gorsel Gezinme",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }

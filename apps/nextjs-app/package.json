@@ -138,6 +138,7 @@
     "date-fns": "4.1.0",
     "date-fns-tz": "3.2.0",
     "dayjs": "1.11.10",
+    "decimal.js-light": "2.5.1",
     "echarts": "5.5.0",
     "emoji-mart": "5.5.2",
     "eventsource-parser": "1.1.2",
