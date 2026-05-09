@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { LLMProviderType } from '@teable/openapi';
+import type { LLMProvider } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
 import { AiService } from './ai.service';
 
@@ -59,5 +61,68 @@ describe('AiService.getModelTags', () => {
     );
 
     expect(tags).toEqual([]);
+  });
+});
+
+describe('AiService model mappings', () => {
+  const service = Object.create(AiService.prototype) as AiService & {
+    baseConfig: { isCloud: boolean };
+  };
+  const sourceModelKey = `${LLMProviderType.AI_GATEWAY}@anthropic/claude-sonnet-4@teable`;
+  const targetModelKey = `${LLMProviderType.OPENAI}@gpt-4.1@teable`;
+  const providers: LLMProvider[] = [
+    {
+      type: LLMProviderType.OPENAI,
+      name: 'teable',
+      models: 'gpt-4.1',
+      isInstance: true,
+      modelConfigs: {
+        'gpt-4.1': {
+          inputRate: 100,
+          outputRate: 200,
+        },
+      },
+    },
+  ];
+
+  it('resolves enabled gateway mapping to instance custom provider in cloud', () => {
+    service.baseConfig = { isCloud: true };
+
+    expect(
+      service.resolveModelMapping(sourceModelKey, providers, {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toEqual({
+      requestedModelKey: sourceModelKey,
+      effectiveModelKey: targetModelKey,
+      mapped: true,
+    });
+  });
+
+  it('does not apply model mappings outside cloud', () => {
+    service.baseConfig = { isCloud: false };
+
+    expect(
+      service.resolveModelMapping(sourceModelKey, providers, {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toEqual({
+      requestedModelKey: sourceModelKey,
+      effectiveModelKey: sourceModelKey,
+      mapped: false,
+    });
+  });
+
+  it('rejects mapped targets without pricing config', () => {
+    service.baseConfig = { isCloud: true };
+
+    expect(() =>
+      service.resolveModelMapping(sourceModelKey, [{ ...providers[0], modelConfigs: undefined }], {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toThrow('AI model mapping target pricing is not configured');
   });
 });
