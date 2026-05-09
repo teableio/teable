@@ -14,7 +14,9 @@ export interface IUnitOfWorkTransaction {
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
 
-export type IExecutionContextTransactions = Partial<Record<UnitOfWorkScope, IUnitOfWorkTransaction>>;
+export type IExecutionContextTransactions = Partial<
+  Record<UnitOfWorkScope, IUnitOfWorkTransaction>
+>;
 
 export interface IExecutionContextBatchMutation {
   readonly operationId?: string;
