@@ -332,9 +332,6 @@ export class FieldOpenApiV2Service {
       if (buttonOpts.maxCount === 10 || buttonOpts.maxCount === '10') {
         delete buttonOpts.maxCount;
       }
-      if (buttonOpts.resetCount === true || buttonOpts.resetCount === 'true') {
-        delete buttonOpts.resetCount;
-      }
     }
 
     if (vo.isMultipleCellValue === false) {

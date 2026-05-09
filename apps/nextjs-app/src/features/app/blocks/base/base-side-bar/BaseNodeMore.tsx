@@ -2,7 +2,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
 import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
-import type { IBaseNodeVo, IDuplicateBaseNodeRo } from '@teable/openapi';
+import type {
+  IBaseNodeVo,
+  IBaseNodeTableResourceMeta,
+  IDuplicateBaseNodeRo,
+} from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -35,7 +39,7 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { CopyPlus, FileInputIcon, Pen, Trash } from 'lucide-react';
+import { AppWindowMacIcon, CopyPlus, FileInputIcon, Pen, ShieldCheck, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -427,6 +431,13 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const canTableRecordHistoryRead = basePermission?.['table_record_history|read'];
   const canTableTrashRead = basePermission?.['table|trash_read'];
   const nodeId = useNodeId(resourceId);
+  const { treeItems } = useBaseNodeContext();
+  const loginApps = useMemo(() => {
+    const node = Object.values(treeItems).find((n) => n.resourceId === resourceId);
+    const meta = node?.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+    if (meta?.loginApps?.length) return meta.loginApps;
+    if (meta?.loginAppId) return [{ id: meta.loginAppId, name: '' }];
+  }, [treeItems, resourceId]);
 
   const router = useRouter();
   const [apiDialogOpen, setApiDialogOpen] = useState(false);
@@ -815,6 +826,28 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                       {t('table:tableTrash.title')}
                     </DropdownMenuItem>
                   )}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          )}
+
+          {loginApps && loginApps.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ShieldCheck className="mr-2 size-4" />
+                <span>{t('table:table.linkedApps')}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="max-w-48">
+                  {loginApps.map((app) => (
+                    <DropdownMenuItem
+                      key={app.id}
+                      onClick={() => router.push(`/base/${baseId}/app/${app.id}`)}
+                    >
+                      <AppWindowMacIcon className="mr-2 size-4 shrink-0" />
+                      <span className="truncate">{app.name || app.id}</span>
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>

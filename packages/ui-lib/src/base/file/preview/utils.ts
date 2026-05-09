@@ -13,6 +13,25 @@ export const isText = (mimetype: string) => {
   return mimetype.startsWith('text/');
 };
 
+/**
+ * Mime types we render via the text preview path. Restricted to `text/*` plus
+ * a small allowlist of structured-text `application/*` types whose body is
+ * UTF-8 source code. Binaries dressed up as text would fetch fine but render
+ * as garbage — the allowlist keeps that surface area small.
+ */
+const textLikeApplicationMimes = new Set([
+  'application/json',
+  'application/xml',
+  'application/javascript',
+  'application/typescript',
+  'application/yaml',
+  'application/x-yaml',
+]);
+
+export const isTextLike = (mimetype: string) => {
+  return mimetype.startsWith('text/') || textLikeApplicationMimes.has(mimetype);
+};
+
 export const isPdf = (mimetype: string) => {
   return mimetype.startsWith('application/pdf') || mimetype.startsWith('application/x-pdf');
 };

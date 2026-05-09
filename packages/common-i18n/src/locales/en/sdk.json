@@ -825,6 +825,9 @@
     "dateRangeOfMonths": "Date range (months)",
     "totalAttachmentSize": "Total attachment size"
   },
+  "selectionStatistic": {
+    "tip": "Only Number-typed fields are aggregated. Calculated client-side from rows currently loaded in the browser — scroll to load more for an accurate total."
+  },
   "baseQuery": {
     "add": "Add",
     "error": {
@@ -1052,7 +1055,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
       "notBelongToOrg": "This space not belong to the organization",
-      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}"
+      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "You have reached the maximum number of spaces you can manage ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} has reached the maximum number of spaces they can manage ({{max}})"
     },
     "base": {
       "notFound": "Base not found",

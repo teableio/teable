@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Date Range (months)",
     "totalAttachmentSize": "Total Attachment Size"
   },
+  "selectionStatistic": {
+    "tip": "Vengono aggregati solo i campi di tipo Numero. Calcolato lato client sulle righe attualmente caricate — scorri per caricarne altre e ottenere un totale accurato."
+  },
   "baseQuery": {
     "add": "Add",
     "error": {
@@ -1027,7 +1030,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Impossibile operare su uno spazio, verificare che ci siano membri dell'organizzazione nello spazio e che siano proprietari",
       "notBelongToOrg": "Questo spazio non appartiene all'organizzazione",
-      "invalidSpaceIds": "Gli ID spazio non sono validi: {{spaceIds}}"
+      "invalidSpaceIds": "Gli ID spazio non sono validi: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Hai raggiunto il numero massimo di spazi gestibili ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} ha raggiunto il numero massimo di spazi gestibili ({{max}})"
     },
     "base": {
       "notFound": "Base non trovata",
