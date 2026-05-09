@@ -348,10 +348,9 @@ export class LinkIntegrityService {
 
       let canCheckLinks = false;
       const tableExistsSql = this.dbProvider.checkTableExist(options.fkHostTableName);
-      const tableExists =
-        await this.dataPrismaService.txClient().$queryRawUnsafe<{ exists: boolean }[]>(
-          tableExistsSql
-        );
+      const tableExists = await this.dataPrismaService
+        .txClient()
+        .$queryRawUnsafe<{ exists: boolean }[]>(tableExistsSql);
       const hostTableExists = tableExists[0].exists;
 
       if (!hostTableExists) {
@@ -538,11 +537,7 @@ export class LinkIntegrityService {
 
     if (hostAlreadyExists) {
       const [selfKeyExists, foreignKeyExists, orderColumnExists] = await Promise.all([
-        this.dbProvider.checkColumnExist(
-          options.fkHostTableName,
-          options.selfKeyName,
-          dataPrisma
-        ),
+        this.dbProvider.checkColumnExist(options.fkHostTableName, options.selfKeyName, dataPrisma),
         this.dbProvider.checkColumnExist(
           options.fkHostTableName,
           options.foreignKeyName,

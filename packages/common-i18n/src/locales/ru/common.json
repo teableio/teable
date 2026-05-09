@@ -1068,9 +1068,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ 28 АПР",
-    "title": "Новый триггер: При получении письма (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 6 МАЯ",
+    "title": "Визуальная навигация для связанных полей",
+    "url": "https://help.teable.ai/en/changelog#may-6-2026",
+    "id": "changelog-2026-05-06-visual-navigation-for-link-fields"
   }
 }
