@@ -7,8 +7,8 @@ import {
   Role,
   generateTemplateId,
 } from '@teable/core';
-import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import { DataPrismaService } from '@teable/db-data-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -34,6 +34,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
@@ -56,6 +57,7 @@ export class BaseService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly dataPrismaService: DataPrismaService,
+    private readonly dataDbClientManager: DataDbClientManager,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
@@ -250,8 +252,9 @@ export class BaseService {
     try {
       const sqlList = this.dbProvider.createSchema(base.id);
       if (sqlList) {
+        const dataPrisma = await this.dataDbClientManager.dataPrismaForSpace(spaceId);
         for (const sql of sqlList) {
-          await this.dataPrismaService.$executeRawUnsafe(sql);
+          await dataPrisma.$executeRawUnsafe(sql);
         }
       }
 

@@ -817,6 +817,9 @@
     "dateRangeOfMonths": "时间范围 (月)",
     "totalAttachmentSize": "附件总大小"
   },
+  "selectionStatistic": {
+    "tip": "仅统计「数字类型」字段，前端实时计算，仅基于当前浏览器已加载的行 —— 滚动加载更多行后会重新计算。"
+  },
   "baseQuery": {
     "add": "添加",
     "error": {
@@ -1044,7 +1047,9 @@
       "deleted": "空间已被删除",
       "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
       "notBelongToOrg": "此空间不属于该组织",
-      "invalidSpaceIds": "空间ID无效: {{spaceIds}}"
+      "invalidSpaceIds": "空间ID无效: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "您已达到可管理的空间数量上限（{{max}}）",
+      "ownedSpaceLimitExceededOther": "{{name}} 已达到可管理的空间数量上限（{{max}}）"
     },
     "base": {
       "notFound": "数据库不存在",

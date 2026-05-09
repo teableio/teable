@@ -498,6 +498,9 @@
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "baseInfo": "Base info",
+    "loginUserTable": "App Login",
+    "loginUserTableClickTips": "Open related app",
+    "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
@@ -1281,7 +1284,6 @@
     "expand": "Expand",
     "history": "History",
     "close": "Collapse",
-    "noModel": "No models available",
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
@@ -1312,7 +1314,7 @@
       "other": "Other"
     },
     "context": {
-      "button": "Add context",
+      "button": "Add node",
       "search": "Add tables",
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add",
@@ -1321,10 +1323,10 @@
     "mention": {
       "tables": "Tables",
       "apps": "Apps",
-      "workflows": "Workflows",
+      "workflows": "Automations",
       "folders": "Folders"
     },
-    "inputPlaceholder": "Type @ to add context",
+    "inputPlaceholder": "Type @ to add node",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
     "meta": {
@@ -1333,6 +1335,7 @@
       "taskCompleted": "Task completed"
     },
     "attachment": {
+      "pastedTextFileName": "Pasted text",
       "imageNotSupported": "Image is not supported"
     },
     "suggestions": {
