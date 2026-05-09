@@ -200,11 +200,32 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
 
+export const appAuthGoogleConfigSchema = z.object({
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+});
+
+export type IAppAuthGoogleConfig = z.infer<typeof appAuthGoogleConfigSchema>;
+
+export const appAuthEmailOtpConfigSchema = z.object({
+  smtp: mailTransportConfigSchema.optional(),
+});
+
+export type IAppAuthEmailOtpConfig = z.infer<typeof appAuthEmailOtpConfigSchema>;
+
+export const appAuthConfigSchema = z.object({
+  google: appAuthGoogleConfigSchema.optional(),
+  emailOtp: appAuthEmailOtpConfigSchema.optional(),
+});
+
+export type IAppAuthConfig = z.infer<typeof appAuthConfigSchema>;
+
 export const appConfigSchema = z.object({
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
+  appAuth: appAuthConfigSchema.optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

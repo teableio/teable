@@ -4,11 +4,14 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import { RecordUpdated } from '../../domain/table/events/RecordUpdated';
+import { NoopAttachmentUrlSignerService } from '../../ports/defaults/NoopAttachmentUrlSignerService';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
+import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
+import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 
@@ -17,14 +20,18 @@ import { buildRecordCollection } from './TableRecordRealtimeDTO';
 export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpdated> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
-    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine
+    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.attachmentValueDecoratorService)
+    private readonly attachmentValueDecoratorService: AttachmentValueDecoratorService = new AttachmentValueDecoratorService(
+      new NoopAttachmentUrlSignerService()
+    )
   ) {}
 
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine } = this;
+    const { realtimeEngine, attachmentValueDecoratorService } = this;
 
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
@@ -38,6 +45,13 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
       // which would broadcast a create op with empty fields and overwrite client data.
       for (const change of event.changes) {
         const oldValue = change.oldValue;
+        const newValue = yield* (
+          await decorateRealtimeAttachmentValue(
+            attachmentValueDecoratorService,
+            change.newValue,
+            oldValue
+          )
+        ).safeUnwrap();
         yield* (
           await realtimeEngine.applyChange(
             context,
@@ -45,7 +59,7 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
             {
               type: 'set',
               path: ['fields', change.fieldId],
-              value: change.newValue,
+              value: newValue,
               ...(oldValue === undefined ? {} : { oldValue }),
             },
             { version: event.oldVersion }
