@@ -46,6 +46,7 @@ import type {
   UpdateButtonLabelSpec,
   UpdateButtonColorSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateSingleSelectOptionsSpec,
   UpdateSingleSelectDefaultValueSpec,
@@ -304,6 +305,10 @@ export class DependencyChangeDetectorVisitor implements ITableSpecVisitor<void> 
   }
 
   visitUpdateButtonMaxCount(_spec: UpdateButtonMaxCountSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitUpdateButtonResetCount(_spec: UpdateButtonResetCountSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

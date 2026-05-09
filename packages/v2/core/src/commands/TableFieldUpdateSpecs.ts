@@ -13,10 +13,11 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
 import { AutoNumberField } from '../domain/table/fields/types/AutoNumberField';
-import { ButtonField } from '../domain/table/fields/types/ButtonField';
 import { ButtonConfirm } from '../domain/table/fields/types/ButtonConfirm';
+import { ButtonField } from '../domain/table/fields/types/ButtonField';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
+import { ButtonResetCount } from '../domain/table/fields/types/ButtonResetCount';
 import { ButtonWorkflow } from '../domain/table/fields/types/ButtonWorkflow';
 import type { CellValueMultiplicity } from '../domain/table/fields/types/CellValueMultiplicity';
 import type { CellValueType } from '../domain/table/fields/types/CellValueType';
@@ -78,6 +79,7 @@ import {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateCheckboxDefaultValueSpec,
   UpdateDateDefaultValueSpec,
@@ -3036,7 +3038,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
     private readonly labelValue: ButtonLabel | undefined,
     private readonly colorValue: FieldColor | undefined,
     private readonly maxCountValue: ButtonMaxCount | undefined,
-    private readonly shouldClearMaxCount: boolean,
+    private readonly resetCountValue: ButtonResetCount | undefined,
     private readonly workflowClearable: ClearableResult<ButtonWorkflow | undefined>,
     private readonly confirmClearable: ClearableResult<ButtonConfirm | undefined>,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -3049,17 +3051,13 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       label?: unknown;
       color?: unknown;
       maxCount?: unknown;
+      resetCount?: unknown;
       workflow?: unknown;
       confirm?: unknown;
     };
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateButtonFieldSpec, DomainError> {
-    const maxCountWasProvided =
-      input.options != null &&
-      typeof input.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(input.options, 'maxCount');
-
     const workflowWasProvided =
       input.options != null &&
       typeof input.options === 'object' &&
@@ -3074,8 +3072,12 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
       optional(input.options?.label, ButtonLabel.create).andThen((label) =>
         optional(input.options?.color, FieldColor.create).andThen((color) =>
           optional(input.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-            clearable(input.options?.workflow, workflowWasProvided, ButtonWorkflow.create).andThen(
-              (workflowResult) =>
+            optional(input.options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
+              clearable(
+                input.options?.workflow,
+                workflowWasProvided,
+                ButtonWorkflow.create
+              ).andThen((workflowResult) =>
                 clearable(input.options?.confirm, confirmWasProvided, ButtonConfirm.create).andThen(
                   (confirmResult) =>
                     optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
@@ -3086,7 +3088,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
                             label,
                             color,
                             maxCount,
-                            !maxCountWasProvided,
+                            resetCount,
                             workflowResult,
                             confirmResult,
                             notNull,
@@ -3095,6 +3097,7 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
                       )
                     )
                 )
+              )
             )
           )
         )
@@ -3138,10 +3141,18 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
           UpdateButtonMaxCountSpec.create(currentField.id(), currentMaxCount, this.maxCountValue)
         );
       }
-    } else if (this.shouldClearMaxCount) {
-      const currentMaxCount = currentField.maxCount();
-      if (currentMaxCount !== undefined) {
-        specs.push(UpdateButtonMaxCountSpec.create(currentField.id(), currentMaxCount, undefined));
+    }
+
+    if (this.resetCountValue !== undefined) {
+      const currentResetCount = currentField.resetCount();
+      if (!currentResetCount || !this.resetCountValue.equals(currentResetCount)) {
+        specs.push(
+          UpdateButtonResetCountSpec.create(
+            currentField.id(),
+            currentResetCount,
+            this.resetCountValue
+          )
+        );
       }
     }
 

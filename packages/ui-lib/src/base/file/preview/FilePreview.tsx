@@ -7,7 +7,8 @@ import { ImagePreview } from './image/ImagePreview';
 import { ExcelPreview } from './office/ExcelPreview';
 import { WordPreview } from './office/WordPreview';
 import { PDFPreview } from './pdf/PDFPreview';
-import { isAudio, isImage, isVideo, isPdf, isWord, isExcel } from './utils';
+import { TextPreview } from './text/TextPreview';
+import { isAudio, isImage, isVideo, isPdf, isWord, isExcel, isTextLike } from './utils';
 import { VideoPreview } from './video/VideoPreview';
 
 interface IFilePreviewProps {
@@ -35,10 +36,12 @@ export const FilePreview = (props: IFilePreviewProps) => {
       return <AudioPreview {...currentFile} />;
     case isPdf(mimetype):
       return <PDFPreview {...currentFile} />;
-    case isWord(mimetype):
-      return <WordPreview {...currentFile} />;
     case isExcel(mimetype):
       return <ExcelPreview {...currentFile} />;
+    case isWord(mimetype):
+      return <WordPreview {...currentFile} />;
+    case isTextLike(mimetype):
+      return <TextPreview {...currentFile} />;
     default:
       return <FileIcon className={cn('max-w-max max-h-max w-40 h-40 ', className)} />;
   }
