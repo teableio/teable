@@ -1,10 +1,9 @@
 import type { Editor } from '@milkdown/core';
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
-import { cn } from '@teable/ui-lib';
+import { cn, MarkdownReadonly } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
 import type { ICellEditor } from '../type';
 import { ExpandMarkdownEditor } from './ExpandMarkdownEditor';
-import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
 import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
