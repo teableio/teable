@@ -51,6 +51,7 @@ import {
   type IForeignTableLoaderService,
   NullForeignTableLoaderService,
 } from './ForeignTableLoaderService';
+import { type IRecordChangedValueDecoratorService } from './RecordChangedValueDecoratorService';
 import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { RecordMutationSpecResolverService } from './RecordMutationSpecResolverService';
 import { emptyRecordReorderResult, RecordReorderService } from './RecordReorderService';
@@ -219,6 +220,8 @@ export class RecordBulkUpdateService {
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
     private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.eventBus)
@@ -651,23 +654,41 @@ export class RecordBulkUpdateService {
                       pending.currentRecord,
                       updateResult
                     );
+                    const changedValues =
+                      changes.length > 0
+                        ? new Map(changes.map((change) => [change.fieldId, change.newValue]))
+                        : undefined;
+                    const decoratedValues =
+                      yield* await service.recordChangedValueDecoratorService.decorateChangedFields(
+                        preparedWrite.tableForWrite,
+                        changedValues,
+                        pending.currentRecord.fields
+                      );
+                    const decoratedChanges = changes.map((change) => ({
+                      ...change,
+                      newValue: decoratedValues?.get(change.fieldId) ?? change.newValue,
+                    }));
                     pendingEventData.push({
                       recordId: pending.recordId.toString(),
                       oldVersion: pending.currentRecord.version,
-                      changes,
+                      changes: decoratedChanges,
                     });
+                    const updatedFields = new Map(
+                      updateResult.record
+                        .fields()
+                        .entries()
+                        .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+                    );
+                    for (const [fieldId, value] of decoratedValues ?? []) {
+                      updatedFields.set(fieldId, value);
+                    }
                     const mergedFields = {
                       ...Object.fromEntries(
                         Object.entries(pending.currentRecord.fields).filter(
                           ([, value]) => value !== null && value !== undefined
                         )
                       ),
-                      ...Object.fromEntries(
-                        updateResult.record
-                          .fields()
-                          .entries()
-                          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-                      ),
+                      ...Object.fromEntries(updatedFields),
                     };
                     const mergedRecord = yield* TableRecord.fromRawFieldValues({
                       id: pending.recordId.toString(),
@@ -991,16 +1012,25 @@ export class RecordBulkUpdateService {
       return err(resolveManyResult.error);
     }
 
-    return ok(
-      batch.map((updateResult, index) =>
+    const resolvedBatch: RecordUpdateResult[] = [];
+    for (let index = 0; index < batch.length; index++) {
+      const updateResult = batch[index]!;
+      const mutateSpec = resolveManyResult.value[index] ?? updateResult.mutateSpec;
+      const mutateResult = mutateSpec.mutate(updateResult.record);
+      if (mutateResult.isErr()) {
+        return err(mutateResult.error);
+      }
+      resolvedBatch.push(
         RecordUpdateResult.create(
-          updateResult.record,
-          resolveManyResult.value[index] ?? updateResult.mutateSpec,
+          mutateResult.value,
+          mutateSpec,
           updateResult.fieldKeyMapping,
           updateResult.events
         )
-      )
-    );
+      );
+    }
+
+    return ok(resolvedBatch);
   }
 
   private buildRecordChangesFromUpdateResult(

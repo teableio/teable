@@ -162,16 +162,24 @@ const main = async () => {
       ]);
 
     const schemaDiff = diffSets(sourceSchemas, targetSchemas);
-    const schemaTableCountDiffs = compareCountMaps(sourceSchemaTableCounts, targetSchemaTableCounts);
+    const schemaTableCountDiffs = compareCountMaps(
+      sourceSchemaTableCounts,
+      targetSchemaTableCounts
+    );
 
-    const [sourceDataCounts, targetDataCounts, sourceMetaCounts, targetMetaCounts, undoFunctionExists] =
-      await Promise.all([
-        getTableCounts(sourceClient, DATA_PLANE_TABLES),
-        getTableCounts(dataClient, DATA_PLANE_TABLES),
-        getTableCounts(sourceClient, META_PLANE_TABLES),
-        getTableCounts(metaClient, META_PLANE_TABLES),
-        getFunctionExists(dataClient, '__teable_capture_undo_row'),
-      ]);
+    const [
+      sourceDataCounts,
+      targetDataCounts,
+      sourceMetaCounts,
+      targetMetaCounts,
+      undoFunctionExists,
+    ] = await Promise.all([
+      getTableCounts(sourceClient, DATA_PLANE_TABLES),
+      getTableCounts(dataClient, DATA_PLANE_TABLES),
+      getTableCounts(sourceClient, META_PLANE_TABLES),
+      getTableCounts(metaClient, META_PLANE_TABLES),
+      getFunctionExists(dataClient, '__teable_capture_undo_row'),
+    ]);
 
     const dataCountDiffs = compareCountMaps(sourceDataCounts, targetDataCounts);
     const metaCountDiffs = compareCountMaps(sourceMetaCounts, targetMetaCounts);
