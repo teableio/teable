@@ -194,6 +194,7 @@ export function DepartmentList({
                 <DepartmentItem
                   key={item.id}
                   name={item.name}
+                  pathName={debouncedSearch ? item.pathName : undefined}
                   checked={isSelected(item.id)}
                   onClick={() => handleDepartmentClick(item)}
                   onCheckedChange={() => onSelect(item)}
