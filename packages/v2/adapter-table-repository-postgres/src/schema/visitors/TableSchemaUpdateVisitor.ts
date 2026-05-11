@@ -50,6 +50,7 @@ import type {
   UpdateButtonLabelSpec,
   UpdateButtonColorSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateSingleSelectOptionsSpec,
   UpdateSingleSelectDefaultValueSpec,
@@ -1051,6 +1052,13 @@ export class TableSchemaUpdateVisitor
 
   visitUpdateButtonMaxCount(
     _spec: UpdateButtonMaxCountSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitUpdateButtonResetCount(
+    _spec: UpdateButtonResetCountSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);

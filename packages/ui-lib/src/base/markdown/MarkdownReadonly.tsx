@@ -1,7 +1,7 @@
-import { cn } from '@teable/ui-lib';
 import { memo } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { cn } from '../../shadcn';
 
 interface IMarkdownReadonlyProps {
   value: string;
@@ -11,6 +11,10 @@ interface IMarkdownReadonlyProps {
 /**
  * Lightweight markdown renderer for readonly display.
  * Uses react-markdown instead of a full milkdown editor instance for better performance.
+ *
+ * Safe by default: react-markdown does NOT render raw HTML unless `rehype-raw`
+ * is plugged in, so embedded `<script>` / `<img onerror>` etc. in the source
+ * are escaped to text — no DOM injection risk.
  */
 export const MarkdownReadonly = memo(
   ({ value, className }: IMarkdownReadonlyProps) => {
