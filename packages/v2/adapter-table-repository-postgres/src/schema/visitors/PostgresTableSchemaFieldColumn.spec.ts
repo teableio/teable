@@ -53,6 +53,8 @@ const createField = (params: {
       multipleSelect: 'visitMultipleSelectField',
       checkbox: 'visitCheckboxField',
       date: 'visitDateField',
+      createdTime: 'visitCreatedTimeField',
+      lastModifiedTime: 'visitLastModifiedTimeField',
       formula: 'visitFormulaField',
       rollup: 'visitRollupField',
       lookup: 'visitLookupField',
@@ -104,6 +106,16 @@ describe('PostgresTableSchemaFieldColumn', () => {
       type: 'checkbox',
       dbFieldName: 'checkbox_col',
     });
+    const createdTimeField = createField({
+      id: 'fld_created_time',
+      type: 'createdTime',
+      dbFieldName: 'created_time_col',
+    });
+    const lastModifiedTimeField = createField({
+      id: 'fld_last_modified_time',
+      type: 'lastModifiedTime',
+      dbFieldName: 'last_modified_time_col',
+    });
     const formulaNumberField = createField({
       id: 'fld_formula',
       type: 'formula',
@@ -143,6 +155,8 @@ describe('PostgresTableSchemaFieldColumn', () => {
     expect(resolveColumnType(textField as never)._unsafeUnwrap()).toBe('text');
     expect(resolveColumnType(multiSelectField as never)._unsafeUnwrap()).toBe('jsonb');
     expect(resolveColumnType(checkboxField as never)._unsafeUnwrap()).toBe('boolean');
+    expect(resolveColumnType(createdTimeField as never)._unsafeUnwrap()).toBe('timestamptz');
+    expect(resolveColumnType(lastModifiedTimeField as never)._unsafeUnwrap()).toBe('timestamptz');
     expect(resolveColumnType(formulaNumberField as never)._unsafeUnwrap()).toBe('double precision');
     expect(resolveColumnType(rollupMultiField as never)._unsafeUnwrap()).toBe('jsonb');
     expect(resolveColumnType(lookupBooleanField as never)._unsafeUnwrap()).toBe('boolean');
