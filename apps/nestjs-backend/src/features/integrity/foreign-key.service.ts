@@ -88,8 +88,9 @@ export class ForeignKeyIntegrityService {
       .toQuery();
 
     try {
-      const invalidRefs =
-        await this.dataPrismaService.txClient().$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
+      const invalidRefs = await this.dataPrismaService
+        .txClient()
+        .$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
       const refCount = Number(invalidRefs[0]?.count || 0);
 
       if (refCount > 0) {

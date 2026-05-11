@@ -2226,10 +2226,9 @@ export class RecordService {
 
     this.logger.debug('getSearchHitIndex query: %s', searchQuery);
 
-    const result =
-      await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
+    const result = await this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
 
     if (!result.length) {
       return null;
@@ -2600,7 +2599,9 @@ export class RecordService {
     const rowCountSql = qb.count({ count: '*' });
     const sql = rowCountSql.toQuery();
     this.logger.debug('getRowCountSql: %s', sql);
-    const result = await this.dataPrismaService.txClient().$queryRawUnsafe<{ count?: number }[]>(sql);
+    const result = await this.dataPrismaService
+      .txClient()
+      .$queryRawUnsafe<{ count?: number }[]>(sql);
     return Number(result[0].count);
   }
 
@@ -2710,10 +2711,9 @@ export class RecordService {
     );
 
     try {
-      const result =
-        await this.dataPrismaService.txClient().$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
-          groupSql
-        );
+      const result = await this.dataPrismaService
+        .txClient()
+        .$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(groupSql);
       const pointsResult = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
