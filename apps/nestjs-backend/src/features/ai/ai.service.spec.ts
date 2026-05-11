@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { LLMProviderType } from '@teable/openapi';
-import { describe, expect, it } from 'vitest';
+import type { LLMProvider } from '@teable/openapi';
+import { describe, expect, it, vi } from 'vitest';
 import { AiService } from './ai.service';
 
 const openAIProviderName = 'custom-openai';
@@ -59,5 +61,143 @@ describe('AiService.getModelTags', () => {
     );
 
     expect(tags).toEqual([]);
+  });
+});
+
+describe('AiService model mappings', () => {
+  const service = Object.create(AiService.prototype) as AiService & {
+    baseConfig: { isCloud: boolean };
+  };
+  const sourceModelKey = `${LLMProviderType.AI_GATEWAY}@anthropic/claude-sonnet-4@teable`;
+  const targetModelKey = `${LLMProviderType.OPENAI}@gpt-4.1@teable`;
+  const providers: LLMProvider[] = [
+    {
+      type: LLMProviderType.OPENAI,
+      name: 'teable',
+      models: 'gpt-4.1',
+      isInstance: true,
+      modelConfigs: {
+        'gpt-4.1': {
+          inputRate: 100,
+          outputRate: 200,
+        },
+      },
+    },
+  ];
+
+  it('resolves enabled gateway mapping to instance custom provider in cloud', () => {
+    service.baseConfig = { isCloud: true };
+
+    expect(
+      service.resolveModelMapping(sourceModelKey, providers, {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toEqual({
+      requestedModelKey: sourceModelKey,
+      effectiveModelKey: targetModelKey,
+      mapped: true,
+    });
+  });
+
+  it('does not apply model mappings outside cloud', () => {
+    service.baseConfig = { isCloud: false };
+
+    expect(
+      service.resolveModelMapping(sourceModelKey, providers, {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toEqual({
+      requestedModelKey: sourceModelKey,
+      effectiveModelKey: sourceModelKey,
+      mapped: false,
+    });
+  });
+
+  it('rejects mapped targets without pricing config', () => {
+    service.baseConfig = { isCloud: true };
+
+    expect(() =>
+      service.resolveModelMapping(sourceModelKey, [{ ...providers[0], modelConfigs: undefined }], {
+        llmProviders: providers,
+        modelMappings: [{ sourceModelKey, targetModelKey, enabled: true }],
+      })
+    ).toThrow('AI model mapping target pricing is not configured');
+  });
+});
+
+describe('AiService.getSimplifiedAIConfig', () => {
+  const spaceProvider = {
+    type: LLMProviderType.OPENAI,
+    name: 'space-provider',
+    models: 'space-model',
+    isInstance: false,
+  };
+  const instanceProvider = {
+    type: LLMProviderType.ANTHROPIC,
+    name: 'teable',
+    models: 'claude-sonnet-4-6',
+    isInstance: true,
+    modelConfigs: {
+      'claude-sonnet-4-6': {
+        ability: {
+          image: { url: false, base64: true },
+          pdf: { url: false, base64: true },
+          toolCall: true,
+        },
+      },
+    },
+  };
+
+  const createService = (isCloud: boolean) => {
+    const service = Object.create(AiService.prototype) as AiService & {
+      baseConfig: { isCloud: boolean };
+      getAIConfig: ReturnType<typeof vi.fn>;
+    };
+    service.baseConfig = { isCloud };
+    service.getAIConfig = vi.fn().mockResolvedValue({
+      enable: true,
+      llmProviders: [spaceProvider, instanceProvider],
+      chatModel: {
+        lg: `${LLMProviderType.AI_GATEWAY}@anthropic/claude-sonnet-4@teable`,
+      },
+      embeddingModel: `${LLMProviderType.OPENAI}@text-embedding-3-small@space-provider`,
+      translationModel: `${LLMProviderType.OPENAI}@gpt-4.1-mini@space-provider`,
+      capabilities: { disableActions: [] },
+      gatewayModels: [{ id: 'anthropic/claude-sonnet-4', enabled: true }],
+      attachmentTransferMode: 'base64',
+      aiGatewayApiKey: 'secret-key',
+      aiGatewayApiKeys: ['secret-key-2'],
+      vertexByokCredential: {
+        project: 'project',
+        location: 'us-central1',
+        googleCredentials: {
+          privateKey: 'private-key',
+          clientEmail: 'client@example.com',
+        },
+      },
+    });
+    return service;
+  };
+
+  it('omits instance providers and secret config from cloud user config', async () => {
+    const config = await createService(true).getSimplifiedAIConfig('base-id');
+
+    expect(config?.llmProviders).toEqual([spaceProvider]);
+    expect(config?.embeddingModel).toBe(
+      `${LLMProviderType.OPENAI}@text-embedding-3-small@space-provider`
+    );
+    expect(config?.translationModel).toBe(`${LLMProviderType.OPENAI}@gpt-4.1-mini@space-provider`);
+    expect(config?.attachmentTransferMode).toBe('base64');
+    expect(config).not.toHaveProperty('aiGatewayApiKey');
+    expect(config).not.toHaveProperty('aiGatewayApiKeys');
+    expect(config).not.toHaveProperty('vertexByokCredential');
+  });
+
+  it('keeps instance providers outside cloud', async () => {
+    const config = await createService(false).getSimplifiedAIConfig('base-id');
+
+    expect(config?.llmProviders).toEqual([spaceProvider, instanceProvider]);
   });
 });

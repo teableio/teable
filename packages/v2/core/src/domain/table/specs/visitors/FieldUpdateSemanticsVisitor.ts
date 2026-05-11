@@ -4,6 +4,7 @@ import {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateCheckboxDefaultValueSpec,
   UpdateDateDefaultValueSpec,
@@ -129,6 +130,7 @@ export class FieldUpdateSemanticsVisitor {
     if (spec instanceof UpdateButtonLabelSpec) return this.visitUpdateButtonLabel(spec);
     if (spec instanceof UpdateButtonColorSpec) return this.visitUpdateButtonColor(spec);
     if (spec instanceof UpdateButtonMaxCountSpec) return this.visitUpdateButtonMaxCount(spec);
+    if (spec instanceof UpdateButtonResetCountSpec) return this.visitUpdateButtonResetCount(spec);
     if (spec instanceof UpdateButtonWorkflowSpec) return this.visitUpdateButtonWorkflow(spec);
     if (spec instanceof UpdateSingleSelectOptionsSpec)
       return this.visitUpdateSingleSelectOptions(spec);
@@ -279,6 +281,10 @@ export class FieldUpdateSemanticsVisitor {
 
   visitUpdateButtonMaxCount(_spec: UpdateButtonMaxCountSpec): FieldUpdateSpecSemantics {
     return buildSemantics([['maxCount', optionBackedProperty('maxCount')]])!;
+  }
+
+  visitUpdateButtonResetCount(_spec: UpdateButtonResetCountSpec): FieldUpdateSpecSemantics {
+    return buildSemantics([['resetCount', optionBackedProperty('resetCount')]])!;
   }
 
   visitUpdateButtonWorkflow(_spec: UpdateButtonWorkflowSpec): FieldUpdateSpecSemantics {
