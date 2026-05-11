@@ -423,6 +423,9 @@
     "tableInfoDetail": "Tablo için temel bilgiler",
     "typeOfDatabase": "Veritabanı türü",
     "descriptionForTable": "Bu tablo için açıklama",
+    "loginUserTable": "Uygulama girişi",
+    "loginUserTableClickTips": "İlgili uygulamayı aç",
+    "linkedApps": "Bağlı uygulamalar",
     "nameForTable": "Bu tablo için ad",
     "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
     "deleteTip2": "Bu tablo silindikten sonra çöp kutusundan geri yüklenebilir.",
@@ -958,7 +961,6 @@
     "shareNodeTab": "Düğümü paylaş"
   },
   "aiChat": {
-    "noModel": "Kullanılabilir model yok",
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…"
@@ -967,10 +969,14 @@
     "mention": {
       "tables": "Tablolar",
       "apps": "Uygulamalar",
-      "workflows": "İş akışları",
+      "workflows": "Otomasyonlar",
       "folders": "Klasörler"
     },
-    "inputPlaceholder": "Bağlam eklemek için @ yazın",
-    "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın"
+    "inputPlaceholder": "Düğüm eklemek için @ yazın",
+    "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın",
+    "attachment": {
+      "pastedTextFileName": "Yapıştırılan metin",
+      "imageNotSupported": "Görsel desteklenmiyor"
+    }
   }
 }

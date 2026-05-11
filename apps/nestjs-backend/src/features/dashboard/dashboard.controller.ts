@@ -29,10 +29,12 @@ import type {
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DashboardService } from './dashboard.service';
 
 @Controller('api/base/:baseId/dashboard')
+@AllowAnonymous()
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

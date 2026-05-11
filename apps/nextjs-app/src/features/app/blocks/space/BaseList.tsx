@@ -293,10 +293,10 @@ export const BaseList = (props: IBaseListProps) => {
     );
   };
   return (
-    <ScrollArea className="h-full !border-none bg-background [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+    <div className="flex h-full flex-col bg-background">
       {/* Toolbar: View Mode Select */}
       {showToolbar && (
-        <div className="sticky top-0 z-10 flex items-center gap-4 bg-background">
+        <div className="flex items-center gap-4">
           {isHydrated ? (
             <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
               <SelectTrigger className="w-auto gap-1 border-none bg-transparent hover:bg-accent hover:text-accent-foreground dark:bg-transparent [&>svg]:hidden">
@@ -336,12 +336,7 @@ export const BaseList = (props: IBaseListProps) => {
       )}
 
       {/* Header */}
-      <div
-        className={cn(
-          'sticky z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground',
-          showToolbar ? 'top-8' : 'top-0'
-        )}
-      >
+      <div className="flex h-8 items-center border-b text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
         <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
           {t('space:baseList.owner')}
@@ -354,31 +349,33 @@ export const BaseList = (props: IBaseListProps) => {
         </div>
       </div>
 
-      {/* Rows */}
-      {!isHydrated ? (
-        <div className="divide-y">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex h-12 items-center px-6">
-              <Skeleton className="h-4 w-48" />
-            </div>
-          ))}
-        </div>
-      ) : isManual ? (
-        <DraggableBaseRows
-          items={currentList}
-          onDragEnd={onDragEndHandler}
-          renderRow={renderBaseRow}
-        />
-      ) : (
-        <div className="divide-y">{currentList.map((base) => renderBaseRow(base))}</div>
-      )}
+      <ScrollArea className="min-h-0 flex-1 !border-none [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+        {/* Rows */}
+        {!isHydrated ? (
+          <div className="divide-y">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex h-12 items-center px-6">
+                <Skeleton className="h-4 w-48" />
+              </div>
+            ))}
+          </div>
+        ) : isManual ? (
+          <DraggableBaseRows
+            items={currentList}
+            onDragEnd={onDragEndHandler}
+            renderRow={renderBaseRow}
+          />
+        ) : (
+          <div className="divide-y">{currentList.map((base) => renderBaseRow(base))}</div>
+        )}
 
-      {/* Empty state */}
-      {isHydrated && currentList.length === 0 && (
-        <div className="flex h-40 items-center justify-center text-muted-foreground">
-          {t('space:baseList.empty')}
-        </div>
-      )}
-    </ScrollArea>
+        {/* Empty state */}
+        {isHydrated && currentList.length === 0 && (
+          <div className="flex h-40 items-center justify-center text-muted-foreground">
+            {t('space:baseList.empty')}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 };

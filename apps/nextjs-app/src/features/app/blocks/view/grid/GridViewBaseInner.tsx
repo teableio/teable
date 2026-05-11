@@ -118,6 +118,7 @@ import {
   PasteSelectionProgressDialog,
   PrefillingRowContainer,
   PresortRowContainer,
+  SelectionStatistic,
 } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
@@ -1639,6 +1640,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           recordMap={recordMap}
         />
       )}
+      <SelectionStatistic
+        recordMap={recordMap}
+        columns={columns}
+        collapsedGroupIds={viewQuery?.collapsedGroupIds}
+      />
+
       {inPrefilling && (
         <PendingUploadContext.Provider value={pendingUploadCtx}>
           <PrefillingRowContainer
