@@ -31,6 +31,7 @@ const notNullValidationFieldTypes = new Set<FieldTypeValue>([
   'date',
   'rating',
   'attachment',
+  'link',
 ]);
 
 export const isComputedFieldType = (fieldType: FieldTypeValue): boolean =>

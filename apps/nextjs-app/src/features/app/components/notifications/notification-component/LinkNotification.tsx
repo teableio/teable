@@ -9,6 +9,7 @@ import { useTranslation } from 'next-i18next';
 interface LinkNotificationProps {
   data: INotificationVo['notifications'][number];
   notifyStatus: NotificationStatesEnum;
+  disableLink?: boolean;
 }
 
 const getShowMessage = (data: INotificationVo['notifications'][number], t: ILocaleFunction) => {
@@ -32,6 +33,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
   const {
     data,
     data: { url, notifyType },
+    disableLink,
   } = props;
 
   const { t } = useTranslation(['common']);
@@ -52,7 +54,22 @@ export const LinkNotification = (props: LinkNotificationProps) => {
     }
   };
 
-  return notifyType !== NotificationTypeEnum.ExportBase ? (
+  if (disableLink || notifyType === NotificationTypeEnum.ExportBase) {
+    return (
+      <>
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div
+          className="max-h-20 overflow-auto break-words"
+          dangerouslySetInnerHTML={{ __html: message }}
+          onClick={handleContentClick}
+        />
+        {/* do not delete this div for tailwind css */}
+        <div className="hidden underline hover:text-blue-500"></div>
+      </>
+    );
+  }
+
+  return (
     <Link href={url}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
@@ -61,14 +78,5 @@ export const LinkNotification = (props: LinkNotificationProps) => {
         onClick={handleContentClick}
       />
     </Link>
-  ) : (
-    <>
-      <div
-        className="max-h-20 overflow-auto break-words"
-        dangerouslySetInnerHTML={{ __html: message }}
-      />
-      {/* do not delete this div for tailwind css */}
-      <div className="hidden underline hover:text-blue-500"></div>
-    </>
   );
 };

@@ -31,14 +31,16 @@ import {
 import {
   BaseId,
   TeableSpanAttributes,
+  Table,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
+  type Field,
   type IBaseRepository,
+  type IExecutionContext,
   type ITracer,
   type ITableRepository,
-  type Table,
 } from '@teable/v2-core';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -46,6 +48,16 @@ import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 type ISchemaIntegrityDb = Parameters<typeof createSchemaChecker>[0]['db'];
 type IRepairTelemetryScope = 'table' | 'base';
 type IRepairTelemetryKind = 'result_error' | 'stream_exception';
+type IReferencedForeignTables = {
+  byBase: Map<
+    string,
+    {
+      baseId: BaseId;
+      tableIds: Set<string>;
+    }
+  >;
+  unknownBase: Set<string>;
+};
 
 const schemaIntegrityRepairFeatureTag = 'schema-integrity-repair';
 const teableBaseIdAttribute = 'teable.base_id';
@@ -174,21 +186,21 @@ export class IntegrityV2Service {
     baseId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
-    const { tables, db, schema } = await this.resolveBaseTarget(baseId);
+    const { tables, metaTables, db, schema } = await this.resolveBaseTarget(baseId);
     const checker = createSchemaChecker({
       db,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
 
-    return this.streamBaseChecks(tables, checker, statuses);
+    return this.streamBaseChecks(tables, metaTables, checker, statuses);
   }
 
   async createBaseRepairStream(
     baseId: string,
     repairRo: IV2BaseSchemaIntegrityRepairRo
   ): Promise<AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown>> {
-    const { tables, db, schema, context } = await this.resolveBaseTarget(baseId);
+    const { tables, metaTables, db, schema, context } = await this.resolveBaseTarget(baseId);
     const repairer = createSchemaRepairer({
       db,
       introspector: new PostgresSchemaIntrospector(db),
@@ -196,7 +208,7 @@ export class IntegrityV2Service {
     });
     const metaRepairer = createMetaRepairer({ db });
 
-    return this.streamBaseRepairs(tables, repairer, metaRepairer, repairRo, {
+    return this.streamBaseRepairs(tables, metaTables, repairer, metaRepairer, repairRo, {
       tracer: context.tracer,
       scope: 'base',
       targetId: baseId,
@@ -240,7 +252,7 @@ export class IntegrityV2Service {
         throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      tables = tablesResult.value;
+      tables = await this.loadReferencedForeignTables(tablesResult.value, tableRepository, context);
     }
 
     return {
@@ -282,16 +294,195 @@ export class IntegrityV2Service {
     }
 
     const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
+    const metaTables = await this.loadReferencedForeignTables(
+      tablesResult.value,
+      tableRepository,
+      context
+    );
     const tables = [...tablesResult.value].sort((left, right) =>
       left.name().toString().localeCompare(right.name().toString())
     );
 
     return {
       tables,
+      metaTables,
       db,
       schema: parsedBaseId.value.toString(),
       context,
     };
+  }
+
+  private async loadReferencedForeignTables(
+    tables: ReadonlyArray<Table>,
+    tableRepository: ITableRepository,
+    context: IExecutionContext
+  ): Promise<ReadonlyArray<Table>> {
+    const tablesById = new Map<string, Table>();
+    for (const table of tables) {
+      tablesById.set(table.id().toString(), table);
+    }
+
+    const references = this.collectReferencedForeignTables(tablesById);
+
+    for (const { baseId, tableIds } of references.byBase.values()) {
+      await this.loadTablesByIds(tableRepository, context, baseId, [...tableIds], tablesById);
+    }
+
+    if (references.unknownBase.size > 0) {
+      const fallbackBaseId = tables[0]?.baseId();
+      if (fallbackBaseId) {
+        await this.loadTablesByIds(
+          tableRepository,
+          context,
+          fallbackBaseId,
+          [...references.unknownBase],
+          tablesById,
+          true
+        );
+      }
+    }
+
+    return [...tablesById.values()];
+  }
+
+  private collectReferencedForeignTables(tablesById: Map<string, Table>): IReferencedForeignTables {
+    const references: IReferencedForeignTables = {
+      byBase: new Map(),
+      unknownBase: new Set(),
+    };
+
+    for (const table of tablesById.values()) {
+      for (const field of table.getFields()) {
+        this.collectFieldReference(table, field, tablesById, references);
+      }
+    }
+
+    return references;
+  }
+
+  private collectFieldReference(
+    table: Table,
+    field: Field,
+    tablesById: Map<string, Table>,
+    references: IReferencedForeignTables
+  ): void {
+    const foreignTableId = this.getFieldForeignTableId(field);
+    if (!foreignTableId) {
+      return;
+    }
+
+    if (field.type().toString() === 'link') {
+      this.registerReferencedTable(
+        references,
+        tablesById,
+        foreignTableId,
+        this.getFieldBaseId(field)
+      );
+      return;
+    }
+
+    const linkFieldId = this.getFieldLinkFieldId(field);
+    if (!linkFieldId) {
+      this.registerReferencedTable(references, tablesById, foreignTableId);
+      return;
+    }
+
+    const [linkField] = table.getFields((candidate) => candidate.id().toString() === linkFieldId);
+    this.registerReferencedTable(
+      references,
+      tablesById,
+      foreignTableId,
+      linkField ? this.getFieldBaseId(linkField) : undefined
+    );
+  }
+
+  private registerReferencedTable(
+    references: IReferencedForeignTables,
+    tablesById: Map<string, Table>,
+    foreignTableId: string,
+    foreignBaseId?: BaseId
+  ): void {
+    if (tablesById.has(foreignTableId)) {
+      return;
+    }
+
+    if (!foreignBaseId) {
+      references.unknownBase.add(foreignTableId);
+      return;
+    }
+
+    const key = foreignBaseId.toString();
+    const existing = references.byBase.get(key);
+    if (existing) {
+      existing.tableIds.add(foreignTableId);
+      return;
+    }
+
+    references.byBase.set(key, {
+      baseId: foreignBaseId,
+      tableIds: new Set([foreignTableId]),
+    });
+  }
+
+  private getFieldForeignTableId(field: Field): string | undefined {
+    const candidate = field as unknown as { foreignTableId?: () => { toString(): string } };
+    return typeof candidate.foreignTableId === 'function'
+      ? candidate.foreignTableId().toString()
+      : undefined;
+  }
+
+  private getFieldLinkFieldId(field: Field): string | undefined {
+    const candidate = field as unknown as { linkFieldId?: () => { toString(): string } };
+    return typeof candidate.linkFieldId === 'function'
+      ? candidate.linkFieldId().toString()
+      : undefined;
+  }
+
+  private getFieldBaseId(field: Field): BaseId | undefined {
+    const candidate = field as unknown as { baseId?: () => BaseId | undefined };
+    return typeof candidate.baseId === 'function' ? candidate.baseId() : undefined;
+  }
+
+  private async loadTablesByIds(
+    tableRepository: ITableRepository,
+    context: IExecutionContext,
+    baseId: BaseId,
+    tableIds: ReadonlyArray<string>,
+    tablesById: Map<string, Table>,
+    withoutBaseId = false
+  ) {
+    const parsedTableIds: TableId[] = [];
+    for (const tableId of tableIds) {
+      if (tablesById.has(tableId)) {
+        continue;
+      }
+
+      const parsedTableId = TableId.create(tableId);
+      if (parsedTableId.isOk()) {
+        parsedTableIds.push(parsedTableId.value);
+      }
+    }
+
+    if (parsedTableIds.length === 0) {
+      return;
+    }
+
+    const specBuilder = Table.specs(baseId);
+    const specResult = (withoutBaseId ? specBuilder.withoutBaseId() : specBuilder)
+      .byIds(parsedTableIds)
+      .build();
+    if (specResult.isErr()) {
+      throw new HttpException(specResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const tablesResult = await tableRepository.find(context, specResult.value);
+    if (tablesResult.isErr()) {
+      throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    for (const table of tablesResult.value) {
+      tablesById.set(table.id().toString(), table);
+    }
   }
 
   private async *streamTableChecks(
@@ -310,16 +501,18 @@ export class IntegrityV2Service {
 
   private async *streamBaseChecks(
     tables: ReadonlyArray<Table>,
+    metaTables: ReadonlyArray<Table>,
     checker: ReturnType<typeof createSchemaChecker>,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
     for (const table of tables) {
-      yield* this.streamTableChecks(table, tables, checker, statuses);
+      yield* this.streamTableChecks(table, metaTables, checker, statuses);
     }
   }
 
   private async *streamBaseRepairs(
     tables: ReadonlyArray<Table>,
+    metaTables: ReadonlyArray<Table>,
     repairer: ReturnType<typeof createSchemaRepairer>,
     metaRepairer: ReturnType<typeof createMetaRepairer>,
     repairRo: IV2BaseSchemaIntegrityRepairRo,
@@ -337,7 +530,7 @@ export class IntegrityV2Service {
             dryRun: repairRo.dryRun,
             targetStatuses: repairRo.targetStatuses,
           }),
-          metaRepairer.repairTable(table, tables, {
+          metaRepairer.repairTable(table, metaTables, {
             dryRun: repairRo.dryRun,
             targetStatuses: repairRo.targetStatuses,
           })

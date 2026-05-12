@@ -8,8 +8,10 @@ ARG BUILD_VERSION="1.0.0-alpha"
 
 FROM node:${NODE_VERSION}-bookworm AS deps
 ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && pnpm add npm-run-all2 zx -g
+ENV PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
+RUN corepack enable \
+ && corepack prepare pnpm@9.13.0 --activate \
+ && pnpm add npm-run-all2 zx -g
 
 # Disabling some well-known postinstall scripts
 ENV HUSKY=0
@@ -99,11 +101,12 @@ ENV TZ=UTC \
     PORT=${NEXTJS_APP_PORT:-3000}\
     NEXTJS_DIR=apps/nextjs-app \
     PNPM_HOME="/pnpm" \
-    PATH="$PNPM_HOME:$PATH"
+    PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
 
 RUN set -ex; \
         npm install zx -g; \
         corepack enable; \
+        corepack prepare pnpm@9.13.0 --activate; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
                 curl \
