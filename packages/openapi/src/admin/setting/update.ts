@@ -163,6 +163,16 @@ export const vertexByokCredentialSchema = z.object({
 
 export type IVertexByokCredential = z.infer<typeof vertexByokCredentialSchema>;
 
+export const aiModelMappingSchema = z.object({
+  sourceModelKey: z.string(),
+  targetModelKey: z.string(),
+  enabled: z.boolean().optional(),
+  createdTime: z.string().optional(),
+  lastModifiedTime: z.string().optional(),
+});
+
+export type IAIModelMapping = z.infer<typeof aiModelMappingSchema>;
+
 export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
   embeddingModel: z.string().optional(),
@@ -192,6 +202,8 @@ export const aiConfigSchema = z.object({
   concurrencyGroups: z.array(concurrencyGroupSchema).optional(),
   // Default concurrency slots per API key (applies when groups don't specify perKey)
   concurrencyPerKey: z.number().min(1).max(100).optional(),
+  // Cloud-only model routing: present Gateway recommendations while using instance custom providers
+  modelMappings: z.array(aiModelMappingSchema).optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;
@@ -200,11 +212,32 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
 
+export const appAuthGoogleConfigSchema = z.object({
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+});
+
+export type IAppAuthGoogleConfig = z.infer<typeof appAuthGoogleConfigSchema>;
+
+export const appAuthEmailOtpConfigSchema = z.object({
+  smtp: mailTransportConfigSchema.optional(),
+});
+
+export type IAppAuthEmailOtpConfig = z.infer<typeof appAuthEmailOtpConfigSchema>;
+
+export const appAuthConfigSchema = z.object({
+  google: appAuthGoogleConfigSchema.optional(),
+  emailOtp: appAuthEmailOtpConfigSchema.optional(),
+});
+
+export type IAppAuthConfig = z.infer<typeof appAuthConfigSchema>;
+
 export const appConfigSchema = z.object({
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
+  appAuth: appAuthConfigSchema.optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

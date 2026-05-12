@@ -11,6 +11,7 @@ import type {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateCheckboxDefaultValueSpec,
   UpdateDateDefaultValueSpec,
@@ -351,6 +352,13 @@ class SpyVisitor implements ITableSpecVisitor {
     _: UpdateButtonMaxCountSpec
   ): ReturnType<ITableSpecVisitor['visitUpdateButtonMaxCount']> {
     this.calls.push('UpdateButtonMaxCountSpec');
+    return ok(undefined);
+  }
+
+  visitUpdateButtonResetCount(
+    _: UpdateButtonResetCountSpec
+  ): ReturnType<ITableSpecVisitor['visitUpdateButtonResetCount']> {
+    this.calls.push('UpdateButtonResetCountSpec');
     return ok(undefined);
   }
 
