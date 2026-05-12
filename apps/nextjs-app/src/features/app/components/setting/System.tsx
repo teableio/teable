@@ -10,6 +10,9 @@ import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
   const { theme, setTheme } = useTheme();
+  const themeCardClassName = 'min-w-0 max-w-[256px] flex-1';
+  const themeImageClassName =
+    'aspect-[3/2] h-auto w-full overflow-hidden rounded-md border bg-muted object-cover';
 
   const isSupportsMultiplePointers = useMemo(() => {
     const touchSupported: boolean =
@@ -37,14 +40,14 @@ export const System: React.FC = () => {
               setTheme(value);
             }}
           >
-            <div className="max-w-[256px]">
+            <div className={themeCardClassName}>
               <RadioGroupItem value="light" id="light" className="peer sr-only" />
               <Label
                 htmlFor="light"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="w-full overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-light.png'}
                   alt=""
                   width={198}
@@ -55,14 +58,14 @@ export const System: React.FC = () => {
                 {t('settings.setting.light')}
               </span>
             </div>
-            <div className="max-w-[256px]">
+            <div className={themeCardClassName}>
               <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
               <Label
                 htmlFor="dark"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="w-full overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-dark.png'}
                   alt=""
                   width={198}
@@ -73,14 +76,14 @@ export const System: React.FC = () => {
                 {t('settings.setting.dark')}
               </span>
             </div>
-            <div className="max-w-[256px]">
+            <div className={themeCardClassName}>
               <RadioGroupItem value="system" id="system" className="peer sr-only" />
               <Label
                 htmlFor="system"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="w-full overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-system.png'}
                   alt=""
                   width={198}

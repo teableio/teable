@@ -25,6 +25,12 @@ import type {
   GatewayModelTag,
   GatewayModelProvider,
   IImageSize,
+  IAIConfig,
+  IAppConfig,
+  IUpdateAiConfigRo,
+  IUpdateAiConfigVo,
+  IUpdateAppConfigRo,
+  IUpdateAppConfigVo,
 } from '@teable/openapi';
 import {
   chatModelAbilityType,
@@ -66,6 +72,14 @@ const testPdfPath = 'static/test/test-pdf.pdf';
 // Expected letter in test files - use uppercase K for stricter matching
 const expectedLetter = 'k';
 
+const clearUndefinedPatchValues = <T extends Record<string, unknown>>(patch: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(patch)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, value === null ? undefined : value])
+  ) as Partial<T>;
+};
+
 @Injectable()
 export class SettingOpenApiService {
   private readonly logger = new Logger(SettingOpenApiService.name);
@@ -91,6 +105,46 @@ export class SettingOpenApiService {
       this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
     }
     return this.settingService.updateSetting(updateSettingRo);
+  }
+
+  async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
+    const nextAiConfig = {
+      ...(aiConfig ?? {}),
+      ...patch,
+    } as IAIConfig;
+
+    this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
+
+    await this.settingService.updateSetting({
+      [SettingKey.AI_CONFIG]: nextAiConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      aiConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAiConfig[key as keyof IAIConfig]])
+      ) as Partial<IAIConfig>,
+    };
+  }
+
+  async updateAppConfig(updateAppConfigRo: IUpdateAppConfigRo): Promise<IUpdateAppConfigVo> {
+    const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
+    const nextAppConfig = {
+      ...(appConfig ?? {}),
+      ...patch,
+    } as IAppConfig;
+
+    await this.settingService.updateSetting({
+      [SettingKey.APP_CONFIG]: nextAppConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      appConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAppConfig[key as keyof IAppConfig]])
+      ) as Partial<IAppConfig>,
+    };
   }
 
   /**
