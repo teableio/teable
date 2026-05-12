@@ -23,6 +23,7 @@ import { MailConfigForm } from './MailConfigForm';
 export const MailConfigDialog = (props: {
   name: SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG | SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG;
   emailConfig?: IMailTransportConfig;
+  disabled?: boolean;
 }) => {
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
@@ -36,10 +37,11 @@ export const MailConfigDialog = (props: {
     setEmailConfig(props.emailConfig);
   }, [props.emailConfig]);
 
-  const { mutateAsync: updateEmailConfig } = useMutation({
+  const { mutateAsync: updateEmailConfig, isPending } = useMutation({
     mutationFn: (ro: ISetSettingMailTransportConfigRo) => setSettingMailTransportConfig(ro),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setting'] });
+      toast.success(t('actions.saveSucceed'));
     },
   });
 
@@ -62,7 +64,7 @@ export const MailConfigDialog = (props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon">
+        <Button variant="outline" size="icon" disabled={props.disabled || isPending}>
           {props.emailConfig ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
         </Button>
       </DialogTrigger>
@@ -71,13 +73,13 @@ export const MailConfigDialog = (props: {
           <DialogTitle>{t('email.config')}</DialogTitle>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-1">
-          <MailConfigForm value={emailConfig} onChange={setEmailConfig} />
+          <MailConfigForm value={emailConfig} onChange={setEmailConfig} disabled={isPending} />
         </div>
         <DialogFooter className="flex justify-end px-1">
-          <Button variant="secondary" onClick={cancel}>
+          <Button variant="secondary" onClick={cancel} disabled={isPending}>
             {t('actions.cancel')}
           </Button>
-          <Button variant="default" onClick={save}>
+          <Button variant="default" onClick={save} disabled={isPending}>
             {t('actions.save')}
           </Button>
         </DialogFooter>

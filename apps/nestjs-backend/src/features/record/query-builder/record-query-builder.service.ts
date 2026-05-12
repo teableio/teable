@@ -150,6 +150,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         defaultOrderField: options.defaultOrderField,
         hasSearch: options.hasSearch,
         restrictRecordIds: options.restrictRecordIds,
+        paginationMode: options.paginationMode,
       });
       this.buildFieldCtes(
         qb,
@@ -232,14 +233,28 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId,
       useQueryModel,
       restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
     } = options;
+    const usePaginatedRange = limit !== undefined;
+    // The tableCache path skips applyBasePaginationIfNeeded, which would silently
+    // aggregate the entire view instead of the requested [offset, offset+limit)
+    // slice. Force the table path whenever a row range is requested.
+    const effectiveUseQueryModel = usePaginatedRange ? false : useQueryModel;
     const { qb, table, alias, state } = await this.createQueryBuilder(from, tableId, {
       builder: options.builder,
-      useQueryModel,
+      useQueryModel: effectiveUseQueryModel,
       projection: options.projection,
       filter,
       currentUserId,
       restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
+      paginationMode: usePaginatedRange ? 'full' : undefined,
     });
 
     this.buildAggregateSelect(qb, table, state);
@@ -412,6 +427,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField?: string;
       hasSearch?: boolean;
       restrictRecordIds?: string[];
+      paginationMode?: 'split' | 'full';
     }
   ): void {
     const {
@@ -423,6 +439,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField,
       hasSearch,
       restrictRecordIds,
+      paginationMode = 'split',
     } = params;
     state.setBaseCteName(undefined);
 
@@ -435,7 +452,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       return;
     }
 
-    const baseLimit = this.resolveBaseLimit(limit, offset);
+    const safeOffset = offset && offset > 0 ? offset : 0;
+    const baseLimit = paginationMode === 'full' ? limit : this.resolveBaseLimit(limit, offset);
     let applyPagination = Boolean(baseLimit) && !hasSearch;
     const normalizedRecordIds = Array.from(
       new Set(
@@ -487,6 +505,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     if (applyPagination && baseLimit) {
       baseBuilder.limit(baseLimit);
+      if (paginationMode === 'full' && safeOffset > 0) {
+        baseBuilder.offset(safeOffset);
+      }
     }
 
     if (applyRecordRestriction) {

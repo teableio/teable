@@ -360,7 +360,9 @@
         "safeToDeleteDesc": "This field is not referenced by other fields, can be deleted safely",
         "affectedItems": "Affected Items",
         "type": "Type",
-        "source": "Source"
+        "source": "Source",
+        "loginEmailFieldWarning": "This field is used as the login email identifier. Deleting it will break login for the following apps:",
+        "loginEmailFieldConvertWarning": "This field is used as the login email field for apps. Changing its type will break login for the following apps:"
       }
     },
     "subTitle": {
@@ -498,11 +500,15 @@
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "baseInfo": "Base info",
+    "loginUserTable": "App Login",
+    "loginUserTableClickTips": "Open related app",
+    "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
     "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
     "deleteTip2": "This table can be restored from the trash after deletion.",
+    "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
     "operator": {
       "createBlank": "New table"
     },
@@ -1281,12 +1287,18 @@
     "expand": "Expand",
     "history": "History",
     "close": "Collapse",
-    "noModel": "No models available",
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
     "modelSwitchTitle": "Switch model",
     "modelSwitchHint": "Currently running on {{previous}}. On next send, the new model takes over and only sees the last 3 turns.",
+    "effort": {
+      "title": "Intelligence",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High"
+    },
     "sandboxExpiry": {
       "expiresIn": "Agent Computer expires in {{time}}",
       "reset": "Renew",
@@ -1312,7 +1324,7 @@
       "other": "Other"
     },
     "context": {
-      "button": "Add context",
+      "button": "Add node",
       "search": "Add tables",
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add",
@@ -1321,10 +1333,10 @@
     "mention": {
       "tables": "Tables",
       "apps": "Apps",
-      "workflows": "Workflows",
+      "workflows": "Automations",
       "folders": "Folders"
     },
-    "inputPlaceholder": "Type @ to add context",
+    "inputPlaceholder": "Type @ to add node",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
     "meta": {
@@ -1333,6 +1345,7 @@
       "taskCompleted": "Task completed"
     },
     "attachment": {
+      "pastedTextFileName": "Pasted text",
       "imageNotSupported": "Image is not supported"
     },
     "suggestions": {
@@ -1364,13 +1377,6 @@
       "edit": "Edit",
       "forceSend": "Stop & send now",
       "removeFromQueue": "Remove"
-    },
-    "effort": {
-      "title": "Select reasoning effort",
-      "low": "Low",
-      "medium": "Medium",
-      "high": "High",
-      "max": "Max"
     },
     "partTool": {
       "bash": "Run command",

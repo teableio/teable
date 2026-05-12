@@ -117,7 +117,10 @@ export class TableDuplicateService {
         );
 
         await this.duplicateAttachments(sourceTableId, newTableVo.id, sourceToTargetFieldMap);
-        await this.duplicateLinkJunction({ [sourceTableId]: newTableVo.id }, sourceToTargetFieldMap);
+        await this.duplicateLinkJunction(
+          { [sourceTableId]: newTableVo.id },
+          sourceToTargetFieldMap
+        );
         await this.emitTableDuplicateAuditLog(newTableVo.id, count, duplicateRo);
       }
 

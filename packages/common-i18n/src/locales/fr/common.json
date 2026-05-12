@@ -618,6 +618,17 @@
         "searchModel": "Rechercher un modèle...",
         "selectModel": "Sélectionner un modèle...",
         "defaultModel": "{{name}} (Par défaut)",
+        "moreModels": "Plus de modèles",
+        "agentModelWarningTitle": "Choisissez les modèles avec soin",
+        "agentModelWarningDescription": "Les modèles recommandés ci-dessus sont optimisés pour les tâches d’agent, comme l’utilisation d’outils et le raisonnement en plusieurs étapes. Les autres modèles peuvent avoir des capacités limitées et produire des résultats inattendus.",
+        "agentModelWarningConfirm": "Compris",
+        "recommendedModelNudge": {
+          "title": "Essayez {{model}}",
+          "description": "Obtenez de meilleurs résultats AI avec une consommation de crédits beaucoup plus faible.",
+          "use": "Utiliser {{model}}",
+          "later": "Plus tard"
+        },
+        "noModelsAvailable": "Aucun modèle disponible",
         "input": "Entrée {{ratio}}",
         "output": "Sortie {{ratio}}",
         "inputOrOutputTip": "Le ratio représente le taux de change entre les crédits et les jetons, par exemple, \"1:1000\" signifie que 1 crédit ≈ 1000 jetons.<br></br>Remarque : chaque utilisation déduira au moins 1 crédit. Même si la consommation réelle est inférieure à 1 crédit, elle sera tout de même facturée comme 1 crédit.",
@@ -1110,9 +1121,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE À JOUR DU 28 AVR",
-    "title": "Nouveau déclencheur : À la réception d’un e-mail (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "MISE A JOUR DU 12 MAI",
+    "title": "Connexion integree pour App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }
