@@ -114,6 +114,45 @@ describe('AttachmentValueResolverService', () => {
     ]);
   });
 
+  it('resolves token-only attachment inputs', async () => {
+    const fieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+    const inputItem = { token: 'tok-token-only' } as AttachmentItem;
+    const stored: AttachmentLookupRecord = {
+      id: 'actStoredTokenOnly',
+      token: 'tok-token-only',
+      path: '/stored/token-only.png',
+      size: 42,
+      mimetype: 'image/png',
+      width: 320,
+      height: 240,
+    };
+
+    const spec = new SetAttachmentValueSpec(
+      fieldId,
+      CellValue.fromValidated<AttachmentItem[]>([inputItem])
+    );
+    const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([stored]));
+
+    const result = await service.resolveSpecs(createContext(), [spec]);
+    const resolvedSpec = result._unsafeUnwrap()[0];
+
+    expect(resolvedSpec).toBeInstanceOf(SetAttachmentValueSpec);
+    const resolvedValue = (resolvedSpec as SetAttachmentValueSpec).value.toValue();
+    expect(resolvedValue).toHaveLength(1);
+    const resolvedItem = resolvedValue?.[0];
+    expect(resolvedItem?.id.startsWith('act')).toBe(true);
+    expect(resolvedItem).toEqual({
+      id: resolvedItem?.id ?? '',
+      name: '',
+      token: 'tok-token-only',
+      path: '/stored/token-only.png',
+      size: 42,
+      mimetype: 'image/png',
+      width: 320,
+      height: 240,
+    });
+  });
+
   it('resolves null values to null attachment value', async () => {
     const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
     const spec = new SetAttachmentValueSpec(fieldId, CellValue.null<AttachmentItem[]>());

@@ -58,6 +58,16 @@ export interface ICreateRecordQueryBuilderOptions {
    * Optional table domain graph to reuse when building the query.
    */
   tables?: Tables;
+  /**
+   * How to apply `limit`/`offset` to the BASE CTE.
+   * - 'split' (default): BASE CTE limits to (offset+limit) rows; offset is applied
+   *   later by the outer query. Used for record-list pagination so CTE rows
+   *   beyond the page are not computed.
+   * - 'full': BASE CTE applies `OFFSET offset LIMIT limit` directly. Used by
+   *   aggregation, which has no outer offset and must aggregate exactly the
+   *   target row range.
+   */
+  paginationMode?: 'split' | 'full';
 }
 
 /**
@@ -85,6 +95,21 @@ export interface ICreateRecordAggregateBuilderOptions {
    * Optional list of record IDs to restrict the query to before generating CTEs.
    */
   restrictRecordIds?: string[];
+  /**
+   * Optional sort applied to the BASE CTE so pagination is deterministic.
+   * Required when `limit`/`offset` are used to aggregate a contiguous row range.
+   */
+  sort?: ISortItem[];
+  /** Optional fallback field used for default ordering of the BASE CTE */
+  defaultOrderField?: string;
+  /**
+   * Restrict aggregation to a contiguous row range [offset, offset+limit) of the
+   * filtered/sorted view. Unlike record-list pagination (which splits offset
+   * between BASE CTE and outer query), aggregation needs the BASE CTE itself
+   * to contain exactly the target rows since there is no outer offset to apply.
+   */
+  limit?: number;
+  offset?: number;
 }
 
 /**

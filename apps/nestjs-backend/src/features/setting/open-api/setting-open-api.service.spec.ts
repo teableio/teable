@@ -44,6 +44,20 @@ describe('SettingOpenApiService', () => {
       undefined as never
     );
 
+  const createServiceWithSettingService = (settingService: {
+    getSetting: ReturnType<typeof vi.fn>;
+    updateSetting: ReturnType<typeof vi.fn>;
+  }) =>
+    new SettingOpenApiService(
+      undefined as never,
+      undefined as never,
+      { provider: 'local' } as never,
+      undefined as never,
+      undefined as never,
+      settingService as never,
+      undefined as never
+    );
+
   it('sends runtime build version to public access checker', async () => {
     process.env.BUILD_VERSION = '20260429.1';
     process.env.NEXT_PUBLIC_BUILD_VERSION = 'legacy-build';
@@ -79,6 +93,50 @@ describe('SettingOpenApiService', () => {
         },
       })
     );
+  });
+
+  it('updates an AI config section without dropping unrelated fields', async () => {
+    const settingService = {
+      getSetting: vi.fn().mockResolvedValue({
+        aiConfig: {
+          llmProviders: [
+            {
+              type: LLMProviderType.OPENAI,
+              name: 'old-name',
+              models: 'gpt-4o',
+            },
+          ],
+          gatewayModels: [{ id: 'openai/gpt-4o', label: 'GPT-4o', enabled: true }],
+          chatModel: { lg: `${LLMProviderType.OPENAI}@gpt-4o@old-name` },
+        },
+      }),
+      updateSetting: vi.fn().mockImplementation((payload) => Promise.resolve(payload)),
+    };
+    const service = createServiceWithSettingService(settingService);
+
+    const result = await service.updateAiConfig({
+      section: 'defaultModels',
+      patch: { chatModel: { lg: `${LLMProviderType.OPENAI}@gpt-4o@new-name` } },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      aiConfig: expect.objectContaining({
+        llmProviders: [
+          {
+            type: LLMProviderType.OPENAI,
+            name: 'teable',
+            models: 'gpt-4o',
+          },
+        ],
+        gatewayModels: [{ id: 'openai/gpt-4o', label: 'GPT-4o', enabled: true }],
+        chatModel: { lg: `${LLMProviderType.OPENAI}@gpt-4o@teable` },
+      }),
+    });
+    expect(result).toEqual({
+      aiConfig: {
+        chatModel: { lg: `${LLMProviderType.OPENAI}@gpt-4o@teable` },
+      },
+    });
   });
 });
 

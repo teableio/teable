@@ -27,6 +27,8 @@ import {
   searchIndexByQueryRoSchema,
   IRecordIndexRo,
   recordIndexRoSchema,
+  ISelectionAggregationRo,
+  selectionAggregationRoSchema,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../../performance-cache';
@@ -174,6 +176,16 @@ export class AggregationOpenApiController {
     return await this.getAggregationWithCache('calendar_daily_collection', tableId, query, () =>
       this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query)
     );
+  }
+
+  @Get('/selection')
+  @Permissions('table|read')
+  async getSelectionAggregation(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(selectionAggregationRoSchema), TqlPipe)
+    query: ISelectionAggregationRo
+  ): Promise<IAggregationVo> {
+    return await this.aggregationOpenApiService.getSelectionAggregation(tableId, query);
   }
 
   @Get('/task-status-collection')
