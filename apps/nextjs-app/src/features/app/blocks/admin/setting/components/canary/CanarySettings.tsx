@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Settings } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
@@ -31,18 +32,19 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
   const queryClient = useQueryClient();
   const { enableCanaryFeature } = useEnv() as { enableCanaryFeature?: boolean };
 
-  const { mutateAsync: mutateUpdateSetting } = useMutation({
+  const { mutateAsync: mutateUpdateSetting, isPending: isSavingSetting } = useMutation({
     mutationFn: (props: IUpdateSettingRo) => updateSetting(props),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setting'] });
+      toast.success(t('actions.saveSucceed'));
     },
   });
 
   const canaryConfig = setting.canaryConfig as ICanaryConfig | null | undefined;
 
   const handleEnabledChange = useCallback(
-    (enabled: boolean) => {
-      mutateUpdateSetting({
+    async (enabled: boolean) => {
+      await mutateUpdateSetting({
         [SettingKey.CANARY_CONFIG]: {
           enabled,
           spaceIds: canaryConfig?.spaceIds ?? [],
@@ -53,8 +55,8 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
   );
 
   const handleSpaceIdsChange = useCallback(
-    (spaceIds: string[]) => {
-      mutateUpdateSetting({
+    async (spaceIds: string[]) => {
+      await mutateUpdateSetting({
         [SettingKey.CANARY_CONFIG]: {
           enabled: canaryConfig?.enabled ?? false,
           spaceIds,
@@ -85,7 +87,8 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
           <Switch
             id="enable-canary"
             checked={Boolean(canaryConfig?.enabled)}
-            onCheckedChange={handleEnabledChange}
+            disabled={isSavingSetting}
+            onCheckedChange={(checked) => void handleEnabledChange(checked)}
           />
         </div>
         <div className="flex items-center justify-between">
@@ -95,7 +98,11 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
               {t('admin.canary.spacesDescription', { count: selectedCount })}
             </div>
           </div>
-          <SpaceIdsEditor spaceIds={canaryConfig?.spaceIds ?? []} onSave={handleSpaceIdsChange} />
+          <SpaceIdsEditor
+            spaceIds={canaryConfig?.spaceIds ?? []}
+            onSave={handleSpaceIdsChange}
+            disabled={isSavingSetting}
+          />
         </div>
       </div>
     </div>
@@ -104,10 +111,11 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
 
 interface ISpaceIdsEditorProps {
   spaceIds: string[];
-  onSave: (spaceIds: string[]) => void;
+  onSave: (spaceIds: string[]) => Promise<unknown> | void;
+  disabled?: boolean;
 }
 
-const SpaceIdsEditor = ({ spaceIds, onSave }: ISpaceIdsEditorProps) => {
+const SpaceIdsEditor = ({ spaceIds, onSave, disabled }: ISpaceIdsEditorProps) => {
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
@@ -126,15 +134,15 @@ const SpaceIdsEditor = ({ spaceIds, onSave }: ISpaceIdsEditorProps) => {
     [spaceIds]
   );
 
-  const handleSave = useCallback(() => {
-    onSave(parsedSpaceIds);
+  const handleSave = useCallback(async () => {
+    await onSave(parsedSpaceIds);
     setOpen(false);
   }, [parsedSpaceIds, onSave]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled={disabled}>
           <Settings className="mr-1 size-4" />
           {t('admin.canary.configure')}
         </Button>
@@ -149,6 +157,7 @@ const SpaceIdsEditor = ({ spaceIds, onSave }: ISpaceIdsEditorProps) => {
           </div>
           <Textarea
             value={value}
+            disabled={disabled}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('admin.canary.spaceIdsPlaceholder')}
             className="min-h-[100px] font-mono text-sm"
@@ -178,10 +187,10 @@ const SpaceIdsEditor = ({ spaceIds, onSave }: ISpaceIdsEditorProps) => {
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={disabled}>
               {t('actions.cancel')}
             </Button>
-            <Button size="sm" onClick={handleSave}>
+            <Button size="sm" onClick={() => void handleSave()} disabled={disabled}>
               {t('actions.save')}
             </Button>
           </div>

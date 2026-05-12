@@ -54,7 +54,6 @@ export interface IAIModelSelectProps {
   children?: ReactNode;
   onlyImageOutput?: boolean; // if true, only show image output models
   placeholder?: string; // Custom placeholder when no model is selected
-  onBeforePickerOpen?: () => Promise<boolean> | boolean; // return false to prevent picker from opening
 }
 
 // Categorized model options

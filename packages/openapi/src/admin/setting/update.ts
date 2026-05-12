@@ -1,5 +1,9 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import {
+  DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+  realtimeTranscriptionModelSchema,
+} from '../../ai/realtime-transcription';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
@@ -163,6 +167,30 @@ export const vertexByokCredentialSchema = z.object({
 
 export type IVertexByokCredential = z.infer<typeof vertexByokCredentialSchema>;
 
+export const aiModelMappingSchema = z.object({
+  sourceModelKey: z.string(),
+  targetModelKey: z.string(),
+  enabled: z.boolean().optional(),
+  createdTime: z.string().optional(),
+  lastModifiedTime: z.string().optional(),
+});
+
+export type IAIModelMapping = z.infer<typeof aiModelMappingSchema>;
+
+export const realtimeTranscriptionConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.literal('openai').default('openai').optional(),
+  apiKey: z.string().nullable().optional(),
+  endpoint: z.url().nullable().optional(),
+  model: realtimeTranscriptionModelSchema.default(DEFAULT_REALTIME_TRANSCRIPTION_MODEL).optional(),
+  status: z.enum(['untested', 'verified', 'error']).optional(),
+  testedAt: z.string().optional(),
+  maxSessionDurationSec: z.number().min(10).max(600).optional(),
+  sessionCreateLimitPerMinute: z.number().min(1).max(60).optional(),
+});
+
+export type IRealtimeTranscriptionConfig = z.infer<typeof realtimeTranscriptionConfigSchema>;
+
 export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
   embeddingModel: z.string().optional(),
@@ -192,6 +220,10 @@ export const aiConfigSchema = z.object({
   concurrencyGroups: z.array(concurrencyGroupSchema).optional(),
   // Default concurrency slots per API key (applies when groups don't specify perKey)
   concurrencyPerKey: z.number().min(1).max(100).optional(),
+  // Cloud-only model routing: present Gateway recommendations while using instance custom providers
+  modelMappings: z.array(aiModelMappingSchema).optional(),
+  // Optional browser voice input through OpenAI Realtime transcription.
+  realtimeTranscription: realtimeTranscriptionConfigSchema.nullable().optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;
@@ -200,11 +232,32 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
 
+export const appAuthGoogleConfigSchema = z.object({
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+});
+
+export type IAppAuthGoogleConfig = z.infer<typeof appAuthGoogleConfigSchema>;
+
+export const appAuthEmailOtpConfigSchema = z.object({
+  smtp: mailTransportConfigSchema.optional(),
+});
+
+export type IAppAuthEmailOtpConfig = z.infer<typeof appAuthEmailOtpConfigSchema>;
+
+export const appAuthConfigSchema = z.object({
+  google: appAuthGoogleConfigSchema.optional(),
+  emailOtp: appAuthEmailOtpConfigSchema.optional(),
+});
+
+export type IAppAuthConfig = z.infer<typeof appAuthConfigSchema>;
+
 export const appConfigSchema = z.object({
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
+  appAuth: appAuthConfigSchema.optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

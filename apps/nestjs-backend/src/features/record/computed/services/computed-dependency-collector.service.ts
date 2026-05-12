@@ -152,9 +152,9 @@ export class ComputedDependencyCollectorService {
   ): Promise<string[]> {
     const dbTable = await this.getDbTableName(tableId, ctx);
     const { schema, table } = this.splitDbTableName(dbTable);
-    const qb = (schema ? this.dataKnex.withSchema(schema) : this.dataKnex).select('__id').from(
-      table
-    );
+    const qb = (schema ? this.dataKnex.withSchema(schema) : this.dataKnex)
+      .select('__id')
+      .from(table);
     const rows = await this.dataPrismaService
       .txClient()
       .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());

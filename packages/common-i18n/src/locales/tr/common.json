@@ -577,6 +577,17 @@
         "searchModel": "Model ara...",
         "selectModel": "Model seç...",
         "defaultModel": "{{name}} (Varsayılan)",
+        "moreModels": "Daha fazla model",
+        "agentModelWarningTitle": "Modelleri dikkatli seçin",
+        "agentModelWarningDescription": "Yukarıdaki önerilen modeller, araç kullanımı ve çok adımlı akıl yürütme gibi ajan görevleri için optimize edilmiştir. Diğer modellerin yetenekleri sınırlı olabilir ve beklenmeyen sonuçlara yol açabilir.",
+        "agentModelWarningConfirm": "Anladım",
+        "recommendedModelNudge": {
+          "title": "{{model}} modelini deneyin",
+          "description": "Çok daha düşük kredi kullanımıyla daha iyi AI sonuçları alın.",
+          "use": "{{model}} kullan",
+          "later": "Daha sonra"
+        },
+        "noModelsAvailable": "Kullanılabilir model yok",
         "input": "Giriş {{ratio}}",
         "output": "Çıkış {{ratio}}",
         "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",
@@ -1100,9 +1111,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "28 NİS GÜNCELLEMESİ",
-    "title": "Yeni Tetikleyici: E-posta Alındığında (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "12 MAYIS GUNCELLEMESI",
+    "title": "App Builder icin yerlesik giris",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }
