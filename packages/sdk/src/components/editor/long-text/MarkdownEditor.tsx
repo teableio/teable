@@ -1,10 +1,9 @@
 import type { Editor } from '@milkdown/core';
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
-import { cn } from '@teable/ui-lib';
+import { cn, MarkdownReadonly } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
 import type { ICellEditor } from '../type';
 import { ExpandMarkdownEditor } from './ExpandMarkdownEditor';
-import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
 import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
@@ -27,12 +26,9 @@ const MarkdownEditorInner = ({
   onValueChange,
   onEditorReady,
 }: IMarkdownEditorInnerProps) => {
+  const initialValueRef = useRef(value);
   const latestValueRef = useRef(value);
   const onValueChangeRef = useRef(onValueChange);
-
-  useEffect(() => {
-    latestValueRef.current = value;
-  }, [value]);
 
   useEffect(() => {
     onValueChangeRef.current = onValueChange;
@@ -50,7 +46,7 @@ const MarkdownEditorInner = ({
         useFixedSelectionToolbar: gridMode,
         onMarkdownUpdated: handleMarkdownUpdated,
       }),
-    [value, gridMode, handleMarkdownUpdated]
+    []
   );
 
   const [loading, getEditor] = useInstance();
@@ -70,6 +66,9 @@ const MarkdownEditorInner = ({
       }
     }
     const trimmed = latestValueRef.current.trim();
+    if (trimmed === initialValueRef.current.trim()) {
+      return;
+    }
     onChange?.(trimmed || null);
   }, [onChange, loading, getEditor]);
 

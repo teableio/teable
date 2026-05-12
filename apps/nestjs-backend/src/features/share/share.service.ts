@@ -476,9 +476,7 @@ export class ShareService {
 
     return Array.from(
       new Set(
-        rows
-          .map(({ user_id }) => user_id)
-          .filter((userId): userId is string => Boolean(userId))
+        rows.map(({ user_id }) => user_id).filter((userId): userId is string => Boolean(userId))
       )
     );
   }

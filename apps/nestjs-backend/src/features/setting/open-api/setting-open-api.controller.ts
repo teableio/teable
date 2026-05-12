@@ -20,6 +20,10 @@ import type {
   IBatchTestLLMVo,
   ITestApiKeyVo,
   ITestPublicAccessVo,
+  IUpdateAiConfigRo,
+  IUpdateAiConfigVo,
+  IUpdateAppConfigRo,
+  IUpdateAppConfigVo,
 } from '@teable/openapi';
 import {
   IUpdateSettingRo,
@@ -32,6 +36,8 @@ import {
   IBatchTestLLMRo,
   testApiKeyRoSchema,
   ITestApiKeyRo,
+  updateAiConfigRoSchema,
+  updateAppConfigRoSchema,
 } from '@teable/openapi';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -82,6 +88,24 @@ export class SettingOpenApiController {
     return await this.settingOpenApiService.updateSetting(updateSettingRo);
   }
 
+  @Patch('ai-config')
+  @Permissions('instance|update')
+  async updateAiConfig(
+    @Body(new ZodValidationPipe(updateAiConfigRoSchema))
+    updateAiConfigRo: IUpdateAiConfigRo
+  ): Promise<IUpdateAiConfigVo> {
+    return await this.settingOpenApiService.updateAiConfig(updateAiConfigRo);
+  }
+
+  @Patch('app-config')
+  @Permissions('instance|update')
+  async updateAppConfig(
+    @Body(new ZodValidationPipe(updateAppConfigRoSchema))
+    updateAppConfigRo: IUpdateAppConfigRo
+  ): Promise<IUpdateAppConfigVo> {
+    return await this.settingOpenApiService.updateAppConfig(updateAppConfigRo);
+  }
+
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: (_req, file, callback) => {
@@ -99,7 +123,7 @@ export class SettingOpenApiController {
   @Patch('logo')
   @Permissions('instance|update')
   async uploadLogo(@UploadedFile() file: Express.Multer.File): Promise<IUploadLogoVo> {
-    return this.settingOpenApiService.uploadLogo(file);
+    return await this.settingOpenApiService.uploadLogo(file);
   }
 
   @Permissions('instance|update')

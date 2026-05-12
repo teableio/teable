@@ -28,6 +28,7 @@ import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
+import type { IAttachmentUrlSignerService } from '../../ports/AttachmentUrlSignerService';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
@@ -35,6 +36,7 @@ import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
 import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
 import type { ITableRepository } from '../../ports/TableRepository';
+import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection';
 import { FieldDeletedRealtimeProjection } from './FieldDeletedRealtimeProjection';
 import { FieldOptionsAddedRealtimeProjection } from './FieldOptionsAddedRealtimeProjection';
@@ -183,6 +185,33 @@ class FakeTableMapper implements ITableMapper {
   }
 }
 
+class FakeAttachmentUrlSignerService implements IAttachmentUrlSignerService {
+  invalidatedTokens: string[] = [];
+
+  async signItems(items: ReadonlyArray<{ token: string }>) {
+    return ok(
+      new Map(
+        items.map((item) => [
+          item.token,
+          {
+            presignedUrl: `/preview/${item.token}`,
+            smThumbnailUrl: `/preview/${item.token}_sm`,
+            lgThumbnailUrl: `/preview/${item.token}_lg`,
+          },
+        ])
+      )
+    );
+  }
+
+  async invalidatePreview(tokens: ReadonlyArray<string>) {
+    this.invalidatedTokens.push(...tokens);
+    return ok(undefined);
+  }
+}
+
+const buildAttachmentValueDecorator = () =>
+  new AttachmentValueDecoratorService(new FakeAttachmentUrlSignerService());
+
 describe('Realtime projections', () => {
   it('builds record collection names', () => {
     expect(buildRecordCollection('tbl123')).toBe('rec_tbl123');
@@ -208,6 +237,56 @@ describe('Realtime projections', () => {
     expect(engine.ensures[0]?.docId.toString()).toBe(
       `${buildRecordCollection(table.id().toString())}/${recordId.toString()}`
     );
+  });
+
+  it('decorates attachment preview urls before projecting record creation', async () => {
+    const table = buildTable('a', 'b', 'c');
+    const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+    const attachmentFieldId = `fld${'p'.repeat(16)}`;
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordCreatedRealtimeProjection(engine, buildAttachmentValueDecorator());
+
+    const event = RecordCreated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      recordId,
+      fieldValues: [
+        {
+          fieldId: attachmentFieldId,
+          value: [
+            {
+              id: 'act-create',
+              name: 'receipt.png',
+              token: 'tok-create',
+              path: 'table/tok-create',
+              size: 123,
+              mimetype: 'image/png',
+              width: 320,
+              height: 180,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures[0]?.initial).toEqual({
+      id: recordId.toString(),
+      fields: {
+        [attachmentFieldId]: [
+          expect.objectContaining({
+            token: 'tok-create',
+            presignedUrl: '/preview/tok-create',
+            smThumbnailUrl: '/preview/tok-create_sm',
+            lgThumbnailUrl: '/preview/tok-create_lg',
+            width: 320,
+            height: 180,
+          }),
+        ],
+      },
+    });
   });
 
   it('projects record updates with incremental changes', async () => {
@@ -244,6 +323,56 @@ describe('Realtime projections', () => {
       path: ['fields', table.primaryFieldId().toString()],
       value: 'New',
       oldValue: 'Old',
+    });
+  });
+
+  it('decorates attachment preview urls before projecting record updates', async () => {
+    const table = buildTable('a', 'e', 'f');
+    const recordId = RecordId.create(`rec${'g'.repeat(16)}`)._unsafeUnwrap();
+    const attachmentFieldId = `fld${'q'.repeat(16)}`;
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordUpdatedRealtimeProjection(engine, buildAttachmentValueDecorator());
+
+    const event = RecordUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      recordId,
+      oldVersion: 1,
+      newVersion: 2,
+      source: 'user',
+      changes: [
+        {
+          fieldId: attachmentFieldId,
+          oldValue: [],
+          newValue: [
+            {
+              id: 'act-update',
+              name: 'invoice.png',
+              token: 'tok-update',
+              path: 'table/tok-update',
+              size: 456,
+              mimetype: 'image/png',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes[0]?.change).toEqual({
+      type: 'set',
+      path: ['fields', attachmentFieldId],
+      oldValue: [],
+      value: [
+        expect.objectContaining({
+          token: 'tok-update',
+          presignedUrl: '/preview/tok-update',
+          smThumbnailUrl: '/preview/tok-update_sm',
+          lgThumbnailUrl: '/preview/tok-update_lg',
+        }),
+      ],
     });
   });
 
