@@ -7,6 +7,7 @@ import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '..
 import { DefaultErrorLabel } from '../component';
 import { BaseSingleSelect } from '../component/base/BaseSingleSelect';
 import { useFields } from '../hooks/useFields';
+import { useFilterModal } from '../hooks/useFilterModal';
 import type { IViewFilterConditionItem } from '../types';
 
 interface IFieldSelectProps<T extends IConditionItemProperty = IViewFilterConditionItem>
@@ -16,7 +17,8 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
   props: IFieldSelectProps<T>
 ) => {
   const fields = useFields();
-  const { path, value, modal = true, item } = props;
+  const ctxModal = useFilterModal();
+  const { path, value, modal = ctxModal, item } = props;
   const { onChange } = useCrud();
   const options = useMemo(() => {
     return fields.map((field) => ({

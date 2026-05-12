@@ -148,7 +148,10 @@ class FakeTableCreationService {
     if (persisted.isErr()) {
       return persisted;
     }
-    return this.provisionData(context, { ...input, persistedTables: persisted.value.persistedTables });
+    return this.provisionData(context, {
+      ...input,
+      persistedTables: persisted.value.persistedTables,
+    });
   }
 }
 

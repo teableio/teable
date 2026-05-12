@@ -5,6 +5,7 @@ import type { IFilterComponents } from '../../index';
 import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '../../types';
 import { useViewFilterContext } from '../hooks';
 import { useFields } from '../hooks/useFields';
+import { useFilterModal } from '../hooks/useFilterModal';
 import type { IViewFilterConditionItem } from '../types';
 import { BaseFieldValue } from './BaseFieldValue';
 import type { IFilterReferenceSource } from './BaseFieldValue';
@@ -18,7 +19,8 @@ interface IFieldValue<T extends IConditionItemProperty = IViewFilterConditionIte
 export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IFieldValue<T>
 ) => {
-  const { path, components, value, item, modal, referenceSource } = props;
+  const ctxModal = useFilterModal();
+  const { path, components, value, item, modal = ctxModal, referenceSource } = props;
   const fields = useFields();
   const { onChange } = useCrud();
   const linkContext = useViewFilterContext();

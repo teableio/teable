@@ -63,6 +63,7 @@ describe('logical functions', () => {
       { name: 'NumberNotEqualsBlank', expression: '{Number} != BLANK()' },
       { name: 'NumberBlankIf', expression: 'IF({Number} = BLANK(), 1, 2)' },
       { name: 'BlankNumberIf', expression: 'IF(BLANK() = {Number}, 1, 2)' },
+      { name: 'NumberLessEqualLiteral', expression: '{Number} <= 0.1132' },
     ];
     testTable = await createFormulaTestTable(container, formulaFields);
   });
@@ -136,5 +137,13 @@ describe('logical functions', () => {
 
     await expect(executeFormulaAsText(testTable, 'NumberBlankIf')).resolves.toBe('2');
     await expect(executeFormulaAsText(testTable, 'BlankNumberIf')).resolves.toBe('2');
+  });
+
+  it('compares numeric operands without loose text parsing SQL', async () => {
+    const context = await buildFormulaSnapshotContext(testTable, 'NumberLessEqualLiteral');
+
+    expect(context.sql).not.toContain('pg_input_is_valid');
+    expect(context.sql).not.toContain('REGEXP_REPLACE');
+    expect(context.sql).toContain('COALESCE');
   });
 });

@@ -382,9 +382,6 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
         return this.missingForeignTableExpr(field);
       }
       const isMultiValue = field.relationship().isMultipleValue();
-      if (field.hasError().isError()) {
-        return this.erroredFieldExpr(field, { isArray: isMultiValue, storageKind: 'json' });
-      }
       // Use the stored link snapshot for formula references. Recomputing the link through the
       // foreign display field can drop title when the foreign primary is itself stale/empty.
       return ok(
@@ -413,12 +410,25 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       const exprOptionsResult = this.getLookupExprOptions(field);
       if (exprOptionsResult.isErr()) return err(exprOptionsResult.error);
       const exprOptions = exprOptionsResult.value;
-      if (field.hasError().isError()) {
-        return this.erroredFieldExpr(field, exprOptions);
-      }
       const condition = field.lookupOptions().condition();
       const linkFieldResult = field.linkField(this.table);
       if (linkFieldResult.isErr()) return this.erroredFieldExpr(field, exprOptions);
+      // Formula references should prefer the stored lookup snapshot when metadata is marked
+      // errored but the local link dependency still resolves. This preserves existing values
+      // for stale error flags while truly broken lookups still return an error above.
+      if (field.hasError().isError()) {
+        return ok(
+          makeExpr(
+            this.qualify(this.tableAlias, colAlias),
+            exprOptions.valueType,
+            exprOptions.isArray,
+            undefined,
+            undefined,
+            field,
+            exprOptions.storageKind
+          )
+        );
+      }
       const linkField = linkFieldResult.value;
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
