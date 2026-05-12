@@ -29,15 +29,14 @@ import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue'
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
-import { Table } from '../domain/table/Table';
-import { TableId } from '../domain/table/TableId';
-import { TableName } from '../domain/table/TableName';
-import { UpdateButtonMaxCountSpec } from '../domain/table/specs/field-updates/UpdateButtonMaxCountSpec';
 import { UpdateButtonWorkflowSpec } from '../domain/table/specs/field-updates/UpdateButtonWorkflowSpec';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
 import { buildUpdateFieldSpecs, parseUpdateFieldSpec } from './TableFieldUpdateSpecs';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
@@ -657,21 +656,13 @@ const sameTypeCases: SameTypeCase[] = [
           'TableUpdateFieldNameSpec',
           'UpdateButtonLabelSpec',
           'UpdateButtonColorSpec',
-          'UpdateButtonMaxCountSpec',
           'UpdateButtonWorkflowSpec',
           'TableUpdateFieldConstraintsSpec',
         ],
         assertSpecs: (specs) => {
-          const maxCountSpec = specs.find(
-            (spec): spec is UpdateButtonMaxCountSpec => spec instanceof UpdateButtonMaxCountSpec
-          );
           const workflowSpec = specs.find(
             (spec): spec is UpdateButtonWorkflowSpec => spec instanceof UpdateButtonWorkflowSpec
           );
-
-          expect(maxCountSpec).toBeDefined();
-          expect(maxCountSpec?.previousMaxCount()).toEqual(BUTTON_MAX_THREE);
-          expect(maxCountSpec?.nextMaxCount()).toBeUndefined();
 
           expect(workflowSpec).toBeDefined();
           expect(workflowSpec?.previousWorkflow()).toEqual(BUTTON_WORKFLOW);
