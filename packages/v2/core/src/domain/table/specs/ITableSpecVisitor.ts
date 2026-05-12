@@ -7,6 +7,7 @@ import type {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateCheckboxDefaultValueSpec,
   UpdateDateDefaultValueSpec,
@@ -143,6 +144,7 @@ export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitUpdateButtonLabel(spec: UpdateButtonLabelSpec): Result<TResult, DomainError>;
   visitUpdateButtonColor(spec: UpdateButtonColorSpec): Result<TResult, DomainError>;
   visitUpdateButtonMaxCount(spec: UpdateButtonMaxCountSpec): Result<TResult, DomainError>;
+  visitUpdateButtonResetCount(spec: UpdateButtonResetCountSpec): Result<TResult, DomainError>;
   visitUpdateButtonWorkflow(spec: UpdateButtonWorkflowSpec): Result<TResult, DomainError>;
 
   // ============ SingleSelect Update specs ============

@@ -616,6 +616,17 @@
         "searchModel": "Modelo de búsqueda ...",
         "selectModel": "Seleccionar modelo ...",
         "defaultModel": "{{name}} (Predeterminado)",
+        "moreModels": "Más modelos",
+        "agentModelWarningTitle": "Elige los modelos con cuidado",
+        "agentModelWarningDescription": "Los modelos recomendados arriba están optimizados para tareas de agente como uso de herramientas y razonamiento de varios pasos. Otros modelos pueden tener capacidades limitadas y producir resultados inesperados.",
+        "agentModelWarningConfirm": "Entendido",
+        "recommendedModelNudge": {
+          "title": "Prueba {{model}}",
+          "description": "Obtén mejores resultados de AI con un consumo de créditos mucho menor.",
+          "use": "Usar {{model}}",
+          "later": "Más tarde"
+        },
+        "noModelsAvailable": "No hay modelos disponibles",
         "input": "Aporte {{ratio}}",
         "output": "Producción {{ratio}}",
         "inputOrOutputTip": "La proporción representa la tasa de cambio entre créditos y tokens, por ejemplo, \"1:1000\" significa que 1 crédito ≈ 1000 tokens.<br></br>Nota: Cada uso deducirá al menos 1 crédito. Incluso si el consumo real es menos de 1 crédito, se le cobrará como 1 crédito.",
@@ -1108,9 +1119,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ACTUALIZACIÓN 28 ABR",
-    "title": "Nuevo disparador: Al recibir un correo electrónico (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "ACTUALIZACION DEL 12 DE MAYO",
+    "title": "Inicio de sesion integrado para App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

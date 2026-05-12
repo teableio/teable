@@ -16,7 +16,12 @@ import {
   isLinkLookupOptions,
   StatisticsFunc,
 } from '@teable/core';
-import { type IPlanFieldConvertVo, getAggregation } from '@teable/openapi';
+import {
+  BaseNodeResourceType,
+  type IBaseNodeTableResourceMeta,
+  type IPlanFieldConvertVo,
+  getAggregation,
+} from '@teable/openapi';
 import { useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
@@ -26,8 +31,10 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useBaseNodeContext } from '../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
+import { LoginAppWarning } from '../../components/LoginAppWarning';
 import type { AiAutoFillMode } from './dialog/AiAutoFillDialog';
 import { AiAutoFillDialog } from './dialog/AiAutoFillDialog';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
@@ -128,6 +135,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
+  const [loginConvertVisible, setLoginConvertVisible] = useState<boolean>(false);
   const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
@@ -138,6 +146,17 @@ export const FieldSetting = (props: IFieldSetting) => {
   }>({ isLoading: false });
   const autoFillModeRef = useRef<AiAutoFillMode | null>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const { treeItems } = useBaseNodeContext();
+  const loginAppsForField = useMemo(() => {
+    if (operator !== FieldOperator.Edit || !props.field?.id) return undefined;
+    const node = Object.values(treeItems).find(
+      (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === tableId
+    );
+    const meta = node?.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+    const apps = meta?.loginApps?.filter((a) => a.emailFieldId === props.field?.id);
+    return apps?.length ? apps : undefined;
+  }, [treeItems, tableId, operator, props.field?.id]);
 
   const getEditFieldId = () => {
     if (operator !== FieldOperator.Edit) {
@@ -290,6 +309,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     return await planFieldCreate({ tableId, fieldRo });
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const onConfirm = async (fieldRo?: IFieldRo) => {
     if (!fieldRo) {
       return onCancel();
@@ -326,8 +346,14 @@ export const FieldSetting = (props: IFieldSetting) => {
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
+    const isTypeChanging =
+      operator === FieldOperator.Edit && props.field?.type && fieldRo.type !== props.field.type;
     if (estimateTime > 1000 || linkFieldCount > 0) {
       setGraphVisible(true);
+      return;
+    }
+    if (isTypeChanging && loginAppsForField) {
+      setLoginConvertVisible(true);
       return;
     }
     await performAction(fieldRo);
@@ -360,6 +386,14 @@ export const FieldSetting = (props: IFieldSetting) => {
         onOpenChange={setGraphVisible}
         content={
           <>
+            {loginAppsForField && fieldRo?.type !== props.field?.type && (
+              <div className="mb-2">
+                <LoginAppWarning
+                  message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
+                  apps={loginAppsForField}
+                />
+              </div>
+            )}
             <DynamicFieldGraph tableId={tableId} fieldId={props.field?.id} fieldRo={fieldRo} />
             <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
           </>
@@ -368,6 +402,24 @@ export const FieldSetting = (props: IFieldSetting) => {
         confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
         onConfirm={() => performAction(fieldRo as IFieldRo)}
+      />
+      <ConfirmDialog
+        title={t('table:field.editor.confirmFieldChange')}
+        open={loginConvertVisible}
+        onOpenChange={setLoginConvertVisible}
+        content={
+          <LoginAppWarning
+            message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
+            apps={loginAppsForField ?? []}
+          />
+        }
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.confirm')}
+        onCancel={() => setLoginConvertVisible(false)}
+        onConfirm={() => {
+          setLoginConvertVisible(false);
+          performAction(fieldRo as IFieldRo);
+        }}
       />
       <AiAutoFillDialog
         open={aiConfirmVisible}
