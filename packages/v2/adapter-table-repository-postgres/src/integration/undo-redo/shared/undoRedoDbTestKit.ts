@@ -21,6 +21,7 @@ import {
   type Table,
   type DomainError,
   type IPublicCommand,
+  type TableDataSafetyLimitConfig,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely } from 'kysely';
@@ -68,8 +69,12 @@ const unwrap = <T, E extends { message: string }>(result: Result<T, E>, label: s
 
 export type UndoRedoDbHarness = Awaited<ReturnType<typeof createUndoRedoDbHarness>>;
 
-export const createUndoRedoDbHarness = async () => {
-  const testContainer = await createV2NodeTestContainer();
+export const createUndoRedoDbHarness = async (options?: {
+  tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+}) => {
+  const testContainer = await createV2NodeTestContainer({
+    tableDataSafetyLimits: options?.tableDataSafetyLimits,
+  });
   const probe = new CommandProbeMiddleware();
 
   testContainer.container.registerInstance(

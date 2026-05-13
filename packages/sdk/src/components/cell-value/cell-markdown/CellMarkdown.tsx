@@ -1,6 +1,5 @@
-import { cn } from '@teable/ui-lib';
+import { cn, MarkdownReadonly } from '@teable/ui-lib';
 import { memo } from 'react';
-import { MarkdownReadonly } from '../../editor/long-text/MarkdownReadonly';
 import type { ICellValue } from '../type';
 
 interface ICellMarkdown extends ICellValue<string> {}

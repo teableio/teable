@@ -1,3 +1,4 @@
+import { getRandomString } from '@teable/core';
 import { DeepThinking, Eye, ImageGeneration, Audio } from '@teable/icons';
 import type {
   IGatewayModel,
@@ -11,6 +12,7 @@ import {
   getImageModelTagsFromAbility,
   getImageModelConfig,
   getKnownImageModelAbility,
+  BYOK_PROVIDER_NAME_PREFIX,
   LLMProviderType,
 } from '@teable/openapi';
 import type { TFunction } from 'next-i18next';
@@ -25,6 +27,9 @@ export const parseProviderModels = (models: string | undefined): string[] =>
     ?.split(',')
     .map((model) => model.trim())
     .filter(Boolean) ?? [];
+
+export const generateByokProviderName = () =>
+  `${BYOK_PROVIDER_NAME_PREFIX}${getRandomString(4).toLowerCase()}`;
 
 const compactModelConfig = (config: IModelConfig): IModelConfig =>
   Object.fromEntries(

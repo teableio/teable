@@ -9,6 +9,7 @@ import {
 } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { Button, Label, Switch } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { RotateCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -31,10 +32,11 @@ export interface ISettingPageProps {
   settingServerData?: ISettingVo;
   rewardManage?: React.ReactNode;
   canarySettings?: React.ReactNode;
+  limitSettings?: React.ReactNode;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData, rewardManage, canarySettings } = props;
+  const { settingServerData, rewardManage, canarySettings, limitSettings } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -43,10 +45,11 @@ export const SettingPage = (props: ISettingPageProps) => {
     queryFn: () => getSetting().then(({ data }) => data),
   });
 
-  const { mutateAsync: mutateUpdateSetting } = useMutation({
+  const { mutateAsync: mutateUpdateSetting, isPending: isUpdatingSetting } = useMutation({
     mutationFn: (props: IUpdateSettingRo) => updateSetting(props),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setting'] });
+      toast.success(t('actions.saveSucceed'));
     },
   });
 
@@ -60,7 +63,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   });
 
   const onValueChange = (key: string, value: unknown) => {
-    mutateUpdateSetting({ [key]: value });
+    return mutateUpdateSetting({ [key]: value });
   };
 
   const emailRef = useRef<HTMLDivElement>(null);
@@ -193,7 +196,8 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <Switch
                   id="allow-sign-up"
                   checked={!disallowSignUp}
-                  onCheckedChange={(checked) => onValueChange('disallowSignUp', !checked)}
+                  onCheckedChange={(checked) => void onValueChange('disallowSignUp', !checked)}
+                  disabled={isUpdatingSetting}
                 />
               </div>
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
@@ -208,7 +212,10 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <Switch
                   id="allow-space-invitation"
                   checked={!disallowSpaceInvitation}
-                  onCheckedChange={(checked) => onValueChange('disallowSpaceInvitation', !checked)}
+                  onCheckedChange={(checked) =>
+                    void onValueChange('disallowSpaceInvitation', !checked)
+                  }
+                  disabled={isUpdatingSetting}
                 />
               </div>
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
@@ -223,7 +230,10 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <Switch
                   id="allow-space-creation"
                   checked={!disallowSpaceCreation}
-                  onCheckedChange={(checked) => onValueChange('disallowSpaceCreation', !checked)}
+                  onCheckedChange={(checked) =>
+                    void onValueChange('disallowSpaceCreation', !checked)
+                  }
+                  disabled={isUpdatingSetting}
                 />
               </div>
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
@@ -238,7 +248,10 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <Switch
                   id="enable-email-verification"
                   checked={Boolean(enableEmailVerification)}
-                  onCheckedChange={(checked) => onValueChange('enableEmailVerification', checked)}
+                  onCheckedChange={(checked) =>
+                    void onValueChange('enableEmailVerification', checked)
+                  }
+                  disabled={isUpdatingSetting}
                 />
               </div>
             </div>
@@ -258,7 +271,8 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <Switch
                     id="enable-waitlist"
                     checked={Boolean(enableWaitlist)}
-                    onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
+                    onCheckedChange={(checked) => void onValueChange('enableWaitlist', checked)}
+                    disabled={isUpdatingSetting}
                   />
                 </div>
                 {enableWaitlist && (
@@ -286,6 +300,8 @@ export const SettingPage = (props: ISettingPageProps) => {
 
           {canarySettings ?? <CanarySettings setting={setting} />}
 
+          {limitSettings}
+
           {/* email config */}
           <div className="pb-6" ref={emailRef}>
             <h2 className="mb-4 text-lg font-medium">{t('email.config')}</h2>
@@ -304,7 +320,10 @@ export const SettingPage = (props: ISettingPageProps) => {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => onValueChange(SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG, null)}
+                      onClick={() =>
+                        void onValueChange(SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG, null)
+                      }
+                      disabled={isUpdatingSetting}
                     >
                       <RotateCcwIcon className="size-4" />
                     </Button>
@@ -312,6 +331,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <MailConfigDialog
                     name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
                     emailConfig={setting.notifyMailTransportConfig ?? undefined}
+                    disabled={isUpdatingSetting}
                   />
                 </div>
               </div>
@@ -331,8 +351,9 @@ export const SettingPage = (props: ISettingPageProps) => {
                       variant="outline"
                       size="icon"
                       onClick={() =>
-                        onValueChange(SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG, null)
+                        void onValueChange(SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG, null)
                       }
+                      disabled={isUpdatingSetting}
                     >
                       <RotateCcwIcon className="size-4" />
                     </Button>
@@ -340,6 +361,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <MailConfigDialog
                     name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
                     emailConfig={setting.automationMailTransportConfig ?? undefined}
+                    disabled={isUpdatingSetting}
                   />
                 </div>
               </div>
@@ -356,7 +378,8 @@ export const SettingPage = (props: ISettingPageProps) => {
             <Branding
               brandName={brandName}
               brandLogo={brandLogo}
-              onChange={(brandName) => onValueChange('brandName', brandName)}
+              onChange={(brandName) => void onValueChange('brandName', brandName)}
+              disabled={isUpdatingSetting}
             />
           )}
 
