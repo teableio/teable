@@ -7,20 +7,27 @@ import {
   completeTableSchemaOperation,
   failTableSchemaOperation,
 } from '../application/services/TableSchemaOperationLifecycleService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { LinkField } from '../domain/table/fields/types/LinkField';
+import { RecordCreated, isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
+import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
-import { RecordCreated, isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { ITableMapper } from '../ports/mappers/TableMapper';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordRestoreSystemValues } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -71,7 +78,18 @@ export class DuplicateTableHandler
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    )
   ) {}
 
   @TraceSpan()
@@ -90,6 +108,17 @@ export class DuplicateTableHandler
         mapper: handler.tableMapper,
         newName: command.name,
       });
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.duplicate,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tableName: command.name,
+          includeRecords: command.includeRecords,
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
 
       let records: ReadonlyArray<TableRecord> = [];
       let restoreRecordsById: ReadonlyMap<string, RecordRestoreSystemValues> | undefined;
@@ -135,6 +164,20 @@ export class DuplicateTableHandler
             );
 
             if (records.length > 0) {
+              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+                kind: RecordWriteOperationKind.createMany,
+                executionContext: dataTransactionContext,
+                table: persistedTable,
+                payload: {
+                  recordsFieldValues: records.map(tableRecordToRecordWriteFieldValues),
+                  fieldKeyType: FieldKeyType.Id,
+                  typecast: false,
+                  recordCount: records.length,
+                },
+                isTransactionBound: true,
+              });
+              yield* await pluginExecution.guard();
+              yield* await pluginExecution.beforePersist(dataTransactionContext);
               yield* await handler.tableRecordRepository.insertMany(
                 dataTransactionContext,
                 persistedTable,
@@ -280,6 +323,14 @@ export class DuplicateTableHandler
     });
   }
 }
+
+const tableRecordToRecordWriteFieldValues = (record: TableRecord): ReadonlyMap<string, unknown> =>
+  new Map(
+    record
+      .fields()
+      .entries()
+      .map((entry) => [entry.fieldId.toString(), entry.value.toValue()] as const)
+  );
 
 const remapRecordOrders = (
   sourceOrders: Record<string, number> | undefined,

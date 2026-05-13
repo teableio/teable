@@ -28,6 +28,7 @@ import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
+import { DataDbClientManager } from './data-db-client-manager.service';
 import { DatabaseRouter } from './database-router.service';
 import { KnexModule } from './knex';
 
@@ -91,6 +92,7 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
+    DataDbClientManager,
     DatabaseRouter,
     RequestInfoMiddleware,
     {
@@ -106,7 +108,14 @@ const globalModules = {
       useClass: RouteTracingInterceptor,
     },
   ],
-  exports: [DbProvider, DatabaseRouter, KnexModule, PrismaModule, DataPrismaModule],
+  exports: [
+    DbProvider,
+    DataDbClientManager,
+    DatabaseRouter,
+    KnexModule,
+    PrismaModule,
+    DataPrismaModule,
+  ],
 };
 
 @Global()

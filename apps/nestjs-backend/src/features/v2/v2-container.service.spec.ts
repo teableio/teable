@@ -19,8 +19,10 @@ import { CacheService } from '../../cache/cache.service';
 import { thresholdConfig } from '../../configs/threshold.config';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 import { V2ContainerService } from './v2-container.service';
+import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
+
+const fallbackDatabaseUrl = 'postgres://fallback-db';
 
 const mocks = vi.hoisted(() => ({
   createV2NodePgContainer: vi.fn(),
@@ -272,6 +274,51 @@ describe('V2ContainerService', () => {
     );
   });
 
+  it('parses string row-limit config before creating the shared container', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'MAX_FREE_ROW_LIMIT') {
+        return '10';
+      }
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxFreeRowLimit: 10,
+      })
+    );
+  });
+
+  it('prefers system row-limit config over the legacy free-row alias', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'TABLE_LIMIT_RECORDS_PER_TABLE_MAX') {
+        return '8';
+      }
+      if (key === 'MAX_FREE_ROW_LIMIT') {
+        return '10';
+      }
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableMaxRowLimit: 8,
+      })
+    );
+  });
+
   it('falls back to DATABASE_URL when neither meta nor legacy alias is configured', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
@@ -280,15 +327,15 @@ describe('V2ContainerService', () => {
     configService.get.mockReturnValue(undefined);
     configService.getOrThrow.mockImplementation((key: string) => {
       expect(key).toBe('DATABASE_URL');
-      return 'postgres://fallback-db';
+      return fallbackDatabaseUrl;
     });
 
     await service.getContainer();
 
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
       expect.objectContaining({
-        metaConnectionString: 'postgres://fallback-db',
-        dataConnectionString: 'postgres://fallback-db',
+        metaConnectionString: fallbackDatabaseUrl,
+        dataConnectionString: fallbackDatabaseUrl,
       })
     );
   });

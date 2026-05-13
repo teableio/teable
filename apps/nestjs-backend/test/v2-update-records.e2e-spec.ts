@@ -1,7 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType, NotificationTypeEnum, Role as baseRole } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IUserMeVo } from '@teable/openapi';
+import {
+  deleteBaseCollaborator,
+  emailBaseInvitation,
+  PrincipalType,
+  USER_ME,
+} from '@teable/openapi';
 import { updateRecordsOkResponseSchema } from '@teable/v2-contract-http';
 
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   convertField,
   createRecords,
@@ -15,6 +24,7 @@ describe('V2Controller updateRecords (e2e)', () => {
   let app: INestApplication;
   let appUrl: string;
   let cookie: string;
+  let prisma: PrismaService;
 
   const baseId = globalThis.testConfig.baseId;
 
@@ -23,6 +33,7 @@ describe('V2Controller updateRecords (e2e)', () => {
     app = appCtx.app;
     appUrl = appCtx.appUrl;
     cookie = appCtx.cookie;
+    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
@@ -96,6 +107,39 @@ describe('V2Controller updateRecords (e2e)', () => {
     );
   };
 
+  const waitForCollaboratorNotification = async (params: {
+    tableId: string;
+    recordId: string;
+    toUserId: string;
+  }) => {
+    const { tableId, recordId, toUserId } = params;
+    const deadline = Date.now() + 5000;
+
+    while (Date.now() < deadline) {
+      const notification = await prisma.notification.findFirst({
+        where: {
+          fromUserId: globalThis.testConfig.userId,
+          toUserId,
+          type: NotificationTypeEnum.CollaboratorCellTag,
+          urlPath: {
+            contains: tableId,
+          },
+        },
+        orderBy: {
+          createdTime: 'desc',
+        },
+      });
+
+      if (notification?.urlPath?.includes(recordId)) {
+        return notification;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    return null;
+  };
+
   it('updates records through /api/v2/tables/updateRecords', async () => {
     const table = await createTable(baseId, {
       name: 'v2 update records',
@@ -142,7 +186,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -183,6 +227,131 @@ describe('V2Controller updateRecords (e2e)', () => {
     }
   });
 
+  it('sends collaborator notification when v2 updateRecords adds a user field assignee', async () => {
+    const assigneeEmail = `v2-collaborator-${Date.now()}@example.com`;
+    const assigneeAxios = await createNewUserAxios({
+      email: assigneeEmail,
+      password: '12345678',
+    });
+    const assignee = (await assigneeAxios.get<IUserMeVo>(USER_ME)).data;
+
+    await emailBaseInvitation({
+      baseId,
+      emailBaseInvitationRo: {
+        emails: [assigneeEmail],
+        role: baseRole.Editor,
+      },
+    });
+
+    const table = await createTable(baseId, {
+      name: 'v2 collaborator notification',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+        {
+          name: 'Assignee',
+          type: FieldType.User,
+          options: {
+            isMultiple: false,
+            shouldNotify: true,
+          },
+        },
+      ],
+    });
+
+    try {
+      const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+      const assigneeFieldId = table.fields.find((field) => field.name === 'Assignee')?.id ?? '';
+
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'Alpha',
+            },
+          },
+        ],
+      });
+      const recordId = records[0]?.id;
+      expect(recordId).toBeTruthy();
+      if (!recordId) return;
+
+      await prisma.notification.deleteMany({
+        where: {
+          fromUserId: globalThis.testConfig.userId,
+          toUserId: assignee.id,
+          type: NotificationTypeEnum.CollaboratorCellTag,
+          urlPath: {
+            contains: table.id,
+          },
+        },
+      });
+
+      const response = await fetch(`${appUrl}/api/v2/tables/updateRecords`, {
+        method: 'POST',
+        headers: {
+          cookie,
+          ['content-type']: 'application/json',
+        },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [assigneeFieldId]: {
+              id: assignee.id,
+              title: assignee.name,
+              email: assignee.email,
+            },
+          },
+          filter: {
+            fieldId: titleFieldId,
+            operator: 'is',
+            value: 'Alpha',
+          },
+        }),
+      });
+
+      expect(response.status).toBe(200);
+
+      const rawBody = await response.json();
+      const parsed = updateRecordsOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+
+      expect(parsed.data.data.updatedCount).toBe(1);
+
+      const notification = await waitForCollaboratorNotification({
+        tableId: table.id,
+        recordId,
+        toUserId: assignee.id,
+      });
+
+      expect(notification).toMatchObject({
+        fromUserId: globalThis.testConfig.userId,
+        toUserId: assignee.id,
+        type: NotificationTypeEnum.CollaboratorCellTag,
+        createdBy: globalThis.testConfig.userId,
+      });
+    } finally {
+      await prisma.notification.deleteMany({
+        where: {
+          fromUserId: globalThis.testConfig.userId,
+          toUserId: assignee.id,
+          urlPath: {
+            contains: table.id,
+          },
+        },
+      });
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: assignee.id,
+          principalType: PrincipalType.User,
+        },
+      }).catch(() => undefined);
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
+
   it('updates records through /api/v2/tables/updateRecords with nested filter groups', async () => {
     const { table, titleFieldId, amountFieldId, statusFieldId } = await createFilterVariantTable(
       'v2 update records nested filters'
@@ -193,7 +362,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -258,7 +427,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -337,7 +506,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -421,7 +590,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -505,7 +674,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -548,7 +717,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,
@@ -631,7 +800,7 @@ describe('V2Controller updateRecords (e2e)', () => {
         method: 'POST',
         headers: {
           cookie,
-          'content-type': 'application/json',
+          ['content-type']: 'application/json',
         },
         body: JSON.stringify({
           tableId: table.id,

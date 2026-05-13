@@ -613,6 +613,17 @@
         "searchModel": "Suche Modell...",
         "selectModel": "Wähle Modell...",
         "defaultModel": "{{name}} (Standard)",
+        "moreModels": "Weitere Modelle",
+        "agentModelWarningTitle": "Modelle sorgfältig auswählen",
+        "agentModelWarningDescription": "Die oben empfohlenen Modelle sind für Agent-Aufgaben wie Tool-Nutzung und mehrstufiges Reasoning optimiert. Andere Modelle haben möglicherweise eingeschränkte Fähigkeiten und können zu unerwarteten Ergebnissen führen.",
+        "agentModelWarningConfirm": "Verstanden",
+        "recommendedModelNudge": {
+          "title": "{{model}} ausprobieren",
+          "description": "Bessere AI-Ergebnisse mit deutlich geringerem Credit-Verbrauch erzielen.",
+          "use": "{{model}} verwenden",
+          "later": "Später"
+        },
+        "noModelsAvailable": "Keine Modelle verfügbar",
         "input": "Eingabe {{ratio}}",
         "output": "Ausgabe {{ratio}}",
         "inputOrOutputTip": "Das Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet.",
@@ -902,6 +913,16 @@
             "warning90": {
               "title": "Space {{spaceName}} KI-Guthaben 90 % verwendet",
               "message": "Ihr Space hat 90 % des KI-Guthabens verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}}: ungewöhnlicher Anstieg des KI-Guthabens erkannt",
+                "message": "Die heutige KI-Guthaben-Nutzung ({{todayValue}}) beträgt das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf unerwartete Aktivität hinweisen. Bitte überprüfen Sie Ihre Nutzung. Top-Beitragende: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}}: KI-Guthaben-Burst erkannt",
+                "message": "{{recentValue}} KI-Guthaben in den letzten {{windowMinutes}} Minuten verbraucht, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf unerwartete Aktivität hinweisen. Top-Beitragende: {{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -916,6 +937,16 @@
             "gracePeriod": {
               "title": "Space {{spaceName}} Automatisierungsläufe überschritten – Karenzzeit aktiv",
               "message": "Ihr Kontingent an Automatisierungsläufen wurde überschritten. Automatisierungen werden in {{remainingHours}} Stunden gestoppt und deaktiviert. Bitte upgraden Sie Ihren Plan."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}}: ungewöhnlicher Anstieg der Automatisierungsläufe",
+                "message": "Die heutigen Automatisierungsläufe ({{todayValue}}) betragen das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf eine außer Kontrolle geratene Automatisierung hinweisen. Bitte überprüfen Sie Ihre Workflows. Top-Beitragende: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}}: Automatisierungslauf-Burst erkannt",
+                "message": "{{recentValue}} Automatisierungsläufe in den letzten {{windowMinutes}} Minuten erkannt, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf eine Schleife oder Fehlkonfiguration hinweisen. Top-Beitragende: {{topContributors}}"
+              }
             }
           }
         },
@@ -933,8 +964,26 @@
             "failed": {
               "title": "KI-Aufgabe in Tabelle {{tableName}} fehlgeschlagen",
               "message": "Die KI-Aufgabe für Feld {{fieldName}} in Tabelle {{tableName}} (Datensatz-ID: {{recordId}}) ist fehlgeschlagen.\n\n{{errorMsg}}\n\nKlicken Sie auf die Schaltfläche unten, um Details anzuzeigen."
+            },
+            "cancelled": {
+              "title": "KI-Aufgabe abgebrochen",
+              "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
+              "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
+              "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
+              "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Prämienantrag abgelehnt",
+          "message": "Ihr Prämienantrag für <a href=\"{{spaceUrl}}\">{{spaceName}}</a> wurde aus folgendem Grund/folgenden Gründen abgelehnt: {{errorMessages}}. Bitte überprüfen und erneut einreichen.",
+          "buttonText": "Space anzeigen"
+        },
+        "rewardApproved": {
+          "title": "Prämienantrag genehmigt",
+          "message": "Herzlichen Glückwunsch! Ihr Prämienantrag für <a href=\"{{spaceUrl}}\">{{spaceName}}</a> wurde genehmigt. {{amount}} Guthaben wurden hinzugefügt, gültig für {{expiredDays}} Tage.",
+          "buttonText": "Space anzeigen"
         }
       }
     }
@@ -1105,9 +1154,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "28. APR UPDATE",
-    "title": "Neuer Trigger: Beim E-Mail-Empfang (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "UPDATE VOM 12. MAI",
+    "title": "Integrierte Anmeldung fuer App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

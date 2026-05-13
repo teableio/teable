@@ -20,8 +20,10 @@ const buildFieldSpec = (
 const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
   config: {
-    selectFieldOptions: {
-      maxChoicesPerField,
+    tableLimits: {
+      fieldOptions: {
+        maxSelectChoices: maxChoicesPerField,
+      },
     },
   },
 });

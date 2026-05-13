@@ -4,7 +4,7 @@ import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
 } from '@teable/v2-contract-http';
-import { CreateTableCommand } from '@teable/v2-core';
+import { CreateTableCommand, getExecutionContextTranslator } from '@teable/v2-core';
 import type { CreateTableResult, ICommandBus, IExecutionContext } from '@teable/v2-core';
 
 export const executeCreateTableEndpoint = async (
@@ -13,7 +13,7 @@ export const executeCreateTableEndpoint = async (
   commandBus: ICommandBus
 ): Promise<ICreateTableEndpointResult> => {
   const commandResult = CreateTableCommand.create(rawBody, {
-    t: context.$t,
+    t: getExecutionContextTranslator(context),
     executionContext: context,
   });
   if (commandResult.isErr()) {

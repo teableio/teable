@@ -9,7 +9,7 @@ import { SpaceSettingTab } from './types';
 interface ISpaceInnerSettingModalProps {
   open?: boolean;
   setOpen?: (open: boolean) => void;
-  defaultTab?: SpaceSettingTab;
+  defaultTab?: UnifiedSettingTab;
   children: React.ReactNode;
 }
 

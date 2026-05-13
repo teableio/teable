@@ -21,7 +21,7 @@ import {
   type IUpdateFieldRo,
   type IViewVo,
 } from '@teable/core';
-import type { IDuplicateFieldRo } from '@teable/openapi';
+import type { IDuplicateFieldRo, IPlanFieldVo } from '@teable/openapi';
 import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
@@ -331,9 +331,6 @@ export class FieldOpenApiV2Service {
       const buttonOpts = vo.options as Record<string, unknown>;
       if (buttonOpts.maxCount === 10 || buttonOpts.maxCount === '10') {
         delete buttonOpts.maxCount;
-      }
-      if (buttonOpts.resetCount === true || buttonOpts.resetCount === 'true') {
-        delete buttonOpts.resetCount;
       }
     }
 
@@ -1341,6 +1338,13 @@ export class FieldOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  planFieldCreate(): IPlanFieldVo {
+    return {
+      estimateTime: 0,
+      updateCellCount: 0,
+    };
   }
 
   async createFields(tableId: string, fieldRos: IFieldRo[]): Promise<IFieldVo[]> {
