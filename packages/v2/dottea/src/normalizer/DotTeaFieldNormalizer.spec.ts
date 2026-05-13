@@ -264,6 +264,81 @@ describe('DotTeaFieldNormalizer', () => {
     expect(normalized.type).toBe('singleLineText');
   });
 
+  it('preserves required many-one link fields from dottea exports', () => {
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const primaryFieldId = `fld${'p'.repeat(16)}`;
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const lookupFieldId = `fld${'v'.repeat(16)}`;
+
+    const normalized = normalizeField(
+      {
+        id: linkFieldId,
+        type: 'link',
+        name: 'Parent',
+        dbFieldName: 'parent',
+        notNull: true,
+        unique: false,
+        options: {
+          relationship: 'manyOne',
+          foreignTableId,
+          lookupFieldId,
+          isOneWay: false,
+          fkHostTableName: `bse${'b'.repeat(16)}.${hostTableId}`,
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_parent',
+          symmetricFieldId: `fld${'s'.repeat(16)}`,
+        },
+      },
+      new Map([[lookupFieldId, 'singleLineText']]),
+      {
+        availableTableIds: new Set([hostTableId, foreignTableId]),
+        fieldIdsByTableId: new Map([[foreignTableId, new Set([lookupFieldId])]]),
+      }
+    );
+
+    expect(normalized).toMatchObject({
+      id: linkFieldId,
+      type: 'link',
+      name: 'Parent',
+      notNull: true,
+      unique: false,
+    });
+
+    const normalizedFieldInput = {
+      id: normalized.id,
+      type: normalized.type,
+      name: normalized.name,
+      dbFieldName: normalized.dbFieldName,
+      notNull: normalized.notNull,
+      unique: normalized.unique,
+      options: normalized.options,
+      config: normalized.config,
+    } as ITableFieldInput;
+
+    const result = buildTableFromInput({
+      baseId: `bse${'b'.repeat(16)}`,
+      tableId: hostTableId,
+      name: 'Review Records',
+      fields: [
+        {
+          id: primaryFieldId,
+          type: 'singleLineText',
+          name: 'Name',
+          isPrimary: true,
+        },
+        normalizedFieldInput,
+      ],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) throw new Error(result.error.message);
+    const linkField = result.value.table
+      .getFields()
+      .find((field) => field.id().toString() === linkFieldId);
+    expect(linkField?.notNull().toBoolean()).toBe(true);
+  });
+
   it('downgrades conditional relation fields when condition fields are not exported', () => {
     const foreignTableId = `tbl${'f'.repeat(16)}`;
     const lookupFieldId = `fld${'v'.repeat(16)}`;

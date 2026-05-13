@@ -415,6 +415,9 @@
     "baseInfo": "ベース情報",
     "typeOfDatabase": "データベースの種類",
     "descriptionForTable": "このテーブルの説明",
+    "loginUserTable": "アプリログイン",
+    "loginUserTableClickTips": "関連アプリを開く",
+    "linkedApps": "関連アプリ",
     "nameForTable": "このテーブルの名前",
     "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
     "deleteTip2": "このテーブルは削除後、ごみ箱から復元できます",
@@ -961,7 +964,6 @@
     "expand": "展開",
     "history": "履歴",
     "close": "折りたたむ",
-    "noModel": "利用可能なモデルがありません",
     "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
@@ -973,19 +975,22 @@
       "other": "その他"
     },
     "context": {
-      "button": "コンテキストを追加",
+      "button": "ノードを追加",
       "search": "テーブルを追加",
       "searchEmpty": "一致するコンテキストが見つかりません",
       "emptyContext": "追加するコンテキストがありません",
-      "selectionRows": "行 {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "行 {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "テーブル",
       "apps": "アプリ",
-      "workflows": "ワークフロー",
+      "workflows": "自動化",
       "folders": "フォルダ"
     },
-    "inputPlaceholder": "@ でコンテキストを追加",
+    "inputPlaceholder": "@ でノードを追加",
     "inputPlaceholderFiles": "ファイルを貼り付けまたはドロップ",
     "thought": "思考中",
     "meta": {
@@ -994,6 +999,7 @@
       "taskCompleted": "タスク完了"
     },
     "attachment": {
+      "pastedTextFileName": "貼り付けテキスト",
       "imageNotSupported": "画像はサポートされていません"
     },
     "suggestions": {

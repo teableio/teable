@@ -2,6 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -34,6 +36,7 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ImportCsvCommand } from './ImportCsvCommand';
 import { ImportCsvHandler } from './ImportCsvHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const baseId = `bse${'b'.repeat(16)}`;
 
@@ -41,6 +44,14 @@ const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
+
+const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
+  createTableOperationPluginRunner([
+    new TableDataSafetyLimitTableOperationPlugin(
+      tableRepository,
+      createDefaultTableDataSafetyLimitComposer()
+    ),
+  ]);
 
 const isAsyncIterable = <T>(value: Iterable<T> | AsyncIterable<T>): value is AsyncIterable<T> =>
   typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === 'function';
@@ -296,7 +307,9 @@ describe('ImportCsvHandler', () => {
       tableSchemaRepository,
       tableRecordRepository,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const command = ImportCsvCommand.createFromString({
@@ -330,13 +343,16 @@ describe('ImportCsvHandler', () => {
       })
     );
 
+    const tableRepository = new FakeTableRepository();
     const handler = new ImportCsvHandler(
       parser,
-      new FakeTableRepository(),
+      tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
       new FakeEventBus(),
-      new FakeUnitOfWork()
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const command = ImportCsvCommand.createFromString({
@@ -358,13 +374,16 @@ describe('ImportCsvHandler', () => {
         }),
     };
 
+    const tableRepository = new FakeTableRepository();
     const handler = new ImportCsvHandler(
       parser,
-      new FakeTableRepository(),
+      tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
       new FakeEventBus(),
-      new FakeUnitOfWork()
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const csvStream = (async function* () {
@@ -391,13 +410,16 @@ describe('ImportCsvHandler', () => {
       ok({ headers: ['Name'], rows: [], rowsAsync })
     );
 
+    const tableRepository = new FakeTableRepository();
     const handler = new ImportCsvHandler(
       parser,
-      new FakeTableRepository(),
+      tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
       new FakeEventBus(),
-      new FakeUnitOfWork()
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const csvStream = (async function* () {

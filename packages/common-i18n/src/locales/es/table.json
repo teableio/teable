@@ -421,6 +421,9 @@
     "baseInfo": "Información base",
     "typeOfDatabase": "Tipo de base de datos",
     "descriptionForTable": "Descripción para esta tabla",
+    "loginUserTable": "Inicio de sesión",
+    "loginUserTableClickTips": "Abrir aplicación relacionada",
+    "linkedApps": "Aplicaciones vinculadas",
     "nameForTable": "Nombre para esta tabla",
     "deleteTip1": "Se eliminarán los campos de enlace vinculados con esta tabla en otras tablas.",
     "deleteTip2": "Esta tabla se puede restaurar desde la basura después de la eliminación.",
@@ -976,7 +979,6 @@
     "expand": "Expandir",
     "history": "Historial",
     "close": "Contraer",
-    "noModel": "No hay modelos disponibles",
     "addAttachment": "Añadir archivo adjunto",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
@@ -988,19 +990,22 @@
       "other": "Otro"
     },
     "context": {
-      "button": "Agregar contexto",
+      "button": "Agregar nodo",
       "search": "Agregar tablas",
       "searchEmpty": "No se encontró contexto coincidente",
       "emptyContext": "No hay contexto para agregar",
-      "selectionRows": "Filas {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Filas {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Tablas",
       "apps": "Aplicaciones",
-      "workflows": "Flujos de trabajo",
+      "workflows": "Automatizaciones",
       "folders": "Carpetas"
     },
-    "inputPlaceholder": "Escribe @ para añadir contexto",
+    "inputPlaceholder": "Escribe @ para añadir nodo",
     "inputPlaceholderFiles": "Pega o suelta archivos aquí",
     "thought": "Pensando",
     "meta": {
@@ -1009,6 +1014,7 @@
       "taskCompleted": "Tarea completada"
     },
     "attachment": {
+      "pastedTextFileName": "Texto pegado",
       "imageNotSupported": "La imagen no es compatible"
     },
     "suggestions": {

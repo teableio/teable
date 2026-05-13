@@ -620,6 +620,17 @@
         "searchModel": "モデルを検索...",
         "selectModel": "モデルを選択...",
         "defaultModel": "{{name}}（デフォルト）",
+        "moreModels": "その他のモデル",
+        "agentModelWarningTitle": "モデルは慎重に選択してください",
+        "agentModelWarningDescription": "上記の推奨モデルは、ツール利用や複数ステップの推論などのエージェントタスク向けに最適化されています。その他のモデルでは機能が制限され、予期しない結果になる場合があります。",
+        "agentModelWarningConfirm": "了解",
+        "recommendedModelNudge": {
+          "title": "{{model}} を試す",
+          "description": "より少ないクレジット消費で、より良い AI 結果を得られます。",
+          "use": "{{model}} を使う",
+          "later": "後で"
+        },
+        "noModelsAvailable": "利用可能なモデルがありません",
         "input": "入力 {{ratio}}",
         "output": "出力 {{ratio}}",
         "inputOrOutputTip": "入力対出力比率は、クレジットとトークンの交換レートを表します。たとえば、「1:1000」は、1 クレジットが約 1000 トークンに等しいことを意味します。<br></br>注: 使用ごとに少なくとも 1 クレジットが差し引かれます。実際の消費量が 1 クレジット未満の場合でも、1 クレジットとして請求されます。",
@@ -909,6 +920,16 @@
             "warning90": {
               "title": "スペース {{spaceName}} AIクレジット 90% 使用済み",
               "message": "スペースのAIクレジットの90%を使用しました。中断を避けるため、早めにアップグレードしてください。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "スペース{{spaceName}}で異常なAIクレジットの急増を検出",
+                "message": "本日のAIクレジット使用量（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。使用状況をご確認ください。上位貢献者：{{topContributors}}"
+              },
+              "burst": {
+                "title": "スペース{{spaceName}}でAIクレジットのバーストを検出",
+                "message": "過去{{windowMinutes}}分間に{{recentValue}}のAIクレジットが消費されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。上位貢献者：{{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -923,6 +944,16 @@
             "gracePeriod": {
               "title": "スペース {{spaceName}} 自動化実行回数超過 - 猶予期間中",
               "message": "自動化実行回数の上限を超えました。自動化は {{remainingHours}} 時間後に停止します。プランをアップグレードしてください。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "スペース{{spaceName}}で異常な自動化実行の急増",
+                "message": "本日の自動化実行（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。自動化の暴走の可能性があります。ワークフローをご確認ください。上位貢献者：{{topContributors}}"
+              },
+              "burst": {
+                "title": "スペース{{spaceName}}で自動化実行のバーストを検出",
+                "message": "過去{{windowMinutes}}分間に{{recentValue}}の自動化実行が検出されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。ループまたは設定ミスの可能性があります。上位貢献者：{{topContributors}}"
+              }
             }
           }
         },
@@ -940,8 +971,26 @@
             "failed": {
               "title": "テーブル{{tableName}}でAIタスクが失敗しました",
               "message": "テーブル{{tableName}}のフィールド{{fieldName}}のAIタスク（レコードID：{{recordId}}）が失敗しました。\n\n{{errorMsg}}\n\n下のボタンをクリックして詳細を表示してください。"
+            },
+            "cancelled": {
+              "title": "AIタスクがキャンセルされました",
+              "rateLimit": "テーブル \"{{tableName}}\" のAIタスクは、レート制限（429）によりキャンセルされました。後でもう一度お試しください。",
+              "creditExhausted": "テーブル \"{{tableName}}\" のAIタスクは、クレジットが使い切られたためキャンセルされました。サブスクリプションをアップグレードするか、クレジットの更新をお待ちください。",
+              "authFailed": "テーブル \"{{tableName}}\" のAIタスクは、認証エラーによりキャンセルされました。APIキーの設定をご確認ください。",
+              "serviceUnavailable": "テーブル \"{{tableName}}\" のAIタスクは、AIサービスが一時的に利用できないためキャンセルされました。後でもう一度お試しください。",
+              "unknown": "テーブル \"{{tableName}}\" のAIタスクがキャンセルされました。エラー：{{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "報酬申請が却下されました",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a>の報酬申請は、次の理由により却下されました：{{errorMessages}}。内容をご確認の上、再度ご提出ください。",
+          "buttonText": "スペースを表示"
+        },
+        "rewardApproved": {
+          "title": "報酬申請が承認されました",
+          "message": "おめでとうございます！<a href=\"{{spaceUrl}}\">{{spaceName}}</a>の報酬申請が承認されました。{{amount}}クレジットが追加され、{{expiredDays}}日間有効です。",
+          "buttonText": "スペースを表示"
         }
       }
     }
@@ -1112,9 +1161,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月28日 アップデート",
-    "title": "新しいトリガー：メール受信時（IMAP）",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "5月12日アップデート",
+    "title": "App Builder の組み込みログイン",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }
