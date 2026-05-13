@@ -613,6 +613,17 @@
         "searchModel": "Suche Modell...",
         "selectModel": "Wähle Modell...",
         "defaultModel": "{{name}} (Standard)",
+        "moreModels": "Weitere Modelle",
+        "agentModelWarningTitle": "Modelle sorgfältig auswählen",
+        "agentModelWarningDescription": "Die oben empfohlenen Modelle sind für Agent-Aufgaben wie Tool-Nutzung und mehrstufiges Reasoning optimiert. Andere Modelle haben möglicherweise eingeschränkte Fähigkeiten und können zu unerwarteten Ergebnissen führen.",
+        "agentModelWarningConfirm": "Verstanden",
+        "recommendedModelNudge": {
+          "title": "{{model}} ausprobieren",
+          "description": "Bessere AI-Ergebnisse mit deutlich geringerem Credit-Verbrauch erzielen.",
+          "use": "{{model}} verwenden",
+          "later": "Später"
+        },
+        "noModelsAvailable": "Keine Modelle verfügbar",
         "input": "Eingabe {{ratio}}",
         "output": "Ausgabe {{ratio}}",
         "inputOrOutputTip": "Das Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet.",
@@ -1105,9 +1116,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "28. APR UPDATE",
-    "title": "Neuer Trigger: Beim E-Mail-Empfang (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "UPDATE VOM 12. MAI",
+    "title": "Integrierte Anmeldung fuer App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

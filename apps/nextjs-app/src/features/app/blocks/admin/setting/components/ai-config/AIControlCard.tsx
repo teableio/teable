@@ -11,13 +11,14 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { CircleHelp, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
   instanceDisableActions?: string[];
   sandboxConfigured?: boolean;
-  onChange: (value: { disableActions: string[] }) => void;
+  disabled?: boolean;
+  onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
 }
 
 export enum AIActions {
@@ -49,7 +50,13 @@ const TooltipWrap = ({
 };
 
 const SwitchList = (props: SwitchListProps) => {
-  const { onChange, disableActions, instanceDisableActions = [], sandboxConfigured } = props;
+  const {
+    onChange,
+    disableActions,
+    instanceDisableActions = [],
+    sandboxConfigured,
+    disabled: disabledAll,
+  } = props;
   const { t } = useTranslation('common');
 
   const AIFeatureListNameMap = useMemo(() => {
@@ -120,7 +127,7 @@ const SwitchList = (props: SwitchListProps) => {
               onCheckItemHandler(key, open);
             }}
             checked={!disableActions?.includes(key) && !instanceDisableActions.includes(key)}
-            disabled={disabled}
+            disabled={disabledAll || disabled}
           />
         </div>
       ))}
@@ -132,14 +139,35 @@ export const AIControlCard = ({
   disableActions,
   instanceDisableActions,
   sandboxConfigured,
+  disabled,
   onChange,
 }: {
   disableActions: string[];
   instanceDisableActions?: string[];
   sandboxConfigured?: boolean;
-  onChange: (value: { disableActions: string[] }) => void;
+  disabled?: boolean;
+  onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
 }) => {
   const { t } = useTranslation('common');
+  const [localDisableActions, setLocalDisableActions] = useState(disableActions);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalDisableActions(disableActions);
+  }, [disableActions]);
+
+  const handleChange = async (value: { disableActions: string[] }) => {
+    const previousDisableActions = localDisableActions;
+    setLocalDisableActions(value.disableActions);
+    try {
+      setIsSaving(true);
+      await onChange(value);
+    } catch (error) {
+      setLocalDisableActions(previousDisableActions);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Card className="p-5 shadow-none">
@@ -147,10 +175,11 @@ export const AIControlCard = ({
         <p className="font-medium">{t('admin.setting.ai.actions.title')}</p>
         <div className="flex flex-col gap-3">
           <SwitchList
-            onChange={onChange}
-            disableActions={disableActions}
+            onChange={handleChange}
+            disableActions={localDisableActions}
             instanceDisableActions={instanceDisableActions}
             sandboxConfigured={sandboxConfigured}
+            disabled={disabled || isSaving}
           />
         </div>
       </CardContent>

@@ -7,16 +7,26 @@ import {
   completeTableSchemaOperation,
   failTableSchemaOperation,
 } from '../application/services/TableSchemaOperationLifecycleService';
+import {
+  RecordWritePluginExecution,
+  RecordWritePluginRunner,
+} from '../application/services/RecordWritePluginRunner';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
 import * as CsvParserPort from '../ports/CsvParser';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { RecordWriteOperationKind, type RecordWriteFieldValues } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
@@ -25,6 +35,21 @@ import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ImportCsvCommand } from './ImportCsvCommand';
+
+type ChunkPluginOptions = {
+  readonly table: Table;
+  readonly batchSize: number;
+  readonly operationId: string;
+  readonly totalRecordCount: number;
+};
+
+const tableRecordToRecordWriteFieldValues = (record: TableRecord): RecordWriteFieldValues =>
+  new Map(
+    record
+      .fields()
+      .entries()
+      .map((entry) => [entry.fieldId.toString(), entry.value.toValue()] as const)
+  );
 
 /**
  * CSV 导入结果
@@ -68,7 +93,18 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    )
   ) {}
 
   @TraceSpan()
@@ -80,6 +116,7 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
     return safeTry<ImportCsvResult, DomainError>(async function* () {
       // 1. 解析 CSV（根据数据源类型选择同步或异步）
       const parseResult = yield* await handler.parseCsvSource(command.csvSource);
+      const rows = parseResult.rowsAsync ? undefined : [...parseResult.rows];
 
       if (parseResult.headers.length === 0) {
         return err(
@@ -103,6 +140,19 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
         tableName,
         parseResult.headers
       );
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.importCsv,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tableName,
+          fieldCount: table.getFields().length,
+          viewCount: table.views().length,
+          recordCount: rows?.length ?? 0,
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
 
       const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
@@ -138,12 +188,32 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
               dataTransactionContext,
               persistedTable
             );
+            const totalRecordCount = rows?.length ?? 0;
+            const operationId = `import-csv:${persistedTable.id().toString()}`;
+            const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+              kind: RecordWriteOperationKind.createStream,
+              executionContext: dataTransactionContext,
+              table: persistedTable,
+              payload: {
+                recordsFieldValues: [],
+                batchSize: command.batchSize,
+                recordCount: totalRecordCount,
+              },
+              orchestration: {
+                mode: 'stream',
+                scope: 'operation',
+                operationId,
+                totalRecordCount,
+              },
+              isTransactionBound: true,
+            });
+            yield* await pluginExecution.guard();
 
             const fieldIdMap = handler.buildFieldIdMap(persistedTable, parseResult.headers);
 
             const recordsIterable = parseResult.rowsAsync
               ? handler.createRecordsIterableAsync(parseResult.rowsAsync, fieldIdMap)
-              : handler.createRecordsIterable(parseResult.rows, fieldIdMap);
+              : handler.createRecordsIterable(rows ?? [], fieldIdMap);
 
             const batchGenerator = parseResult.rowsAsync
               ? persistedTable.createRecordsStreamAsync(
@@ -166,10 +236,26 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
                 ? handler.consumeBatchesAsync(
                     batchGenerator as AsyncGenerator<
                       Result<ReadonlyArray<TableRecord>, DomainError>
-                    >
+                    >,
+                    pluginExecution,
+                    dataTransactionContext,
+                    {
+                      table: persistedTable,
+                      batchSize: command.batchSize,
+                      operationId,
+                      totalRecordCount,
+                    }
                   )
                 : handler.consumeBatches(
-                    batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>
+                    batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+                    pluginExecution,
+                    dataTransactionContext,
+                    {
+                      table: persistedTable,
+                      batchSize: command.batchSize,
+                      operationId,
+                      totalRecordCount,
+                    }
                   )
             );
 
@@ -287,13 +373,35 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
   /**
    * 消费批次生成器，解包 Result
    */
-  private *consumeBatches(
-    generator: Generator<Result<ReadonlyArray<TableRecord>, DomainError>>
-  ): Generator<ReadonlyArray<TableRecord>> {
+  private async *consumeBatches(
+    generator: Generator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+    pluginExecution: RecordWritePluginExecution,
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    options: ChunkPluginOptions
+  ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    let chunkIndex = 0;
     for (const batchResult of generator) {
       if (batchResult.isErr()) {
         throw batchResult.error;
       }
+      const chunkPluginExecution = await this.prepareChunkPluginExecution(
+        transactionContext,
+        pluginExecution,
+        batchResult.value,
+        {
+          ...options,
+          chunkIndex,
+        }
+      );
+      if (chunkPluginExecution.isErr()) {
+        throw chunkPluginExecution.error;
+      }
+      const beforePersistResult =
+        await chunkPluginExecution.value.beforePersist(transactionContext);
+      if (beforePersistResult.isErr()) {
+        throw beforePersistResult.error;
+      }
+      chunkIndex += 1;
       yield batchResult.value;
     }
   }
@@ -302,14 +410,76 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
    * 消费异步批次生成器，解包 Result
    */
   private async *consumeBatchesAsync(
-    generator: AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>>
+    generator: AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+    pluginExecution: RecordWritePluginExecution,
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    options: ChunkPluginOptions
   ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    let chunkIndex = 0;
     for await (const batchResult of generator) {
       if (batchResult.isErr()) {
         throw batchResult.error;
       }
+      const chunkPluginExecution = await this.prepareChunkPluginExecution(
+        transactionContext,
+        pluginExecution,
+        batchResult.value,
+        {
+          ...options,
+          chunkIndex,
+        }
+      );
+      if (chunkPluginExecution.isErr()) {
+        throw chunkPluginExecution.error;
+      }
+      const beforePersistResult =
+        await chunkPluginExecution.value.beforePersist(transactionContext);
+      if (beforePersistResult.isErr()) {
+        throw beforePersistResult.error;
+      }
+      chunkIndex += 1;
       yield batchResult.value;
     }
+  }
+
+  private async prepareChunkPluginExecution(
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    previousExecution: RecordWritePluginExecution,
+    records: ReadonlyArray<TableRecord>,
+    options: ChunkPluginOptions & { chunkIndex: number }
+  ): Promise<Result<RecordWritePluginExecution, DomainError>> {
+    const recordsFieldValues = records.map(tableRecordToRecordWriteFieldValues);
+    const result = await this.recordWritePluginRunner.prepare(
+      {
+        kind: RecordWriteOperationKind.createStream,
+        executionContext: transactionContext,
+        table: options.table,
+        payload: {
+          recordsFieldValues,
+          batchSize: options.batchSize,
+          recordCount: records.length,
+        },
+        orchestration: {
+          mode: 'stream',
+          scope: 'chunk',
+          operationId: options.operationId,
+          totalRecordCount: options.totalRecordCount,
+          chunkIndex: options.chunkIndex,
+        },
+        isTransactionBound: true,
+      },
+      { previousExecution }
+    );
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const guardResult = await result.value.guard();
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+
+    return ok(result.value);
   }
 
   /**

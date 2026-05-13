@@ -9,7 +9,7 @@ export type UserNode = Pick<IGetDepartmentUserItem, 'id' | 'name' | 'email' | 'a
   type: TreeNodeType.USER;
 };
 
-export type DepartmentNode = Pick<IGetDepartmentVo, 'id' | 'name'> & {
+export type DepartmentNode = Pick<IGetDepartmentVo, 'id' | 'name' | 'pathName'> & {
   type: TreeNodeType.DEPARTMENT;
 };
 

@@ -6,7 +6,7 @@ import { checkIsImageModel, checkIsLanguageModel } from './utils';
 
 interface IUseModelCategoriesOptions {
   options: IModelOption[];
-  onlyImageOutput: boolean;
+  onlyImageOutput?: boolean;
   modelDefinationMap?: IModelDefinationMap;
 }
 
@@ -15,7 +15,7 @@ interface IUseModelCategoriesOptions {
  */
 export function useModelCategories({
   options,
-  onlyImageOutput,
+  onlyImageOutput = false,
   modelDefinationMap,
 }: IUseModelCategoriesOptions): IModelCategories {
   return useMemo(() => {

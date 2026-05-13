@@ -379,6 +379,16 @@ const isNumericDbFieldType = (value: string): boolean => {
   );
 };
 
+const isTemporalDbFieldType = (value: string): boolean => {
+  return (
+    value === 'timestamptz' ||
+    value === 'timestamp with time zone' ||
+    value === 'timestamp' ||
+    value === 'timestamp without time zone' ||
+    value === 'date'
+  );
+};
+
 const buildNumericCastExpression = (expression: ReturnType<typeof sql>, columnType: string) => {
   return sql`CASE
     WHEN (${expression}) IS NULL THEN NULL
@@ -507,16 +517,6 @@ const buildFieldMappings = (
         dbFieldType = 'INTEGER';
       }
 
-      // Created/LastModified time fields are stored as TEXT columns even though their
-      // semantic value type is DATETIME. Use TEXT here to align DISTINCT comparisons
-      // with the actual column type and avoid type-mismatch errors.
-      if (
-        field.type().equals(FieldType.createdTime()) ||
-        field.type().equals(FieldType.lastModifiedTime())
-      ) {
-        dbFieldType = 'TEXT';
-      }
-
       // For multi-value lookups, always use JSON storage semantics. This protects against
       // stale scalar dbFieldType metadata that can otherwise produce jsonb=integer DISTINCT
       // comparisons during computed updates.
@@ -625,6 +625,21 @@ class UpdateAssignmentPlan {
   buildProjectedRef(eb: ExpressionBuilder<DynamicDB, string>, projectionAlias: string) {
     return eb.ref(`${projectionAlias}.${this.projectionColumnAlias}`);
   }
+
+  buildDistinctCondition(
+    eb: ExpressionBuilder<DynamicDB, string>,
+    tableAlias: string,
+    projectionAlias: string
+  ): Expression<SqlBool> {
+    const target = sql`"${sql.raw(tableAlias)}"."${sql.raw(this.column)}"`;
+    const projected = this.buildProjectedRef(eb, projectionAlias);
+
+    if (isTemporalDbFieldType(this.normalizedDbType)) {
+      return sql<SqlBool>`(${target})::text IS DISTINCT FROM (${projected})::text`;
+    }
+
+    return sql<SqlBool>`${target} IS DISTINCT FROM ${projected}`;
+  }
 }
 
 class UpdateAssignmentProjectionPlan {
@@ -687,10 +702,7 @@ class UpdateAssignmentProjectionPlan {
     if (this.assignmentPlans.length === 0) return undefined;
     return (eb) => {
       const conditions = this.assignmentPlans.map((plan) => {
-        const projected = plan.buildProjectedRef(eb, this.projectionAlias);
-        return sql<SqlBool>`"${sql.raw(tableAlias)}"."${sql.raw(
-          plan.column
-        )}" IS DISTINCT FROM ${projected}`;
+        return plan.buildDistinctCondition(eb, tableAlias, this.projectionAlias);
       });
       return sql<SqlBool>`(${sql.join(conditions, sql` OR `)})`;
     };

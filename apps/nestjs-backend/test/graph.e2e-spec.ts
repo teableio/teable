@@ -67,6 +67,34 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(1);
   });
 
+  it('should return a create field plan in v2 canary mode', async () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+
+    try {
+      const formulaRo: IFieldRo = {
+        name: 'formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table1.fields[0].id}}`,
+        },
+      };
+
+      const { data: plan } = await planFieldCreate(table1.id, formulaRo);
+
+      expect(plan).toEqual({
+        estimateTime: 0,
+        updateCellCount: 0,
+      });
+    } finally {
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    }
+  });
+
   it('should create lookup field plan', async () => {
     const linkFieldRo: IFieldRo = {
       type: FieldType.Link,

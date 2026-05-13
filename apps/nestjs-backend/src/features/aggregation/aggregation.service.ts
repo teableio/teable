@@ -7,13 +7,14 @@ import {
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
+  mergeWithDefaultSort,
   nullsToUndefined,
   ViewType,
 } from '@teable/core';
-import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
+import type { IGridColumnMeta, IFilter, IGroup, ISortItem } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { StatisticsFunc } from '@teable/openapi';
 import type {
   IAggregationField,
@@ -59,6 +60,10 @@ type IStatisticsData = {
   viewId?: string;
   filter?: IFilter;
   statisticFields?: IAggregationField[];
+  // Resolved view.sort merged with caller-supplied orderBy. Used for the BASE
+  // CTE order when skip/take is applied; aggregation itself is order-invariant
+  // so this is undefined unless the caller is paginating.
+  sort?: ISortItem[];
 };
 /**
  * Version 2 implementation of the aggregation service
@@ -92,8 +97,15 @@ export class AggregationService implements IAggregationService {
     withView?: IWithView;
     search?: [string, string?, boolean?];
     useQueryModel?: boolean;
+    // Optional row-range slice: when provided, the aggregation is computed
+    // over rows [skip, skip+take) of the view's filtered + sorted output. Used
+    // by the grid selection statistic endpoint; existing callers (footer
+    // aggregation, row count) leave them undefined for unchanged behavior.
+    skip?: number;
+    take?: number;
+    orderBy?: ISortItem[];
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView, search, useQueryModel } = params;
+    const { tableId, withFieldIds, withView, search, useQueryModel, skip, take, orderBy } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -101,12 +113,23 @@ export class AggregationService implements IAggregationService {
       tableId,
       withView,
       withFieldIds,
+      extraOrderBy: orderBy,
     });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
-    const { filter, statisticFields } = statisticsData;
+    const { filter, statisticFields, sort: resolvedSort } = statisticsData;
     const groupBy = withView?.groupBy;
+
+    // When paginating, BASE CTE needs a deterministic ORDER BY so [skip, take)
+    // matches what the grid renders. Sort = group + view-sort, falling back to
+    // the view's row-order column (or __auto_number) for a stable tiebreaker.
+    const isPaginated = take !== undefined;
+    const baseSort = isPaginated ? [...(groupBy ?? []), ...(resolvedSort ?? [])] : undefined;
+    const defaultOrderField = isPaginated
+      ? await this.recordService.getBasicOrderIndexField(dbTableName, withView?.viewId)
+      : undefined;
+
     const rawAggregationData = await this.handleAggregation({
       dbTableName,
       fieldInstanceMap,
@@ -117,6 +140,10 @@ export class AggregationService implements IAggregationService {
       withUserId: currentUserId,
       withView,
       useQueryModel,
+      skip,
+      take,
+      sort: baseSort && baseSort.length ? baseSort : undefined,
+      defaultOrderField,
     });
 
     const aggregationResult = rawAggregationData && rawAggregationData[0];
@@ -210,6 +237,13 @@ export class AggregationService implements IAggregationService {
     withUserId?: string;
     withView?: IWithView;
     useQueryModel?: boolean;
+    // Optional row-range slice + ordering. Only set when the caller is
+    // paginating (selection aggregation); footer/row-count callers leave them
+    // undefined and the BASE CTE sees the full filtered set.
+    skip?: number;
+    take?: number;
+    sort?: ISortItem[];
+    defaultOrderField?: string;
   }) {
     const {
       dbTableName,
@@ -222,6 +256,10 @@ export class AggregationService implements IAggregationService {
       withView,
       tableId,
       useQueryModel,
+      skip,
+      take,
+      sort,
+      defaultOrderField,
     } = params;
 
     if (!statisticFields?.length) {
@@ -267,6 +305,10 @@ export class AggregationService implements IAggregationService {
         projection,
         useQueryModel,
         builder: permissionProbe.builder,
+        sort,
+        defaultOrderField,
+        limit: take,
+        offset: skip,
       }
     );
 
@@ -490,6 +532,7 @@ export class AggregationService implements IAggregationService {
     });
     return tableMeta.dbTableName;
   }
+
   private async handleRowCount(params: {
     tableId: string;
     dbTableName: string;
@@ -585,11 +628,12 @@ export class AggregationService implements IAggregationService {
     tableId: string;
     withView?: IWithView;
     withFieldIds?: string[];
+    extraOrderBy?: ISortItem[];
   }): Promise<{
     statisticsData: IStatisticsData;
     fieldInstanceMap: Record<string, IFieldInstance>;
   }> {
-    const { tableId, withView, withFieldIds } = params;
+    const { tableId, withView, withFieldIds, extraOrderBy } = params;
 
     const viewRaw = await this.findView(tableId, withView);
 
@@ -600,7 +644,12 @@ export class AggregationService implements IAggregationService {
       withFieldIds
     );
 
-    const statisticsData = this.buildStatisticsData(filteredFieldInstances, viewRaw, withView);
+    const statisticsData = this.buildStatisticsData(
+      filteredFieldInstances,
+      viewRaw,
+      withView,
+      extraOrderBy
+    );
 
     return { statisticsData, fieldInstanceMap };
   }
@@ -616,6 +665,7 @@ export class AggregationService implements IAggregationService {
           id: true,
           type: true,
           filter: true,
+          sort: true,
           group: true,
           options: true,
           columnMeta: true,
@@ -652,10 +702,12 @@ export class AggregationService implements IAggregationService {
           id: string | undefined;
           columnMeta: string | undefined;
           filter: string | undefined;
+          sort: string | undefined;
           group: string | undefined;
         }
       | undefined,
-    withView?: IWithView
+    withView?: IWithView,
+    extraOrderBy?: ISortItem[]
   ) {
     let statisticsData: IStatisticsData = {
       viewId: viewRaw?.id,
@@ -664,6 +716,12 @@ export class AggregationService implements IAggregationService {
     if (viewRaw?.filter || withView?.customFilter) {
       const filter = mergeWithDefaultFilter(viewRaw?.filter, withView?.customFilter);
       statisticsData = { ...statisticsData, filter };
+    }
+
+    if (viewRaw?.sort || extraOrderBy) {
+      // Same recipe as record list: caller's orderBy overrides view.sort.
+      const sort = mergeWithDefaultSort(viewRaw?.sort, extraOrderBy);
+      statisticsData = { ...statisticsData, sort };
     }
 
     if (viewRaw?.id || withView?.customFieldStats) {
