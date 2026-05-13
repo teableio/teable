@@ -10,3 +10,9 @@ export enum NotificationStatesEnum {
   Unread = 'unread',
   Read = 'read',
 }
+
+export enum NotificationSeverityEnum {
+  Critical = 'critical',
+  Warning = 'warning',
+  Info = 'info',
+}

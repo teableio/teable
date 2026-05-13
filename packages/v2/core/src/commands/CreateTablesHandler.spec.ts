@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
@@ -42,12 +44,21 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTablesCommand } from './CreateTablesCommand';
 import { CreateTablesHandler } from './CreateTablesHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   actorIdResult._unsafeUnwrap();
   return { actorId: actorIdResult._unsafeUnwrap() };
 };
+
+const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
+  createTableOperationPluginRunner([
+    new TableDataSafetyLimitTableOperationPlugin(
+      tableRepository,
+      createDefaultTableDataSafetyLimitComposer()
+    ),
+  ]);
 
 const buildTable = (params: {
   baseId: string;
@@ -343,7 +354,9 @@ describe('CreateTablesHandler', () => {
       foreignTableLoaderService,
       tableCreationService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -411,7 +424,9 @@ describe('CreateTablesHandler', () => {
       foreignTableLoaderService,
       tableCreationService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -485,7 +500,9 @@ describe('CreateTablesHandler', () => {
       foreignTableLoaderService,
       tableCreationService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -578,7 +595,9 @@ describe('CreateTablesHandler', () => {
       foreignTableLoaderService,
       tableCreationService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());

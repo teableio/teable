@@ -2,6 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -23,11 +25,20 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
+
+const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
+  createTableOperationPluginRunner([
+    new TableDataSafetyLimitTableOperationPlugin(
+      tableRepository,
+      createDefaultTableDataSafetyLimitComposer()
+    ),
+  ]);
 
 const buildTable = (baseIdSeed: string, name: string): Table => {
   const baseId = BaseId.create(`bse${baseIdSeed.repeat(16)}`)._unsafeUnwrap();
@@ -174,7 +185,7 @@ describe('RenameTableHandler', () => {
       name: 'New Name',
     });
 
-    const handler = new RenameTableHandler(flow);
+    const handler = new RenameTableHandler(flow, createTableLimitPluginRunner(repo));
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
 
     expect(repo.updated).toHaveLength(1);
@@ -192,7 +203,8 @@ describe('RenameTableHandler', () => {
         new FakeTableSchemaRepository(),
         new FakeEventBus(),
         new FakeUnitOfWork()
-      )
+      ),
+      createTableLimitPluginRunner(repo)
     );
 
     const commandResult = RenameTableCommand.create({

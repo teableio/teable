@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from '@teable/icons';
 import { uploadLogo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
@@ -14,6 +14,7 @@ export const BrandingLogo = (props: { value?: string }) => {
   const [logoUrl, setLogoUrl] = useState(value);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const fileInput = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const { mutate: uploadLogoMutation, isPending: isLoading } = useMutation({
     mutationFn: async (file: File) => {
@@ -24,9 +25,9 @@ export const BrandingLogo = (props: { value?: string }) => {
     },
     onSuccess: (res) => {
       if (res.data.url) {
-        console.log('res.data.url', res.data.url);
         setLogoUrl(res.data.url + '?v=' + Date.now());
       }
+      queryClient.invalidateQueries({ queryKey: ['setting'] });
     },
   });
 

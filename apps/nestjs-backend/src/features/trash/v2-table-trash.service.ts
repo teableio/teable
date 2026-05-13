@@ -71,6 +71,7 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
           const record: IDeleteRecordsPayload['records'][number] = {
             id: snapshot.id,
             fields: snapshot.fields as IRecord['fields'],
+            version: snapshot.version,
             autoNumber: snapshot.autoNumber,
             createdTime: snapshot.createdTime,
             createdBy: snapshot.createdBy,

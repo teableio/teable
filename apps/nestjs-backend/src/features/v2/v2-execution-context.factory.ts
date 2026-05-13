@@ -1,38 +1,12 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import type { IExecutionContext, ITracer } from '@teable/v2-core';
-import { ActorId, DEFAULT_MAX_TABLE_FIELD_COUNT, v2CoreTokens } from '@teable/v2-core';
+import { ActorId, v2CoreTokens, type TableDataSafetyLimitConfig } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import type { IClsStore } from '../../types/cls';
 import type { I18nTranslations } from '../../types/i18n.generated';
 import { V2ContainerService } from './v2-container.service';
-
-const defaultMaxSelectFieldOptionsPerField = 5000;
-const maxSelectFieldOptionsPerFieldEnv = 'MAX_SELECT_FIELD_OPTIONS_PER_FIELD';
-const maxTableFieldsPerTableEnv = 'MAX_TABLE_FIELDS_PER_TABLE';
-
-const resolveNonNegativeInteger = (raw: string | undefined, fallback: number): number => {
-  if (raw == null) {
-    return fallback;
-  }
-
-  const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return fallback;
-  }
-
-  return parsed;
-};
-
-const resolveMaxSelectFieldOptionsPerField = (): number =>
-  resolveNonNegativeInteger(
-    process.env[maxSelectFieldOptionsPerFieldEnv],
-    defaultMaxSelectFieldOptionsPerField
-  );
-
-const resolveMaxTableFieldsPerTable = (): number =>
-  resolveNonNegativeInteger(process.env[maxTableFieldsPerTableEnv], DEFAULT_MAX_TABLE_FIELD_COUNT);
 
 /**
  * Factory for creating V2 execution contexts with proper tracer and requestId injection.
@@ -53,6 +27,9 @@ export class V2ExecutionContextFactory {
   async createContext(): Promise<IExecutionContext> {
     const container = await this.v2ContainerService.getContainer();
     const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+    const tableLimits = container.isRegistered(v2CoreTokens.tableDataSafetyLimits)
+      ? container.resolve<TableDataSafetyLimitConfig>(v2CoreTokens.tableDataSafetyLimits)
+      : undefined;
 
     const userId = this.cls.get('user.id');
     if (!userId) {
@@ -85,12 +62,7 @@ export class V2ExecutionContextFactory {
       requestId,
       windowId,
       config: {
-        selectFieldOptions: {
-          maxChoicesPerField: resolveMaxSelectFieldOptionsPerField(),
-        },
-        tableFields: {
-          maxFieldsPerTable: resolveMaxTableFieldsPerTable(),
-        },
+        ...(tableLimits ? { tableLimits } : {}),
       },
       $t: t,
     };

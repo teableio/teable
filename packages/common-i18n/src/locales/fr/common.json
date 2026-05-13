@@ -618,6 +618,17 @@
         "searchModel": "Rechercher un modèle...",
         "selectModel": "Sélectionner un modèle...",
         "defaultModel": "{{name}} (Par défaut)",
+        "moreModels": "Plus de modèles",
+        "agentModelWarningTitle": "Choisissez les modèles avec soin",
+        "agentModelWarningDescription": "Les modèles recommandés ci-dessus sont optimisés pour les tâches d’agent, comme l’utilisation d’outils et le raisonnement en plusieurs étapes. Les autres modèles peuvent avoir des capacités limitées et produire des résultats inattendus.",
+        "agentModelWarningConfirm": "Compris",
+        "recommendedModelNudge": {
+          "title": "Essayez {{model}}",
+          "description": "Obtenez de meilleurs résultats AI avec une consommation de crédits beaucoup plus faible.",
+          "use": "Utiliser {{model}}",
+          "later": "Plus tard"
+        },
+        "noModelsAvailable": "Aucun modèle disponible",
         "input": "Entrée {{ratio}}",
         "output": "Sortie {{ratio}}",
         "inputOrOutputTip": "Le ratio représente le taux de change entre les crédits et les jetons, par exemple, \"1:1000\" signifie que 1 crédit ≈ 1000 jetons.<br></br>Remarque : chaque utilisation déduira au moins 1 crédit. Même si la consommation réelle est inférieure à 1 crédit, elle sera tout de même facturée comme 1 crédit.",
@@ -907,6 +918,16 @@
             "warning90": {
               "title": "Espace {{spaceName}} crédits IA 90 % utilisés",
               "message": "Votre espace a utilisé 90 % des crédits IA. Mettez à niveau bientôt pour éviter les interruptions."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Espace {{spaceName}} : pic inhabituel de crédits IA détecté",
+                "message": "L'utilisation de crédits IA aujourd'hui ({{todayValue}}) est {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une activité inattendue. Veuillez vérifier votre utilisation. Principaux contributeurs : {{topContributors}}"
+              },
+              "burst": {
+                "title": "Espace {{spaceName}} : rafale de crédits IA détectée",
+                "message": "{{recentValue}} crédits IA consommés au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une activité inattendue. Principaux contributeurs : {{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -921,6 +942,16 @@
             "gracePeriod": {
               "title": "Espace {{spaceName}} exécutions d'automatisation dépassées - période de grâce active",
               "message": "Votre quota d'exécutions d'automatisation a été dépassé. Les automatisations cesseront de fonctionner et seront désactivées dans {{remainingHours}} heures. Veuillez mettre à niveau votre plan."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Espace {{spaceName}} : pic inhabituel d'exécutions d'automatisation",
+                "message": "Les exécutions d'automatisation aujourd'hui ({{todayValue}}) sont {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une automatisation incontrôlée. Veuillez vérifier vos workflows. Principaux contributeurs : {{topContributors}}"
+              },
+              "burst": {
+                "title": "Espace {{spaceName}} : rafale d'exécutions d'automatisation détectée",
+                "message": "{{recentValue}} exécutions d'automatisation détectées au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une boucle ou une mauvaise configuration. Principaux contributeurs : {{topContributors}}"
+              }
             }
           }
         },
@@ -938,8 +969,26 @@
             "failed": {
               "title": "Tâche IA échouée dans la table {{tableName}}",
               "message": "La tâche IA pour le champ {{fieldName}} dans la table {{tableName}} (ID d'enregistrement: {{recordId}}) a échoué.\n\n{{errorMsg}}\n\nCliquez sur le bouton ci-dessous pour voir les détails."
+            },
+            "cancelled": {
+              "title": "Tâche IA annulée",
+              "rateLimit": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'une limitation de débit (429). Veuillez réessayer plus tard.",
+              "creditExhausted": "La tâche IA pour la table \"{{tableName}}\" a été annulée car les crédits sont épuisés. Veuillez mettre à niveau votre abonnement ou attendre le renouvellement des crédits.",
+              "authFailed": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'un échec d'authentification. Veuillez vérifier la configuration de votre clé API.",
+              "serviceUnavailable": "La tâche IA pour la table \"{{tableName}}\" a été annulée car le service IA est temporairement indisponible. Veuillez réessayer plus tard.",
+              "unknown": "La tâche IA pour la table \"{{tableName}}\" a été annulée. Erreur : {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Demande de récompense rejetée",
+          "message": "Votre demande de récompense pour <a href=\"{{spaceUrl}}\">{{spaceName}}</a> a été rejetée pour la ou les raisons suivantes : {{errorMessages}}. Veuillez vérifier et soumettre à nouveau.",
+          "buttonText": "Voir l'Espace"
+        },
+        "rewardApproved": {
+          "title": "Demande de récompense approuvée",
+          "message": "Félicitations ! Votre demande de récompense pour <a href=\"{{spaceUrl}}\">{{spaceName}}</a> a été approuvée. {{amount}} crédits ont été ajoutés, valables pendant {{expiredDays}} jours.",
+          "buttonText": "Voir l'Espace"
         }
       }
     }
@@ -1110,9 +1159,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE À JOUR DU 28 AVR",
-    "title": "Nouveau déclencheur : À la réception d’un e-mail (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "MISE A JOUR DU 12 MAI",
+    "title": "Connexion integree pour App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

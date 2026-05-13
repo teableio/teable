@@ -62,6 +62,7 @@ model Base {
   tables           TableMeta[]
 
   @@index([order])
+  @@index([spaceId])
   @@map("base")
 }
 
@@ -450,16 +451,17 @@ model InvitationRecord {
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  fromUserId  String   @map("from_user_id")
-  toUserId    String   @map("to_user_id")
-  type        String   @map("type")
-  message     String   @map("message")
-  messageI18n String?  @map("message_i18n")
-  urlPath     String?  @map("url_path")
-  isRead      Boolean  @default(false) @map("is_read")
-  createdTime DateTime @default(now()) @map("created_time")
-  createdBy   String   @map("created_by")
+  id                   String   @id @default(cuid())
+  fromUserId           String   @map("from_user_id")
+  toUserId             String   @map("to_user_id")
+  type                 String   @map("type")
+  message              String   @map("message")
+  messageI18n          String?  @map("message_i18n")
+  severity             String   @default("info")
+  urlPath              String?  @map("url_path")
+  isRead               Boolean  @default(false) @map("is_read")
+  createdTime          DateTime @default(now()) @map("created_time")
+  createdBy            String   @map("created_by")
 
   @@index([toUserId, isRead, createdTime])
   @@map("notification")

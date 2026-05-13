@@ -51,6 +51,7 @@ export { UpdateUserDefaultValueSpec } from './UpdateUserDefaultValueSpec';
 export { UpdateButtonLabelSpec } from './UpdateButtonLabelSpec';
 export { UpdateButtonColorSpec } from './UpdateButtonColorSpec';
 export { UpdateButtonMaxCountSpec } from './UpdateButtonMaxCountSpec';
+export { UpdateButtonResetCountSpec } from './UpdateButtonResetCountSpec';
 export { UpdateButtonWorkflowSpec } from './UpdateButtonWorkflowSpec';
 
 // ============ Link ============
