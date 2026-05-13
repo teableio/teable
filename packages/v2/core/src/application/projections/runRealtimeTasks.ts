@@ -1,11 +1,18 @@
-import type { Result } from 'neverthrow';
+import type { Result, ResultAsync } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 
 export const REALTIME_TASK_CONCURRENCY_LIMIT = 32;
 
+// safeTry with async generators returns ResultAsync, not Promise<Result>.
+// Awaiting either yields a Result, so we accept both shapes here.
 export async function runRealtimeTasks(
-  tasks: ReadonlyArray<() => Promise<Result<void, DomainError>>>,
+  tasks: ReadonlyArray<
+    () =>
+      | Promise<Result<void, DomainError>>
+      | ResultAsync<void, DomainError>
+      | ResultAsync<undefined, DomainError>
+  >,
   concurrency = REALTIME_TASK_CONCURRENCY_LIMIT
 ): Promise<ReadonlyArray<Result<void, DomainError>>> {
   if (tasks.length === 0) {
@@ -25,7 +32,9 @@ export async function runRealtimeTasks(
         return;
       }
 
-      results[currentIndex] = await tasks[currentIndex]!();
+      const r = await tasks[currentIndex]!();
+      // Result<undefined, E> is structurally Result<void, E> at runtime.
+      results[currentIndex] = r as Result<void, DomainError>;
     }
   };
 

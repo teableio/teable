@@ -10,7 +10,10 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
-import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
+import {
+  SpaceCreditTableRowLimitPolicy,
+  registerV2PostgresStateAdapter,
+} from '@teable/v2-adapter-repository-postgres';
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
@@ -26,16 +29,21 @@ import {
   NoopRealtimeEngine,
   NoopTracer,
   registerV2CoreServices,
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type IHasher,
   type IQueryBusMiddleware,
   type ILogger,
+  type TableDataSafetyLimitConfig,
   type ITracer,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import { DotTeaParser } from '@teable/v2-dottea';
+
+import { resolveTableDataSafetyLimitsFromEnv } from './tableDataSafetyLimits';
 
 /**
  * Node.js crypto-based hasher implementation.
@@ -52,6 +60,9 @@ export interface IV2NodePgContainerOptions {
   dataConnectionString?: string;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
+  tableMaxRowLimit?: number;
+  tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
   tracer?: ITracer;
@@ -106,13 +117,22 @@ export const registerV2NodePgDependencies = async (
   const metaDb = c.resolve(v2MetaDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
   const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
 
-  const maxFreeRowLimit = resolveMaxFreeRowLimit(options.maxFreeRowLimit);
+  const tableDataSafetyLimits = mergeTableDataSafetyLimits(
+    resolveTableDataSafetyLimitsFromEnv(),
+    options.tableDataSafetyLimits
+  );
+  const rowLimitAdapterOptions = createRowLimitAdapterOptions(
+    options,
+    tableDataSafetyLimits,
+    metaDb
+  );
 
   await registerV2PostgresStateAdapter(c, {
     db: metaDb,
+    recordCountDb: dataDb,
     ensureSchema: options.ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
-    ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
+    ...rowLimitAdapterOptions,
   });
 
   const typeValidationStrategy = await createTypeValidationStrategy(dataDb);
@@ -121,6 +141,7 @@ export const registerV2NodePgDependencies = async (
     metaDb,
     computedUpdate: options.computedUpdate,
     typeValidationStrategy,
+    tableDataSafetyLimits,
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -130,7 +151,13 @@ export const registerV2NodePgDependencies = async (
   const logger = options.logger ?? new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
 
-  const commandBus = new MemoryCommandBus(c, options.commandBusMiddlewares);
+  const commandBusMiddlewares = [
+    new TableDataSafetyLimitCommandBusMiddleware(
+      new StaticTableDataSafetyLimitPlugin(tableDataSafetyLimits)
+    ),
+    ...(options.commandBusMiddlewares ?? []),
+  ];
+  const commandBus = new MemoryCommandBus(c, commandBusMiddlewares);
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
@@ -183,6 +210,7 @@ export const registerV2NodePgDependencies = async (
       lifecycle: Lifecycle.Singleton,
     });
   }
+  c.registerInstance(v2CoreTokens.tableDataSafetyLimits, tableDataSafetyLimits);
 
   // Register core services (uses defaults unless already registered)
   registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
@@ -195,12 +223,67 @@ export const registerV2NodePgDependencies = async (
   return c;
 };
 
-const resolveMaxFreeRowLimit = (value?: number): number | undefined => {
+const resolveTableMaxRowLimit = (value?: number): number | undefined => {
   if (typeof value === 'number' && value > 0) return value;
-  const envValue = process.env.MAX_FREE_ROW_LIMIT;
-  if (!envValue) return undefined;
-  const parsed = Number(envValue);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  return undefined;
+};
+
+const createRowLimitAdapterOptions = (
+  options: IV2NodePgContainerOptions,
+  tableDataSafetyLimits: TableDataSafetyLimitConfig,
+  metaDb: IV2PostgresStateAdapterConfig['db']
+): Pick<IV2PostgresStateAdapterConfig, 'tableMaxRowLimit' | 'tableRowLimitPolicy'> => {
+  const legacyMaxFreeRowLimit =
+    options.maxFreeRowLimit ?? parsePositiveInteger(process.env.MAX_FREE_ROW_LIMIT);
+  const tableMaxRowLimit = resolveTableMaxRowLimit(
+    options.tableMaxRowLimit ??
+      legacyMaxFreeRowLimit ??
+      tableDataSafetyLimits.tableSchema?.maxRowsPerTable
+  );
+  if (!tableMaxRowLimit) return {};
+
+  const shouldUseLegacyCreditPolicy =
+    !options.tableMaxRowLimit &&
+    !tableDataSafetyLimits.tableSchema?.maxRowsPerTable &&
+    typeof legacyMaxFreeRowLimit === 'number';
+
+  return {
+    tableMaxRowLimit,
+    ...(shouldUseLegacyCreditPolicy
+      ? { tableRowLimitPolicy: new SpaceCreditTableRowLimitPolicy(metaDb, tableMaxRowLimit) }
+      : {}),
+  };
+};
+
+const parsePositiveInteger = (value: string | undefined): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const mergeTableDataSafetyLimits = (
+  base: TableDataSafetyLimitConfig,
+  override?: TableDataSafetyLimitConfig
+): TableDataSafetyLimitConfig => ({
+  fieldOptions: mergeLimitGroup(base.fieldOptions, override?.fieldOptions),
+  recordValues: mergeLimitGroup(base.recordValues, override?.recordValues),
+  computed: mergeLimitGroup(base.computed, override?.computed),
+  tableSchema: mergeLimitGroup(base.tableSchema, override?.tableSchema),
+  viewConfig: mergeLimitGroup(base.viewConfig, override?.viewConfig),
+  displayText: mergeLimitGroup(base.displayText, override?.displayText),
+});
+
+const mergeLimitGroup = <T extends Record<string, unknown>>(
+  base: T | undefined,
+  override: Partial<T> | undefined
+): T => {
+  const definedBase = Object.fromEntries(
+    Object.entries(base ?? {}).filter(([, value]) => value !== undefined)
+  ) as T;
+  const definedOverride = Object.fromEntries(
+    Object.entries(override ?? {}).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+  return { ...definedBase, ...definedOverride };
 };
 
 export const createV2NodePgContainer = async (

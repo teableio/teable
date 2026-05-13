@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 export const MailConfigForm = (props: {
   value?: IMailTransportConfig;
   onChange: (value?: IMailTransportConfig) => void;
+  disabled?: boolean;
 }) => {
   const { t } = useTranslation('common');
   const { onChange } = props;
@@ -105,6 +106,7 @@ export const MailConfigForm = (props: {
             <FormControl>
               <Input
                 value={field.value}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
                   onSubmit();
@@ -125,6 +127,7 @@ export const MailConfigForm = (props: {
               <Input
                 type="number"
                 value={field.value || undefined}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(Number(e.target.value));
                   onSubmit();
@@ -144,6 +147,7 @@ export const MailConfigForm = (props: {
             <FormControl>
               <Switch
                 checked={field.value}
+                disabled={props.disabled}
                 onCheckedChange={(checked) => {
                   field.onChange(checked);
                   onSubmit();
@@ -163,6 +167,7 @@ export const MailConfigForm = (props: {
             <FormControl>
               <Input
                 value={field.value}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
                   onSubmit();
@@ -182,6 +187,7 @@ export const MailConfigForm = (props: {
               <Input
                 type="password"
                 value={field.value}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
                   onSubmit();
@@ -200,6 +206,7 @@ export const MailConfigForm = (props: {
             <FormControl>
               <Input
                 value={field.value}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
                   onSubmit();
@@ -218,6 +225,7 @@ export const MailConfigForm = (props: {
             <FormControl>
               <Input
                 value={field.value}
+                disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
                   onSubmit();
@@ -232,13 +240,14 @@ export const MailConfigForm = (props: {
           className="flex-1"
           type="email"
           value={testEmail ?? ''}
+          disabled={props.disabled}
           onChange={(e) => setTestEmail(e.target.value)}
           placeholder={t('email.testEmailPlaceholder')}
         />
         <Button
           variant="outline"
           onClick={testEmailSend}
-          disabled={!testEmail || isTestEmailLoading}
+          disabled={!testEmail || isTestEmailLoading || props.disabled}
         >
           {isTestEmailLoading ? <Spin className="size-4" /> : <SendIcon className="size-4" />}
           {t('email.send')}

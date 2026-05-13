@@ -748,7 +748,7 @@ describe('v2 http createField (e2e)', () => {
     }
   });
 
-  it('returns 400 when creating the 501st field', async () => {
+  it('returns 400 when creating a field beyond the default field limit', async () => {
     const maxFieldCount = 500;
     const limitedTable = await createTable({
       baseId: ctx.baseId,
@@ -786,16 +786,16 @@ describe('v2 http createField (e2e)', () => {
 
       expect(parsed.data.ok).toBe(false);
       expect(parsed.data.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-      expect(parsed.data.error.message).toContain('500');
+      expect(parsed.data.error.message).toContain(String(maxFieldCount));
       expect(parsed.data.error.details).toMatchObject({
         tableId: limitedTable.id,
-        currentFieldCount: 500,
-        attemptedFieldCount: 501,
-        maxFieldCount: 500,
+        currentFieldCount: maxFieldCount,
+        attemptedFieldCount: maxFieldCount + 1,
+        maxFieldCount,
       });
 
       const latestTable = await getTableById(limitedTable.id);
-      expect(latestTable.fields).toHaveLength(500);
+      expect(latestTable.fields).toHaveLength(maxFieldCount);
     } finally {
       await ctx.deleteTable(limitedTable.id).catch(() => undefined);
     }

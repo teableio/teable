@@ -21,6 +21,7 @@ import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { isRecordUpdatedEvent } from '../domain/table/events/RecordUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
@@ -147,6 +148,47 @@ const buildTable = () => {
   };
 };
 
+const buildTableWithLink = () => {
+  const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const foreignPrimaryFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Update Link Records')._unsafeUnwrap();
+  const textFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+  const linkFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+  const linkConfig = LinkFieldConfig.create({
+    baseId: baseId.toString(),
+    relationship: 'manyMany',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: foreignPrimaryFieldId.toString(),
+    isOneWay: true,
+  })._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder
+    .field()
+    .singleLineText()
+    .withId(textFieldId)
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(FieldName.create('Related')._unsafeUnwrap())
+    .withConfig(linkConfig)
+    .done();
+  builder.view().defaultGrid().done();
+
+  return {
+    table: builder.build()._unsafeUnwrap(),
+    tableId,
+    textFieldId,
+    linkFieldId,
+  };
+};
+
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   updated: Table[] = [];
@@ -230,6 +272,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastMutateSpec: ICellValueSpec | undefined;
   omitUpdateSnapshot = false;
   mutationApplied: boolean | undefined = true;
+  changedFields: ReadonlyMap<string, unknown> | undefined;
 
   async insert(
     _: IExecutionContext,
@@ -271,6 +314,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
           }
         : {
             mutationApplied: this.mutationApplied,
+            changedFields: this.changedFields,
             updateSnapshot: {
               previous: {
                 recordId: recordId.toString(),
@@ -492,6 +536,74 @@ describe('UpdateRecordHandler', () => {
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
     expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
+  });
+
+  it('preserves persisted link titles when a typecast update only provides ids', async () => {
+    const { table, tableId, textFieldId, linkFieldId } = buildTableWithLink();
+    const targetRecordId = `rec${'r'.repeat(16)}`;
+    const persistedLinkValue = [{ id: targetRecordId, title: 'Target Title' }];
+    const recordResult = table
+      .createRecord(
+        new Map([
+          [textFieldId.toString(), 'Old Title'],
+          [linkFieldId.toString(), persistedLinkValue],
+        ])
+      )
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.changedFields = new Map([[linkFieldId.toString(), persistedLinkValue]]);
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: {
+        [textFieldId.toString()]: 'Old Title',
+        [linkFieldId.toString()]: [{ id: targetRecordId, title: 'Old Target Title' }],
+      },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      unitOfWork
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [linkFieldId.toString()]: [{ id: targetRecordId }] },
+      typecast: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
+    const linkValue = payload.record.fields().get(linkFieldId)?.toValue();
+
+    expect(linkValue).toEqual(persistedLinkValue);
+    expect(
+      eventBus.published
+        .filter(isRecordUpdatedEvent)
+        .flatMap((event) => event.changes)
+        .find((change) => change.fieldId === linkFieldId.toString())?.newValue
+    ).toEqual(persistedLinkValue);
   });
 
   it('skips plugins that do not support updateOne', async () => {

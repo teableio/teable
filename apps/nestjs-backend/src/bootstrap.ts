@@ -7,17 +7,21 @@ import { NestFactory } from '@nestjs/core';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
+import { ClsService } from 'nestjs-cls';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import type { IBaseConfig } from './configs/base.config';
 import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
+import type { IClsStore } from './types/cls';
 
 const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
-  app.useGlobalFilters(new GlobalExceptionFilter(configService));
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(configService, app.get<ClsService<IClsStore>>(ClsService))
+  );
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );

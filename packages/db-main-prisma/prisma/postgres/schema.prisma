@@ -15,6 +15,33 @@ enum ProvisionState {
   deleting
 }
 
+enum DataDbProvider {
+  postgres
+}
+
+enum DataDbConnectionStatus {
+  pending
+  validating
+  ready
+  error
+  migrating
+  disabled
+}
+
+enum SpaceDataDbBindingMode {
+  default
+  byodb
+}
+
+enum SpaceDataDbBindingState {
+  ready
+  validating
+  initializing
+  migrating
+  error
+  disabled
+}
+
 model Space {
   id               String    @id @default(cuid())
   name             String
@@ -27,8 +54,46 @@ model Space {
   isTemplate       Boolean?  @map("is_template")
 
   baseGroup Base[]
+  dataDbBinding SpaceDataDbBinding?
 
   @@map("space")
+}
+
+model DataDbConnection {
+  id               String                 @id @default(cuid())
+  provider         DataDbProvider         @default(postgres)
+  encryptedUrl     String                 @map("encrypted_url")
+  urlFingerprint   String                 @unique @map("url_fingerprint")
+  displayHost      String?                @map("display_host")
+  displayDatabase  String?                @map("display_database")
+  status           DataDbConnectionStatus @default(pending)
+  schemaVersion    String?                @map("schema_version")
+  capabilities     Json?
+  lastValidatedAt  DateTime?              @map("last_validated_at")
+  lastError        String?                @map("last_error")
+  createdBy        String                 @map("created_by")
+  createdTime      DateTime               @default(now()) @map("created_time")
+  lastModifiedTime DateTime?              @updatedAt @map("last_modified_time")
+
+  spaceBindings SpaceDataDbBinding[]
+
+  @@map("data_db_connection")
+}
+
+model SpaceDataDbBinding {
+  id                 String                  @id @default(cuid())
+  spaceId            String                  @unique @map("space_id")
+  dataDbConnectionId String?                 @map("data_db_connection_id")
+  mode               SpaceDataDbBindingMode  @default(default)
+  state              SpaceDataDbBindingState @default(ready)
+  createdBy          String                  @map("created_by")
+  createdTime        DateTime                @default(now()) @map("created_time")
+  lastModifiedTime   DateTime?               @updatedAt @map("last_modified_time")
+  space              Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  dataDbConnection   DataDbConnection?       @relation(fields: [dataDbConnectionId], references: [id])
+
+  @@index([dataDbConnectionId])
+  @@map("space_data_db_binding")
 }
 
 model PinResource {
@@ -62,6 +127,7 @@ model Base {
   tables           TableMeta[]
 
   @@index([order])
+  @@index([spaceId])
   @@map("base")
 }
 
@@ -456,6 +522,7 @@ model Notification {
   type        String   @map("type")
   message     String   @map("message")
   messageI18n String?  @map("message_i18n")
+  severity    String   @default("info")
   urlPath     String?  @map("url_path")
   isRead      Boolean  @default(false) @map("is_read")
   createdTime DateTime @default(now()) @map("created_time")

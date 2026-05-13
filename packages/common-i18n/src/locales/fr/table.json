@@ -415,6 +415,9 @@
     "baseInfo": "Informations sur la base",
     "typeOfDatabase": "Type de base de données",
     "descriptionForTable": "Description pour cette table",
+    "loginUserTable": "Connexion app",
+    "loginUserTableClickTips": "Ouvrir l'application liée",
+    "linkedApps": "Applications liées",
     "nameForTable": "Nom pour cette table",
     "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront supprimés.",
     "deleteTip2": "Cette table peut être restaurée depuis la corbeille après sa suppression.",
@@ -962,7 +965,6 @@
     "expand": "Développer",
     "history": "Historique",
     "close": "Réduire",
-    "noModel": "Aucun modèle disponible",
     "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
@@ -974,19 +976,22 @@
       "other": "Autre"
     },
     "context": {
-      "button": "Ajouter un contexte",
+      "button": "Ajouter un nœud",
       "search": "Ajouter des tables",
       "searchEmpty": "Aucun contexte trouvé",
       "emptyContext": "Aucun contexte à ajouter",
-      "selectionRows": "Lignes {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Lignes {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Tables",
       "apps": "Applications",
-      "workflows": "Workflows",
+      "workflows": "Automatisations",
       "folders": "Dossiers"
     },
-    "inputPlaceholder": "Tapez @ pour ajouter du contexte",
+    "inputPlaceholder": "Tapez @ pour ajouter un nœud",
     "inputPlaceholderFiles": "Collez ou déposez des fichiers ici",
     "thought": "En train de penser",
     "meta": {
@@ -995,6 +1000,7 @@
       "taskCompleted": "Tâche terminée"
     },
     "attachment": {
+      "pastedTextFileName": "Texte collé",
       "imageNotSupported": "L'image n'est pas prise en charge"
     },
     "suggestions": {

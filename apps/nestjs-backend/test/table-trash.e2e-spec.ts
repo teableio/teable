@@ -21,6 +21,7 @@ import {
 import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { RecordOpenApiService } from '../src/features/record/open-api/record-open-api.service';
 import { createAwaitWithEvent } from './utils/event-promise';
 import {
   initApp,
@@ -85,6 +86,7 @@ describe('Trash (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let eventEmitterService: EventEmitterService;
+  let recordOpenApiService: RecordOpenApiService;
 
   const baseId = globalThis.testConfig.baseId;
 
@@ -99,6 +101,7 @@ describe('Trash (e2e)', () => {
     app = appCtx.app;
     prisma = app.get(PrismaService);
     eventEmitterService = app.get(EventEmitterService);
+    recordOpenApiService = app.get(RecordOpenApiService);
 
     awaitWithViewEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_VIEW_DELETE);
     awaitWithFieldEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_FIELDS_DELETE);
@@ -362,7 +365,7 @@ describe('Trash (e2e)', () => {
 
       await awaitWithViewEvent(() => deleteView(tableId, deletedViewId));
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId);
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -374,7 +377,7 @@ describe('Trash (e2e)', () => {
 
       await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId);
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -391,7 +394,7 @@ describe('Trash (e2e)', () => {
 
       await awaitWithFieldDeleteSync(async () => deleteFields(tableId, [formulaField.id]));
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId);
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -459,6 +462,68 @@ describe('Trash (e2e)', () => {
           recordsAfterRestore.records.some((record) => record.id === recordId)
         )
       ).toBe(true);
+    });
+
+    it('should restore V2 record trash through the V2 restore command in canary bases', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const legacyRestoreSpy = vi.spyOn(recordOpenApiService, 'multipleCreateRecords');
+      try {
+        const title = `restore-v2-record-trash-${Date.now()}`;
+        const createRes = await createRecords(tableId, {
+          records: [
+            {
+              fields: {
+                SingleLineText: title,
+              },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Name,
+        });
+        expect(createRes.headers['x-teable-v2']).toBe('true');
+
+        const recordId = createRes.data.records[0].id;
+        const deleteRes = await deleteRecords(tableId, [recordId]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const trashItemsRes = await waitForTableTrashItems(tableId, 1);
+        const recordTrashItem = trashItemsRes.data.trashItems.find(
+          (item) => (item as ITableTrashItemVo).resourceType === ResourceType.Record
+        ) as ITableTrashItemVo | undefined;
+        expect(recordTrashItem).toBeTruthy();
+
+        const restored = await restoreTrash(recordTrashItem!.id);
+        expect(restored.status).toEqual(201);
+        expect(legacyRestoreSpy).not.toHaveBeenCalled();
+
+        const recordsAfterRestore = await getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfterRestore.records.some((record) => record.id === recordId)).toBe(true);
+
+        const recordTrashCount = await prisma.recordTrash.count({
+          where: { tableId, recordId },
+        });
+        const tableTrashCount = await prisma.tableTrash.count({
+          where: { id: recordTrashItem!.id },
+        });
+
+        expect(recordTrashCount).toBe(0);
+        expect(tableTrashCount).toBe(0);
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+        legacyRestoreSpy.mockRestore();
+      }
     });
 
     it('should restore field when some records were deleted after field deletion', async () => {
