@@ -1,24 +1,20 @@
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from '@milkdown/react';
 import { FieldType, type ILongTextFieldOptions } from '@teable/core';
 import { DraggableHandle, Loader2, LongText, Maximize2 } from '@teable/icons';
-import { Popover, PopoverContent, PopoverTrigger, Switch, Label } from '@teable/ui-lib';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Switch,
+  Label,
+  MarkdownReadonly,
+} from '@teable/ui-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Field } from '../../../model';
-import { MarkdownReadonly } from './MarkdownReadonly';
 import { createMilkdownEditor } from './milkdown-factory';
 import { getEditorMarkdown, normalizeMarkdownValue } from './utils';
 
 type EditorMode = 'markdown' | 'text';
-
-const toCommitValue = (value: string): string | null => {
-  const trimmed = value.trim();
-  return trimmed || null;
-};
-
-const getChangedCommitValue = (value: string, initialValue: string): string | null | undefined => {
-  const nextValue = toCommitValue(value);
-  return nextValue === toCommitValue(initialValue) ? undefined : nextValue;
-};
 
 interface IExpandMarkdownEditorProps {
   value: string | null;
@@ -33,53 +29,41 @@ interface IExpandMarkdownEditorProps {
 const ExpandedEditorInner = ({
   value,
   onChange,
-  onDirtyChange,
   open,
 }: {
   value: string;
   onChange?: (value: string | null) => void;
-  onDirtyChange?: (dirty: boolean) => void;
   open: boolean;
 }) => {
   const initialValueRef = useRef(value);
   const latestValueRef = useRef(value);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const handleMarkdownUpdated = useCallback(
-    (markdown: string) => {
-      onDirtyChange?.(getChangedCommitValue(markdown, initialValueRef.current) !== undefined);
-    },
-    [onDirtyChange]
-  );
-
-  useEditor(
-    (root) =>
-      createMilkdownEditor(root, {
-        value,
-        latestValueRef,
-        onMarkdownUpdated: handleMarkdownUpdated,
-      }),
-    []
-  );
+  useEditor((root) => createMilkdownEditor(root, { value, latestValueRef }), []);
 
   const [loading, getEditor] = useInstance();
 
-  const handleBlur = useCallback(() => {
+  const commit = useCallback(() => {
     if (!loading) {
       const markdown = getEditorMarkdown(getEditor());
       if (markdown !== undefined) {
         latestValueRef.current = markdown;
       }
     }
-    const nextValue = getChangedCommitValue(latestValueRef.current, initialValueRef.current);
-    if (nextValue !== undefined) {
-      onChange?.(nextValue);
-      initialValueRef.current = latestValueRef.current;
-      onDirtyChange?.(false);
-      return;
-    }
-    onDirtyChange?.(false);
-  }, [onChange, onDirtyChange, loading, getEditor]);
+    const trimmed = latestValueRef.current.trim();
+    if (trimmed === initialValueRef.current.trim()) return;
+    initialValueRef.current = latestValueRef.current;
+    onChange?.(trimmed || null);
+  }, [onChange, loading, getEditor]);
+
+  const commitRef = useRef(commit);
+  useEffect(() => {
+    commitRef.current = commit;
+  }, [commit]);
+
+  // Close paths that don't go through native blur (clicking on non-focusable
+  // outside areas, escape, programmatic close) would otherwise drop edits.
+  useEffect(() => () => commitRef.current(), []);
 
   useEffect(() => {
     if (!open) return;
@@ -118,8 +102,7 @@ const ExpandedEditorInner = ({
     <div
       ref={wrapperRef}
       className="milkdown-editor-wrap flex-1 overflow-auto text-sm"
-      onBlur={handleBlur}
-      onInput={() => onDirtyChange?.(true)}
+      onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           (document.activeElement as HTMLElement)?.blur();
@@ -134,12 +117,10 @@ const ExpandedEditorInner = ({
 const ExpandedTextEditorInner = ({
   value,
   onChange,
-  onDirtyChange,
   open,
 }: {
   value: string;
   onChange?: (value: string | null) => void;
-  onDirtyChange?: (dirty: boolean) => void;
   open: boolean;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -158,16 +139,19 @@ const ExpandedTextEditorInner = ({
     return () => clearTimeout(timer);
   }, [open]);
 
-  const handleBlur = useCallback(() => {
-    const nextValue = getChangedCommitValue(latestValueRef.current, initialValueRef.current);
-    if (nextValue !== undefined) {
-      onChange?.(nextValue);
-      initialValueRef.current = latestValueRef.current;
-      onDirtyChange?.(false);
-      return;
-    }
-    onDirtyChange?.(false);
-  }, [onChange, onDirtyChange]);
+  const commit = useCallback(() => {
+    const trimmed = latestValueRef.current.trim();
+    if (trimmed === initialValueRef.current.trim()) return;
+    initialValueRef.current = latestValueRef.current;
+    onChange?.(trimmed || null);
+  }, [onChange]);
+
+  const commitRef = useRef(commit);
+  useEffect(() => {
+    commitRef.current = commit;
+  }, [commit]);
+
+  useEffect(() => () => commitRef.current(), []);
 
   return (
     <textarea
@@ -176,11 +160,8 @@ const ExpandedTextEditorInner = ({
       defaultValue={value}
       onChange={(e) => {
         latestValueRef.current = e.target.value;
-        onDirtyChange?.(
-          getChangedCommitValue(e.target.value, initialValueRef.current) !== undefined
-        );
       }}
-      onBlur={handleBlur}
+      onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           (document.activeElement as HTMLElement)?.blur();
@@ -393,11 +374,8 @@ export const ExpandMarkdownEditor = ({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [converting, setConverting] = useState(false);
-  const [editorKey, setEditorKey] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const dirtyRef = useRef(false);
-  const syncedValueRef = useRef(normalizeMarkdownValue(value));
   const { offset, setOffset, offsetRef, initOffset, onPointerDown, onPointerMove, onPointerUp } =
     useDrag();
 
@@ -411,39 +389,8 @@ export const ExpandMarkdownEditor = ({
 
   const { size, onResizePointerDown } = useResize(open, scheduleClamp);
 
-  const normalized = normalizeMarkdownValue(value);
-
-  useEffect(() => {
-    if (!open) {
-      dirtyRef.current = false;
-      syncedValueRef.current = normalized;
-      return;
-    }
-
-    if (dirtyRef.current || syncedValueRef.current === normalized) {
-      return;
-    }
-
-    syncedValueRef.current = normalized;
-    setEditorKey((key) => key + 1);
-  }, [normalized, open]);
-
-  const handleDirtyChange = useCallback((dirty: boolean) => {
-    dirtyRef.current = dirty;
-  }, []);
-
-  const handleEditorChange = useCallback(
-    (nextValue: string | null) => {
-      syncedValueRef.current = normalizeMarkdownValue(nextValue);
-      onChange?.(nextValue);
-    },
-    [onChange]
-  );
-
   const handleExpandClick = useCallback(() => {
     onExpandOpen?.();
-    dirtyRef.current = false;
-    syncedValueRef.current = normalizeMarkdownValue(value);
     const el = triggerRef.current;
     if (el) {
       const saved = getSavedSize();
@@ -455,7 +402,7 @@ export const ExpandMarkdownEditor = ({
       initOffset({ x: 0, y: 0 });
     }
     setOpen(true);
-  }, [onExpandOpen, initOffset, value]);
+  }, [onExpandOpen, initOffset]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (converting) return;
@@ -494,6 +441,8 @@ export const ExpandMarkdownEditor = ({
     }
   };
 
+  const normalized = normalizeMarkdownValue(value);
+
   const renderEditor = () => {
     if (readonly) {
       return (
@@ -508,26 +457,12 @@ export const ExpandMarkdownEditor = ({
     }
 
     if (mode === 'text') {
-      return (
-        <ExpandedTextEditorInner
-          key={`text-${editorKey}`}
-          value={normalized}
-          onChange={handleEditorChange}
-          onDirtyChange={handleDirtyChange}
-          open={open}
-        />
-      );
+      return <ExpandedTextEditorInner value={normalized} onChange={onChange} open={open} />;
     }
 
     return (
       <MilkdownProvider>
-        <ExpandedEditorInner
-          key={`markdown-${editorKey}`}
-          value={normalized}
-          onChange={handleEditorChange}
-          onDirtyChange={handleDirtyChange}
-          open={open}
-        />
+        <ExpandedEditorInner value={normalized} onChange={onChange} open={open} />
       </MilkdownProvider>
     );
   };

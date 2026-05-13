@@ -2,8 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
 import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
-import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import { DataPrismaService } from '@teable/db-data-prisma';
+import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type {
   IResetTrashItemsRo,
   IResourceMapVo,
@@ -13,8 +13,14 @@ import type {
   ITrashVo,
 } from '@teable/openapi';
 import { CollaboratorType, TableTrashType, TrashType } from '@teable/openapi';
-import { TableId, v2CoreTokens } from '@teable/v2-core';
-import type { Table, TableQueryService } from '@teable/v2-core';
+import { RestoreRecordsCommand, TableId, v2CoreTokens } from '@teable/v2-core';
+import type {
+  ICommandBus,
+  RestoreRecordInput,
+  RestoreRecordsResult,
+  Table,
+  TableQueryService,
+} from '@teable/v2-core';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -22,6 +28,7 @@ import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { META_KNEX } from '../../global/knex';
 import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
@@ -35,12 +42,14 @@ import { RecordService } from '../record/record.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
 import { UserService } from '../user/user.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewService } from '../view/view.service';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
-import { META_KNEX } from '../../global/knex';
+
+type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
 
 @Injectable()
 export class TrashService {
@@ -834,20 +843,24 @@ export class TrashService {
         // A record can be deleted, restored through undo, then deleted again with the same id.
         // Restore should use the snapshot that belongs to this trash item, not every historical
         // record_trash row for the same record id.
-        const latestSnapshotsByRecordId = recordTrashRows.reduce<Map<string, IRecordTrashSnapshotRow>>(
-          (acc, row) => {
-            if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
-              acc.set(row.recordId, row);
-            }
-            return acc;
-          },
-          new Map<string, IRecordTrashSnapshotRow>()
-        );
+        const latestSnapshotsByRecordId = recordTrashRows.reduce<
+          Map<string, IRecordTrashSnapshotRow>
+        >((acc, row) => {
+          if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
+            acc.set(row.recordId, row);
+          }
+          return acc;
+        }, new Map<string, IRecordTrashSnapshotRow>());
 
         const matchedRecordTrashRows = recordIds
           .map((recordId) => latestSnapshotsByRecordId.get(recordId))
           .filter((row): row is IRecordTrashSnapshotRow => row != null);
         const records = matchedRecordTrashRows.map(({ snapshot }) => JSON.parse(snapshot));
+
+        if (await this.shouldRestoreRecordsWithV2(tableId)) {
+          await this.restoreRecordsV2(tableId, records);
+          return;
+        }
 
         await this.recordOpenApiService.multipleCreateRecords(
           tableId,
@@ -888,6 +901,72 @@ export class TrashService {
     await this.dataPrismaService.tableTrash.delete({
       where: { id: trashId },
     });
+  }
+
+  private async shouldRestoreRecordsWithV2(tableId: string): Promise<boolean> {
+    const table = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableId, deletedTime: null },
+      select: {
+        base: {
+          select: {
+            spaceId: true,
+            v2Enabled: true,
+          },
+        },
+      },
+    });
+
+    if (!table?.base?.spaceId) {
+      return false;
+    }
+
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(
+      table.base,
+      'createRecord'
+    );
+    return decision.useV2;
+  }
+
+  private async restoreRecordsV2(tableId: string, records: IRecordTrashSnapshot[]): Promise<void> {
+    if (records.length === 0) {
+      return;
+    }
+
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ExecutionContextFactory.createContext();
+
+    const commandResult = RestoreRecordsCommand.create({
+      tableId,
+      records: records.map((record) => this.toV2RestoreRecord(record)),
+    });
+
+    if (commandResult.isErr()) {
+      throw new CustomHttpException(commandResult.error.message, HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const result = await commandBus.execute<RestoreRecordsCommand, RestoreRecordsResult>(
+      context,
+      commandResult.value
+    );
+
+    if (result.isErr()) {
+      throw new CustomHttpException(result.error.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  private toV2RestoreRecord(record: IRecordTrashSnapshot): RestoreRecordInput {
+    return {
+      recordId: record.id,
+      fields: record.fields ?? {},
+      ...(record.version !== undefined ? { version: record.version } : {}),
+      ...(record.order ? { orders: record.order } : {}),
+      ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
+      ...(record.createdTime ? { createdTime: record.createdTime } : {}),
+      ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+      ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
+      ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+    };
   }
 
   async restoreTrash(trashId: string) {

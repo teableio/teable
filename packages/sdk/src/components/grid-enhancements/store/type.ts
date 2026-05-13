@@ -8,6 +8,7 @@ export interface IHeaderMenu {
   aiEnable?: boolean;
   onAutoFill?: (fieldId: string) => void;
   onSelectionClear?: () => void;
+  addToChat?: () => void;
 }
 
 export interface IRecordMenu {

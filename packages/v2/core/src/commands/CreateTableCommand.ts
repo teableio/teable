@@ -32,7 +32,7 @@ export type CreateTableRecordSeed = {
 };
 
 export type CreateTableCommandOptions = {
-  t?: IExecutionContext['$t'];
+  t?: (key: string, options?: Record<string, unknown>) => string;
   executionContext?: IExecutionContext;
 };
 
@@ -143,7 +143,6 @@ export class CreateTableCommand {
           details: z.formatError(parsed.error),
         })
       );
-
     const tableIdResult: Result<TableId | undefined, DomainError> = parsed.data.tableId
       ? TableId.create(parsed.data.tableId)
       : ok<TableId | undefined, DomainError>(undefined);

@@ -100,7 +100,6 @@ import { usePrevious, useClickAway } from 'react-use';
 import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
-import { useChatPanelStore } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
@@ -118,6 +117,7 @@ import {
   PasteSelectionProgressDialog,
   PrefillingRowContainer,
   PresortRowContainer,
+  SelectionStatistic,
 } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
@@ -134,30 +134,11 @@ import {
   shouldUseDeleteSelectionStream,
 } from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
-
-/**
- * Extract row ranges (0-based) from a CombinedSelection.
- * Returns null for column-only selections.
- */
-function getRowRangesFromSelection(selection: CombinedSelection): [number, number][] | null {
-  const { isCellSelection, isRowSelection } = selection;
-
-  if (isCellSelection) {
-    const [[, startRow], [, endRow]] = selection.serialize();
-    return [[startRow, endRow]];
-  }
-
-  if (isRowSelection) {
-    return selection
-      .serialize()
-      .map(
-        ([startRow, endRow]) =>
-          [Math.min(startRow, endRow), Math.max(startRow, endRow)] as [number, number]
-      );
-  }
-
-  return null;
-}
+import {
+  cacheColumnSelectionForChat,
+  cacheSelectionForChat,
+  isSingleCellSelection,
+} from './utils/gridSelectionChat';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo | null;
@@ -624,24 +605,21 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (isCellSelection || isRowSelection) {
       const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
       const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
+      const isSingleCell = isCellSelection && ranges[0][0] === ranges[1][0] && rowStart === rowEnd;
+      const isMultiCellSelection = isCellSelection && !isSingleCell;
       const isMultipleSelected =
         (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
-      if (isMultipleSelected) {
+      const addToChat =
+        !isSingleCell && baseId
+          ? () => cacheSelectionForChat(queryClient, baseId, selection, true)
+          : undefined;
+
+      if (isMultipleSelected || isMultiCellSelection) {
         openRecordMenu({
           position,
-          isMultipleSelected,
-          addToChat: () => {
-            const rowRanges = getRowRangesFromSelection(selection);
-            if (rowRanges && baseId) {
-              queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
-                rows: rowRanges,
-                timestamp: Date.now(),
-                addToChat: true,
-              });
-              useChatPanelStore.getState().open();
-            }
-          },
+          isMultipleSelected: isMultipleSelected || isMultiCellSelection,
+          addToChat,
           deleteRecords: async () => {
             const deleteRows = getEffectRows(selection, realRowCount);
             const usesStreamDeleteDialog = shouldUseDeleteSelectionStream(selection, realRowCount);
@@ -676,17 +654,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           record,
           neighborRecords,
-          addToChat: () => {
-            const rowRanges = getRowRangesFromSelection(selection);
-            if (rowRanges && baseId) {
-              queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
-                rows: rowRanges,
-                timestamp: Date.now(),
-                addToChat: true,
-              });
-              useChatPanelStore.getState().open();
-            }
-          },
+          addToChat,
+
           insertRecord: (anchorId, position, num: number) => {
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
@@ -743,6 +712,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         aiEnable: fieldAIEnable,
         onSelectionClear,
         onAutoFill,
+        addToChat: () => {
+          if (!baseId || !selectFields.length) return;
+          cacheColumnSelectionForChat(
+            queryClient,
+            baseId,
+            Math.min(start, end),
+            Math.max(start, end)
+          );
+        },
       });
     }
   };
@@ -766,10 +744,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         position: { x, y: height },
         aiEnable: fieldAIEnable,
         onAutoFill,
+        addToChat: () => {
+          if (!baseId) return;
+          cacheColumnSelectionForChat(queryClient, baseId, colIndex, colIndex);
+        },
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [columns, fields, fieldAIEnable, openHeaderMenu]
+    [columns, fields, fieldAIEnable, openHeaderMenu, baseId, queryClient]
   );
 
   const onColumnHeaderDblClick = useCallback(
@@ -940,13 +922,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return;
     }
 
-    // Write selection to RQ cache for chat paste detection
-    const rowRanges = getRowRangesFromSelection(selection);
-    if (rowRanges && baseId) {
-      queryClient.setQueryData(ReactQueryKeys.gridSelection(baseId), {
-        rows: rowRanges,
-        timestamp: Date.now(),
-      });
+    if (baseId && !isSingleCellSelection(selection)) {
+      cacheSelectionForChat(queryClient, baseId, selection, false);
     }
 
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
@@ -1639,6 +1616,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           recordMap={recordMap}
         />
       )}
+      <SelectionStatistic
+        recordMap={recordMap}
+        columns={columns}
+        rowCount={realRowCount}
+        collapsedGroupIds={viewQuery?.collapsedGroupIds}
+      />
+
       {inPrefilling && (
         <PendingUploadContext.Provider value={pendingUploadCtx}>
           <PrefillingRowContainer

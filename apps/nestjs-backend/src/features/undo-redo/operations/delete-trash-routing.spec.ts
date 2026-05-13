@@ -37,7 +37,9 @@ describe('trash-backed undo operations', () => {
     expect(dataPrismaService.tableTrash.count).toHaveBeenCalledWith({
       where: { id: 'otrash1' },
     });
-    expect(fieldOpenApiService.createFields).toHaveBeenCalledWith('tbl1', [{ id: 'fld1', name: 'Name' }]);
+    expect(fieldOpenApiService.createFields).toHaveBeenCalledWith('tbl1', [
+      { id: 'fld1', name: 'Name' },
+    ]);
     expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith('tbl1', {
       fieldKeyType: FieldKeyType.Id,
       records: [{ id: 'rec1' }],
