@@ -468,7 +468,11 @@ const getDialogStatusSummaryLabel = (
 };
 
 const getProgressIndicatorClassName = (status: SelectionActionDialogStatus) => {
-  if (status === 'partial' || status === 'error') {
+  if (status === 'partial') {
+    return 'bg-amber-500 transition-[transform] duration-500 ease-out';
+  }
+
+  if (status === 'error') {
     return 'bg-destructive transition-[transform] duration-500 ease-out';
   }
 
@@ -522,7 +526,7 @@ const SelectionActionChunkErrorDetails = ({
 
   return (
     <Collapsible className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
-      <CollapsibleTrigger className="flex w-full items-center justify-between gap-4 text-left text-sm text-foreground">
+      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 text-left text-sm text-foreground">
         <div>
           <div className="font-medium">{t(`${config.streamKeyPrefix}.chunkFailureTitle`)}</div>
           <div className="mt-1 text-xs text-muted-foreground">
@@ -531,7 +535,7 @@ const SelectionActionChunkErrorDetails = ({
             })}
           </div>
         </div>
-        <ChevronDown className="size-4 shrink-0 text-destructive data-[state=open]:rotate-180" />
+        <ChevronDown className="size-4 shrink-0 text-destructive transition-transform duration-300 ease-out group-data-[state=open]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-3 space-y-2">
         {errors.map((error, index) => (
@@ -540,7 +544,7 @@ const SelectionActionChunkErrorDetails = ({
             className="rounded-md border border-border bg-background p-3"
           >
             <div className="flex items-center justify-between gap-3 text-xs text-destructive">
-              <span>
+              <span className="font-medium">
                 {error.batchIndex >= 0
                   ? t(`${config.streamKeyPrefix}.chunkLabel`, {
                       index: error.batchIndex + 1,
@@ -555,7 +559,7 @@ const SelectionActionChunkErrorDetails = ({
             </div>
             <div className="mt-2 text-sm text-foreground">{error.message}</div>
             {error.recordIds.length ? (
-              <div className="mt-2 line-clamp-2 font-mono text-[11px] text-muted-foreground">
+              <div className="mt-1 line-clamp-2 font-mono text-[11px] text-muted-foreground">
                 {error.recordIds.join(', ')}
               </div>
             ) : null}
@@ -578,7 +582,7 @@ const SelectionActionConfirmContent = ({
   t: SelectionActionDialogTranslation;
 }) => {
   return (
-    <DialogFooter className="border-t px-5 py-4 sm:justify-end">
+    <DialogFooter className="px-5 pb-4 sm:justify-end">
       <Button size="sm" variant="secondary" onClick={() => onOpenChange?.(false)}>
         {t('common:actions.cancel')}
       </Button>
@@ -624,7 +628,7 @@ const SelectionActionProgressContent = ({
 }) => {
   return (
     <>
-      <div className="rounded-lg border bg-muted/20 p-4">
+      <div className="rounded-lg border p-4">
         <div className="flex items-center justify-between gap-4">
           <div className={`text-sm font-medium ${getStatusAccentClassName(resolvedStatus)}`}>
             {statusSummaryLabel}
@@ -641,7 +645,7 @@ const SelectionActionProgressContent = ({
         ) : (
           <Progress
             value={displayPercent}
-            className="mt-3 h-2 bg-muted"
+            className="mt-3 h-1.5 bg-surface"
             indicatorClassName={getProgressIndicatorClassName(resolvedStatus)}
           />
         )}
@@ -660,7 +664,7 @@ const SelectionActionProgressContent = ({
       <SelectionActionChunkErrorDetails config={config} errors={errors} />
 
       {canDismiss ? (
-        <DialogFooter className="border-t px-5 py-4 sm:justify-end">
+        <DialogFooter className="sm:justify-end">
           <Button size="sm" variant="secondary" onClick={() => onOpenChange?.(false)}>
             {t('common:actions.close')}
           </Button>
@@ -764,18 +768,14 @@ export const SelectionActionProgressDialog = ({
         onInteractOutside={preventDialogDismiss}
       >
         <DialogHeader
-          className={
-            mode === 'confirm'
-              ? 'space-y-2 p-5 pr-12 text-left'
-              : 'space-y-2 border-b px-5 py-4 pr-12 text-left'
-          }
+          className={mode === 'confirm' ? 'p-4 pr-12 text-left' : 'border-b p-4 pr-12 text-left'}
         >
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold leading-7 text-foreground">
             {mode === 'progress' ? <SelectionActionStatusIcon status={resolvedStatus} /> : null}
             <span>{title}</span>
           </DialogTitle>
           {description ? (
-            <DialogDescription className="max-w-md text-sm leading-6 text-muted-foreground">
+            <DialogDescription className="max-w-md text-sm text-muted-foreground">
               {description}
             </DialogDescription>
           ) : null}
@@ -791,7 +791,7 @@ export const SelectionActionProgressDialog = ({
         ) : (
           <div
             key={contentKey}
-            className="space-y-4 px-5 py-4 motion-safe:duration-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1"
+            className="space-y-4 p-4 motion-safe:duration-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1"
           >
             <SelectionActionProgressContent
               config={config}

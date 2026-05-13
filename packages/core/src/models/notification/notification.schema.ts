@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
-import { NotificationTypeEnum } from './notification.enum';
+import { NotificationSeverityEnum, NotificationTypeEnum } from './notification.enum';
 
 export const systemIconSchema = z.object({
   iconUrl: z.string(),
@@ -35,6 +35,7 @@ export const notificationSchema = z.object({
   url: z.string(),
   message: z.string(),
   messageI18n: z.string().nullable().optional(),
+  severity: z.enum(NotificationSeverityEnum),
   isRead: z.boolean(),
   createdTime: z.string(),
 });

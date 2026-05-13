@@ -674,9 +674,13 @@
         "selectModel": "Select model...",
         "defaultModel": "{{name}} (Default)",
         "moreModels": "More Models",
-        "agentModelWarningTitle": "Choose models carefully",
-        "agentModelWarningDescription": "The recommended models above are optimized for agent tasks like tool use and multi-step reasoning. Other models may have limited capabilities and could lead to unexpected results.",
         "agentModelWarningConfirm": "Got it",
+        "recommendedModelNudge": {
+          "title": "Try {{model}}",
+          "description": "Get better AI results with much lower credit usage.",
+          "use": "Use {{model}}",
+          "later": "Later"
+        },
         "noModelsAvailable": "No models available",
         "input": "Input {{ratio}}",
         "output": "Output {{ratio}}",
@@ -721,26 +725,26 @@
         "noValidModel": "No valid model found",
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter",
-        "modelRates": "Model Rates",
+        "modelRates": "Model Pricing",
         "model": "Model",
-        "inputRate": "Input",
-        "outputRate": "Output",
-        "inputRateTip": "Credits per 1M input tokens",
-        "outputRateTip": "Credits per 1M output tokens",
-        "rateExplanationTitle": "How rates work (1 USD = 100 credits)",
-        "rateExplanationFormula": "Credits = Tokens × Rate ÷ 1,000,000",
-        "rateExplanationExample": "Example: 10,000 tokens with rate 300 = 10000 × 300 ÷ 1M = 3 credits",
-        "ratesDescription": "Rates per 1M tokens (click 'Fetch Pricing' to auto-fill from OpenRouter)",
-        "advancedRates": "Advanced rates (cache, reasoning, image)",
-        "advancedRatesDescription": "Leave blank for auto-calculation. Cache read ≈ 10% of input, cache write ≈ 125% of input, reasoning = output rate.",
+        "inputRate": "Input USD/token",
+        "outputRate": "Output USD/token",
+        "inputRateTip": "Generated custom provider input price in USD per token",
+        "outputRateTip": "Generated custom provider output price in USD per token",
+        "rateExplanationTitle": "Configure custom provider pricing",
+        "rateExplanationFormula": "Fill the multiplier relative to AI Gateway Reference. For example, 0.1 means custom provider pricing is 10% of the AI Gateway reference price.",
+        "rateExplanationExample": "Input, output, cache, reasoning, image, and web search pricing are generated from AI Gateway Reference with the same multiplier. Billing converts USD to credits with 1 USD = 100 credits.",
+        "ratesDescription": "Generated values are saved to modelConfigs[model].pricing and used for instance-level custom provider billing. The Ratio column still shows the existing Claude Opus 4.6 = 1x cost level.",
+        "advancedRates": "Generated advanced pricing",
+        "advancedRatesDescription": "These advanced prices are generated from AI Gateway Reference with the configured multiplier. They are shown for review and saved with the model pricing.",
         "cacheRead": "Cache↓",
         "cacheWrite": "Cache↑",
         "reasoning": "Reason",
         "perImage": "Image",
-        "cacheReadRateTip": "Rate for cached input tokens (usually 10-50% of input rate, or 0 for free)",
-        "cacheWriteRateTip": "Rate for cache write tokens (usually same as input or 25% more)",
-        "reasoningRateTip": "Rate for reasoning tokens like o1 (usually same as output rate)",
-        "imageRateTip": "Credits per generated image",
+        "cacheReadRateTip": "USD per cached input token if this provider charges cached input separately",
+        "cacheWriteRateTip": "USD per cache write token if this provider charges cache writes separately",
+        "reasoningRateTip": "USD per reasoning token if this provider charges reasoning tokens separately",
+        "imageRateTip": "USD per generated image if this provider charges per image",
         "imageModel": "Image Model",
         "imageGeneration": "Image Generation",
         "imageToImage": "Image-to-Image",
@@ -750,15 +754,25 @@
         "markedAsImageModel": "Marked as image generation model. Will test text-to-image and image-to-image capabilities.",
         "markedAsTextModel": "Marked as text model. Will test vision (image input) capability.",
         "fetchPricing": "Fetch Pricing",
-        "fetchPricingTip": "Fetch model pricing from OpenRouter API and auto-fill rates",
+        "fetchPricingTip": "Fetch model pricing from the AI Gateway model catalog",
         "fetchPricingError": "Failed to fetch pricing",
-        "pricingPreview": "Pricing Preview",
+        "pricingPreview": "AI Gateway Reference",
         "pricingPreviewDesc": "Found pricing for {{matched}} of {{total}} models",
-        "openRouterId": "OpenRouter ID",
+        "openRouterId": "Gateway model ID",
         "notFound": "Not found",
         "applyPricing": "Apply ({{count}})",
         "pricingApplied": "Pricing applied",
         "pricingAppliedCount": "Updated pricing for {{count}} models",
+        "relativeRatio": "Ratio",
+        "webSearch": "Web",
+        "referencePricingTip": "Reference price fetched from the AI Gateway model catalog",
+        "applyReferencePricingTip": "Generate custom provider pricing from this AI Gateway reference price",
+        "optionalPricing": "optional",
+        "gatewayRatio": "Gateway multiplier",
+        "gatewayRatioTip": "Multiplier relative to AI Gateway Reference. 0.1 means 10% of the reference price.",
+        "generatedPricing": "Generated pricing",
+        "generatedPricingTip": "Generated custom provider input/output price saved to modelConfigs[model].pricing",
+        "relativeRatioTip": "Cost level relative to Claude Opus 4.6 = 1x, using the existing weighted algorithm",
         "hint": {
           "title": "Suggestions",
           "missingV1Suffix": "The Base URL might be missing the \"/v1\" suffix. Most OpenAI-compatible APIs require URLs ending with \"/v1\" (e.g., https://api.openai.com/v1)",
@@ -1014,9 +1028,20 @@
     "markAs": "Mark this notification as {{status}}",
     "markAllAsRead": "Mark all as read",
     "noUnread": "No {{status}} notifications",
+    "noAttention": "No notifications need attention",
+    "noSeverity": "No {{severity}} notifications",
     "changeSetting": "Change page notification settings",
     "new": "new {{count}}",
     "showMore": "Show more",
+    "sections": {
+      "needsAction": "Important",
+      "all": "All"
+    },
+    "severity": {
+      "critical": "Important",
+      "warning": "Warning",
+      "info": "Normal"
+    },
     "exportBase": {
       "successText": "Export data is ready",
       "failedText": "Export failed, please retry"
@@ -1221,6 +1246,16 @@
             "warning90": {
               "title": "Space {{spaceName}} AI credits 90% used",
               "message": "Your space has used 90% of AI credits. Upgrade soon to avoid interruption."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}} unusual AI credit spike detected",
+                "message": "Today's AI credit usage ({{todayValue}}) is {{multiplier}}x the recent daily average ({{ewma}}). This may indicate unexpected activity. Please review your usage. Top contributors: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}} AI credit burst detected",
+                "message": "{{recentValue}} AI credits consumed in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate unexpected activity. Top contributors: {{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -1235,6 +1270,16 @@
             "gracePeriod": {
               "title": "Space {{spaceName}} automation runs exceeded - grace period active",
               "message": "Your automation run quota has been exceeded. Automations will stop running and shut down after {{remainingHours}} more hours. Please upgrade your plan."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}} unusual automation run spike",
+                "message": "Today's automation runs ({{todayValue}}) are {{multiplier}}x the recent daily average ({{ewma}}). This may indicate a runaway automation. Please review your workflows. Top contributors: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}} automation run burst detected",
+                "message": "{{recentValue}} automation runs detected in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate a loop or misconfiguration. Top contributors: {{topContributors}}"
+              }
             }
           }
         },
@@ -1457,9 +1502,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "APR 28 UPDATE",
-    "title": "New Trigger: When Email Receive (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "MAY 12 UPDATE",
+    "title": "Built-in Login for App Builder",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

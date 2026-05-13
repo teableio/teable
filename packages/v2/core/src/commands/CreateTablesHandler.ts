@@ -3,7 +3,9 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableCreationService } from '../application/services/TableCreationService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
   beginTablesSchemaOperation,
   completeTablesSchemaOperation,
@@ -12,12 +14,17 @@ import {
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -263,7 +270,18 @@ export class CreateTablesHandler
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    )
   ) {}
 
   @TraceSpan()
@@ -296,6 +314,23 @@ export class CreateTablesHandler
       const builtTables = yield* sequence(
         tableCommands.map((tableCommand) => buildTable(tableCommand))
       );
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.createMany,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tables: builtTables.map((table, index) => ({
+            baseId: command.baseId,
+            tableName: table.name(),
+            fieldCount: table.getFields().length,
+            viewCount: table.views().length,
+            recordCount: tableCommands[index]?.records.length ?? 0,
+            viewNames: table.views().map((view) => view.name().toString()),
+          })),
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
       const recordCountByTableId = Object.fromEntries(
         builtTables.map((table, index) => [
           table.id().toString(),
@@ -380,11 +415,25 @@ export class CreateTablesHandler
             const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
 
             for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
+              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+                kind: RecordWriteOperationKind.createMany,
+                executionContext: dataTransactionContext,
+                table: persistedTable,
+                payload: {
+                  recordsFieldValues: recordsFieldValues.map((record) => record.fieldValues),
+                  fieldKeyType: FieldKeyType.Id,
+                  typecast: false,
+                  recordCount: recordsFieldValues.length,
+                },
+                isTransactionBound: true,
+              });
+              yield* await pluginExecution.guard();
               const recordSpan = dataTransactionContext.tracer?.startSpan(
                 'teable.CreateTablesHandler.createRecords'
               );
               const { records } = yield* persistedTable.createRecords(recordsFieldValues);
               recordSpan?.end();
+              yield* await pluginExecution.beforePersist(dataTransactionContext);
               yield* await handler.tableRecordRepository.insertMany(
                 dataTransactionContext,
                 persistedTable,

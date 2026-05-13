@@ -28,6 +28,12 @@ const createContainer = () => {
       registrations.push({ token, implementation, options });
       return this;
     },
+    isRegistered(token: unknown) {
+      return (
+        instances.some((entry) => entry.token === token) ||
+        registrations.some((entry) => entry.token === token)
+      );
+    },
   };
 };
 
@@ -114,6 +120,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(
       getInstance(container, formulaSqlPgTokens.typeValidationStrategy)?.constructor?.name
     ).toBe(Pg16TypeValidationStrategy.name);
+    expect(getInstance(container, v2CoreTokens.tableDataSafetyLimits)).toEqual({});
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig)
     ).toEqual(defaultHybridWithOutboxStrategyConfig);
@@ -149,6 +156,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
 
   it('normalizes config overrides and registers the async strategy', async () => {
     const { registerV2TableRepositoryPostgresAdapter } = await loadRegisterModule();
+    const { v2CoreTokens } = await import('@teable/v2-core');
     const { v2RecordRepositoryPostgresTokens } = await import('../record/di/tokens');
     const { AsyncWithRetryStrategy } = await import('../record/computed');
 
@@ -161,6 +169,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
       db,
       metaDb,
       typeValidationStrategy: customStrategy,
+      tableDataSafetyLimits: {
+        maxRecordsPerTable: 10,
+      },
       computedUpdate: {
         mode: 'async',
         hybridConfig: {
@@ -185,6 +196,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     });
 
     expect(getInstance(container, formulaSqlPgTokens.typeValidationStrategy)).toBe(customStrategy);
+    expect(getInstance(container, v2CoreTokens.tableDataSafetyLimits)).toEqual({
+      maxRecordsPerTable: 10,
+    });
     expect(getInstance(container, v2RecordRepositoryPostgresTokens.metaDb)).toBe(metaDb);
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig)

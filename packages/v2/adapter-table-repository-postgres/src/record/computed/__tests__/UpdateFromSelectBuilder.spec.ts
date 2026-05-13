@@ -1,6 +1,7 @@
 import {
   BaseId,
   DbFieldName,
+  FieldId,
   FieldName,
   FormulaExpression,
   Table,
@@ -38,6 +39,8 @@ const createTestDb = () =>
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'b'.repeat(16)}`;
+const CREATED_TIME_FIELD_ID = `fld${'c'.repeat(16)}`;
+const LAST_MODIFIED_TIME_FIELD_ID = `fld${'d'.repeat(16)}`;
 
 const createFormulaTable = () => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -68,6 +71,46 @@ const createFormulaTable = () => {
     ._unsafeUnwrap();
 
   return { table, formulaFieldId: table.getFields()[1].id() };
+};
+
+const createCreatedTimeTable = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+  const createdTimeFieldId = FieldId.create(CREATED_TIME_FIELD_ID)._unsafeUnwrap();
+  const lastModifiedTimeFieldId = FieldId.create(LAST_MODIFIED_TIME_FIELD_ID)._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('SystemTimeTable')._unsafeUnwrap());
+
+  builder
+    .field()
+    .createdTime()
+    .withId(createdTimeFieldId)
+    .withName(FieldName.create('Created Time')._unsafeUnwrap())
+    .done();
+  builder
+    .field()
+    .lastModifiedTime()
+    .withId(lastModifiedTimeFieldId)
+    .withName(FieldName.create('Last Modified Time')._unsafeUnwrap())
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build()._unsafeUnwrap();
+  table
+    .getField((field) => field.id().equals(createdTimeFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  table
+    .getField((field) => field.id().equals(lastModifiedTimeFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_last_modified_time')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { table, createdTimeFieldId, lastModifiedTimeFieldId };
 };
 
 describe('UpdateFromSelectBuilder', () => {
@@ -229,6 +272,47 @@ describe('UpdateFromSelectBuilder', () => {
     expect(withoutDistinct.value.sql).not.toContain('IS DISTINCT FROM');
     // Should still have the basic WHERE clause joining on __id
     expect(withoutDistinct.value.sql).toContain('"u"."__id" = "c"."__id"');
+  });
+
+  it('keeps system time projections timestamp-typed and compares as text for legacy columns', () => {
+    const db = createTestDb();
+    const { table, createdTimeFieldId, lastModifiedTimeFieldId } = createCreatedTimeTable();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([createdTimeFieldId, lastModifiedTimeFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.build({
+      table,
+      fieldIds: [createdTimeFieldId, lastModifiedTimeFieldId],
+      selectQuery: selectResult.value,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    expect(updateResult.value.sql).toContain(
+      '"c_src"."col_created_time"::timestamptz as "__set_col_created_time"'
+    );
+    expect(updateResult.value.sql).toContain(
+      '"c_src"."col_last_modified_time"::timestamptz as "__set_col_last_modified_time"'
+    );
+    expect(updateResult.value.sql).toContain(
+      '("u"."col_created_time")::text IS DISTINCT FROM ("c"."__set_col_created_time")::text'
+    );
+    expect(updateResult.value.sql).toContain(
+      '("u"."col_last_modified_time")::text IS DISTINCT FROM ("c"."__set_col_last_modified_time")::text'
+    );
+    expect(updateResult.value.sql).not.toContain(
+      '"c_src"."col_created_time"::text as "__set_col_created_time"'
+    );
+    expect(updateResult.value.sql).not.toContain(
+      '"c_src"."col_last_modified_time"::text as "__set_col_last_modified_time"'
+    );
   });
 
   describe('buildWithReturning', () => {
