@@ -1,4 +1,4 @@
-import type { IFilter, IGroup, StatisticsFunc } from '@teable/core';
+import type { IFilter, IGroup, ISortItem, StatisticsFunc } from '@teable/core';
 import type {
   IAggregationField,
   IQueryBaseRo,
@@ -32,6 +32,9 @@ export interface IAggregationService {
     withView?: IWithView;
     search?: [string, string?, boolean?];
     useQueryModel?: boolean;
+    skip?: number;
+    take?: number;
+    orderBy?: ISortItem[];
   }): Promise<IRawAggregationValue>;
 
   /**

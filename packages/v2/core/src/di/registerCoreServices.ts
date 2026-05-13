@@ -30,8 +30,17 @@ import {
   type ISchemaOperationHandler,
 } from '../application/services/SchemaOperationRunnerService';
 import { TableCreationService } from '../application/services/TableCreationService';
+import {
+  ExecutionContextTableDataSafetyLimitPlugin,
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitComposer,
+} from '../application/services/TableDataSafetyLimitComposer';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
+import { TableDataSafetyLimitFieldOperationPlugin } from '../application/services/TableDataSafetyLimitFieldOperationPlugin';
+import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableSchemaOperationRepairHandler } from '../application/services/TableSchemaOperationRepairHandler';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -43,8 +52,13 @@ import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalc
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
+import type { ITableDataSafetyLimitPlugin } from '../ports/TableDataSafetyLimitPlugin';
+import type { ITableOperationPlugin } from '../ports/TableOperationPlugin';
 import { v2CoreTokens } from '../ports/tokens';
 import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
+import { registerRecordWritePlugin } from './registerRecordWritePlugin';
+import { registerTableDataSafetyLimitPlugin } from './registerTableDataSafetyLimitPlugin';
+import { registerTableOperationPlugin } from './registerTableOperationPlugin';
 
 /**
  * Register all v2 core internal application services.
@@ -287,6 +301,44 @@ export const registerV2CoreServices = (
     container.registerInstance(v2CoreTokens.recordWritePlugins, [] as IRecordWritePlugin[]);
   }
 
+  if (!container.isRegistered(v2CoreTokens.tableDataSafetyLimitPlugins)) {
+    container.registerInstance(
+      v2CoreTokens.tableDataSafetyLimitPlugins,
+      [] as ITableDataSafetyLimitPlugin[]
+    );
+  }
+
+  registerTableDataSafetyLimitPlugin(container, new ExecutionContextTableDataSafetyLimitPlugin(), {
+    source: 'registerV2CoreServices',
+  });
+  if (container.isRegistered(v2CoreTokens.tableDataSafetyLimits)) {
+    registerTableDataSafetyLimitPlugin(
+      container,
+      new StaticTableDataSafetyLimitPlugin(container.resolve(v2CoreTokens.tableDataSafetyLimits)),
+      {
+        source: 'registerV2CoreServices',
+      }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableDataSafetyLimitComposer)) {
+    container.register(v2CoreTokens.tableDataSafetyLimitComposer, TableDataSafetyLimitComposer, {
+      lifecycle,
+    });
+  }
+
+  const tableDataSafetyLimitComposer = container.resolve<TableDataSafetyLimitComposer>(
+    v2CoreTokens.tableDataSafetyLimitComposer
+  );
+
+  registerRecordWritePlugin(
+    container,
+    new TableDataSafetyLimitRecordWritePlugin(tableDataSafetyLimitComposer),
+    {
+      source: 'registerV2CoreServices',
+    }
+  );
+
   if (!container.isRegistered(v2CoreTokens.recordWritePluginRunner)) {
     container.register(v2CoreTokens.recordWritePluginRunner, RecordWritePluginRunner, {
       lifecycle,
@@ -297,12 +349,46 @@ export const registerV2CoreServices = (
     container.registerInstance(v2CoreTokens.fieldOperationPlugins, [] as IFieldOperationPlugin[]);
   }
 
-  registerFieldOperationPlugin(container, new TableFieldLimitFieldOperationPlugin(), {
-    source: 'registerV2CoreServices',
-  });
+  registerFieldOperationPlugin(
+    container,
+    new TableFieldLimitFieldOperationPlugin(tableDataSafetyLimitComposer),
+    {
+      source: 'registerV2CoreServices',
+    }
+  );
+  registerFieldOperationPlugin(
+    container,
+    new TableDataSafetyLimitFieldOperationPlugin(tableDataSafetyLimitComposer),
+    {
+      source: 'registerV2CoreServices',
+    }
+  );
 
   if (!container.isRegistered(v2CoreTokens.fieldOperationPluginRunner)) {
     container.register(v2CoreTokens.fieldOperationPluginRunner, FieldOperationPluginRunner, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableOperationPlugins)) {
+    container.registerInstance(v2CoreTokens.tableOperationPlugins, [] as ITableOperationPlugin[]);
+  }
+
+  if (container.isRegistered(v2CoreTokens.tableRepository)) {
+    registerTableOperationPlugin(
+      container,
+      new TableDataSafetyLimitTableOperationPlugin(
+        container.resolve(v2CoreTokens.tableRepository),
+        tableDataSafetyLimitComposer
+      ),
+      {
+        source: 'registerV2CoreServices',
+      }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableOperationPluginRunner)) {
+    container.register(v2CoreTokens.tableOperationPluginRunner, TableOperationPluginRunner, {
       lifecycle,
     });
   }

@@ -6,7 +6,7 @@ import { updateNotificationStatus } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationItem } from './NotificationItem';
 
@@ -18,20 +18,28 @@ interface NotificationListProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   onShowMoreClick?: () => void;
+  emptyMessage?: string;
 }
 
 export const NotificationList: React.FC<NotificationListProps> = (props) => {
-  const { notifyStatus, data, className, hasNextPage, isFetchingNextPage, onShowMoreClick } = props;
+  const {
+    notifyStatus,
+    data,
+    className,
+    hasNextPage,
+    isFetchingNextPage,
+    onShowMoreClick,
+    emptyMessage,
+  } = props;
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
+  const notifications = useMemo(() => data?.flatMap((page) => page.notifications) ?? [], [data]);
 
   const { mutateAsync: updateStatusMutator } = useMutation({
     mutationFn: updateNotificationStatus,
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
-      });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
     },
   });
 
@@ -46,24 +54,25 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
 
   return (
     <div className={className}>
-      {!data || !data[0].notifications?.length ? (
+      {!notifications.length ? (
         <div className="p-6">
           <div className="flex items-center justify-center text-5xl font-normal">
             <Inbox />
           </div>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {t('notification.noUnread', {
-              status:
-                notifyStatus === NotificationStatesEnum.Read
-                  ? t('notification.read')
-                  : t('notification.unread'),
-            })}
+            {emptyMessage ??
+              t('notification.noUnread', {
+                status:
+                  notifyStatus === NotificationStatesEnum.Read
+                    ? t('notification.read')
+                    : t('notification.unread'),
+              })}
           </p>
         </div>
       ) : (
         <>
-          {data?.map(({ notifications }) => {
-            return notifications.map((notification) => {
+          <section>
+            {notifications.map((notification) => {
               const { id, isRead } = notification;
               return (
                 <NotificationActionBar
@@ -81,8 +90,8 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
                   <NotificationItem data={notification} notifyStatus={notifyStatus} />
                 </NotificationActionBar>
               );
-            });
-          })}
+            })}
+          </section>
           {hasNextPage && (
             <Button
               variant="ghost"

@@ -53,7 +53,6 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private parseFilters(
     queryBuilder: Knex.QueryBuilder,
     filter?: IFilter,
-    parentConjunction?: IConjunction,
     path: number[] = []
   ): Knex.QueryBuilder {
     if (!filter || !filter.filterSet) {
@@ -66,9 +65,9 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
         if ('fieldId' in filterItem) {
           this.parseFilter(filterBuilder, filterItem as IFilterItem, conjunction, itemPath);
         } else {
-          filterBuilder = filterBuilder[parentConjunction || conjunction];
+          filterBuilder = filterBuilder[conjunction];
           filterBuilder.where((builder) => {
-            this.parseFilters(builder, filterItem as IFilterSet, conjunction, itemPath);
+            this.parseFilters(builder, filterItem as IFilterSet, itemPath);
           });
         }
       });

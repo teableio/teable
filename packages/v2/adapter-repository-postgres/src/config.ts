@@ -2,6 +2,8 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import type { ITableRowLimitPolicy } from './repositories/PostgresTableRowLimitPlugin';
+
 // Use duck typing instead of instanceof check because webpack bundling
 // can create multiple copies of the Kysely class, causing instanceof to fail.
 // We check for characteristic Kysely methods instead.
@@ -24,7 +26,14 @@ const dbSchema = z.custom<Kysely<V1TeableDatabase>>(
 
 export const v2PostgresStateAdapterConfigSchema = z.object({
   db: dbSchema,
+  recordCountDb: dbSchema.optional(),
   ensureSchema: z.boolean().optional(),
+  tableMaxRowLimit: z.coerce.number().int().nonnegative().optional(),
+  tableRowLimitPolicy: z.custom<ITableRowLimitPolicy>().optional(),
+  /**
+   * @deprecated Use `tableMaxRowLimit`. Kept as a compatibility alias while
+   * callers migrate from the old credit/free-row naming.
+   */
   maxFreeRowLimit: z.coerce.number().int().nonnegative().optional(),
   seed: z
     .object({

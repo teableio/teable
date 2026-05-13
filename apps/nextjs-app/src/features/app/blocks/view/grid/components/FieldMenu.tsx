@@ -13,6 +13,7 @@ import {
   Edit,
   MagicAi,
   Download,
+  MessageSquareDot,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import { duplicateField } from '@teable/openapi';
@@ -53,6 +54,8 @@ import { useClickAway } from 'react-use';
 import { useColumnDownloadDialogStore } from '@/features/app/components/download-attachments';
 import { FieldDeleteConfirmDialog } from '@/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteConfirmDialog';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { useAI } from '@/features/app/hooks/useAI';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { useToolBarStore } from '../../tool-bar/components/useToolBarStore';
@@ -72,6 +75,7 @@ enum MenuItemType {
   Group = 'Group',
   Duplicate = 'Duplicate',
   DownloadAllAttachments = 'DownloadAllAttachments',
+  AddToChat = 'AddToChat',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -92,8 +96,11 @@ export const FieldMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
+  const { fields, aiEnable, onSelectionClear, onAutoFill, addToChat } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
+  const { enable: baseAiEnable } = useAI();
+  const usage = useBaseUsage();
+  const chatEnabled = Boolean(baseAiEnable && usage?.limit?.chatAIEnable);
   const { personalViewCommonQuery, isPersonalView } = usePersonalView();
   const { searchQuery } = useSearch();
   const isViewLocked = Boolean(view?.isLocked && !isPersonalView);
@@ -258,6 +265,15 @@ export const FieldMenu = () => {
         icon: <Download className={iconClassName} />,
         hidden: fieldIds.length !== 1 || fields[0]?.type !== FieldType.Attachment,
         onClick: handleDownloadAllAttachments,
+      },
+      {
+        type: MenuItemType.AddToChat,
+        name: t('table:menu.addToChat'),
+        icon: <MessageSquareDot className={iconClassName} />,
+        hidden: !chatEnabled || !addToChat,
+        onClick: () => {
+          addToChat?.();
+        },
       },
     ],
     [

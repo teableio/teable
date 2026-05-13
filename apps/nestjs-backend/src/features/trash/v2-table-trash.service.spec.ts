@@ -282,6 +282,7 @@ describe('V2RecordsDeletedTableTrashProjection', () => {
         {
           id: 'recFirstRecordId01',
           fields: { fldText: 'A' },
+          version: 7,
           displayName: 'Record A',
         },
       ],
@@ -307,6 +308,7 @@ describe('V2RecordsDeletedTableTrashProjection', () => {
           {
             id: 'recFirstRecordId01',
             fields: { fldText: 'A' },
+            version: 7,
             name: 'Record A',
           },
         ],

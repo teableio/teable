@@ -392,6 +392,20 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
           }
           return false;
         },
+        mouseup(view, event) {
+          // Some click sequences (e.g., triple-click extending to a paragraph,
+          // or a click that ProseMirror resolves to a NodeSelection) leave the
+          // contenteditable blurred even though `state.selection` is intact.
+          // Without focus, Delete/Backspace never reach PM, so the visible
+          // selection appears un-deletable. Restore focus on mouseup unless the
+          // click landed on the floating selection toolbar.
+          if (!view.hasFocus() && !view.state.selection.empty) {
+            const target = event.target;
+            const onToolbar = target instanceof Node && tooltip?.contains(target);
+            if (!onToolbar) view.focus();
+          }
+          return false;
+        },
       },
     },
     view(editorView) {

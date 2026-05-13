@@ -93,7 +93,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       const attempts = await this.cacheService.incr(`signin:attempts:${email}`, 30);
       if (attempts >= maxLoginAttempts) {
         await this.cacheService.set(`signin:lockout:${email}`, true, accountLockoutMinutes);
-        await this.cacheService.del(`signin:attempts:${email}`);
+        await this.cacheService.expire(`signin:attempts:${email}`, 1);
         throw lockError;
       }
       throw new CustomHttpException(

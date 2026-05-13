@@ -577,6 +577,17 @@
         "searchModel": "Model ara...",
         "selectModel": "Model seç...",
         "defaultModel": "{{name}} (Varsayılan)",
+        "moreModels": "Daha fazla model",
+        "agentModelWarningTitle": "Modelleri dikkatli seçin",
+        "agentModelWarningDescription": "Yukarıdaki önerilen modeller, araç kullanımı ve çok adımlı akıl yürütme gibi ajan görevleri için optimize edilmiştir. Diğer modellerin yetenekleri sınırlı olabilir ve beklenmeyen sonuçlara yol açabilir.",
+        "agentModelWarningConfirm": "Anladım",
+        "recommendedModelNudge": {
+          "title": "{{model}} modelini deneyin",
+          "description": "Çok daha düşük kredi kullanımıyla daha iyi AI sonuçları alın.",
+          "use": "{{model}} kullan",
+          "later": "Daha sonra"
+        },
+        "noModelsAvailable": "Kullanılabilir model yok",
         "input": "Giriş {{ratio}}",
         "output": "Çıkış {{ratio}}",
         "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",
@@ -866,6 +877,16 @@
             "warning90": {
               "title": "Alan {{spaceName}} yapay zeka kredileri %90 kullanıldı",
               "message": "Alanınız yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı yapay zeka kredisi artışı tespit edildi",
+                "message": "Bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: yapay zeka kredisi patlaması tespit edildi",
+                "message": "Son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -880,6 +901,16 @@
             "gracePeriod": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları aşıldı – ek süre aktif",
               "message": "Otomasyon çalıştırma kotanız aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı otomasyon çalıştırma artışı",
+                "message": "Bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: otomasyon çalıştırma patlaması tespit edildi",
+                "message": "Son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
             }
           }
         },
@@ -897,8 +928,26 @@
             "failed": {
               "title": "AI görevi {{tableName}} tablosunda başarısız oldu",
               "message": "{{tableName}} tablosundaki {{fieldName}} alanı için AI görevi (Kayıt ID: {{recordId}}) başarısız oldu.\n\n{{errorMsg}}\n\nAyrıntıları görmek için aşağıdaki düğmeye tıklayın."
+            },
+            "cancelled": {
+              "title": "AI görevi iptal edildi",
+              "rateLimit": "\"{{tableName}}\" tablosu için AI görevi, hız sınırlaması (429) nedeniyle iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "creditExhausted": "\"{{tableName}}\" tablosu için AI görevi, krediler tükendiği için iptal edildi. Lütfen aboneliğinizi yükseltin veya kredilerin yenilenmesini bekleyin.",
+              "authFailed": "\"{{tableName}}\" tablosu için AI görevi, kimlik doğrulama hatası nedeniyle iptal edildi. Lütfen API anahtarı yapılandırmanızı kontrol edin.",
+              "serviceUnavailable": "\"{{tableName}}\" tablosu için AI görevi, AI hizmeti geçici olarak kullanılamadığı için iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "unknown": "\"{{tableName}}\" tablosu için AI görevi iptal edildi. Hata: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Ödül talebi reddedildi",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz şu nedenlerle reddedildi: {{errorMessages}}. Lütfen gözden geçirip tekrar gönderin.",
+          "buttonText": "Alanı Görüntüle"
+        },
+        "rewardApproved": {
+          "title": "Ödül talebi onaylandı",
+          "message": "Tebrikler! <a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz onaylandı. {{amount}} kredi eklendi, {{expiredDays}} gün geçerlidir.",
+          "buttonText": "Alanı Görüntüle"
         }
       }
     }
@@ -1100,9 +1149,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "28 NİS GÜNCELLEMESİ",
-    "title": "Yeni Tetikleyici: E-posta Alındığında (IMAP)",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "12 MAYIS GUNCELLEMESI",
+    "title": "App Builder icin yerlesik giris",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

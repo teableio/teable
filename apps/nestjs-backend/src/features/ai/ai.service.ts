@@ -32,9 +32,10 @@ import { PerformanceCacheService } from '../../performance-cache';
 import { SettingService } from '../setting/setting.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
-// Fixed name for all instance (platform-provided) providers in modelKey.
-// Instance models always end with @teable (e.g. "aiGateway@model@teable", "anthropic@model@teable").
-// BYOK (space-configured) providers keep their custom name (e.g. "openai@model@my-custom").
+// Fixed name for instance-level provider config in modelKey.
+// Admin AI setting providers are normalized to @teable, including both AI Gateway
+// and custom providers. Distinguish them by provider type, not by this suffix.
+// Space BYOK providers keep their custom provider name.
 export const INSTANCE_PROVIDER_NAME = 'teable';
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
@@ -45,6 +46,12 @@ const gatewayModelsCacheTtl = 10 * 60 * 1000;
 interface IGatewayModelsCache {
   data: IGatewayApiModel[];
   expiresAt: number;
+}
+
+export interface IResolvedModelMapping {
+  requestedModelKey: string;
+  effectiveModelKey: string;
+  mapped: boolean;
 }
 
 @Injectable()
@@ -75,12 +82,139 @@ export class AiService {
     return type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase();
   }
 
+  private providerHasModel(provider: LLMProvider, model: string): boolean {
+    return provider.models
+      .split(',')
+      .map((item) => item.trim())
+      .includes(model);
+  }
+
+  private modelConfigHasRates(provider: LLMProvider, model: string): boolean {
+    const config = provider.modelConfigs?.[model];
+    return Boolean(
+      config?.pricing?.input ||
+        config?.pricing?.output ||
+        config?.pricing?.image ||
+        config?.inputRate != null ||
+        config?.outputRate != null ||
+        config?.imageRate != null
+    );
+  }
+
+  public isInstanceAIModelByConfig(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
+    const { type, model, name } = this.parseModelKey(modelKey);
+    if (!type || !model || !name) return false;
+    if (this.isGatewayModel(modelKey)) return true;
+
+    const provider = llmProviders.find(
+      (p) =>
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.name.toLowerCase() === name.toLowerCase() &&
+        this.providerHasModel(p, model)
+    );
+    if (provider) return Boolean(provider.isInstance);
+
+    return this.checkInstanceAIModel(modelKey);
+  }
+
   /**
    * Build a gateway modelKey from a gateway model ID
    * @param modelId Gateway model ID (e.g., "anthropic/claude-sonnet-4")
    */
   public buildGatewayModelKey(modelId: string): string {
     return `${LLMProviderType.AI_GATEWAY}@${modelId}@${INSTANCE_PROVIDER_NAME}`;
+  }
+
+  private validateMappedTargetModel(modelKey: string, llmProviders: LLMProvider[]): void {
+    const { type, model, name } = this.parseModelKey(modelKey);
+    if (
+      !type ||
+      !model ||
+      !name ||
+      type.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase()
+    ) {
+      throw new CustomHttpException(
+        'AI model mapping target must be an instance custom provider model',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+
+    const provider = llmProviders.find(
+      (p) =>
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.name.toLowerCase() === name.toLowerCase() &&
+        this.providerHasModel(p, model)
+    );
+    if (!provider?.isInstance) {
+      throw new CustomHttpException(
+        'AI model mapping target provider is not configured as an instance provider',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+    if (!this.modelConfigHasRates(provider, model)) {
+      throw new CustomHttpException(
+        'AI model mapping target pricing is not configured',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+  }
+
+  public resolveModelMapping(
+    modelKey: string,
+    llmProviders: LLMProvider[] = [],
+    aiConfig?: IAIConfig | null
+  ): IResolvedModelMapping {
+    if (!this.baseConfig.isCloud || !this.isGatewayModel(modelKey)) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    const mapping = aiConfig?.modelMappings?.find(
+      (item) => item.enabled !== false && item.sourceModelKey === modelKey
+    );
+    if (!mapping) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    if (mapping.targetModelKey === modelKey) {
+      throw new CustomHttpException(
+        'AI model mapping target cannot be the same as source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+    this.validateMappedTargetModel(mapping.targetModelKey, llmProviders);
+    return { requestedModelKey: modelKey, effectiveModelKey: mapping.targetModelKey, mapped: true };
+  }
+
+  public async resolveEffectiveModelKey(
+    modelKey: string,
+    llmProviders: LLMProvider[] = []
+  ): Promise<IResolvedModelMapping> {
+    if (!this.baseConfig.isCloud || !this.isGatewayModel(modelKey)) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    return this.resolveModelMapping(modelKey, llmProviders, aiConfig);
   }
 
   /**
@@ -94,10 +228,11 @@ export class AiService {
 
   // modelKey-> type@model@name
   async getModelConfig(modelKey: string, llmProviders: LLMProvider[] = []) {
-    const { type, model, name } = this.parseModelKey(modelKey);
+    const { effectiveModelKey } = await this.resolveEffectiveModelKey(modelKey, llmProviders);
+    const { type, model, name } = this.parseModelKey(effectiveModelKey);
 
     // Special handling for AI Gateway models
-    if (this.isGatewayModel(modelKey)) {
+    if (this.isGatewayModel(effectiveModelKey)) {
       const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
 
       if (!aiConfig?.aiGatewayApiKey) {
@@ -361,17 +496,24 @@ export class AiService {
   async getSimplifiedAIConfig(baseId: string) {
     try {
       const config = await this.getAIConfig(baseId);
+      const llmProviders = this.baseConfig.isCloud
+        ? config.llmProviders.filter(({ isInstance }) => !isInstance)
+        : config.llmProviders;
       return {
-        ...config,
-        llmProviders: config.llmProviders.map(
-          ({ type, name, models, isInstance, modelConfigs }) => ({
-            type,
-            name,
-            models,
-            isInstance,
-            modelConfigs,
-          })
-        ),
+        enable: config.enable,
+        llmProviders: llmProviders.map(({ type, name, models, isInstance, modelConfigs }) => ({
+          type,
+          name,
+          models,
+          isInstance,
+          modelConfigs,
+        })),
+        embeddingModel: config.embeddingModel,
+        translationModel: config.translationModel,
+        chatModel: config.chatModel,
+        capabilities: config.capabilities,
+        gatewayModels: config.gatewayModels,
+        attachmentTransferMode: config.attachmentTransferMode,
       };
     } catch {
       return null;
@@ -432,15 +574,16 @@ export class AiService {
       (p) =>
         p.name.toLowerCase() === name.toLowerCase() &&
         p.type.toLowerCase() === type.toLowerCase() &&
-        p.models.includes(model)
+        this.providerHasModel(p, model)
     );
     return !!providerConfig;
   }
 
   /**
    * Check if a model is an instance (platform-provided) model.
-   * Instance models use the "@teable" provider name suffix (e.g. "aiGateway@model@teable").
-   * BYOK (user-configured) models have a custom provider name.
+   * Instance-level admin AI setting models use the "@teable" provider name suffix.
+   * This includes both AI Gateway and admin custom providers; use provider type
+   * when code needs to distinguish the two.
    */
   checkInstanceAIModel(modelKey: string): boolean {
     return modelKey.endsWith(`@${INSTANCE_PROVIDER_NAME}`);

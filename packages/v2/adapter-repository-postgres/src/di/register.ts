@@ -10,7 +10,10 @@ import { ensureV1MetaSchema } from '../db/schema';
 import { PostgresBaseRepository } from '../repositories/PostgresBaseRepository';
 import { PostgresSchemaOperationRepository } from '../repositories/PostgresSchemaOperationRepository';
 import { PostgresTableRepository } from '../repositories/PostgresTableRepository';
-import { PostgresTableRowLimitPlugin } from '../repositories/PostgresTableRowLimitPlugin';
+import {
+  PostgresTableRowLimitPlugin,
+  StaticTableRowLimitPolicy,
+} from '../repositories/PostgresTableRowLimitPlugin';
 import { v2PostgresStateTokens } from './tokens';
 
 export const registerV2PostgresStateAdapter = async (
@@ -48,9 +51,14 @@ export const registerV2PostgresStateAdapter = async (
   c.register(v2CoreTokens.baseRepository, PostgresBaseRepository, {
     lifecycle: Lifecycle.Singleton,
   });
-  if (typeof config.maxFreeRowLimit === 'number' && config.maxFreeRowLimit > 0) {
-    c.registerInstance(v2PostgresStateTokens.maxFreeRowLimit, config.maxFreeRowLimit);
-    registerRecordWritePlugin(c, new PostgresTableRowLimitPlugin(db, config.maxFreeRowLimit), {
+  const tableMaxRowLimit = config.tableMaxRowLimit ?? config.maxFreeRowLimit;
+  if (typeof tableMaxRowLimit === 'number' && tableMaxRowLimit > 0) {
+    const recordCountDb = (config.recordCountDb ?? db) as Kysely<V1TeableDatabase>;
+    const rowLimitPolicy =
+      config.tableRowLimitPolicy ?? new StaticTableRowLimitPolicy(tableMaxRowLimit);
+    c.registerInstance(v2PostgresStateTokens.tableMaxRowLimit, tableMaxRowLimit);
+    c.registerInstance(v2PostgresStateTokens.maxFreeRowLimit, tableMaxRowLimit);
+    registerRecordWritePlugin(c, new PostgresTableRowLimitPlugin(recordCountDb, rowLimitPolicy), {
       source: 'registerV2PostgresStateAdapter',
     });
   }
