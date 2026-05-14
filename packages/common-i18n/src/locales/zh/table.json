@@ -1243,6 +1243,10 @@
         "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少 Credit 消耗。",
         "contextTipMemory": "对 AI 说「记住 XXX」可存入长期记忆，跨对话保留。"
       },
+      "contextCompaction": {
+        "auto": "上下文已自动压缩",
+        "manual": "上下文已压缩"
+      },
       "taskProgress": {
         "title": "任务进度"
       },
