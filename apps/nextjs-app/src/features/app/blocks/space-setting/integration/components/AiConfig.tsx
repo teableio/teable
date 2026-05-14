@@ -24,8 +24,9 @@ import {
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
-  onChange: (value: IAIIntegrationConfig) => void;
+  onChange: (value: IAIIntegrationConfig) => Promise<unknown> | void;
   spaceId?: string;
+  disabled?: boolean;
 }
 
 const emptyArray: never[] = [];
@@ -82,7 +83,7 @@ export const AIConfig = (props: IAIConfigProps) => {
 
   const onSubmit = useCallback(
     async (data: IAIIntegrationConfig) => {
-      onChange(normalizeAiConfig(data));
+      await onChange(normalizeAiConfig(data));
       toast({
         title: t('admin.setting.ai.configUpdated'),
       });
@@ -94,7 +95,7 @@ export const AIConfig = (props: IAIConfigProps) => {
     const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
     form.setValue('llmProviders', normalizedProviders);
     form.trigger('llmProviders');
-    onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
+    void onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
   };
 
   const onTest = async (data: ITestLLMRo) => testIntegrationLLM(spaceId, data);
@@ -134,7 +135,7 @@ export const AIConfig = (props: IAIConfigProps) => {
 
       form.setValue('llmProviders', newProviders);
       // Silent save without toast
-      onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
+      void onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
     [form, normalizeAiConfig, onChange]
   );
@@ -169,7 +170,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
+      void onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
     [form, normalizeAiConfig, onChange]
   );
@@ -185,8 +186,9 @@ export const AIConfig = (props: IAIConfigProps) => {
           onChange={(value: { disableActions: string[] }) => {
             const current = form.getValues('capabilities') ?? {};
             form.setValue('capabilities', { ...current, ...value });
-            onSubmit(form.getValues());
+            return onSubmit(form.getValues());
           }}
+          disabled={props.disabled}
         />
         <AIProviderCard
           control={form.control}
@@ -201,6 +203,7 @@ export const AIConfig = (props: IAIConfigProps) => {
           testingProviders={testingProviders}
           testingModels={testingModels}
           hideModelRates
+          providerNameMode="auto"
           onSaveTestResult={onSaveTestResult}
           title={t('admin.setting.ai.provider')}
           headerActions={

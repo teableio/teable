@@ -7,6 +7,7 @@ import { DefaultErrorLabel } from '../component';
 import { BaseSingleSelect } from '../component/base/BaseSingleSelect';
 import { useOperators } from '../hooks';
 import { useFields } from '../hooks/useFields';
+import { useFilterModal } from '../hooks/useFilterModal';
 import { useOperatorI18nMap } from '../hooks/useOperatorI18nMap';
 import type { IViewFilterConditionItem } from '../types';
 import { shouldFilterByDefaultValue, shouldResetFieldValue } from '../utils';
@@ -24,7 +25,8 @@ interface IBaseOperatorSelectProps<T extends IConditionItemProperty = IViewFilte
 export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IBaseOperatorSelectProps<T>
 ) => {
-  const { value, item, path, disabledOperators } = props;
+  const ctxModal = useFilterModal();
+  const { value, item, path, disabledOperators, modal = ctxModal } = props;
   const { field: fieldId } = item;
   const { onChange } = useCrud();
   const fields = useFields();
@@ -70,6 +72,7 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
       onSelect={onSelectHandler}
       disabled={shouldDisabled}
       defaultLabel={<DefaultErrorLabel />}
+      modal={modal}
     />
   );
 };

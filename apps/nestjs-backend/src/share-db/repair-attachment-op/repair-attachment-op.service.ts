@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IAttachmentCellValue, IOtOperation } from '@teable/core';
+import type { IAttachmentCellValue } from '@teable/core';
 import { isImage, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -11,6 +11,33 @@ import { resolveThumbnailMimetype } from '../../features/attachments/utils';
 import { getTableThumbnailToken } from '../../utils/generate-thumbnail-path';
 import { Timing } from '../../utils/timing';
 import type { IRawOpMap } from '../interface';
+
+type IPartialAttachmentItem = Partial<IAttachmentCellValue[number]> & {
+  token?: unknown;
+  name?: unknown;
+  path?: unknown;
+  mimetype?: unknown;
+  presignedUrl?: unknown;
+};
+
+type IAttachmentMeta = {
+  token: string;
+  path: string;
+  size: number;
+  mimetype: string;
+  width?: number;
+  height?: number;
+  thumbnailPath?: {
+    sm?: string;
+    lg?: string;
+  };
+};
+
+type IRepairAttachmentContext = {
+  attachmentMetaTokenMap: Record<string, IAttachmentMeta>;
+  thumbnailPathTokenMap: Record<string, { sm?: string; lg?: string }>;
+  cachePreviewUrlTokenMap: Record<string, string>;
+};
 
 @Injectable()
 export class RepairAttachmentOpService {
@@ -24,15 +51,11 @@ export class RepairAttachmentOpService {
     return Boolean(!rawOp.del && !rawOp.create && rawOp.op);
   }
 
-  private getAttachmentCell(op: IOtOperation) {
-    const setRecordOp = RecordOpBuilder.editor.setRecord.detect(op);
-    if (!setRecordOp) {
-      return;
-    }
-    const newCellValue = setRecordOp.newCellValue;
-    if (newCellValue && Array.isArray(newCellValue) && newCellValue?.[0]?.mimetype) {
-      return newCellValue as IAttachmentCellValue;
-    }
+  private getAttachmentItems(value: unknown): IPartialAttachmentItem[] | undefined {
+    if (!value || !Array.isArray(value) || value.length === 0) return;
+    if (!value.every((item) => item && typeof item === 'object' && !Array.isArray(item))) return;
+    if (!value.some((item) => typeof (item as IPartialAttachmentItem).token === 'string')) return;
+    return value as IPartialAttachmentItem[];
   }
 
   private getCollectionsAttachmentToken(rawOp: EditOp | CreateOp | DeleteOp): string[] | undefined {
@@ -45,16 +68,18 @@ export class RepairAttachmentOpService {
 
       const newCellValue = setRecordOp.newCellValue;
       const oldCellValue = setRecordOp.oldCellValue;
-      if (!newCellValue || !Array.isArray(newCellValue) || !newCellValue[0]?.mimetype) return acc;
+      const newItems = this.getAttachmentItems(newCellValue);
+      if (!newItems) return acc;
 
-      const newItems = newCellValue as IAttachmentCellValue;
-      const oldItems =
-        oldCellValue && Array.isArray(oldCellValue) && oldCellValue[0]?.mimetype
-          ? (oldCellValue as IAttachmentCellValue)
-          : [];
-      const oldNameByToken = new Map(oldItems.map((item) => [item.token, item.name]));
+      const oldItems = this.getAttachmentItems(oldCellValue) ?? [];
+      const oldNameByToken = new Map(
+        oldItems
+          .filter((item) => typeof item.token === 'string')
+          .map((item) => [item.token as string, item.name])
+      );
 
       newItems.forEach((item) => {
+        if (typeof item.token !== 'string') return;
         const oldName = oldNameByToken.get(item.token);
         const isNew = !item.presignedUrl;
         const isRenamed = oldName != null && oldName !== item.name;
@@ -66,29 +91,46 @@ export class RepairAttachmentOpService {
     }, [] as string[]);
   }
 
-  private async getThumbnailPathTokenMap(tokens: string[]) {
-    const thumbnailPathTokenMap: Record<
-      string,
-      {
-        sm?: string;
-        lg?: string;
-      }
-    > = {};
+  private parseThumbnailPath(value: unknown) {
+    if (!value || typeof value !== 'string') return;
+    try {
+      return JSON.parse(value) as { sm?: string; lg?: string };
+    } catch {
+      return;
+    }
+  }
+
+  private async getAttachmentMetaTokenMap(tokens: string[]) {
+    const attachmentMetaTokenMap: Record<string, IAttachmentMeta> = {};
     // once handle 1000 tokens
     const batchSize = 1000;
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
       const attachments = await this.prismaService.attachments.findMany({
         where: { token: { in: batch } },
-        select: { token: true, thumbnailPath: true },
+        select: {
+          token: true,
+          path: true,
+          size: true,
+          mimetype: true,
+          width: true,
+          height: true,
+          thumbnailPath: true,
+        },
       });
       attachments.forEach((attachment) => {
-        if (attachment.thumbnailPath) {
-          thumbnailPathTokenMap[attachment.token] = JSON.parse(attachment.thumbnailPath);
-        }
+        attachmentMetaTokenMap[attachment.token] = {
+          token: attachment.token,
+          path: attachment.path,
+          size: Number(attachment.size),
+          mimetype: attachment.mimetype,
+          width: attachment.width ?? undefined,
+          height: attachment.height ?? undefined,
+          thumbnailPath: this.parseThumbnailPath(attachment.thumbnailPath),
+        };
       });
     }
-    return thumbnailPathTokenMap;
+    return attachmentMetaTokenMap;
   }
 
   private async getCachePreviewUrlTokenMap(tokens: string[]) {
@@ -127,9 +169,15 @@ export class RepairAttachmentOpService {
     }
     const tokens = Object.values(collectionsAttachmentTokens).flat();
     const uniqueTokens = [...new Set(tokens)];
-    const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(uniqueTokens);
+    const attachmentMetaTokenMap = await this.getAttachmentMetaTokenMap(uniqueTokens);
+    const thumbnailPathTokenMap = Object.fromEntries(
+      Object.values(attachmentMetaTokenMap)
+        .filter((attachment) => attachment.thumbnailPath)
+        .map((attachment) => [attachment.token, attachment.thumbnailPath!])
+    );
     const cachePreviewUrlTokenMap = await this.getCachePreviewUrlTokenMap(uniqueTokens);
     return {
+      attachmentMetaTokenMap,
       thumbnailPathTokenMap,
       cachePreviewUrlTokenMap,
     };
@@ -137,10 +185,7 @@ export class RepairAttachmentOpService {
 
   private async presignedAttachmentUrl(
     item: { name: string; path: string; token: string; mimetype: string },
-    context: {
-      thumbnailPathTokenMap: Record<string, { sm?: string; lg?: string }>;
-      cachePreviewUrlTokenMap: Record<string, string>;
-    }
+    context: IRepairAttachmentContext
   ) {
     const { thumbnailPathTokenMap, cachePreviewUrlTokenMap } = context;
     const { path, token, mimetype, name } = item;
@@ -190,13 +235,65 @@ export class RepairAttachmentOpService {
     };
   }
 
-  async repairAttachmentOp(
-    rawOp: EditOp | CreateOp | DeleteOp,
-    context: {
-      thumbnailPathTokenMap: Record<string, { sm?: string; lg?: string }>;
-      cachePreviewUrlTokenMap: Record<string, string>;
-    }
+  private mergeAttachmentMeta(
+    item: IPartialAttachmentItem,
+    context: IRepairAttachmentContext
+  ): IPartialAttachmentItem {
+    if (typeof item.token !== 'string') return item;
+    const meta = context.attachmentMetaTokenMap[item.token];
+    if (!meta) return item;
+    return {
+      ...item,
+      path: typeof item.path === 'string' ? item.path : meta.path,
+      size: typeof item.size === 'number' ? item.size : meta.size,
+      mimetype: typeof item.mimetype === 'string' ? item.mimetype : meta.mimetype,
+      width: typeof item.width === 'number' ? item.width : meta.width,
+      height: typeof item.height === 'number' ? item.height : meta.height,
+    };
+  }
+
+  private isSignableAttachmentItem(
+    item: IPartialAttachmentItem
+  ): item is IPartialAttachmentItem & { token: string; path: string; mimetype: string } {
+    return (
+      typeof item.token === 'string' &&
+      typeof item.path === 'string' &&
+      typeof item.mimetype === 'string'
+    );
+  }
+
+  private async repairAttachmentItem(
+    item: IPartialAttachmentItem,
+    oldNameByToken: Map<string, unknown>,
+    context: IRepairAttachmentContext
   ) {
+    if (!this.isSignableAttachmentItem(item)) return;
+
+    const oldName = oldNameByToken.get(item.token);
+    const isRenamed = oldName != null && oldName !== item.name;
+    const needsRepair = !item.presignedUrl || isRenamed;
+    if (!needsRepair) return;
+
+    if (isRenamed) {
+      await this.cacheService.del(`attachment:preview:${item.token}`);
+      delete context.cachePreviewUrlTokenMap[item.token];
+    }
+
+    const { presignedUrl, smThumbnailUrl, lgThumbnailUrl } = await this.presignedAttachmentUrl(
+      {
+        name: typeof item.name === 'string' ? item.name : item.token,
+        path: item.path,
+        token: item.token,
+        mimetype: item.mimetype,
+      },
+      context
+    );
+    item.presignedUrl = presignedUrl;
+    item.smThumbnailUrl = smThumbnailUrl;
+    item.lgThumbnailUrl = lgThumbnailUrl;
+  }
+
+  async repairAttachmentOp(rawOp: EditOp | CreateOp | DeleteOp, context: IRepairAttachmentContext) {
     if (!this.isEditOp(rawOp)) {
       return rawOp;
     }
@@ -206,34 +303,24 @@ export class RepairAttachmentOpService {
 
       const newCellValue = setRecordOp.newCellValue;
       const oldCellValue = setRecordOp.oldCellValue;
-      if (!newCellValue || !Array.isArray(newCellValue) || !newCellValue[0]?.mimetype) continue;
+      const newAttachmentCell = this.getAttachmentItems(newCellValue);
+      if (!newAttachmentCell) continue;
 
-      const newAttachmentCell = newCellValue as IAttachmentCellValue;
-      const oldAttachmentCell =
-        oldCellValue && Array.isArray(oldCellValue) && oldCellValue[0]?.mimetype
-          ? (oldCellValue as IAttachmentCellValue)
-          : [];
-      const oldNameByToken = new Map(oldAttachmentCell.map((item) => [item.token, item.name]));
+      const oldAttachmentCell = this.getAttachmentItems(oldCellValue) ?? [];
+      const oldNameByToken = new Map(
+        oldAttachmentCell
+          .filter((item) => typeof item.token === 'string')
+          .map((item) => [item.token as string, item.name])
+      );
 
-      for (const item of newAttachmentCell) {
-        const oldName = oldNameByToken.get(item.token);
-        const isRenamed = oldName != null && oldName !== item.name;
-        const needsRepair = !item.presignedUrl || isRenamed;
+      const repairedAttachmentCell = newAttachmentCell.map((item) =>
+        this.mergeAttachmentMeta(item, context)
+      );
 
-        if (needsRepair) {
-          if (isRenamed) {
-            await this.cacheService.del(`attachment:preview:${item.token}`);
-            delete context.cachePreviewUrlTokenMap[item.token];
-          }
-
-          const { presignedUrl, smThumbnailUrl, lgThumbnailUrl } =
-            await this.presignedAttachmentUrl(item, context);
-          item.presignedUrl = presignedUrl;
-          item.smThumbnailUrl = smThumbnailUrl;
-          item.lgThumbnailUrl = lgThumbnailUrl;
-        }
+      for (const item of repairedAttachmentCell) {
+        await this.repairAttachmentItem(item, oldNameByToken, context);
       }
-      op.oi = newAttachmentCell;
+      op.oi = repairedAttachmentCell;
     }
     return rawOp;
   }

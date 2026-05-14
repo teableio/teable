@@ -1,4 +1,5 @@
 import { v2CoreTokens } from '@teable/v2-core';
+import type { TableDataSafetyLimitConfig } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import {
@@ -88,6 +89,7 @@ export interface IV2TableRepositoryPostgresConfig {
      */
     fieldBackfillConfig?: Partial<FieldBackfillConfig>;
   };
+  tableDataSafetyLimits?: TableDataSafetyLimitConfig;
 }
 
 /**
@@ -123,6 +125,11 @@ export const registerV2TableRepositoryPostgresAdapter = (
   if (!parsed.success) {
     throw new Error('Invalid v2 postgres ddl adapter config');
   }
+
+  if (config.tableDataSafetyLimits || !c.isRegistered(v2CoreTokens.tableDataSafetyLimits)) {
+    c.registerInstance(v2CoreTokens.tableDataSafetyLimits, config.tableDataSafetyLimits ?? {});
+  }
+
   c.registerInstance(v2PostgresDdlTokens.config, parsed.data);
   c.registerInstance(v2PostgresDdlTokens.db, config.db);
 

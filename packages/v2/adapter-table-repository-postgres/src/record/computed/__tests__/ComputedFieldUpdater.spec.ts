@@ -15,6 +15,8 @@ import {
   Table,
   TableId,
   TableName,
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitComposer,
   domainError,
   ok,
 } from '@teable/v2-core';
@@ -45,10 +47,16 @@ import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
 // =============================================================================
 
 class RecordingConnection implements DatabaseConnection {
-  constructor(private readonly queries: CompiledQuery[]) {}
+  constructor(
+    private readonly queries: CompiledQuery[],
+    private readonly returningRows: unknown[][]
+  ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+    if (compiledQuery.sql.includes(' RETURNING ') && this.returningRows.length > 0) {
+      return { rows: this.returningRows.shift() as R[], numAffectedRows: BigInt(0) };
+    }
     return { rows: [], numAffectedRows: BigInt(0) };
   }
 
@@ -60,12 +68,14 @@ class RecordingConnection implements DatabaseConnection {
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
 
+  constructor(private readonly returningRows: unknown[][] = []) {}
+
   async init(): Promise<void> {
     return undefined;
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries);
+    return new RecordingConnection(this.queries, this.returningRows);
   }
 
   async beginTransaction(): Promise<void> {
@@ -94,8 +104,8 @@ class RecordingDriver implements Driver {
   }
 }
 
-const createRecordingDb = () => {
-  const driver = new RecordingDriver();
+const createRecordingDb = (returningRows: unknown[][] = []) => {
+  const driver = new RecordingDriver(returningRows);
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -744,6 +754,57 @@ describe('ComputedFieldUpdater', () => {
         },
       ]
     `);
+  });
+
+  it('rejects oversized computed cell values returned from updates', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db } = createRecordingDb([
+      [
+        {
+          __id: RECORD_ID,
+          __old_version: 1,
+          col_plus_one: 'oversized',
+        },
+      ],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy(),
+      new TableDataSafetyLimitComposer([
+        new StaticTableDataSafetyLimitPlugin({
+          computed: { maxComputedCellValueBytes: 1 },
+        }),
+      ])
+    );
+
+    const result = await updater.execute(plan, { actorId }, undefined, { collectChanges: true });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.computed_cell_value_max_bytes');
   });
 
   it('deduplicates equivalent dirty propagation selects before building the batch SQL', async () => {

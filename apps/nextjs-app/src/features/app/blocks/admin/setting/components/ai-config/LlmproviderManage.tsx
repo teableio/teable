@@ -26,6 +26,7 @@ import {
 import { SlidersHorizontalIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 
+import type { ProviderNameMode } from './LlmProviderForm';
 import { NewLLMProviderForm, UpdateLLMProviderForm } from './LlmProviderForm';
 
 // Model test result interface
@@ -57,6 +58,7 @@ interface ILLMProviderManageProps {
     ability: IChatModelAbility | undefined,
     imageAbility: IImageModelAbility | undefined
   ) => void;
+  providerNameMode?: ProviderNameMode;
 }
 
 export const LLMProviderManage = ({
@@ -71,6 +73,7 @@ export const LLMProviderManage = ({
   testingModels,
   hideModelRates,
   onSaveTestResult,
+  providerNameMode,
 }: ILLMProviderManageProps) => {
   const { t } = useTranslation('common');
   const handleAdd = (data: LLMProvider) => {
@@ -95,6 +98,7 @@ export const LLMProviderManage = ({
         onTest={onTest}
         hideModelRates={hideModelRates}
         onSaveTestResult={onSaveTestResult}
+        providerNameMode={providerNameMode}
       />
     );
   }
@@ -166,6 +170,7 @@ export const LLMProviderManage = ({
                     onTest={onTest}
                     hideModelRates={hideModelRates}
                     onSaveTestResult={onSaveTestResult}
+                    providerNameMode={providerNameMode}
                   >
                     <Button size="icon-xs" variant="ghost">
                       <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
@@ -222,6 +227,7 @@ export const LLMProviderManage = ({
           onTest={onTest}
           hideModelRates={hideModelRates}
           onSaveTestResult={onSaveTestResult}
+          providerNameMode={providerNameMode}
         />
       </div>
     </div>

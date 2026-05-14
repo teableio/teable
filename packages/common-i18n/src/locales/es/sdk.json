@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Rango de fechas (meses)",
     "totalAttachmentSize": "Tamaño total del accesorio"
   },
+  "selectionStatistic": {
+    "tip": "Solo se agregan los campos de tipo Número."
+  },
   "baseQuery": {
     "add": "Agregar",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Solo puedes suscribirte a una tabla dentro de tu base de datos",
       "alreadyActiveAndNotDraft": "La automatización ya está activa y no es un borrador",
       "noActiveSnapshot": "La automatización no tiene instantánea activa",
+      "onlyFailedRunsCanRerun": "Solo se pueden volver a ejecutar las ejecuciones fallidas",
+      "workflowMustBeActiveToRerun": "El flujo de trabajo debe estar activo para volver a ejecutarse",
+      "snapshotChangedOnlyFullRerun": "El flujo de trabajo ha sido modificado desde esta ejecución. Solo se permite la reejecución completa.",
+      "controlStepsMissingOnlyFullRerun": "Faltan datos del nodo de control para esta ejecución. Solo se admite la reejecución completa.",
       "triggerNodeAlreadyExists": "Esta automatización ya tiene un nodo disparador",
       "generateLogicError": "Error al generar el nodo de lógica",
       "logicNotFound": "Nodo de lógica de automatización no encontrado",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "El nodo de control no debe ser probado",
       "invalidNodeType": "Tipo de nodo inválido",
       "unsupportedCategory": "Categoría no soportada",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Tipo de conexión de correo desconocido",
+      "imapPasswordNotConfigured": "Contraseña IMAP no configurada",
+      "integrationNotFound": "Integración no encontrada o sin credenciales",
+      "webhookTriggerNotFound": "Trigger de webhook no encontrado",
+      "emailReceivedTriggerNotFound": "Trigger de recepción de correo no encontrado",
+      "emailConnectorNotAvailable": "Servicio de conector de correo no disponible",
       "listMailboxesFailed": "Error al listar buzones: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "No se puede operar en un espacio, verifique que hay miembros de la organización en el espacio y que son propietarios",
       "notBelongToOrg": "Este espacio no pertenece a la organización",
-      "invalidSpaceIds": "Los IDs de espacio son inválidos: {{spaceIds}}"
+      "invalidSpaceIds": "Los IDs de espacio son inválidos: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Ha alcanzado el número máximo de espacios que puede gestionar ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} ha alcanzado el número máximo de espacios que puede gestionar ({{max}})"
     },
     "base": {
       "notFound": "Base no encontrada",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Crédito insuficiente",
       "exceedMaxRowLimit": "Se excedió el límite máximo de filas {{maxRowCount}}",
-      "exceedMaxAutomationRunLimit": "Se alcanzó el máximo mensual de ejecuciones de automatización"
+      "exceedMaxAutomationRunLimit": "Se alcanzó el máximo mensual de ejecuciones de automatización",
+      "manualSubscriptionNotSupported": "La suscripción de autoservicio no está disponible para este espacio. Para actualizaciones, cambios de plan u otras modificaciones de suscripción, comuníquese con el soporte de Teable.",
+      "appSumoSubscriptionNotSupported": "Las suscripciones de AppSumo no se pueden modificar a través de esta interfaz. Por favor, gestione su suscripción en AppSumo.",
+      "customerNotFound": "No se encontró registro de cliente de facturación para este espacio."
     },
     "aggregation": {
       "searchQueryRequired": "Se requiere consulta de búsqueda",

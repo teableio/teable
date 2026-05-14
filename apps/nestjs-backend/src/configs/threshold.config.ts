@@ -36,6 +36,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
     jitter: Number(process.env.BACKEND_DB_DEADLOCK_JITTER ?? 1.0),
   },
   baseNodeMaxFolderDepth: Number(process.env.BASE_NODE_MAX_FOLDER_DEPTH ?? 2),
+  maxOwnedSpaceCount: Number(process.env.MAX_SPACE_OWNER_COUNT ?? 10),
   changeEmailSendCodeMailRate: Number(process.env.BACKEND_CHANGE_EMAIL_SEND_CODE_MAIL_RATE ?? 30),
   resetPasswordSendMailRate: Number(process.env.BACKEND_RESET_PASSWORD_SEND_MAIL_RATE ?? 30),
   signupVerificationSendCodeMailRate: Number(
@@ -46,6 +47,17 @@ export const thresholdConfig = registerAs('threshold', () => ({
   billing: {
     automationRunGracePeriod: process.env.BILLING_AUTOMATION_RUN_GRACE_PERIOD ?? '3d',
     automationRunNotifyInterval: process.env.BILLING_AUTOMATION_RUN_NOTIFY_INTERVAL ?? '6h',
+    anomaly: {
+      dailyVelocityMultiplier: Number(process.env.BILLING_ANOMALY_DAILY_VELOCITY_MULTIPLIER ?? 3),
+      burstMultiplier: Number(process.env.BILLING_ANOMALY_BURST_MULTIPLIER ?? 5),
+      minAbsoluteCreditAmount: Number(
+        process.env.BILLING_ANOMALY_MIN_ABSOLUTE_CREDIT_AMOUNT ?? 500
+      ),
+      minAbsoluteAutomationRuns: Number(
+        process.env.BILLING_ANOMALY_MIN_ABSOLUTE_AUTOMATION_RUNS ?? 1000
+      ),
+      notifyCooldownHours: Number(process.env.BILLING_ANOMALY_NOTIFY_COOLDOWN_HOURS ?? 24),
+    },
   },
   automation: {
     maxEmailsPerPoll: Number(process.env.AUTOMATION_MAX_EMAILS_PER_POLL ?? 100),

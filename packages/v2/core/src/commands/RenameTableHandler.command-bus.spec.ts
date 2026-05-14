@@ -20,8 +20,8 @@ describe('RenameTableHandler', () => {
 
     const createCommandResult = CreateTableCommand.create({
       baseId: baseId.toString(),
-      name: 'Original',
-      fields: [{ type: 'singleLineText', name: 'Title' }],
+      name: 'Base',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
     });
     createCommandResult._unsafeUnwrap();
 
@@ -61,5 +61,49 @@ describe('RenameTableHandler', () => {
     savedResult._unsafeUnwrap();
 
     expect(savedResult._unsafeUnwrap().name().toString()).toBe('Renamed');
+  });
+
+  it('rejects table names that exceed the configured limit', async () => {
+    const { container, baseId } = getV2NodeUnitTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+    const createCommandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Base',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    createCommandResult._unsafeUnwrap();
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = {
+      actorId: actorIdResult._unsafeUnwrap(),
+      config: {
+        tableLimits: {
+          displayText: { maxNameLength: 4 },
+        },
+      },
+    };
+
+    const createResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createCommandResult._unsafeUnwrap()
+    );
+    createResult._unsafeUnwrap();
+
+    const renameCommandResult = RenameTableCommand.create({
+      baseId: baseId.toString(),
+      tableId: createResult._unsafeUnwrap().table.id().toString(),
+      name: 'Too Long',
+    });
+    renameCommandResult._unsafeUnwrap();
+
+    const renameResult = await commandBus.execute<RenameTableCommand, RenameTableResult>(
+      context,
+      renameCommandResult._unsafeUnwrap()
+    );
+
+    expect(renameResult.isErr()).toBe(true);
+    expect(renameResult._unsafeUnwrapErr().code).toBe('validation.limit.name_max_length');
   });
 });

@@ -4,7 +4,10 @@ import {
   FieldType,
   FieldCondition,
   LinkRelationship,
+  measureJsonBytes,
   RecordId,
+  resolveTableDataSafetyLimits,
+  TableDataSafetyLimitComposer,
   Table,
   TableId,
   v2CoreTokens,
@@ -297,7 +300,9 @@ export class ComputedFieldUpdater {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig)
     private readonly lockConfig: ComputedUpdateLockConfig = defaultComputedUpdateLockConfig,
     @inject(formulaSqlPgTokens.typeValidationStrategy)
-    private readonly typeValidationStrategy: IPgTypeValidationStrategy
+    private readonly typeValidationStrategy: IPgTypeValidationStrategy,
+    @inject(v2CoreTokens.tableDataSafetyLimitComposer)
+    private readonly tableDataSafetyLimitComposer: TableDataSafetyLimitComposer = new TableDataSafetyLimitComposer()
   ) {}
 
   async execute(
@@ -1070,6 +1075,7 @@ export class ComputedFieldUpdater {
               const rows = (result.rows ?? []) as UpdatedRecordRow[];
 
               // Build change data from returned rows
+              const chunkRecordChanges: RecordChangeData[] = [];
               for (const row of rows) {
                 const changes: FieldChangeData[] = [];
                 for (const [column, fieldId] of compiledResult.columnToFieldId) {
@@ -1078,12 +1084,19 @@ export class ComputedFieldUpdater {
                     newValue: row[column],
                   });
                 }
-                recordChanges.push({
+                chunkRecordChanges.push({
                   recordId: row.__id,
                   oldVersion: row.__old_version,
                   changes,
                 });
               }
+              const safetyResult = await this.ensureComputedChangesWithinLimit(
+                context,
+                step.tableId.toString(),
+                chunkRecordChanges
+              );
+              if (safetyResult.isErr()) return err(safetyResult.error);
+              recordChanges.push(...chunkRecordChanges);
             }
 
             const sqlSummary =
@@ -1296,6 +1309,40 @@ export class ComputedFieldUpdater {
     }
 
     return batch.steps.length > 1;
+  }
+
+  private async ensureComputedChangesWithinLimit(
+    context: IExecutionContext,
+    tableId: string,
+    recordChanges: ReadonlyArray<RecordChangeData>
+  ): Promise<Result<void, DomainError>> {
+    const configResult = await this.tableDataSafetyLimitComposer.compose(context);
+    if (configResult.isErr()) return err(configResult.error);
+    const limits = resolveTableDataSafetyLimits(configResult.value);
+
+    for (const recordChange of recordChanges) {
+      for (const change of recordChange.changes) {
+        const bytes = measureJsonBytes(change.newValue);
+        if (bytes > limits.computed.maxComputedCellValueBytes) {
+          return err(
+            domainError.validation({
+              code: 'validation.limit.computed_cell_value_max_bytes',
+              message:
+                'Table data safety limit exceeded: validation.limit.computed_cell_value_max_bytes',
+              details: {
+                tableId,
+                recordId: recordChange.recordId,
+                fieldId: change.fieldId,
+                attempted: bytes,
+                max: limits.computed.maxComputedCellValueBytes,
+              },
+            })
+          );
+        }
+      }
+    }
+
+    return ok(undefined);
   }
 
   /**
