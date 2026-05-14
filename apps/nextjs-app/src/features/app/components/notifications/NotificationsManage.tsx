@@ -1,6 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { INotificationIcon } from '@teable/core';
-import { NotificationStatesEnum, NotificationTypeEnum } from '@teable/core';
+import type { INotification, INotificationIcon } from '@teable/core';
+import {
+  NotificationSeverityEnum,
+  NotificationStatesEnum,
+  NotificationTypeEnum,
+} from '@teable/core';
 import { Bell, CheckCircle2 as Read, Download, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
@@ -12,23 +16,75 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import type { TFunction } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
+import { useLocalStorage } from 'react-use';
 import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
 
 const SHOWN_NOTIFICATIONS_LIMIT = 100;
+const TOAST_AUTO_CLOSE_DURATION = 1000 * 3;
+const TOAST_MANUAL_CLOSE_DURATION = Infinity;
 const shownNotificationIds = new Set<string>();
+const NOTIFICATION_SEVERITY_FILTER_KEY = 'teable:notification:severity-filter';
+const CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID = 'credit-exhausted-notification';
+const CREDIT_NOTIFICATION_I18N_KEYS = new Set([
+  'email.templates.notify.task.ai.cancelled.creditExhausted',
+  'email.templates.notify.automation.insufficientCredit.title',
+]);
+const NOTIFICATION_SEVERITIES = [
+  NotificationSeverityEnum.Critical,
+  NotificationSeverityEnum.Warning,
+  NotificationSeverityEnum.Info,
+] as const;
+
+const isNotificationSeverity = (value: unknown): value is NotificationSeverityEnum =>
+  NOTIFICATION_SEVERITIES.includes(value as NotificationSeverityEnum);
+
+const getNotificationToastDuration = (notification: Pick<INotification, 'severity'>) =>
+  notification.severity === NotificationSeverityEnum.Critical
+    ? TOAST_MANUAL_CLOSE_DURATION
+    : TOAST_AUTO_CLOSE_DURATION;
+
+const getNotificationToastId = (notification: INotification) => {
+  let i18nKey: string | undefined;
+  try {
+    const parsed = JSON.parse(notification.messageI18n || '{}');
+    i18nKey = typeof parsed?.i18nKey === 'string' ? parsed.i18nKey : undefined;
+  } catch {
+    // ignore invalid messageI18n
+  }
+
+  return i18nKey && CREDIT_NOTIFICATION_I18N_KEYS.has(i18nKey)
+    ? `${dayjs().format('YYYY-MM-DD')}-${CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID}`
+    : notification.id;
+};
+
+const dispatchExportBaseComplete = (notification: Pick<INotification, 'messageI18n' | 'url'>) => {
+  const { messageI18n, url } = notification;
+
+  try {
+    const parsed = JSON.parse(messageI18n || '{}');
+    const baseName = parsed?.context?.baseName || '';
+    const fileName = parsed?.context?.name || baseName;
+    const downloadUrl = url || parsed?.context?.previewUrl || '';
+    const isSuccess = !parsed?.i18nKey?.includes('failed');
+    const event = new CustomEvent('export-base-complete', {
+      cancelable: true,
+      detail: { downloadUrl, fileName, baseName, isSuccess },
+    });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  } catch {
+    return false;
+  }
+};
 
 const showExportBaseToast = (
-  notification: {
-    url?: string | null;
-    messageI18n?: string | null;
-    notifyIcon: INotificationIcon;
-    notifyType: NotificationTypeEnum;
-  },
+  notification: INotification & { notifyIcon: INotificationIcon },
   toastId: string,
   t: TFunction
 ) => {
@@ -70,10 +126,36 @@ const showExportBaseToast = (
     {
       id: toastId,
       position: 'top-center',
-      duration: 1000 * 3,
-      closeButton: !isSuccess,
+      duration: getNotificationToastDuration(notification),
+      closeButton: true,
     }
   );
+};
+
+const showGeneralNotificationToast = (notification: INotification, toastId: string) => {
+  toast.info(
+    <div className="flex items-center">
+      <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
+      <LinkNotification data={notification} notifyStatus={NotificationStatesEnum.Unread} />
+    </div>,
+    {
+      id: toastId,
+      position: 'top-center',
+      duration: getNotificationToastDuration(notification),
+      closeButton: true,
+    }
+  );
+};
+
+const showNotificationToast = (notification: INotification, toastId: string, t: TFunction) => {
+  if (notification.notifyType === NotificationTypeEnum.ExportBase) {
+    if (!dispatchExportBaseComplete(notification)) {
+      showExportBaseToast(notification, toastId, t);
+    }
+    return;
+  }
+
+  showGeneralNotificationToast(notification, toastId);
 };
 
 export const NotificationsManage: React.FC = () => {
@@ -87,6 +169,17 @@ export const NotificationsManage: React.FC = () => {
   const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
 
   const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
+  const [storedSeverity, setStoredSeverity, removeStoredSeverity] =
+    useLocalStorage<NotificationSeverityEnum>(NOTIFICATION_SEVERITY_FILTER_KEY, undefined, {
+      raw: true,
+    });
+  const selectedSeverity = isNotificationSeverity(storedSeverity) ? storedSeverity : undefined;
+
+  useEffect(() => {
+    if (storedSeverity && !isNotificationSeverity(storedSeverity)) {
+      removeStoredSeverity();
+    }
+  }, [removeStoredSeverity, storedSeverity]);
 
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
@@ -114,54 +207,11 @@ export const NotificationsManage: React.FC = () => {
     }
     shownNotificationIds.add(notificationId);
 
-    const isCreditNotification =
-      notification.notification.messageI18n?.includes('creditExhausted') ||
-      notification.notification.messageI18n?.includes('insufficientCredit');
-    const toastId = isCreditNotification ? 'credit-exhausted-notification' : notificationId;
-
-    if (notification.notification.notifyType === NotificationTypeEnum.ExportBase) {
-      // Dispatch event for export dialog to listen
-      // If dialog handles it (preventDefault), skip the toast
-      const { messageI18n, url } = notification.notification;
-      let handledByDialog = false;
-      try {
-        const parsed = JSON.parse(messageI18n || '{}');
-        const baseName = parsed?.context?.baseName || '';
-        const fileName = parsed?.context?.name || baseName;
-        const downloadUrl = url || parsed?.context?.previewUrl || '';
-        const isSuccess = !parsed?.i18nKey?.includes('failed');
-        const event = new CustomEvent('export-base-complete', {
-          cancelable: true,
-          detail: { downloadUrl, fileName, baseName, isSuccess },
-        });
-        window.dispatchEvent(event);
-        handledByDialog = event.defaultPrevented;
-      } catch {
-        // ignore parse error
-      }
-      if (!handledByDialog) {
-        showExportBaseToast(notification.notification, toastId, t);
-      }
-    } else {
-      toast.info(
-        <div className="flex items-center">
-          <NotificationIcon
-            notifyIcon={notification.notification.notifyIcon}
-            notifyType={notification.notification.notifyType}
-          />
-          <LinkNotification
-            data={notification.notification}
-            notifyStatus={NotificationStatesEnum.Unread}
-          />
-        </div>,
-        {
-          id: toastId,
-          position: 'top-center',
-          duration: 1000 * 3,
-          closeButton: true,
-        }
-      );
-    }
+    showNotificationToast(
+      notification.notification,
+      getNotificationToastId(notification.notification),
+      t
+    );
   }, [notification?.notification, t]);
 
   const {
@@ -170,11 +220,13 @@ export const NotificationsManage: React.FC = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
+    queryKey: ReactQueryKeys.notifyList({ status: notifyStatus, severity: selectedSeverity }),
     queryFn: ({ pageParam }) =>
-      getNotificationList({ notifyStates: notifyStatus, cursor: pageParam }).then(
-        ({ data }) => data
-      ),
+      getNotificationList({
+        notifyStates: notifyStatus,
+        severity: selectedSeverity,
+        cursor: pageParam,
+      }).then(({ data }) => data),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: isOpen,
@@ -184,6 +236,7 @@ export const NotificationsManage: React.FC = () => {
   const { mutateAsync: markAllAsReadMutator } = useMutation({
     mutationFn: notificationReadAll,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
       refresh();
     },
   });
@@ -191,10 +244,21 @@ export const NotificationsManage: React.FC = () => {
   const refresh = () => {
     setNewUnreadCount(undefined);
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
-    queryClient.resetQueries({
-      queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
-      exact: true,
-    });
+    queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyList() });
+  };
+
+  const notifySummary = notifyPage?.pages[0]?.summary;
+
+  const getSeverityLabel = (severity: NotificationSeverityEnum) =>
+    t(`notification.severity.${severity}`);
+
+  const handleSeverityClick = (severity: NotificationSeverityEnum) => {
+    if (selectedSeverity === severity) {
+      removeStoredSeverity();
+      return;
+    }
+
+    setStoredSeverity(severity);
   };
 
   const renderNewButton = () => {
@@ -255,7 +319,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
-                {t('notification.title')}
+                {t('notification.unread')}
               </Button>
               <Button
                 variant="ghost"
@@ -269,6 +333,34 @@ export const NotificationsManage: React.FC = () => {
               </Button>
             </div>
           </div>
+          <div className="flex gap-1.5 px-4 py-2.5">
+            {NOTIFICATION_SEVERITIES.map((severity) => {
+              const isSelected = selectedSeverity === severity;
+
+              return (
+                <Button
+                  key={severity}
+                  variant="ghost"
+                  size="xs"
+                  className={cn(
+                    'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                    isSelected && 'bg-muted/80 text-foreground hover:bg-muted/80'
+                  )}
+                  onClick={() => handleSeverityClick(severity)}
+                >
+                  {getSeverityLabel(severity)}
+                  <span
+                    className={cn(
+                      'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                      isSelected ? 'bg-background/80' : 'bg-muted/70'
+                    )}
+                  >
+                    {notifySummary?.[severity] ?? 0}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
           <NotificationList
             className="relative max-h-[78vh] overflow-auto"
             notifyStatus={notifyStatus}
@@ -276,6 +368,11 @@ export const NotificationsManage: React.FC = () => {
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
             onShowMoreClick={() => fetchNextPage()}
+            emptyMessage={
+              selectedSeverity
+                ? t('notification.noSeverity', { severity: getSeverityLabel(selectedSeverity) })
+                : undefined
+            }
           />
           {notifyStatus === NotificationStatesEnum.Unread ? (
             <div className="my-1.5 flex justify-end">

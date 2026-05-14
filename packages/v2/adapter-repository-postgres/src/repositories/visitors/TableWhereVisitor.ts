@@ -45,6 +45,7 @@ import {
   type UpdateButtonLabelSpec,
   type UpdateButtonColorSpec,
   type UpdateButtonMaxCountSpec,
+  type UpdateButtonResetCountSpec,
   type UpdateButtonWorkflowSpec,
   type UpdateSingleSelectOptionsSpec,
   type UpdateSingleSelectDefaultValueSpec,
@@ -481,6 +482,16 @@ export class TableWhereVisitor
     return err(
       domainError.validation({
         message: 'UpdateButtonMaxCountSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateButtonResetCount(
+    _spec: UpdateButtonResetCountSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateButtonResetCountSpec is not supported for table filters',
       })
     );
   }

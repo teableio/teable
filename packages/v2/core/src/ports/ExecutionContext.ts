@@ -2,6 +2,7 @@ import type { TableI18nKey } from '@teable/i18n-keys';
 
 import type { ActorId } from '../domain/shared/ActorId';
 import type { IDomainContext, IDomainContextConfig } from '../domain/shared/DomainContext';
+import type { TableDataSafetyLimitConfig } from '../domain/shared/TableDataSafetyLimits';
 import type { ITracer } from './Tracer';
 
 export interface IUnitOfWorkTransaction {
@@ -14,7 +15,9 @@ export interface IUnitOfWorkTransaction {
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
 
-export type IExecutionContextTransactions = Partial<Record<UnitOfWorkScope, IUnitOfWorkTransaction>>;
+export type IExecutionContextTransactions = Partial<
+  Record<UnitOfWorkScope, IUnitOfWorkTransaction>
+>;
 
 export interface IExecutionContextBatchMutation {
   readonly operationId?: string;
@@ -40,7 +43,10 @@ export interface IExecutionContext {
     includeRecords: boolean;
   };
   config?: {
+    tableLimits?: TableDataSafetyLimitConfig;
+    /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
     selectFieldOptions?: IDomainContextConfig['selectFieldOptions'];
+    /** @deprecated Use `tableLimits.tableSchema.maxFieldsPerTable`. */
     tableFields?: IDomainContextConfig['tableFields'];
   };
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
@@ -105,23 +111,33 @@ export const activateUnitOfWorkScope = (
   };
 };
 
-export const getDomainContext = (context?: IExecutionContext): IDomainContext | undefined => {
-  const selectFieldOptions = context?.config?.selectFieldOptions;
-  const tableFields = context?.config?.tableFields;
-  if (!context?.$t && !selectFieldOptions && !tableFields) {
+export const getExecutionContextTranslator = (
+  context?: Pick<IExecutionContext, '$t'>
+): ((key: string, options?: Record<string, unknown>) => string) | undefined => {
+  if (!context?.$t) {
     return undefined;
   }
 
-  const translate = context?.$t
-    ? (key: string, options?: Record<string, unknown>) =>
-        context.$t?.(key as TableI18nKey, options) ?? key
-    : undefined;
+  return (key: string, options?: Record<string, unknown>) =>
+    context.$t?.(key as TableI18nKey, options) ?? key;
+};
+
+export const getDomainContext = (context?: IExecutionContext): IDomainContext | undefined => {
+  const tableLimits = context?.config?.tableLimits;
+  const selectFieldOptions = context?.config?.selectFieldOptions;
+  const tableFields = context?.config?.tableFields;
+  if (!context?.$t && !tableLimits && !selectFieldOptions && !tableFields) {
+    return undefined;
+  }
+
+  const translate = getExecutionContextTranslator(context);
 
   return {
     t: translate,
     config:
-      selectFieldOptions || tableFields
+      tableLimits || selectFieldOptions || tableFields
         ? {
+            ...(tableLimits ? { tableLimits } : {}),
             ...(selectFieldOptions ? { selectFieldOptions } : {}),
             ...(tableFields ? { tableFields } : {}),
           }

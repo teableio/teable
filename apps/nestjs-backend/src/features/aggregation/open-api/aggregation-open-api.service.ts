@@ -14,8 +14,10 @@ import type {
   ISearchCountRo,
   IRecordIndexRo,
   IRecordIndexVo,
+  ISelectionAggregationRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
+import { RecordService } from '../../record/record.service';
 import { IAggregationService } from '../aggregation.service.interface';
 import type { IWithView } from '../aggregation.service.interface';
 import { InjectAggregationService } from '../aggregation.service.provider';
@@ -23,7 +25,8 @@ import { InjectAggregationService } from '../aggregation.service.provider';
 @Injectable()
 export class AggregationOpenApiService {
   constructor(
-    @InjectAggregationService() private readonly aggregationService: IAggregationService
+    @InjectAggregationService() private readonly aggregationService: IAggregationService,
+    private readonly recordService: RecordService
   ) {}
 
   async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
@@ -132,5 +135,89 @@ export class AggregationOpenApiService {
     projection?: string[]
   ) {
     return await this.aggregationService.getRecordIndexBySearchOrder(tableId, queryRo, projection);
+  }
+
+  // Selection aggregation = the existing aggregation flow + a row-range slice.
+  // Same recipe as getAggregation: build customFieldStats, validate them, then
+  // delegate to performAggregation. Two deltas:
+  //   1. skip/take/orderBy thread through to scope the BASE CTE to the slice.
+  //   2. groupBy (if any) is folded INTO orderBy as a sort prefix and NOT
+  //      passed via withView. Two reasons:
+  //        a. `performGroupedAggregation` keys aggregations by fieldId, so a
+  //           request asking multiple funcs for the same field (chip asks
+  //           Sum + Filled) loses all but the last entry. Bypassing it keeps
+  //           every (fieldId, aggFunc) result intact.
+  //        b. The same routine re-runs handleAggregation without skip/take,
+  //           which would compute group totals over the whole view instead of
+  //           the slice — pointless work for the chip, which only reads
+  //           `total`.
+  //      The group prefix in orderBy preserves grid row order (records list
+  //      uses [...groupBy, ...orderBy] for its sort, mirrored here).
+  async getSelectionAggregation(
+    tableId: string,
+    query: ISelectionAggregationRo
+  ): Promise<IAggregationVo> {
+    const {
+      viewId,
+      filter: customFilter,
+      field: aggregationFields,
+      groupBy,
+      collapsedGroupIds,
+      ignoreViewQuery,
+      skip,
+      take,
+      orderBy,
+    } = query;
+
+    const sortWithGroup = [...(groupBy ?? []), ...(orderBy ?? [])];
+
+    // Translate collapsedGroupIds into a SQL filter (records in collapsed
+    // groups are excluded from the BASE CTE) so skip/take indexes the same
+    // visible-record sequence the grid renders. Same recipe records list uses.
+    let filterWithCollapsed = customFilter;
+    if (groupBy?.length && collapsedGroupIds?.length) {
+      const { filter } = await this.recordService.getGroupRelatedData(tableId, {
+        viewId,
+        ignoreViewQuery,
+        filter: customFilter,
+        groupBy,
+        collapsedGroupIds,
+        search: query.search,
+      });
+      filterWithCollapsed = filter;
+    }
+
+    let withView: IWithView = {
+      viewId: ignoreViewQuery ? undefined : viewId,
+      customFilter: filterWithCollapsed,
+      // Intentionally NOT passing groupBy (folded into orderBy above).
+    };
+
+    const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
+    forIn(aggregationFields, (value: string[], key) => {
+      const fieldStats = map(value, (item) => ({
+        fieldId: item,
+        statisticFunc: key as StatisticsFunc,
+      }));
+      fieldStatistics.push(...fieldStats);
+    });
+
+    const validFieldStats = await this.validFieldStats(tableId, fieldStatistics);
+    if (validFieldStats) {
+      withView = { ...withView, customFieldStats: validFieldStats };
+    }
+
+    const result = await this.aggregationService.performAggregation({
+      tableId,
+      withView,
+      search: query.search,
+      // useQueryModel must stay false here: the tableCache path skips BASE CTE
+      // pagination, which would silently aggregate the entire view.
+      useQueryModel: false,
+      skip,
+      take,
+      orderBy: sortWithGroup.length ? sortWithGroup : undefined,
+    });
+    return { aggregations: result?.aggregations };
   }
 }

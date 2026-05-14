@@ -562,6 +562,12 @@ export class FormulaSqlPgExpressionBuilder {
       return makeExpr(valueSql, 'boolean', false, errorCondition, errorMessage);
     }
 
+    if (leftType === 'number' && rightType === 'number') {
+      const numericComparison = this.buildStrictNumericComparison(left, right, operator);
+      const valueSql = guardValueSql(numericComparison, errorCondition);
+      return makeExpr(valueSql, 'boolean', false, errorCondition, errorMessage);
+    }
+
     if (leftType === 'number' || rightType === 'number') {
       const numericComparison = this.buildLooseNumericComparison(left, right, operator);
       const valueSql = guardValueSql(numericComparison, errorCondition);
@@ -1330,6 +1336,27 @@ export class FormulaSqlPgExpressionBuilder {
       WHEN ${numericCondition} THEN ${numericValueComparison}
       ELSE (${leftValue} ${operator} ${rightValue})
     END)`;
+  }
+
+  protected buildStrictNumericComparison(left: SqlExpr, right: SqlExpr, operator: string): string {
+    const leftNumber = this.coerceToNumber(left, 'comparison');
+    const rightNumber = this.coerceToNumber(right, 'comparison');
+    const leftValue = leftNumber.valueSql;
+    const rightValue = rightNumber.valueSql;
+    const leftNull = `(${leftValue} IS NULL)`;
+    const rightNull = `(${rightValue} IS NULL)`;
+    const shouldCompareNullsAsBlanks =
+      (operator === '=' || operator === '<>') &&
+      (this.isNullSqlLiteral(left.valueSql) || this.isNullSqlLiteral(right.valueSql));
+
+    if (shouldCompareNullsAsBlanks) {
+      return `(CASE
+        WHEN ${leftNull} OR ${rightNull} THEN (${leftNull} ${operator} ${rightNull})
+        ELSE (${leftValue} ${operator} ${rightValue})
+      END)`;
+    }
+
+    return `(COALESCE(${leftValue}, 0) ${operator} COALESCE(${rightValue}, 0))`;
   }
 
   private isNullSqlLiteral(valueSql: string): boolean {

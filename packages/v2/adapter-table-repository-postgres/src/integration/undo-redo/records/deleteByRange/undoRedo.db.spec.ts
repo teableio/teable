@@ -38,7 +38,11 @@ describe('undo-redo/deleteByRange (db)', () => {
   let harness: UndoRedoDbHarness | undefined;
 
   beforeEach(async () => {
-    harness = await createUndoRedoDbHarness();
+    harness = await createUndoRedoDbHarness({
+      tableDataSafetyLimits: {
+        recordValues: { maxRecordsPerMutation: 2_000 },
+      },
+    });
   });
 
   afterEach(async () => {

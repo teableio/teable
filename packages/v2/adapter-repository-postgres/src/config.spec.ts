@@ -19,12 +19,49 @@ describe('v2PostgresStateAdapterConfigSchema', () => {
 
     expect(result.db).toBe(db);
     expect(result.maxFreeRowLimit).toBe(12);
+    expect(result.tableMaxRowLimit).toBeUndefined();
     expect(result.ensureSchema).toBeUndefined();
     expect(result.seed).toEqual({
       spaceId: 'spc_default',
       baseId: 'bse_default',
       actorId: 'system',
     });
+  });
+
+  it('accepts table row limit config', () => {
+    const db = {
+      selectFrom: vi.fn(),
+      insertInto: vi.fn(),
+      updateTable: vi.fn(),
+      deleteFrom: vi.fn(),
+    };
+
+    const result = v2PostgresStateAdapterConfigSchema.parse({
+      db,
+      tableMaxRowLimit: '34',
+    });
+
+    expect(result.tableMaxRowLimit).toBe(34);
+  });
+
+  it('accepts an injected table row limit policy', () => {
+    const db = {
+      selectFrom: vi.fn(),
+      insertInto: vi.fn(),
+      updateTable: vi.fn(),
+      deleteFrom: vi.fn(),
+    };
+    const tableRowLimitPolicy = {
+      resolveMaxRowCount: vi.fn(),
+    };
+
+    const result = v2PostgresStateAdapterConfigSchema.parse({
+      db,
+      tableMaxRowLimit: 34,
+      tableRowLimitPolicy,
+    });
+
+    expect(result.tableRowLimitPolicy).toBe(tableRowLimitPolicy);
   });
 
   it('accepts values that inherit from Kysely', () => {

@@ -4,9 +4,11 @@ import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../shared/DomainContext';
 import { domainError, type DomainError } from '../shared/DomainError';
+import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '../shared/TableDataSafetyLimits';
 import type { Table } from './Table';
 
-export const DEFAULT_MAX_TABLE_FIELD_COUNT = 500;
+export const DEFAULT_MAX_TABLE_FIELD_COUNT =
+  DEFAULT_TABLE_DATA_SAFETY_LIMITS.tableSchema.maxFieldsPerTable;
 export const MAX_TABLE_FIELD_COUNT = DEFAULT_MAX_TABLE_FIELD_COUNT;
 export const TABLE_FIELD_LIMIT_ERROR_CODE = 'validation.field.max_column_limit';
 
@@ -25,7 +27,9 @@ export const buildTableFieldLimitErrorDetails = (
 ): TableFieldLimitErrorDetails => {
   const currentFieldCount = table.getFields().length;
   const maxFieldCount =
-    domainContext?.config?.tableFields?.maxFieldsPerTable ?? DEFAULT_MAX_TABLE_FIELD_COUNT;
+    domainContext?.config?.tableLimits?.tableSchema?.maxFieldsPerTable ??
+    domainContext?.config?.tableFields?.maxFieldsPerTable ??
+    DEFAULT_MAX_TABLE_FIELD_COUNT;
   return {
     tableId: table.id().toString(),
     tableName: table.name().toString(),

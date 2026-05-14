@@ -424,6 +424,9 @@
     "baseInfo": "Informazioni di Base",
     "typeOfDatabase": "Tipo di database",
     "descriptionForTable": "Descrizione per questa tabella",
+    "loginUserTable": "Login app",
+    "loginUserTableClickTips": "Apri l'app collegata",
+    "linkedApps": "App collegate",
     "nameForTable": "Nome per questa tabella",
     "deleteTip1": "I campi di collegamento collegati a questa tabella in altre tabelle saranno eliminati.",
     "deleteTip2": "Questa tabella può essere ripristinata dal cestino dopo l'eliminazione.",
@@ -987,7 +990,6 @@
     "expand": "Espandi",
     "history": "Cronologia",
     "close": "Comprimi",
-    "noModel": "Nessun modello disponibile",
     "addAttachment": "Aggiungi allegato",
     "noHistory": "Nessun chat history",
     "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
@@ -999,19 +1001,22 @@
       "other": "Altro"
     },
     "context": {
-      "button": "Aggiungi contesto",
+      "button": "Aggiungi nodo",
       "search": "Aggiungi tabelle",
       "searchEmpty": "Nessun contesto trovato",
       "emptyContext": "Nessun contesto da aggiungere",
-      "selectionRows": "Righe {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Righe {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Tabelle",
       "apps": "App",
-      "workflows": "Workflow",
+      "workflows": "Automazioni",
       "folders": "Cartelle"
     },
-    "inputPlaceholder": "Digita @ per aggiungere contesto",
+    "inputPlaceholder": "Digita @ per aggiungere un nodo",
     "inputPlaceholderFiles": "Incolla o trascina file qui",
     "thought": "Pensando",
     "meta": {
@@ -1020,6 +1025,7 @@
       "taskCompleted": "Attività completata"
     },
     "attachment": {
+      "pastedTextFileName": "Testo incollato",
       "imageNotSupported": "L'immagine non è supportata"
     },
     "suggestions": {
