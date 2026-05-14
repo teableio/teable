@@ -33,12 +33,13 @@ import type { Result } from 'neverthrow';
 export type FieldOutputColumn = {
   readonly fieldId: FieldId;
   readonly columnAlias: string;
+  readonly valueKind?: 'user';
 };
 
 /**
  * Visitor to collect field id -> output column alias mapping.
- * Currently all fields use dbFieldName as the output alias,
- * but this can be extended in the future for different field types.
+ * User-like fields are tagged so read-model value transforms can be gated by
+ * field semantics instead of cell object shape.
  */
 export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn> {
   private readonly columns: FieldOutputColumn[] = [];
@@ -75,9 +76,12 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
     return field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
   }
 
-  private addColumn(field: Field): Result<FieldOutputColumn, DomainError> {
+  private addColumn(
+    field: Field,
+    valueKind?: FieldOutputColumn['valueKind']
+  ): Result<FieldOutputColumn, DomainError> {
     return this.getColumnAlias(field).map((columnAlias) => {
-      const column = { fieldId: field.id(), columnAlias };
+      const column = { fieldId: field.id(), columnAlias, valueKind };
       this.columns.push(column);
       return column;
     });
@@ -112,7 +116,7 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
   }
 
   visitUserField(field: UserField): Result<FieldOutputColumn, DomainError> {
-    return this.addColumn(field);
+    return this.addColumn(field, 'user');
   }
 
   visitAttachmentField(field: AttachmentField): Result<FieldOutputColumn, DomainError> {
@@ -132,11 +136,11 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
   }
 
   visitCreatedByField(field: CreatedByField): Result<FieldOutputColumn, DomainError> {
-    return this.addColumn(field);
+    return this.addColumn(field, 'user');
   }
 
   visitLastModifiedByField(field: LastModifiedByField): Result<FieldOutputColumn, DomainError> {
-    return this.addColumn(field);
+    return this.addColumn(field, 'user');
   }
 
   visitRatingField(field: RatingField): Result<FieldOutputColumn, DomainError> {

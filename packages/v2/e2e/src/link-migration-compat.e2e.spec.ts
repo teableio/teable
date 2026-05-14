@@ -194,10 +194,8 @@ describe('v2 link migration compatibility – step-by-step debug', () => {
       expect(linkVal!.length).toBe(1);
       expect(linkVal![0].id).toBe(spkAliceId);
       console.log('  Link ID matches: ✅', linkVal![0].id, '===', spkAliceId);
-      // Note: title in updateRecord response may be undefined since it's returned
-      // from in-memory record before the DB title-fill statement runs.
-      // The title will be correct when reading via listRecords.
-      console.log('  Link title in response:', linkVal![0].title ?? '(not yet filled - OK)');
+      expect(linkVal![0].title).toBe('Alice Johnson');
+      console.log('  Link title in response:', linkVal![0].title);
     });
 
     it('Step 5 – Phase 2: update ES002 to link to Bob (by field ID)', async () => {
@@ -224,6 +222,7 @@ describe('v2 link migration compatibility – step-by-step debug', () => {
       expect(linkVal).not.toBeNull();
       expect(linkVal!.length).toBe(1);
       expect(linkVal![0].id).toBe(spkBobId);
+      expect(linkVal![0].title).toBe('Bob Smith');
     });
 
     it('Step 6 – Verify: listRecords on EventSpeakers – do link titles resolve?', async () => {

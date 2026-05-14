@@ -11,7 +11,7 @@ export interface IDeleteRecordsPayload {
   windowId?: string;
   tableId: string;
   userId: string;
-  records: (IRecord & { order?: Record<string, number> })[];
+  records: (IRecord & { version?: number; order?: Record<string, number> })[];
 }
 
 export class DeleteRecordsOperation {

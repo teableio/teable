@@ -1,7 +1,7 @@
 import { useIsTouchDevice } from '@teable/sdk/hooks';
 import { Dialog, DialogContent, Sheet, SheetContent } from '@teable/ui-lib/shadcn';
 import { UnifiedSettingDialogContent } from './UnifiedSettingDialogContent';
-import { SettingTab, useSettingStore } from './useSettingStore';
+import { PersonalSettingTab, useSettingStore } from './useSettingStore';
 
 export interface ISettingDialogProps {
   spaceId?: string;
@@ -11,7 +11,7 @@ export interface ISettingDialogProps {
 export const SettingDialog = ({ spaceId, includeSpaceSettings = true }: ISettingDialogProps) => {
   const isTouchDevice = useIsTouchDevice();
   const { open, setOpen, tab, setTab } = useSettingStore();
-  const activeTab = tab ?? SettingTab.Profile;
+  const activeTab = tab ?? PersonalSettingTab.Profile;
 
   return (
     <>
@@ -25,7 +25,7 @@ export const SettingDialog = ({ spaceId, includeSpaceSettings = true }: ISetting
               tab={activeTab}
               onTabChange={setTab}
               entry="personal"
-              defaultTab={SettingTab.Profile}
+              defaultTab={PersonalSettingTab.Profile}
               spaceId={spaceId}
               includeSpaceSettings={includeSpaceSettings}
             />
@@ -41,7 +41,7 @@ export const SettingDialog = ({ spaceId, includeSpaceSettings = true }: ISetting
               tab={activeTab}
               onTabChange={setTab}
               entry="personal"
-              defaultTab={SettingTab.Profile}
+              defaultTab={PersonalSettingTab.Profile}
               spaceId={spaceId}
               includeSpaceSettings={includeSpaceSettings}
             />

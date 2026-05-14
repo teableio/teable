@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export enum SettingTab {
+export enum PersonalSettingTab {
   Profile = 'profile',
   System = 'system',
   Notifications = 'notifications',

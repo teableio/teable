@@ -37,7 +37,7 @@ import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
 import {
   SpaceInnerSettingModal as SpaceInnerSettingModalComponent,
-  SettingTab,
+  SpaceSettingTab,
 } from '@overridable/SpaceInnerSettingModal';
 import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
@@ -362,7 +362,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
         <SpaceInnerSettingModalComponent
           open={settingModalOpen}
           setOpen={setSettingModalOpen}
-          defaultTab={SettingTab.General}
+          defaultTab={SpaceSettingTab.General}
         >
           <span className="hidden" />
         </SpaceInnerSettingModalComponent>

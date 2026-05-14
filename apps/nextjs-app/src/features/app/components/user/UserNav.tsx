@@ -15,7 +15,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useIsCloud } from '../../hooks/useIsCloud';
-import { SettingTab, useSettingStore } from '../setting/useSettingStore';
+import { PersonalSettingTab, useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { children } = props;
@@ -72,7 +72,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           <DropdownMenuItem
             className="flex gap-2"
             onClick={() => {
-              setting.setOpen(true, SettingTab.License);
+              setting.setOpen(true, PersonalSettingTab.License);
             }}
           >
             <License className="size-4 shrink-0" />
@@ -82,7 +82,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
         <DropdownMenuItem
           className="flex gap-2"
           onClick={() => {
-            setting.setOpen(true, SettingTab.PersonalAccessToken);
+            setting.setOpen(true, PersonalSettingTab.PersonalAccessToken);
           }}
         >
           <Key className="size-4 shrink-0" />

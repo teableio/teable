@@ -10,6 +10,9 @@ export const securityWebConfig = registerAs('security.web', () => ({
   cors: {
     enabled: true,
   },
+  sessionOriginCheck: {
+    enabled: process.env.BACKEND_SESSION_ORIGIN_CHECK_ENABLED === 'true',
+  },
 }));
 
 export const tracingConfig = registerAs('tracing', () => ({

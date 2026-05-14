@@ -5,6 +5,51 @@ import { sql, type Kysely } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+export interface ITableRowLimitPolicy {
+  resolveMaxRowCount(
+    context: core.RecordWritePluginContext
+  ): Promise<Result<number, core.DomainError>>;
+}
+
+export class StaticTableRowLimitPolicy implements ITableRowLimitPolicy {
+  constructor(private readonly maxRowCount: number) {}
+
+  async resolveMaxRowCount(): Promise<Result<number, core.DomainError>> {
+    return ok(this.maxRowCount);
+  }
+}
+
+export class SpaceCreditTableRowLimitPolicy implements ITableRowLimitPolicy {
+  constructor(
+    private readonly db: Kysely<V1TeableDatabase>,
+    private readonly fallbackMaxRowCount: number
+  ) {}
+
+  async resolveMaxRowCount(
+    context: core.RecordWritePluginContext
+  ): Promise<Result<number, core.DomainError>> {
+    try {
+      const tableId = context.table.id().toString();
+      const row = await this.db
+        .selectFrom('table_meta')
+        .innerJoin('base', 'base.id', 'table_meta.base_id')
+        .innerJoin('space', 'space.id', 'base.space_id')
+        .select('space.credit')
+        .where('table_meta.id', '=', tableId)
+        .where('table_meta.deleted_time', 'is', null)
+        .executeTakeFirst();
+
+      return ok(row?.credit ?? this.fallbackMaxRowCount);
+    } catch (error) {
+      return err(
+        core.domainError.infrastructure({
+          message: `Failed to resolve row limit policy: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+}
+
 type PreparedRowLimitState = {
   readonly dbTableName: string;
   readonly maxRowCount: number;
@@ -17,7 +62,7 @@ export class PostgresTableRowLimitPlugin
 
   constructor(
     private readonly db: Kysely<V1TeableDatabase>,
-    private readonly maxFreeRowLimit: number
+    private readonly rowLimitPolicy: ITableRowLimitPolicy
   ) {}
 
   supports(operation: core.RecordWriteOperationKind): boolean {
@@ -27,7 +72,7 @@ export class PostgresTableRowLimitPlugin
   async prepare(
     context: core.RecordWritePluginContext
   ): Promise<Result<PreparedRowLimitState | undefined, core.DomainError>> {
-    if (!this.maxFreeRowLimit || this.getCreateCount(context) <= 0) {
+    if (this.getCreateCount(context) <= 0) {
       return ok(undefined);
     }
 
@@ -41,17 +86,14 @@ export class PostgresTableRowLimitPlugin
         );
       }
 
-      const db = resolvePostgresDbOrTx(this.db, context.executionContext, 'meta');
-      const creditRow = await db
-        .selectFrom('base')
-        .innerJoin('space', 'space.id', 'base.space_id')
-        .select(['space.credit as credit'])
-        .where('base.id', '=', context.table.baseId().toString())
-        .executeTakeFirst();
+      const maxRowCountResult = await this.rowLimitPolicy.resolveMaxRowCount(context);
+      if (maxRowCountResult.isErr()) {
+        return err(maxRowCountResult.error);
+      }
 
       return ok({
         dbTableName: dbTableNameResult.value,
-        maxRowCount: creditRow?.credit ?? this.maxFreeRowLimit,
+        maxRowCount: maxRowCountResult.value,
       });
     } catch (error) {
       return err(
@@ -86,7 +128,7 @@ export class PostgresTableRowLimitPlugin
     }
 
     try {
-      const db = resolvePostgresDbOrTx(this.db, context.executionContext, 'meta');
+      const db = resolvePostgresDbOrTx(this.db, context.executionContext, 'data');
       const countResult = await sql<{ count: string }>`
         select count(*) as count from ${sql.table(preparedState.dbTableName)}
       `.execute(db);

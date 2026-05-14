@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Date Range (months)",
     "totalAttachmentSize": "Total Attachment Size"
   },
+  "selectionStatistic": {
+    "tip": "Vengono aggregati solo i campi di tipo Numero."
+  },
   "baseQuery": {
     "add": "Add",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Puoi abbonarti solo a una tabella all'interno del tuo database",
       "alreadyActiveAndNotDraft": "L'automazione è già attiva e non è una bozza",
       "noActiveSnapshot": "L'automazione non ha un'istantanea attiva",
+      "onlyFailedRunsCanRerun": "Solo le esecuzioni fallite possono essere rieseguite",
+      "workflowMustBeActiveToRerun": "Il workflow deve essere attivo per essere rieseguito",
+      "snapshotChangedOnlyFullRerun": "Il workflow è stato modificato dopo questa esecuzione. È consentita solo la riesecuzione completa.",
+      "controlStepsMissingOnlyFullRerun": "I dati del nodo di controllo sono mancanti per questa esecuzione. È supportata solo la riesecuzione completa.",
       "triggerNodeAlreadyExists": "Questa automazione ha già un nodo trigger",
       "generateLogicError": "Errore nella generazione del nodo di logica",
       "logicNotFound": "Nodo di logica dell'automazione non trovato",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Il nodo di controllo non deve essere testato",
       "invalidNodeType": "Tipo di nodo non valido",
       "unsupportedCategory": "Categoria non supportata",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Tipo di connessione e-mail sconosciuto",
+      "imapPasswordNotConfigured": "Password IMAP non configurata",
+      "integrationNotFound": "Integrazione non trovata o senza credenziali",
+      "webhookTriggerNotFound": "Trigger webhook non trovato",
+      "emailReceivedTriggerNotFound": "Trigger di ricezione e-mail non trovato",
+      "emailConnectorNotAvailable": "Servizio connettore e-mail non disponibile",
       "listMailboxesFailed": "Impossibile elencare le caselle di posta: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Impossibile operare su uno spazio, verificare che ci siano membri dell'organizzazione nello spazio e che siano proprietari",
       "notBelongToOrg": "Questo spazio non appartiene all'organizzazione",
-      "invalidSpaceIds": "Gli ID spazio non sono validi: {{spaceIds}}"
+      "invalidSpaceIds": "Gli ID spazio non sono validi: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Hai raggiunto il numero massimo di spazi gestibili ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} ha raggiunto il numero massimo di spazi gestibili ({{max}})"
     },
     "base": {
       "notFound": "Base non trovata",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Credito insufficiente",
       "exceedMaxRowLimit": "Limite massimo di righe {{maxRowCount}} superato",
-      "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione"
+      "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione",
+      "manualSubscriptionNotSupported": "L'abbonamento self-service non è disponibile per questo spazio. Per upgrade, downgrade o altre modifiche all'abbonamento, contattare il supporto Teable.",
+      "appSumoSubscriptionNotSupported": "Gli abbonamenti AppSumo non possono essere modificati tramite questa interfaccia. Si prega di gestire l'abbonamento su AppSumo.",
+      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio."
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",

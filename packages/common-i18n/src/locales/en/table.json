@@ -360,7 +360,9 @@
         "safeToDeleteDesc": "This field is not referenced by other fields, can be deleted safely",
         "affectedItems": "Affected Items",
         "type": "Type",
-        "source": "Source"
+        "source": "Source",
+        "loginEmailFieldWarning": "This field is used as the login email identifier. Deleting it will break login for the following apps:",
+        "loginEmailFieldConvertWarning": "This field is used as the login email field for apps. Changing its type will break login for the following apps:"
       }
     },
     "subTitle": {
@@ -498,11 +500,15 @@
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "baseInfo": "Base info",
+    "loginUserTable": "App Login",
+    "loginUserTableClickTips": "Open related app",
+    "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
     "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
     "deleteTip2": "This table can be restored from the trash after deletion.",
+    "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
     "operator": {
       "createBlank": "New table"
     },
@@ -1274,6 +1280,7 @@
     },
     "showUI": {
       "skip": "Skip",
+      "next": "Next",
       "submit": "Submit"
     },
     "newChat": "New Chat",
@@ -1281,12 +1288,18 @@
     "expand": "Expand",
     "history": "History",
     "close": "Collapse",
-    "noModel": "No models available",
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",
     "modelSwitchTitle": "Switch model",
     "modelSwitchHint": "Currently running on {{previous}}. On next send, the new model takes over and only sees the last 3 turns.",
+    "effort": {
+      "title": "Intelligence",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High"
+    },
     "sandboxExpiry": {
       "expiresIn": "Agent Computer expires in {{time}}",
       "reset": "Renew",
@@ -1312,19 +1325,22 @@
       "other": "Other"
     },
     "context": {
-      "button": "Add context",
+      "button": "Add node",
       "search": "Add tables",
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add",
-      "selectionRows": "Rows {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Row {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Tables",
       "apps": "Apps",
-      "workflows": "Workflows",
+      "workflows": "Automations",
       "folders": "Folders"
     },
-    "inputPlaceholder": "Type @ to add context",
+    "inputPlaceholder": "Type @ to add node",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
     "meta": {
@@ -1333,6 +1349,7 @@
       "taskCompleted": "Task completed"
     },
     "attachment": {
+      "pastedTextFileName": "Pasted text",
       "imageNotSupported": "Image is not supported"
     },
     "suggestions": {
@@ -1365,13 +1382,6 @@
       "forceSend": "Stop & send now",
       "removeFromQueue": "Remove"
     },
-    "effort": {
-      "title": "Select reasoning effort",
-      "low": "Low",
-      "medium": "Medium",
-      "high": "High",
-      "max": "Max"
-    },
     "partTool": {
       "bash": "Run command",
       "read": "Read file",
@@ -1403,6 +1413,32 @@
       "loadingChatHistory": "Loading chat history...",
       "generatorTitle": "AI App Generator",
       "generatorDesc": "Describe what you want to build"
+    },
+    "voice": {
+      "start": "Start voice input",
+      "stop": "Stop voice input",
+      "accept": "Finish voice input",
+      "cancel": "Discard voice input",
+      "permissionTip": "Allow microphone access.",
+      "connecting": "Connecting...",
+      "reconnecting": "Reconnecting...",
+      "listening": "Listening. Start speaking.",
+      "preview": "Listening: {{text}}",
+      "error": {
+        "microphoneDenied": "Microphone access is blocked.",
+        "microphoneUnavailable": "No microphone found.",
+        "unsupportedBrowser": "WebRTC is not supported.",
+        "sessionFailed": "Voice setup failed.",
+        "connectionFailed": "Voice connection failed.",
+        "localConnectionFailed": "Voice setup failed. Refresh and try again.",
+        "disconnected": "Voice disconnected.",
+        "missingServerKey": "Voice input is not configured.",
+        "unauthenticated": "Sign in again.",
+        "rateLimited": "Too many tries. Wait a moment.",
+        "upstreamAuthFailed": "Realtime API key is invalid.",
+        "upstreamBadRequest": "Voice endpoint is invalid.",
+        "upstreamUnavailable": "Voice is unavailable."
+      }
     }
   },
   "upload": {

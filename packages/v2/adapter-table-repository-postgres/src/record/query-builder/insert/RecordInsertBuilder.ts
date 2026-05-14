@@ -6,10 +6,11 @@ import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { buildUserAvatarUrl, resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
+import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { normalizeStoredLinkItems } from '../../normalizeLinkItems';
-import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 
 import { FieldInsertValueVisitor, type FieldInsertResult } from '../../visitors';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -21,7 +22,6 @@ const CREATED_BY_COLUMN = '__created_by';
 const LAST_MODIFIED_TIME_COLUMN = '__last_modified_time';
 const LAST_MODIFIED_BY_COLUMN = '__last_modified_by';
 const VERSION_COLUMN = '__version';
-const USER_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 
 /**
  * A compiled SQL statement with description.
@@ -671,7 +671,7 @@ export class RecordInsertBuilder {
     // Build SET clause with subqueries for each user field
     // Use COALESCE to provide a fallback when user doesn't exist in users table
     const setValues: Record<string, unknown> = {};
-    const avatarPrefix = USER_AVATAR_PREFIX;
+    const avatarPrefix = resolveUserAvatarUrlPrefix();
 
     for (const { dbFieldName, systemColumn } of userFieldColumns) {
       // Use raw SQL to build the subquery expression for user object
@@ -717,6 +717,6 @@ function buildUserFieldJsonValue(params: {
     id: params.userId,
     title: params.userName ?? params.userId,
     email: params.userEmail ?? null,
-    avatarUrl: `${USER_AVATAR_PREFIX}${params.userId}`,
+    avatarUrl: buildUserAvatarUrl(params.userId),
   });
 }

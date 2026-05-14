@@ -20,13 +20,12 @@ import { Notifications } from '@/features/app/components/setting/Notifications';
 import { OAuthAppSection } from '@/features/app/components/setting/oauth-app';
 import { PersonalAccessTokenSection } from '@/features/app/components/setting/personal-access-token';
 import { System } from '@/features/app/components/setting/System';
-import { SettingTab as PersonalSettingTab } from '@/features/app/components/setting/useSettingStore';
+import { PersonalSettingTab } from '@/features/app/components/setting/useSettingStore';
 import { SpaceAvatar } from '@/features/app/components/space/SpaceAvatar';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { settingConfig } from '@/features/i18n/setting.config';
 import { spaceConfig } from '@/features/i18n/space.config';
 
-export type UnifiedSettingKnownTab = PersonalSettingTab | SpaceSettingTab;
 export type UnifiedSettingTab = string;
 
 export interface IUnifiedSettingListItem {
