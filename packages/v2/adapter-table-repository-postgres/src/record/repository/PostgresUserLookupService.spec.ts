@@ -59,14 +59,50 @@ describe('PostgresUserLookupService', () => {
     ]);
 
     expect(result._unsafeUnwrap()).toEqual([
-      { id: 'usr1', name: 'Alice', email: 'alice@example.com' },
-      { id: 'usr2', name: 'Bob', email: null },
+      {
+        id: 'usr1',
+        name: 'Alice',
+        email: 'alice@example.com',
+        avatarUrl: '/api/attachments/read/public/avatar/usr1',
+      },
+      {
+        id: 'usr2',
+        name: 'Bob',
+        email: null,
+        avatarUrl: '/api/attachments/read/public/avatar/usr2',
+      },
     ]);
     expect(conditions).toEqual([
       { column: 'id', op: 'in', value: ['usr1', 'alice@example.com', 'Alice'] },
       { column: 'email', op: 'in', value: ['usr1', 'alice@example.com', 'Alice'] },
       { column: 'name', op: 'in', value: ['usr1', 'alice@example.com', 'Alice'] },
     ]);
+  });
+
+  it('uses the public storage prefix for s3 avatar URLs', async () => {
+    vi.stubEnv('BACKEND_STORAGE_PROVIDER', 's3');
+    vi.stubEnv('STORAGE_PREFIX', 'https://s3.us-west-2.amazonaws.com/storage-public.teable.io');
+
+    const execute = vi.fn(async () => [{ id: 'usr1', name: 'Alice', email: 'alice@example.com' }]);
+    const where = vi.fn(() => ({ execute }));
+    const select = vi.fn(() => ({ where }));
+    const db = {
+      selectFrom: vi.fn(() => ({ select })),
+    } as unknown as Kysely<unknown>;
+    const service = new PostgresUserLookupService(db as never);
+
+    const result = await service.listUsersByIdentifiers(['usr1']);
+
+    expect(result._unsafeUnwrap()).toEqual([
+      {
+        id: 'usr1',
+        name: 'Alice',
+        email: 'alice@example.com',
+        avatarUrl: 'https://s3.us-west-2.amazonaws.com/storage-public.teable.io/avatar/usr1',
+      },
+    ]);
+
+    vi.unstubAllEnvs();
   });
 
   it('wraps lookup failures as infrastructure errors', async () => {

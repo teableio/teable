@@ -25,13 +25,22 @@ import type {
   GatewayModelTag,
   GatewayModelProvider,
   IImageSize,
+  IAIConfig,
+  IAppConfig,
+  IUpdateAiConfigRo,
+  IUpdateAiConfigVo,
+  IUpdateAppConfigRo,
+  IUpdateAppConfigVo,
 } from '@teable/openapi';
 import {
   chatModelAbilityType,
+  DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
+  DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
   getImageModelConfig,
   getImageModelConfigByGatewayId,
   UploadType,
   LLMProviderType,
+  resolveOpenAIRealtimeEndpoints,
   SettingKey,
 } from '@teable/openapi';
 import { createGateway, generateText, tool, generateImage } from 'ai';
@@ -65,6 +74,27 @@ const testImagePath = 'static/test/test-image.png';
 const testPdfPath = 'static/test/test-pdf.pdf';
 // Expected letter in test files - use uppercase K for stricter matching
 const expectedLetter = 'k';
+const clearUndefinedPatchValues = <T extends Record<string, unknown>>(patch: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(patch)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, value === null ? undefined : value])
+  ) as Partial<T>;
+};
+
+const hasRealtimeClientSecret = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as {
+    value?: unknown;
+    client_secret?: { value?: unknown };
+    session?: { client_secret?: { value?: unknown } };
+  };
+  return Boolean(
+    typeof data.value === 'string'
+      ? data.value
+      : data.client_secret?.value || data.session?.client_secret?.value
+  );
+};
 
 @Injectable()
 export class SettingOpenApiService {
@@ -91,6 +121,46 @@ export class SettingOpenApiService {
       this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
     }
     return this.settingService.updateSetting(updateSettingRo);
+  }
+
+  async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
+    const nextAiConfig = {
+      ...(aiConfig ?? {}),
+      ...patch,
+    } as IAIConfig;
+
+    this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
+
+    await this.settingService.updateSetting({
+      [SettingKey.AI_CONFIG]: nextAiConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      aiConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAiConfig[key as keyof IAIConfig]])
+      ) as Partial<IAIConfig>,
+    };
+  }
+
+  async updateAppConfig(updateAppConfigRo: IUpdateAppConfigRo): Promise<IUpdateAppConfigVo> {
+    const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
+    const nextAppConfig = {
+      ...(appConfig ?? {}),
+      ...patch,
+    } as IAppConfig;
+
+    await this.settingService.updateSetting({
+      [SettingKey.APP_CONFIG]: nextAppConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      appConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAppConfig[key as keyof IAppConfig]])
+      ) as Partial<IAppConfig>,
+    };
   }
 
   /**
@@ -177,6 +247,16 @@ export class SettingOpenApiService {
         chatModel: aiConfig?.chatModel ?? undefined,
         capabilities: aiConfig?.capabilities,
         gatewayModels: aiConfig?.gatewayModels,
+        voiceInput: {
+          enabled: Boolean(
+            (aiConfig?.realtimeTranscription?.enabled ?? true) &&
+              (aiConfig?.realtimeTranscription?.apiKey || process.env.OPENAI_REALTIME_API_KEY)
+          ),
+          model: aiConfig?.realtimeTranscription?.model ?? DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+          maxSessionDurationSec:
+            aiConfig?.realtimeTranscription?.maxSessionDurationSec ??
+            DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
+        },
       },
       appGenerationEnabled: Boolean(appConfig?.vercelToken),
       availableIntegrationProviders,
@@ -963,6 +1043,8 @@ export class SettingOpenApiService {
       };
     } else if (type === 'vercel') {
       return this.testVercelToken(apiKey, baseUrl);
+    } else if (type === 'realtimeTranscription') {
+      return this.testRealtimeTranscriptionKey(apiKey, baseUrl);
     }
 
     return { success: false, error: { code: 'unknown', message: 'Unknown API type' } };
@@ -1197,6 +1279,64 @@ export class SettingOpenApiService {
       return { success: true };
     } catch (error) {
       return this.parseApiKeyError(error, 'AI Gateway');
+    }
+  }
+
+  private async testRealtimeTranscriptionKey(
+    apiKey: string,
+    endpoint?: string
+  ): Promise<ITestApiKeyVo> {
+    try {
+      const { clientSecretsUrl } = resolveOpenAIRealtimeEndpoints(endpoint);
+      const response = await fetch(clientSecretsUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expires_after: {
+            anchor: 'created_at',
+            seconds: 10,
+          },
+          session: {
+            type: 'transcription',
+            audio: {
+              input: {
+                transcription: {
+                  model: DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        return this.parseApiKeyError(
+          {
+            status: response.status,
+            message: detail || response.statusText,
+          },
+          'OpenAI Realtime transcription'
+        );
+      }
+
+      const data = (await response.json()) as unknown;
+      if (!hasRealtimeClientSecret(data)) {
+        return {
+          success: false,
+          error: {
+            code: 'unknown',
+            message: 'OpenAI Realtime transcription response did not include a client secret',
+          },
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return this.parseApiKeyError(error, 'OpenAI Realtime transcription');
     }
   }
 

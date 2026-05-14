@@ -4,13 +4,17 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
+import { NoopAttachmentUrlSignerService } from '../../ports/defaults/NoopAttachmentUrlSignerService';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type { RealtimeChange } from '../../ports/RealtimeChange';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
 import { teableSpanName } from '../../ports/Tracer';
+import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
+import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { runRealtimeTasks } from './runRealtimeTasks';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
@@ -21,14 +25,18 @@ import { buildRealtimeFanoutSpanAttributes, withRealtimeFanoutSpan } from './tra
 export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<RecordsBatchUpdated> {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
-    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine
+    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.attachmentValueDecoratorService)
+    private readonly attachmentValueDecoratorService: AttachmentValueDecoratorService = new AttachmentValueDecoratorService(
+      new NoopAttachmentUrlSignerService()
+    )
   ) {}
 
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine } = this;
+    const { realtimeEngine, attachmentValueDecoratorService } = this;
     const orchestration = event.orchestration;
     const totalRecordCount = orchestration?.totalRecordCount ?? event.updates.length;
     const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
@@ -56,7 +64,9 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
 
-      const tasksByRecord = new Map<string, () => Promise<Result<void, DomainError>>>();
+      // The Updated path wraps safeTry inside `async () => ...`, so the inferred
+      // return is Promise<Result<undefined, _>> (the async wraps ResultAsync).
+      const tasksByRecord = new Map<string, () => Promise<Result<undefined, DomainError>>>();
       const docIds = new Map<string, RealtimeDocId>();
 
       for (const update of event.updates) {
@@ -66,17 +76,7 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
           docIds.set(update.recordId, docId);
         }
 
-        // For updates, only send UPDATE ops (not CREATE).
-        // The record already exists in the client, so we should NOT call ensure()
-        // which would broadcast a create op with empty fields and overwrite client data.
-        const batchedChanges = update.changes.map((change) => ({
-          type: 'set' as const,
-          path: ['fields', change.fieldId],
-          value: change.newValue,
-          ...(change.oldValue === undefined ? {} : { oldValue: change.oldValue }),
-        }));
-
-        if (batchedChanges.length === 0) continue;
+        if (update.changes.length === 0) continue;
 
         const previous = tasksByRecord.get(update.recordId);
         const next = async () => {
@@ -85,8 +85,33 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
             if (previousResult.isErr()) return previousResult;
           }
 
-          return realtimeEngine.applyChange(context, docId, batchedChanges, {
-            version: update.oldVersion,
+          return safeTry(async function* () {
+            // For updates, only send UPDATE ops (not CREATE).
+            // The record already exists in the client, so we should NOT call ensure()
+            // which would broadcast a create op with empty fields and overwrite client data.
+            const batchedChanges: RealtimeChange[] = [];
+            for (const change of update.changes) {
+              const newValue = yield* (
+                await decorateRealtimeAttachmentValue(
+                  attachmentValueDecoratorService,
+                  change.newValue,
+                  change.oldValue
+                )
+              ).safeUnwrap();
+              batchedChanges.push({
+                type: 'set' as const,
+                path: ['fields', change.fieldId],
+                value: newValue,
+                ...(change.oldValue === undefined ? {} : { oldValue: change.oldValue }),
+              });
+            }
+
+            yield* (
+              await realtimeEngine.applyChange(context, docId, batchedChanges, {
+                version: update.oldVersion,
+              })
+            ).safeUnwrap();
+            return ok(undefined);
           });
         };
         tasksByRecord.set(update.recordId, next);

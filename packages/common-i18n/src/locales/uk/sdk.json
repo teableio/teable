@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Діапазон дат (місяць)",
     "totalAttachmentSize": "Загальний розмір вкладень"
   },
+  "selectionStatistic": {
+    "tip": "Агрегуються лише поля типу Число."
+  },
   "baseQuery": {
     "add": "Додати",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашої бази даних",
       "alreadyActiveAndNotDraft": "Автоматизація вже активна і не є чернеткою",
       "noActiveSnapshot": "У автоматизації немає активного знімка",
+      "onlyFailedRunsCanRerun": "Повторно запустити можна лише невдалі виконання",
+      "workflowMustBeActiveToRerun": "Для повторного запуску робочий процес має бути активним",
+      "snapshotChangedOnlyFullRerun": "Робочий процес було змінено після цього виконання. Дозволено лише повний повторний запуск.",
+      "controlStepsMissingOnlyFullRerun": "Дані вузла керування відсутні для цього виконання. Підтримується лише повний повторний запуск.",
       "triggerNodeAlreadyExists": "У цієї автоматизації вже є вузол тригера",
       "generateLogicError": "Помилка генерації вузла логіки",
       "logicNotFound": "Вузол логіки автоматизації не знайдено",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Вузол керування не повинен тестуватися",
       "invalidNodeType": "Недійсний тип вузла",
       "unsupportedCategory": "Непідтримувана категорія",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Невідомий тип підключення електронної пошти",
+      "imapPasswordNotConfigured": "Пароль IMAP не налаштовано",
+      "integrationNotFound": "Інтеграцію не знайдено або вона не має облікових даних",
+      "webhookTriggerNotFound": "Тригер вебхука не знайдено",
+      "emailReceivedTriggerNotFound": "Тригер отримання електронної пошти не знайдено",
+      "emailConnectorNotAvailable": "Служба конектора електронної пошти недоступна",
       "listMailboxesFailed": "Не вдалося отримати список поштових скриньок: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
       "notBelongToOrg": "Цей простір не належить організації",
-      "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}"
+      "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Досягнуто максимальну кількість просторів, якими можна керувати ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} досяг максимальної кількості просторів, якими можна керувати ({{max}})"
     },
     "base": {
       "notFound": "База не знайдена",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Недостатньо коштів",
       "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}",
-      "exceedMaxAutomationRunLimit": "Досягнуто максимального місячного ліміту запусків автоматизації"
+      "exceedMaxAutomationRunLimit": "Досягнуто максимального місячного ліміту запусків автоматизації",
+      "manualSubscriptionNotSupported": "Самостійне керування підпискою недоступне для цього простору. Для оновлення, зниження або інших змін підписки зверніться до служби підтримки Teable.",
+      "appSumoSubscriptionNotSupported": "Підписки AppSumo не можуть бути змінені через цей інтерфейс. Будь ласка, керуйте підпискою на AppSumo.",
+      "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено."
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",

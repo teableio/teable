@@ -25,10 +25,13 @@ import {
   NoopTracer,
   NoopUnitOfWork,
   registerV2CoreServices,
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type ILogger,
   type IQueryBusMiddleware,
+  type TableDataSafetyLimitConfig,
   type ITracer,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -40,6 +43,9 @@ export interface IV2BrowserPgliteContainerOptions {
   connectionString?: string;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
+  tableMaxRowLimit?: number;
+  tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
   tracer?: ITracer;
@@ -80,13 +86,25 @@ export const registerV2BrowserPgliteDependencies = async (
   const dataDb = c.resolve(v2DataDbTokens.db) as IV2PostgresStateAdapterConfig['db'];
 
   await registerV2PostgresStateAdapter(c, {
-    db: metaDb,
+    db: dataDb,
     ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
-    ...(options.maxFreeRowLimit ? { maxFreeRowLimit: options.maxFreeRowLimit } : {}),
+    ...(options.tableMaxRowLimit ??
+    options.maxFreeRowLimit ??
+    options.tableDataSafetyLimits?.tableSchema?.maxRowsPerTable
+      ? {
+          tableMaxRowLimit:
+            options.tableMaxRowLimit ??
+            options.maxFreeRowLimit ??
+            options.tableDataSafetyLimits?.tableSchema?.maxRowsPerTable,
+        }
+      : {}),
   });
 
-  registerV2TableRepositoryPostgresAdapter(c, { db: dataDb });
+  registerV2TableRepositoryPostgresAdapter(c, {
+    db: dataDb,
+    tableDataSafetyLimits: options.tableDataSafetyLimits,
+  });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
@@ -95,7 +113,17 @@ export const registerV2BrowserPgliteDependencies = async (
   const logger = options.logger ?? new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
 
-  const commandBus = new MemoryCommandBus(c, options.commandBusMiddlewares);
+  c.registerInstance(v2CoreTokens.tableDataSafetyLimits, options.tableDataSafetyLimits ?? {});
+  const commandBus = new MemoryCommandBus(c, [
+    ...(options.tableDataSafetyLimits
+      ? [
+          new TableDataSafetyLimitCommandBusMiddleware(
+            new StaticTableDataSafetyLimitPlugin(options.tableDataSafetyLimits)
+          ),
+        ]
+      : []),
+    ...(options.commandBusMiddlewares ?? []),
+  ]);
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
@@ -167,6 +195,7 @@ export const registerV2BrowserNoopDependencies = (
   });
   const logger = new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
+  c.registerInstance(v2CoreTokens.tableDataSafetyLimits, {});
   const commandBus = new MemoryCommandBus(c);
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);

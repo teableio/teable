@@ -1,7 +1,13 @@
 import type { LLMProvider } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
-import { normalizeLLMProviderModelConfigs } from './utils';
+import { generateByokProviderName, normalizeLLMProviderModelConfigs } from './utils';
+
+describe('generateByokProviderName', () => {
+  it('generates a stable-format BYOK provider name', () => {
+    expect(generateByokProviderName()).toMatch(/^byok-[0-9a-z]{4}$/);
+  });
+});
 
 describe('normalizeLLMProviderModelConfigs', () => {
   it('removes stale hidden configs and backfills known OpenAI image abilities', () => {

@@ -117,15 +117,32 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
   const fallbackFocusRef = useRef<HTMLInputElement>(null);
   const milkdownGetEditorRef = useRef<(() => Editor) | null>(null);
   const [editorValue, setEditorValue] = useState(() => normalizeMarkdownValue(cell.data));
+  const [editorRemountKey, setEditorRemountKey] = useState(0);
   const latestValueRef = useRef(editorValue);
+  const initialValueRef = useRef(editorValue);
   const savedRef = useRef(false);
+  const isEditingRef = useRef(isEditing);
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
 
   useEffect(() => {
     const next = normalizeMarkdownValue(cell.data);
+    const isExternal = next !== latestValueRef.current;
+
+    // mid-edit external sync: keep user's input, skip sync entirely
+    if (isExternal && isEditingRef.current) return;
+
     latestValueRef.current = next;
+    initialValueRef.current = next;
     setEditorValue(next);
     savedRef.current = false;
-    milkdownGetEditorRef.current = null;
+
+    if (isExternal) {
+      milkdownGetEditorRef.current = null;
+      setEditorRemountKey((k) => k + 1);
+    }
   }, [cell.data, record.id, field.id]);
 
   const saveValue = () => {
@@ -139,13 +156,12 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     }
 
     const trimmed = latestValueRef.current.trim();
-    const nextValue = trimmed || null;
-    // cell.data is '' for null values (from `(cellValue as string) || ''`), normalize both sides
-    const cellData = (cell.data as string)?.trim() || null;
-    if (nextValue === cellData) return;
+    // compare against what user saw when this edit session started, not current cell.data
+    // (cell.data may have changed externally during edit; we don't want to commit a stale view)
+    if (trimmed === initialValueRef.current.trim()) return;
 
     savedRef.current = true;
-    record.updateCell(field.id, nextValue, { t });
+    record.updateCell(field.id, trimmed || null, { t });
   };
 
   useImperativeHandle(ref, () => ({
@@ -229,7 +245,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
           style={{ marginRight: -2, marginTop: -2 }}
         >
           <ExpandMarkdownEditor
-            key={record.id}
+            key={`${record.id}:${field.id}`}
             value={editorValue}
             field={field}
             readonly={isReadonly}
@@ -263,7 +279,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
             }
           >
             <MarkdownLongTextEditor
-              key={`${record.id}:${field.id}`}
+              key={`${record.id}:${field.id}:${editorRemountKey}`}
               className="border-none shadow-none"
               value={editorValue}
               readonly={isReadonly}

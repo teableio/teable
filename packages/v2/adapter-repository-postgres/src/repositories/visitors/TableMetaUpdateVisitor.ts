@@ -41,6 +41,7 @@ import {
   type UpdateButtonLabelSpec,
   type UpdateButtonColorSpec,
   type UpdateButtonMaxCountSpec,
+  type UpdateButtonResetCountSpec,
   type UpdateButtonWorkflowSpec,
   type UpdateSingleSelectOptionsSpec,
   type UpdateSingleSelectDefaultValueSpec,
@@ -702,6 +703,12 @@ export class TableMetaUpdateVisitor
 
   visitUpdateButtonMaxCount(
     spec: UpdateButtonMaxCountSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return this.buildFieldOptionsUpdate(spec.fieldId());
+  }
+
+  visitUpdateButtonResetCount(
+    spec: UpdateButtonResetCountSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     return this.buildFieldOptionsUpdate(spec.fieldId());
   }

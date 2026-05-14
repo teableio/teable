@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdateService';
+import type { IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordReorderService } from '../application/services/RecordReorderService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -24,7 +25,12 @@ import { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
+import {
+  SetAttachmentValueSpec,
+  type AttachmentItem,
+} from '../domain/table/records/specs/values/SetAttachmentValueSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import { CellValue } from '../domain/table/records/values/CellValue';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -71,6 +77,15 @@ const noopRecordWriteUndoRedoPlanService = {
   captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
 } as unknown as RecordWriteUndoRedoPlanService;
 
+const noopRecordChangedValueDecoratorService = {
+  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
+    ok(changedFields),
+  decorateChangedFieldsByRecord: async (
+    _table: Table,
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+  ) => ok(changedFieldsByRecord),
+} as unknown as IRecordChangedValueDecoratorService;
+
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
   const tableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
@@ -78,6 +93,7 @@ const buildTable = () => {
   const textFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
   const numberFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
   const singleSelectFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+  const attachmentFieldId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
 
   const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
   builder
@@ -100,6 +116,12 @@ const buildTable = () => {
     .withName(FieldName.create('Status')._unsafeUnwrap())
     .withOptions([])
     .done();
+  builder
+    .field()
+    .attachment()
+    .withId(attachmentFieldId)
+    .withName(FieldName.create('Attachments')._unsafeUnwrap())
+    .done();
   builder.view().defaultGrid().done();
 
   return {
@@ -108,6 +130,7 @@ const buildTable = () => {
     textFieldId,
     numberFieldId,
     singleSelectFieldId,
+    attachmentFieldId,
   };
 };
 
@@ -333,6 +356,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 }
 
 class FakeRecordMutationSpecResolverService {
+  constructor(private readonly resolvedSpecs?: ReadonlyArray<ICellValueSpec | null>) {}
+
   needsResolution(_: ICellValueSpec): Result<boolean, DomainError> {
     return ok(false);
   }
@@ -348,7 +373,7 @@ class FakeRecordMutationSpecResolverService {
     _: IExecutionContext,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
-    return ok(specs);
+    return ok(this.resolvedSpecs ?? specs);
   }
 }
 
@@ -445,6 +470,8 @@ const createHandler = (
     queryRepository?: FakeTableRecordQueryRepository;
     orderCalculator?: FakeRecordOrderCalculator;
     plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
+    recordMutationSpecResolver?: FakeRecordMutationSpecResolverService;
+    recordChangedValueDecoratorService?: IRecordChangedValueDecoratorService;
   }
 ) => {
   const orderCalculator = options?.orderCalculator ?? new FakeRecordOrderCalculator();
@@ -452,11 +479,13 @@ const createHandler = (
   const recordBulkUpdateService = new RecordBulkUpdateService(
     recordRepository,
     options?.queryRepository ?? new FakeTableRecordQueryRepository(),
-    new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+    (options?.recordMutationSpecResolver ??
+      new FakeRecordMutationSpecResolverService()) as unknown as RecordMutationSpecResolverService,
     recordReorderService,
     createRecordWritePluginRunner(options?.plugins),
     new RecordWriteSideEffectService(),
     noopRecordWriteUndoRedoPlanService,
+    options?.recordChangedValueDecoratorService ?? noopRecordChangedValueDecoratorService,
     createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
     eventBus,
     undoRedoService as unknown as UndoRedoStackService,
@@ -1200,6 +1229,95 @@ describe('UpdateRecordsHandler', () => {
     expect(result._unsafeUnwrap().updatedCount).toBe(1);
     expect(tableRepository.updated).toHaveLength(1);
     expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(true);
+  });
+
+  it('persists resolved attachment values for explicit typecast updates', async () => {
+    const { table, tableId, attachmentFieldId } = buildTable();
+    const recordId = `rec${'a'.repeat(15)}1`;
+    const resolvedAttachment: AttachmentItem = {
+      id: 'att-1',
+      name: 'image.png',
+      path: '/attachments/image.png',
+      token: 'tok-1',
+      size: 12,
+      mimetype: 'image/png',
+    };
+    const decoratedAttachment: AttachmentItem = {
+      ...resolvedAttachment,
+      presignedUrl: 'https://example.test/image.png',
+      smThumbnailUrl: 'https://example.test/sm.png',
+      lgThumbnailUrl: 'https://example.test/lg.png',
+    };
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      {
+        id: recordId,
+        version: 1,
+        fields: { [attachmentFieldId.toString()]: null },
+      },
+    ];
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undoRedoService,
+      {
+        queryRepository,
+        recordMutationSpecResolver: new FakeRecordMutationSpecResolverService([
+          new SetAttachmentValueSpec(
+            attachmentFieldId,
+            CellValue.fromValidated<AttachmentItem[]>([resolvedAttachment])
+          ),
+        ]),
+        recordChangedValueDecoratorService: {
+          decorateChangedFields: async (_table, changedFields) =>
+            ok(
+              changedFields
+                ? new Map([[attachmentFieldId.toString(), [decoratedAttachment]]])
+                : changedFields
+            ),
+          decorateChangedFieldsByRecord: async (_table, changedFieldsByRecord) =>
+            ok(changedFieldsByRecord),
+        },
+      }
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        typecast: true,
+        records: [
+          {
+            id: recordId,
+            fields: { [attachmentFieldId.toString()]: [{ token: 'tok-1' }] },
+          },
+        ],
+      })._unsafeUnwrap()
+    );
+
+    const payload = result._unsafeUnwrap();
+    const persistedBatch = recordRepository.lastUpdateManyStreamBatches[0];
+    const persistedUpdates =
+      persistedBatch && 'updates' in persistedBatch ? persistedBatch.updates : [];
+    const persistedValue = persistedUpdates[0]?.record.fields().get(attachmentFieldId)?.toValue();
+
+    expect(payload.records?.[0]?.fields().get(attachmentFieldId)?.toValue()).toEqual([
+      decoratedAttachment,
+    ]);
+    expect(persistedValue).toEqual([resolvedAttachment]);
+    const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
+    expect(batchEvent?.updates[0]?.changes[0]?.newValue).toEqual([decoratedAttachment]);
   });
 
   it('returns early when the filter matches no records', async () => {

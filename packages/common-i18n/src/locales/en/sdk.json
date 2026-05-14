@@ -825,6 +825,9 @@
     "dateRangeOfMonths": "Date range (months)",
     "totalAttachmentSize": "Total attachment size"
   },
+  "selectionStatistic": {
+    "tip": "Only Number-typed fields are aggregated."
+  },
   "baseQuery": {
     "add": "Add",
     "error": {
@@ -1012,6 +1015,10 @@
       "tableNotInBase": "You can only subscribe to a table within your base",
       "alreadyActiveAndNotDraft": "Automation already active and not draft",
       "noActiveSnapshot": "Automation has no active snapshot",
+      "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
+      "workflowMustBeActiveToRerun": "Workflow must be active to rerun",
+      "snapshotChangedOnlyFullRerun": "Workflow has been modified since this run. Only full rerun is allowed.",
+      "controlStepsMissingOnlyFullRerun": "Control node data is missing for this run. Only full rerun is supported.",
       "triggerNodeAlreadyExists": "This automation already has a trigger node",
       "unSupportLogicType": "Unsupported logic type",
       "generateLogicError": "Generate logic node error",
@@ -1052,7 +1059,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
       "notBelongToOrg": "This space not belong to the organization",
-      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}"
+      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "You have reached the maximum number of spaces you can manage ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} has reached the maximum number of spaces they can manage ({{max}})"
     },
     "base": {
       "notFound": "Base not found",
@@ -1276,7 +1285,10 @@
     "billing": {
       "insufficientCredit": "Insufficient credit",
       "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded",
-      "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded"
+      "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
+      "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
+      "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
+      "customerNotFound": "No billing customer record found for this space."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",

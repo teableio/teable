@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "日付範囲（月）",
     "totalAttachmentSize": "添付ファイルの合計サイズ"
   },
+  "selectionStatistic": {
+    "tip": "「数値型」フィールドのみを集計します。"
+  },
   "baseQuery": {
     "add": "追加",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "あなたのデータベース内のテーブルのみを購読できます",
       "alreadyActiveAndNotDraft": "自動化は既にアクティブでドラフトではありません",
       "noActiveSnapshot": "自動化にアクティブなスナップショットがありません",
+      "onlyFailedRunsCanRerun": "失敗した実行のみ再実行できます",
+      "workflowMustBeActiveToRerun": "再実行するにはワークフローが有効である必要があります",
+      "snapshotChangedOnlyFullRerun": "この実行以降にワークフローが変更されました。完全な再実行のみ許可されています。",
+      "controlStepsMissingOnlyFullRerun": "この実行のコントロールノードデータが見つかりません。完全な再実行のみサポートされています。",
       "triggerNodeAlreadyExists": "この自動化には既にトリガーノードがあります",
       "generateLogicError": "ロジックノードの生成エラー",
       "logicNotFound": "自動化ロジックノードが見つかりません",
@@ -1027,7 +1034,9 @@
       "deleted": "スペースが削除されました",
       "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
       "notBelongToOrg": "このスペースは組織に属していません",
-      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}"
+      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "管理できるスペースの上限数（{{max}}）に達しました",
+      "ownedSpaceLimitExceededOther": "{{name}} は管理できるスペースの上限数（{{max}}）に達しています"
     },
     "base": {
       "notFound": "ベース が見つかりません",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "クレジット不足",
       "exceedMaxRowLimit": "最大行数制限 {{maxRowCount}} を超えました",
-      "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました"
+      "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました",
+      "manualSubscriptionNotSupported": "このスペースではセルフサービスのサブスクリプション操作をご利用いただけません。アップグレード、ダウングレード、その他のサブスクリプション変更については、Teableサポートまでお問い合わせください。",
+      "appSumoSubscriptionNotSupported": "AppSumoのサブスクリプションはこのインターフェースから変更できません。AppSumoでサブスクリプションを管理してください。",
+      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",

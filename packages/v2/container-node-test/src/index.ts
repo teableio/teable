@@ -23,7 +23,6 @@ import {
   type ComputedUpdateWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
-import type { IHasher, ILogger, ITableRepository, LogContext } from '@teable/v2-core';
 import {
   BaseId,
   DefaultTableMapper,
@@ -35,7 +34,14 @@ import {
   NoopRealtimeEngine,
   NoopTracer,
   registerV2CoreServices,
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
+  type IHasher,
+  type ILogger,
+  type ITableRepository,
+  type LogContext,
+  type TableDataSafetyLimitConfig,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -123,6 +129,9 @@ export interface IV2NodeTestContainerOptions {
   ) => Promise<DependencyContainer | void>;
   ensureSchema?: boolean;
   seedBase?: boolean;
+  tableMaxRowLimit?: number;
+  tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
   logToConsole?: boolean;
@@ -293,13 +302,18 @@ export const createV2NodeTestContainer = async (
   const dataDb = c.resolve<Kysely<V1TeableDatabase>>(v2DataDbTokens.db);
   const db = dataDb;
 
-  const maxFreeRowLimit = resolveMaxFreeRowLimit(options.maxFreeRowLimit);
+  const tableMaxRowLimit = resolveTableMaxRowLimit(
+    options.tableMaxRowLimit ??
+      options.maxFreeRowLimit ??
+      options.tableDataSafetyLimits?.tableSchema?.maxRowsPerTable
+  );
 
   await time('register-state-adapter', async () =>
     registerV2PostgresStateAdapter(c, {
       db: metaDb,
+      recordCountDb: dataDb,
       ensureSchema,
-      ...(maxFreeRowLimit ? { maxFreeRowLimit } : {}),
+      ...(tableMaxRowLimit ? { tableMaxRowLimit } : {}),
     })
   );
 
@@ -328,6 +342,7 @@ export const createV2NodeTestContainer = async (
         ...options.computedUpdate,
       },
       typeValidationStrategy,
+      tableDataSafetyLimits: options.tableDataSafetyLimits,
     });
   });
 
@@ -358,7 +373,17 @@ export const createV2NodeTestContainer = async (
     });
   }
 
-  const commandBus = new MemoryCommandBus(c);
+  c.registerInstance(v2CoreTokens.tableDataSafetyLimits, options.tableDataSafetyLimits ?? {});
+  const commandBus = new MemoryCommandBus(
+    c,
+    options.tableDataSafetyLimits
+      ? [
+          new TableDataSafetyLimitCommandBusMiddleware(
+            new StaticTableDataSafetyLimitPlugin(options.tableDataSafetyLimits)
+          ),
+        ]
+      : []
+  );
   const queryBus = new MemoryQueryBus(c);
   const eventBus = new MemoryEventBus(c);
 
@@ -543,7 +568,7 @@ export const createV2NodeTestContainer = async (
   };
 };
 
-const resolveMaxFreeRowLimit = (value?: number): number | undefined => {
+const resolveTableMaxRowLimit = (value?: number): number | undefined => {
   if (typeof value === 'number' && value > 0) return value;
   return undefined;
 };

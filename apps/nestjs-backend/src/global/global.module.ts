@@ -2,8 +2,8 @@ import type { DynamicModule, MiddlewareConsumer, ModuleMetadata, NestModule } fr
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { context, trace } from '@opentelemetry/api';
-import { PrismaModule } from '@teable/db-main-prisma';
 import { DataPrismaModule } from '@teable/db-data-prisma';
+import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
@@ -25,9 +25,11 @@ import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
 import { ModelModule } from '../features/model/model.module';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
+import { SessionCsrfMiddleware } from '../middleware/session-csrf.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
+import { DataDbClientManager } from './data-db-client-manager.service';
 import { DatabaseRouter } from './database-router.service';
 import { KnexModule } from './knex';
 
@@ -91,8 +93,10 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
+    DataDbClientManager,
     DatabaseRouter,
     RequestInfoMiddleware,
+    SessionCsrfMiddleware,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
@@ -106,14 +110,27 @@ const globalModules = {
       useClass: RouteTracingInterceptor,
     },
   ],
-  exports: [DbProvider, DatabaseRouter, KnexModule, PrismaModule, DataPrismaModule],
+  exports: [
+    DbProvider,
+    DataDbClientManager,
+    DatabaseRouter,
+    KnexModule,
+    PrismaModule,
+    DataPrismaModule,
+  ],
 };
 
 @Global()
 @Module(globalModules)
 export class GlobalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ClsMiddleware).forRoutes('*').apply(RequestInfoMiddleware).forRoutes('*');
+    consumer
+      .apply(ClsMiddleware)
+      .forRoutes('*')
+      .apply(SessionCsrfMiddleware)
+      .forRoutes('*')
+      .apply(RequestInfoMiddleware)
+      .forRoutes('*');
   }
 
   static register(moduleMetadata: ModuleMetadata): DynamicModule {

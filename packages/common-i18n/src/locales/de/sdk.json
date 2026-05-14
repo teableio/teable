@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Datum Spanne (Monate)",
     "totalAttachmentSize": "Gesamtgröße Anhänge"
   },
+  "selectionStatistic": {
+    "tip": "Nur Felder vom Typ Zahl werden aggregiert."
+  },
   "baseQuery": {
     "add": "Hinzufügen",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Sie können nur eine Tabelle innerhalb Ihrer Datenbank abonnieren",
       "alreadyActiveAndNotDraft": "Automatisierung ist bereits aktiv und kein Entwurf",
       "noActiveSnapshot": "Automatisierung hat keinen aktiven Snapshot",
+      "onlyFailedRunsCanRerun": "Nur fehlgeschlagene Ausführungen können erneut ausgeführt werden",
+      "workflowMustBeActiveToRerun": "Der Workflow muss aktiv sein, um erneut ausgeführt zu werden",
+      "snapshotChangedOnlyFullRerun": "Der Workflow wurde seit dieser Ausführung geändert. Nur eine vollständige Wiederholung ist zulässig.",
+      "controlStepsMissingOnlyFullRerun": "Kontrollknotendaten fehlen für diese Ausführung. Nur eine vollständige Wiederholung wird unterstützt.",
       "triggerNodeAlreadyExists": "Diese Automatisierung hat bereits einen Trigger-Knoten",
       "generateLogicError": "Fehler beim Generieren des Logikknotens",
       "logicNotFound": "Automatisierungs-Logikknoten nicht gefunden",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Kontrollknoten sollte nicht getestet werden",
       "invalidNodeType": "Ungültiger Knotentyp",
       "unsupportedCategory": "Nicht unterstützte Kategorie",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Unbekannter E-Mail-Verbindungstyp",
+      "imapPasswordNotConfigured": "IMAP-Passwort nicht konfiguriert",
+      "integrationNotFound": "Integration nicht gefunden oder hat keine Anmeldedaten",
+      "webhookTriggerNotFound": "Webhook-Trigger nicht gefunden",
+      "emailReceivedTriggerNotFound": "E-Mail-Empfang-Trigger nicht gefunden",
+      "emailConnectorNotAvailable": "E-Mail-Connector-Dienst nicht verfügbar",
       "listMailboxesFailed": "Postfächerliste konnte nicht abgerufen werden: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space wurde gelöscht",
       "cannotOperate": "Kann nicht auf einem Space operieren, bitte überprüfen Sie, dass es Organisationsmitglieder im Space gibt und sie Eigentümer sind",
       "notBelongToOrg": "Dieser Space gehört nicht zur Organisation",
-      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}"
+      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Sie haben die maximale Anzahl an verwaltbaren Spaces erreicht ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} hat die maximale Anzahl an verwaltbaren Spaces erreicht ({{max}})"
     },
     "base": {
       "notFound": "Base nicht gefunden",
@@ -1250,7 +1259,10 @@
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben",
       "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten",
-      "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht"
+      "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht",
+      "manualSubscriptionNotSupported": "Self-Service-Abonnement ist für diesen Space nicht verfügbar. Für Upgrades, Downgrades oder andere Abonnementänderungen wenden Sie sich bitte an den Teable-Support.",
+      "appSumoSubscriptionNotSupported": "AppSumo-Abonnements können über diese Oberfläche nicht geändert werden. Bitte verwalten Sie Ihr Abonnement auf AppSumo.",
+      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden."
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",

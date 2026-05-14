@@ -6,6 +6,7 @@ import type {
   IBaseNodeVo,
   IBaseNodeWorkflowResourceMeta,
   IBaseNodeAppResourceMeta,
+  IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
@@ -31,7 +32,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shadcn/ui/tree';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -145,7 +146,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { mode = 'edit', emptyText, onPrimaryAction } = props;
   const isEditMode = mode === 'edit';
   const queryClient = useQueryClient();
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId() as string;
   const router = useRouter();
   const baseResource = useBaseResource();
@@ -665,12 +666,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   <TreeItemLabel className={cn('size-full min-w-0 py-0')}>
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
-                      <div className="flex min-w-0 grow items-center gap-1" title={name}>
+                      <div className="flex min-w-0 grow items-center" title={name}>
                         <span className="truncate text-left">{name}</span>
-
-                        <ItemStatus item={item} />
-                        {
-                          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                          <ItemStatus item={item} />
+                          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -684,7 +684,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               resourceId={resourceId}
                             />
                           </div>
-                        }
+                        </div>
                       </div>
                     </div>
                   </TreeItemLabel>
@@ -713,6 +713,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       >
         <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
           <AssistiveTreeDescription tree={tree} />
+          {/* eslint-disable-next-line sonarjs/cognitive-complexity */}{' '}
           {tree.getItems().map((item) => {
             const nodeId = item.getId();
             const node = item.getItemData();
@@ -723,6 +724,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             const isPinned = pinMap?.[resourceId];
             const showShareIndicator = !shareUrlPrefix;
             const isContextMenuTarget = contextMenuOpen && contextMenu?.nodeId === nodeId;
+            const tableMeta = node.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+            const hasLoginApps =
+              resourceType === BaseNodeResourceType.Table &&
+              Boolean(tableMeta?.loginApps?.length || tableMeta?.loginAppId);
             return (
               <TreeItem asChild key={nodeId} item={item}>
                 <div
@@ -779,7 +784,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <div className="flex min-w-0 grow items-center gap-1" title={name}>
+                          <div className="flex min-w-0 grow items-center" title={name}>
                             <span
                               className="truncate text-left"
                               onDoubleClick={() => {
@@ -788,8 +793,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                             >
                               {name}
                             </span>
-
-                            <ItemStatus item={item} />
+                            <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                              <ItemStatus item={item} />
+                            </div>
                           </div>
                           {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
@@ -852,13 +858,27 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   </Button>
                                 </BaseNodeMore>
                               </div>
-                              {showShareIndicator && !isContextMenuTarget && (
-                                <BaseNodeShareIndicator
-                                  nodeId={nodeId}
-                                  sharedNodeIds={sharedNodeIds}
-                                  node={node}
-                                  className={cn('ml-1', GROUP_ACTIVE_HIDDEN_CLS)}
-                                />
+                              {!isContextMenuTarget && (
+                                <>
+                                  {hasLoginApps && (
+                                    <span
+                                      className={cn(
+                                        'flex size-4 shrink-0 items-center justify-center text-muted-foreground',
+                                        GROUP_ACTIVE_HIDDEN_CLS
+                                      )}
+                                    >
+                                      <ShieldCheck className="size-3.5" />
+                                    </span>
+                                  )}
+                                  {showShareIndicator && (
+                                    <BaseNodeShareIndicator
+                                      nodeId={nodeId}
+                                      sharedNodeIds={sharedNodeIds}
+                                      node={node}
+                                      className={cn('ml-1', GROUP_ACTIVE_HIDDEN_CLS)}
+                                    />
+                                  )}
+                                </>
                               )}
                             </div>
                           }

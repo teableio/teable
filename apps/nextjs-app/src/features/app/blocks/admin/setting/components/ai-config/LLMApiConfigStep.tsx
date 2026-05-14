@@ -53,6 +53,9 @@ interface ILLMApiConfigStepProps {
 
   // Callbacks
   onComplete?: () => void;
+  onSave?: () => Promise<void>;
+  isSaving?: boolean;
+  isDirty?: boolean;
   onResetGateway?: () => void;
 
   /** Whether to show pricing-related UI. Defaults to true (Cloud). */
@@ -79,6 +82,9 @@ export function LLMApiConfigStep({
   testProviderCallbackRef,
   testModelCallbackRef,
   onComplete,
+  onSave,
+  isSaving,
+  isDirty,
   onResetGateway,
   showPricing = true,
 }: ILLMApiConfigStepProps) {
@@ -105,14 +111,16 @@ export function LLMApiConfigStep({
 
   const hasLocalGatewayKey = Boolean(localGatewayKey);
   const hasProviders = llmProviders.length > 0;
+  const savedGatewayKey = aiConfig?.aiGatewayApiKey || '';
+  const savedGatewayBaseUrl = aiConfig?.aiGatewayBaseUrl || '';
+  const isCurrentGatewayConfig =
+    localGatewayKey === savedGatewayKey && localGatewayBaseUrl === savedGatewayBaseUrl;
 
   const isGatewayKeyVerified =
     testResult === 'success' ||
-    (testResult !== 'error' &&
-      Boolean(aiConfig?.aiGatewayApiKey) &&
-      localGatewayKey === (aiConfig?.aiGatewayApiKey || ''));
+    (testResult !== 'error' && Boolean(savedGatewayKey) && isCurrentGatewayConfig);
 
-  const canProceed = mode === 'gateway' ? isGatewayKeyVerified : hasProviders;
+  const canProceed = mode === 'gateway' ? isGatewayKeyVerified || !localGatewayKey : hasProviders;
 
   // Get saved attachment test from aiConfig
   const savedAttachmentTest = useMemo(() => aiConfig?.attachmentTest, [aiConfig?.attachmentTest]);
@@ -154,7 +162,6 @@ export function LLMApiConfigStep({
       if (result.success) {
         setTestResult('success');
         const updates: Partial<NonNullable<ISettingVo['aiConfig']>> = {
-          ...aiConfig,
           aiGatewayApiKey: localGatewayKey,
           aiGatewayBaseUrl: localGatewayBaseUrl || undefined,
         };
@@ -199,15 +206,15 @@ export function LLMApiConfigStep({
     } finally {
       setIsTesting(false);
     }
-  }, [localGatewayKey, localGatewayBaseUrl, aiConfig, onAiConfigChange, t]);
+  }, [localGatewayKey, localGatewayBaseUrl, onAiConfigChange, t]);
 
   // Handle manual mode switch
   const handleTransferModeChange = useCallback(
     (useBase64: boolean) => {
       const newMode = useBase64 ? 'base64' : 'url';
-      onAiConfigChange?.({ ...aiConfig, attachmentTransferMode: newMode });
+      onAiConfigChange?.({ attachmentTransferMode: newMode });
     },
-    [aiConfig, onAiConfigChange]
+    [onAiConfigChange]
   );
 
   // Determine the effective attachment test result (from current test or saved)
@@ -337,12 +344,17 @@ export function LLMApiConfigStep({
                 value={localGatewayKey}
                 placeholder={t('admin.action.enterApiKey')}
                 onChange={(e) => {
-                  setLocalGatewayKey(e.target.value?.trim() || '');
+                  const value = e.target.value?.trim() || '';
+                  setLocalGatewayKey(value);
                   setTestResult(null);
+                  if (!value) {
+                    onResetGateway?.();
+                  }
                 }}
                 className="flex-1"
               />
               <Button
+                type="button"
                 variant="outline"
                 onClick={handleTestGateway}
                 disabled={!hasLocalGatewayKey || isTesting}
@@ -444,6 +456,7 @@ export function LLMApiConfigStep({
                     <Switch
                       checked={currentTransferMode === 'base64'}
                       onCheckedChange={handleTransferModeChange}
+                      disabled={isSaving}
                     />
                   </div>
                 </div>
@@ -527,7 +540,6 @@ export function LLMApiConfigStep({
                     if (results.size > 0) {
                       const recommendedMode = hasUrlSupport ? 'url' : 'base64';
                       onAiConfigChange?.({
-                        ...aiConfig,
                         attachmentTransferMode: recommendedMode,
                         attachmentTest: {
                           urlMode: { success: hasUrlSupport },
@@ -609,6 +621,7 @@ export function LLMApiConfigStep({
                       <Switch
                         checked={currentTransferMode === 'base64'}
                         onCheckedChange={handleTransferModeChange}
+                        disabled={isSaving}
                       />
                     </div>
                   </div>
@@ -619,16 +632,25 @@ export function LLMApiConfigStep({
         </div>
       )}
 
-      {/* Continue Button */}
+      {/* Step actions */}
       <div className="flex justify-end gap-2">
         {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
-          <Button variant="outline" onClick={handleClearGatewayKey}>
+          <Button type="button" variant="outline" onClick={handleClearGatewayKey}>
             <RotateCw className="mr-1.5 size-3.5" />
-            Reset
+            {t('email.resetConfig')}
           </Button>
         )}
-        <Button onClick={onComplete} disabled={!canProceed}>
-          {t('admin.setting.ai.wizard.saveAndContinue')}
+        <Button
+          type="button"
+          onClick={async () => {
+            if (isDirty) {
+              await onSave?.();
+            }
+            onComplete?.();
+          }}
+          disabled={!canProceed || isSaving}
+        >
+          {isDirty ? t('admin.setting.ai.wizard.saveAndContinue') : t('actions.continue')}
         </Button>
       </div>
     </div>

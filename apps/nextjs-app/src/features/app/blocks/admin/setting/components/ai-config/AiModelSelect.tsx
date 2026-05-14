@@ -43,7 +43,6 @@ export function AIModelSelect({
   children,
   onlyImageOutput = false,
   placeholder,
-  onBeforePickerOpen,
 }: IAIModelSelectProps) {
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
@@ -238,13 +237,7 @@ export function AIModelSelect({
                 {hasAnyOptions && <CommandSeparator />}
                 <CommandItem
                   className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground"
-                  onSelect={async () => {
-                    if (onBeforePickerOpen) {
-                      const allowed = await onBeforePickerOpen();
-                      if (!allowed) return;
-                    }
-                    setPickerOpen(true);
-                  }}
+                  onSelect={() => setPickerOpen(true)}
                 >
                   <Plus className="size-4" />
                   {t('admin.setting.ai.moreModels')}

@@ -9,12 +9,14 @@ import {
   FieldKeyType,
   FieldType,
   is,
+  or,
   Relationship,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
   getAggregation,
+  getRowCount,
   StatisticsFunc,
   toggleTableIndex,
   TableIndex,
@@ -312,6 +314,66 @@ describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
         });
         expect(data.records.length).toBe(expected);
       });
+    });
+  });
+
+  // T3109: nested filter with 3 levels where middle-level conjunction differs
+  // from outer level - record list and rowCount must agree.
+  describe('T3109: nested filter conjunction', () => {
+    let table: ITableFullVo;
+    let fieldId: string;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'nested_filter_conjunction',
+        fields: [{ name: 'Status', type: FieldType.Number }],
+        records: [{ fields: { Status: 1 } }, { fields: { Status: 2 } }, { fields: { Status: 3 } }],
+      });
+      fieldId = table.fields.find((f) => f.name === 'Status')!.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    // Root(AND) → Group1(OR) → [Status=1, Group2(AND) → [Status=2]]
+    // Expected: Status=1 OR Status=2 → 2 records.
+    // Pre-fix bug: Group2 was attached with grandparent's conjunction (AND)
+    // instead of Group1's (OR), collapsing to Status=1 AND Status=2 → 0 records.
+    const buildFilter = (): IFilter => ({
+      conjunction: and.value,
+      filterSet: [
+        {
+          conjunction: or.value,
+          filterSet: [
+            { fieldId, operator: is.value, value: 1 },
+            {
+              conjunction: and.value,
+              filterSet: [{ fieldId, operator: is.value, value: 2 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    it('records API returns Status in {1, 2}', async () => {
+      const { data } = await apiGetRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        filter: buildFilter(),
+      });
+      const statuses = data.records.map((r) => r.fields[fieldId]).sort();
+      expect(statuses).toEqual([1, 2]);
+    });
+
+    it('rowCount API agrees with records API', async () => {
+      const filter = buildFilter();
+      const { data: recordsData } = await apiGetRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        filter,
+      });
+      const { data: rowCountData } = await getRowCount(table.id, { filter });
+      expect(rowCountData.rowCount).toBe(recordsData.records.length);
+      expect(rowCountData.rowCount).toBe(2);
     });
   });
 });

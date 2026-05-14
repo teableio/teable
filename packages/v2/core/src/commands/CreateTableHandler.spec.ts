@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -42,6 +44,7 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTableCommand } from './CreateTableCommand';
 import { CreateTableHandler } from './CreateTableHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -49,6 +52,14 @@ const createContext = (): IExecutionContext => {
   actorIdResult._unsafeUnwrap();
   return { actorId: actorIdResult._unsafeUnwrap() };
 };
+
+const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
+  createTableOperationPluginRunner([
+    new TableDataSafetyLimitTableOperationPlugin(
+      tableRepository,
+      createDefaultTableDataSafetyLimitComposer()
+    ),
+  ]);
 
 class FakeTableRepository implements ITableRepository {
   inserted: Table[] = [];
@@ -315,7 +326,9 @@ describe('CreateTableHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -335,6 +348,61 @@ describe('CreateTableHandler', () => {
       'ready',
     ]);
     expect(tableRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+  });
+
+  it('rejects create table when the base already reached the configured table limit', async () => {
+    const commandResult = createCommand('n');
+    commandResult._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.inserted.push(
+      Table.builder()
+        .withId(TableId.create(`tbl${'n'.repeat(16)}`)._unsafeUnwrap())
+        .withBaseId(commandResult._unsafeUnwrap().baseId)
+        .withName(TableName.create('Existing')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap()
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateTableHandler(
+      tableRepository,
+      schemaRepository,
+      recordRepository,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      eventBus,
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const result = await handler.handle(
+      {
+        ...createContext(),
+        config: { tableLimits: { tableSchema: { maxTablesPerBase: 1 } } },
+      },
+      commandResult._unsafeUnwrap()
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.tables_per_base_max');
   });
 
   it('creates records when provided', async () => {
@@ -369,7 +437,9 @@ describe('CreateTableHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -418,7 +488,9 @@ describe('CreateTableHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -461,7 +533,9 @@ describe('CreateTableHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -513,7 +587,9 @@ describe('CreateTableHandler', () => {
       fieldCreationSideEffectService,
       foreignTableLoaderService,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -579,7 +655,9 @@ describe('CreateTableHandler', () => {
         fieldCreationSideEffectService,
         foreignTableLoaderService,
         eventBus,
-        unitOfWork
+        unitOfWork,
+        undefined,
+        createTableLimitPluginRunner(tableRepository)
       );
 
       const relationships = ['oneOne', 'manyMany', 'oneMany', 'manyOne'] as const;
@@ -644,7 +722,9 @@ describe('CreateTableHandler', () => {
         fieldCreationSideEffectService,
         foreignTableLoaderService,
         eventBus,
-        unitOfWork
+        unitOfWork,
+        undefined,
+        createTableLimitPluginRunner(tableRepository)
       );
 
       const commandResult = CreateTableCommand.create({
