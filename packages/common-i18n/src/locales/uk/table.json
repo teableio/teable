@@ -424,6 +424,9 @@
     "baseInfo": "Базова інформація",
     "typeOfDatabase": "Тип бази даних",
     "descriptionForTable": "Опис цієї таблиці",
+    "loginUserTable": "Вхід у додаток",
+    "loginUserTableClickTips": "Відкрити пов'язаний додаток",
+    "linkedApps": "Пов'язані додатки",
     "nameForTable": "Назва цієї таблиці",
     "deleteTip1": "Поля посилань, пов'язані з цією таблицею в інших таблицях, будуть видалені.",
     "deleteTip2": "Цю таблицю можна відновити з кошика після видалення.",
@@ -981,7 +984,6 @@
     "expand": "Розгорнути",
     "history": "Історія",
     "close": "Згорнути",
-    "noModel": "Немає доступних моделей",
     "addAttachment": "Додати вкладення",
     "noHistory": "Немає історії чату",
     "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
@@ -993,19 +995,22 @@
       "other": "Інше"
     },
     "context": {
-      "button": "Додати контекст",
+      "button": "Додати вузол",
       "search": "Додати таблиці",
       "searchEmpty": "Не знайдено відповідного контексту",
       "emptyContext": "Немає контексту для додавання",
-      "selectionRows": "Рядки {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Рядки {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Таблиці",
       "apps": "Програми",
-      "workflows": "Робочі процеси",
+      "workflows": "Автоматизації",
       "folders": "Папки"
     },
-    "inputPlaceholder": "Введіть @, щоб додати контекст",
+    "inputPlaceholder": "Введіть @, щоб додати вузол",
     "inputPlaceholderFiles": "Вставте або перетягніть файли сюди",
     "thought": "Міркування",
     "meta": {
@@ -1014,6 +1019,7 @@
       "taskCompleted": "Завдання виконано"
     },
     "attachment": {
+      "pastedTextFileName": "Вставлений текст",
       "imageNotSupported": "Зображення не підтримується"
     },
     "suggestions": {

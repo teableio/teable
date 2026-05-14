@@ -68,6 +68,40 @@ describe('UserValueResolverService', () => {
     ]);
   });
 
+  it('resolves missing lookup avatar from public storage config', async () => {
+    const previousPublicUrl = process.env.BACKEND_STORAGE_PUBLIC_URL;
+    process.env.BACKEND_STORAGE_PUBLIC_URL = 'https://storage-public.teable.io';
+
+    try {
+      const fieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+      const inputUser: UserItem = { id: 'usr-1', title: 'Input' };
+      const spec = new SetUserValueSpec(fieldId, CellValue.fromValidated<UserItem[]>([inputUser]));
+
+      const service = new UserValueResolverService(
+        new FakeUserLookupService([{ id: 'usr-1', name: 'Alice', email: 'alice@example.com' }])
+      );
+      const result = await service.resolveSpecs(createContext(), [spec]);
+      const resolvedSpec = result._unsafeUnwrap()[0];
+
+      expect(resolvedSpec).toBeInstanceOf(SetUserValueSpec);
+      const resolvedValue = (resolvedSpec as SetUserValueSpec).value.toValue();
+      expect(resolvedValue).toEqual([
+        {
+          id: 'usr-1',
+          title: 'Alice',
+          email: 'alice@example.com',
+          avatarUrl: 'https://storage-public.teable.io/avatar/usr-1',
+        },
+      ]);
+    } finally {
+      if (previousPublicUrl === undefined) {
+        delete process.env.BACKEND_STORAGE_PUBLIC_URL;
+      } else {
+        process.env.BACKEND_STORAGE_PUBLIC_URL = previousPublicUrl;
+      }
+    }
+  });
+
   it('resolves empty identifiers to empty list for multiple', async () => {
     const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
     const spec = SetUserValueByIdentifierSpec.create(fieldId, [], true);

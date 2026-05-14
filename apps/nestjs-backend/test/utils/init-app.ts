@@ -63,7 +63,7 @@ import {
   permanentDeleteBase as apiPermanentDeleteBase,
 } from '@teable/openapi';
 import { json, urlencoded } from 'express';
-import type { ClsService } from 'nestjs-cls';
+import { ClsService } from 'nestjs-cls';
 import { AppModule } from '../../src/app.module';
 import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
@@ -101,7 +101,9 @@ export async function initApp() {
 
   const configService = app.get(ConfigService);
 
-  app.useGlobalFilters(new GlobalExceptionFilter(configService));
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(configService, app.get<ClsService<IClsStore>>(ClsService))
+  );
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })

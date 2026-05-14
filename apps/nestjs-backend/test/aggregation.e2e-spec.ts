@@ -17,14 +17,17 @@ import {
   ViewType,
   NumberFormattingType,
 } from '@teable/core';
-import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
+import type { IAggregationVo, IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   getAggregation,
   getCalendarDailyCollection,
   getGroupPoints,
   getRowCount,
   getSearchIndex,
+  getSelectionAggregation,
   GroupPointType,
+  updateViewFilter,
+  updateViewSort,
   uploadAttachment,
 } from '@teable/openapi';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
@@ -1558,6 +1561,219 @@ describe('OpenAPI AggregationController (e2e)', () => {
         .map((g) => g.value as number)
         .sort((a, b) => a - b);
       expect(values).toEqual(['0', '20', '30']);
+    });
+  });
+
+  describe('selection aggregation', () => {
+    let table: ITableFullVo;
+    let viewId: string;
+    let numField: IFieldVo;
+    let priceField: IFieldVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'sel_agg_main',
+        fields: [
+          { name: 'qty', type: FieldType.Number } as IFieldRo,
+          { name: 'price', type: FieldType.Number } as IFieldRo,
+          { name: 'note', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { qty: 10, price: 100, note: 'x' } },
+          { fields: { qty: 20, price: 200, note: 'y' } },
+          { fields: { qty: 30, price: 300, note: 'z' } },
+          { fields: { qty: 40, price: 400, note: 'w' } },
+          { fields: { qty: null, price: null, note: 'v' } },
+        ],
+      });
+      viewId = table.views[0].id;
+      [numField, priceField] = table.fields;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    // Helper: pick a (fieldId, aggFunc) pair from IAggregationVo. The endpoint
+    // returns one entry per (fieldId, aggFunc) — same shape as /aggregation.
+    const findAgg = (data: IAggregationVo, fieldId: string, aggFunc: StatisticsFunc) =>
+      data.aggregations?.find((item) => item.fieldId === fieldId && item.total?.aggFunc === aggFunc)
+        ?.total?.value;
+
+    it('aggregates sum/filled over a contiguous row range in view order', async () => {
+      const { data } = await getSelectionAggregation(table.id, {
+        viewId,
+        skip: 1,
+        take: 2,
+        field: {
+          [StatisticsFunc.Sum]: [numField.id, priceField.id],
+          [StatisticsFunc.Filled]: [numField.id, priceField.id],
+        },
+      });
+      // rows 1..2: qty=20,30 -> sum=50, filled=2; price=200,300 -> sum=500, filled=2.
+      expect(findAgg(data, numField.id, StatisticsFunc.Sum)).toBe(50);
+      expect(findAgg(data, numField.id, StatisticsFunc.Filled)).toBe(2);
+      expect(findAgg(data, priceField.id, StatisticsFunc.Sum)).toBe(500);
+      expect(findAgg(data, priceField.id, StatisticsFunc.Filled)).toBe(2);
+    });
+
+    it('returns null sum and zero filled for an all-null range', async () => {
+      const { data } = await getSelectionAggregation(table.id, {
+        viewId,
+        skip: 4, // last row only, qty=null
+        take: 1,
+        field: {
+          [StatisticsFunc.Sum]: [numField.id],
+          [StatisticsFunc.Filled]: [numField.id],
+        },
+      });
+      expect(findAgg(data, numField.id, StatisticsFunc.Sum)).toBeNull();
+      expect(findAgg(data, numField.id, StatisticsFunc.Filled)).toBe(0);
+    });
+
+    it('honors view filter and sort so the slice matches grid row order', async () => {
+      // View setup: filter qty >= 20, sort qty DESC. Grid order becomes 40, 30, 20.
+      const filteredView = await createView(table.id, {
+        name: 'sel_agg_filtered',
+        type: ViewType.Grid,
+      });
+      await updateViewFilter(table.id, filteredView.id, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: numField.id,
+              operator: isGreaterEqual.value,
+              value: 20,
+              isSymbol: false,
+            },
+          ],
+        } as IFilter,
+      });
+      await updateViewSort(table.id, filteredView.id, {
+        sort: { sortObjs: [{ fieldId: numField.id, order: SortFunc.Desc }] },
+      });
+
+      // skip=0, take=2 should land on qty=40 and qty=30.
+      const { data } = await getSelectionAggregation(table.id, {
+        viewId: filteredView.id,
+        skip: 0,
+        take: 2,
+        field: {
+          [StatisticsFunc.Sum]: [numField.id],
+          [StatisticsFunc.Filled]: [numField.id],
+        },
+      });
+      expect(findAgg(data, numField.id, StatisticsFunc.Sum)).toBe(70);
+      expect(findAgg(data, numField.id, StatisticsFunc.Filled)).toBe(2);
+    });
+
+    it('ignoreViewQuery bypasses the view filter and sees all rows', async () => {
+      const filteredView = await createView(table.id, {
+        name: 'sel_agg_ignored',
+        type: ViewType.Grid,
+      });
+      await updateViewFilter(table.id, filteredView.id, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: numField.id,
+              operator: isGreaterEqual.value,
+              value: 999, // would filter everything out
+              isSymbol: false,
+            },
+          ],
+        } as IFilter,
+      });
+
+      const { data } = await getSelectionAggregation(table.id, {
+        viewId: filteredView.id,
+        ignoreViewQuery: true,
+        skip: 0,
+        take: 5,
+        field: {
+          [StatisticsFunc.Sum]: [numField.id],
+          [StatisticsFunc.Filled]: [numField.id],
+        },
+      });
+      // All 5 rows are visible; 4 have qty values: 10+20+30+40 = 100.
+      expect(findAgg(data, numField.id, StatisticsFunc.Sum)).toBe(100);
+      expect(findAgg(data, numField.id, StatisticsFunc.Filled)).toBe(4);
+    });
+
+    describe('with groupBy + collapsedGroupIds', () => {
+      // Separate fixture: a table grouped by `category` with rows spread across
+      // two groups so we can verify that collapsing a group correctly removes
+      // its records from the slice the backend aggregates.
+      let groupedTable: ITableFullVo;
+      let groupedViewId: string;
+      let qtyField: IFieldVo;
+      let categoryField: IFieldVo;
+
+      beforeAll(async () => {
+        groupedTable = await createTable(baseId, {
+          name: 'sel_agg_grouped',
+          fields: [
+            { name: 'category', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'qty', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { category: 'A', qty: 10 } },
+            { fields: { category: 'A', qty: 20 } },
+            { fields: { category: 'A', qty: 30 } },
+            { fields: { category: 'B', qty: 100 } },
+            { fields: { category: 'B', qty: 200 } },
+          ],
+        });
+        groupedViewId = groupedTable.views[0].id;
+        [categoryField, qtyField] = groupedTable.fields;
+      });
+
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, groupedTable.id);
+      });
+
+      it('aggregates the full slice when no groups are collapsed', async () => {
+        const { data } = await getSelectionAggregation(groupedTable.id, {
+          viewId: groupedViewId,
+          groupBy: [{ fieldId: categoryField.id, order: SortFunc.Asc }],
+          skip: 0,
+          take: 5,
+          field: {
+            [StatisticsFunc.Sum]: [qtyField.id],
+            [StatisticsFunc.Filled]: [qtyField.id],
+          },
+        });
+        // All 5 records visible: 10+20+30+100+200 = 360.
+        expect(findAgg(data, qtyField.id, StatisticsFunc.Sum)).toBe(360);
+        expect(findAgg(data, qtyField.id, StatisticsFunc.Filled)).toBe(5);
+      });
+
+      it('excludes records of collapsed groups so skip/take aligns with the visible slice', async () => {
+        // Resolve group A's id from getGroupPoints so we can collapse it.
+        const groupBy = [{ fieldId: categoryField.id, order: SortFunc.Asc }];
+        const points = (await getGroupPoints(groupedTable.id, { groupBy })).data!;
+        const groupA = points.find(
+          (p): p is IGroupHeaderPoint =>
+            p.type === GroupPointType.Header && p.depth === 0 && p.value === 'A'
+        )!;
+
+        const { data } = await getSelectionAggregation(groupedTable.id, {
+          viewId: groupedViewId,
+          groupBy,
+          collapsedGroupIds: [groupA.id],
+          skip: 0,
+          take: 5,
+          field: {
+            [StatisticsFunc.Sum]: [qtyField.id],
+            [StatisticsFunc.Filled]: [qtyField.id],
+          },
+        });
+        // Only group B's 2 records are visible: 100+200 = 300.
+        expect(findAgg(data, qtyField.id, StatisticsFunc.Sum)).toBe(300);
+        expect(findAgg(data, qtyField.id, StatisticsFunc.Filled)).toBe(2);
+      });
     });
   });
 });

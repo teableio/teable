@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -55,6 +56,13 @@ const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   return { actorId: actorIdResult._unsafeUnwrap() };
 };
+
+const createContextWithTableLimits = (
+  tableLimits: NonNullable<IExecutionContext['config']>['tableLimits']
+): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+  config: { tableLimits },
+});
 
 const noopUndoRedoService = createNoopUndoRedoStackService();
 
@@ -497,6 +505,151 @@ describe('CreateRecordsHandler', () => {
     for (const record of recordRepository.records) {
       expect(record.tableId().equals(table.id())).toBe(true);
     }
+  });
+
+  it('rejects record mutations with too many records', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: { [textFieldId]: 'First' } }, { fields: { [textFieldId]: 'Second' } }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContextWithTableLimits({ recordValues: { maxRecordsPerMutation: 1 } }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.records_per_mutation_max');
+    expect(recordRepository.records).toHaveLength(0);
+  });
+
+  it('allows record mutations at the configured record count boundary', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: { [textFieldId]: 'First' } }, { fields: { [textFieldId]: 'Second' } }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContextWithTableLimits({ recordValues: { maxRecordsPerMutation: 2 } }),
+      command
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(recordRepository.records).toHaveLength(2);
+  });
+
+  it('rejects record mutations with oversized cell values', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: { [textFieldId]: 'oversized' } }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContextWithTableLimits({ recordValues: { maxCellValueBytes: 4 } }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.cell_value_max_bytes');
+    expect(recordRepository.records).toHaveLength(0);
+  });
+
+  it('rejects record mutations whose serialized field values exceed the configured byte limit', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: { [textFieldId]: 'oversized-record' } }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContextWithTableLimits({
+        recordValues: { maxCellValueBytes: 1_000, maxRecordFieldsBytes: 4 },
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.record_fields_max_bytes');
+    expect(recordRepository.records).toHaveLength(0);
   });
 
   it('skips plugins that do not support createMany', async () => {

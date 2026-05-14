@@ -21,6 +21,7 @@ import type {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
+  UpdateButtonResetCountSpec,
   UpdateButtonWorkflowSpec,
   UpdateCheckboxDefaultValueSpec,
   UpdateDateDefaultValueSpec,
@@ -409,6 +410,11 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   }
 
   visitUpdateButtonMaxCount(spec: UpdateButtonMaxCountSpec): Result<void, DomainError> {
+    this.pushFieldUpdated(spec, spec.fieldId());
+    return ok(undefined);
+  }
+
+  visitUpdateButtonResetCount(spec: UpdateButtonResetCountSpec): Result<void, DomainError> {
     this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }

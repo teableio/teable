@@ -420,7 +420,7 @@ const createConditionalLookupErrorTable = () => {
 };
 
 describe('FieldReferenceSqlVisitor', () => {
-  const { table, foreignTable } = createTestTable();
+  const { table } = createTestTable();
   const mockLateral = new MockLateralContext();
 
   const createVisitor = () => {
@@ -599,7 +599,7 @@ describe('FieldReferenceSqlVisitor', () => {
   });
 
   describe('errored lookup-based fields', () => {
-    it('should short-circuit errored lookup fields without registering laterals', () => {
+    it('should use stored values for errored lookup fields when dependencies still resolve', () => {
       const { table, lookupField } = createLookupErrorTable();
       mockLateral.clear();
       const visitor = new FieldReferenceSqlVisitor({
@@ -613,10 +613,10 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(result.isOk()).toBe(true);
       const expr = result._unsafeUnwrap();
 
-      expect(expr.valueSql).toBe('NULL::text');
+      expect(expr.valueSql).toBe('"t"."col_errored_lookup"');
       expect(expr.valueType).toBe('string');
-      expect(expr.errorConditionSql).toBe('TRUE');
-      expect(expr.errorMessageSql).toContain('#ERROR:REF:errored_field');
+      expect(expr.errorConditionSql).toBeUndefined();
+      expect(expr.errorMessageSql).toBeUndefined();
       expect(mockLateral.calls).toEqual([]);
     });
 

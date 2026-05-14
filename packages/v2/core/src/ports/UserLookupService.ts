@@ -6,6 +6,7 @@ export interface UserLookupRecord {
   id: string;
   name: string;
   email: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface IUserLookupService {

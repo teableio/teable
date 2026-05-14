@@ -324,6 +324,9 @@ export class UpdateRecordHandler
         for (const entry of updatedRecord.fields().entries()) {
           const fieldId = entry.fieldId.toString();
           const newValue = entry.value.toValue();
+          if (changedFieldValues.has(fieldId)) {
+            continue;
+          }
           if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
             changedFieldValues.set(fieldId, newValue);
           }

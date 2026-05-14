@@ -151,6 +151,57 @@ describe('v2 numeric coercion (e2e)', () => {
     });
   });
 
+  describe('numeric comparison formulas', () => {
+    it('evaluates chained numeric comparisons across all comparison operators', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'numeric_comparison_chain_test',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Weight' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const weightFieldId = (table.fields.find((f: any) => f.name === 'Weight') as any)?.id ?? '';
+
+      const tableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          type: 'formula',
+          name: 'Shipping Band',
+          options: {
+            expression: `IF({${weightFieldId}} <= 0.1132, 1, IF({${weightFieldId}} < 0.2264, 2, IF({${weightFieldId}} >= 9.08, 3, IF({${weightFieldId}} > 1, 4, IF({${weightFieldId}} = 0.5, 5, IF({${weightFieldId}} != 0, 6, 0))))))`,
+          },
+        },
+      });
+      const bandFieldId =
+        tableWithFormula.fields.find((f: any) => f.name === 'Shipping Band')?.id ?? '';
+
+      const record = await ctx.createRecord(table.id, {
+        Name: 'Comparison Case',
+        [weightFieldId]: 0.1,
+      });
+      await ctx.drainOutbox();
+
+      const expectBand = async (weight: number, expected: number) => {
+        await ctx.updateRecord(table.id, record.id, { [weightFieldId]: weight });
+        await ctx.drainOutbox();
+        const records = await ctx.listRecordsWithoutDrain(table.id);
+        const updated = records.find((item) => item.id === record.id);
+        expect(updated?.fields[bandFieldId]).toBe(expected);
+      };
+
+      await expectBand(0.1, 1);
+      await expectBand(0.2, 2);
+      await expectBand(10, 3);
+      await expectBand(2, 4);
+      await expectBand(0.5, 5);
+      await expectBand(0.75, 6);
+    });
+  });
+
   describe('blank arithmetic operands', () => {
     it('treats blank operands as zero in arithmetic formulas', async () => {
       const table = await ctx.createTable({

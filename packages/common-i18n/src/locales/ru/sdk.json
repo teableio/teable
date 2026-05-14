@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Диапазон дат (месяцы)",
     "totalAttachmentSize": "Общий размер вложений"
   },
+  "selectionStatistic": {
+    "tip": "Агрегируются только поля типа Число."
+  },
   "baseQuery": {
     "add": "Добавить",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Вы можете подписаться только на таблицу в пределах вашей базы данных",
       "alreadyActiveAndNotDraft": "Автоматизация уже активна и не является черновиком",
       "noActiveSnapshot": "У автоматизации нет активного снимка",
+      "onlyFailedRunsCanRerun": "Повторно запустить можно только неудачные выполнения",
+      "workflowMustBeActiveToRerun": "Для повторного запуска рабочий процесс должен быть активен",
+      "snapshotChangedOnlyFullRerun": "Рабочий процесс был изменён после этого выполнения. Допускается только полный повторный запуск.",
+      "controlStepsMissingOnlyFullRerun": "Данные узла управления отсутствуют для этого выполнения. Поддерживается только полный повторный запуск.",
       "triggerNodeAlreadyExists": "У этой автоматизации уже есть узел триггера",
       "generateLogicError": "Ошибка генерации узла логики",
       "logicNotFound": "Узел логики автоматизации не найден",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Узел управления не должен тестироваться",
       "invalidNodeType": "Недопустимый тип узла",
       "unsupportedCategory": "Неподдерживаемая категория",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Неизвестный тип подключения электронной почты",
+      "imapPasswordNotConfigured": "Пароль IMAP не настроен",
+      "integrationNotFound": "Интеграция не найдена или не имеет учётных данных",
+      "webhookTriggerNotFound": "Триггер вебхука не найден",
+      "emailReceivedTriggerNotFound": "Триггер получения электронной почты не найден",
+      "emailConnectorNotAvailable": "Служба коннектора электронной почты недоступна",
       "listMailboxesFailed": "Не удалось получить список почтовых ящиков: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Невозможно работать с пространством, убедитесь, что в пространстве есть члены организации и они являются владельцами",
       "notBelongToOrg": "Это пространство не принадлежит организации",
-      "invalidSpaceIds": "Недопустимые идентификаторы пространства: {{spaceIds}}"
+      "invalidSpaceIds": "Недопустимые идентификаторы пространства: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Достигнуто максимальное количество управляемых пространств ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} достиг максимального количества управляемых пространств ({{max}})"
     },
     "base": {
       "notFound": "База не найдена",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Недостаточно средств",
       "exceedMaxRowLimit": "Превышен максимальный лимит строк {{maxRowCount}}",
-      "exceedMaxAutomationRunLimit": "Достигнут максимальный месячный лимит запусков автоматизации"
+      "exceedMaxAutomationRunLimit": "Достигнут максимальный месячный лимит запусков автоматизации",
+      "manualSubscriptionNotSupported": "Самостоятельное управление подпиской недоступно для этого пространства. Для повышения, понижения или других изменений подписки обратитесь в службу поддержки Teable.",
+      "appSumoSubscriptionNotSupported": "Подписки AppSumo не могут быть изменены через этот интерфейс. Пожалуйста, управляйте подпиской на AppSumo.",
+      "customerNotFound": "Запись клиента для выставления счетов для этого пространства не найдена."
     },
     "aggregation": {
       "searchQueryRequired": "Требуется поисковой запрос",

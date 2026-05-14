@@ -26,23 +26,36 @@ import {
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
-import { beforeAll, describe, expect, it, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 describe('v2 http formula (e2e)', () => {
   let ctx: SharedTestContext;
+  const publicAvatarUrl = 'https://storage-public.test';
+  const previousPublicAvatarUrl = process.env.BACKEND_STORAGE_PUBLIC_URL;
   const uniqueName = (prefix: string) =>
     `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   beforeAll(async () => {
+    process.env.BACKEND_STORAGE_PUBLIC_URL = publicAvatarUrl;
     ctx = await getSharedTestContext();
   }, 30000);
+
+  afterAll(() => {
+    if (previousPublicAvatarUrl === undefined) {
+      delete process.env.BACKEND_STORAGE_PUBLIC_URL;
+    } else {
+      process.env.BACKEND_STORAGE_PUBLIC_URL = previousPublicAvatarUrl;
+    }
+  });
 
   // No afterAll dispose needed - handled by vitest.setup.ts
 
   const processOutbox = async (_times = 1) => {
     await ctx.testContainer.processOutbox();
   };
+
+  const expectedPublicAvatarUrl = () => `${publicAvatarUrl}/avatar/${ctx.testUser.id}`;
 
   const listRecords = async (tableIdParam: string) => {
     const params = new URLSearchParams({ tableId: tableIdParam });
@@ -16843,7 +16856,7 @@ describe('v2 http formula (e2e)', () => {
         id: ctx.testUser.id,
         title: ctx.testUser.name,
         email: ctx.testUser.email,
-        avatarUrl: `/api/attachments/read/public/avatar/${ctx.testUser.id}`,
+        avatarUrl: expectedPublicAvatarUrl(),
       });
       const formulaValue = record.fields[formulaFieldId];
       expect(formulaValue).toBe(ctx.testUser.name);
@@ -16950,7 +16963,7 @@ describe('v2 http formula (e2e)', () => {
         id: ctx.testUser.id,
         title: ctx.testUser.name,
         email: ctx.testUser.email,
-        avatarUrl: `/api/attachments/read/public/avatar/${ctx.testUser.id}`,
+        avatarUrl: expectedPublicAvatarUrl(),
       });
       expect(record.fields[formulaFieldId]).toBe(ctx.testUser.name);
 
@@ -16980,7 +16993,7 @@ describe('v2 http formula (e2e)', () => {
         id: ctx.testUser.id,
         title: ctx.testUser.name,
         email: ctx.testUser.email,
-        avatarUrl: `/api/attachments/read/public/avatar/${ctx.testUser.id}`,
+        avatarUrl: expectedPublicAvatarUrl(),
       });
       expect(record.fields[formulaFieldId]).toBe(ctx.testUser.name);
     });

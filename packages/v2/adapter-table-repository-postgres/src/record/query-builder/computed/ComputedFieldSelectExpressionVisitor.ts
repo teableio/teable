@@ -43,6 +43,7 @@ import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 import { FieldReferenceSqlVisitor } from './FieldReferenceSqlVisitor';
@@ -267,7 +268,7 @@ export class ComputedFieldSelectExpressionVisitor
         WHEN jsonb_typeof(${colJson}) = 'array' THEN ${colJson}
         ELSE '[]'::jsonb
       END)`;
-      const avatarPrefix = '/api/attachments/read/public/avatar/';
+      const avatarPrefix = resolveUserAvatarUrlPrefix();
 
       const userFromId = (idExpr: ReturnType<typeof sql>) => sql`(
         select jsonb_build_object(
@@ -314,7 +315,7 @@ export class ComputedFieldSelectExpressionVisitor
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).map((colAlias) => {
       const systemColRef = sql.ref(`${this.tableAlias}.${systemColumn}`);
-      const avatarPrefix = '/api/attachments/read/public/avatar/';
+      const avatarPrefix = resolveUserAvatarUrlPrefix();
 
       // Build user object from system column's user ID
       const userExpr = sql`(

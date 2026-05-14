@@ -5,10 +5,16 @@ import type { Response } from 'express';
 import { LoggerModule } from '../../logger/logger.module';
 import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
+import { NotificationModule } from '../notification/notification.module';
+import { RecordModule } from '../record/record.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
 import { ViewModule } from '../view/view.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
+import {
+  V2CollaboratorNotificationDispatcher,
+  V2CollaboratorNotificationService,
+} from './v2-collaborator-notification.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
@@ -97,6 +103,8 @@ const toErrorMessage = (body: unknown): string => {
     LoggerModule.register(),
     AttachmentsStorageModule,
     ShareDbModule,
+    NotificationModule,
+    RecordModule,
     ViewModule,
   ],
   controllers: [V2Controller, V2OpenApiController],
@@ -106,6 +114,8 @@ const toErrorMessage = (body: unknown): string => {
     V2ExecutionContextFactory,
     V2ActionTriggerService,
     V2BaseNodeCompatService,
+    V2CollaboratorNotificationDispatcher,
+    V2CollaboratorNotificationService,
     V2UserRenamePropagationService,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,

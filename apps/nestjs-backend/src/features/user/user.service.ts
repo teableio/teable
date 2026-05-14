@@ -164,11 +164,12 @@ export class UserService {
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
 
-    const userTotalCount = await this.prismaService.txClient().user.count({
+    const adminUser = await this.prismaService.txClient().user.findFirst({
       where: { isSystem: null },
+      select: { id: true },
     });
 
-    const isAdmin = userTotalCount === 0;
+    const hasAdminUser = !!adminUser;
 
     if (!user?.avatar) {
       const avatar = await this.generateDefaultAvatar(user.id!);
@@ -182,7 +183,7 @@ export class UserService {
       data: {
         ...user,
         name: user.name ?? user.email.split('@')[0],
-        isAdmin: isAdmin ? true : null,
+        isAdmin: hasAdminUser ? null : true,
         lang: I18nContext.current()?.lang,
       },
     });
