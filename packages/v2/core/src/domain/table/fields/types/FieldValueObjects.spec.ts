@@ -230,8 +230,7 @@ describe('Button types', () => {
   it('rejects invalid workflows and labels', () => {
     ButtonLabel.create(1)._unsafeUnwrapErr();
     ButtonWorkflow.create({ id: 'bad' })._unsafeUnwrapErr();
-    const emptyWorkflow = ButtonWorkflow.create(null);
-    emptyWorkflow._unsafeUnwrap();
+    ButtonWorkflow.create(null)._unsafeUnwrapErr();
   });
 });
 

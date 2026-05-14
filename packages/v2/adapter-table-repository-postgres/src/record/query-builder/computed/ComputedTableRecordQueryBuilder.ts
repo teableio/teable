@@ -35,6 +35,7 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
@@ -1110,7 +1111,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
   private buildSystemUserJsonExpr(tableAlias: string, systemColumn: string): RawBuilder<unknown> {
     const systemColRef = sql.ref(`${tableAlias}.${systemColumn}`);
-    const avatarPrefix = '/api/attachments/read/public/avatar/';
+    const avatarPrefix = resolveUserAvatarUrlPrefix();
 
     return sql`(
       select jsonb_build_object(

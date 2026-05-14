@@ -10,6 +10,7 @@ import type { Kysely } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 
 @injectable()
@@ -41,6 +42,7 @@ export class PostgresUserLookupService implements IUserLookupService {
           id: row.id,
           name: row.name,
           email: row.email ?? null,
+          avatarUrl: buildUserAvatarUrl(row.id),
         }))
       );
     } catch (error) {

@@ -671,9 +671,13 @@
         "selectModel": "选择模型...",
         "defaultModel": "{{name}} (默认)",
         "moreModels": "更多模型",
-        "agentModelWarningTitle": "模型提示",
-        "agentModelWarningDescription": "上方推荐的模型已针对工具调用和多步推理等 Agent 任务进行优化。其他模型的能力可能有限，使用后可能出现异常结果。",
         "agentModelWarningConfirm": "我知道了",
+        "recommendedModelNudge": {
+          "title": "试试 {{model}}",
+          "description": "用更低的算力消耗，获得更好的 AI 结果。",
+          "use": "使用 {{model}}",
+          "later": "稍后"
+        },
         "noModelsAvailable": "暂无可用模型",
         "input": "输入 {{ratio}}",
         "output": "输出 {{ratio}}",
@@ -718,26 +722,26 @@
         "noValidModel": "未找到有效模型",
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter",
-        "modelRates": "模型费率",
+        "modelRates": "模型定价",
         "model": "模型",
-        "inputRate": "输入",
-        "outputRate": "输出",
-        "inputRateTip": "每 100 万输入 tokens 的积分",
-        "outputRateTip": "每 100 万输出 tokens 的积分",
-        "rateExplanationTitle": "费率说明 (1 美元 = 100 积分)",
-        "rateExplanationFormula": "积分 = Tokens × 费率 ÷ 1,000,000",
-        "rateExplanationExample": "例如：10,000 tokens，费率 300 = 10000 × 300 ÷ 1M = 3 积分",
-        "ratesDescription": "每 100 万 tokens 的费率（点击「获取定价」可从 OpenRouter 自动填充）",
-        "advancedRates": "高级费率（缓存、推理、图片）",
-        "advancedRatesDescription": "留空自动计算。缓存读取 ≈ 输入的 10%，缓存写入 ≈ 输入的 125%，推理 = 输出费率",
+        "inputRate": "输入 USD/token",
+        "outputRate": "输出 USD/token",
+        "inputRateTip": "自动生成的 custom provider 输入 token 美元单价",
+        "outputRateTip": "自动生成的 custom provider 输出 token 美元单价",
+        "rateExplanationTitle": "配置 custom provider 的实际定价",
+        "rateExplanationFormula": "填写相对 AI Gateway 参考价的倍率。例如 0.1 表示 custom provider 价格是 AI Gateway 参考价的 10%。",
+        "rateExplanationExample": "输入、输出、缓存、推理、图片、联网价格都会按同一个倍率从 AI Gateway 参考价自动生成。扣费时按 1 美元 = 100 credits 转换。",
+        "ratesDescription": "生成后的值会保存到 modelConfigs[model].pricing，并用于 instance 级 custom provider 扣费。右侧「比例」仍是现有算法里的 Claude Opus 4.6 = 1x 成本等级。",
+        "advancedRates": "自动生成的高级定价",
+        "advancedRatesDescription": "这些高级价格会按配置倍率从 AI Gateway 参考价自动生成，这里只用于检查，保存时会随模型 pricing 一起保存。",
         "cacheRead": "缓存↓",
         "cacheWrite": "缓存↑",
         "reasoning": "推理",
         "perImage": "图片",
-        "cacheReadRateTip": "缓存命中的输入 token 费率（通常是输入费率的 10-50%，或免费为 0）",
-        "cacheWriteRateTip": "缓存写入的 token 费率（通常与输入相同或多 25%）",
-        "reasoningRateTip": "推理 token 费率，如 o1 的思考（通常与输出费率相同）",
-        "imageRateTip": "每张生成图片的积分",
+        "cacheReadRateTip": "如果 provider 单独收取缓存命中输入，填写每个 cached input token 的美元价格",
+        "cacheWriteRateTip": "如果 provider 单独收取缓存写入，填写每个 cache write token 的美元价格",
+        "reasoningRateTip": "如果 provider 单独收取推理 token，填写每个 reasoning token 的美元价格",
+        "imageRateTip": "如果 provider 按图片收费，填写每张生成图片的美元价格",
         "imageModel": "生图模型",
         "imageGeneration": "图片生成",
         "imageToImage": "图生图",
@@ -747,15 +751,25 @@
         "markedAsImageModel": "已标记为生图模型，将测试文生图和图生图能力",
         "markedAsTextModel": "已标记为文本模型，将测试图片输入（视觉）能力",
         "fetchPricing": "获取定价",
-        "fetchPricingTip": "从 OpenRouter API 获取模型定价并自动填充费率",
+        "fetchPricingTip": "从 AI Gateway 模型目录获取模型定价",
         "fetchPricingError": "获取定价失败",
-        "pricingPreview": "定价预览",
+        "pricingPreview": "AI Gateway 参考价",
         "pricingPreviewDesc": "已匹配 {{total}} 个模型中的 {{matched}} 个",
-        "openRouterId": "OpenRouter ID",
+        "openRouterId": "Gateway 模型 ID",
         "notFound": "未找到",
         "applyPricing": "应用 ({{count}})",
         "pricingApplied": "定价已应用",
         "pricingAppliedCount": "已更新 {{count}} 个模型的定价",
+        "relativeRatio": "比例",
+        "webSearch": "联网",
+        "referencePricingTip": "从 AI Gateway 模型目录拉取的参考价",
+        "applyReferencePricingTip": "基于这条 AI Gateway 参考价生成 custom provider 定价",
+        "optionalPricing": "可选",
+        "gatewayRatio": "Gateway 倍率",
+        "gatewayRatioTip": "相对 AI Gateway 参考价的倍率。0.1 表示参考价的 10%。",
+        "generatedPricing": "生成定价",
+        "generatedPricingTip": "自动生成并保存到 modelConfigs[model].pricing 的 custom provider 输入/输出价格",
+        "relativeRatioTip": "按现有算法计算的成本等级，以 Claude Opus 4.6 = 1x 为基准",
         "hint": {
           "title": "建议",
           "missingV1Suffix": "Base URL 可能缺少 \"/v1\" 后缀。大多数 OpenAI 兼容的 API 需要以 \"/v1\" 结尾的 URL（例如：https://api.openai.com/v1）",
@@ -1011,9 +1025,20 @@
     "markAs": "将此通知标记为{{status}}",
     "markAllAsRead": "全部标记为已读",
     "noUnread": "没有{{status}}通知",
+    "noAttention": "没有需要关注的通知",
+    "noSeverity": "没有{{severity}}通知",
     "changeSetting": "更改页面通知设置",
     "new": "新消息{{count}}条",
     "showMore": "显示更多",
+    "sections": {
+      "needsAction": "重要",
+      "all": "全部"
+    },
+    "severity": {
+      "critical": "重要",
+      "warning": "警告",
+      "info": "普通"
+    },
     "exportBase": {
       "successText": "导出数据已就绪",
       "failedText": "导出失败，请重试"
@@ -1218,6 +1243,16 @@
             "warning90": {
               "title": "空间 {{spaceName}} AI 算力已使用 90%",
               "message": "您的空间已使用 90% 的 AI 算力。请尽快升级以避免中断。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "空间 {{spaceName}} 检测到 AI 算力异常飙升",
+                "message": "今日 AI 算力消耗（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在异常活动，请检查您的使用情况。主要来源：{{topContributors}}"
+              },
+              "burst": {
+                "title": "空间 {{spaceName}} AI 算力突发告警",
+                "message": "在过去 {{windowMinutes}} 分钟内消耗了 {{recentValue}} AI 算力，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在异常活动。主要来源：{{topContributors}}"
+              }
             }
           },
           "automationRun": {
@@ -1232,6 +1267,16 @@
             "gracePeriod": {
               "title": "空间 {{spaceName}} 自动化运行次数已超限 - 宽限期生效中",
               "message": "您的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "空间 {{spaceName}} 自动化运行次数异常飙升",
+                "message": "今日自动化运行次数（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在失控的自动化流程，请检查您的工作流。主要来源：{{topContributors}}"
+              },
+              "burst": {
+                "title": "空间 {{spaceName}} 自动化运行突发告警",
+                "message": "在过去 {{windowMinutes}} 分钟内检测到 {{recentValue}} 次自动化运行，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在循环或配置错误。主要来源：{{topContributors}}"
+              }
             }
           }
         },
@@ -1454,9 +1499,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "4月28日 更新",
-    "title": "邮件接收触发器（IMAP）上线",
-    "url": "https://help.teable.ai/en/changelog#apr-28-2026",
-    "id": "changelog-2026-04-28-new-trigger-when-email-receive-imap"
+    "newUpdate": "5 月 12 日更新",
+    "title": "App Builder 支持内置登录",
+    "url": "https://help.teable.ai/en/changelog#may-12-2026",
+    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
   }
 }

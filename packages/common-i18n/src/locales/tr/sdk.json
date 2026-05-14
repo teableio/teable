@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Tarih Aralığı (ay)",
     "totalAttachmentSize": "Toplam Ek Boyutu"
   },
+  "selectionStatistic": {
+    "tip": "Yalnızca Sayı türündeki alanlar toplanır."
+  },
   "baseQuery": {
     "add": "Ekle",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Yalnızca veritabanınızdaki bir tabloya abone olabilirsiniz",
       "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
       "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
+      "onlyFailedRunsCanRerun": "Yalnızca başarısız çalıştırmalar yeniden çalıştırılabilir",
+      "workflowMustBeActiveToRerun": "Yeniden çalıştırmak için iş akışı etkin olmalıdır",
+      "snapshotChangedOnlyFullRerun": "Bu çalıştırmadan sonra iş akışı değiştirildi. Yalnızca tam yeniden çalıştırmaya izin verilir.",
+      "controlStepsMissingOnlyFullRerun": "Bu çalıştırma için kontrol düğümü verileri eksik. Yalnızca tam yeniden çalıştırma desteklenmektedir.",
       "triggerNodeAlreadyExists": "Bu otomasyonun zaten bir tetikleyici düğümü var",
       "generateLogicError": "Mantık düğümü oluşturma hatası",
       "logicNotFound": "Otomasyon mantık düğümü bulunamadı",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Kontrol düğümü test edilmemeli",
       "invalidNodeType": "Geçersiz düğüm türü",
       "unsupportedCategory": "Desteklenmeyen kategori",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Bilinmeyen e-posta bağlantı türü",
+      "imapPasswordNotConfigured": "IMAP şifresi yapılandırılmamış",
+      "integrationNotFound": "Entegrasyon bulunamadı veya kimlik bilgileri yok",
+      "webhookTriggerNotFound": "Webhook tetikleyicisi bulunamadı",
+      "emailReceivedTriggerNotFound": "E-posta alım tetikleyicisi bulunamadı",
+      "emailConnectorNotAvailable": "E-posta bağlayıcı hizmeti kullanılamıyor",
       "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
       "notBelongToOrg": "Bu alan organizasyona ait değil",
-      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}"
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Yönetebileceğiniz maksimum alan sayısına ulaştınız ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} yönetebileceği maksimum alan sayısına ulaştı ({{max}})"
     },
     "base": {
       "notFound": "Base bulunamadı",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Yetersiz kredi",
       "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı",
-      "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı"
+      "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı",
+      "manualSubscriptionNotSupported": "Bu alan için self-servis abonelik kullanılamamaktadır. Yükseltme, düşürme veya diğer abonelik değişiklikleri için lütfen Teable desteğiyle iletişime geçin.",
+      "appSumoSubscriptionNotSupported": "AppSumo abonelikleri bu arayüz üzerinden değiştirilemez. Lütfen aboneliğinizi AppSumo'da yönetin.",
+      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı."
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",

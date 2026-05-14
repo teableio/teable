@@ -1,4 +1,7 @@
+import type { IFieldVo } from '@teable/core';
 import { FieldType } from '@teable/core';
+import type { IPasteRo } from '@teable/openapi';
+import type { IRange } from '@teable/sdk';
 
 const isNumberValue = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 const isParsableDate = (v: unknown) =>
@@ -13,6 +16,8 @@ const toSameDateType = (base: unknown, ts: number) => {
 
 export const isEmptyValue = (v: unknown) =>
   v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'string' && v.trim() === '');
+
+const toFillPayloadValue = (v: unknown) => v ?? null;
 
 const shouldGenerateNumberSeries = (values: unknown[]) => {
   const nums = values.filter(isNumberValue) as number[];
@@ -111,4 +116,68 @@ export const generateSeriesForColumn = (
     const idx = (len - 1 - ((outLen - 1 - i) % len) + len) % len;
     return baseColumnValues[idx];
   });
+};
+
+export const buildFillSelectionPaste = ({
+  selectionRanges,
+  targetEndRealRowIndex,
+  rawContent,
+  headers,
+  fields,
+}: {
+  selectionRanges: [IRange, IRange];
+  targetEndRealRowIndex: number;
+  rawContent: unknown[][];
+  headers: IFieldVo[];
+  fields: { type: FieldType }[];
+}): Pick<IPasteRo, 'content' | 'header' | 'ranges'> | null => {
+  const [start, end] = selectionRanges;
+  const startCol = Math.min(start[0], end[0]);
+  const endCol = Math.max(start[0], end[0]);
+  const topRow = Math.min(start[1], end[1]);
+  const bottomRow = Math.max(start[1], end[1]);
+  const isDownward = targetEndRealRowIndex > bottomRow;
+  const isUpward = targetEndRealRowIndex < topRow;
+  if (!isDownward && !isUpward) return null;
+
+  const content: unknown[][] = [];
+  const columnsCount = endCol - startCol + 1;
+  const colSeries: unknown[][] = [];
+
+  if (isDownward) {
+    const rowsToFill = targetEndRealRowIndex - bottomRow;
+    for (let c = 0; c < columnsCount; c++) {
+      const baseColValues = rawContent.map((r) => (r ?? [])[c]);
+      colSeries.push(generateSeriesForColumn(baseColValues, fields[c].type, rowsToFill, 'down'));
+    }
+    for (let r = 0; r < rowsToFill; r++) {
+      content.push(colSeries.map((s) => toFillPayloadValue(s[r])));
+    }
+    return {
+      content,
+      header: headers,
+      ranges: [
+        [startCol, bottomRow + 1],
+        [endCol, targetEndRealRowIndex],
+      ],
+    };
+  }
+
+  const rowsToFill = topRow - targetEndRealRowIndex;
+  for (let c = 0; c < columnsCount; c++) {
+    const baseColValues = rawContent.map((r) => (r ?? [])[c]);
+    colSeries.push(generateSeriesForColumn(baseColValues, fields[c].type, rowsToFill, 'up'));
+  }
+  for (let r = 0; r < rowsToFill; r++) {
+    const idx = rowsToFill - 1 - r;
+    content.push(colSeries.map((s) => toFillPayloadValue(s[idx])));
+  }
+  return {
+    content,
+    header: headers,
+    ranges: [
+      [startCol, targetEndRealRowIndex],
+      [endCol, topRow - 1],
+    ],
+  };
 };

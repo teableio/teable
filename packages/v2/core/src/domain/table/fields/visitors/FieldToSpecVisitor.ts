@@ -701,7 +701,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
           if (!hasToken && !hasId) {
             return false;
           }
-          if (!('name' in v)) {
+          if (!this.typecast && !('name' in v)) {
             return false;
           }
           return true;

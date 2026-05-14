@@ -424,6 +424,9 @@
     "baseInfo": "Base Info",
     "typeOfDatabase": "Typ der Databank",
     "descriptionForTable": "Beschreibung für diese Tabelle",
+    "loginUserTable": "App-Anmeldung",
+    "loginUserTableClickTips": "Verknüpfte App öffnen",
+    "linkedApps": "Verknüpfte Apps",
     "nameForTable": "Name für diese Tabelle",
     "deleteTip1": "Verknüpfungsfelder, die mit dieser Tabelle in anderen Tabellen verknüpft sind, werden gelöscht.",
     "deleteTip2": "Diese Tabelle kann nach dem Löschen aus dem Papierkorb wiederhergestellt werden.",
@@ -983,7 +986,6 @@
     "expand": "Erweitern",
     "history": "Verlauf",
     "close": "Einklappen",
-    "noModel": "Keine verfügbaren Modelle",
     "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
@@ -995,19 +997,22 @@
       "other": "Andere"
     },
     "context": {
-      "button": "Kontext hinzufügen",
+      "button": "Knoten hinzufügen",
       "search": "Tabellen hinzufügen",
       "searchEmpty": "Kein passender Kontext gefunden",
       "emptyContext": "Kein Kontext zum Hinzufügen",
-      "selectionRows": "Zeilen {{start}}-{{end}}"
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Zeilen {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
     "mention": {
       "tables": "Tabellen",
       "apps": "Apps",
-      "workflows": "Workflows",
+      "workflows": "Automatisierungen",
       "folders": "Ordner"
     },
-    "inputPlaceholder": "@ tippen, um Kontext hinzuzufügen",
+    "inputPlaceholder": "@ tippen, um Knoten hinzuzufügen",
     "inputPlaceholderFiles": "Dateien hier einfügen oder ablegen",
     "thought": "Denken",
     "meta": {
@@ -1016,6 +1021,7 @@
       "taskCompleted": "Aufgabe abgeschlossen"
     },
     "attachment": {
+      "pastedTextFileName": "Eingefügter Text",
       "imageNotSupported": "Bild wird nicht unterstützt"
     },
     "suggestions": {

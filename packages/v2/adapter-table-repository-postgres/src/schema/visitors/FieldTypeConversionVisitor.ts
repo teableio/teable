@@ -38,6 +38,7 @@ import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
 import {
   PostgresTableSchemaFieldCreateVisitor,
   type TableSchemaStatementBuilder,
@@ -1823,7 +1824,10 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     const col = `"${dbFieldName}"`;
     const isMultiple = field.multiplicity().toBoolean();
 
-    const userJsonBuild = `jsonb_build_object('id', cu.uid, 'title', cu.uname, 'email', cu.uemail, 'avatarUrl', '/api/attachments/read/public/avatar/' || cu.uid)`;
+    const avatarPrefix = resolveUserAvatarUrlPrefix();
+    const userJsonBuild = `jsonb_build_object('id', cu.uid, 'title', cu.uname, 'email', cu.uemail, 'avatarUrl', ${quoteLiteral(
+      avatarPrefix
+    )} || cu.uid)`;
 
     // Single UPDATE that resolves all text values to user JSON (or NULL for no match).
     // Uses a CTE to find base collaborators and match comma-separated parts.
@@ -1862,7 +1866,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
         SELECT m.rid, ${
           isMultiple
             ? `jsonb_agg(${userJsonBuild.replace(/cu\./g, 'm.')} ORDER BY m.part_idx)::text AS user_json`
-            : `(SELECT jsonb_build_object(${quoteLiteral('id')}, m2.uid, ${quoteLiteral('title')}, m2.uname, ${quoteLiteral('email')}, m2.uemail, ${quoteLiteral('avatarUrl')}, ${quoteLiteral('/api/attachments/read/public/avatar/')} || m2.uid)::text FROM matched_users m2 WHERE m2.rid = m.rid ORDER BY m2.part_idx LIMIT 1) AS user_json`
+            : `(SELECT jsonb_build_object(${quoteLiteral('id')}, m2.uid, ${quoteLiteral('title')}, m2.uname, ${quoteLiteral('email')}, m2.uemail, ${quoteLiteral('avatarUrl')}, ${quoteLiteral(avatarPrefix)} || m2.uid)::text FROM matched_users m2 WHERE m2.rid = m.rid ORDER BY m2.part_idx LIMIT 1) AS user_json`
         }
         FROM matched_users m
         GROUP BY m.rid

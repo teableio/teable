@@ -361,7 +361,9 @@
         "affectedItems": "受影响项",
         "type": "类型",
         "source": "来源",
-        "sourceTable": "所属表格"
+        "sourceTable": "所属表格",
+        "loginEmailFieldWarning": "此字段被用作登录邮箱标识字段，删除后以下应用的登录功能将失效：",
+        "loginEmailFieldConvertWarning": "此字段被用作应用的登录邮箱字段，转换类型会导致以下应用的登录功能失效："
       }
     },
     "subTitle": {
@@ -499,11 +501,15 @@
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
     "baseInfo": "数据库信息",
+    "loginUserTable": "应用登录",
+    "loginUserTableClickTips": "打开关联应用",
+    "linkedApps": "关联的应用",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
     "deleteTip1": "其他表中关联了此表的关联字段将会被删除。",
     "deleteTip2": "此表被删除后可在回收站中进行恢复。",
+    "loginDeleteWarning": "此表被以下应用作为用户表使用，删除后应用的登录功能将失效。",
     "operator": {
       "createBlank": "新表格"
     },
@@ -1276,6 +1282,7 @@
     },
     "showUI": {
       "skip": "跳过",
+      "next": "下一步",
       "submit": "提交"
     },
     "newChat": "新对话",
@@ -1283,12 +1290,18 @@
     "expand": "展开",
     "history": "历史记录",
     "close": "收起",
-    "noModel": "没有可用的模型",
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",
     "modelSwitchTitle": "切换模型",
     "modelSwitchHint": "本对话当前由 {{previous}} 处理，发送后切换至新模型，仅携带最近 3 轮对话。",
+    "effort": {
+      "title": "智能",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "超高"
+    },
     "sandboxExpiry": {
       "expiresIn": "智能体的计算机将在 {{time}} 后到期",
       "reset": "续期",
@@ -1314,19 +1327,22 @@
       "other": "更早"
     },
     "context": {
-      "button": "添加上下文",
+      "button": "添加节点",
       "search": "添加表格",
       "searchEmpty": "暂无匹配的上下文",
       "emptyContext": "暂无可添加的上下文",
-      "selectionRows": "行 {{start}}-{{end}}"
+      "selectionRow": "行 {{row}}",
+      "selectionRows": "行 {{start}}-{{end}}",
+      "selectionColumn": "列 {{col}}",
+      "selectionColumns": "列 {{start}}-{{end}}"
     },
     "mention": {
       "tables": "数据表",
       "apps": "应用",
-      "workflows": "工作流",
+      "workflows": "自动化",
       "folders": "文件夹"
     },
-    "inputPlaceholder": "输入 @ 添加上下文",
+    "inputPlaceholder": "输入 @ 添加节点",
     "inputPlaceholderFiles": "粘贴或拖入文件",
     "thought": "深度思考",
     "meta": {
@@ -1335,6 +1351,7 @@
       "taskCompleted": "任务完成"
     },
     "attachment": {
+      "pastedTextFileName": "粘贴文本",
       "imageNotSupported": "不支持图片"
     },
     "suggestions": {
@@ -1398,12 +1415,31 @@
       "generatorTitle": "AI 应用生成器",
       "generatorDesc": "描述你想构建的应用"
     },
-    "effort": {
-      "title": "选择推理功能",
-      "low": "低",
-      "medium": "中",
-      "high": "高",
-      "max": "超高"
+    "voice": {
+      "start": "开始语音输入",
+      "stop": "停止语音输入",
+      "accept": "结束语音输入",
+      "cancel": "丢弃本次语音输入",
+      "permissionTip": "允许使用麦克风。",
+      "connecting": "连接中...",
+      "reconnecting": "重连中...",
+      "listening": "正在听，请开始说话",
+      "preview": "正在听：{{text}}",
+      "error": {
+        "microphoneDenied": "麦克风权限已关闭。",
+        "microphoneUnavailable": "没有可用麦克风。",
+        "unsupportedBrowser": "当前浏览器不支持 WebRTC。",
+        "sessionFailed": "语音初始化失败。",
+        "connectionFailed": "语音连接失败。",
+        "localConnectionFailed": "语音初始化失败，请刷新重试。",
+        "disconnected": "语音已断开。",
+        "missingServerKey": "语音输入未配置。",
+        "unauthenticated": "请重新登录。",
+        "rateLimited": "尝试太频繁，稍后再试。",
+        "upstreamAuthFailed": "Realtime API Key 无效。",
+        "upstreamBadRequest": "语音 endpoint 无效。",
+        "upstreamUnavailable": "语音服务不可用。"
+      }
     }
   },
   "upload": {

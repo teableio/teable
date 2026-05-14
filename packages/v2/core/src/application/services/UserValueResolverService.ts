@@ -12,13 +12,10 @@ import {
 import { CellValue } from '../../domain/table/records/values/CellValue';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
+import { buildUserAvatarUrl } from '../../ports/UserAvatarUrl';
+import { IUserLookupService } from '../../ports/UserLookupService';
 import type { UserLookupRecord } from '../../ports/UserLookupService';
-import type { IUserLookupService } from '../../ports/UserLookupService';
 import type { ICellValueSpecResolver } from './SpecResolver';
-
-const buildAvatarUrl = (userId: string): string => {
-  return `/api/attachments/read/public/avatar/${userId}`;
-};
 
 const normalizeUserValue = (value: unknown): { items: UserItem[]; isArray: boolean } => {
   if (Array.isArray(value)) {
@@ -35,7 +32,7 @@ const toUserItem = (user: UserLookupRecord): UserItem => {
     id: user.id,
     title: user.name,
     email: user.email ?? undefined,
-    avatarUrl: buildAvatarUrl(user.id),
+    avatarUrl: user.avatarUrl ?? buildUserAvatarUrl(user.id),
   };
 };
 

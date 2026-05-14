@@ -32,6 +32,12 @@ import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
 import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
+const resolvePositiveInteger = (value: unknown): number | undefined => {
+  const parsed =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+};
+
 @Injectable()
 export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(V2ContainerService.name);
@@ -75,6 +81,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
     const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
     const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
+    const tableMaxRowLimit = resolvePositiveInteger(
+      this.configService.get('TABLE_LIMIT_RECORDS_PER_TABLE_MAX')
+    );
+    const legacyMaxFreeRowLimit = resolvePositiveInteger(
+      this.configService.get('MAX_FREE_ROW_LIMIT')
+    );
 
     this.logger.log('Initializing shared V2 container');
 
@@ -86,7 +98,11 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       commandBusMiddlewares,
       queryBusMiddlewares,
       computedUpdate: computedUpdateMode === 'sync' ? { mode: 'sync' } : undefined,
-      maxFreeRowLimit: this.configService.get<number>('MAX_FREE_ROW_LIMIT'),
+      ...(tableMaxRowLimit
+        ? { tableMaxRowLimit }
+        : legacyMaxFreeRowLimit
+          ? { maxFreeRowLimit: legacyMaxFreeRowLimit }
+          : {}),
     });
 
     registerV2ShareDbRealtime(container, {

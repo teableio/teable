@@ -817,6 +817,9 @@
     "dateRangeOfMonths": "时间范围 (月)",
     "totalAttachmentSize": "附件总大小"
   },
+  "selectionStatistic": {
+    "tip": "仅统计「数字类型」字段。"
+  },
   "baseQuery": {
     "add": "添加",
     "error": {
@@ -1004,6 +1007,10 @@
       "tableNotInBase": "您只能订阅当前数据库内的表格",
       "alreadyActiveAndNotDraft": "自动化已激活且不是草稿状态",
       "noActiveSnapshot": "自动化没有活动快照",
+      "onlyFailedRunsCanRerun": "仅失败的运行记录可以重跑",
+      "workflowMustBeActiveToRerun": "自动化必须处于启用状态才能重跑",
+      "snapshotChangedOnlyFullRerun": "自动化在此次运行后已被修改，仅支持完整重跑。",
+      "controlStepsMissingOnlyFullRerun": "此次运行缺少控制节点数据，仅支持完整重跑。",
       "triggerNodeAlreadyExists": "此自动化已存在触发器节点",
       "unSupportLogicType": "不支持的逻辑类型",
       "generateLogicError": "生成逻辑节点错误",
@@ -1044,7 +1051,9 @@
       "deleted": "空间已被删除",
       "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
       "notBelongToOrg": "此空间不属于该组织",
-      "invalidSpaceIds": "空间ID无效: {{spaceIds}}"
+      "invalidSpaceIds": "空间ID无效: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "您已达到可管理的空间数量上限（{{max}}）",
+      "ownedSpaceLimitExceededOther": "{{name}} 已达到可管理的空间数量上限（{{max}}）"
     },
     "base": {
       "notFound": "数据库不存在",
@@ -1268,7 +1277,10 @@
     "billing": {
       "insufficientCredit": "算力不足",
       "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}",
-      "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数"
+      "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数",
+      "manualSubscriptionNotSupported": "此空间不支持自助订阅操作，如需升级、降级或其他订阅变更，请联系官方支持。",
+      "appSumoSubscriptionNotSupported": "AppSumo 订阅无法通过此界面修改，请前往 AppSumo 管理您的订阅。",
+      "customerNotFound": "未找到此空间的账单客户记录。"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",

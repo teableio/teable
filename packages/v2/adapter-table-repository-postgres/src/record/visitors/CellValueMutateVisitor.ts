@@ -38,6 +38,7 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
 import { buildAttachmentTableReplaceQueries } from '../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
@@ -321,7 +322,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    * Fetches user info from users table, with fallback to just the actor ID.
    */
   private buildLastModifiedByValue(): ReturnType<typeof sql> {
-    const avatarPrefix = '/api/attachments/read/public/avatar/';
+    const avatarPrefix = resolveUserAvatarUrlPrefix();
     return sql`COALESCE(
       (
         SELECT jsonb_build_object(

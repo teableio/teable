@@ -4,6 +4,7 @@ import type { Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import type { UpdateImpactHint } from '../../computed';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { createEmptyCollectedLinkChanges, type CollectedLinkChanges } from '../../visitors';
@@ -404,8 +405,6 @@ export class BatchRecordUpdateBuilder {
   }
 }
 
-const LAST_MODIFIED_BY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
-
 function buildLastModifiedByJsonValue(context: RecordUpdateBuilderContext): string {
   const title = context.actorName ?? context.actorId;
   const email = context.actorEmail ?? null;
@@ -413,6 +412,6 @@ function buildLastModifiedByJsonValue(context: RecordUpdateBuilderContext): stri
     id: context.actorId,
     title,
     email,
-    avatarUrl: `${LAST_MODIFIED_BY_AVATAR_PREFIX}${context.actorId}`,
+    avatarUrl: buildUserAvatarUrl(context.actorId),
   });
 }

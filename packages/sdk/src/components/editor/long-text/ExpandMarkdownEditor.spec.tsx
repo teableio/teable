@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ExpandMarkdownEditor } from './ExpandMarkdownEditor';
 
@@ -8,10 +8,10 @@ const openTextEditor = async () => {
 };
 
 describe('ExpandMarkdownEditor', () => {
-  it('does not submit null when an unchanged blank editor blurs', async () => {
+  it('does not call onChange when blurred without any edits', async () => {
     const onChange = vi.fn();
 
-    render(<ExpandMarkdownEditor value="" initialMode="text" onChange={onChange} />);
+    render(<ExpandMarkdownEditor value="existing" initialMode="text" onChange={onChange} />);
 
     const editor = await openTextEditor();
     fireEvent.blur(editor);
@@ -19,29 +19,10 @@ describe('ExpandMarkdownEditor', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('syncs an external value change while the expanded text editor is clean', async () => {
-    const onChange = vi.fn();
-    const { rerender } = render(
-      <ExpandMarkdownEditor value="" initialMode="text" onChange={onChange} />
-    );
-
-    const editor = await openTextEditor();
-    expect(editor).toHaveValue('');
-
-    rerender(<ExpandMarkdownEditor value="generated" initialMode="text" onChange={onChange} />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('textbox')).toHaveValue('generated');
-    });
-
-    fireEvent.blur(screen.getByRole('textbox'));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it('submits null when a non-empty expanded text value is cleared', async () => {
+  it('commits null when a non-empty value is cleared', async () => {
     const onChange = vi.fn();
 
-    render(<ExpandMarkdownEditor value="generated" initialMode="text" onChange={onChange} />);
+    render(<ExpandMarkdownEditor value="existing" initialMode="text" onChange={onChange} />);
 
     const editor = await openTextEditor();
     fireEvent.change(editor, { target: { value: '' } });
@@ -50,20 +31,43 @@ describe('ExpandMarkdownEditor', () => {
     expect(onChange).toHaveBeenCalledWith(null);
   });
 
-  it('does not remount after its own committed value is reflected by the parent', async () => {
+  it('commits new value when content changes', async () => {
+    const onChange = vi.fn();
+
+    render(<ExpandMarkdownEditor value="" initialMode="text" onChange={onChange} />);
+
+    const editor = await openTextEditor();
+    fireEvent.change(editor, { target: { value: 'typed content' } });
+    fireEvent.blur(editor);
+
+    expect(onChange).toHaveBeenCalledWith('typed content');
+  });
+
+  it('does not overwrite user input when external value updates mid-edit', async () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <ExpandMarkdownEditor value="" initialMode="text" onChange={onChange} />
     );
 
     const editor = await openTextEditor();
-    fireEvent.change(editor, { target: { value: 'manual' } });
-    fireEvent.blur(editor);
+    fireEvent.change(editor, { target: { value: 'user typing' } });
 
-    expect(onChange).toHaveBeenCalledWith('manual');
+    rerender(<ExpandMarkdownEditor value="remote update" initialMode="text" onChange={onChange} />);
 
-    rerender(<ExpandMarkdownEditor value="manual" initialMode="text" onChange={onChange} />);
+    expect(screen.getByRole('textbox')).toHaveValue('user typing');
+  });
 
-    expect(screen.getByRole('textbox')).toBe(editor);
+  it('commits pending edits on unmount when close path skips blur', async () => {
+    const onChange = vi.fn();
+    const { unmount } = render(
+      <ExpandMarkdownEditor value="existing" initialMode="text" onChange={onChange} />
+    );
+
+    const editor = await openTextEditor();
+    fireEvent.change(editor, { target: { value: 'unsaved edit' } });
+
+    unmount();
+
+    expect(onChange).toHaveBeenCalledWith('unsaved edit');
   });
 });

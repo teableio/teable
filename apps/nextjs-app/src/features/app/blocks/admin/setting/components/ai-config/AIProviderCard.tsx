@@ -17,6 +17,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import type { ReactNode } from 'react';
 import type { Control } from 'react-hook-form';
+import type { ProviderNameMode } from './LlmProviderForm';
 import type { IModelTestResult } from './LlmproviderManage';
 import { LLMProviderManage } from './LlmproviderManage';
 
@@ -43,6 +44,7 @@ interface IAIProviderCardProps {
   title?: string;
   /** Optional header actions (e.g., BatchTestModels) */
   headerActions?: ReactNode;
+  providerNameMode?: ProviderNameMode;
 }
 
 export const AIProviderCard = ({
@@ -59,6 +61,7 @@ export const AIProviderCard = ({
   onSaveTestResult,
   title,
   headerActions,
+  providerNameMode,
 }: IAIProviderCardProps) => {
   return (
     <Card className="shadow-sm">
@@ -87,6 +90,7 @@ export const AIProviderCard = ({
                   testingModels={testingModels}
                   hideModelRates={hideModelRates}
                   onSaveTestResult={onSaveTestResult}
+                  providerNameMode={providerNameMode}
                 />
               </FormControl>
               <FormMessage />

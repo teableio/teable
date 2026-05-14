@@ -2,6 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
@@ -46,12 +48,21 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const tableMapper = new DefaultTableMapper();
 
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
 });
+
+const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
+  createTableOperationPluginRunner([
+    new TableDataSafetyLimitTableOperationPlugin(
+      tableRepository,
+      createDefaultTableDataSafetyLimitComposer()
+    ),
+  ]);
 
 const sourceBaseId = `bse${'a'.repeat(16)}`;
 const sourceTableId = `tbl${'b'.repeat(16)}`;
@@ -487,7 +498,9 @@ describe('DuplicateTableHandler', () => {
       tableRecordQueryRepository,
       tableRecordRepository,
       eventBus,
-      unitOfWork
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
     );
 
     const command = DuplicateTableCommand.create({

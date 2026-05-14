@@ -1,4 +1,4 @@
-import type { ExceptionFilter, HttpException } from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter, HttpException } from '@nestjs/common';
 import {
   BadRequestException,
   Catch,
@@ -9,10 +9,8 @@ import {
   NotImplementedException,
   Optional,
   UnauthorizedException,
-  ArgumentsHost,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SentryExceptionCaptured } from '@sentry/nestjs';
 import * as Sentry from '@sentry/nestjs';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -30,7 +28,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     @Optional() @Inject(ClsService) private readonly cls?: ClsService<IClsStore>
   ) {}
 
-  @SentryExceptionCaptured()
   catch(exception: Error | HttpException, host: ArgumentsHost) {
     const { enableGlobalErrorLogging } = this.configService.getOrThrow<ILoggerConfig>('logger');
 
@@ -38,8 +35,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    // Bind Sentry user context from CLS (must be before @SentryExceptionCaptured processes)
-    this.setSentryContext();
+    this.captureException(exception);
 
     if (
       enableGlobalErrorLogging ||
@@ -68,23 +64,43 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private setSentryContext() {
+  private captureException(exception: Error | HttpException) {
+    if (this.isExpectedError(exception)) return;
+
+    Sentry.withScope((scope) => {
+      this.setSentryContext(scope);
+      Sentry.captureException(exception, {
+        mechanism: { handled: false, type: 'auto.function.nestjs.exception_captured' },
+      });
+    });
+  }
+
+  private setSentryContext(scope: Sentry.Scope) {
+    scope.setUser(null);
     if (!this.cls) return;
 
     try {
       const userId = this.cls.get('user.id');
       if (userId && userId !== 'aiRobot') {
         const email = this.cls.get('user.email');
-        Sentry.setUser({ id: userId, email });
+        scope.setUser({ id: userId, email });
       }
 
       const spaceId = this.cls.get('spaceId');
       if (spaceId) {
-        Sentry.setTag('space.id', spaceId);
+        scope.setTag('space.id', spaceId);
       }
     } catch {
       // CLS may not be active (e.g., non-HTTP contexts)
     }
+  }
+
+  private isExpectedError(exception: unknown) {
+    return (
+      typeof exception === 'object' &&
+      exception !== null &&
+      ('status' in exception || 'error' in exception)
+    );
   }
 
   protected logError(exception: Error, request: Request) {

@@ -333,7 +333,11 @@ export class OAuthService {
         homepage: c.homepage,
         scopes: c.scopes,
         lastUsedTime: lastUsedTimeMap[c.clientId]?.lastUsedTime,
-        createdUser: userMap[c.createdBy],
+        createdUser:
+          userMap[c.createdBy] ??
+          (c.createdBy === 'system'
+            ? { name: 'System', email: 'system@teable.ai' }
+            : { name: 'Unknown', email: '' }),
       })
     );
   }

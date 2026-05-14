@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { realtimeTranscriptionModelSchema } from '../../ai/realtime-transcription';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
 import { gatewayModelSchema } from './gateway-model';
@@ -28,6 +29,13 @@ const publicAiConfigSchema = z.object({
     .optional(),
   // Gateway models enabled by admin (for space-level AI config)
   gatewayModels: z.array(gatewayModelSchema).optional(),
+  voiceInput: z
+    .object({
+      enabled: z.boolean(),
+      model: realtimeTranscriptionModelSchema,
+      maxSessionDurationSec: z.number(),
+    })
+    .optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema

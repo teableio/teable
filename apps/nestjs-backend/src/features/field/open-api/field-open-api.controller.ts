@@ -118,11 +118,15 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|create')
+  @UseV2Feature('createField')
   @Post('/plan')
   async planFieldCreate(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
   ): Promise<IPlanFieldVo> {
+    if (this.cls.get('useV2')) {
+      return this.fieldOpenApiV2Service.planFieldCreate();
+    }
     return await this.fieldOpenApiService.planFieldCreate(tableId, fieldRo);
   }
 

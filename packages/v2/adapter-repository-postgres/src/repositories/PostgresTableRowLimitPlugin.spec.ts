@@ -17,7 +17,11 @@ import type { Kysely } from 'kysely';
 import { err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { PostgresTableRowLimitPlugin } from './PostgresTableRowLimitPlugin';
+import {
+  PostgresTableRowLimitPlugin,
+  SpaceCreditTableRowLimitPolicy,
+  StaticTableRowLimitPolicy,
+} from './PostgresTableRowLimitPlugin';
 
 const buildContextTable = () => {
   const builder = Table.builder()
@@ -35,40 +39,53 @@ const buildContextTable = () => {
 
 const createDb = (credit?: number) => {
   const executeTakeFirst = vi.fn().mockResolvedValue(credit == null ? undefined : { credit });
-  const where = vi.fn().mockReturnValue({ executeTakeFirst });
-  const select = vi.fn().mockReturnValue({ where });
-  const innerJoin = vi.fn().mockReturnValue({ select });
-  const selectFrom = vi.fn().mockReturnValue({ innerJoin });
+  const query = {
+    innerJoin: vi.fn(),
+    select: vi.fn(),
+    where: vi.fn(),
+    executeTakeFirst,
+  };
+  query.innerJoin.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  query.where.mockReturnValue(query);
+  const selectFrom = vi.fn().mockReturnValue(query);
   const db = { selectFrom } as unknown as Kysely<V1TeableDatabase>;
 
   return {
     db,
-    mocks: { selectFrom, innerJoin, select, where, executeTakeFirst },
+    mocks: {
+      selectFrom,
+      innerJoin: query.innerJoin,
+      select: query.select,
+      where: query.where,
+      executeTakeFirst,
+    },
   };
 };
 
 const createContext = (
   overrides: Partial<RecordWritePluginContext> = {}
-): RecordWritePluginContext => ({
-  kind: RecordWriteOperationKind.createMany,
-  executionContext: {
-    actorId: ActorId.create('system')._unsafeUnwrap(),
-  },
-  table: buildContextTable(),
-  payload: {
-    recordsFieldValues: [new Map()],
-    fieldKeyType: FieldKeyType.Name,
-    typecast: false,
-    recordCount: 1,
-  },
-  isTransactionBound: false,
-  ...overrides,
-});
+): RecordWritePluginContext =>
+  ({
+    kind: RecordWriteOperationKind.createMany,
+    executionContext: {
+      actorId: ActorId.create('system')._unsafeUnwrap(),
+    },
+    table: buildContextTable(),
+    payload: {
+      recordsFieldValues: [new Map()],
+      fieldKeyType: FieldKeyType.Name,
+      typecast: false,
+      recordCount: 1,
+    },
+    isTransactionBound: false,
+    ...overrides,
+  }) as unknown as RecordWritePluginContext;
 
 describe('PostgresTableRowLimitPlugin', () => {
   it('supports only write operations that may create records', () => {
     const { db } = createDb();
-    const plugin = new PostgresTableRowLimitPlugin(db, 10);
+    const plugin = new PostgresTableRowLimitPlugin(db, new StaticTableRowLimitPolicy(10));
 
     expect(plugin.supports(RecordWriteOperationKind.createOne)).toBe(true);
     expect(plugin.supports(RecordWriteOperationKind.createMany)).toBe(true);
@@ -82,7 +99,7 @@ describe('PostgresTableRowLimitPlugin', () => {
     expect(plugin.supports(RecordWriteOperationKind.deleteMany)).toBe(false);
   });
 
-  it('reads dbTableName from the plugin table context and only queries credit metadata', async () => {
+  it('reads dbTableName from the plugin table context and resolves the configured policy', async () => {
     const { db, mocks } = createDb(23);
 
     const table = buildContextTable();
@@ -92,32 +109,53 @@ describe('PostgresTableRowLimitPlugin', () => {
       ._unsafeUnwrap();
     const context = createContext({ table });
 
-    const result = await new PostgresTableRowLimitPlugin(db, 10).prepare(context);
+    const result = await new PostgresTableRowLimitPlugin(
+      db,
+      new StaticTableRowLimitPolicy(23)
+    ).prepare(context);
 
     expect(result._unsafeUnwrap()).toEqual({
       dbTableName: expectedDbTableName,
       maxRowCount: 23,
     });
-    expect(mocks.selectFrom).toHaveBeenCalledWith('base');
-    expect(mocks.select).toHaveBeenCalledWith(['space.credit as credit']);
-    expect(mocks.where).toHaveBeenCalledWith('base.id', '=', context.table.baseId().toString());
+    expect(mocks.selectFrom).not.toHaveBeenCalled();
   });
 
-  it('uses the configured max row limit when space credit is absent', async () => {
+  it('uses the configured max row limit from the policy', async () => {
     const { db } = createDb();
 
-    const result = await new PostgresTableRowLimitPlugin(db, 10).prepare(createContext());
+    const result = await new PostgresTableRowLimitPlugin(
+      db,
+      new StaticTableRowLimitPolicy(10)
+    ).prepare(createContext());
 
     expect(result._unsafeUnwrap()).toMatchObject({
       maxRowCount: 10,
     });
   });
 
-  it('short-circuits prepare when the limit is disabled or the operation does not create rows', async () => {
-    const disabled = new PostgresTableRowLimitPlugin(createDb(23).db, 0);
-    const disabledResult = await disabled.prepare(createContext());
-    expect(disabledResult._unsafeUnwrap()).toBeUndefined();
+  it('resolves legacy space credit before falling back to the static limit', async () => {
+    const { db, mocks } = createDb(11);
+    const result = await new SpaceCreditTableRowLimitPolicy(db, 10).resolveMaxRowCount(
+      createContext()
+    );
 
+    expect(result._unsafeUnwrap()).toBe(11);
+    expect(mocks.selectFrom).toHaveBeenCalledWith('table_meta');
+    expect(mocks.innerJoin).toHaveBeenCalledWith('base', 'base.id', 'table_meta.base_id');
+    expect(mocks.innerJoin).toHaveBeenCalledWith('space', 'space.id', 'base.space_id');
+  });
+
+  it('uses the static row limit when no legacy space credit is set', async () => {
+    const { db } = createDb();
+    const result = await new SpaceCreditTableRowLimitPolicy(db, 10).resolveMaxRowCount(
+      createContext()
+    );
+
+    expect(result._unsafeUnwrap()).toBe(10);
+  });
+
+  it('short-circuits prepare when the limit is disabled or the operation does not create rows', async () => {
     const updateContext = createContext({
       kind: RecordWriteOperationKind.updateOne,
       payload: {
@@ -127,14 +165,18 @@ describe('PostgresTableRowLimitPlugin', () => {
         typecast: false,
       },
     });
-    const updateResult = await new PostgresTableRowLimitPlugin(createDb(23).db, 10).prepare(
-      updateContext
-    );
+    const updateResult = await new PostgresTableRowLimitPlugin(
+      createDb(23).db,
+      new StaticTableRowLimitPolicy(10)
+    ).prepare(updateContext);
     expect(updateResult._unsafeUnwrap()).toBeUndefined();
   });
 
   it('derives create counts for createOne, createStream and paste operations', async () => {
-    const plugin = new PostgresTableRowLimitPlugin(createDb(11).db, 10);
+    const plugin = new PostgresTableRowLimitPlugin(
+      createDb(11).db,
+      new StaticTableRowLimitPolicy(11)
+    );
 
     const createOne = await plugin.prepare(
       createContext({
@@ -188,7 +230,10 @@ describe('PostgresTableRowLimitPlugin', () => {
       } as never,
     });
 
-    const result = await new PostgresTableRowLimitPlugin(db, 10).prepare(context);
+    const result = await new PostgresTableRowLimitPlugin(
+      db,
+      new StaticTableRowLimitPolicy(10)
+    ).prepare(context);
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr()).toMatchObject({
@@ -197,14 +242,13 @@ describe('PostgresTableRowLimitPlugin', () => {
     });
   });
 
-  it('returns an infrastructure error when the metadata query fails', async () => {
-    const db = {
-      selectFrom: vi.fn(() => {
+  it('returns an infrastructure error when the row limit policy throws', async () => {
+    const { db } = createDb();
+    const result = await new PostgresTableRowLimitPlugin(db, {
+      resolveMaxRowCount: async () => {
         throw new Error('boom');
-      }),
-    } as unknown as Kysely<V1TeableDatabase>;
-
-    const result = await new PostgresTableRowLimitPlugin(db, 10).prepare(createContext());
+      },
+    }).prepare(createContext());
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr()).toMatchObject({
@@ -214,7 +258,10 @@ describe('PostgresTableRowLimitPlugin', () => {
   });
 
   it('short-circuits guard and beforePersist when there is nothing to enforce', async () => {
-    const plugin = new PostgresTableRowLimitPlugin(createDb().db, 10);
+    const plugin = new PostgresTableRowLimitPlugin(
+      createDb().db,
+      new StaticTableRowLimitPolicy(10)
+    );
     const updateContext = createContext({
       kind: RecordWriteOperationKind.updateOne,
       payload: {

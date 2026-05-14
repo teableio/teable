@@ -800,6 +800,9 @@
     "dateRangeOfMonths": "Plage de dates (mois)",
     "totalAttachmentSize": "Taille totale des pièces jointes"
   },
+  "selectionStatistic": {
+    "tip": "Seuls les champs de type Nombre sont agrégés."
+  },
   "baseQuery": {
     "add": "Ajouter",
     "error": {
@@ -987,6 +990,10 @@
       "tableNotInBase": "Vous ne pouvez vous abonner qu'à une table de votre base de données",
       "alreadyActiveAndNotDraft": "L'automatisation est déjà active et n'est pas un brouillon",
       "noActiveSnapshot": "L'automatisation n'a pas d'instantané actif",
+      "onlyFailedRunsCanRerun": "Seules les exécutions échouées peuvent être relancées",
+      "workflowMustBeActiveToRerun": "Le workflow doit être actif pour être relancé",
+      "snapshotChangedOnlyFullRerun": "Le workflow a été modifié depuis cette exécution. Seule une réexécution complète est autorisée.",
+      "controlStepsMissingOnlyFullRerun": "Les données du nœud de contrôle sont manquantes pour cette exécution. Seule une réexécution complète est prise en charge.",
       "triggerNodeAlreadyExists": "Cette automatisation a déjà un nœud déclencheur",
       "generateLogicError": "Erreur lors de la génération du nœud de logique",
       "logicNotFound": "Nœud de logique d'automatisation non trouvé",
@@ -998,12 +1005,12 @@
       "controlNodeNotBeTested": "Le nœud de contrôle ne doit pas être testé",
       "invalidNodeType": "Type de nœud invalide",
       "unsupportedCategory": "Catégorie non supportée",
-      "unknownConnectionType": "Unknown email connection type",
-      "imapPasswordNotConfigured": "IMAP password not configured",
-      "integrationNotFound": "Integration not found or has no credentials",
-      "webhookTriggerNotFound": "Webhook trigger not found",
-      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
-      "emailConnectorNotAvailable": "Email connector service not available",
+      "unknownConnectionType": "Type de connexion e-mail inconnu",
+      "imapPasswordNotConfigured": "Mot de passe IMAP non configuré",
+      "integrationNotFound": "Intégration introuvable ou sans identifiants",
+      "webhookTriggerNotFound": "Déclencheur webhook introuvable",
+      "emailReceivedTriggerNotFound": "Déclencheur de réception d'e-mail introuvable",
+      "emailConnectorNotAvailable": "Service de connecteur e-mail non disponible",
       "listMailboxesFailed": "Échec de la récupération des boîtes mail : {{detail}}"
     },
     "scrape": {
@@ -1027,7 +1034,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
       "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
-      "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}"
+      "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}",
+      "ownedSpaceLimitExceeded": "Vous avez atteint le nombre maximum d'espaces que vous pouvez gérer ({{max}})",
+      "ownedSpaceLimitExceededOther": "{{name}} a atteint le nombre maximum d'espaces qu'il peut gérer ({{max}})"
     },
     "base": {
       "notFound": "Base non trouvée",
@@ -1245,7 +1254,10 @@
     "billing": {
       "insufficientCredit": "Crédit insuffisant",
       "exceedMaxRowLimit": "Limite maximale de lignes {{maxRowCount}} dépassée",
-      "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint"
+      "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint",
+      "manualSubscriptionNotSupported": "L'abonnement en libre-service n'est pas disponible pour cet espace. Pour les mises à niveau, les rétrogradations ou d'autres modifications d'abonnement, veuillez contacter le support Teable.",
+      "appSumoSubscriptionNotSupported": "Les abonnements AppSumo ne peuvent pas être modifiés via cette interface. Veuillez gérer votre abonnement sur AppSumo.",
+      "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace."
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",

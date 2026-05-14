@@ -853,6 +853,9 @@ importers:
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
+      decimal.js-light:
+        specifier: 2.5.1
+        version: 2.5.1
       echarts:
         specifier: 5.5.0
         version: 5.5.0
@@ -2172,6 +2175,9 @@ importers:
       react-hook-form:
         specifier: 7.51.1
         version: 7.51.1(react@18.3.1)
+      react-markdown:
+        specifier: 9.0.1
+        version: 9.0.1(@types/react@18.3.18)(react@18.3.1)
       react-resizable-panels:
         specifier: 2.0.16
         version: 2.0.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2181,6 +2187,9 @@ importers:
       recharts:
         specifier: 2.12.3
         version: 2.12.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      remark-gfm:
+        specifier: 4.0.0
+        version: 4.0.0
       sonner:
         specifier: 1.7.3
         version: 1.7.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -32042,11 +32051,11 @@ snapshots:
   '@types/eslint-scope@3.7.7':
     dependencies:
       '@types/eslint': 9.6.1
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
 
   '@types/eslint@9.6.1':
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       '@types/json-schema': 7.0.15
 
   '@types/estree-jsx@1.0.5':
@@ -33776,10 +33785,6 @@ snapshots:
     dependencies:
       acorn: 8.14.0
 
-  acorn-import-assertions@1.9.0(acorn@8.15.0):
-    dependencies:
-      acorn: 8.15.0
-
   acorn-import-attributes@1.9.5(acorn@8.14.0):
     dependencies:
       acorn: 8.14.0
@@ -33792,6 +33797,10 @@ snapshots:
     dependencies:
       acorn: 7.4.1
 
+  acorn-jsx@5.3.2(acorn@8.14.0):
+    dependencies:
+      acorn: 8.14.0
+
   acorn-jsx@5.3.2(acorn@8.15.0):
     dependencies:
       acorn: 8.15.0
@@ -33800,7 +33809,7 @@ snapshots:
 
   acorn-walk@8.3.4:
     dependencies:
-      acorn: 8.15.0
+      acorn: 8.14.0
 
   acorn@6.4.2: {}
 
@@ -36659,8 +36668,8 @@ snapshots:
 
   eslint-mdx@3.1.5(eslint@8.57.0):
     dependencies:
-      acorn: 8.15.0
-      acorn-jsx: 5.3.2(acorn@8.15.0)
+      acorn: 8.14.0
+      acorn-jsx: 5.3.2(acorn@8.14.0)
       eslint: 8.57.0
       espree: 9.6.1
       estree-util-visit: 2.0.0
@@ -38090,7 +38099,7 @@ snapshots:
 
   hast-util-to-jsx-runtime@2.3.2:
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       '@types/hast': 3.0.4
       '@types/unist': 3.0.3
       comma-separated-tokens: 2.0.3
@@ -38753,7 +38762,7 @@ snapshots:
 
   is-reference@1.2.1:
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
 
   is-regex@1.2.1:
     dependencies:
@@ -38888,7 +38897,7 @@ snapshots:
 
   istanbul-lib-source-maps@4.0.1:
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.0
       istanbul-lib-coverage: 3.2.2
       source-map: 0.6.1
     transitivePeerDependencies:
@@ -45014,7 +45023,7 @@ snapshots:
     dependencies:
       '@jridgewell/gen-mapping': 0.3.8
       commander: 4.1.1
-      glob: 10.5.0
+      glob: 10.4.5
       lines-and-columns: 1.2.4
       mz: 2.7.0
       pirates: 4.0.6
@@ -45288,7 +45297,7 @@ snapshots:
   terser@5.37.0:
     dependencies:
       '@jridgewell/source-map': 0.3.6
-      acorn: 8.15.0
+      acorn: 8.14.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -46531,12 +46540,12 @@ snapshots:
   webpack@5.90.1(@swc/core@1.13.3(@swc/helpers@0.5.17))(esbuild@0.23.0):
     dependencies:
       '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.15.0
-      acorn-import-assertions: 1.9.0(acorn@8.15.0)
+      acorn: 8.14.0
+      acorn-import-assertions: 1.9.0(acorn@8.14.0)
       browserslist: 4.24.3
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.17.1

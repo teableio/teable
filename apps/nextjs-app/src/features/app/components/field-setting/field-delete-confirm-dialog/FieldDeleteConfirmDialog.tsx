@@ -1,4 +1,8 @@
-import { deleteFields } from '@teable/openapi';
+import {
+  BaseNodeResourceType,
+  deleteFields,
+  type IBaseNodeTableResourceMeta,
+} from '@teable/openapi';
 import { useFields } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { Spin } from '@teable/ui-lib/base';
@@ -16,6 +20,8 @@ import {
 import { ShieldCheck } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
+import { useBaseNodeContext } from '../../../blocks/base/base-node/hooks/useBaseNodeContext';
+import { LoginAppWarning } from '../../../components/LoginAppWarning';
 import { AffectedFieldsList } from './AffectedFieldsList';
 import { FieldSelectionList } from './FieldSelectionList';
 import type { AffectedItem, FieldDeleteConfirmDialogProps } from './types';
@@ -24,6 +30,19 @@ import {
   useFieldSelectionState,
   useMultiFieldReferences,
 } from './useDeleteAnalysis';
+
+const useLoginAppsForField = (tableId: string, fieldId?: string) => {
+  const { treeItems } = useBaseNodeContext();
+  return useMemo(() => {
+    if (!fieldId) return undefined;
+    const node = Object.values(treeItems).find(
+      (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === tableId
+    );
+    const meta = node?.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+    const apps = meta?.loginApps?.filter((a) => a.emailFieldId === fieldId);
+    return apps?.length ? apps : undefined;
+  }, [treeItems, tableId, fieldId]);
+};
 
 // Single field delete dialog content
 const SingleFieldContent = ({
@@ -39,6 +58,8 @@ const SingleFieldContent = ({
 }) => {
   const { fieldRiskMap, isLoading } = useMultiFieldReferences(tableId, [fieldId], open);
   const affectedItems = fieldRiskMap.get(fieldId) ?? [];
+  const loginApps = useLoginAppsForField(tableId, fieldId);
+  const { t } = useTranslation(['table']);
 
   if (isLoading) {
     return (
@@ -48,7 +69,7 @@ const SingleFieldContent = ({
     );
   }
 
-  if (affectedItems.length === 0) {
+  if (affectedItems.length === 0 && !loginApps) {
     return (
       <AlertDialogDescription>
         <Trans
@@ -64,15 +85,25 @@ const SingleFieldContent = ({
   return (
     <AlertDialogDescription asChild>
       <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <p className="shrink-0 text-foreground">
-          <Trans
-            ns="table"
-            i18nKey="field.editor.deleteField.withDependencies"
-            components={{ b: <b /> }}
-            values={{ fieldName }}
+        {loginApps && (
+          <LoginAppWarning
+            message={t('table:field.editor.deleteField.loginEmailFieldWarning')}
+            apps={loginApps}
           />
-        </p>
-        <AffectedFieldsList items={affectedItems} />
+        )}
+        {affectedItems.length > 0 && (
+          <>
+            <p className="shrink-0 text-foreground">
+              <Trans
+                ns="table"
+                i18nKey="field.editor.deleteField.withDependencies"
+                components={{ b: <b /> }}
+                values={{ fieldName }}
+              />
+            </p>
+            <AffectedFieldsList items={affectedItems} />
+          </>
+        )}
       </div>
     </AlertDialogDescription>
   );
@@ -98,6 +129,7 @@ const SafeToDeleteState = () => {
 
 // Multi field delete dialog content
 const MultiFieldContent = ({
+  tableId,
   targetFields,
   selectedFieldId,
   checkedFieldIds,
@@ -106,6 +138,7 @@ const MultiFieldContent = ({
   onSelect,
   onToggleCheck,
 }: {
+  tableId: string;
   targetFields: IFieldInstance[];
   selectedFieldId: string | null;
   checkedFieldIds: Set<string>;
@@ -151,7 +184,12 @@ const MultiFieldContent = ({
               <Spin />
             </div>
           ) : selectedFieldId && selectedField ? (
-            <DetailPanel fieldName={selectedField.name} affectedItems={selectedItems} />
+            <DetailPanel
+              tableId={tableId}
+              fieldId={selectedFieldId}
+              fieldName={selectedField.name}
+              affectedItems={selectedItems}
+            />
           ) : null}
         </div>
       </div>
@@ -161,27 +199,44 @@ const MultiFieldContent = ({
 
 // Detail panel for multi field mode
 const DetailPanel = ({
+  tableId,
+  fieldId,
   fieldName,
   affectedItems,
 }: {
+  tableId: string;
+  fieldId: string;
   fieldName: string;
   affectedItems: AffectedItem[];
 }) => {
-  if (affectedItems.length === 0) {
+  const loginApps = useLoginAppsForField(tableId, fieldId);
+  const { t } = useTranslation(['table']);
+
+  if (affectedItems.length === 0 && !loginApps) {
     return <SafeToDeleteState />;
   }
 
   return (
     <>
-      <p className="shrink-0 text-sm text-foreground">
-        <Trans
-          ns="table"
-          i18nKey="field.editor.deleteField.withDependencies"
-          components={{ b: <b /> }}
-          values={{ fieldName }}
+      {loginApps && (
+        <LoginAppWarning
+          message={t('table:field.editor.deleteField.loginEmailFieldWarning')}
+          apps={loginApps}
         />
-      </p>
-      <AffectedFieldsList items={affectedItems} isMultiField />
+      )}
+      {affectedItems.length > 0 && (
+        <>
+          <p className="shrink-0 text-sm text-foreground">
+            <Trans
+              ns="table"
+              i18nKey="field.editor.deleteField.withDependencies"
+              components={{ b: <b /> }}
+              values={{ fieldName }}
+            />
+          </p>
+          <AffectedFieldsList items={affectedItems} isMultiField />
+        </>
+      )}
     </>
   );
 };
@@ -263,6 +318,7 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
           <AlertDialogTitle>{t('table:field.editor.deleteField.title')}</AlertDialogTitle>
           {isMultiField ? (
             <MultiFieldContent
+              tableId={tableId}
               targetFields={targetFields}
               selectedFieldId={selectedFieldId}
               checkedFieldIds={checkedFieldIds}

@@ -23,6 +23,7 @@ import {
   OffsetPagination,
   PageLimit,
   PageOffset,
+  buildUserAvatarUrl,
   isFieldOrderBy,
   isSystemColumnOrderBy,
 } from '@teable/v2-core';
@@ -40,15 +41,16 @@ import type {
   FieldOutputColumn,
   DynamicDB,
 } from '../query-builder';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import { buildRecordSearchWhereClause } from './RecordSearchWhereBuilder';
-import { buildRecordWhereClause } from './buildRecordWhereClause';
 
 const RECORD_ID_COLUMN = '__id';
 const RECORD_VERSION_COLUMN = '__version';
 const TABLE_ALIAS = 't';
 const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
+const LEGACY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 
 type OrderColumnExistsCacheEntry = {
   exists: boolean;
@@ -621,7 +623,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       return compiled;
     }
     const cteName = source.cteName.trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cteName)) {
+    if (!/^[A-Z_]\w*$/i.test(cteName)) {
       this.logger.warn('Skip invalid record read CTE name', {
         cteName,
       });
@@ -701,7 +703,9 @@ const mapRowsToReadModels = (
 
     const fields: Record<string, unknown> = {};
     for (const column of fieldColumns) {
-      fields[column.fieldId.toString()] = row[column.columnAlias];
+      const value = row[column.columnAlias];
+      fields[column.fieldId.toString()] =
+        column.valueKind === 'user' ? normalizeStoredUserAvatarUrls(value) : value;
     }
     return {
       id,
@@ -715,6 +719,46 @@ const mapRowsToReadModels = (
       orders,
     };
   });
+};
+
+const normalizeStoredUserAvatarUrls = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    if (!value.includes(LEGACY_AVATAR_PREFIX)) {
+      return value;
+    }
+
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      const normalized = normalizeStoredUserAvatarUrls(parsed);
+      return normalized === parsed ? value : normalized;
+    } catch {
+      return value;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeStoredUserAvatarUrls(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const item = value as Record<string, unknown>;
+  const id = item.id;
+  if (typeof id !== 'string' || id.length === 0) {
+    return value;
+  }
+
+  const avatarUrl = item.avatarUrl;
+  if (typeof avatarUrl === 'string' && !avatarUrl.startsWith(LEGACY_AVATAR_PREFIX)) {
+    return value;
+  }
+
+  return {
+    ...item,
+    avatarUrl: buildUserAvatarUrl(id),
+  };
 };
 
 const describeError = (error: unknown): string => {

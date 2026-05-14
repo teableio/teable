@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableDataSafetyLimitFieldOperationPlugin } from '../application/services/TableDataSafetyLimitFieldOperationPlugin';
 import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
@@ -47,6 +48,7 @@ import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils'
 
 const createContext = (options?: {
   maxFieldsPerTable?: number;
+  tableLimits?: NonNullable<IExecutionContext['config']>['tableLimits'];
   t?: NonNullable<IExecutionContext['$t']>;
 }): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -55,12 +57,17 @@ const createContext = (options?: {
   return {
     actorId: actorIdResult._unsafeUnwrap(),
     config:
-      options?.maxFieldsPerTable == null
+      options?.maxFieldsPerTable == null && !options?.tableLimits
         ? undefined
         : {
-            tableFields: {
-              maxFieldsPerTable: options.maxFieldsPerTable,
-            },
+            ...(options.tableLimits ? { tableLimits: options.tableLimits } : {}),
+            ...(options.maxFieldsPerTable == null
+              ? {}
+              : {
+                  tableFields: {
+                    maxFieldsPerTable: options.maxFieldsPerTable,
+                  },
+                }),
           },
     $t: options?.t,
   };
@@ -340,6 +347,248 @@ describe('CreateFieldHandler', () => {
     expect(viewEvents.length).toBeGreaterThan(0);
     expect(viewEvents.some((event) => event.viewId.equals(viewA.id()))).toBe(true);
     expect(viewEvents.some((event) => event.viewId.equals(viewB.id()))).toBe(true);
+  });
+
+  it('rejects fields whose select choice name exceeds the configured limit', async () => {
+    const baseId = `bse${'1'.repeat(16)}`;
+    const tableId = `tbl${'2'.repeat(16)}`;
+    const primaryFieldId = `fld${'3'.repeat(16)}`;
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'singleSelect',
+        name: 'Status',
+        options: ['Long choice'],
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({
+        tableLimits: { fieldOptions: { maxSelectChoiceNameLength: 4 } },
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.select_choice_name_max_length');
+  });
+
+  it('rejects select options whose serialized config exceeds the configured byte limit', async () => {
+    const baseId = `bse${'4'.repeat(16)}`;
+    const tableId = `tbl${'5'.repeat(16)}`;
+    const primaryFieldId = `fld${'6'.repeat(16)}`;
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'singleSelect',
+        name: 'Status',
+        options: ['Long choice'],
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({
+        tableLimits: { fieldOptions: { maxBytes: 8 } },
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.field_options_max_bytes');
+  });
+
+  it('rejects formula expressions that exceed the configured length limit', async () => {
+    const baseId = `bse${'7'.repeat(16)}`;
+    const tableId = `tbl${'8'.repeat(16)}`;
+    const primaryFieldId = `fld${'9'.repeat(16)}`;
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        name: 'Too Long',
+        options: { expression: "'12345'" },
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      createContext({
+        tableLimits: { computed: { maxFormulaLength: 3 } },
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.formula_max_length');
+  });
+
+  it('allows field data safety limits at their configured boundaries', async () => {
+    const baseId = `bse${'b'.repeat(16)}`;
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const primaryFieldId = `fld${'d'.repeat(16)}`;
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableDataSafetyLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+    const selectResult = await handler.handle(
+      createContext({
+        tableLimits: {
+          displayText: { maxNameLength: 4 },
+          fieldOptions: {
+            maxBytes: 128,
+            maxSelectChoices: 2,
+            maxSelectChoiceNameLength: 1,
+            maxSelectDefaultValues: 2,
+          },
+        },
+      }),
+      CreateFieldCommand.create({
+        baseId,
+        tableId,
+        field: {
+          type: 'multipleSelect',
+          name: 'Tags',
+          options: {
+            choices: [
+              { name: 'A', color: 'blue' },
+              { name: 'B', color: 'red' },
+            ],
+            defaultValue: ['A', 'B'],
+          },
+        },
+      })._unsafeUnwrap()
+    );
+
+    expect(selectResult.isOk()).toBe(true);
+
+    const formulaResult = await handler.handle(
+      createContext({
+        tableLimits: {
+          displayText: { maxNameLength: 4 },
+          computed: { maxFormulaLength: 3 },
+        },
+      }),
+      CreateFieldCommand.create({
+        baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          name: 'Calc',
+          options: { expression: '1+1' },
+        },
+      })._unsafeUnwrap()
+    );
+
+    expect(formulaResult.isOk()).toBe(true);
   });
 
   it('supports all link relationships and self references', async () => {

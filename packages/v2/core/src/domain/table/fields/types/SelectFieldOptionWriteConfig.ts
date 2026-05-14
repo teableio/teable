@@ -3,12 +3,16 @@ import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '../../../shared/TableDataSafetyLimits';
 
 export const ensureSelectFieldOptionCountWithinLimit = (
   optionCount: number,
   domainContext?: IDomainContext
 ): Result<void, DomainError> => {
-  const maxChoicesPerField = domainContext?.config?.selectFieldOptions?.maxChoicesPerField;
+  const maxChoicesPerField =
+    domainContext?.config?.tableLimits?.fieldOptions?.maxSelectChoices ??
+    domainContext?.config?.selectFieldOptions?.maxChoicesPerField ??
+    DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoices;
   if (maxChoicesPerField == null || optionCount <= maxChoicesPerField) {
     return ok(undefined);
   }
