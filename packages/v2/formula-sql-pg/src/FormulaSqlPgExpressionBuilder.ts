@@ -1157,7 +1157,8 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     const textValue = this.coerceToString(base);
-    const numericCast = this.buildLooseNumericCast(textValue.valueSql);
+    const numericTextSql = this.nullifyBlankCaseBranches(textValue.valueSql);
+    const numericCast = this.buildLooseNumericCast(numericTextSql);
     const valueSql = numericCast.valueSql;
     const errorCondition = numericCast.invalidSql;
     const combinedErrorCondition = combineErrorConditions([
@@ -1474,6 +1475,10 @@ export class FormulaSqlPgExpressionBuilder {
       expr.field,
       expr.storageKind
     );
+  }
+
+  private nullifyBlankCaseBranches(valueSql: string): string {
+    return valueSql.replace(/\b(THEN|ELSE)\s+''(?=\s|$)/g, '$1 NULL');
   }
 
   protected getFieldTypeName(expr: SqlExpr): string | undefined {

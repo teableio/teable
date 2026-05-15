@@ -4935,6 +4935,10 @@ export type I18nTranslations = {
                     "contextTipNewChat": string;
                     "contextTipMemory": string;
                 };
+                "contextCompaction": {
+                    "auto": string;
+                    "manual": string;
+                };
                 "taskProgress": {
                     "title": string;
                 };

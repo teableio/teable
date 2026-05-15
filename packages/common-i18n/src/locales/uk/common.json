@@ -1138,9 +1138,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОНОВЛЕННЯ ВІД 12 ТРАВНЯ",
-    "title": "Вбудований вхід для App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "ОНОВЛЕННЯ ВІД 14 ТРАВНЯ",
+    "title": "Згадуйте будь-який вузол в AI Chat",
+    "url": "https://help.teable.ai/en/changelog#may-14-2026",
+    "id": "changelog-2026-05-14-any-node-in-ai-chat"
   }
 }
