@@ -114,6 +114,7 @@ export class DuplicateTableHandler
         payload: {
           baseId: command.baseId,
           tableName: command.name,
+          table: duplicated.table,
           includeRecords: command.includeRecords,
         },
         isTransactionBound: false,

@@ -153,7 +153,7 @@ describe('UpdateFromSelectBuilder', () => {
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
     `
     );
   });
@@ -232,7 +232,7 @@ describe('UpdateFromSelectBuilder', () => {
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
     `
     );
   });
