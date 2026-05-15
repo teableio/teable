@@ -76,7 +76,8 @@ export class V2FieldDeletedCompatProjection implements IEventHandler<FieldDelete
     if (Object.keys(compatContext.frozenFieldOps).length > 0) {
       await this.v2ViewCompatService.batchUpdateViewByOps(
         compatContext.tableId,
-        compatContext.frozenFieldOps
+        compatContext.frozenFieldOps,
+        context
       );
     }
 
