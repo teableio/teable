@@ -64,7 +64,10 @@ import type { TableSchemaStatementBuilder } from '../rules/core';
 import { DependencyChangeDetectorVisitor } from '../visitors/DependencyChangeDetectorVisitor';
 import { FieldValueChangeCollectorVisitor } from '../visitors/FieldValueChangeCollectorVisitor';
 import type { ICreateTableBuilderRef } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
-import { PostgresTableSchemaFieldCreateVisitor } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
+import {
+  buildTableLocationsById,
+  PostgresTableSchemaFieldCreateVisitor,
+} from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { TableAddFieldCollectorVisitor } from '../visitors/TableAddFieldCollectorVisitor';
 import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 
@@ -154,12 +157,15 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const flush = async () => {
       if (!currentScope || batch.length === 0) return;
       const targetDb = currentScope === 'meta' ? this.resolveMetaDb(context) : db;
-      await executeTableSchemaStatements(targetDb, batch, trace);
+      await executeTableSchemaStatements(targetDb, batch, {
+        ...trace,
+        enforceRelationAccess: this.db !== this.metaDb,
+      });
       batch = [];
     };
 
     for (const statement of statements) {
-      const statementScope = statement.scope ?? 'data';
+      const statementScope = statement.scope;
       if (currentScope && currentScope !== statementScope) {
         await flush();
       }
@@ -278,7 +284,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   private async insertTableFieldSchemas(
     context: IExecutionContext,
-    table: Table
+    table: Table,
+    knownTables: ReadonlyArray<Table> = [table]
   ): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
@@ -287,6 +294,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
+      const tableLocationsById = yield* buildTableLocationsById(knownTables);
       const db = resolvePostgresDbOrTx(repository.db, context);
 
       const visitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
@@ -294,6 +302,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         schema,
         tableName,
         tableId: table.id().toString(),
+        tableLocationsById,
       });
       const statements = yield* visitor.apply(table);
 
@@ -302,7 +311,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       }
 
       try {
-        await executeTableSchemaStatements(db, statements, {
+        await repository.executeScopedTableSchemaStatements(context, db, statements, {
           tracer: context.tracer,
           attributes: {
             [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
@@ -383,6 +392,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         schema,
         tableName,
         tableId: table.id().toString(),
+        tableLocationsById: yield* buildTableLocationsById([table]),
       });
       const fieldStatements = yield* visitor.apply(table);
 
@@ -430,15 +440,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   @TraceSpan()
   async insertMany(
     context: IExecutionContext,
-    tables: ReadonlyArray<Table>
+    tables: ReadonlyArray<Table>,
+    options?: { knownTables?: ReadonlyArray<Table> }
   ): Promise<Result<void, DomainError>> {
+    const knownTables = options?.knownTables ?? tables;
     for (const table of tables) {
       const result = await this.insertTableSkeleton(context, table);
       if (result.isErr()) return err(result.error);
     }
 
     for (const table of tables) {
-      const result = await this.insertTableFieldSchemas(context, table);
+      const result = await this.insertTableFieldSchemas(context, table, knownTables);
       if (result.isErr()) return err(result.error);
     }
 

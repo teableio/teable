@@ -1138,12 +1138,13 @@ export class Table extends AggregateRoot<TableId> {
       }
     }
 
-    // Check for name uniqueness if name changed (excluding the current field)
-    const nameConflict = this.fieldsValue.some(
-      (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
-    );
-    if (nameConflict) {
-      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    if (!oldField.name().equals(newField.name())) {
+      const nameConflict = this.fieldsValue.some(
+        (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
+      );
+      if (nameConflict) {
+        return err(domainError.conflict({ message: 'Field names must be unique' }));
+      }
     }
 
     const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? newField : f));

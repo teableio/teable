@@ -1499,9 +1499,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "5 月 12 日更新",
-    "title": "App Builder 支持内置登录",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "5 月 14 日更新",
+    "title": "在 AI Chat 中 @ 任意节点",
+    "url": "https://help.teable.ai/en/changelog#may-14-2026",
+    "id": "changelog-2026-05-14-any-node-in-ai-chat"
   }
 }

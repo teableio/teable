@@ -150,6 +150,11 @@ describe('PostgresTableSchemaFieldCreateVisitor', () => {
       tableId: 'tbl_draft',
     });
     const table = {
+      id: () => asId('tbl_draft'),
+      dbTableName: () =>
+        ok({
+          split: () => ok({ schema: null, tableName: 'draft_tasks' }),
+        }),
       getFields: () => [field],
     };
 
