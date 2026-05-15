@@ -52,6 +52,7 @@ import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 import { adjustFrozenField } from './utils/derive-frozen-fields';
+import { ViewDataSafetyLimitService } from './view-data-safety-limit.service';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -64,7 +65,8 @@ export class ViewService implements IReadonlyAdapterService {
     private readonly dataPrismaService: DataPrismaService,
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService
   ) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -252,6 +254,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
+    await this.viewDataSafetyLimitService.ensureCanCreateView(tableId);
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
     const {
@@ -269,6 +272,14 @@ export class ViewService implements IReadonlyAdapterService {
     } = createViewRo;
 
     const { name, order } = await this.polishOrderAndName(tableId, createViewRo);
+    this.viewDataSafetyLimitService.ensureViewPayload({
+      name,
+      description,
+      filter,
+      sort,
+      group,
+      options,
+    });
 
     const viewId = generateViewId();
     const prisma = this.prismaService.txClient();
@@ -381,6 +392,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async updateViewSort(tableId: string, viewId: string, sort: ISort) {
+    this.viewDataSafetyLimitService.ensureSort(sort);
     const viewRaw = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -506,6 +518,9 @@ export class ViewService implements IReadonlyAdapterService {
         values,
       };
     });
+    for (const viewId of updatedViewIds) {
+      this.viewDataSafetyLimitService.ensureSerializedProperties(updateViewMap[viewId]?.property);
+    }
 
     if (data.length === 1) {
       const { id, values } = data[0];

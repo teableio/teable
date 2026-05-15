@@ -134,9 +134,10 @@ export class ImportRecordsHandler
         if (error instanceof MaxRowCountExceededError) {
           return err(
             domainError.validation({
-              code: 'validation.max_row_limit',
+              code: 'validation.limit.rows_per_table_max',
               message: `Exceed max row limit: ${error.maxRowCount}`,
               details: {
+                max: error.maxRowCount,
                 maxRowCount: error.maxRowCount,
                 rowCount: error.rowCount,
               },
