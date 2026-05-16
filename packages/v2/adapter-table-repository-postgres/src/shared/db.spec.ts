@@ -55,7 +55,11 @@ class FakeTracer implements ITracer {
 const compiledQuery = (sql: string, parameters: unknown[] = []): CompiledQuery =>
   ({ sql, parameters }) as unknown as CompiledQuery;
 
-const statement = (compiled: CompiledQuery): TableSchemaStatementBuilder => ({
+const statement = (
+  compiled: CompiledQuery,
+  scope: TableSchemaStatementBuilder['scope'] = 'data'
+): TableSchemaStatementBuilder => ({
+  scope,
   compile: vi.fn(() => compiled),
 });
 
@@ -115,5 +119,30 @@ describe('executeTableSchemaStatements', () => {
     expect(tracer.spans).toHaveLength(1);
     expect(tracer.spans[0]?.errors).toEqual(['schema update failed']);
     expect(tracer.spans[0]?.ended).toBe(true);
+  });
+
+  it('rejects data-scoped statements that access metadata relations', async () => {
+    const db = {
+      executeQuery: vi.fn(async () => ({ rows: [] })),
+    } as unknown as Kysely<unknown>;
+
+    await expect(
+      executeTableSchemaStatements(db, [statement(compiledQuery('select * from field'))], {
+        enforceRelationAccess: true,
+      })
+    ).rejects.toThrow('cannot access relations owned by another storage plane');
+    expect(db.executeQuery).not.toHaveBeenCalled();
+  });
+
+  it('allows metadata-scoped statements to access metadata relations', async () => {
+    const db = {
+      executeQuery: vi.fn(async () => ({ rows: [] })),
+    } as unknown as Kysely<unknown>;
+
+    await executeTableSchemaStatements(db, [
+      statement(compiledQuery('update field set options = $1 where id = $2'), 'meta'),
+    ]);
+
+    expect(db.executeQuery).toHaveBeenCalledTimes(1);
   });
 });

@@ -703,4 +703,115 @@ describe('PostgresTableSchemaRepository', () => {
 
     expect(columnResult?.column_name).toBe(fkColumnName);
   });
+
+  it('routes batch reference metadata statements to the meta DB when databases are split', async () => {
+    const dataPglite = await PGlite.create();
+    const metaPglite = await PGlite.create();
+    const dataDb = new Kysely<V1TeableDatabase>({
+      dialect: new PGliteDialect(dataPglite),
+    });
+    const metaDb = new Kysely<V1TeableDatabase>({
+      dialect: new PGliteDialect(metaPglite),
+    });
+
+    try {
+      await installUndoCaptureGlobals(dataDb);
+      await createReferenceTable(metaDb);
+
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context: IExecutionContext = { actorId };
+
+      const hostTableBuilder = Table.builder()
+        .withBaseId(baseId)
+        .withId(TableId.generate()._unsafeUnwrap())
+        .withName(TableName.create('Batch Split Host')._unsafeUnwrap());
+      hostTableBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      hostTableBuilder.view().defaultGrid().done();
+      const hostTable = hostTableBuilder.build()._unsafeUnwrap();
+
+      const foreignTableBuilder = Table.builder()
+        .withBaseId(baseId)
+        .withId(TableId.generate()._unsafeUnwrap())
+        .withName(TableName.create('Batch Split Foreign')._unsafeUnwrap());
+      foreignTableBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+      foreignTableBuilder.view().defaultGrid().done();
+      const foreignTable = foreignTableBuilder.build()._unsafeUnwrap();
+      const foreignPrimaryFieldId = foreignTable.getFields()[0]?.id();
+      if (!foreignPrimaryFieldId) {
+        throw new Error('Foreign table primary field missing');
+      }
+
+      const linkFieldId = FieldId.generate()._unsafeUnwrap();
+      const symmetricFieldId = FieldId.generate()._unsafeUnwrap();
+      const linkDbConfig = LinkFieldConfig.buildDbConfig({
+        fkHostTableName: DbTableName.rehydrate(
+          `${baseId.toString()}.${foreignTable.id().toString()}`
+        )._unsafeUnwrap(),
+        relationship: LinkRelationship.oneMany(),
+        fieldId: linkFieldId,
+        symmetricFieldId,
+        isOneWay: false,
+      })._unsafeUnwrap();
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'oneMany',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignPrimaryFieldId.toString(),
+        isOneWay: false,
+        symmetricFieldId: symmetricFieldId.toString(),
+        fkHostTableName: linkDbConfig.fkHostTableName.value()._unsafeUnwrap(),
+        selfKeyName: linkDbConfig.selfKeyName.value()._unsafeUnwrap(),
+        foreignKeyName: linkDbConfig.foreignKeyName.value()._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const linkField = createLinkField({
+        id: linkFieldId,
+        name: FieldName.create('Foreign')._unsafeUnwrap(),
+        config: linkConfig,
+      })._unsafeUnwrap();
+      const hostWithLink = hostTable
+        .update((mutator) => mutator.addField(linkField))
+        ._unsafeUnwrap().table;
+
+      const tableRepository = new FakeTableRepository([hostWithLink, foreignTable]);
+      const repository = new PostgresTableSchemaRepository(
+        dataDb,
+        tableRepository as never,
+        new FakeComputedFieldBackfillService(),
+        new FakeComputedFieldCascadeService(),
+        new FakeComputedUpdatePlanner() as never,
+        new FakeFieldDependencyGraph() as never,
+        metaDb
+      );
+
+      const result = await repository.insertMany(context, [hostWithLink, foreignTable]);
+      result._unsafeUnwrap();
+
+      const referenceRows = await metaDb
+        .selectFrom('reference')
+        .select(['to_field_id', 'from_field_id'])
+        .execute();
+
+      expect(referenceRows).toEqual([
+        {
+          to_field_id: linkFieldId.toString(),
+          from_field_id: foreignPrimaryFieldId.toString(),
+        },
+      ]);
+
+      await expect(
+        dataDb.selectFrom('reference').select(['to_field_id', 'from_field_id']).execute()
+      ).rejects.toThrow(/relation "reference" does not exist|does not exist/i);
+    } finally {
+      await dataDb.destroy();
+      await metaDb.destroy();
+    }
+  });
 });

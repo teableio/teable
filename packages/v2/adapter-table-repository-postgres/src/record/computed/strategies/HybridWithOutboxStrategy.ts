@@ -646,7 +646,7 @@ const buildComputedUpdateEvents = (
       newVersion: change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
-        oldValue: null as unknown,
+        oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));

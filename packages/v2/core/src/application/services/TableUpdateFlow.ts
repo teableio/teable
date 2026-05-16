@@ -4,7 +4,14 @@ import type { Result } from 'neverthrow';
 
 import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
 import type { BaseId } from '../../domain/base/BaseId';
-import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
+import {
+  domainError,
+  isConflictError,
+  isInvariantError,
+  isNotFoundError,
+  isValidationError,
+  type DomainError,
+} from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
@@ -90,6 +97,10 @@ const normalizeHookResult = (
   return { events: result };
 };
 
+const shouldFailSchemaOperation = (error: DomainError): boolean => {
+  return !isValidationError(error) && !isConflictError(error) && !isInvariantError(error);
+};
+
 @injectable()
 // Application service: wraps transactional table updates, persistence, schema changes, and events.
 // Mutations are provided by domain code; this class only orchestrates ports.
@@ -128,15 +139,9 @@ export class TableUpdateFlow {
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
-      yield* await beginTableSchemaOperation(
-        handler.unitOfWork,
-        handler.tableRepository,
-        context,
-        latestTable,
-        { type: 'table.update' }
-      );
 
       let transactionContextRef: IExecutionContext | undefined;
+      let schemaOperationStarted = false;
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) => {
@@ -154,6 +159,15 @@ export class TableUpdateFlow {
               events.push(...normalizedResult.events);
               latestTable = normalizedResult.table ?? latestTable;
             }
+
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              latestTable,
+              { type: 'table.update' }
+            );
+            schemaOperationStarted = true;
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
@@ -200,16 +214,20 @@ export class TableUpdateFlow {
         if (transactionContextRef) {
           abortTableUpdateTransactionScope(transactionContextRef);
         }
-        yield* await failTableSchemaOperation(
-          handler.unitOfWork,
-          handler.tableRepository,
-          context,
-          latestTable,
-          {
-            lastError: transactionResult.error.message,
-            type: 'table.update',
-          }
-        );
+        if (schemaOperationStarted && shouldFailSchemaOperation(transactionResult.error)) {
+          await failTableSchemaOperation(
+            handler.unitOfWork,
+            handler.tableRepository,
+            context,
+            latestTable,
+            {
+              lastError: transactionResult.error.message,
+              type: 'table.update',
+            }
+          );
+        }
+        // Preserve the original failure; the operation-state write can fail when
+        // a reused transaction has already been aborted by the data phase.
         return err(transactionResult.error);
       }
 

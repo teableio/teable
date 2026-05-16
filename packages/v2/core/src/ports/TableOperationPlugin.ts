@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
+import type { Table } from '../domain/table/Table';
 import type { TableName } from '../domain/table/TableName';
 import type { IExecutionContext } from './ExecutionContext';
 import type { PluginTraceContext } from './Tracer';
@@ -31,6 +32,7 @@ interface ITableOperationPluginContextBase<TKind extends TableOperationKind, TPa
 export type TableOperationCreatePayload = {
   readonly baseId: BaseId;
   readonly tableName: TableName;
+  readonly table?: Table;
   readonly fieldCount: number;
   readonly viewCount: number;
   readonly recordCount: number;
@@ -45,12 +47,14 @@ export type TableOperationCreateManyPayload = {
 export type TableOperationDuplicatePayload = {
   readonly baseId: BaseId;
   readonly tableName: TableName;
+  readonly table?: Table;
   readonly includeRecords: boolean;
 };
 
 export type TableOperationImportCsvPayload = {
   readonly baseId: BaseId;
   readonly tableName: TableName;
+  readonly table?: Table;
   readonly fieldCount: number;
   readonly viewCount: number;
   readonly recordCount: number;
