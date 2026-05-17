@@ -665,6 +665,94 @@ describe('v2 http deleteTable (e2e)', () => {
     }
   });
 
+  it('deletes a foreign table when referencing link fields already have duplicate names', async () => {
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('DeleteTable Duplicate Link Name Foreign'),
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      if (!foreignPrimaryFieldId) {
+        throw new Error('Missing duplicate-name foreign primary field');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('DeleteTable Duplicate Link Name Host'),
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const tableWithFirstLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Public Release Drafts A',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const firstLinkFieldId = tableWithFirstLink.fields.find(
+        (field) => field.name === 'Public Release Drafts A'
+      )?.id;
+      if (!firstLinkFieldId) {
+        throw new Error('Missing first duplicate-name link field');
+      }
+
+      const tableWithSecondLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Public Release Drafts B',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const secondLinkFieldId = tableWithSecondLink.fields.find(
+        (field) => field.name === 'Public Release Drafts B'
+      )?.id;
+      if (!secondLinkFieldId) {
+        throw new Error('Missing second duplicate-name link field');
+      }
+
+      await sql`
+        UPDATE "field"
+        SET "name" = 'Public Release Drafts'
+        WHERE "id" IN (${firstLinkFieldId}, ${secondLinkFieldId})
+      `.execute(ctx.testContainer.db);
+
+      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+
+      const refreshedHost = await ctx.getTableById(hostTable.id);
+      const convertedFields = refreshedHost.fields.filter((field) =>
+        [firstLinkFieldId, secondLinkFieldId].includes(field.id)
+      );
+
+      expect(convertedFields).toHaveLength(2);
+      expect(convertedFields.every((field) => field.name === 'Public Release Drafts')).toBe(true);
+      expect(convertedFields.every((field) => field.type === 'singleLineText')).toBe(true);
+    } finally {
+      await safeDeleteTable(hostTableId);
+      await safeDeleteTable(foreignTableId);
+    }
+  });
+
   it('publishes schema refresh action triggers for affected host tables during delete-table side effects', async () => {
     let foreignTableId: string | undefined;
     let hostTableId: string | undefined;
