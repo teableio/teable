@@ -82,7 +82,7 @@ import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.inte
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { BaseExportService } from './base-export.service';
-import { BaseImportService } from './base-import.service';
+import { BaseImportService, formatBaseImportError } from './base-import.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -176,7 +176,7 @@ export class BaseController {
     } catch (error) {
       sendEvent({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Unknown import error',
+        message: formatBaseImportError(error, 'Unknown import error'),
       });
     } finally {
       clearInterval(heartbeat);

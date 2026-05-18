@@ -297,7 +297,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         if (externalTableIds.length > 0) {
           // Use withoutBaseId() to support cross-base foreign tables
           const foreignSpec = yield* table.specs().withoutBaseId().byIds(externalTableIds).build();
-          const loadedTables = yield* await deps.tableRepository.find(deps.context, foreignSpec);
+          const loadedTables = yield* await deps.tableRepository.find(deps.context, foreignSpec, {
+            state: 'activeWithPending',
+          });
 
           for (const loadedTable of loadedTables) {
             foreignTables.set(loadedTable.id().toString(), loadedTable);

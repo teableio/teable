@@ -1241,6 +1241,10 @@
         "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
         "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
       },
+      "contextCompaction": {
+        "auto": "Context was automatically compacted",
+        "manual": "Context was compacted"
+      },
       "taskProgress": {
         "title": "Task Progress"
       },

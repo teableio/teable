@@ -7,7 +7,6 @@ import {
   Role,
   generateTemplateId,
 } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   IBaseErdVo,
@@ -50,13 +49,20 @@ import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { replaceDefaultUrl } from './utils';
 
+type IDataPrismaExecutor = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  txClient?: () => IDataPrismaExecutor;
+};
+
 @Injectable()
 export class BaseService {
   private logger = new Logger(BaseService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
@@ -69,6 +75,10 @@ export class BaseService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
+
+  private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
+    return prisma.txClient?.() ?? prisma;
+  }
 
   private async getRoleByBaseId(baseId: string, spaceId: string) {
     const userId = this.cls.get('user.id');
@@ -252,7 +262,9 @@ export class BaseService {
     try {
       const sqlList = this.dbProvider.createSchema(base.id);
       if (sqlList) {
-        const dataPrisma = await this.dataDbClientManager.dataPrismaForSpace(spaceId);
+        const dataPrisma = await this.dataDbClientManager.dataPrismaForSpace(spaceId, {
+          useTransaction: true,
+        });
         for (const sql of sqlList) {
           await dataPrisma.$executeRawUnsafe(sql);
         }
@@ -571,7 +583,9 @@ export class BaseService {
 
         await this.dropBase(baseId, tableIds);
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
+        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
+          useTransaction: true,
+        });
         await this.cleanBaseRelatedData(baseId);
       },
       {
@@ -580,25 +594,38 @@ export class BaseService {
     );
   }
 
-  private async permanentEmptyBaseRelatedData(baseId: string) {
-    return await this.prismaService.$tx(
-      async (prisma) => {
-        const tables = await prisma.tableMeta.findMany({
-          where: { baseId },
-          select: { id: true },
-        });
-        const tableIds = tables.map(({ id }) => id);
+  private async permanentEmptyBaseRelatedData(
+    baseId: string,
+    options: {
+      transaction?: 'current';
+      emitRuntimeEvents?: boolean;
+      syncButtonField?: boolean;
+    } = {}
+  ) {
+    const remove = async () => {
+      const prisma = this.prismaService.txClient();
+      const tables = await prisma.tableMeta.findMany({
+        where: { baseId },
+        select: { id: true },
+      });
+      const tableIds = tables.map(({ id }) => id);
 
-        await this.dropBaseTable(tableIds);
-        await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
-        await this.cleanBaseRelatedDataWithoutBase(baseId);
-        await this.cleanRelativeNodesData(baseId);
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
-    );
+      await this.dropBaseTable(tableIds);
+      await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+      await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
+        useTransaction: true,
+      });
+      await this.cleanBaseRelatedDataWithoutBase(baseId);
+      await this.cleanRelativeNodesData(baseId);
+    };
+
+    if (options.transaction === 'current') {
+      return await remove();
+    }
+
+    return await this.prismaService.$tx(remove, {
+      timeout: this.thresholdConfig.bigTransactionTimeout,
+    });
   }
 
   private async cleanBaseRelatedDataWithoutBase(baseId: string) {
@@ -639,7 +666,10 @@ export class BaseService {
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
     if (sql) {
-      return await this.dataPrismaService.$executeRawUnsafe(sql);
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
+      return await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(sql);
     }
     await this.tableOpenApiService.dropTables(tableIds);
   }
@@ -863,7 +893,11 @@ export class BaseService {
 
     if (existedBaseId) {
       // delete some related data
-      await this.cleanTemplateRelatedData(existedBaseId);
+      await this.cleanTemplateRelatedData(existedBaseId, {
+        transaction: 'current',
+        emitRuntimeEvents: false,
+        syncButtonField: false,
+      });
     }
 
     const {
@@ -890,8 +924,15 @@ export class BaseService {
     };
   }
 
-  async cleanTemplateRelatedData(baseId: string) {
-    await this.permanentEmptyBaseRelatedData(baseId);
+  async cleanTemplateRelatedData(
+    baseId: string,
+    options: {
+      transaction?: 'current';
+      emitRuntimeEvents?: boolean;
+      syncButtonField?: boolean;
+    } = {}
+  ) {
+    await this.permanentEmptyBaseRelatedData(baseId, options);
   }
 
   /**

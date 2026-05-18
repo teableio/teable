@@ -3,7 +3,7 @@ import 'zx/globals'
 
 const env = $.env;
 const metaDatabaseUrl = env.PRISMA_META_DATABASE_URL ?? env.PRISMA_DATABASE_URL;
-const dataDatabaseUrl = env.PRISMA_DATA_DATABASE_URL ?? metaDatabaseUrl;
+const dataDatabaseUrl = metaDatabaseUrl;
 
 const parseDsn = (dsn, label) => {
   try {
