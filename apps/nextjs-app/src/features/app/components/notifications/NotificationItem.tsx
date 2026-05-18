@@ -20,9 +20,7 @@ export const NotificationItem = React.forwardRef<HTMLElement, INotificationItemP
     const fromNow = dayjs(createdTime).fromNow();
     const isExportBase = notifyType === NotificationTypeEnum.ExportBase;
 
-    const className = cn(
-      'm-1 flex flex-auto cursor-pointer items-center rounded-sm px-6 py-2 hover:bg-accent'
-    );
+    const className = cn('m-1 flex flex-auto items-center rounded-sm px-6 py-2 hover:bg-accent');
 
     const content = (
       <>
@@ -40,7 +38,7 @@ export const NotificationItem = React.forwardRef<HTMLElement, INotificationItemP
       </>
     );
 
-    if (isExportBase) {
+    if (isExportBase || !url) {
       return (
         <div ref={ref as React.Ref<HTMLDivElement>} className={className} {...rest}>
           {content}

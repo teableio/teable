@@ -103,6 +103,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         payload: {
           baseId: command.baseId,
           tableName: command.tableName,
+          table,
           fieldCount: table.getFields().length,
           viewCount: table.views().length,
           recordCount: command.records.length,

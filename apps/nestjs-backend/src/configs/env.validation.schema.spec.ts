@@ -18,19 +18,16 @@ describe('envValidationSchema', () => {
     expect(value.PRISMA_DATABASE_URL).toContain('/teable');
   });
 
-  it('accepts split meta/data env without the legacy alias', () => {
+  it('accepts split meta env without the legacy alias', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({
         PRISMA_META_DATABASE_URL:
           'postgresql://teable:teable@127.0.0.1:5432/teable-meta?schema=public',
-        PRISMA_DATA_DATABASE_URL:
-          'postgresql://teable:teable@127.0.0.1:5432/teable-data?schema=public',
       })
     );
 
     expect(error).toBeUndefined();
     expect(value.PRISMA_META_DATABASE_URL).toContain('/teable-meta');
-    expect(value.PRISMA_DATA_DATABASE_URL).toContain('/teable-data');
   });
 
   it('accepts DATABASE_URL as the last-resort meta fallback', () => {

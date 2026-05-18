@@ -3,8 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
-import { PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IDbConnectionVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
@@ -13,6 +12,7 @@ import { BaseConfig, type IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex';
 
 @Injectable()
@@ -21,7 +21,7 @@ export class DbConnectionService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly configService: ConfigService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -84,12 +84,16 @@ export class DbConnectionService {
           );
         });
 
+      const dataPrisma = await this.databaseRouter.dataPrismaExecutorForBase(baseId, {
+        useTransaction: true,
+      });
+
       // Revoke permissions from the role for the schema
-      await this.dataPrismaService.$executeRawUnsafe(
+      await dataPrisma.$executeRawUnsafe(
         this.knex.raw('REVOKE USAGE ON SCHEMA ?? FROM ??', [schemaName, readOnlyRole]).toQuery()
       );
 
-      await this.dataPrismaService.$executeRawUnsafe(
+      await dataPrisma.$executeRawUnsafe(
         this.knex
           .raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ?? REVOKE ALL ON TABLES FROM ??`, [
             schemaName,
@@ -99,7 +103,7 @@ export class DbConnectionService {
       );
 
       // Revoke permissions from the role for the tables in schema
-      await this.dataPrismaService.$executeRawUnsafe(
+      await dataPrisma.$executeRawUnsafe(
         this.knex
           .raw('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ?? FROM ??', [
             schemaName,
@@ -109,7 +113,7 @@ export class DbConnectionService {
       );
 
       // drop the role
-      await this.dataPrismaService.$executeRawUnsafe(
+      await dataPrisma.$executeRawUnsafe(
         this.knex.raw('DROP ROLE IF EXISTS ??', [readOnlyRole]).toQuery()
       );
 
@@ -120,15 +124,17 @@ export class DbConnectionService {
     });
   }
 
-  private async roleExits(role: string): Promise<boolean> {
-    const roleExists = await this.dataPrismaService.$queryRaw<
+  private async roleExits(baseId: string, role: string): Promise<boolean> {
+    const dataPrisma = await this.databaseRouter.dataPrismaForBase(baseId);
+    const roleExists = await dataPrisma.$queryRaw<
       { count: bigint }[]
     >`SELECT count(*) FROM pg_roles WHERE rolname=${role}`;
     return Boolean(roleExists[0].count);
   }
 
-  private async getConnectionCount(role: string): Promise<number> {
-    const roleExists = await this.dataPrismaService.$queryRaw<
+  private async getConnectionCount(baseId: string, role: string): Promise<number> {
+    const dataPrisma = await this.databaseRouter.dataPrismaForBase(baseId);
+    const roleExists = await dataPrisma.$queryRaw<
       { count: bigint }[]
     >`SELECT COUNT(*) FROM pg_stat_activity WHERE usename=${role}`;
     return Number(roleExists[0].count);
@@ -159,7 +165,7 @@ export class DbConnectionService {
     }
 
     // Check if the read-only role already exists
-    if (!(await this.roleExits(readOnlyRole))) {
+    if (!(await this.roleExits(baseId, readOnlyRole))) {
       throw new CustomHttpException('Role does not exist', HttpErrorCode.INTERNAL_SERVER_ERROR, {
         localization: {
           i18nKey: 'httpErrors.dbConnection.roleNotExist',
@@ -170,10 +176,9 @@ export class DbConnectionService {
       });
     }
 
-    const currentConnections = await this.getConnectionCount(readOnlyRole);
+    const currentConnections = await this.getConnectionCount(baseId, readOnlyRole);
 
-    const databaseUrl =
-      this.configService.get<string>('PRISMA_DATA_DATABASE_URL') ?? getDatabaseUrl('data');
+    const databaseUrl = await this.databaseRouter.getDataDatabaseUrlForBase(baseId);
     const { db } = parseDsn(databaseUrl);
 
     // Construct the DSN for the read-only role
@@ -225,8 +230,7 @@ export class DbConnectionService {
       const { hostname: dbHostProxy, port: dbPortProxy } = new URL(
         `https://${publicDatabaseProxy}`
       );
-      const databaseUrl =
-        this.configService.get<string>('PRISMA_DATA_DATABASE_URL') ?? getDatabaseUrl('data');
+      const databaseUrl = await this.databaseRouter.getDataDatabaseUrlForBase(baseId);
       const { db } = parseDsn(databaseUrl);
 
       return this.prismaService.$tx(async (prisma) => {
@@ -254,8 +258,12 @@ export class DbConnectionService {
           data: { schemaPass: password },
         });
 
+        const dataPrisma = await this.databaseRouter.dataPrismaExecutorForBase(baseId, {
+          useTransaction: true,
+        });
+
         // Create a read-only role
-        await this.dataPrismaService.$executeRawUnsafe(
+        await dataPrisma.$executeRawUnsafe(
           this.knex
             .raw(
               `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION CONNECTION LIMIT ?`,
@@ -264,17 +272,17 @@ export class DbConnectionService {
             .toQuery()
         );
 
-        await this.dataPrismaService.$executeRawUnsafe(
+        await dataPrisma.$executeRawUnsafe(
           this.knex.raw(`GRANT USAGE ON SCHEMA ?? TO ??`, [schemaName, readOnlyRole]).toQuery()
         );
 
-        await this.dataPrismaService.$executeRawUnsafe(
+        await dataPrisma.$executeRawUnsafe(
           this.knex
             .raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ?? TO ??`, [schemaName, readOnlyRole])
             .toQuery()
         );
 
-        await this.dataPrismaService.$executeRawUnsafe(
+        await dataPrisma.$executeRawUnsafe(
           this.knex
             .raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ?? GRANT SELECT ON TABLES TO ??`, [
               schemaName,

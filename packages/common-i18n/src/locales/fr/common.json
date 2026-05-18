@@ -1159,9 +1159,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE A JOUR DU 12 MAI",
-    "title": "Connexion integree pour App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "MISE A JOUR DU 14 MAI",
+    "title": "Mentionnez n’importe quel noeud dans AI Chat",
+    "url": "https://help.teable.ai/en/changelog#may-14-2026",
+    "id": "changelog-2026-05-14-any-node-in-ai-chat"
   }
 }

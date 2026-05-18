@@ -112,7 +112,7 @@ export class RecordCreateService {
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
     >(table, records, fieldKeyType, typecast);
-    await this.recordService.createRecordsOnlySql(table, typecastRecords);
+    await this.recordService.createRecordsOnlySql(table, typecastRecords, fieldKeyType);
   }
 
   private buildProjectionByTable(

@@ -58,6 +58,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import {
   getEffectCellCount,
   getEffectRows,
+  selectionIncludesEditableField,
   selectionCoverAttachments,
   shouldUseClearSelectionStream,
   shouldUseDeleteSelectionStream,
@@ -678,6 +679,15 @@ export const useSelectionOperation = (props?: {
         : '';
       const fileArray = Array.from(files) as unknown as FileList;
 
+      if (!selectionIncludesEditableField(selection, fields)) {
+        toast.error(t('table:table.actionTips.pasteFailed'), {
+          description: t('table:table.actionTips.pasteNoEditableFields', {
+            defaultValue: 'The selected fields are read-only and cannot be pasted into.',
+          }),
+        });
+        return;
+      }
+
       const { cellValues } = getCellPasteInfo(e);
 
       const pasteRecordLength = cellValues?.length ?? 0;
@@ -724,7 +734,7 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, rowCount, t, confirmPasteSelectionIfNeeded, performPasteSelection]
+    [viewId, tableId, fields, rowCount, t, confirmPasteSelectionIfNeeded, performPasteSelection]
   );
 
   const doFill = useCallback(
