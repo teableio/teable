@@ -16,8 +16,8 @@ import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
 import {
   backfillJunctionTableFromLinkValueStatement,
   createForeignKeyConstraintStatement,
-  createForeignKeyConstraintStatementFromTableMeta,
   createIndexStatement,
+  dataStatement,
   dropConstraintStatement,
   dropIndexStatement,
   dropTableStatement,
@@ -268,43 +268,56 @@ export class JunctionTableExistsRule implements ISchemaRule {
           'double precision'
         );
       }
-      statements.push(createTableBuilder);
+      statements.push(dataStatement(createTableBuilder));
 
       // Also repair partially-created junction tables by adding any missing columns.
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn('__id', 'serial', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn('__id', 'serial', (col) => col.ifNotExists())
+        )
       );
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+        )
       );
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+        )
       );
 
       if (config.orderColumnName) {
         statements.push(
-          schemaBuilder
-            .alterTable(config.junctionTable.tableName)
-            .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+          dataStatement(
+            schemaBuilder
+              .alterTable(config.junctionTable.tableName)
+              .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+          )
         );
       }
 
       const sourceLinkValueColumnName = yield* resolveColumnName(self.field);
+      const sameColumnLinkFieldCount =
+        ctx.table?.getFields().filter((field) => {
+          const dbFieldName = field.dbFieldName().andThen((name) => name.value());
+          return dbFieldName.isOk() && dbFieldName.value === sourceLinkValueColumnName;
+        }).length ?? 1;
       statements.push(
         backfillJunctionTableFromLinkValueStatement({
           sourceTable: config.sourceTable,
-          sourceTableId: ctx.tableId,
           sourceLinkValueColumnName,
           junctionTable: config.junctionTable,
           selfKeyName: config.selfKeyName,
           foreignKeyName: config.foreignKeyName,
           orderColumnName: config.orderColumnName,
+          skipBackfill: sameColumnLinkFieldCount > 1,
         })
       );
 
@@ -376,7 +389,7 @@ export class JunctionTableUniqueConstraintRule implements ISchemaRule {
       .alterTable(this.junctionTable.tableName)
       .addUniqueConstraint(this.constraintName, [this.selfKeyName, this.foreignKeyName]);
 
-    return ok([builder]);
+    return ok([dataStatement(builder)]);
   }
 
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -767,19 +780,6 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
   }
 
   up(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (this.targetTableMetaId) {
-      return ok([
-        createForeignKeyConstraintStatementFromTableMeta(
-          this.junctionTable,
-          this.constraintName,
-          this.columnName,
-          this.targetTableMetaId,
-          '__id',
-          'CASCADE',
-          this.targetTable
-        ),
-      ]);
-    }
     return ok([
       createForeignKeyConstraintStatement(
         this.junctionTable,

@@ -1157,7 +1157,8 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     const textValue = this.coerceToString(base);
-    const numericCast = this.buildLooseNumericCast(textValue.valueSql);
+    const numericTextSql = this.nullifyBlankCaseBranches(textValue.valueSql);
+    const numericCast = this.buildLooseNumericCast(numericTextSql);
     const valueSql = numericCast.valueSql;
     const errorCondition = numericCast.invalidSql;
     const combinedErrorCondition = combineErrorConditions([
@@ -1476,6 +1477,10 @@ export class FormulaSqlPgExpressionBuilder {
     );
   }
 
+  private nullifyBlankCaseBranches(valueSql: string): string {
+    return valueSql.replace(/\b(THEN|ELSE)\s+''(?=\s|$)/g, '$1 NULL');
+  }
+
   protected getFieldTypeName(expr: SqlExpr): string | undefined {
     return expr.field?.type().toString();
   }
@@ -1489,6 +1494,10 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   private normalizeLookupArrayExpr(expr: SqlExpr): string {
+    if (expr.valueSql.trim().toUpperCase() === 'NULL') {
+      return "'[]'::jsonb";
+    }
+
     const base = `(${expr.valueSql})`;
     // Lookup fields may come from various sources. Use safeJsonbWithStrategy for type safety.
     if (expr.field && this.isLookupArrayField(expr)) {

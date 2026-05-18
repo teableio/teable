@@ -38,9 +38,9 @@ export class ViewOpenApiV2Service {
     viewId: string,
     updateRecordOrdersRo: IUpdateRecordOrdersRo
   ): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const v2Input = {
       tableId,
