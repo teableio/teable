@@ -34,7 +34,6 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { isEmpty, isNull, isString, merge, snakeCase, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -43,6 +42,8 @@ import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -52,6 +53,7 @@ import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 import { adjustFrozenField } from './utils/derive-frozen-fields';
+import { ViewDataSafetyLimitService } from './view-data-safety-limit.service';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -61,10 +63,11 @@ export class ViewService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService
   ) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -93,26 +96,25 @@ export class ViewService implements IReadonlyAdapterService {
     return { name, order };
   }
 
-  async existIndex(dbTableName: string, viewId: string) {
+  async existIndex(dbTableName: string, viewId: string, prisma: IDataPrismaQueryExecutor) {
     const columnName = this.getRowIndexFieldName(viewId);
-    const exists = await this.dbProvider.checkColumnExist(
-      dbTableName,
-      columnName,
-      this.dataPrismaService.txClient()
-    );
+    const exists = await this.dbProvider.checkColumnExist(dbTableName, columnName, prisma);
 
     if (exists) {
       return columnName;
     }
   }
 
-  async createViewIndexField(dbTableName: string, viewId: string) {
-    const prisma = this.dataPrismaService.txClient();
-
+  async createViewIndexField(
+    dbTableName: string,
+    viewId: string,
+    prisma: IDataPrismaQueryExecutor,
+    knex: Knex = this.dataKnex
+  ) {
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
 
     // add a field for maintain row order number
-    const addRowIndexColumnSql = this.dataKnex.schema
+    const addRowIndexColumnSql = knex.schema
       .alterTable(dbTableName, (table) => {
         table.double(rowIndexFieldName);
       })
@@ -120,15 +122,15 @@ export class ViewService implements IReadonlyAdapterService {
     await prisma.$executeRawUnsafe(addRowIndexColumnSql);
 
     // fill initial order for every record, with auto increment integer
-    const updateRowIndexSql = this.dataKnex(dbTableName)
+    const updateRowIndexSql = knex(dbTableName)
       .update({
-        [rowIndexFieldName]: this.dataKnex.ref('__auto_number'),
+        [rowIndexFieldName]: knex.ref('__auto_number'),
       })
       .toQuery();
     await prisma.$executeRawUnsafe(updateRowIndexSql);
 
     // create index
-    const createRowIndexSQL = this.dataKnex.schema
+    const createRowIndexSQL = knex.schema
       .alterTable(dbTableName, (table) => {
         table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
       })
@@ -138,11 +140,27 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async getOrCreateViewIndexField(dbTableName: string, viewId: string) {
-    const indexFieldName = await this.existIndex(dbTableName, viewId);
-    if (indexFieldName) {
-      return indexFieldName;
-    }
-    return this.createViewIndexField(dbTableName, viewId);
+    const view = await this.prismaService.txClient().view.findUniqueOrThrow({
+      where: { id: viewId },
+      select: { tableId: true },
+    });
+    return this.getOrCreateViewIndexFieldForTable(view.tableId, dbTableName, viewId);
+  }
+
+  async getOrCreateViewIndexFieldForTable(tableId: string, dbTableName: string, viewId: string) {
+    return await this.databaseRouter.dataPrismaTransactionForTable(tableId, async (prisma) => {
+      const indexFieldName = await this.existIndex(dbTableName, viewId, prisma);
+      if (indexFieldName) {
+        return indexFieldName;
+      }
+
+      return this.createViewIndexField(
+        dbTableName,
+        viewId,
+        prisma,
+        await this.databaseRouter.dataKnexForTable(tableId)
+      );
+    });
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -252,6 +270,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
+    await this.viewDataSafetyLimitService.ensureCanCreateView(tableId);
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
     const {
@@ -269,6 +288,14 @@ export class ViewService implements IReadonlyAdapterService {
     } = createViewRo;
 
     const { name, order } = await this.polishOrderAndName(tableId, createViewRo);
+    this.viewDataSafetyLimitService.ensureViewPayload({
+      name,
+      description,
+      filter,
+      sort,
+      group,
+      options,
+    });
 
     const viewId = generateViewId();
     const prisma = this.prismaService.txClient();
@@ -381,6 +408,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async updateViewSort(tableId: string, viewId: string, sort: ISort) {
+    this.viewDataSafetyLimitService.ensureSort(sort);
     const viewRaw = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -506,6 +534,9 @@ export class ViewService implements IReadonlyAdapterService {
         values,
       };
     });
+    for (const viewId of updatedViewIds) {
+      this.viewDataSafetyLimitService.ensureSerializedProperties(updateViewMap[viewId]?.property);
+    }
 
     if (data.length === 1) {
       const { id, values } = data[0];

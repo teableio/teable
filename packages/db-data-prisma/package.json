@@ -28,7 +28,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-data-prisma.eslintcache",
     "postinstall": "pnpm prisma-generate-ci",
     "prisma-generate": "node ./scripts/run-prisma-command.mjs generate --schema ./prisma/schema.prisma",
-    "prisma-generate-ci": "cross-env PRISMA_DATA_DATABASE_URL=\"postgresql://teable:teable@127.0.0.1:5432/teable-data?schema=public\" prisma generate --schema ./prisma/schema.prisma",
+    "prisma-generate-ci": "cross-env PRISMA_DATABASE_URL=\"postgresql://teable:teable@127.0.0.1:5432/teable?schema=public\" prisma generate --schema ./prisma/schema.prisma",
     "prisma-migrate": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate",
     "prisma-migrate-reset": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate reset --schema ./prisma/schema.prisma",
     "prisma-migrate-status": "dotenv-flow -p ../../apps/nextjs-app -- node ./scripts/run-prisma-command.mjs migrate status --schema ./prisma/schema.prisma",

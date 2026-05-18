@@ -593,10 +593,12 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     `.execute(db);
 
     const exists = Boolean(columnCheckResult.rows[0]?.exists);
-    this.orderColumnExistsCache.set(cacheKey, {
-      exists,
-      cachedAt: now,
-    });
+    if (exists) {
+      this.orderColumnExistsCache.set(cacheKey, {
+        exists,
+        cachedAt: now,
+      });
+    }
     return exists;
   }
 
