@@ -58,7 +58,6 @@ import type {
   INumberFieldOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { uniq, keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -67,6 +66,8 @@ import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { extractFieldReferences } from '../../../utils';
 import {
@@ -93,7 +94,7 @@ export class FieldSupplementService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly referenceService: ReferenceService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex
@@ -1730,14 +1731,20 @@ export class FieldSupplementService {
    * prepare properties for computed field to make sure it's valid
    * this method do not do any db update
    */
-  async prepareCreateField(tableId: string, fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
+  async prepareCreateField(
+    tableId: string,
+    fieldRo: IFieldRo,
+    batchFieldVos?: IFieldVo[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const field = (await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)) as IFieldVo;
 
     const fieldId = field.id || generateFieldId();
     const fieldName = await this.uniqFieldName(tableId, field.name);
 
     const dbFieldName =
-      fieldRo.dbFieldName ?? (await this.fieldService.generateDbFieldName(tableId, fieldName));
+      fieldRo.dbFieldName ??
+      (await this.fieldService.generateDbFieldName(tableId, fieldName, routingOptions));
 
     if (fieldRo.dbFieldName) {
       const existField = await this.prismaService.txClient().field.findFirst({
@@ -1832,7 +1839,12 @@ export class FieldSupplementService {
     }
   }
 
-  async prepareCreateFields(tableId: string, fieldRos: IFieldRo[], batchFieldVos?: IFieldVo[]) {
+  async prepareCreateFields(
+    tableId: string,
+    fieldRos: IFieldRo[],
+    batchFieldVos?: IFieldVo[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     // throw error when dbFieldName is duplicated
     const fieldRoDbFieldNames = fieldRos
       .map((field) => field.dbFieldName)
@@ -1869,7 +1881,11 @@ export class FieldSupplementService {
       fields.map((field) => field.name)
     );
 
-    const dbFieldNames = await this.fieldService.generateDbFieldNames(tableId, uniqFieldNames);
+    const dbFieldNames = await this.fieldService.generateDbFieldNames(
+      tableId,
+      uniqFieldNames,
+      routingOptions
+    );
 
     const fieldVos = fieldRos.map((fieldRo, index) => {
       const field = fields[index];
@@ -1953,7 +1969,11 @@ export class FieldSupplementService {
     });
   }
 
-  async generateSymmetricField(tableId: string, field: LinkFieldDto) {
+  async generateSymmetricField(
+    tableId: string,
+    field: LinkFieldDto,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     if (!field.options.symmetricFieldId) {
       throw new CustomHttpException(
         'symmetricFieldId is required',
@@ -1984,7 +2004,8 @@ export class FieldSupplementService {
     const isMultipleCellValue = isMultiValueLink(relationship) || undefined;
     const dbFieldName = await this.fieldService.generateDbFieldName(
       field.options.foreignTableId,
-      fieldName
+      fieldName,
+      routingOptions
     );
 
     return createFieldInstanceByVo({
@@ -2013,26 +2034,28 @@ export class FieldSupplementService {
 
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(
+      options.foreignTableId,
+      {
+        useTransaction: true,
+      }
+    );
     const dropTable = async (tableName: string) => {
       // Use provider to generate dialect-correct DROP TABLE SQL
       const sql = this.dbProvider.dropTable(tableName);
-      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+      await dataPrisma.$executeRawUnsafe(sql);
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
       const sqls = this.dbProvider.dropColumnAndIndex(tableName, columnName, `index_${columnName}`);
 
       for (const sql of sqls) {
-        await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+        await dataPrisma.$executeRawUnsafe(sql);
       }
 
       // Drop the associated order column if it exists
       const orderColumn = `${columnName}_order`;
-      const exists = await this.dbProvider.checkColumnExist(
-        tableName,
-        orderColumn,
-        this.dataPrismaService.txClient()
-      );
+      const exists = await this.dbProvider.checkColumnExist(tableName, orderColumn, dataPrisma);
       if (exists) {
         const dropOrderSqls = this.dbProvider.dropColumnAndIndex(
           tableName,
@@ -2040,7 +2063,7 @@ export class FieldSupplementService {
           `index_${orderColumn}`
         );
         for (const sql of dropOrderSqls) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+          await dataPrisma.$executeRawUnsafe(sql);
         }
       }
     };

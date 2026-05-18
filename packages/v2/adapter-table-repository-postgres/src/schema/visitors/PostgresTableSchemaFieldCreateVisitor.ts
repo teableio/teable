@@ -27,7 +27,7 @@ import {
   type UserField,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { CompiledQuery, CreateTableBuilder, Kysely, QueryExecutorProvider } from 'kysely';
+import type { CreateTableBuilder, Kysely } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -39,17 +39,31 @@ import {
   type FieldSchemaRulesContext,
   type SchemaRuleContext,
 } from '../rules';
-
-export type TableSchemaStatementBuilder = {
-  scope?: 'data' | 'meta';
-  compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
-};
+import type { TableSchemaStatementBuilder } from '../rules/core';
+import type { TableIdentifier } from '../rules/helpers';
 
 type ICreateTableBuilder = CreateTableBuilder<string, string>;
 
 export interface ICreateTableBuilderRef {
   builder: ICreateTableBuilder;
 }
+
+export const buildTableLocationsById = (
+  tables: ReadonlyArray<Table>
+): Result<ReadonlyMap<string, TableIdentifier>, DomainError> =>
+  safeTry<ReadonlyMap<string, TableIdentifier>, DomainError>(function* () {
+    const locations = new Map<string, TableIdentifier>();
+    for (const table of tables) {
+      const location = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      locations.set(table.id().toString(), {
+        schema: location.schema,
+        tableName: location.tableName,
+      });
+    }
+    return ok(locations);
+  });
 
 /**
  * Visitor that generates schema statements for field creation.
@@ -64,7 +78,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
 > {
   private constructor(
     private readonly db: Kysely<V1TeableDatabase>,
-    private readonly rulesContext: FieldSchemaRulesContext,
+    private rulesContext: FieldSchemaRulesContext,
     private readonly builderRef?: ICreateTableBuilderRef
   ) {
     super();
@@ -80,6 +94,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     schema: string | null;
     tableName: string;
     tableId: string;
+    tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
   }): PostgresTableSchemaFieldCreateVisitor {
     return new PostgresTableSchemaFieldCreateVisitor(
       params.db,
@@ -87,6 +102,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
         schema: params.schema,
         tableName: params.tableName,
         tableId: params.tableId,
+        tableLocationsById: params.tableLocationsById,
       },
       params.builderRef
     );
@@ -101,11 +117,13 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     schema: string | null;
     tableName: string;
     tableId: string;
+    tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
   }): PostgresTableSchemaFieldCreateVisitor {
     return new PostgresTableSchemaFieldCreateVisitor(params.db, {
       schema: params.schema,
       tableName: params.tableName,
       tableId: params.tableId,
+      tableLocationsById: params.tableLocationsById,
     });
   }
 
@@ -128,6 +146,16 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
       const fields = PostgresTableSchemaFieldCreateVisitor.isFieldArray(tableOrFields)
         ? tableOrFields
         : tableOrFields.getFields();
+      if (!PostgresTableSchemaFieldCreateVisitor.isFieldArray(tableOrFields)) {
+        const tableLocationsById = new Map([
+          ...(visitor.rulesContext.tableLocationsById ?? new Map<string, TableIdentifier>()),
+          ...(yield* buildTableLocationsById([tableOrFields])),
+        ]);
+        visitor.rulesContext = {
+          ...visitor.rulesContext,
+          tableLocationsById,
+        };
+      }
       const statements: Array<TableSchemaStatementBuilder> = [];
 
       for (const field of fields) {

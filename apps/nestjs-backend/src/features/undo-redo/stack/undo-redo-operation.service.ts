@@ -3,11 +3,11 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { assertNever } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events, IEventRawContext } from '../../../event-emitter/events';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -67,7 +67,7 @@ export class UndoRedoOperationService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly dataDbClientManager: DataDbClientManager,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
@@ -78,8 +78,8 @@ export class UndoRedoOperationService {
     );
     this.deleteRecords = new DeleteRecordsOperation(
       this.recordOpenApiService,
-      this.dataPrismaService,
-      this.thresholdConfig
+      this.thresholdConfig,
+      this.dataDbClientManager
     );
     this.updateRecords = new UpdateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.updateRecordsOrder = new UpdateRecordsOrderOperation(this.viewOpenApiService);
@@ -90,7 +90,7 @@ export class UndoRedoOperationService {
     this.deleteFields = new DeleteFieldsOperation(
       this.fieldOpenApiService,
       this.recordOpenApiService,
-      this.dataPrismaService
+      this.dataDbClientManager
     );
     this.convertField = new ConvertFieldOperation(
       this.fieldOpenApiService,
@@ -105,7 +105,7 @@ export class UndoRedoOperationService {
     this.deleteView = new DeleteViewOperation(
       this.viewOpenApiService,
       this.viewService,
-      this.dataPrismaService
+      this.dataDbClientManager
     );
     this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
     this.updateView = new UpdateViewOperation(this.viewOpenApiService);

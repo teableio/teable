@@ -59,7 +59,7 @@ export class V2RecordTrashService {
       return;
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const db = container.resolve(v2DataDbTokens.db) as TrashDbClient;
     const recordIds = records.map((record) => record.id);
     const createdTime = new Date();

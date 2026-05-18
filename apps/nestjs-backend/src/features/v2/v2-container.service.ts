@@ -18,6 +18,11 @@ import { registerV2ImportServices } from '@teable/v2-import';
 import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import {
+  DataDbRuntimeCacheService,
+  V2_CONTAINER_CACHE_NAMESPACE,
+} from '../../global/data-db-runtime-cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
@@ -41,7 +46,6 @@ const resolvePositiveInteger = (value: unknown): number | undefined => {
 @Injectable()
 export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(V2ContainerService.name);
-  private containerPromise?: Promise<DependencyContainer>;
 
   constructor(
     private readonly configService: ConfigService,
@@ -51,7 +55,9 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly reflector: Reflector,
-    private readonly discoveryService: DiscoveryService
+    private readonly discoveryService: DiscoveryService,
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly runtimeCache: DataDbRuntimeCacheService
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -59,23 +65,46 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   async getContainer(): Promise<DependencyContainer> {
-    if (!this.containerPromise) {
-      this.containerPromise = this.createContainer().catch((error) => {
-        this.containerPromise = undefined;
-        throw error;
-      });
-    }
-
-    return this.containerPromise;
+    return await this.getContainerForDataDb('default', this.getMetaConnectionString());
   }
 
-  private async createContainer(): Promise<DependencyContainer> {
-    const metaConnectionString =
+  async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseForSpace(spaceId);
+    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+  }
+
+  async getContainerForBase(baseId: string): Promise<DependencyContainer> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseForBase(baseId);
+    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+  }
+
+  async getContainerForTable(tableId: string): Promise<DependencyContainer> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseForTable(tableId);
+    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+  }
+
+  private async getContainerForDataDb(
+    cacheKey: string,
+    dataConnectionString: string
+  ): Promise<DependencyContainer> {
+    return await this.runtimeCache.getOrCreate(
+      V2_CONTAINER_CACHE_NAMESPACE,
+      cacheKey,
+      () => this.createContainer(dataConnectionString),
+      (container) => this.destroyContainer(container)
+    );
+  }
+
+  private getMetaConnectionString(): string {
+    return (
       this.configService.get<string>('PRISMA_META_DATABASE_URL') ??
       this.configService.get<string>('PRISMA_DATABASE_URL') ??
-      this.configService.getOrThrow<string>('DATABASE_URL');
-    const dataConnectionString =
-      this.configService.get<string>('PRISMA_DATA_DATABASE_URL') ?? metaConnectionString;
+      this.configService.getOrThrow<string>('DATABASE_URL')
+    );
+  }
+
+  private async createContainer(dataConnectionString: string): Promise<DependencyContainer> {
+    const metaConnectionString = this.getMetaConnectionString();
     const logger = new PinoLoggerAdapter(this.pinoLogger);
     const tracer = new OpenTelemetryTracer();
     const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
@@ -88,7 +117,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       this.configService.get('MAX_FREE_ROW_LIMIT')
     );
 
-    this.logger.log('Initializing shared V2 container');
+    this.logger.log('Initializing V2 container');
 
     const container = await createV2NodePgContainer({
       metaConnectionString,
@@ -141,7 +170,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       registrar.registerProjections(container);
     }
 
-    this.logger.log('Shared V2 container initialized');
+    this.logger.log('V2 container initialized');
     return container;
   }
 
@@ -182,9 +211,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (!this.containerPromise) return;
+    await this.runtimeCache.deleteByNamespace(V2_CONTAINER_CACHE_NAMESPACE);
+  }
 
-    const container = await this.containerPromise;
+  private async destroyContainer(container: DependencyContainer): Promise<void> {
     await this.stopComputedUpdatePolling(container);
     const closers = Array.from(
       new Set([

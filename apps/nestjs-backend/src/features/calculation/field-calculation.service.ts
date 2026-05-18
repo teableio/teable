@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { FieldType, type IRecord } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
@@ -35,7 +35,7 @@ export interface ITopoOrdersContext {
 export class FieldCalculationService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly referenceService: ReferenceService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -114,9 +114,14 @@ export class FieldCalculationService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    return this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
+    return this.databaseRouter.queryDataPrismaForTable<{ [dbFieldName: string]: unknown }[]>(
+      tableId,
+      query
+    );
+  }
+
+  private getBaseIdFromDbTableName(dbTableName: string) {
+    return dbTableName.split('.')[0];
   }
 
   async getRecordsBatchByFields(
@@ -130,11 +135,11 @@ export class FieldCalculationService {
     } = {};
     const chunkSize = this.thresholdConfig.calcChunkSize;
     for (const dbTableName in dbTableName2fields) {
+      const tableId = dbTableName2tableId[dbTableName];
       // deduplication is needed
-      const rowCount = await this.getRowCount(dbTableName);
+      const rowCount = await this.getRowCount(dbTableName, tableId);
       const totalPages = Math.ceil(rowCount / chunkSize);
       const fields = dbTableName2fields[dbTableName];
-      const tableId = dbTableName2tableId[dbTableName];
 
       const records = await lastValueFrom(
         range(0, totalPages).pipe(
@@ -152,11 +157,14 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async getRowCount(dbTableName: string) {
+  async getRowCount(dbTableName: string, tableId?: string) {
     const query = this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    const [{ count }] = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ count: bigint }[]>(query);
+    const [{ count }] = tableId
+      ? await this.databaseRouter.queryDataPrismaForTable<{ count: bigint }[]>(tableId, query)
+      : await this.databaseRouter.queryDataPrismaForBase<{ count: bigint }[]>(
+          this.getBaseIdFromDbTableName(dbTableName),
+          query
+        );
     return Number(count);
   }
 

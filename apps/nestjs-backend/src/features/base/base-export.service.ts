@@ -12,7 +12,6 @@ import type {
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
 import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -27,6 +26,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
@@ -68,7 +68,6 @@ export class BaseExportService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
@@ -76,7 +75,8 @@ export class BaseExportService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly databaseRouter: DatabaseRouter
   ) {}
 
   private captureExportError(
@@ -253,7 +253,14 @@ export class BaseExportService {
           name: exportFileName,
         },
       };
-      this.notifyExportResult(baseId, message, previewUrl);
+      this.notifyExportResult(baseId, message, {
+        status: 'success',
+        previewUrl,
+        attachment: {
+          name: exportFileName,
+          path,
+        },
+      });
     } catch (e) {
       this.captureExportError(e, {
         stage: 'processExport',
@@ -269,7 +276,10 @@ export class BaseExportService {
             errorMessage: e.message,
           },
         };
-        this.notifyExportResult(baseId, message);
+        this.notifyExportResult(baseId, message, {
+          status: 'failed',
+          errorMessage: e.message,
+        });
       }
     }
   }
@@ -378,19 +388,20 @@ export class BaseExportService {
         );
       }
 
-      const linkFieldInstances = fieldRaws
+      const linkFieldRaws = fieldRaws
         .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
-        .filter(({ id }) => !crossBaseRelativeFieldIds.has(id))
-        .map((f) => createFieldInstanceByRaw(f));
+        .filter(({ id }) => !crossBaseRelativeFieldIds.has(id));
 
       // 5. export junction csv for link fields
       const junctionTableName = [] as string[];
-      for (const linkField of linkFieldInstances) {
+      for (const linkFieldRaw of linkFieldRaws) {
+        const linkField = createFieldInstanceByRaw(linkFieldRaw);
         const { options } = linkField;
         const { fkHostTableName, selfKeyName, foreignKeyName } = options as ILinkFieldOptions;
         if (fkHostTableName.includes('junction_') && !junctionTableName.includes(fkHostTableName)) {
           await this.appendJunctionCsv(
             'tables',
+            linkFieldRaw.tableId,
             fkHostTableName,
             selfKeyName,
             foreignKeyName,
@@ -566,7 +577,9 @@ export class BaseExportService {
   ) {
     const { dbTableName, id } = tableRaw;
     const csvStream = new PassThrough();
-    const prisma = this.dataPrismaService.txClient();
+    const prisma = await this.databaseRouter.dataPrismaExecutorForTable(id, {
+      useTransaction: true,
+    });
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -610,6 +623,7 @@ export class BaseExportService {
     // 2. write csv content
     while (hasMoreData) {
       const csvChunk = await this.getCsvChunk(
+        prisma,
         dbTableName,
         offset,
         crossBaseRelativeFields,
@@ -706,13 +720,16 @@ export class BaseExportService {
 
   private async appendJunctionCsv(
     filePath: string,
+    tableId: string,
     fkHostTableName: string,
     selfKeyName: string,
     foreignKeyName: string,
     archive: archiver.Archiver
   ) {
     const csvStream = new PassThrough();
-    const prisma = this.dataPrismaService.txClient();
+    const prisma = await this.databaseRouter.dataPrismaExecutorForTable(tableId, {
+      useTransaction: true,
+    });
     const columnInfoQuery = this.dbProvider.columnInfo(fkHostTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -750,6 +767,7 @@ export class BaseExportService {
     // 2. write csv content
     while (hasMoreData) {
       const csvChunk = await this.getJunctionChunk(
+        prisma,
         fkHostTableName,
         offset,
         [selfKeyName, foreignKeyName],
@@ -769,12 +787,13 @@ export class BaseExportService {
   }
 
   private async getCsvChunk(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
     dbTableName: string,
     offset: number,
     crossBaseRelativeFields: Field[],
     excludeFieldNames: string[]
   ) {
-    const rawRecords = await this.getChunkRecords(dbTableName, offset);
+    const rawRecords = await this.getChunkRecords(prisma, dbTableName, offset);
     // 1. clear unless fields
     const records = rawRecords.map((record) => omit(record, excludeFieldNames));
     // 2. convert to csv value
@@ -784,12 +803,12 @@ export class BaseExportService {
   }
 
   private async getJunctionChunk(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
     fkHostTableName: string,
     offset: number,
     convertFields: [string, string],
     excludeFieldNames: string[]
   ) {
-    const prisma = this.dataPrismaService.txClient();
     const recordsQuery = await this.knex(fkHostTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
@@ -814,8 +833,11 @@ export class BaseExportService {
     });
   }
 
-  private async getChunkRecords(dbTableName: string, offset: number) {
-    const prisma = this.dataPrismaService.txClient();
+  private async getChunkRecords(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
+    dbTableName: string,
+    offset: number
+  ) {
     const recordsQuery = await this.knex(dbTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
@@ -1483,11 +1505,19 @@ export class BaseExportService {
   private async notifyExportResult(
     baseId: string,
     message: string | ILocalization<I18nPath>,
-    previewUrl?: string
+    result?: {
+      status: 'success' | 'failed';
+      previewUrl?: string;
+      attachment?: { name: string; path: string };
+      errorMessage?: string;
+    }
   ) {
     const userId = this.cls.get('user.id');
     await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
-      previewUrl,
+      status: result?.status,
+      previewUrl: result?.previewUrl,
+      attachment: result?.attachment,
+      errorMessage: result?.errorMessage,
     });
     await this.notificationService.sendExportBaseResultNotify({
       baseId: baseId,
