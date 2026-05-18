@@ -481,7 +481,7 @@ export class FieldOpenApiV2Service {
     fieldId: string,
     context?: IExecutionContext
   ): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
     const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
     const tableIdResult = TableId.create(tableId);
@@ -489,7 +489,7 @@ export class FieldOpenApiV2Service {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
     }
 
-    const queryContext = context ?? (await this.v2ContextFactory.createContext());
+    const queryContext = context ?? (await this.v2ContextFactory.createContext(container));
     const tableResult = await tableQueryService.getById(queryContext, tableIdResult.value);
     if (tableResult.isErr()) {
       const errMsg = tableResult.error.message ?? 'Table not found';
@@ -667,10 +667,10 @@ export class FieldOpenApiV2Service {
     context: IExecutionContext;
     table: Table;
   }> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -768,7 +768,8 @@ export class FieldOpenApiV2Service {
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
-    const context = await this.v2ContextFactory.createContext();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
     return this.getFieldFromV2(tableId, fieldId, context);
   }
 
@@ -1444,10 +1445,10 @@ export class FieldOpenApiV2Service {
     duplicateFieldRo: IDuplicateFieldRo,
     _windowId?: string
   ): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
@@ -1493,10 +1494,10 @@ export class FieldOpenApiV2Service {
   }
 
   async deleteField(tableId: string, fieldId: string): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -1548,10 +1549,10 @@ export class FieldOpenApiV2Service {
   }
 
   async deleteFields(tableId: string, fieldIds: string[]): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -1614,9 +1615,9 @@ export class FieldOpenApiV2Service {
   }
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const currentField = await this.getFieldFromV2(tableId, fieldId, context);
 
     const v2Input = {
@@ -1656,9 +1657,9 @@ export class FieldOpenApiV2Service {
     convertFieldRo: IConvertFieldRo,
     executionOptions?: ConvertFieldExecutionOptions
   ) {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const shouldTrackUndoContext =
       executionOptions?.emitOperation !== false && Boolean(context.windowId && context.actorId);
     if (executionOptions?.undoRedoMode) {
@@ -1738,13 +1739,13 @@ export class FieldOpenApiV2Service {
     direction: 'old' | 'new',
     undoRedoMode: 'undo' | 'redo'
   ): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
-    context.undoRedo = { mode: undoRedoMode };
-    delete context.windowId;
-
     for (const [tableId, opsByRecordId] of Object.entries(modifiedOps)) {
+      const container = await this.v2ContainerService.getContainerForTable(tableId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = await this.v2ContextFactory.createContext(container);
+      context.undoRedo = { mode: undoRedoMode };
+      delete context.windowId;
+
       for (const [recordId, ops] of Object.entries(opsByRecordId)) {
         const fields: Record<string, unknown> = {};
         for (const op of ops) {

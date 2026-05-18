@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../domain/base/BaseId';
+import type { IDomainContext } from '../../domain/shared/DomainContext';
 import type { DomainError } from '../../domain/shared/DomainError';
 import {
   ensureWithinTableDataSafetyLimit,
@@ -9,16 +10,19 @@ import {
   type ResolvedTableDataSafetyLimitConfig,
 } from '../../domain/shared/TableDataSafetyLimits';
 import { Table } from '../../domain/table/Table';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import { getDomainContext, type IExecutionContext } from '../../ports/ExecutionContext';
 import type {
   ITableOperationPlugin,
   TableOperationPluginContext,
 } from '../../ports/TableOperationPlugin';
 import { TableOperationKind } from '../../ports/TableOperationPlugin';
 import type { ITableRepository } from '../../ports/TableRepository';
+import { ensureTableDataSafetyFieldLimits } from './TableDataSafetyLimitFieldOperationPlugin';
+import { ensureTableDataSafetyViewConfigLimits } from './TableDataSafetyLimitViewOperationPlugin';
 import { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 
 type PreparedTableDataSafetyOperationLimitState = {
+  readonly domainContext: IDomainContext | undefined;
   readonly limits: ResolvedTableDataSafetyLimitConfig;
 };
 
@@ -48,7 +52,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     private readonly limitComposer: TableDataSafetyLimitComposer
   ) {}
 
-  supports(): boolean {
+  supports(_operation: TableOperationKind): boolean {
     return true;
   }
 
@@ -57,7 +61,10 @@ export class TableDataSafetyLimitTableOperationPlugin
   ): Promise<Result<PreparedTableDataSafetyOperationLimitState, DomainError>> {
     const configResult = await this.limitComposer.compose(context.executionContext);
     if (configResult.isErr()) return err(configResult.error);
-    return ok({ limits: resolveTableDataSafetyLimits(configResult.value) });
+    return ok({
+      domainContext: getDomainContext(context.executionContext),
+      limits: resolveTableDataSafetyLimits(configResult.value),
+    });
   }
 
   async guard(
@@ -83,7 +90,11 @@ export class TableDataSafetyLimitTableOperationPlugin
           limits
         );
         if (tableCountResult.isErr()) return tableCountResult;
-        return this.ensureCreatePayloadLimits(context.payload, limits);
+        return this.ensureCreatePayloadLimits(
+          context.payload,
+          limits,
+          preparedState?.domainContext
+        );
       }
       case TableOperationKind.createMany: {
         const tableCountResult = await this.ensureTablesPerBaseLimit(
@@ -95,18 +106,30 @@ export class TableDataSafetyLimitTableOperationPlugin
         if (tableCountResult.isErr()) return tableCountResult;
 
         for (const table of context.payload.tables) {
-          const result = this.ensureCreatePayloadLimits(table, limits);
+          const result = this.ensureCreatePayloadLimits(
+            table,
+            limits,
+            preparedState?.domainContext
+          );
           if (result.isErr()) return result;
         }
         return ok(undefined);
       }
-      case TableOperationKind.duplicate:
-        return this.ensureTablesPerBaseLimit(
+      case TableOperationKind.duplicate: {
+        const tableCountResult = await this.ensureTablesPerBaseLimit(
           context.executionContext,
           context.payload.baseId,
           1,
           limits
         );
+        if (tableCountResult.isErr()) return tableCountResult;
+        if (!context.payload.table) return ok(undefined);
+        return this.ensureTableStructureLimits(
+          context.payload.table,
+          limits,
+          preparedState?.domainContext
+        );
+      }
       case TableOperationKind.importCsv: {
         const tableCountResult = await this.ensureTablesPerBaseLimit(
           context.executionContext,
@@ -115,7 +138,11 @@ export class TableDataSafetyLimitTableOperationPlugin
           limits
         );
         if (tableCountResult.isErr()) return tableCountResult;
-        return this.ensureImportCsvPayloadLimits(context.payload, limits);
+        return this.ensureImportCsvPayloadLimits(
+          context.payload,
+          limits,
+          preparedState?.domainContext
+        );
       }
       case TableOperationKind.rename:
         return ok(undefined);
@@ -128,8 +155,10 @@ export class TableDataSafetyLimitTableOperationPlugin
       readonly viewCount: number;
       readonly recordCount: number;
       readonly viewNames: ReadonlyArray<string>;
+      readonly table?: Table;
     },
-    limits: ResolvedTableDataSafetyLimitConfig
+    limits: ResolvedTableDataSafetyLimitConfig,
+    domainContext: IDomainContext | undefined
   ): Result<void, DomainError> {
     const fieldsResult = ensureWithinTableDataSafetyLimit(
       'validation.limit.create_table_fields_max',
@@ -138,6 +167,9 @@ export class TableDataSafetyLimitTableOperationPlugin
       { target: 'table.fields' }
     );
     if (fieldsResult.isErr()) return fieldsResult;
+
+    const fieldsPerTableResult = this.ensureFieldsPerTableLimit(payload.fieldCount, limits);
+    if (fieldsPerTableResult.isErr()) return fieldsPerTableResult;
 
     const viewsResult = ensureWithinTableDataSafetyLimit(
       'validation.limit.create_table_views_max',
@@ -176,7 +208,63 @@ export class TableDataSafetyLimitTableOperationPlugin
       if (viewNameResult.isErr()) return viewNameResult;
     }
 
+    if (payload.table) {
+      return this.ensureTableStructureLimits(payload.table, limits, domainContext);
+    }
+
     return ok(undefined);
+  }
+
+  private ensureTableStructureLimits(
+    table: Table,
+    limits: ResolvedTableDataSafetyLimitConfig,
+    domainContext: IDomainContext | undefined
+  ): Result<void, DomainError> {
+    const fieldsPerTableResult = this.ensureFieldsPerTableLimit(table.getFields().length, limits);
+    if (fieldsPerTableResult.isErr()) return fieldsPerTableResult;
+
+    const viewsPerTableResult = ensureWithinTableDataSafetyLimit(
+      'validation.limit.views_per_table_max',
+      table.views().length > 0 ? table.views().length : 1,
+      limits.tableSchema.maxViewsPerTable,
+      { target: 'table.views' }
+    );
+    if (viewsPerTableResult.isErr()) return viewsPerTableResult;
+
+    for (const field of table.getFields()) {
+      const fieldResult = ensureTableDataSafetyFieldLimits(field, domainContext, limits);
+      if (fieldResult.isErr()) return fieldResult;
+    }
+
+    for (const view of table.views()) {
+      const queryDefaultsResult = view.queryDefaults();
+      const queryDefaults = queryDefaultsResult.isOk() ? queryDefaultsResult.value.toDto() : {};
+      const viewResult = ensureTableDataSafetyViewConfigLimits(
+        {
+          name: view.name().toString(),
+          filter: queryDefaults.filter,
+          sort: queryDefaults.sort,
+          group: queryDefaults.group,
+          options: view.options(),
+        },
+        limits
+      );
+      if (viewResult.isErr()) return viewResult;
+    }
+
+    return ok(undefined);
+  }
+
+  private ensureFieldsPerTableLimit(
+    fieldCount: number,
+    limits: ResolvedTableDataSafetyLimitConfig
+  ): Result<void, DomainError> {
+    return ensureWithinTableDataSafetyLimit(
+      'validation.limit.fields_per_table_max',
+      fieldCount,
+      limits.tableSchema.maxFieldsPerTable,
+      { target: 'table.fields' }
+    );
   }
 
   private ensureImportCsvPayloadLimits(
@@ -184,8 +272,10 @@ export class TableDataSafetyLimitTableOperationPlugin
       readonly fieldCount: number;
       readonly viewCount: number;
       readonly recordCount: number;
+      readonly table?: Table;
     },
-    limits: ResolvedTableDataSafetyLimitConfig
+    limits: ResolvedTableDataSafetyLimitConfig,
+    domainContext: IDomainContext | undefined
   ): Result<void, DomainError> {
     return this.ensureCreatePayloadLimits(
       {
@@ -193,8 +283,10 @@ export class TableDataSafetyLimitTableOperationPlugin
         viewCount: payload.viewCount,
         recordCount: payload.recordCount,
         viewNames: [],
+        table: payload.table,
       },
-      limits
+      limits,
+      domainContext
     );
   }
 

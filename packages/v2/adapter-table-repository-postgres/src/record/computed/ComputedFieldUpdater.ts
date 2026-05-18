@@ -74,12 +74,12 @@ const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
-
 /**
  * Change data for a single field in a record.
  */
 export type FieldChangeData = {
   fieldId: string;
+  oldValue?: unknown;
   newValue: unknown;
 };
 
@@ -1079,8 +1079,10 @@ export class ComputedFieldUpdater {
               for (const row of rows) {
                 const changes: FieldChangeData[] = [];
                 for (const [column, fieldId] of compiledResult.columnToFieldId) {
+                  const oldValueAlias = compiledResult.oldColumnAliases.get(column);
                   changes.push({
                     fieldId,
+                    oldValue: oldValueAlias ? row[oldValueAlias] : undefined,
                     newValue: row[column],
                   });
                 }
@@ -1490,7 +1492,9 @@ export class ComputedFieldUpdater {
           .withoutBaseId()
           .byIds([...tableIds.values()])
           .build();
-        const tables = yield* await this.tableRepository.find(context, spec);
+        const tables = yield* await this.tableRepository.find(context, spec, {
+          state: 'activeWithPending',
+        });
 
         return ok(tables);
       }.bind(this)

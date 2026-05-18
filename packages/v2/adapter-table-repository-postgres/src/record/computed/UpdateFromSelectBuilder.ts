@@ -77,6 +77,8 @@ export type UpdateWithReturningResult = {
   compiled: CompiledQuery;
   /** Mapping from column name to field ID */
   columnToFieldId: Map<string, string>;
+  /** Mapping from column name to RETURNING alias for the old value */
+  oldColumnAliases: Map<string, string>;
 };
 
 /**
@@ -88,6 +90,13 @@ export type UpdatedRecordRow = {
   __old_version: number;
   [column: string]: unknown;
 };
+
+const oldValueAliasForColumn = (column: string): string => `__old_${column.replaceAll(/\W/g, '_')}`;
+
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+
+const quoteQualifiedTableName = (value: string): string =>
+  value.split('.').map(quoteIdentifier).join('.');
 
 /**
  * Build UPDATE...FROM statements using a computed SELECT subquery.
@@ -194,18 +203,37 @@ export class UpdateFromSelectBuilder {
         // Add RETURNING clause for record ID, old version, and all updated columns
         // Use double quotes to preserve case-sensitivity in PostgreSQL
         // Return __version - 1 as __old_version (the version BEFORE this computed update)
+        const oldTableAlias = '__old';
         const returningColumns = [
           `"${tableAlias}"."__id"`,
           `"${tableAlias}"."__version" - 1 as "__old_version"`,
         ];
+        const oldColumnAliases = new Map<string, string>();
         for (const [column] of columnMapping) {
+          const oldAlias = oldValueAliasForColumn(column);
+          oldColumnAliases.set(column, oldAlias);
+          returningColumns.push(`"${oldTableAlias}"."${column}" as "${oldAlias}"`);
           returningColumns.push(`"${tableAlias}"."${column}"`);
         }
 
         // Use raw SQL for RETURNING since Kysely's typing doesn't support it well for updates
         const compiled = query.compile();
+        const whereIndex = compiled.sql.lastIndexOf(' where ');
+        if (whereIndex === -1) {
+          return err(
+            domainError.validation({
+              message: 'UpdateFromSelect returning query is missing WHERE clause',
+            })
+          );
+        }
+        const sqlWithOldTable =
+          compiled.sql.slice(0, whereIndex) +
+          `, ${quoteQualifiedTableName(tableName)} as "${oldTableAlias}"` +
+          compiled.sql.slice(whereIndex, whereIndex + ' where '.length) +
+          `"${oldTableAlias}"."__id" = "${selectAlias}"."__id" and ` +
+          compiled.sql.slice(whereIndex + ' where '.length);
         const returningClause = ` RETURNING ${returningColumns.join(', ')}`;
-        const sqlWithReturning = compiled.sql + returningClause;
+        const sqlWithReturning = sqlWithOldTable + returningClause;
 
         return ok({
           compiled: {
@@ -213,6 +241,7 @@ export class UpdateFromSelectBuilder {
             sql: sqlWithReturning,
           },
           columnToFieldId: columnMapping,
+          oldColumnAliases,
         });
       }
     );
