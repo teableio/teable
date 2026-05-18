@@ -4,6 +4,7 @@ export enum NotificationTypeEnum {
   CollaboratorMultiRowTag = 'collaboratorMultiRowTag',
   Comment = 'comment',
   ExportBase = 'exportBase',
+  AdminNotice = 'adminNotice',
 }
 
 export enum NotificationStatesEnum {

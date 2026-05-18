@@ -19,12 +19,12 @@ import type {
 } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { IntegrityIssueType, type IIntegrityCheckVo, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { LinkFieldQueryService } from '../field/field-calculate/link-field-query.service';
 import { FieldService } from '../field/field.service';
@@ -42,7 +42,7 @@ export class LinkIntegrityService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
     private readonly uniqueIndexService: UniqueIndexService,
@@ -348,9 +348,10 @@ export class LinkIntegrityService {
 
       let canCheckLinks = false;
       const tableExistsSql = this.dbProvider.checkTableExist(options.fkHostTableName);
-      const tableExists = await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<{ exists: boolean }[]>(tableExistsSql);
+      const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(table.id, {
+        useTransaction: true,
+      });
+      const tableExists = await dataPrisma.$queryRawUnsafe<{ exists: boolean }[]>(tableExistsSql);
       const hostTableExists = tableExists[0].exists;
 
       if (!hostTableExists) {
@@ -363,13 +364,13 @@ export class LinkIntegrityService {
         const selfKeyExists = await this.dbProvider.checkColumnExist(
           options.fkHostTableName,
           options.selfKeyName,
-          this.dataPrismaService.txClient()
+          dataPrisma
         );
 
         const foreignKeyExists = await this.dbProvider.checkColumnExist(
           options.fkHostTableName,
           options.foreignKeyName,
-          this.dataPrismaService.txClient()
+          dataPrisma
         );
 
         if (!selfKeyExists) {
@@ -434,7 +435,9 @@ export class LinkIntegrityService {
 
   async checkEmptyString(tableId: string): Promise<IIntegrityIssue[]> {
     const prisma = this.prismaService.txClient();
-    const dataPrisma = this.dataPrismaService.txClient();
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(tableId, {
+      useTransaction: true,
+    });
     const fields = await prisma.field.findMany({
       where: {
         tableId,
@@ -481,7 +484,6 @@ export class LinkIntegrityService {
     issueType?: IntegrityIssueType
   ): Promise<IIntegrityIssue | undefined> {
     const prisma = this.prismaService.txClient();
-    const dataPrisma = this.dataPrismaService.txClient();
     const fieldRaw = await prisma.field.findFirst({
       where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
     });
@@ -491,6 +493,9 @@ export class LinkIntegrityService {
     }
 
     const linkField = createFieldInstanceByRaw(fieldRaw) as LinkFieldDto;
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(fieldRaw.tableId, {
+      useTransaction: true,
+    });
     const options = linkField.options;
     const tableMeta = await prisma.tableMeta.findFirst({
       where: { id: fieldRaw.tableId, deletedTime: null },
@@ -661,6 +666,7 @@ export class LinkIntegrityService {
     }
 
     await this.backfillForeignKeysFromLinkColumn({
+      routingTableId: fieldRaw.tableId,
       dbTableName: tableMeta.dbTableName,
       linkDbFieldName: linkField.dbFieldName,
       fkHostTableName: options.fkHostTableName,
@@ -685,6 +691,7 @@ export class LinkIntegrityService {
     foreignKeyName: string;
     relationship: Relationship;
     isOneWay?: boolean;
+    routingTableId: string;
   }) {
     const {
       dbTableName,
@@ -694,8 +701,11 @@ export class LinkIntegrityService {
       foreignKeyName,
       relationship,
       isOneWay,
+      routingTableId,
     } = params;
-    const dataPrisma = this.dataPrismaService.txClient();
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(routingTableId, {
+      useTransaction: true,
+    });
 
     const linkColumnExists = await this.dbProvider.checkColumnExist(
       dbTableName,
@@ -1224,10 +1234,12 @@ export class LinkIntegrityService {
 
   async fixEmptyString(fieldId: string, tableId?: string): Promise<IIntegrityIssue | undefined> {
     const prisma = this.prismaService.txClient();
-    const dataPrisma = this.dataPrismaService.txClient();
     if (!tableId) {
       return;
     }
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(tableId, {
+      useTransaction: true,
+    });
 
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },

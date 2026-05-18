@@ -30,8 +30,12 @@ describe('RecordOpenApiV2Service', () => {
   const resolve = vi.fn();
   const getContainer = vi.fn();
   const clsGet = vi.fn();
+  const clsSet = vi.fn();
+  const clsRunWith = vi.fn();
   const cacheDel = vi.fn();
   const cacheSetDetail = vi.fn();
+  const getDataDatabaseForTable = vi.fn();
+  const dataPrismaForTable = vi.fn();
 
   let service: RecordOpenApiV2Service;
 
@@ -138,6 +142,9 @@ describe('RecordOpenApiV2Service', () => {
     getContainer.mockResolvedValue({ resolve });
     createContext.mockResolvedValue({});
     clsGet.mockImplementation((key: string) => {
+      if (key == null) {
+        return {};
+      }
       if (key === 'user.id') {
         return `usr${'h'.repeat(16)}`;
       }
@@ -146,8 +153,14 @@ describe('RecordOpenApiV2Service', () => {
       }
       return undefined;
     });
+    clsRunWith.mockImplementation((_store, fn: () => unknown) => fn());
     getReadQuerySource.mockResolvedValue(undefined);
     getFieldsByQuery.mockResolvedValue([]);
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'meta-fallback',
+      url: 'postgresql://meta',
+      isMetaFallback: true,
+    });
     commandExecute.mockResolvedValue({
       isErr: () => false,
       value: UpdateRecordsResult.create(2, []),
@@ -169,15 +182,16 @@ describe('RecordOpenApiV2Service', () => {
       { data: { id: 'rec2222222222222222', fields: {} } },
     ]);
     service = new RecordOpenApiV2Service(
-      { getContainer } as never,
+      { getContainerForTable: getContainer } as never,
       { createContext } as never,
       { getDocIdsByQuery, getSnapshotBulkWithPermission } as never,
       {} as never,
-      { get: clsGet } as never,
+      { get: clsGet, set: clsSet, runWith: clsRunWith } as never,
       { del: cacheDel, setDetail: cacheSetDetail } as never,
       { getFieldsByQuery } as never,
       { getReadQuerySource } as never,
-      {} as never
+      {} as never,
+      { getDataDatabaseForTable, dataPrismaForTable } as never
     );
   });
 
@@ -264,6 +278,33 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('runs legacy snapshot compatibility reads against the table data client for BYODB tables', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dataPrisma = { $queryRawUnsafe: vi.fn() };
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'ddc-byodb',
+      url: 'postgresql://byodb',
+      isMetaFallback: false,
+    });
+    dataPrismaForTable.mockResolvedValue(dataPrisma);
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(result.records).toEqual([
+      { id: 'rec1111111111111111', fields: {} },
+      { id: 'rec2222222222222222', fields: {} },
+    ]);
+    expect(dataPrismaForTable).toHaveBeenCalledWith(tableId);
+    expect(clsRunWith).toHaveBeenCalled();
+    expect(clsSet).toHaveBeenCalledWith('dataTx.client', dataPrisma);
+    expect(clsSet).toHaveBeenLastCalledWith('dataTx.client', undefined);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
   });
 
   it('formats sorted top-level system datetime fields in the final OpenAPI response', async () => {

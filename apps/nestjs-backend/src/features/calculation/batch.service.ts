@@ -3,7 +3,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, IdPrefix, RecordOpBuilder, FieldType } from '@teable/core';
 import type { IOtOperation, IRecord, TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
@@ -15,6 +14,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { DatabaseRouter } from '../../global/database-router.service';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -41,7 +41,7 @@ export class BatchService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -108,6 +108,7 @@ export class BatchService {
     opsPair: [recordId: string, IOtOperation[]][]
   ) {
     const raw = await this.fetchRawData(
+      tableId,
       dbTableName,
       opsPair.map(([recordId]) => recordId)
     );
@@ -134,7 +135,7 @@ export class BatchService {
     const opsData = this.buildRecordOpsData(opsPair, versionGroup);
     if (!opsData.length) return;
 
-    await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
+    await this.executeUpdateRecords(tableId, dbTableName, fieldMap, opsData);
 
     const opDataList = opsPair.map(([recordId, ops]) => {
       return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
@@ -225,18 +226,18 @@ export class BatchService {
   }
 
   // @Timing()
-  private async fetchRawData(dbTableName: string, recordIds: string[]) {
+  private async fetchRawData(tableId: string, dbTableName: string, recordIds: string[]) {
     const querySql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
       .select('__id', '__version', '__last_modified_time', '__last_modified_by')
       .toQuery();
 
-    return this.dataPrismaService.txClient().$queryRawUnsafe<
+    return this.databaseRouter.queryDataPrismaForTable<
       {
         __version: number;
         __id: string;
       }[]
-    >(querySql);
+    >(tableId, querySql, { useTransaction: true });
   }
 
   private buildRecordOpsData(
@@ -282,6 +283,7 @@ export class BatchService {
 
   @Timing()
   private async executeUpdateRecords(
+    tableId: string,
     dbTableName: string,
     fieldMap: { [fieldId: string]: IFieldInstance },
     opsData: IOpsData[]
@@ -294,7 +296,7 @@ export class BatchService {
 
     // group by fieldIds before apply
     for (const groupKey in opsDataGroup) {
-      await this.executeUpdateRecordsInner(dbTableName, fieldMap, opsDataGroup[groupKey]);
+      await this.executeUpdateRecordsInner(tableId, dbTableName, fieldMap, opsDataGroup[groupKey]);
     }
   }
 
@@ -302,7 +304,8 @@ export class BatchService {
     dbTableName: string,
     idFieldName: string,
     schemas: { schemaType: SchemaType; dbFieldName: string }[],
-    data: { id: string; values: { [key: string]: unknown } }[]
+    data: { id: string; values: { [key: string]: unknown } }[],
+    routingTableId?: string
   ) {
     const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
     // 1.create temporary table structure
@@ -328,83 +331,98 @@ export class BatchService {
 
     const validDbFieldNames = schemas.map((s) => s.dbFieldName).filter((f) => !f.startsWith('__'));
 
-    await this.dataPrismaService.$tx(async (tx) => {
-      // temp table should in one transaction
-      await tx.$executeRawUnsafe(createTempTableSql);
-      // 2.initialize temporary table data
-      await tx.$executeRawUnsafe(insertTempTableSql);
-      // 3.update data
-      await handleDBValidationErrors({
-        fn: async () => {
-          await tx.$executeRawUnsafe(updateRecordSql);
-        },
-        handleUniqueError: async () => {
-          const tables = await this.prismaService.tableMeta.findMany({
-            where: { dbTableName },
-            select: { id: true, name: true },
-          });
-          const table = tables[0];
-          const fieldRaws = await this.prismaService.field.findMany({
-            where: {
-              tableId: table.id,
-              dbFieldName: { in: validDbFieldNames },
-              unique: true,
-              deletedTime: null,
-            },
-            select: { id: true, name: true },
-          });
+    const resolvedRoutingTableId =
+      routingTableId ??
+      (
+        await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+          where: { dbTableName, deletedTime: null },
+          select: { id: true },
+        })
+      ).id;
 
-          throw new CustomHttpException(
-            `Fields ${fieldRaws.map((f) => f.id).join(', ')} unique validation failed`,
-            HttpErrorCode.VALIDATION_ERROR,
-            {
-              localization: {
-                i18nKey: 'httpErrors.custom.fieldValueDuplicate',
-                context: {
-                  tableName: table.name,
-                  fieldName: fieldRaws.map((f) => f.name).join(', '),
-                },
+    await this.databaseRouter.dataPrismaTransactionForTable(
+      resolvedRoutingTableId,
+      async (tx) => {
+        // temp table should in one transaction
+        await tx.$executeRawUnsafe(createTempTableSql);
+        // 2.initialize temporary table data
+        await tx.$executeRawUnsafe(insertTempTableSql);
+        // 3.update data
+        await handleDBValidationErrors({
+          fn: async () => {
+            await tx.$executeRawUnsafe(updateRecordSql);
+          },
+          handleUniqueError: async () => {
+            const tables = await this.prismaService.tableMeta.findMany({
+              where: { dbTableName },
+              select: { id: true, name: true },
+            });
+            const table = tables[0];
+            const fieldRaws = await this.prismaService.field.findMany({
+              where: {
+                tableId: table.id,
+                dbFieldName: { in: validDbFieldNames },
+                unique: true,
+                deletedTime: null,
               },
-            }
-          );
-        },
-        handleNotNullError: async () => {
-          const tables = await this.prismaService.tableMeta.findMany({
-            where: { dbTableName },
-            select: { id: true, name: true },
-          });
-          const table = tables[0];
-          const fieldRaws = await this.prismaService.field.findMany({
-            where: {
-              tableId: table.id,
-              dbFieldName: { in: validDbFieldNames },
-              notNull: true,
-              deletedTime: null,
-            },
-            select: { id: true, name: true },
-          });
+              select: { id: true, name: true },
+            });
 
-          throw new CustomHttpException(
-            `Fields ${fieldRaws.map((f) => f.id).join(', ')} not null validation failed`,
-            HttpErrorCode.VALIDATION_ERROR,
-            {
-              localization: {
-                i18nKey: 'httpErrors.custom.fieldValueNotNull',
-                context: {
-                  tableName: table.name,
-                  fieldName: fieldRaws.map((f) => f.name).join(', '),
+            throw new CustomHttpException(
+              `Fields ${fieldRaws.map((f) => f.id).join(', ')} unique validation failed`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.custom.fieldValueDuplicate',
+                  context: {
+                    tableName: table.name,
+                    fieldName: fieldRaws.map((f) => f.name).join(', '),
+                  },
                 },
+              }
+            );
+          },
+          handleNotNullError: async () => {
+            const tables = await this.prismaService.tableMeta.findMany({
+              where: { dbTableName },
+              select: { id: true, name: true },
+            });
+            const table = tables[0];
+            const fieldRaws = await this.prismaService.field.findMany({
+              where: {
+                tableId: table.id,
+                dbFieldName: { in: validDbFieldNames },
+                notNull: true,
+                deletedTime: null,
               },
-            }
-          );
-        },
-      });
-      // 4.delete temporary table
-      await tx.$executeRawUnsafe(dropTempTableSql);
-    });
+              select: { id: true, name: true },
+            });
+
+            throw new CustomHttpException(
+              `Fields ${fieldRaws.map((f) => f.id).join(', ')} not null validation failed`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.custom.fieldValueNotNull',
+                  context: {
+                    tableName: table.name,
+                    fieldName: fieldRaws.map((f) => f.name).join(', '),
+                  },
+                },
+              }
+            );
+          },
+        });
+        // 4.delete temporary table
+        await tx.$executeRawUnsafe(dropTempTableSql);
+      },
+      undefined,
+      { useTransaction: true }
+    );
   }
 
   private async executeUpdateRecordsInner(
+    tableId: string,
     dbTableName: string,
     fieldMap: { [fieldId: string]: IFieldInstance },
     opsData: IOpsData[]
@@ -451,7 +469,7 @@ export class BatchService {
       { dbFieldName: '__version', schemaType: SchemaType.Integer },
     ];
 
-    await this.batchUpdateDB(dbTableName, '__id', schemas, data);
+    await this.batchUpdateDB(dbTableName, '__id', schemas, data, tableId);
   }
 
   @Timing()

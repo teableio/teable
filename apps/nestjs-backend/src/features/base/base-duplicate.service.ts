@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import {
   BaseDuplicateMode,
   CreateRecordAction,
@@ -14,10 +13,12 @@ import { Knex } from 'knex';
 import { groupBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -29,13 +30,21 @@ import { mergeLinkFieldTableMaps } from './utils';
 
 type DuplicatedBase = Awaited<ReturnType<BaseImportService['createBaseStructure']>>['base'];
 
+type IDataPrismaExecutor = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
+  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  txClient?: () => IDataPrismaExecutor;
+};
+
 @Injectable()
 export class BaseDuplicateService {
   private logger = new Logger(BaseDuplicateService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly tableDuplicateService: TableDuplicateService,
     private readonly baseExportService: BaseExportService,
     private readonly baseImportService: BaseImportService,
@@ -43,8 +52,13 @@ export class BaseDuplicateService {
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly dataDbClientManager: DataDbClientManager
   ) {}
+
+  private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
+    return prisma.txClient?.() ?? prisma;
+  }
 
   async duplicateBase(
     duplicateBaseRo: IDuplicateBaseRo,
@@ -106,6 +120,7 @@ export class BaseDuplicateService {
 
       let recordsLength = 0;
       if (withRecords) {
+        await this.assertSameDataDatabaseForRecordCopy(fromBaseId, base.id);
         await prisma.base.update({
           where: { id: base.id },
           data: {
@@ -115,13 +130,15 @@ export class BaseDuplicateService {
         });
 
         recordsLength = await this.duplicateTableData(
+          base.id,
           tableIdMap,
           fieldIdMap,
           viewIdMap,
           mergedLinkFieldTableMap
         );
-        await this.duplicateAttachments(tableIdMap, fieldIdMap);
+        await this.duplicateAttachments(base.id, tableIdMap, fieldIdMap);
         await this.duplicateLinkJunction(
+          base.id,
           tableIdMap,
           fieldIdMap,
           allowCrossBase,
@@ -188,6 +205,22 @@ export class BaseDuplicateService {
       .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
       .filter((f) => excludedTableIds.includes((f.options as ILinkFieldOptions)?.foreignTableId))
       .map((f) => f.id);
+  }
+
+  private async assertSameDataDatabaseForRecordCopy(sourceBaseId: string, targetBaseId: string) {
+    const [source, target] = await Promise.all([
+      this.dataDbClientManager.getDataDatabaseForBase(sourceBaseId, { useTransaction: true }),
+      this.dataDbClientManager.getDataDatabaseForBase(targetBaseId, { useTransaction: true }),
+    ]);
+
+    if (source.cacheKey === target.cacheKey) {
+      return;
+    }
+
+    throw new CustomHttpException(
+      'Duplicating records across different space data databases is not supported yet',
+      HttpErrorCode.VALIDATION_ERROR
+    );
   }
 
   private async duplicateStructure(
@@ -283,7 +316,9 @@ export class BaseDuplicateService {
       structure,
       baseId,
       undefined,
-      duplicateMode
+      duplicateMode,
+      undefined,
+      { useTransaction: true }
     );
 
     return { base: newBase, tableIdMap, fieldIdMap, viewIdMap, ...rest };
@@ -552,6 +587,7 @@ export class BaseDuplicateService {
   }
 
   private async duplicateTableData(
+    targetBaseId: string,
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
@@ -560,7 +596,11 @@ export class BaseDuplicateService {
       { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
     >
   ): Promise<number> {
-    const prisma = this.dataPrismaService.txClient();
+    const prisma = this.getDataPrismaExecutor(
+      (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
+        useTransaction: true,
+      })) as IDataPrismaScopedClient
+    );
     const metaPrisma = this.prismaService.txClient();
     const tableId2DbTableNameMap: Record<string, string> = {};
     const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
@@ -643,7 +683,8 @@ export class BaseDuplicateService {
           newDbTableName,
           viewIdMap,
           fieldIdMap,
-          crossBaseLinkFieldTableMap[tableId] || []
+          crossBaseLinkFieldTableMap[tableId] || [],
+          prisma
         );
       } catch (error) {
         this.logger.error(
@@ -678,28 +719,42 @@ export class BaseDuplicateService {
   }
 
   private async duplicateAttachments(
+    targetBaseId: string,
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>
   ) {
+    const dataPrisma = this.getDataPrismaExecutor(
+      (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
+        useTransaction: true,
+      })) as IDataPrismaScopedClient
+    );
     for (const [sourceTableId, targetTableId] of Object.entries(tableIdMap)) {
       await this.tableDuplicateService.duplicateAttachments(
         sourceTableId,
         targetTableId,
-        fieldIdMap
+        fieldIdMap,
+        dataPrisma
       );
     }
   }
 
   private async duplicateLinkJunction(
+    targetBaseId: string,
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
     allowCrossBase: boolean = true,
     disconnectedLinkFieldIds?: string[]
   ) {
+    const dataPrisma = this.getDataPrismaExecutor(
+      (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
+        useTransaction: true,
+      })) as IDataPrismaScopedClient
+    );
     await this.tableDuplicateService.duplicateLinkJunction(
       tableIdMap,
       fieldIdMap,
       allowCrossBase,
+      dataPrisma,
       disconnectedLinkFieldIds
     );
   }
