@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
   beginTablesSchemaOperation,
   completeTablesSchemaOperation,
@@ -20,11 +21,13 @@ import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import * as DotTeaParserPort from '../ports/DotTeaParser';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { ITableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -177,7 +180,12 @@ export class ImportDotTeaStructureHandler
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    )
   ) {}
 
   @TraceSpan()
@@ -310,6 +318,25 @@ export class ImportDotTeaStructureHandler
 
       // Extract tables and foreign references from build results
       const builtTables = buildResults.map((r) => r.table);
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.createMany,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tables: builtTables.map((table) => ({
+            baseId: command.baseId,
+            tableName: table.name(),
+            table,
+            fieldCount: table.getFields().length,
+            viewCount: table.views().length,
+            recordCount: 0,
+            viewNames: table.views().map((view) => view.name().toString()),
+          })),
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
+
       const recordCountByTableId = Object.fromEntries(
         builtTables.map((table) => [table.id().toString(), 0])
       );

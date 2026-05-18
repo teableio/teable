@@ -5,10 +5,12 @@ const createService = ({
   prismaService = {},
   dataPrismaService = {},
   recordService = {},
+  dataDbClientManager,
 }: {
   prismaService?: unknown;
   dataPrismaService?: unknown;
   recordService?: unknown;
+  dataDbClientManager?: unknown;
 } = {}) =>
   new RecordOpenApiService(
     prismaService as never,
@@ -21,7 +23,10 @@ const createService = ({
     {} as never,
     {} as never,
     {} as never,
-    {} as never
+    {} as never,
+    (dataDbClientManager ?? {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    }) as never
   );
 
 describe('RecordOpenApiService', () => {
@@ -50,6 +55,9 @@ describe('RecordOpenApiService', () => {
         avatar: null,
       },
     ]);
+    const dataPrismaForTable = vi.fn().mockResolvedValue({
+      recordHistory: { findMany: dataRecordHistoryFindMany },
+    });
 
     const service = createService({
       prismaService: {
@@ -58,6 +66,9 @@ describe('RecordOpenApiService', () => {
       },
       dataPrismaService: {
         recordHistory: { findMany: dataRecordHistoryFindMany },
+      },
+      dataDbClientManager: {
+        dataPrismaForTable,
       },
     });
 
@@ -82,6 +93,7 @@ describe('RecordOpenApiService', () => {
         orderBy: { createdTime: 'desc' },
       })
     );
+    expect(dataPrismaForTable).toHaveBeenCalledWith('tbl1');
     expect(metaRecordHistoryFindMany).not.toHaveBeenCalled();
     expect(userFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['usr1'] } },

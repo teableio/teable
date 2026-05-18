@@ -22,7 +22,6 @@ import type {
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { keyBy, sortBy, omit } from 'lodash';
@@ -32,6 +31,8 @@ import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
+import type { IDataDbRoutingOptions } from '../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -64,7 +65,7 @@ export class FieldService implements IReadonlyAdapterService {
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly dataLoaderService: DataLoaderService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -83,13 +84,19 @@ export class FieldService implements IReadonlyAdapterService {
     this.dataLoaderService.field.invalidateTables(ids);
   }
 
-  async generateDbFieldName(tableId: string, name: string): Promise<string> {
+  async generateDbFieldName(
+    tableId: string,
+    name: string,
+    routingOptions?: IDataDbRoutingOptions
+  ): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
 
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId));
-    const columns = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(query);
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId, routingOptions));
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      tableId,
+      query,
+      routingOptions
+    );
     // fallback logic
     if (columns.some((column) => column.name === dbFieldName)) {
       dbFieldName += new Date().getTime();
@@ -97,11 +104,17 @@ export class FieldService implements IReadonlyAdapterService {
     return dbFieldName;
   }
 
-  async generateDbFieldNames(tableId: string, names: string[]) {
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId));
-    const columns = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(query);
+  async generateDbFieldNames(
+    tableId: string,
+    names: string[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId, routingOptions));
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      tableId,
+      query,
+      routingOptions
+    );
     return names
       .map((name) => convertNameToValidCharacter(name, 40))
       .map((dbFieldName) => {
@@ -463,7 +476,9 @@ export class FieldService implements IReadonlyAdapterService {
       // Execute all queries (main table alteration + any additional queries like junction tables)
       for (const query of alterTableQueries) {
         this.logger.debug(`Executing alter table query: ${query}`);
-        await this.dataPrismaService.txClient().$executeRawUnsafe(query);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, query, {
+          useTransaction: true,
+        });
       }
 
       if (unique) {
@@ -487,7 +502,9 @@ export class FieldService implements IReadonlyAdapterService {
             });
           })
           .toQuery();
-        await this.dataPrismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, fieldValidationQuery, {
+          useTransaction: true,
+        });
       }
 
       if (notNull) {
@@ -537,7 +554,7 @@ export class FieldService implements IReadonlyAdapterService {
       );
 
       for (const alterTableQuery of alterTableSql) {
-        await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, alterTableQuery);
       }
     }
   }
@@ -575,9 +592,10 @@ export class FieldService implements IReadonlyAdapterService {
     // Link fields in Teable maintain a persisted display column on the host table; skipping
     // the physical rename causes mismatches during computed updates (e.g., UPDATE ... FROM ...).
     const columnInfoQuery = this.dbProvider.columnInfo(table.dbTableName);
-    const columns = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      table.id,
+      columnInfoQuery
+    );
     const columnNames = new Set(columns.map((column) => column.name));
 
     if (columnNames.has(newDbFieldName)) {
@@ -601,7 +619,7 @@ export class FieldService implements IReadonlyAdapterService {
     );
 
     for (const alterTableQuery of alterTableSql) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      await this.databaseRouter.executeDataPrismaForTable(table.id, alterTableQuery);
     }
   }
 
@@ -666,11 +684,11 @@ export class FieldService implements IReadonlyAdapterService {
     await handleDBValidationErrors({
       fn: async () => {
         if (resetFieldQuery) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(resetFieldQuery);
+          await this.databaseRouter.executeDataPrismaForTable(tableId, resetFieldQuery);
         }
 
         for (const alterTableQuery of modifyColumnSql) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
+          await this.databaseRouter.executeDataPrismaForTable(tableId, alterTableQuery);
         }
       },
       handleUniqueError: () => {
@@ -700,11 +718,22 @@ export class FieldService implements IReadonlyAdapterService {
     });
   }
 
-  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string) {
+  async findUniqueIndexesForField(
+    tableIdOrDbTableName: string,
+    dbTableNameOrDbFieldName: string,
+    maybeDbFieldName?: string
+  ) {
+    const tableId = maybeDbFieldName ? tableIdOrDbTableName : undefined;
+    const dbTableName = maybeDbFieldName ? dbTableNameOrDbFieldName : tableIdOrDbTableName;
+    const dbFieldName = maybeDbFieldName ?? dbTableNameOrDbFieldName;
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
-    const indexes = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string; columns: string; isUnique: boolean }[]>(indexesQuery);
+    const indexes = tableId
+      ? await this.databaseRouter.queryDataPrismaForTable<
+          { name: string; columns: string; isUnique: boolean }[]
+        >(tableId, indexesQuery)
+      : await this.databaseRouter.queryDataPrismaForBase<
+          { name: string; columns: string; isUnique: boolean }[]
+        >(dbTableName.split('.')[0], indexesQuery);
 
     return indexes
       .filter((index) => {
@@ -729,7 +758,7 @@ export class FieldService implements IReadonlyAdapterService {
           dbFieldName: true,
           type: true,
           isLookup: true,
-          table: { select: { dbTableName: true, name: true } },
+          table: { select: { id: true, dbTableName: true, name: true } },
         },
       });
 
@@ -747,7 +776,7 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     const dbTableName = table.dbTableName;
-    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
+    const matchedIndexes = await this.findUniqueIndexesForField(table.id, dbTableName, dbFieldName);
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
@@ -772,7 +801,7 @@ export class FieldService implements IReadonlyAdapterService {
     await handleDBValidationErrors({
       fn: () => {
         return Promise.all(
-          executeSqls.map((sql) => this.dataPrismaService.txClient().$executeRawUnsafe(sql))
+          executeSqls.map((sql) => this.databaseRouter.executeDataPrismaForTable(table.id, sql))
         );
       },
       handleUniqueError: () => {
@@ -891,7 +920,18 @@ export class FieldService implements IReadonlyAdapterService {
     return fields.map((field) => createFieldInstanceByVo(field));
   }
 
-  async getDbTableName(tableId: string) {
+  async getDbTableName(tableId: string, routingOptions?: IDataDbRoutingOptions) {
+    if (routingOptions?.useTransaction) {
+      const tableMeta = await this.prismaService.txClient().tableMeta.findUnique({
+        where: { id: tableId },
+        select: { dbTableName: true },
+      });
+      if (!tableMeta) {
+        throw new NotFoundException(`Table not found: ${tableId}`);
+      }
+      return tableMeta.dbTableName;
+    }
+
     const [tableMeta] = await this.dataLoaderService.table.loadByIds([tableId]);
     if (!tableMeta) {
       throw new NotFoundException(`Table not found: ${tableId}`);
@@ -1064,7 +1104,7 @@ export class FieldService implements IReadonlyAdapterService {
           tableDomain
         );
         for (const sql of sqls) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+          await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
         }
       } catch (e) {
         this.logger.warn(
@@ -1499,7 +1539,7 @@ export class FieldService implements IReadonlyAdapterService {
         tableDomain
       );
       for (const sql of modifyColumnSql) {
-        await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
       }
       return;
     }
@@ -1520,7 +1560,7 @@ export class FieldService implements IReadonlyAdapterService {
           tableDomain
         );
         for (const sql of modifyColumnSql) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+          await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
         }
         return;
       }
@@ -1557,7 +1597,7 @@ export class FieldService implements IReadonlyAdapterService {
 
     // Execute the column modification
     for (const sql of modifyColumnSql) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
     }
   }
 
@@ -1649,7 +1689,7 @@ export class FieldService implements IReadonlyAdapterService {
 
         // Execute the column modification
         for (const sql of modifyColumnSql) {
-          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+          await this.databaseRouter.executeDataPrismaForTable(dependentTableId, sql);
         }
       }
     } catch (error) {

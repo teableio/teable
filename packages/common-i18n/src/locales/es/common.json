@@ -1157,9 +1157,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ACTUALIZACION DEL 12 DE MAYO",
-    "title": "Inicio de sesion integrado para App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "ACTUALIZACION DEL 14 DE MAYO",
+    "title": "Menciona cualquier nodo en AI Chat",
+    "url": "https://help.teable.ai/en/changelog#may-14-2026",
+    "id": "changelog-2026-05-14-any-node-in-ai-chat"
   }
 }

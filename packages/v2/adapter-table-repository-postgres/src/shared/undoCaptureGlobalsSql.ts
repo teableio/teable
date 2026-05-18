@@ -1,6 +1,6 @@
 export const undoCaptureGlobalStatements = [
   `
-    CREATE TABLE IF NOT EXISTS "public"."__undo_log" (
+    CREATE TABLE IF NOT EXISTS "__undo_log" (
       "id" BIGSERIAL PRIMARY KEY,
       "batch_id" TEXT NOT NULL,
       "operation" TEXT NOT NULL,
@@ -13,20 +13,20 @@ export const undoCaptureGlobalStatements = [
   `,
   `
     CREATE INDEX IF NOT EXISTS "__undo_log_batch_id_idx"
-    ON "public"."__undo_log" ("batch_id")
+    ON "__undo_log" ("batch_id")
   `,
   `
-    ALTER TABLE "public"."__undo_log" SET (
+    ALTER TABLE "__undo_log" SET (
       autovacuum_vacuum_scale_factor = 0.01,
       autovacuum_vacuum_threshold = 100
     )
   `,
   `
-    ALTER SEQUENCE IF EXISTS "public"."__undo_log_id_seq"
+    ALTER SEQUENCE IF EXISTS "__undo_log_id_seq"
     CACHE 100
   `,
   `
-    CREATE OR REPLACE FUNCTION "public"."__teable_capture_undo_row"()
+    CREATE OR REPLACE FUNCTION "__teable_capture_undo_row"()
     RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -55,7 +55,7 @@ export const undoCaptureGlobalStatements = [
         RETURN NULL;
       END IF;
 
-      INSERT INTO "public"."__undo_log" (
+      INSERT INTO "__undo_log" (
         "batch_id",
         "operation",
         "table_name",
