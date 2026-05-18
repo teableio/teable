@@ -202,7 +202,7 @@ const ensureFormulaLength = (
   );
 };
 
-const ensureFieldLimits = (
+export const ensureTableDataSafetyFieldLimits = (
   field: Field,
   domainContext: IDomainContext | undefined,
   limits: ResolvedTableDataSafetyLimitConfig
@@ -332,13 +332,21 @@ export class TableDataSafetyLimitFieldOperationPlugin
   ): Result<void, DomainError> {
     const limits = preparedState?.limits ?? resolveTableDataSafetyLimits();
     if (context.kind === FieldOperationKind.create && context.result?.createdField) {
-      return ensureFieldLimits(context.result.createdField, preparedState?.domainContext, limits);
+      return ensureTableDataSafetyFieldLimits(
+        context.result.createdField,
+        preparedState?.domainContext,
+        limits
+      );
     }
     if (context.kind === FieldOperationKind.update && context.result?.updatedField) {
-      return ensureFieldLimits(context.result.updatedField, preparedState?.domainContext, limits);
+      return ensureTableDataSafetyFieldLimits(
+        context.result.updatedField,
+        preparedState?.domainContext,
+        limits
+      );
     }
     if (context.kind === FieldOperationKind.duplicate && context.result?.duplicatedField) {
-      return ensureFieldLimits(
+      return ensureTableDataSafetyFieldLimits(
         context.result.duplicatedField,
         preparedState?.domainContext,
         limits
