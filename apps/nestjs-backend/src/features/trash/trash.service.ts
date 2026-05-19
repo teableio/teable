@@ -28,6 +28,7 @@ import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { META_KNEX } from '../../global/knex';
 import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCacheService } from '../../performance-cache';
@@ -51,12 +52,22 @@ import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
 
+type ITrashDataPrisma = {
+  tableTrash: DataPrismaService['tableTrash'];
+  recordTrash: DataPrismaService['recordTrash'];
+};
+
+type IScopedTrashDataPrisma = ITrashDataPrisma & {
+  txClient?: () => ITrashDataPrisma;
+  $tx?: DataPrismaService['$tx'];
+  $transaction?: DataPrismaService['$transaction'];
+};
+
 @Injectable()
 export class TrashService {
   constructor(
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     protected readonly prismaService: PrismaService,
-    protected readonly dataPrismaService: DataPrismaService,
     protected readonly cls: ClsService<IClsStore>,
     protected readonly userService: UserService,
     protected readonly permissionService: PermissionService,
@@ -71,9 +82,41 @@ export class TrashService {
     protected readonly v2ContainerService: V2ContainerService,
     protected readonly v2ExecutionContextFactory: V2ExecutionContextFactory,
     protected readonly canaryService: CanaryService,
+    protected readonly dataDbClientManager: DataDbClientManager,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel(META_KNEX) protected readonly knex: Knex
   ) {}
+
+  private getTrashDataPrismaExecutor(prisma: IScopedTrashDataPrisma): ITrashDataPrisma {
+    return prisma.txClient?.() ?? prisma;
+  }
+
+  private async trashDataPrismaForTable(tableId: string): Promise<IScopedTrashDataPrisma> {
+    return (await this.dataDbClientManager.dataPrismaForTable(tableId, {
+      useTransaction: true,
+    })) as IScopedTrashDataPrisma;
+  }
+
+  private async trashDataPrismaTransactionForTable<T>(
+    tableId: string,
+    fn: (prisma: ITrashDataPrisma) => Promise<T>
+  ): Promise<T> {
+    const prisma = await this.trashDataPrismaForTable(tableId);
+
+    if (prisma.$tx) {
+      return await prisma.$tx(fn, {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      });
+    }
+
+    if (prisma.$transaction) {
+      return await prisma.$transaction(fn, {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      });
+    }
+
+    return await fn(this.getTrashDataPrismaExecutor(prisma));
+  }
 
   async getAuthorizedSpacesAndBases() {
     const userId = this.cls.get('user.id');
@@ -273,11 +316,11 @@ export class TrashService {
     }
 
     try {
-      const container = await this.v2ContainerService.getContainer();
+      const container = await this.v2ContainerService.getContainerForTable(tableId);
       const tableQueryService = container.resolve<TableQueryService>(
         v2CoreTokens.tableQueryService
       );
-      const queryContext = await this.v2ExecutionContextFactory.createContext();
+      const queryContext = await this.v2ExecutionContextFactory.createContext(container);
       const tableResult = await tableQueryService.getById(queryContext, tableIdResult.value);
 
       return tableResult.isOk() ? tableResult.value : null;
@@ -393,7 +436,10 @@ export class TrashService {
         }, {} as IResourceMapVo);
       }
       case TableTrashType.Record: {
-        const recordList = await this.dataPrismaService.recordTrash.findMany({
+        const dataPrisma = this.getTrashDataPrismaExecutor(
+          await this.trashDataPrismaForTable(tableId)
+        );
+        const recordList = await dataPrisma.recordTrash.findMany({
           where: { tableId, recordId: { in: resourceIds } },
           select: {
             recordId: true,
@@ -428,7 +474,8 @@ export class TrashService {
       true
     );
 
-    const list = await this.dataPrismaService.tableTrash.findMany({
+    const dataPrisma = this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
+    const list = await dataPrisma.tableTrash.findMany({
       where: {
         tableId,
       },
@@ -756,15 +803,29 @@ export class TrashService {
     }
   }
 
-  async restoreTableResource(trashId: string) {
+  async restoreTableResource(trashId: string, routedTableId?: string) {
     const accessTokenId = this.cls.get('accessTokenId');
+    if (!routedTableId) {
+      throw new CustomHttpException(
+        `Table id is required to restore table trash ${trashId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.tableNotFound',
+          },
+        }
+      );
+    }
+    const lookupDataPrisma = this.getTrashDataPrismaExecutor(
+      await this.trashDataPrismaForTable(routedTableId)
+    );
 
     const {
       tableId,
       resourceType,
       snapshot: originSnapshot,
       createdTime,
-    } = await this.dataPrismaService.tableTrash
+    } = await lookupDataPrisma.tableTrash
       .findUniqueOrThrow({
         where: { id: trashId },
         select: {
@@ -785,6 +846,9 @@ export class TrashService {
           }
         );
       });
+    const dataPrisma = routedTableId
+      ? lookupDataPrisma
+      : this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
 
     await this.permissionService.validPermissions(
       tableId,
@@ -829,7 +893,7 @@ export class TrashService {
             createdTime: true;
           };
         }>;
-        const recordTrashRows = await this.dataPrismaService.recordTrash.findMany({
+        const recordTrashRows = await dataPrisma.recordTrash.findMany({
           where: { tableId, recordId: { in: recordIds } },
           select: {
             id: true,
@@ -871,19 +935,14 @@ export class TrashService {
           },
           true
         );
-        await this.dataPrismaService.$tx(
-          async (prisma) => {
-            await prisma.recordTrash.deleteMany({
-              where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
-            });
-            await prisma.tableTrash.delete({
-              where: { id: trashId },
-            });
-          },
-          {
-            timeout: this.thresholdConfig.bigTransactionTimeout,
-          }
-        );
+        await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+          await prisma.recordTrash.deleteMany({
+            where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
+          });
+          await prisma.tableTrash.delete({
+            where: { id: trashId },
+          });
+        });
         return;
       }
       default:
@@ -898,7 +957,7 @@ export class TrashService {
         );
     }
 
-    await this.dataPrismaService.tableTrash.delete({
+    await dataPrisma.tableTrash.delete({
       where: { id: trashId },
     });
   }
@@ -969,9 +1028,9 @@ export class TrashService {
     };
   }
 
-  async restoreTrash(trashId: string) {
+  async restoreTrash(trashId: string, tableId?: string) {
     if (trashId.startsWith(IdPrefix.Operation)) {
-      return await this.restoreTableResource(trashId);
+      return await this.restoreTableResource(trashId, tableId);
     }
 
     await this.prismaService.$tx(async (prisma) => {
@@ -1066,7 +1125,8 @@ export class TrashService {
       true
     );
 
-    const deletedList = await this.dataPrismaService.tableTrash.findMany({
+    const dataPrisma = this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
+    const deletedList = await dataPrisma.tableTrash.findMany({
       where: { tableId },
       select: { resourceType: true, snapshot: true },
     });
@@ -1117,7 +1177,7 @@ export class TrashService {
       });
     });
 
-    await this.dataPrismaService.$tx(async (prisma) => {
+    await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
       await prisma.recordTrash.deleteMany({
         where: { tableId },
       });

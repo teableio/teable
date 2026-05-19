@@ -356,7 +356,9 @@ export class FieldUpdateSideEffectService {
       return err(whereSpecResult.error);
     }
 
-    const latestForeignResult = await this.tableRepository.findOne(context, whereSpecResult.value);
+    const latestForeignResult = await this.tableRepository.findOne(context, whereSpecResult.value, {
+      state: 'activeWithPending',
+    });
     if (latestForeignResult.isErr()) {
       return err(latestForeignResult.error);
     }

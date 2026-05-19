@@ -366,7 +366,7 @@ describe('Trash (e2e)', () => {
       await awaitWithViewEvent(() => deleteView(tableId, deletedViewId));
 
       const result = await waitForTableTrashItems(tableId);
-      const restored = await restoreTrash(result.data.trashItems[0].id);
+      const restored = await restoreTrash(result.data.trashItems[0].id, tableId);
 
       expect(restored.status).toEqual(201);
     });
@@ -378,7 +378,7 @@ describe('Trash (e2e)', () => {
       await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
 
       const result = await waitForTableTrashItems(tableId);
-      const restored = await restoreTrash(result.data.trashItems[0].id);
+      const restored = await restoreTrash(result.data.trashItems[0].id, tableId);
 
       expect(restored.status).toEqual(201);
     });
@@ -395,7 +395,7 @@ describe('Trash (e2e)', () => {
       await awaitWithFieldDeleteSync(async () => deleteFields(tableId, [formulaField.id]));
 
       const result = await waitForTableTrashItems(tableId);
-      const restored = await restoreTrash(result.data.trashItems[0].id);
+      const restored = await restoreTrash(result.data.trashItems[0].id, tableId);
 
       expect(restored.status).toEqual(201);
     });
@@ -451,7 +451,7 @@ describe('Trash (e2e)', () => {
         })),
       });
 
-      const restored = await restoreTrash(recordTrashItem!.id);
+      const restored = await restoreTrash(recordTrashItem!.id, tableId);
       expect(restored.status).toEqual(201);
 
       const recordsAfterRestore = await getRecords(tableId, {
@@ -497,7 +497,7 @@ describe('Trash (e2e)', () => {
         ) as ITableTrashItemVo | undefined;
         expect(recordTrashItem).toBeTruthy();
 
-        const restored = await restoreTrash(recordTrashItem!.id);
+        const restored = await restoreTrash(recordTrashItem!.id, tableId);
         expect(restored.status).toEqual(201);
         expect(legacyRestoreSpy).not.toHaveBeenCalled();
 
@@ -558,7 +558,7 @@ describe('Trash (e2e)', () => {
 
       expect(fieldTrashItem).toBeTruthy();
 
-      const restored = await restoreTrash(fieldTrashItem!.id);
+      const restored = await restoreTrash(fieldTrashItem!.id, tableId);
       expect(restored.status).toEqual(201);
 
       const afterFields = await getFields(tableId);
@@ -572,7 +572,7 @@ describe('Trash (e2e)', () => {
       await deleteRecords(tableId, deletedRecordIds);
 
       const result = await waitForTableTrashItems(tableId, 1);
-      const restored = await restoreTrash(result.data.trashItems[0].id);
+      const restored = await restoreTrash(result.data.trashItems[0].id, tableId);
 
       expect(restored.status).toEqual(201);
     });

@@ -1393,7 +1393,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
-    it('should resolve the FK target table from table_meta dbTableName', async () => {
+    it('should create FK constraint against resolved table_meta dbTableName without metadata access in DDL', async () => {
       const targetTableMetaId = createValidTableId('logical_target');
       const targetPhysicalTableName = 'students_custom';
 
@@ -1411,7 +1411,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       const rule = ForeignKeyRule.forField(
         field,
         'fk_col',
-        { schema: TEST_SCHEMA, tableName: targetTableMetaId },
+        { schema: TEST_SCHEMA, tableName: targetPhysicalTableName },
         fkColumnRule,
         'Students',
         'CASCADE',
@@ -1423,7 +1423,9 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        await db.executeQuery(stmt.compile(db));
+        const compiled = stmt.compile(db);
+        expect(compiled.sql).not.toContain('table_meta');
+        await db.executeQuery(compiled);
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -2234,8 +2236,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
 
-    it('should resolve the junction FK target table from table_meta dbTableName', async () => {
-      const logicalTargetTableName = FOREIGN_TABLE_META_ID;
+    it('should create junction FK against resolved table_meta dbTableName without metadata access in DDL', async () => {
       const physicalTargetTableName = 'test_jct_fk_target_legacy';
 
       await createTestTable(SOURCE_TABLE);
@@ -2265,7 +2266,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         foreignKeyName: 'foreign_key',
         orderColumnName: 'order_col',
         sourceTable: { schema: TEST_SCHEMA, tableName: SOURCE_TABLE },
-        foreignTable: { schema: TEST_SCHEMA, tableName: logicalTargetTableName },
+        foreignTable: { schema: TEST_SCHEMA, tableName: physicalTargetTableName },
         foreignTableMetaId: FOREIGN_TABLE_META_ID,
         withIndexes: false,
       };
@@ -2274,7 +2275,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         linkField,
         { schema: TEST_SCHEMA, tableName: JUNCTION_TABLE },
         'foreign_key',
-        { schema: TEST_SCHEMA, tableName: logicalTargetTableName },
+        { schema: TEST_SCHEMA, tableName: physicalTargetTableName },
         'foreign',
         junctionRule,
         FOREIGN_TABLE_META_ID
@@ -2284,7 +2285,9 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        await db.executeQuery(stmt.compile(db));
+        const compiled = stmt.compile(db);
+        expect(compiled.sql).not.toContain('table_meta');
+        await db.executeQuery(compiled);
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -4349,14 +4352,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         foreignKeyName,
         hasOrderColumn: true,
       })._unsafeUnwrap();
-      const table = createTableAggregate(sourceTableName, field);
+      const otherField = createRealLinkField({
+        id: 'otherLinkB',
+        name: 'Other Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: junctionTableName,
+        selfKeyName,
+        foreignKeyName,
+        hasOrderColumn: true,
+      })._unsafeUnwrap();
+      const table = createTableAggregateWithId(
+        createValidTableId(`table_${sourceTableName}`),
+        sourceTableName,
+        [field, otherField]
+      );
       const sourceTableId = table.id().toString();
 
       await sql`
         INSERT INTO field (id, name, type, table_id, db_field_name)
         VALUES
           (${field.id().toString()}, 'ManyMany Ambiguous Link', 'link', ${sourceTableId}, 'link_value'),
-          (${createValidFieldId('otherLinkB')}, 'Other Link', 'link', ${sourceTableId}, 'link_value')
+          (${otherField.id().toString()}, 'Other Link', 'link', ${sourceTableId}, 'link_value')
       `.execute(db);
 
       await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);

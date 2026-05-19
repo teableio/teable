@@ -9,13 +9,13 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   HttpErrorCode,
 } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -37,7 +37,7 @@ const isLink = (field: IFieldInstance): field is LinkFieldDto =>
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -199,7 +199,7 @@ export class FieldConvertingLinkService {
     );
     // Execute all queries (FK/junction creation, order columns, etc.)
     for (const query of createColumnQueries) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, query, { useTransaction: true });
     }
   }
 

@@ -53,11 +53,12 @@ import { Knex } from 'knex';
 import { groupBy, isEqual, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { FieldReferenceCompatibilityException } from '../../../db-provider/filter-query/cell-value-filter.abstract';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -109,13 +110,17 @@ export type ILegacyDeleteFieldsPayloadSnapshot = {
   records: Awaited<ReturnType<RecordService['getRecordsFields']>> | undefined;
 };
 
+type CreateFieldsOptions = {
+  restoreViewOrder?: boolean;
+};
+
 @Injectable()
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly viewOpenApiService: ViewOpenApiService,
@@ -1149,7 +1154,9 @@ export class FieldOpenApiService {
   @Timing()
   async createFields(
     tableId: string,
-    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[]
+    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[],
+    routingOptions?: IDataDbRoutingOptions,
+    options: CreateFieldsOptions = {}
   ) {
     if (!fields.length) return;
 
@@ -1183,6 +1190,7 @@ export class FieldOpenApiService {
           set.add(fieldId);
         };
 
+        const columnMetaByFieldId = new Map(fields.map((field) => [field.id, field.columnMeta]));
         const createPayload = orderedFields.map((field) => {
           const { columnMeta, references, ...fieldVo } = field;
           if (references?.length) {
@@ -1191,7 +1199,10 @@ export class FieldOpenApiService {
 
           return {
             field: createFieldInstanceByVo(fieldVo),
-            columnMeta: columnMeta as unknown as Record<string, IColumn>,
+            columnMeta: (options.restoreViewOrder ? undefined : columnMeta) as unknown as Record<
+              string,
+              IColumn
+            >,
           };
         });
 
@@ -1200,7 +1211,8 @@ export class FieldOpenApiService {
           async () => {
             const createResult = await this.fieldCreatingService.alterCreateFieldsInExistingTable(
               tableId,
-              createPayload
+              createPayload,
+              routingOptions
             );
             created.push(...createResult);
 
@@ -1213,6 +1225,19 @@ export class FieldOpenApiService {
 
             if (referencesToRestore.size) {
               await this.restoreReference(Array.from(referencesToRestore));
+            }
+
+            if (options.restoreViewOrder) {
+              for (const { tableId: tid, field } of createResult) {
+                const columnMeta = columnMetaByFieldId.get(field.id);
+                if (columnMeta) {
+                  await this.viewService.initViewColumnMeta(
+                    tid,
+                    [field.id],
+                    [columnMeta as unknown as Record<string, IColumn>]
+                  );
+                }
+              }
             }
 
             const skipComputation = this.cls.get('skipFieldComputation');
@@ -1253,15 +1278,24 @@ export class FieldOpenApiService {
 
     // Recreate search indexes after schema changes (outside tx boundaries)
     for (const { tableId: tid, field } of createdFields) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tid, field);
+      await this.tableIndexService.createSearchFieldSingleIndex(tid, field, routingOptions);
     }
   }
 
   @Timing()
-  async createFieldsByRo(tableId: string, fieldRos: IFieldRo[]): Promise<IFieldVo[]> {
+  async createFieldsByRo(
+    tableId: string,
+    fieldRos: IFieldRo[],
+    routingOptions?: IDataDbRoutingOptions
+  ): Promise<IFieldVo[]> {
     if (!fieldRos.length) return [];
-    const fieldVos = await this.fieldSupplementService.prepareCreateFields(tableId, fieldRos);
-    await this.createFields(tableId, fieldVos);
+    const fieldVos = await this.fieldSupplementService.prepareCreateFields(
+      tableId,
+      fieldRos,
+      undefined,
+      routingOptions
+    );
+    await this.createFields(tableId, fieldVos, routingOptions);
     return fieldVos;
   }
 
@@ -1327,8 +1361,18 @@ export class FieldOpenApiService {
   }
 
   @Timing()
-  async createField(tableId: string, fieldRo: IFieldRo, windowId?: string) {
-    const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
+  async createField(
+    tableId: string,
+    fieldRo: IFieldRo,
+    windowId?: string,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
+    const fieldVo = await this.fieldSupplementService.prepareCreateField(
+      tableId,
+      fieldRo,
+      undefined,
+      routingOptions
+    );
     const fieldInstance = createFieldInstanceByVo(fieldVo);
     const columnMeta = fieldRo.order && {
       [fieldRo.order.viewId]: { order: fieldRo.order.orderIndex },
@@ -1344,7 +1388,8 @@ export class FieldOpenApiService {
             created = await this.fieldCreatingService.alterCreateField(
               tableId,
               fieldInstance,
-              columnMeta
+              columnMeta,
+              routingOptions
             );
             for (const { tableId: tid, field } of created) {
               let entry = sourceEntries.find((s) => s.tableId === tid);
@@ -1367,7 +1412,7 @@ export class FieldOpenApiService {
     );
 
     for (const { tableId: tid, field } of newFields) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tid, field);
+      await this.tableIndexService.createSearchFieldSingleIndex(tid, field, routingOptions);
     }
 
     const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
@@ -2147,9 +2192,11 @@ export class FieldOpenApiService {
     });
 
     const query = qb.toQuery();
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ count: number }[]>(query);
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ count: number }[]>(
+      tableId,
+      query,
+      { useTransaction: true }
+    );
     return Number(result[0].count);
   }
 
@@ -2189,9 +2236,9 @@ export class FieldOpenApiService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [key: string]: string }[]
+    >(tableId, query, { useTransaction: true });
     this.logger.debug('getFieldRecords: ', result);
     return result.map((item) => ({
       id: item.__id,

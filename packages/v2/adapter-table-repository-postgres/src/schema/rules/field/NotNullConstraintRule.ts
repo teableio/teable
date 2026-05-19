@@ -10,6 +10,7 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import { dataStatement } from '../helpers/StatementBuilders';
 
 /**
  * Schema rule for adding/removing NOT NULL constraint on a column.
@@ -80,7 +81,7 @@ export class NotNullConstraintRule implements ISchemaRule {
         `ALTER TABLE "${schemaName}"."${ctx.tableName}" ALTER COLUMN "${columnName}" SET NOT NULL`
       );
 
-      return ok([statement]);
+      return ok([dataStatement(statement)]);
     });
   }
 
@@ -94,7 +95,7 @@ export class NotNullConstraintRule implements ISchemaRule {
         `ALTER TABLE "${schemaName}"."${ctx.tableName}" ALTER COLUMN "${columnName}" DROP NOT NULL`
       );
 
-      return ok([statement]);
+      return ok([dataStatement(statement)]);
     });
   }
 }

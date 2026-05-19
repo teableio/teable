@@ -265,6 +265,32 @@ describe('TableUpdateFlow', () => {
     expect(order).toEqual(['schema-update', 'after-persist', 'deferred-task']);
   });
 
+  it('does not change provision state when prepare validation fails before persistence', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const nextName = TableName.create('Flow Table Invalid')._unsafeUnwrap();
+    const result = await flow.execute(
+      createContext(),
+      { table },
+      (tableToUpdate) => tableToUpdate.update((mutator) => mutator.rename(nextName)),
+      {
+        hooks: {
+          prepare: async () => err(domainError.validation({ message: 'invalid update' })),
+        },
+      }
+    );
+
+    expect(result._unsafeUnwrapErr().message).toBe('invalid update');
+    expect(repository.provisionStateChanges).toEqual([]);
+  });
+
   it('attaches persisted view versions to view column meta events', async () => {
     const table = buildTable();
     const eventBus = new FakeEventBus();
