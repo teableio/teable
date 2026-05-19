@@ -17,6 +17,8 @@ vi.mock('../attachments/attachments-storage.service', () => ({
 
 import { CacheService } from '../../cache/cache.service';
 import { thresholdConfig } from '../../configs/threshold.config';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { V2ContainerService } from './v2-container.service';
@@ -139,6 +141,12 @@ const createService = (providers: InstanceWrapper[] = []) => {
     getPreviewUrlByPath: vi.fn(),
     getTableThumbnailUrl: vi.fn(),
   };
+  const dataDbClientManager = {
+    getDataDatabaseForSpace: vi.fn(),
+    getDataDatabaseForBase: vi.fn(),
+    getDataDatabaseForTable: vi.fn(),
+  };
+  const runtimeCache = new DataDbRuntimeCacheService();
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -152,7 +160,9 @@ const createService = (providers: InstanceWrapper[] = []) => {
     attachmentsStorageService as never,
     { undoExpirationTime: 60, maxUndoStackSize: 20 } as never,
     reflector,
-    discoveryService
+    discoveryService,
+    dataDbClientManager as never,
+    runtimeCache
   );
 
   return {
@@ -161,6 +171,8 @@ const createService = (providers: InstanceWrapper[] = []) => {
     shareDbService,
     cacheService,
     attachmentsStorageService,
+    dataDbClientManager,
+    runtimeCache,
     discoveryService,
   };
 };
@@ -176,6 +188,12 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     getPreviewUrlByPath: vi.fn(),
     getTableThumbnailUrl: vi.fn(),
   };
+  const dataDbClientManager = {
+    getDataDatabaseForSpace: vi.fn(),
+    getDataDatabaseForBase: vi.fn(),
+    getDataDatabaseForTable: vi.fn(),
+  };
+  const runtimeCache = new DataDbRuntimeCacheService();
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -189,6 +207,8 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
       { provide: ShareDbService, useValue: shareDbService },
       { provide: CacheService, useValue: cacheService },
       { provide: AttachmentsStorageService, useValue: attachmentsStorageService },
+      { provide: DataDbClientManager, useValue: dataDbClientManager },
+      { provide: DataDbRuntimeCacheService, useValue: runtimeCache },
       {
         provide: thresholdConfig.KEY,
         useValue: { undoExpirationTime: 60, maxUndoStackSize: 20 },
@@ -249,7 +269,7 @@ describe('V2ContainerService', () => {
     expect(registrar.registerProjections).toHaveBeenCalledTimes(1);
   });
 
-  it('accepts split meta/data envs without requiring the legacy alias', async () => {
+  it('uses the meta database as the default data database without a global data env', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
     const { service, configService } = createService();
@@ -257,9 +277,6 @@ describe('V2ContainerService', () => {
     configService.get.mockImplementation((key: string) => {
       if (key === 'PRISMA_META_DATABASE_URL') {
         return 'postgres://meta-db';
-      }
-      if (key === 'PRISMA_DATA_DATABASE_URL') {
-        return 'postgres://data-db';
       }
       return undefined;
     });
@@ -269,7 +286,7 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         metaConnectionString: 'postgres://meta-db',
-        dataConnectionString: 'postgres://data-db',
+        dataConnectionString: 'postgres://meta-db',
       })
     );
   });
@@ -317,6 +334,39 @@ describe('V2ContainerService', () => {
         tableMaxRowLimit: 8,
       })
     );
+  });
+
+  it('creates a scoped container from the base data database binding', async () => {
+    const defaultContainer = createContainerMock();
+    const scopedContainer = createContainerMock();
+    mocks.createV2NodePgContainer
+      .mockResolvedValueOnce(defaultContainer)
+      .mockResolvedValueOnce(scopedContainer);
+    const { service, configService, dataDbClientManager } = createService();
+
+    configService.get.mockImplementation((key: string) =>
+      key === 'PRISMA_META_DATABASE_URL' ? 'postgres://meta-db' : undefined
+    );
+    dataDbClientManager.getDataDatabaseForBase.mockResolvedValue({
+      cacheKey: 'dcnxxx',
+      url: 'postgres://space-data-db',
+      isMetaFallback: false,
+      connectionId: 'dcnxxx',
+    });
+
+    await expect(service.getContainer()).resolves.toBe(defaultContainer);
+    await expect(service.getContainerForBase('bsexxx')).resolves.toBe(scopedContainer);
+    await expect(service.getContainerForBase('bsexxx')).resolves.toBe(scopedContainer);
+
+    expect(dataDbClientManager.getDataDatabaseForBase).toHaveBeenCalledWith('bsexxx');
+    expect(mocks.createV2NodePgContainer).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        metaConnectionString: 'postgres://meta-db',
+        dataConnectionString: 'postgres://space-data-db',
+      })
+    );
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to DATABASE_URL when neither meta nor legacy alias is configured', async () => {

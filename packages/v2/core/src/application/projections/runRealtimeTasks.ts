@@ -10,6 +10,7 @@ export async function runRealtimeTasks(
   tasks: ReadonlyArray<
     () =>
       | Promise<Result<void, DomainError>>
+      | Promise<Result<undefined, DomainError>>
       | ResultAsync<void, DomainError>
       | ResultAsync<undefined, DomainError>
   >,

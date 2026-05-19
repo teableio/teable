@@ -133,7 +133,7 @@ exports[`date functions batch 1 > 'Day' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -390,7 +390,7 @@ exports[`date functions batch 1 > 'Day' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -696,7 +696,7 @@ exports[`date functions batch 1 > 'Hour' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -953,7 +953,7 @@ exports[`date functions batch 1 > 'Hour' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -1259,7 +1259,7 @@ exports[`date functions batch 1 > 'Minute' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -1516,7 +1516,7 @@ exports[`date functions batch 1 > 'Minute' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -1822,7 +1822,7 @@ exports[`date functions batch 1 > 'Month' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -2079,7 +2079,7 @@ exports[`date functions batch 1 > 'Month' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -2385,7 +2385,7 @@ exports[`date functions batch 1 > 'WeekNum' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -2642,7 +2642,7 @@ exports[`date functions batch 1 > 'WeekNum' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -2948,7 +2948,7 @@ exports[`date functions batch 1 > 'Weekday' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -3205,7 +3205,7 @@ exports[`date functions batch 1 > 'Weekday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -3511,7 +3511,7 @@ exports[`date functions batch 1 > 'Year' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -3768,7 +3768,7 @@ exports[`date functions batch 1 > 'Year' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -4059,7 +4059,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalLookup' 1`] = 
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) - (to_timestamp(((SELECT CASE
@@ -4079,7 +4079,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalLookup' 1`] = 
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz)))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM (to_timestamp(((SELECT CASE
@@ -4099,7 +4099,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalLookup' 1`] = 
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) - (to_timestamp(((SELECT CASE
@@ -4119,7 +4119,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalLookup' 1`] = 
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz))) / 86400) END)",
@@ -4378,7 +4378,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4398,7 +4398,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4418,7 +4418,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4438,7 +4438,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4458,7 +4458,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4478,7 +4478,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4498,7 +4498,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE '#ERROR:TYPE:invalid_datetime_diff' END ELSE ((CASE WHEN ((SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4518,7 +4518,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4538,7 +4538,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN NULL ELSE (CASE WHEN ABS((EXTRACT(EPOCH FROM ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4558,7 +4558,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -4584,7 +4584,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) - ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4604,7 +4604,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4624,7 +4624,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -4650,7 +4650,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::timestamptz)))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4670,7 +4670,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -4696,7 +4696,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) - ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4716,7 +4716,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -4736,7 +4736,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -4762,7 +4762,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::timestamptz))) / 86400) END) END))::text END",
@@ -6878,7 +6878,7 @@ exports[`date functions batch 2 > 'FromNow' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision))))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM (NOW() - to_timestamp(((SELECT CASE
@@ -6898,7 +6898,7 @@ exports[`date functions batch 2 > 'FromNow' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)))) / 86400) END)",
@@ -7145,7 +7145,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -7165,7 +7165,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -7185,7 +7185,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN ABS((EXTRACT(EPOCH FROM (NOW() - (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -7205,7 +7205,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -7231,7 +7231,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END))))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM (NOW() - (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -7251,7 +7251,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -7277,7 +7277,7 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)))) / 86400) END) END))::text END",
@@ -7568,7 +7568,7 @@ exports[`date functions batch 2 > 'Second' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -7825,7 +7825,7 @@ exports[`date functions batch 2 > 'Second' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -8116,7 +8116,7 @@ exports[`date functions batch 2 > 'ToNow' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision))))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM (NOW() - to_timestamp(((SELECT CASE
@@ -8136,7 +8136,7 @@ exports[`date functions batch 2 > 'ToNow' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)))) / 86400) END)",
@@ -8383,7 +8383,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -8403,7 +8403,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -8423,7 +8423,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN ABS((EXTRACT(EPOCH FROM (NOW() - (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -8443,7 +8443,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -8469,7 +8469,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END))))) < 1 THEN 0::double precision ELSE ((EXTRACT(EPOCH FROM (NOW() - (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -8489,7 +8489,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -8515,7 +8515,7 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)))) / 86400) END) END))::text END",
@@ -8944,7 +8944,7 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
@@ -9466,7 +9466,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -9486,7 +9486,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -9506,7 +9506,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -9526,7 +9526,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (
@@ -9575,7 +9575,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -9601,7 +9601,7 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
@@ -10090,7 +10090,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day'",
@@ -10331,7 +10331,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -10351,7 +10351,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -10371,7 +10371,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -10391,7 +10391,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -10411,7 +10411,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -10437,7 +10437,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text END",
@@ -10764,7 +10764,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v) OR ((to_timestamp(((SELECT CASE
@@ -10784,7 +10784,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
@@ -10804,7 +10804,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
@@ -10824,7 +10824,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
@@ -10848,7 +10848,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v), 0) > COALESCE((SELECT (CASE
@@ -10872,7 +10872,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
@@ -10893,7 +10893,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text, '') > COALESCE(((SELECT CASE
@@ -10913,7 +10913,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
@@ -11290,7 +11290,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11310,7 +11310,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11330,7 +11330,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11350,7 +11350,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11370,7 +11370,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE
@@ -11391,7 +11391,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11411,7 +11411,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -11437,7 +11437,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT (SELECT CASE
@@ -11457,7 +11457,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN ((SELECT (CASE
@@ -11481,7 +11481,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11501,7 +11501,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -11527,7 +11527,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text AS val) AS v) > (SELECT (CASE
@@ -11551,7 +11551,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v))
@@ -11572,7 +11572,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -11592,7 +11592,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -11618,7 +11618,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text, '') > COALESCE((SELECT CASE
@@ -11638,7 +11638,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))
@@ -12079,7 +12079,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
@@ -12099,7 +12099,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT (to_timestamp(((SELECT CASE
@@ -12119,7 +12119,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v) OR ((to_timestamp(((SELECT CASE
@@ -12139,7 +12139,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text IS NULL)) THEN (COALESCE((SELECT (CASE
@@ -12163,7 +12163,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) < COALESCE((SELECT (CASE
@@ -12187,7 +12187,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v), 0))
@@ -12208,7 +12208,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') < COALESCE((to_timestamp(((SELECT CASE
@@ -12228,7 +12228,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::text, ''))
@@ -12605,7 +12605,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12625,7 +12625,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12645,7 +12645,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12665,7 +12665,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE '#ERROR:TYPE:invalid_comparison' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12685,7 +12685,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE
@@ -12706,7 +12706,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) AND (SELECT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12726,7 +12726,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12746,7 +12746,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -12772,7 +12772,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text AS val) AS v)) THEN ((SELECT (CASE
@@ -12796,7 +12796,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) < (SELECT (CASE
@@ -12820,7 +12820,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12840,7 +12840,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -12866,7 +12866,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text AS val) AS v))
@@ -12887,7 +12887,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') < COALESCE(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12907,7 +12907,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -12927,7 +12927,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -12953,7 +12953,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::text, ''))
@@ -13337,7 +13337,7 @@ exports[`date functions batch 3 > 'IsSame' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)) AT TIME ZONE 'UTC') = DATE_TRUNC('day', ((to_timestamp(((SELECT CASE
@@ -13357,7 +13357,7 @@ exports[`date functions batch 3 > 'IsSame' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz) AT TIME ZONE 'UTC')",
@@ -13604,7 +13604,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13624,7 +13624,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13644,7 +13644,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13664,7 +13664,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13684,7 +13684,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13704,7 +13704,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13724,7 +13724,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE '#ERROR:TYPE:invalid_is_same' END ELSE ((CASE WHEN ((SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13744,7 +13744,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13764,7 +13764,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN NULL ELSE DATE_TRUNC('day', ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13784,7 +13784,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -13810,7 +13810,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC') = DATE_TRUNC('day', (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13830,7 +13830,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -13850,7 +13850,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -13876,7 +13876,7 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((1)::double precision) * INTERVAL '1 day' END))::timestamptz) AT TIME ZONE 'UTC') END))::text END",
@@ -15853,7 +15853,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15873,7 +15873,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15893,7 +15893,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15913,7 +15913,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15933,7 +15933,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15953,7 +15953,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15973,7 +15973,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE '#ERROR:TYPE:invalid_workday_diff' END ELSE ((CASE WHEN ((SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -15993,7 +15993,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -16013,7 +16013,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN NULL ELSE (
@@ -16035,7 +16035,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -16061,7 +16061,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -16081,7 +16081,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
@@ -16101,7 +16101,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -16127,7 +16127,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) + ((2)::double precision) * INTERVAL '1 day' END))::timestamptz) AT TIME ZONE 'UTC')::date AS end_date, COALESCE('', '') AS holiday_text
@@ -16638,7 +16638,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'conditionalLookup' 1
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) * INTERVAL '1 day' END))::text END",
@@ -16963,7 +16963,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2024-01-02T00:00:00Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2024-01-02T00:00:00Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -16983,7 +16983,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -17003,7 +17003,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE ((CASE WHEN ((SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2024-01-02T00:00:00Z' AS val) AS v) OR (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -17023,7 +17023,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v)) THEN NULL ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2024-01-02T00:00:00Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -17049,7 +17049,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -17073,7 +17073,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) * INTERVAL '1 day' END))::text END",
@@ -18570,7 +18570,7 @@ exports[`date functions batch 4 > 'Datestr' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -18828,7 +18828,7 @@ exports[`date functions batch 4 > 'Datestr' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -19290,7 +19290,7 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'conditionalLookup' 1`] 
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -19628,7 +19628,7 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20087,7 +20087,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20106,7 +20106,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20125,7 +20125,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20144,7 +20144,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20163,7 +20163,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20182,7 +20182,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20201,7 +20201,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20220,7 +20220,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20239,7 +20239,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20259,7 +20259,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20279,7 +20279,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20298,7 +20298,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20317,7 +20317,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20336,7 +20336,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20356,7 +20356,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20375,7 +20375,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20395,7 +20395,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20414,7 +20414,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20668,7 +20668,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20687,7 +20687,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20706,7 +20706,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20725,7 +20725,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20744,7 +20744,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20763,7 +20763,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20782,7 +20782,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20801,7 +20801,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20820,7 +20820,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20840,7 +20840,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20860,7 +20860,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20879,7 +20879,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20898,7 +20898,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20917,7 +20917,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20937,7 +20937,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20956,7 +20956,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20976,7 +20976,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -20995,7 +20995,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -21323,7 +21323,7 @@ exports[`date functions batch 4 > 'Timestr' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -21581,7 +21581,7 @@ exports[`date functions batch 4 > 'Timestr' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
