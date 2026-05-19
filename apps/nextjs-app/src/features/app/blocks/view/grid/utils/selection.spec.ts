@@ -6,6 +6,7 @@ import {
   DELETE_SELECTION_STREAM_ROW_THRESHOLD,
   DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD,
   getEffectRows,
+  selectionIncludesEditableField,
   shouldUseDeleteSelectionStream,
   shouldUseDuplicateSelectionStream,
 } from './selection';
@@ -60,5 +61,52 @@ describe('selection delete stream helpers', () => {
 
     expect(shouldUseDuplicateSelectionStream(atThreshold)).toBe(false);
     expect(shouldUseDuplicateSelectionStream(aboveThreshold)).toBe(true);
+  });
+
+  it('detects when a cell selection only targets computed fields', () => {
+    const selection = {
+      type: SelectionRegionType.Cells,
+      ranges: [
+        [1, 0],
+        [1, 2],
+      ],
+      serialize: () => [
+        [1, 0],
+        [1, 2],
+      ],
+    } as unknown as CombinedSelection;
+    const fields = [{ isComputed: false }, { isComputed: true }] as unknown as Parameters<
+      typeof selectionIncludesEditableField
+    >[1];
+
+    expect(selectionIncludesEditableField(selection, fields)).toBe(false);
+  });
+
+  it('detects editable fields across mixed cell and column selections', () => {
+    const fields = [
+      { isComputed: true },
+      { isComputed: false },
+      { isComputed: true },
+    ] as unknown as Parameters<typeof selectionIncludesEditableField>[1];
+
+    const cellSelection = {
+      type: SelectionRegionType.Cells,
+      ranges: [
+        [0, 0],
+        [1, 0],
+      ],
+      serialize: () => [
+        [0, 0],
+        [1, 0],
+      ],
+    } as unknown as CombinedSelection;
+
+    const columnSelection = {
+      type: SelectionRegionType.Columns,
+      ranges: [[2, 2]],
+    } as unknown as CombinedSelection;
+
+    expect(selectionIncludesEditableField(cellSelection, fields)).toBe(true);
+    expect(selectionIncludesEditableField(columnSelection, fields)).toBe(false);
   });
 });

@@ -226,9 +226,9 @@ export class IntegrityV2Service {
       throw new HttpException(parsedTableId.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableResult = await tableRepository.findOne(
       context,
       TableByIdSpec.create(parsedTableId.value)
@@ -270,10 +270,10 @@ export class IntegrityV2Service {
       throw new HttpException(parsedBaseId.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const baseRepository = container.resolve<IBaseRepository>(v2CoreTokens.baseRepository);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const baseResult = await baseRepository.findOne(context, parsedBaseId.value);
 
     if (baseResult.isErr()) {
