@@ -7,7 +7,6 @@ import {
   DbFieldType,
   NumberFormatting,
   NumberFormattingType,
-  FieldType,
   TimeFormatting,
   createDateField,
   createNumberField,
@@ -2065,17 +2064,26 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
   describe('conditional rollup field', () => {
     const CONDITIONAL_ROLLUP_FIELD_ID = `fld${'c'.repeat(16)}`;
+    const SECOND_CONDITIONAL_ROLLUP_FIELD_ID = `fld${'d'.repeat(16)}`;
     const FOREIGN_VALUES_FIELD_ID = `fld${'v'.repeat(16)}`;
     const FOREIGN_FILTER_FIELD_ID = `fld${'g'.repeat(16)}`;
+    const FOREIGN_STATUS_FIELD_ID = `fld${'u'.repeat(16)}`;
     const HOST_FILTER_FIELD_ID = `fld${'h'.repeat(16)}`;
 
-    const createConditionalRollupTable = (condition: unknown) => {
+    const createConditionalRollupTable = (
+      condition: unknown,
+      options?: { includeSecondRollup?: boolean; secondCondition?: unknown }
+    ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
       const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
       const conditionalRollupFieldId = FieldId.create(CONDITIONAL_ROLLUP_FIELD_ID)._unsafeUnwrap();
+      const secondConditionalRollupFieldId = FieldId.create(
+        SECOND_CONDITIONAL_ROLLUP_FIELD_ID
+      )._unsafeUnwrap();
       const foreignValuesFieldId = FieldId.create(FOREIGN_VALUES_FIELD_ID)._unsafeUnwrap();
       const foreignFilterFieldId = FieldId.create(FOREIGN_FILTER_FIELD_ID)._unsafeUnwrap();
+      const foreignStatusFieldId = FieldId.create(FOREIGN_STATUS_FIELD_ID)._unsafeUnwrap();
       const hostFilterFieldId = FieldId.create(HOST_FILTER_FIELD_ID)._unsafeUnwrap();
 
       const foreignBuilder = Table.builder()
@@ -2094,6 +2102,12 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .withId(foreignFilterFieldId)
         .withName(FieldName.create('Category')._unsafeUnwrap())
         .done();
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignStatusFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done();
       foreignBuilder.view().defaultGrid().done();
 
       const foreignTable = foreignBuilder.build()._unsafeUnwrap();
@@ -2105,6 +2119,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .getFields()[1]
         .setDbFieldName(DbFieldName.rehydrate('col_category')._unsafeUnwrap())
         ._unsafeUnwrap();
+      foreignTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+        ._unsafeUnwrap();
 
       const valuesField = foreignTable
         .getField((f) => f.id().equals(foreignValuesFieldId))
@@ -2114,6 +2132,11 @@ describe('ComputedTableRecordQueryBuilder', () => {
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: foreignValuesFieldId.toString(),
         condition,
+      })._unsafeUnwrap();
+      const secondConditionalConfig = ConditionalRollupConfig.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignValuesFieldId.toString(),
+        condition: options?.secondCondition ?? condition,
       })._unsafeUnwrap();
       const rollupExpr = RollupExpression.create('sum({values})')._unsafeUnwrap();
 
@@ -2136,6 +2159,17 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .withExpression(rollupExpr)
         .withValuesField(valuesField)
         .done();
+      if (options?.includeSecondRollup) {
+        mainBuilder
+          .field()
+          .conditionalRollup()
+          .withId(secondConditionalRollupFieldId)
+          .withName(FieldName.create('ConditionalTotalCopy')._unsafeUnwrap())
+          .withConfig(secondConditionalConfig)
+          .withExpression(rollupExpr)
+          .withValuesField(valuesField)
+          .done();
+      }
       mainBuilder.view().defaultGrid().done();
 
       const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
@@ -2147,6 +2181,12 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .getFields()[1]
         .setDbFieldName(DbFieldName.rehydrate('col_conditional_rollup')._unsafeUnwrap())
         ._unsafeUnwrap();
+      if (options?.includeSecondRollup) {
+        mainTable
+          .getFields()[2]
+          .setDbFieldName(DbFieldName.rehydrate('col_conditional_rollup_copy')._unsafeUnwrap())
+          ._unsafeUnwrap();
+      }
 
       return { mainTable, foreignTable, foreignTableId };
     };
@@ -2176,7 +2216,73 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1 order by "f"."__auto_number" asc limit $2) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1) as "cond_fldcccccccccccccccc" on true"`
+      );
+    });
+
+    test('conditional rollups with the same field-reference key share one lateral scan', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+              {
+                fieldId: FOREIGN_STATUS_FIELD_ID,
+                operator: 'is',
+                value: 'active',
+              },
+            ],
+          },
+        },
+        {
+          includeSecondRollup: true,
+          secondCondition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: FOREIGN_FILTER_FIELD_ID,
+                  operator: 'is',
+                  value: HOST_FILTER_FIELD_ID,
+                  isSymbol: true,
+                },
+                {
+                  fieldId: FOREIGN_STATUS_FIELD_ID,
+                  operator: 'is',
+                  value: 'inactive',
+                },
+              ],
+            },
+          },
+        }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      const lateralCount = (sql.match(/inner join lateral/g) || []).length;
+      expect(lateralCount).toBe(1);
+      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup"');
+      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup_copy"');
+      expect(sql).toContain('from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
+      expect(sql).toContain('where "f"."col_category" = "t"."col_category_ref"');
+      expect(sql).toContain(
+        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $1))'
+      );
+      expect(sql).toContain(
+        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $2))'
       );
     });
 
@@ -2244,7 +2350,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toContain('inner join lateral');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref" order by "f"."__auto_number" asc limit $1) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("f"."col_number") FILTER (WHERE "f"."col_category" = "t"."col_category_ref"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref") as "cond_fldcccccccccccccccc" on true"`
       );
     });
   });

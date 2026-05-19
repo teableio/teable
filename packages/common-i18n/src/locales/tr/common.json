@@ -1149,9 +1149,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "12 MAYIS GUNCELLEMESI",
-    "title": "App Builder icin yerlesik giris",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "14 MAYIS GUNCELLEMESI",
+    "title": "AI Chat icinde herhangi bir node etiketleyin",
+    "url": "https://help.teable.ai/en/changelog#may-14-2026",
+    "id": "changelog-2026-05-14-any-node-in-ai-chat"
   }
 }
