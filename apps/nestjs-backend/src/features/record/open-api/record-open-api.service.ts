@@ -134,10 +134,14 @@ export class RecordOpenApiService {
     windowId?: string,
     isAiInternal?: string
   ) {
-    const res = await this.recordModifyService.updateRecords(
-      tableId,
-      updateRecordsRo as IUpdateRecordsInternalRo,
-      windowId
+    const res = await this.prismaService.$tx(
+      async () =>
+        this.recordModifyService.updateRecords(
+          tableId,
+          updateRecordsRo as IUpdateRecordsInternalRo,
+          windowId
+        ),
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
     const appId = this.cls.get('appId');
