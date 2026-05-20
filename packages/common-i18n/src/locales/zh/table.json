@@ -522,6 +522,7 @@
       "pasting": "正在粘贴...",
       "pasteSuccessful": "粘贴成功",
       "pasteFailed": "粘贴失败",
+      "pasteNoEditableFields": "所选字段为只读字段，无法粘贴。",
       "filling": "正在填充...",
       "fillSuccessful": "填充成功",
       "fillFailed": "填充失败",
@@ -1242,6 +1243,10 @@
         "contextTooltip": "AI 的工作记忆用量。接近上限时，AI 会自动总结之前的对话以释放空间。",
         "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少 Credit 消耗。",
         "contextTipMemory": "对 AI 说「记住 XXX」可存入长期记忆，跨对话保留。"
+      },
+      "contextCompaction": {
+        "auto": "上下文已自动压缩",
+        "manual": "上下文已压缩"
       },
       "taskProgress": {
         "title": "任务进度"

@@ -1412,6 +1412,51 @@ describe('CreateRecordsHandler', () => {
       expect(multiNames).toContain('Tag B');
     });
 
+    it('rejects auto-created select options whose names exceed the configured limit', async () => {
+      const { table, textFieldId, singleSelectFieldId } = createTestTable(baseId, tableId);
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordRepository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+
+      const handler = createHandler(
+        tableQueryService,
+        recordRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createRecordWritePluginRunner(),
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const longChoiceName = 'A'.repeat(101);
+      const commandResult = CreateRecordsCommand.create({
+        tableId,
+        typecast: true,
+        records: [
+          {
+            fields: {
+              [textFieldId]: 'Option Seed',
+              [singleSelectFieldId]: longChoiceName,
+            },
+          },
+        ],
+      });
+
+      const result = await handler.handle(
+        createContextWithTableLimits({ fieldOptions: { maxSelectChoiceNameLength: 100 } }),
+        commandResult._unsafeUnwrap()
+      );
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().code).toBe('validation.limit.select_choice_name_max_length');
+      expect(tableRepository.updated).toHaveLength(0);
+    });
+
     it('invokes resolver when resolution is needed (typecast false)', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 

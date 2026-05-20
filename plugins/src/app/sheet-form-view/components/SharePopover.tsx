@@ -81,7 +81,7 @@ export const SharePopover: React.FC<{
     if (enableShare) {
       await enableShareFn(view);
       setTimeout(() => {
-        !view?.shareMeta && setShareMeta({ submit: { requireLogin: false, allow: true } });
+        !view?.shareMeta && setShareMeta({ submit: { requireLogin: false } });
       }, 100);
     } else {
       disableShareFn(view);

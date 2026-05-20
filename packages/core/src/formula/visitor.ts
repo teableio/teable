@@ -436,6 +436,15 @@ export class EvalVisitor
   private createTypedValueByField(field: FieldCore) {
     let value: any = this.record ? this.record.fields[field.id] : null;
 
+    if (field.cellValueType === CellValueType.Number) {
+      return new TypedValue(
+        this.normalizeNumberCellValue(value, field.isMultipleCellValue),
+        field.cellValueType,
+        field.isMultipleCellValue,
+        field
+      );
+    }
+
     if (
       value == null ||
       ![CellValueType.String, CellValueType.DateTime].includes(field.cellValueType)
@@ -452,6 +461,21 @@ export class EvalVisitor
       value = field.cellValue2String(value);
     }
     return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
+  }
+
+  private normalizeNumberCellValue(value: any, isMultiple?: boolean) {
+    const normalize = (cellValue: any) => {
+      if (cellValue == null || cellValue === '') {
+        return null;
+      }
+      return typeof cellValue === 'number' ? cellValue : Number(cellValue);
+    };
+
+    if (isMultiple) {
+      return Array.isArray(value) ? value.map(normalize) : value;
+    }
+
+    return normalize(value);
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
