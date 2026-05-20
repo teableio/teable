@@ -1,3 +1,4 @@
+import { AsyncResource } from 'async_hooks';
 import type { ILogger } from '@teable/v2-core';
 import { v2CoreTokens } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -72,6 +73,8 @@ export const externalPollingConfig: ComputedUpdatePollingConfig = {
   pollIntervalMs: 500, // More aggressive polling for external mode
 };
 
+const pollingAsyncResource = new AsyncResource('teable-v2-computed-polling');
+
 /**
  * Background polling service for computed field updates.
  *
@@ -112,7 +115,7 @@ export class ComputedUpdatePollingService {
         pollIntervalMs: this.config.pollIntervalMs,
       });
       // Use setImmediate to avoid blocking constructor
-      setImmediate(() => this.start());
+      this.scheduleImmediate(() => this.start());
     }
   }
 
@@ -249,7 +252,7 @@ export class ComputedUpdatePollingService {
             batchSize: this.config.batchSize,
             processed,
           });
-          setImmediate(() => void this.poll());
+          this.scheduleImmediate(() => void this.poll());
           return;
         }
       }
@@ -268,7 +271,14 @@ export class ComputedUpdatePollingService {
         workerId: this.config.workerId,
         delayMs: this.config.pollIntervalMs,
       });
-      this.pollTimer = setTimeout(() => void this.poll(), this.config.pollIntervalMs);
+      this.pollTimer = setTimeout(
+        () => pollingAsyncResource.runInAsyncScope(() => void this.poll()),
+        this.config.pollIntervalMs
+      );
     }
+  }
+
+  private scheduleImmediate(callback: () => void): void {
+    setImmediate(() => pollingAsyncResource.runInAsyncScope(callback));
   }
 }

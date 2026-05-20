@@ -47,6 +47,8 @@ export const v2CoreTokens = {
   fieldOperationPlugins: Symbol('v2.core.fieldOperationPlugins'),
   tableOperationPluginRunner: Symbol('v2.core.tableOperationPluginRunner'),
   tableOperationPlugins: Symbol('v2.core.tableOperationPlugins'),
+  viewOperationPluginRunner: Symbol('v2.core.viewOperationPluginRunner'),
+  viewOperationPlugins: Symbol('v2.core.viewOperationPlugins'),
   tableDataSafetyLimitComposer: Symbol('v2.core.tableDataSafetyLimitComposer'),
   tableDataSafetyLimitPlugins: Symbol('v2.core.tableDataSafetyLimitPlugins'),
   tableMapper: Symbol('v2.core.tableMapper'),
