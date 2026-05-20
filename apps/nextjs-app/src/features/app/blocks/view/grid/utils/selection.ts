@@ -142,6 +142,26 @@ export const getEffectRows = (selection: CombinedSelection, rowCount?: number | 
   return 0;
 };
 
+export const selectionIncludesEditableField = (selection: CombinedSelection, fields: Field[]) => {
+  const isEditable = (field: Field | undefined) => Boolean(field && !field.isComputed);
+  const { type, ranges } = selection;
+
+  switch (type) {
+    case SelectionRegionType.Cells: {
+      const [[startCol], [endCol]] = selection.serialize();
+      return fields.slice(startCol, endCol + 1).some(isEditable);
+    }
+    case SelectionRegionType.Columns:
+      return ranges.some(([startCol, endCol]) =>
+        fields.slice(startCol, endCol + 1).some(isEditable)
+      );
+    case SelectionRegionType.Rows:
+      return fields.some(isEditable);
+    default:
+      return false;
+  }
+};
+
 export const shouldUseDeleteSelectionStream = (
   selection: CombinedSelection,
   rowCount?: number | null,

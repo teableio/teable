@@ -427,7 +427,7 @@ describe('ImportRecordsHandler', () => {
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.importAppend);
   });
 
-  it('returns validation.max_row_limit for async sources that exceed maxRowCount', async () => {
+  it('returns validation.limit.rows_per_table_max for async sources that exceed maxRowCount', async () => {
     const { table, textFieldId } = buildTable();
     async function* rowsAsync() {
       yield ['row 1'];
@@ -472,7 +472,7 @@ describe('ImportRecordsHandler', () => {
     );
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('validation.max_row_limit');
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.rows_per_table_max');
     expect(tableRecordRepository.inserted).toHaveLength(0);
     expect(calls.prepare).toHaveLength(0);
     expect(calls.guard).toHaveLength(0);

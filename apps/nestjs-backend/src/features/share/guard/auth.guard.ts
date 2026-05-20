@@ -2,7 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
-import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix } from '@teable/core';
+import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix, ViewType } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
@@ -50,7 +50,8 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
         context.getClass(),
       ]);
       const submit = shareInfo.shareMeta?.submit;
-      if (isShareSubmit && submit?.allow && submit?.requireLogin) {
+      const isFormView = shareInfo.view?.type === ViewType.Form;
+      if (isShareSubmit && isFormView && submit?.requireLogin) {
         return this.authGuard.validate(context);
       }
 

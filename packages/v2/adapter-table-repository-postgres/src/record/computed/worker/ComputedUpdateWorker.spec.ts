@@ -1,5 +1,12 @@
 import { domainError, FieldId, RecordId, RecordsBatchUpdated, TableId } from '@teable/v2-core';
-import type { IEventBus, IHasher, ILogger, ITableRepository, IUnitOfWork } from '@teable/v2-core';
+import type {
+  IEventBus,
+  IHasher,
+  ILogger,
+  ITableRepository,
+  IUnitOfWork,
+  Table,
+} from '@teable/v2-core';
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -10,6 +17,7 @@ import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
+  type SeedOutboxItem,
   type IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
 import { ComputedUpdateWorker } from './ComputedUpdateWorker';
@@ -113,6 +121,30 @@ const createMockTask = (
   nextRunAt: new Date(),
   lockedAt: new Date(),
   lockedBy: 'worker-1',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
+
+const createMockSeedTask = (overrides: Partial<SeedOutboxItem> = {}): SeedOutboxItem => ({
+  id: 'cuo123456789012346',
+  taskType: 'seed',
+  baseId: BASE_ID,
+  seedTableId: TABLE_ID,
+  seedRecordIds: [RECORD_ID],
+  extraSeedRecords: [],
+  beforeImageRecords: [],
+  changedFieldIds: [FIELD_ID],
+  changeType: 'update',
+  runId: 'run123',
+  planHash: 'seed-hash123',
+  status: 'processing',
+  attempts: 5,
+  maxAttempts: 8,
+  nextRunAt: new Date(),
+  lockedAt: new Date(),
+  lockedBy: 'worker-1',
+  lastError: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -249,6 +281,62 @@ describe('ComputedUpdateWorker', () => {
       );
       expect(markFailed).not.toHaveBeenCalled();
       expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('releases seed tasks for retry when the seed table exists but is not active', async () => {
+      const task = createMockSeedTask();
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const planner = {
+        plan: vi.fn(),
+      } as unknown as ComputedUpdatePlanner;
+      const tableRepository: ITableRepository = {
+        ...createTableRepository(),
+        findOne: vi
+          .fn()
+          .mockResolvedValueOnce(err(domainError.notFound({ message: 'Table not found' })))
+          .mockResolvedValueOnce(ok({} as Table)),
+      };
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+        markFailed,
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        createUpdaterStub(),
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(0);
+      expect(tableRepository.findOne).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.anything(),
+        { state: 'all' }
+      );
+      expect(releaseForRetry).toHaveBeenCalledWith(
+        {
+          task,
+          reason: `Computed update blocked by inactive table: tableId=${TABLE_ID}`,
+          retryDelayMs: defaultComputedUpdateOutboxConfig.maxBackoffMs,
+        },
+        expect.anything()
+      );
+      expect(markFailed).not.toHaveBeenCalled();
+      expect(planner.plan).not.toHaveBeenCalled();
     });
 
     it('splits large computed tasks into smaller child tasks before acquiring locks', async () => {
