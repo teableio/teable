@@ -12,8 +12,8 @@ import {
   ArrowRight,
 } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
-import { exportBase, getSpaceList, moveBase } from '@teable/openapi';
-import type { IGetBaseVo } from '@teable/openapi';
+import { exportBaseStream, getSpaceList, moveBase } from '@teable/openapi';
+import type { IExportBaseProgressEvent, IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -34,9 +34,27 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
 import { EditableSpaceSelect } from './EditableSpaceSelect';
+
+const EXPORT_PHASE_I18N_MAP: Record<string, string> = {
+  preparing: 'space:export.phase.preparing',
+  exporting_archive: 'space:export.phase.exportingArchive',
+  exporting_structure: 'space:export.phase.exportingStructure',
+  exporting_attachments: 'space:export.phase.exportingAttachments',
+  exporting_attachment_metadata: 'space:export.phase.exportingAttachmentMetadata',
+  exporting_table_data: 'space:export.phase.exportingTableData',
+  table_data_started: 'space:export.phase.tableDataStarted',
+  table_data_progress: 'space:export.phase.tableDataProgress',
+  table_data_done: 'space:export.phase.tableDataDone',
+  exporting_extra_files: 'space:export.phase.exportingExtraFiles',
+  exporting_app_files: 'space:export.phase.exportingAppFiles',
+  uploading_archive: 'space:export.phase.uploadingArchive',
+  generating_download_url: 'space:export.phase.generatingDownloadUrl',
+  done: 'space:export.phase.done',
+};
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;
@@ -73,6 +91,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const [exportConfirm, setExportConfirm] = React.useState(false);
   const [exportState, setExportState] = React.useState<'idle' | 'loading' | 'done'>('idle');
   const [exportDownloadUrl, setExportDownloadUrl] = React.useState<string | null>(null);
+  const [exportDownloadFileName, setExportDownloadFileName] = React.useState<string | null>(null);
+  const [exportProgressMessage, setExportProgressMessage] = React.useState<string | null>(null);
+  const [exportProgress, setExportProgress] = React.useState<IExportBaseProgressEvent | null>(null);
   const [showSlowTip, setShowSlowTip] = React.useState(false);
   const [moveConfirm, setMoveConfirm] = React.useState(false);
   const [spaceId, setSpaceId] = React.useState<string | null>(null);
@@ -80,10 +101,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const slowTipTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseStore = useDuplicateBaseStore();
   const queryClient = useQueryClient();
-  const { mutateAsync: exportBaseFn } = useMutation({
-    mutationFn: ({ baseId, includeData }: { baseId: string; includeData: boolean }) =>
-      exportBase(baseId, { includeData }),
-  });
+  // t() receives runtime keys for stream phases, so keep the cast local to this component.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tAny = t as (key: string, options?: Record<string, any>) => string;
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -110,6 +130,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       setIncludeData(true);
       setExportState('idle');
       setExportDownloadUrl(null);
+      setExportDownloadFileName(null);
+      setExportProgressMessage(null);
+      setExportProgress(null);
       setShowSlowTip(false);
       if (slowTipTimerRef.current) {
         clearTimeout(slowTipTimerRef.current);
@@ -136,6 +159,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         if (detail.isSuccess && detail.downloadUrl) {
           e.preventDefault(); // Handled by dialog, skip toast
           setExportDownloadUrl(detail.downloadUrl);
+          setExportDownloadFileName(detail.fileName);
           setExportState('done');
         } else {
           // Export failed — close dialog, let toast show the error
@@ -147,6 +171,23 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     window.addEventListener('export-base-complete', handleExportComplete);
     return () => window.removeEventListener('export-base-complete', handleExportComplete);
   }, [exportState, base.name]);
+
+  const translateExportPhase = React.useCallback(
+    (phase: string, detail?: string, event?: IExportBaseProgressEvent) => {
+      const i18nKey = EXPORT_PHASE_I18N_MAP[phase];
+      if (!i18nKey) return detail ?? phase;
+      return tAny(i18nKey, {
+        detail,
+        tableName: event?.tableName ?? detail,
+        tableIndex: event?.tableIndex,
+        totalTables: event?.totalTables,
+        processedRows: event?.processedRows,
+        batchProcessedRows: event?.batchProcessedRows,
+        currentBatch: event?.currentBatch,
+      });
+    },
+    [tAny]
+  );
 
   if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove && !showShare) {
     return null;
@@ -162,11 +203,23 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const handleStartExport = async () => {
     setExportState('loading');
     setShowSlowTip(false);
+    setExportProgressMessage(translateExportPhase('preparing'));
+    setExportProgress(null);
     slowTipTimerRef.current = setTimeout(() => {
       setShowSlowTip(true);
     }, 10000);
     try {
-      await exportBaseFn({ baseId: base.id, includeData });
+      const result = await exportBaseStream(base.id, { includeData }, (phase, detail, event) => {
+        setExportProgress(event ?? null);
+        setExportProgressMessage(translateExportPhase(phase, detail, event));
+      });
+      if (slowTipTimerRef.current) {
+        clearTimeout(slowTipTimerRef.current);
+        slowTipTimerRef.current = null;
+      }
+      setExportDownloadUrl(result.data.previewUrl);
+      setExportDownloadFileName(result.data.fileName);
+      setExportState('done');
     } catch {
       // API request failed (network error, etc.)
       if (slowTipTimerRef.current) {
@@ -174,6 +227,8 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         slowTipTimerRef.current = null;
       }
       setExportState('idle');
+      setExportProgressMessage(null);
+      setExportProgress(null);
       toast.error(t('notification.exportBase.failedText'));
     }
   };
@@ -302,7 +357,16 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               <p className="mt-2 text-center text-sm text-muted-foreground">
                 {t('space:tip.exportReadyDescription', { importHint: t('space:tip.exportTips2') })}
               </p>
-              <a href={exportDownloadUrl || ''} download className="mt-4">
+              <a
+                href={exportDownloadUrl || ''}
+                download={exportDownloadFileName || undefined}
+                className="mt-4"
+                onClick={(event) => {
+                  if (!exportDownloadUrl || !exportDownloadFileName) return;
+                  event.preventDefault();
+                  void downloadUrlWithFileName(exportDownloadUrl, exportDownloadFileName);
+                }}
+              >
                 <Button size="sm" className="gap-1">
                   <Download className="size-4" />
                   {t('actions.download')}
@@ -338,6 +402,21 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                   <p className="text-sm text-amber-600 dark:text-amber-500">
                     {t('space:tip.exportSlowTip')}
                   </p>
+                )}
+                {exportState === 'loading' && exportProgressMessage && (
+                  <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>{exportProgressMessage}</span>
+                    </div>
+                    {exportProgress?.processedRows != null && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {tAny('space:export.phase.rowsProgress', {
+                          count: exportProgress.processedRows,
+                        })}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
               <DialogFooter>

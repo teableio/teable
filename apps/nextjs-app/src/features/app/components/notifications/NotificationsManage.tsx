@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import type { TFunction } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
-import { useLocalStorage } from 'react-use';
+import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
@@ -29,7 +29,6 @@ const SHOWN_NOTIFICATIONS_LIMIT = 100;
 const TOAST_AUTO_CLOSE_DURATION = 1000 * 3;
 const TOAST_MANUAL_CLOSE_DURATION = Infinity;
 const shownNotificationIds = new Set<string>();
-const NOTIFICATION_SEVERITY_FILTER_KEY = 'teable:notification:severity-filter';
 const CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID = 'credit-exhausted-notification';
 const CREDIT_NOTIFICATION_I18N_KEYS = new Set([
   'email.templates.notify.task.ai.cancelled.creditExhausted',
@@ -40,9 +39,6 @@ const NOTIFICATION_SEVERITIES = [
   NotificationSeverityEnum.Warning,
   NotificationSeverityEnum.Info,
 ] as const;
-
-const isNotificationSeverity = (value: unknown): value is NotificationSeverityEnum =>
-  NOTIFICATION_SEVERITIES.includes(value as NotificationSeverityEnum);
 
 const getNotificationToastDuration = (notification: Pick<INotification, 'severity'>) =>
   notification.severity === NotificationSeverityEnum.Critical
@@ -115,7 +111,16 @@ const showExportBaseToast = (
         {fileName && <div className="truncate text-xs text-muted-foreground">{fileName}</div>}
       </div>
       {isSuccess && downloadUrl && (
-        <a href={downloadUrl} download className="ml-auto">
+        <a
+          href={downloadUrl}
+          download={fileName || undefined}
+          className="ml-auto"
+          onClick={(event) => {
+            if (!fileName) return;
+            event.preventDefault();
+            void downloadUrlWithFileName(downloadUrl, fileName);
+          }}
+        >
           <Button variant="default" size="xs" className="shrink-0 gap-1">
             <Download className="size-4" />
             {t('actions.download')}
@@ -169,17 +174,9 @@ export const NotificationsManage: React.FC = () => {
   const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
 
   const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
-  const [storedSeverity, setStoredSeverity, removeStoredSeverity] =
-    useLocalStorage<NotificationSeverityEnum>(NOTIFICATION_SEVERITY_FILTER_KEY, undefined, {
-      raw: true,
-    });
-  const selectedSeverity = isNotificationSeverity(storedSeverity) ? storedSeverity : undefined;
-
-  useEffect(() => {
-    if (storedSeverity && !isNotificationSeverity(storedSeverity)) {
-      removeStoredSeverity();
-    }
-  }, [removeStoredSeverity, storedSeverity]);
+  const [selectedSeverity, setSelectedSeverity] = useState<NotificationSeverityEnum | undefined>(
+    undefined
+  );
 
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
@@ -252,13 +249,8 @@ export const NotificationsManage: React.FC = () => {
   const getSeverityLabel = (severity: NotificationSeverityEnum) =>
     t(`notification.severity.${severity}`);
 
-  const handleSeverityClick = (severity: NotificationSeverityEnum) => {
-    if (selectedSeverity === severity) {
-      removeStoredSeverity();
-      return;
-    }
-
-    setStoredSeverity(severity);
+  const handleSeverityClick = (severity?: NotificationSeverityEnum) => {
+    setSelectedSeverity(severity);
   };
 
   const renderNewButton = () => {
@@ -334,6 +326,28 @@ export const NotificationsManage: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-1.5 px-4 py-2.5">
+            <Button
+              variant="ghost"
+              size="xs"
+              className={cn(
+                'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                selectedSeverity === undefined &&
+                  'bg-foreground/10 text-foreground hover:bg-foreground/10'
+              )}
+              onClick={() => handleSeverityClick(undefined)}
+            >
+              {t('notification.sections.all')}
+              <span
+                className={cn(
+                  'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                  selectedSeverity === undefined ? 'bg-background/80' : 'bg-muted/70'
+                )}
+              >
+                {notifySummary
+                  ? notifySummary.critical + notifySummary.warning + notifySummary.info
+                  : 0}
+              </span>
+            </Button>
             {NOTIFICATION_SEVERITIES.map((severity) => {
               const isSelected = selectedSeverity === severity;
 
@@ -344,7 +358,7 @@ export const NotificationsManage: React.FC = () => {
                   size="xs"
                   className={cn(
                     'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                    isSelected && 'bg-muted/80 text-foreground hover:bg-muted/80'
+                    isSelected && 'bg-foreground/10 text-foreground hover:bg-foreground/10'
                   )}
                   onClick={() => handleSeverityClick(severity)}
                 >

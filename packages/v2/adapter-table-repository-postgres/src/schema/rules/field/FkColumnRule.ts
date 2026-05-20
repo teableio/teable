@@ -13,6 +13,7 @@ import type {
 import {
   backfillForeignHostFkColumnFromLinkValueStatement,
   backfillFkColumnFromLinkValueStatement,
+  dataStatement,
   dropColumnStatement,
   type TableIdentifier,
 } from '../helpers/StatementBuilders';
@@ -108,9 +109,11 @@ export class FkColumnRule implements ISchemaRule {
 
       const schemaBuilder = target.schema ? ctx.db.schema.withSchema(target.schema) : ctx.db.schema;
       const statements: TableSchemaStatementBuilder[] = [
-        schemaBuilder
-          .alterTable(target.tableName)
-          .addColumn(columnName, 'text', (col) => col.ifNotExists()),
+        dataStatement(
+          schemaBuilder
+            .alterTable(target.tableName)
+            .addColumn(columnName, 'text', (col) => col.ifNotExists())
+        ),
       ];
 
       const isCurrentContextTarget =

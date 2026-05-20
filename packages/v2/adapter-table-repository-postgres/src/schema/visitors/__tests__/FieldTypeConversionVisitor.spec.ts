@@ -191,6 +191,28 @@ const mkManyOneLinkFieldWithSymmetric = () =>
     return field;
   })();
 
+const mkOneManyLinkFieldWithSymmetric = () =>
+  (() => {
+    const field = createLinkField({
+      id: mkFieldId('tgtOneManySym'),
+      name: mkFieldName('Target OneMany Sym'),
+      config: LinkFieldConfig.create({
+        relationship: LinkRelationship.oneMany().toString(),
+        foreignTableId: `tbl${'b'.repeat(16)}`,
+        lookupFieldId: createValidFieldId('lookOmSym'),
+        symmetricFieldId: createValidFieldId('symOm01'),
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap() as LinkField;
+    field
+      .ensureDbConfig({
+        baseId: BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap(),
+        hostTableId: TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+    field.setDbFieldName(DbFieldName.rehydrate(DB_FIELD_NAME)._unsafeUnwrap())._unsafeUnwrap();
+    return field;
+  })();
+
 const mkManyOneLinkFieldWithForeign = (fieldSeed: string, foreignTableId: string) =>
   (() => {
     const field = createLinkField({
@@ -286,7 +308,14 @@ describe('FieldTypeConversionVisitor', () => {
         const sqls = getVisitorSqls(mkTextField(), mkDateField());
         expect(sqls[0]).toContain('ELSE NULL END');
         // Regex checks for ISO date pattern
-        expect(sqls[0]).toMatch(/\\d\{4\}.*\\d\{2\}.*\\d\{2\}/);
+        expect(sqls[0]).toMatch(/\[0-9\]\{4\}.*\[0-9\]\{2\}.*\[0-9\]\{2\}/);
+      });
+
+      it('should require the whole text value to be an ISO date before casting', () => {
+        const sqls = getVisitorSqls(mkTextField(), mkDateField());
+        expect(sqls[0]).toContain('CASE WHEN');
+        expect(sqls[0]).toContain('$');
+        expect(sqls[0]).not.toContain("'^[0-9]{4}'");
       });
     });
 
@@ -906,6 +935,16 @@ describe('FieldTypeConversionVisitor', () => {
         expect(mappingSql).toContain('WHERE f."__id" = src.foreign_id');
       });
 
+      it('should backfill symmetric manyOne json values for oneMany conversion', () => {
+        const sqls = getConversionSqls(mkTextField(), mkOneManyLinkFieldWithSymmetric());
+        const mappingSql = sqls.find((sql) => sql.includes('DO $v2_link_map$'));
+        expect(mappingSql).toBeDefined();
+        expect(mappingSql).toContain('symmetric_col');
+        expect(mappingSql).toContain('DISTINCT ON (foreign_id)');
+        expect(mappingSql).toContain("jsonb_build_object(''id'', p.source_id)");
+        expect(mappingSql).toContain('SET %I = jsonb_build_object');
+      });
+
       it('should push link -> text conversion into a single SQL mapping statement', () => {
         const sqls = getConversionSqls(mkManyOneLinkField(), mkTextField());
         const mappingSql = sqls.find((sql) => sql.includes('DO $v2_link_to_text$'));
@@ -997,6 +1036,18 @@ describe('FieldTypeConversionVisitor', () => {
       expect(optionsSql).toBeDefined();
       expect(optionsSql).toContain('NOT IN');
       expect(optionsSql).toContain('existing_names');
+    });
+
+    it('should guard generated select option names against the configured max length', () => {
+      const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
+      const optionsSql = sqls.find((s) => s.includes('oversized_guard'));
+      expect(optionsSql).toBeDefined();
+      expect(optionsSql).toContain('char_length(name)');
+      expect(optionsSql).toContain('oversized_values');
+      expect(optionsSql).toContain("COALESCE((SELECT '' FROM oversized_values");
+      expect(optionsSql).toContain('THEN CAST(');
+      expect(optionsSql).toMatch(/\$\d+\s+\|\| COALESCE/);
+      expect(optionsSql).toContain('AS integer');
     });
 
     it('should generate SQL with random ID generation', () => {

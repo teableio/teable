@@ -2,22 +2,24 @@
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
-import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
+import {
+  DbFieldType,
+  FieldType,
+  generateAttachmentId,
+  generateRecordHistoryId,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
 import { Queue, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -25,6 +27,17 @@ import { PersistedComputedBackfillService } from '../../record/computed/services
 import { BatchProcessor } from '../BatchProcessor.class';
 import { EXCLUDE_SYSTEM_FIELDS } from '../constant';
 import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
+
+type IDataPrismaExecutor = {
+  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  $tx?: <T>(fn: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
+  $transaction?: <T>(fn: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
+};
+
 interface IBaseImportCsvJob {
   path: string;
   userId: string;
@@ -55,15 +68,14 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly baseImportJunctionCsvQueueProcessor: BaseImportJunctionCsvQueueProcessor,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly dataDbClientManager: DataDbClientManager
   ) {
     super();
   }
@@ -89,7 +101,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   }
 
   private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>): Promise<void> {
-    const { path, userId, tableIdMap, fieldIdMap, viewIdMap, structure, fkMap } = job.data;
+    const { path, userId, baseId, tableIdMap, fieldIdMap, viewIdMap, structure, fkMap } = job.data;
     const csvStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
       path
@@ -163,12 +175,16 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               });
             }
           });
+          const fieldDbNameMap = new Map(
+            table?.fields?.map(({ dbFieldName, id }) => [dbFieldName, fieldIdMap[id] ?? id]) ?? []
+          );
 
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
             totalRecordsCount += chunk.length;
             await this.handleChunk(
               chunk,
               {
+                baseId,
                 tableId: tableIdMap[tableId],
                 userId,
                 fieldIdMap,
@@ -176,6 +192,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 fkMap,
                 attachmentsFields,
                 notNullFieldMap,
+                fieldDbNameMap,
               },
               excludeDbFieldNames
             );
@@ -248,9 +265,29 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       );
   }
 
+  private async dataTransaction<T>(
+    dataPrisma: IDataPrismaScopedClient,
+    fn: (prisma: IDataPrismaExecutor) => Promise<T>
+  ) {
+    if (dataPrisma.$tx) {
+      return await dataPrisma.$tx(fn);
+    }
+
+    if (dataPrisma.$transaction) {
+      return await dataPrisma.$transaction(fn);
+    }
+
+    return await fn(dataPrisma);
+  }
+
+  private getDataDbInternalSchema(dataDbUrl: string) {
+    return new URL(dataDbUrl).searchParams.get('schema') || 'public';
+  }
+
   private async handleChunk(
     results: Record<string, unknown>[],
     config: {
+      baseId: string;
       tableId: string;
       userId: string;
       fieldIdMap: Record<string, string>;
@@ -258,10 +295,20 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
       notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
+      fieldDbNameMap: Map<string, string>;
     },
     excludeDbFieldNames: string[]
   ) {
-    const { tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } = config;
+    const {
+      baseId,
+      tableId,
+      userId,
+      fieldIdMap,
+      attachmentsFields,
+      fkMap,
+      notNullFieldMap,
+      fieldDbNameMap,
+    } = config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
@@ -285,8 +332,24 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       recordId: string;
       fieldId: string;
     }[];
+    const recordHistoryList: {
+      id: string;
+      table_id: string;
+      record_id: string;
+      field_id: string;
+      before: string;
+      after: string;
+      created_by: string;
+    }[] = [];
 
-    await this.dataPrismaService.$tx(async (prisma) => {
+    const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(
+      baseId
+    )) as IDataPrismaScopedClient;
+    const dataKnex = await this.dataDbClientManager.dataKnexForBase(baseId);
+    const dataDb = await this.dataDbClientManager.getDataDatabaseForBase(baseId);
+    const dataDbInternalSchema = this.getDataDbInternalSchema(dataDb.url);
+
+    await this.dataTransaction(dataPrisma, async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
       const foreignKeysInfo = await prisma.$queryRawUnsafe<
@@ -305,7 +368,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       allForeignKeyInfos.push(...newForeignKeyInfos);
 
       for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-        const dropForeignKeyQuery = this.knex.schema
+        const dropForeignKeyQuery = dataKnex.schema
           .alterTable(dbTableName, (table) => {
             table.dropForeign(column_name, constraint_name);
           })
@@ -373,6 +436,24 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               });
             });
           }
+
+          if (key.startsWith('__') && !key.startsWith('__fk_')) {
+            return;
+          }
+
+          const sourceFieldId = key.startsWith('__fk_') ? key.slice(5) : key;
+          const fieldId = fieldIdMap[sourceFieldId] ?? fieldDbNameMap.get(key) ?? sourceFieldId;
+          if (fieldId && value !== '' && value != null) {
+            recordHistoryList.push({
+              id: generateRecordHistoryId(),
+              table_id: tableId,
+              record_id: res['__id'] as string,
+              field_id: fieldId,
+              before: JSON.stringify({ data: null }),
+              after: JSON.stringify({ data: value }),
+              created_by: userId,
+            });
+          }
         });
 
         // default value set
@@ -389,7 +470,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           .filter((name) => name.startsWith('__row_'));
 
         for (const name of lackingColumns) {
-          const sql = this.knex.schema
+          const sql = dataKnex.schema
             .alterTable(dbTableName, (table) => {
               table.double(name);
             })
@@ -398,8 +479,17 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         }
       }
 
-      const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
+      const sql = dataKnex.table(dbTableName).insert(recordsToInsert).toQuery();
       await prisma.$executeRawUnsafe(sql);
+
+      if (recordHistoryList.length) {
+        const historySql = dataKnex
+          .withSchema(dataDbInternalSchema)
+          .insert(recordHistoryList)
+          .into('record_history')
+          .toQuery();
+        await prisma.$executeRawUnsafe(historySql);
+      }
     });
 
     // restore foreign keys with NOT VALID
@@ -412,7 +502,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       referenced_column_name: referencedColumnName,
     } of allForeignKeyInfos) {
       const [schema, tableName] = dbTableName.split('.');
-      const addForeignKeyQuery = this.knex
+      const addForeignKeyQuery = dataKnex
         .raw(
           'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
           [
@@ -426,7 +516,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           ]
         )
         .toQuery();
-      await this.dataPrismaService.txClient().$executeRawUnsafe(addForeignKeyQuery);
+      await dataPrisma.$executeRawUnsafe(addForeignKeyQuery);
     }
 
     await this.updateAttachmentTable(userId, attachmentsTableData);
@@ -479,6 +569,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     await this.baseImportJunctionCsvQueueProcessor.queue.add(
       'import_base_junction_csv',
       {
+        baseId: job.data.baseId,
         tableIdMap,
         fieldIdMap,
         path,

@@ -655,7 +655,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -674,7 +674,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -769,7 +769,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -788,7 +788,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);

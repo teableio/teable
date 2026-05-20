@@ -24,3 +24,34 @@ export const ensureSelectFieldOptionCountWithinLimit = (
     })
   );
 };
+
+export const ensureSelectFieldOptionNameWithinLimit = (
+  optionNameLength: number,
+  domainContext?: IDomainContext
+): Result<void, DomainError> => {
+  const maxChoiceNameLength =
+    domainContext?.config?.tableLimits?.fieldOptions?.maxSelectChoiceNameLength ??
+    DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength;
+  if (maxChoiceNameLength == null || optionNameLength <= maxChoiceNameLength) {
+    return ok(undefined);
+  }
+
+  return err(
+    domainError.validation({
+      code: 'validation.limit.select_choice_name_max_length',
+      message: `Select field option names cannot exceed ${maxChoiceNameLength} characters`,
+    })
+  );
+};
+
+export const ensureSelectFieldOptionNamesWithinLimit = (
+  optionNames: ReadonlyArray<string>,
+  domainContext?: IDomainContext
+): Result<void, DomainError> => {
+  for (const optionName of optionNames) {
+    const result = ensureSelectFieldOptionNameWithinLimit(optionName.length, domainContext);
+    if (result.isErr()) return result;
+  }
+
+  return ok(undefined);
+};

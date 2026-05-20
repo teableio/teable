@@ -656,6 +656,21 @@ export function useInstances<T, R extends { id: string }>({
     dispatch({ type: 'extra', extra });
   }, []);
 
+  const handleChanged = useCallback((query: Query<T>, docs: Doc<T>[]) => {
+    console.log(
+      `${docs[0]?.collection}:changed:`,
+      docs.map((doc) => doc.id)
+    );
+    const results = query.results ?? docs;
+    dispatch({ type: 'ready', results, extra: query.extra });
+    results.forEach((doc) => {
+      opListeners.current.add(doc, (op) => {
+        console.log(`${query.collection} on op:`, op, doc);
+        dispatch({ type: 'update', doc });
+      });
+    });
+  }, []);
+
   useEffect(() => {
     let canceled = false;
 
@@ -757,12 +772,7 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const readyListener = () => handleReady(query);
-    const changedListener = (docs: Doc<T>[]) => {
-      console.log(
-        `${docs[0]?.collection}:changed:`,
-        docs.map((doc) => doc.id)
-      );
-    };
+    const changedListener = (docs: Doc<T>[]) => handleChanged(query, docs);
 
     if (query.ready) {
       readyListener();
@@ -788,7 +798,7 @@ export function useInstances<T, R extends { id: string }>({
       query.removeListener('move', handleMove);
       query.removeListener('extra', handleExtra);
     };
-  }, [query, handleInsert, handleRemove, handleMove, handleReady, handleExtra]);
+  }, [query, handleInsert, handleRemove, handleMove, handleReady, handleChanged, handleExtra]);
 
   return instances;
 }

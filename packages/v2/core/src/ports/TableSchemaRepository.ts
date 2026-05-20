@@ -12,7 +12,10 @@ export interface ITableSchemaRepository {
   ensureInserted?(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   insertMany(
     context: IExecutionContext,
-    tables: ReadonlyArray<Table>
+    tables: ReadonlyArray<Table>,
+    options?: {
+      knownTables?: ReadonlyArray<Table>;
+    }
   ): Promise<Result<void, DomainError>>;
   ensureInsertedMany?(
     context: IExecutionContext,
