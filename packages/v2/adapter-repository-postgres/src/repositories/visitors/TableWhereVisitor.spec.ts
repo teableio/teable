@@ -36,13 +36,31 @@ describe('TableWhereVisitor', () => {
     const eb = createExpressionBuilder();
 
     expect(new TableWhereVisitor('active').where()._unsafeUnwrap()(eb as never)).toEqual({
-      type: 'comparison',
-      args: ['deleted_time', 'is', null],
+      type: 'and',
+      args: [
+        {
+          type: 'comparison',
+          args: ['deleted_time', 'is', null],
+        },
+        expect.anything(),
+      ],
     });
     expect(new TableWhereVisitor('deleted').where()._unsafeUnwrap()(eb as never)).toEqual({
       type: 'comparison',
       args: ['deleted_time', 'is not', null],
     });
+    expect(new TableWhereVisitor('activeWithPending').where()._unsafeUnwrap()(eb as never)).toEqual(
+      {
+        type: 'and',
+        args: [
+          {
+            type: 'comparison',
+            args: ['deleted_time', 'is', null],
+          },
+          expect.anything(),
+        ],
+      }
+    );
     expect(new TableWhereVisitor('all').where().isErr()).toBe(true);
   });
 
