@@ -1,7 +1,7 @@
 import {
   ActorId,
-  domainError,
   FieldId,
+  isNotFoundError,
   registerAfterCommit,
   TableByIdSpec,
   TableId,
@@ -18,6 +18,7 @@ import type {
   IUnitOfWork,
   ILogger,
   IEventBus,
+  Table,
   ITracer,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -73,6 +74,15 @@ type SeedRecordChunk = {
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
 };
+
+type LoadTaskTableResult =
+  | {
+      status: 'loaded';
+      table: Table;
+    }
+  | {
+      status: 'blocked';
+    };
 
 const countSeedRecordDtos = (
   seedRecordIds: ReadonlyArray<string>,
@@ -828,12 +838,14 @@ export class ComputedUpdateWorker {
   private async releaseTaskForRetry(
     task: AnyOutboxItem,
     reason: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    retryDelayMs?: number
   ): Promise<boolean> {
     const result = await this.outbox.releaseForRetry(
       {
         task,
         reason,
+        retryDelayMs,
       },
       context
     );
@@ -858,6 +870,40 @@ export class ComputedUpdateWorker {
       reason,
     });
     return true;
+  }
+
+  private async loadActiveTableForTask(params: {
+    task: AnyOutboxItem;
+    tableId: TableId;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+  }): Promise<Result<LoadTaskTableResult, DomainError>> {
+    const tableSpec = TableByIdSpec.create(params.tableId);
+    const activeResult = await this.tableRepository.findOne(params.context, tableSpec);
+    if (activeResult.isOk()) return ok({ status: 'loaded', table: activeResult.value });
+    if (!isNotFoundError(activeResult.error)) return err(activeResult.error);
+
+    const anyStateResult = await this.tableRepository.findOne(params.context, tableSpec, {
+      state: 'all',
+    });
+    if (anyStateResult.isErr()) {
+      return err(isNotFoundError(anyStateResult.error) ? activeResult.error : anyStateResult.error);
+    }
+
+    const tableId = params.tableId.toString();
+    const message = `Computed update blocked by inactive table: tableId=${tableId}`;
+    this.logger.warn('computed:worker:inactive_table_blocked', {
+      taskId: params.task.id,
+      tableId,
+      ...params.logContext,
+    });
+    await this.releaseTaskForRetry(
+      params.task,
+      message,
+      params.context,
+      this.outboxConfig.maxBackoffMs
+    );
+    return ok({ status: 'blocked' });
   }
 
   private async splitLargeComputedTask(
@@ -975,8 +1021,12 @@ export class ComputedUpdateWorker {
     }
 
     // Load table with fields
-    const tableSpec = TableByIdSpec.create(tableIdResult.value);
-    const tableResult = await this.tableRepository.findOne(context, tableSpec);
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: tableIdResult.value,
+      context,
+      logContext: runLogContext,
+    });
     if (tableResult.isErr()) {
       this.logger.error('computed:worker:field_backfill_failed', {
         taskId: task.id,
@@ -986,18 +1036,9 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
+    if (tableResult.value.status === 'blocked') return ok(false);
 
-    const table = tableResult.value;
-    if (!table) {
-      const message = `Table not found: ${task.tableId}`;
-      this.logger.error('computed:worker:field_backfill_failed', {
-        taskId: task.id,
-        error: message,
-        ...runLogContext,
-      });
-      await this.handleTaskFailure(task, message, context);
-      return err(domainError.notFound({ code: 'table.not_found', message }));
-    }
+    const table = tableResult.value.table;
 
     // Get fields to backfill
     const fieldsToBackfill: ReturnType<typeof table.getFields> = [];
@@ -1131,21 +1172,20 @@ export class ComputedUpdateWorker {
 
     // Load table with fields
     failurePhase = 'load_seed_table';
-    const tableSpec = TableByIdSpec.create(seedData.seedTableId);
-    const tableResult = await this.tableRepository.findOne(context, tableSpec);
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: seedData.seedTableId,
+      context,
+      logContext: runLogContext,
+    });
     if (tableResult.isErr()) {
       logSeedFailure(tableResult.error);
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
+    if (tableResult.value.status === 'blocked') return ok(false);
 
-    const table = tableResult.value;
-    if (!table) {
-      const message = `Table not found: ${task.seedTableId}`;
-      logSeedFailure(message);
-      await this.handleTaskFailure(task, message, context);
-      return err(domainError.notFound({ code: 'table.not_found', message }));
-    }
+    const table = tableResult.value.table;
 
     // Compute the full plan from seed data
     failurePhase = 'plan_seed';
@@ -1463,7 +1503,7 @@ const buildComputedUpdateEvents = (
       newVersion: change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
-        oldValue: null as unknown,
+        oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));

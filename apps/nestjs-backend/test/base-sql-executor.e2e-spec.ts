@@ -55,10 +55,10 @@ describe('BaseSqlExecutorService', () => {
     expect(result).toBeDefined();
   });
 
-  it('read only role can not execute sql to throw error', async () => {
+  it('read only role can not execute write sql to throw error', async () => {
     await expect(
-      baseSqlExecutorService['db']?.$queryRawUnsafe(`create table ${tableDbName} (id int)`)
-    ).rejects.toThrow('ERROR: permission denied for schema');
+      baseSqlExecutorService.executeQuerySql(baseId, `create table ${tableDbName} (id int)`)
+    ).rejects.toThrow('An error occurred while checking table access');
   });
 
   it('read only role can read base', async () => {
