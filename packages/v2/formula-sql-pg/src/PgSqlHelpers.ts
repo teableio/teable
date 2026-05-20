@@ -19,6 +19,7 @@ export const buildErrorLiteral = (code: ErrorCode, reason: string): string =>
 
 export const safeJsonb = (expr: string): string => {
   const baseExpr = `(${expr})`;
+  const textTypes = SQL_TEXT_TYPES.join(', ');
   const textSql = `(${baseExpr})::text`;
   const trimmedText = `BTRIM(${textSql})`;
   return `(CASE
@@ -26,6 +27,7 @@ export const safeJsonb = (expr: string): string => {
     WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN to_jsonb(${baseExpr})
     WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN to_jsonb(${baseExpr})
     WHEN NULLIF(${trimmedText}, '') IS NULL THEN NULL
+    WHEN pg_typeof(${baseExpr}) IN (${textTypes}) THEN to_jsonb(${textSql})
     ELSE to_jsonb(${baseExpr})
   END)`;
 };
@@ -48,7 +50,7 @@ export const safeJsonbWithStrategy = (
       CASE
         WHEN NULLIF(${trimmedText}, '') IS NULL THEN NULL
         WHEN ${looksJson} AND ${jsonValid} THEN (${textSql})::jsonb
-        ELSE to_jsonb(${baseExpr})
+        ELSE to_jsonb(${textSql})
       END
     ELSE to_jsonb(${baseExpr})
   END)`;
@@ -75,7 +77,7 @@ export const normalizeToJsonArray = (expr: string): string => {
       CASE
         WHEN NULLIF(${trimmedText}, '') IS NULL THEN '[]'::jsonb
         WHEN ${looksJson} AND ${jsonValid} THEN (${textSql})::jsonb
-        ELSE to_jsonb(${baseExpr})
+        ELSE to_jsonb(${textSql})
       END
     ELSE to_jsonb(${baseExpr})
   END)`;
@@ -113,7 +115,7 @@ export const normalizeToJsonArrayWithStrategy = (
       CASE
         WHEN NULLIF(${trimmedText}, '') IS NULL THEN '[]'::jsonb
         WHEN ${looksJson} AND ${jsonValid} THEN (${textSql})::jsonb
-        ELSE to_jsonb(${baseExpr})
+        ELSE to_jsonb(${textSql})
       END
     ELSE to_jsonb(${baseExpr})
   END)`;

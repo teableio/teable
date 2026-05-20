@@ -15,7 +15,6 @@ export const envValidationSchema = Joi.object({
   // database_url
   PRISMA_DATABASE_URL: Joi.string(),
   PRISMA_META_DATABASE_URL: Joi.string(),
-  PRISMA_DATA_DATABASE_URL: Joi.string(),
   DATABASE_URL: Joi.string(),
 
   STORAGE_PREFIX: Joi.string().uri().optional(),

@@ -322,6 +322,7 @@ export class CreateTablesHandler
           tables: builtTables.map((table, index) => ({
             baseId: command.baseId,
             tableName: table.name(),
+            table,
             fieldCount: table.getFields().length,
             viewCount: table.views().length,
             recordCount: tableCommands[index]?.records.length ?? 0,

@@ -3,6 +3,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { CellValueType, DbFieldType, FieldType, OpName } from '@teable/core';
 import type { IFieldVo, INumberFormatting, ISetFieldPropertyOpContext } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { GlobalModule } from '../../global/global.module';
 import { FieldModule } from './field.module';
 import { FieldService } from './field.service';
@@ -21,6 +22,33 @@ describe('FieldService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('reads table metadata from the active transaction when routing asks for it', async () => {
+    const txFindUnique = vi.fn().mockResolvedValue({ dbTableName: 'bse_test.tbl_tx' });
+    const rootFindUnique = vi.fn();
+    const service = Object.create(FieldService.prototype) as FieldService;
+    Object.assign(service, {
+      prismaService: {
+        txClient: vi.fn(() => ({
+          tableMeta: {
+            findUnique: txFindUnique,
+          },
+        })),
+        tableMeta: {
+          findUnique: rootFindUnique,
+        },
+      } as unknown as PrismaService,
+    });
+
+    await expect(service.getDbTableName('tbl_tx', { useTransaction: true })).resolves.toBe(
+      'bse_test.tbl_tx'
+    );
+    expect(txFindUnique).toHaveBeenCalledWith({
+      where: { id: 'tbl_tx' },
+      select: { dbTableName: true },
+    });
+    expect(rootFindUnique).not.toHaveBeenCalled();
   });
 
   describe('applyFieldPropertyOpsAndCreateInstance', () => {

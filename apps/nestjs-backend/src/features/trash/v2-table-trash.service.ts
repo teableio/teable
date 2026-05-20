@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
-import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ProjectionHandler,
   RecordsDeleted,
@@ -41,6 +41,19 @@ type IAttachmentsTableDb = V1TeableDatabase & {
     parent_id: string | null;
     deleted_time: Date;
     deleted_by: string;
+  };
+};
+/* eslint-enable @typescript-eslint/naming-convention */
+
+/* eslint-disable @typescript-eslint/naming-convention */
+type ITableTrashDataDb = V1TeableDatabase & {
+  table_trash: {
+    id: string;
+    table_id: string;
+    resource_type: string;
+    snapshot: string;
+    created_by: string;
+    created_time: Date;
   };
 };
 /* eslint-enable @typescript-eslint/naming-convention */
@@ -209,6 +222,34 @@ export class V2TableTrashedProjection implements IEventHandler<TableTrashed> {
       })
       .execute();
 
+    const dataContainer = await this.v2ContainerService.getContainerForTable(
+      event.tableId.toString()
+    );
+    const dataDb = dataContainer.resolve<Kysely<ITableTrashDataDb>>(v2DataDbTokens.db);
+    await dataDb
+      .deleteFrom('table_trash')
+      .where('table_id', '=', event.tableId.toString())
+      .where('resource_type', '=', ResourceType.Table)
+      .execute();
+
+    await dataDb
+      .insertInto('table_trash')
+      .values({
+        id: nanoid(),
+        table_id: event.tableId.toString(),
+        resource_type: ResourceType.Table,
+        snapshot: JSON.stringify({
+          tableId: event.tableId.toString(),
+          baseId: event.baseId.toString(),
+          name: event.tableName.toString(),
+          fieldIds: event.fieldIds.map((fieldId) => fieldId.toString()),
+          viewIds: event.viewIds.map((viewId) => viewId.toString()),
+        }),
+        created_by: context.actorId.toString(),
+        created_time: table.deleted_time,
+      })
+      .execute();
+
     return ok(undefined);
   }
 }
@@ -226,6 +267,16 @@ export class V2TableRestoredProjection implements IEventHandler<TableRestored> {
     await db
       .deleteFrom('trash')
       .where('resource_id', '=', event.tableId.toString())
+      .where('resource_type', '=', ResourceType.Table)
+      .execute();
+
+    const dataContainer = await this.v2ContainerService.getContainerForTable(
+      event.tableId.toString()
+    );
+    const dataDb = dataContainer.resolve<Kysely<ITableTrashDataDb>>(v2DataDbTokens.db);
+    await dataDb
+      .deleteFrom('table_trash')
+      .where('table_id', '=', event.tableId.toString())
       .where('resource_type', '=', ResourceType.Table)
       .execute();
 
