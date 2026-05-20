@@ -1,6 +1,7 @@
 import {
   AndSpec,
   CellValueType,
+  FieldCondition,
   domainError,
   FieldId,
   FieldType,
@@ -9,7 +10,8 @@ import {
   LinkRelationship,
   type LookupField,
   type DomainError,
-  type FieldCondition,
+  type FieldConditionDTO,
+  type IFilterItemDTO,
   type ITableRecordConditionSpecVisitor,
   type ISpecification,
   type LinkField,
@@ -73,6 +75,18 @@ const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
   CONDITIONAL_QUERY_MAX_LIMIT
 );
 const SIMPLE_CONDITIONAL_ROLLUP_OPERATORS: ReadonlySet<string> = new Set(['is', 'isAnyOf']);
+const ORDER_INSENSITIVE_ROLLUP_EXPRESSIONS: ReadonlySet<RollupFunction> = new Set([
+  'sum({values})',
+  'average({values})',
+  'countall({values})',
+  'counta({values})',
+  'count({values})',
+  'max({values})',
+  'min({values})',
+  'and({values})',
+  'or({values})',
+  'xor({values})',
+]);
 
 type SimpleConditionalRollupFilterItem = {
   fieldId: string;
@@ -86,6 +100,12 @@ type SimpleConditionalRollupFilter = {
   filterSet: SimpleConditionalRollupFilterItem[];
 };
 
+type ConditionalFieldReferenceGroup = {
+  foreignFieldId: string;
+  hostFieldId: string;
+  filterItem: IFilterItemDTO;
+};
+
 type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
@@ -96,6 +116,101 @@ type ResolvedOrderBy = {
 
 const isSimpleConditionalRollupScalar = (value: unknown): value is string | number | boolean =>
   typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+const isOrderInsensitiveRollupExpression = (expression: RollupFunction): boolean =>
+  ORDER_INSENSITIVE_ROLLUP_EXPRESSIONS.has(expression);
+
+const referencedHostFieldId = (item: IFilterItemDTO): string | null => {
+  if (item.isSymbol && typeof item.value === 'string') {
+    return item.value;
+  }
+
+  if (
+    item.value &&
+    typeof item.value === 'object' &&
+    !Array.isArray(item.value) &&
+    'type' in item.value &&
+    (item.value as { type?: string }).type === 'field' &&
+    'fieldId' in item.value &&
+    typeof (item.value as { fieldId?: unknown }).fieldId === 'string'
+  ) {
+    return (item.value as { fieldId: string }).fieldId;
+  }
+
+  return null;
+};
+
+const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
+  if (!filter?.filterSet) {
+    return [];
+  }
+  return filter.filterSet.filter(
+    (item): item is IFilterItemDTO =>
+      Boolean(item) && typeof item === 'object' && !('filterSet' in item)
+  );
+};
+
+const conditionalRollupFieldReferenceGroup = (
+  columnType: LateralColumnType
+): ConditionalFieldReferenceGroup | null => {
+  if (
+    columnType.type !== 'conditionalRollup' ||
+    !isOrderInsensitiveRollupExpression(columnType.expression) ||
+    columnType.condition.hasSort() ||
+    columnType.condition.hasLimit()
+  ) {
+    return null;
+  }
+
+  const filter = columnType.condition.toDto().filter;
+  if (!filter || filter.conjunction !== 'and') {
+    return null;
+  }
+
+  for (const item of filterItems(filter)) {
+    if (item.operator !== 'is') {
+      continue;
+    }
+
+    const hostFieldId = referencedHostFieldId(item);
+    if (hostFieldId) {
+      return {
+        foreignFieldId: item.fieldId,
+        hostFieldId,
+        filterItem: item,
+      };
+    }
+  }
+
+  return null;
+};
+
+const sharedConditionalFieldReferenceGroup = (
+  columns: Array<{ columnType: LateralColumnType }>
+): ConditionalFieldReferenceGroup | null => {
+  let shared: ConditionalFieldReferenceGroup | null = null;
+
+  for (const column of columns) {
+    const group = conditionalRollupFieldReferenceGroup(column.columnType);
+    if (!group) {
+      return null;
+    }
+
+    if (!shared) {
+      shared = group;
+      continue;
+    }
+
+    if (
+      shared.foreignFieldId !== group.foreignFieldId ||
+      shared.hostFieldId !== group.hostFieldId
+    ) {
+      return null;
+    }
+  }
+
+  return shared;
+};
 
 const isSimpleConditionalRollupItem = (
   value: unknown,
@@ -297,7 +412,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         if (externalTableIds.length > 0) {
           // Use withoutBaseId() to support cross-base foreign tables
           const foreignSpec = yield* table.specs().withoutBaseId().byIds(externalTableIds).build();
-          const loadedTables = yield* await deps.tableRepository.find(deps.context, foreignSpec);
+          const loadedTables = yield* await deps.tableRepository.find(deps.context, foreignSpec, {
+            state: 'activeWithPending',
+          });
 
           for (const loadedTable of loadedTables) {
             foreignTables.set(loadedTable.id().toString(), loadedTable);
@@ -451,8 +568,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
     >();
 
-    // Conditional field laterals (keyed by conditionalFieldId)
-    // These don't share a link field, so each conditional field gets its own entry
+    // Conditional field laterals (keyed by compatible condition/source shape).
+    // Fields with the same condition can share one scan and project multiple aggregates.
     const conditionalLaterals = new Map<
       string,
       {
@@ -483,6 +600,37 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return JSON.stringify(columnType.condition.toDto());
     };
 
+    const conditionalColumnKey = (
+      conditionalFieldId: FieldId,
+      foreignTableId: string,
+      columnType: LateralColumnType
+    ): string => {
+      if (columnType.type !== 'conditionalLookup' && columnType.type !== 'conditionalRollup') {
+        return conditionalFieldId.toString();
+      }
+
+      const condition = columnType.condition;
+      const fieldRefGroup = conditionalRollupFieldReferenceGroup(columnType);
+      if (fieldRefGroup) {
+        return [
+          columnType.type,
+          'field-ref-group',
+          foreignTableId,
+          fieldRefGroup.foreignFieldId,
+          fieldRefGroup.hostFieldId,
+        ].join('|');
+      }
+
+      const orderMode =
+        columnType.type === 'conditionalRollup' &&
+        isOrderInsensitiveRollupExpression(columnType.expression)
+          ? 'orderless'
+          : 'ordered';
+      return [columnType.type, orderMode, foreignTableId, JSON.stringify(condition.toDto())].join(
+        '|'
+      );
+    };
+
     const ctx: ILateralContext = {
       addColumn(linkFieldId, foreignTableId, outputAlias, columnType) {
         const conditionKeyValue = conditionKey(columnType);
@@ -509,11 +657,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return lateral.alias;
       },
       addConditionalColumn(conditionalFieldId, foreignTableId, outputAlias, columnType) {
-        const key = conditionalFieldId.toString();
+        const key = conditionalColumnKey(conditionalFieldId, foreignTableId, columnType);
         if (!conditionalLaterals.has(key)) {
           conditionalLaterals.set(key, {
             conditionalFieldId,
-            alias: `cond_${key}`,
+            alias: `cond_${conditionalFieldId.toString()}`,
             foreignTableId,
             columns: [],
           });
@@ -683,27 +831,39 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignTableName = yield* foreignDbTableName.value();
 
           const firstColumnType = lateral.columns[0]?.columnType;
+          const sharedFieldRefGroup = sharedConditionalFieldReferenceGroup(lateral.columns);
           const condition = match(firstColumnType)
             .with({ type: 'conditionalLookup' }, (c) => c.condition)
             .with({ type: 'conditionalRollup' }, (c) => c.condition)
             .otherwise(() => undefined);
 
           // Build WHERE clause from condition filter
-          const whereClause = yield* this.buildConditionWhere(foreignTable, firstColumnType);
+          const whereClause = sharedFieldRefGroup
+            ? yield* this.buildFieldReferenceConditionWhere(foreignTable, sharedFieldRefGroup)
+            : yield* this.buildConditionWhere(foreignTable, firstColumnType);
 
           const sortClause = condition
             ? yield* this.resolveConditionalSort(foreignTable, condition)
             : null;
           const configuredLimit = condition?.limit();
-          const limitValue = configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
           const isConditionalDerived =
             firstColumnType?.type === 'conditionalLookup' ||
             firstColumnType?.type === 'conditionalRollup';
-          const useUncorrelatedRollupFastPath = this.shouldUseConditionalRollupFastPath(
-            foreignTable,
-            firstColumnType
-          );
-          const defaultOrderBy = isConditionalDerived ? DEFAULT_CONDITIONAL_ORDER_BY : undefined;
+          const canUseUnboundedOrderlessRollup =
+            firstColumnType?.type === 'conditionalRollup' &&
+            isOrderInsensitiveRollupExpression(firstColumnType.expression) &&
+            !condition?.hasSort() &&
+            !condition?.hasLimit();
+          const limitValue = canUseUnboundedOrderlessRollup
+            ? undefined
+            : configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
+          const useUncorrelatedRollupFastPath =
+            this.shouldUseConditionalRollupFastPath(foreignTable, firstColumnType) &&
+            !sharedFieldRefGroup;
+          const defaultOrderBy =
+            isConditionalDerived && !canUseUnboundedOrderlessRollup
+              ? DEFAULT_CONDITIONAL_ORDER_BY
+              : undefined;
           const orderByForSelect = sortClause ?? defaultOrderBy;
           const orderByForLimit =
             sortClause ??
@@ -715,6 +875,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
+            const filterWhere =
+              sharedFieldRefGroup && col.columnType.type === 'conditionalRollup'
+                ? yield* this.buildConditionWhere(foreignTable, col.columnType)
+                : undefined;
             selectExprs.push(
               yield* this.buildConditionalSelectExpr(
                 foreignTable,
@@ -723,6 +887,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 {
                   tableAlias: sourceAlias,
                   orderBy: orderByForSelect ?? undefined,
+                  filterWhere: filterWhere ?? undefined,
                 }
               )
             );
@@ -827,6 +992,18 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this.buildFilterConditionWhere(foreignTable, condition);
   }
 
+  private buildFieldReferenceConditionWhere(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): Result<Expression<SqlBool> | null, DomainError> {
+    return FieldCondition.create({
+      filter: {
+        conjunction: 'and',
+        filterSet: [group.filterItem],
+      },
+    }).andThen((condition) => this.buildFilterConditionWhere(foreignTable, condition));
+  }
+
   private buildFilterConditionWhere(
     foreignTable: Table,
     condition?: FieldCondition
@@ -919,6 +1096,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     options?: {
       tableAlias?: string;
       orderBy?: { column: string; direction: 'asc' | 'desc' };
+      filterWhere?: Expression<SqlBool>;
     }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     const tableAlias = options?.tableAlias ?? F;
@@ -941,6 +1119,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return this.buildRollupAggregateExpr(foreignTable, foreignFieldId, expression, {
             tableAlias,
             orderBy,
+            filterWhere: options?.filterWhere,
           }).map((expr: RawBuilder<unknown>) => expr.as(outputAlias));
         })
         // Other types should not appear in conditional laterals
@@ -1365,6 +1544,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     options?: {
       tableAlias?: string;
       orderBy?: LinkOrderBy | { column: string; direction: 'asc' | 'desc' };
+      filterWhere?: Expression<SqlBool>;
     }
   ): Result<RawBuilder<unknown>, DomainError> {
     const tableAlias = options?.tableAlias ?? F;
@@ -1376,6 +1556,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           )}`
       : null;
     const orderBySql = orderByExpr ? sql` ORDER BY ${orderByExpr}` : sql``;
+    const filterAgg = (agg: RawBuilder<unknown>): RawBuilder<unknown> =>
+      options?.filterWhere ? sql`${agg} FILTER (WHERE ${options.filterWhere})` : agg;
 
     return safeTry<RawBuilder<unknown>, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
@@ -1391,44 +1573,44 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             if (isNumericTarget) {
               if (isMultipleValue) {
                 const numericExpr = this.buildJsonNumericSumExpression(colRef);
-                return ok(this.castAgg(sql`COALESCE(SUM(${numericExpr}), 0)`));
+                return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`SUM(${numericExpr})`)}, 0)`));
               }
-              return ok(this.castAgg(sql`COALESCE(SUM(${colRef}), 0)`));
+              return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`SUM(${colRef})`)}, 0)`));
             }
-            return ok(this.castAgg(sql`SUM(0)`));
+            return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`SUM(0)`)}, 0)`));
           }
           case 'average({values})': {
             if (isNumericTarget) {
               if (isMultipleValue) {
                 const sumExpr = this.buildJsonNumericSumExpression(colRef);
                 const countExpr = this.buildJsonNumericCountExpression(colRef);
-                const sumAgg = sql`COALESCE(SUM(${sumExpr}), 0)`;
-                const countAgg = sql`COALESCE(SUM(${countExpr}), 0)`;
+                const sumAgg = sql`COALESCE(${filterAgg(sql`SUM(${sumExpr})`)}, 0)`;
+                const countAgg = sql`COALESCE(${filterAgg(sql`SUM(${countExpr})`)}, 0)`;
                 return ok(
                   this.castAgg(
                     sql`CASE WHEN ${countAgg} = 0 THEN 0 ELSE ${sumAgg} / ${countAgg} END`
                   )
                 );
               }
-              return ok(this.castAgg(sql`COALESCE(AVG(${colRef}), 0)`));
+              return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`AVG(${colRef})`)}, 0)`));
             }
-            return ok(this.castAgg(sql`AVG(0)`));
+            return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`AVG(0)`)}, 0)`));
           }
           case 'countall({values})': {
             if (foreignField.type().equals(FieldType.multipleSelect())) {
               return ok(
                 this.castAgg(
-                  sql`COALESCE(SUM(CASE WHEN ${colRef} IS NOT NULL THEN jsonb_array_length(${colRef}::jsonb) ELSE 0 END), 0)`
+                  sql`COALESCE(${filterAgg(sql`SUM(CASE WHEN ${colRef} IS NOT NULL THEN jsonb_array_length(${colRef}::jsonb) ELSE 0 END)`)}, 0)`
                 )
               );
             }
-            return ok(this.castAgg(sql`COALESCE(COUNT(${rowPresenceExpr}), 0)`));
+            return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${rowPresenceExpr})`)}, 0)`));
           }
           case 'counta({values})':
           case 'count({values})':
-            return ok(this.castAgg(sql`COALESCE(COUNT(${colRef}), 0)`));
+            return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${colRef})`)}, 0)`));
           case 'max({values})': {
-            const aggregate = sql`MAX(${colRef})`;
+            const aggregate = filterAgg(sql`MAX(${colRef})`);
             return ok(
               valueType.cellValueType.equals(CellValueType.dateTime())
                 ? aggregate
@@ -1436,7 +1618,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             );
           }
           case 'min({values})': {
-            const aggregate = sql`MIN(${colRef})`;
+            const aggregate = filterAgg(sql`MIN(${colRef})`);
             return ok(
               valueType.cellValueType.equals(CellValueType.dateTime())
                 ? aggregate
@@ -1444,11 +1626,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             );
           }
           case 'and({values})':
-            return ok(sql`BOOL_AND(${colRef}::boolean)`);
+            return ok(filterAgg(sql`BOOL_AND(${colRef}::boolean)`));
           case 'or({values})':
-            return ok(sql`BOOL_OR(${colRef}::boolean)`);
+            return ok(filterAgg(sql`BOOL_OR(${colRef}::boolean)`));
           case 'xor({values})':
-            return ok(sql`(COUNT(CASE WHEN ${colRef}::boolean THEN 1 END) % 2 = 1)`);
+            return ok(
+              sql`(${filterAgg(sql`COUNT(CASE WHEN ${colRef}::boolean THEN 1 END)`)} % 2 = 1)`
+            );
           case 'array_join({values})':
           case 'concatenate({values})': {
             if (foreignField.type().equals(FieldType.link())) {

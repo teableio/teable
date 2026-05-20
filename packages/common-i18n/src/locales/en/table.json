@@ -521,6 +521,7 @@
       "pasting": "Pasting...",
       "pasteSuccessful": "Paste successful",
       "pasteFailed": "Paste failed",
+      "pasteNoEditableFields": "The selected fields are read-only and cannot be pasted into.",
       "filling": "Filling...",
       "fillSuccessful": "Fill successful",
       "fillFailed": "Fill failed",
@@ -1240,6 +1241,10 @@
         "contextTooltip": "Agent's working memory usage. When approaching the limit, the agent will automatically summarize earlier conversation to free up space.",
         "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
         "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
+      },
+      "contextCompaction": {
+        "auto": "Context was automatically compacted",
+        "manual": "Context was compacted"
       },
       "taskProgress": {
         "title": "Task Progress"

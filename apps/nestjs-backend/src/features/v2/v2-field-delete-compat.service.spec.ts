@@ -1,7 +1,25 @@
 import { ViewOpBuilder } from '@teable/core';
-import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { describe, expect, it, vi } from 'vitest';
 import { V2_FIELD_DELETE_COMPAT_CONTEXT_KEY } from './v2-field-delete-compat.constants';
+
+const mockV2Tokens = vi.hoisted(() => ({
+  v2DataDbTokens: {
+    db: Symbol('v2.data.db'),
+  },
+}));
+
+vi.mock('@teable/v2-adapter-db-postgres-pg', () => ({
+  v2DataDbTokens: mockV2Tokens.v2DataDbTokens,
+}));
+
+vi.mock('./v2-container.service', () => ({
+  V2ContainerService: class V2ContainerService {},
+}));
+
+vi.mock('./v2-view-compat.service', () => ({
+  V2ViewCompatService: class V2ViewCompatService {},
+}));
+
 import { V2FieldDeletedCompatProjection } from './v2-field-delete-compat.service';
 
 const createInsertDb = () => {
@@ -19,7 +37,7 @@ const createInsertDb = () => {
 const createV2ContainerService = (db: unknown) => ({
   getContainer: vi.fn().mockResolvedValue({
     resolve: vi.fn((token: symbol) => {
-      if (token !== v2DataDbTokens.db) {
+      if (token !== mockV2Tokens.v2DataDbTokens.db) {
         throw new Error(`Unexpected token ${String(token)}`);
       }
 
@@ -58,15 +76,14 @@ describe('V2FieldDeletedCompatProjection', () => {
       },
     };
 
-    const result = await projection.handle(
-      {
-        [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]: compatContext,
-      } as never,
-      {
-        tableId: { toString: () => 'tblCompatTable0001' },
-        fieldId: { toString: () => 'fldCompatA00000001' },
-      } as never
-    );
+    const executionContext = {
+      [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]: compatContext,
+    } as never;
+
+    const result = await projection.handle(executionContext, {
+      tableId: { toString: () => 'tblCompatTable0001' },
+      fieldId: { toString: () => 'fldCompatA00000001' },
+    } as never);
 
     expect(result._unsafeUnwrap()).toBeUndefined();
     expect(compatContext.completed).toBeUndefined();
@@ -105,21 +122,21 @@ describe('V2FieldDeletedCompatProjection', () => {
       },
     };
 
-    const result = await projection.handle(
-      {
-        [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]: compatContext,
-      } as never,
-      {
-        tableId: { toString: () => 'tblCompatTable0001' },
-        fieldId: { toString: () => 'fldCompatA00000001' },
-      } as never
-    );
+    const executionContext = {
+      [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]: compatContext,
+    } as never;
+
+    const result = await projection.handle(executionContext, {
+      tableId: { toString: () => 'tblCompatTable0001' },
+      fieldId: { toString: () => 'fldCompatA00000001' },
+    } as never);
 
     expect(result._unsafeUnwrap()).toBeUndefined();
     expect(compatContext.completed).toBe(true);
     expect(v2ViewCompatService.batchUpdateViewByOps).toHaveBeenCalledWith(
       'tblCompatTable0001',
-      compatContext.frozenFieldOps
+      compatContext.frozenFieldOps,
+      executionContext
     );
     expect(db.insertInto).toHaveBeenCalledWith('table_trash');
     expect(query.values).toHaveBeenCalledWith({

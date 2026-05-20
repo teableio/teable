@@ -48,6 +48,7 @@ import {
   executeListTableRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 import {
   ClearStreamCommand,
   DeleteByRangeStreamCommand,
@@ -73,6 +74,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
@@ -114,7 +116,8 @@ export class RecordOpenApiV2Service {
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly fieldService: FieldService,
     private readonly recordPermissionService: RecordPermissionService,
-    private readonly aggregationService: AggregationService
+    private readonly aggregationService: AggregationService,
+    private readonly dataDbClientManager: DataDbClientManager
   ) {}
 
   private throwV2Error(
@@ -218,7 +221,8 @@ export class RecordOpenApiV2Service {
       );
     }
 
-    const context = await this.createV2ReadContext(tableId, query);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.createV2ReadContext(tableId, query, container);
     const enabledFieldIds = (
       context as IExecutionContext & {
         recordReadQuerySource?: { enabledFieldIds?: string[] };
@@ -247,10 +251,9 @@ export class RecordOpenApiV2Service {
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
     const queryExtra = this.shouldLoadQueryExtra(effectiveQuery)
-      ? await this.getQueryExtra(tableId, effectiveQuery)
+      ? await this.withTableDataClient(tableId, () => this.getQueryExtra(tableId, effectiveQuery))
       : undefined;
 
-    const container = await this.v2ContainerService.getContainer();
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const pageResult = await this.executeListRecordsEndpoint(
       {
@@ -287,13 +290,15 @@ export class RecordOpenApiV2Service {
     }
 
     const recordIds = orderedRecords.map((record) => record.id);
-    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-      tableId,
-      recordIds,
-      snapshotProjection,
-      requestedFieldKeyType,
-      query.cellFormat,
-      true
+    const snapshots = await this.withTableDataClient(tableId, () =>
+      this.recordService.getSnapshotBulkWithPermission(
+        tableId,
+        recordIds,
+        snapshotProjection,
+        requestedFieldKeyType,
+        query.cellFormat,
+        true
+      )
     );
 
     if (snapshots.length !== recordIds.length) {
@@ -321,6 +326,27 @@ export class RecordOpenApiV2Service {
     return queryExtra
       ? { records: normalizedRecords, extra: queryExtra }
       : { records: normalizedRecords };
+  }
+
+  private async withTableDataClient<T>(tableId: string, fn: () => Promise<T>): Promise<T> {
+    const resolvedDataDb = await this.dataDbClientManager.getDataDatabaseForTable(tableId);
+    if (resolvedDataDb.isMetaFallback) {
+      return fn();
+    }
+
+    const dataPrisma = await this.dataDbClientManager.dataPrismaForTable(tableId);
+    const cls = this.cls as unknown as ClsService<{ dataTx: { client?: unknown } }>;
+    const store = cls.get();
+    const previousClient = cls.get('dataTx.client');
+
+    return cls.runWith(store, async () => {
+      cls.set('dataTx.client', dataPrisma);
+      try {
+        return await fn();
+      } finally {
+        cls.set('dataTx.client', previousClient);
+      }
+    });
   }
 
   private async formatSystemDatetimeFields(
@@ -496,9 +522,10 @@ export class RecordOpenApiV2Service {
 
   private async createV2ReadContext(
     tableId: string,
-    query: Pick<IGetRecordsRo, 'viewId' | 'ignoreViewQuery' | 'filterLinkCellSelected'>
+    query: Pick<IGetRecordsRo, 'viewId' | 'ignoreViewQuery' | 'filterLinkCellSelected'>,
+    container: DependencyContainer
   ): Promise<IExecutionContext> {
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const readSource = await this.recordPermissionService.getReadQuerySource(tableId, {
       viewId: query.viewId,
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
@@ -576,9 +603,9 @@ export class RecordOpenApiV2Service {
     const fields = updateRecordRo.record.fields ?? {};
     const hasFields = Object.keys(fields).length > 0;
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     if (hasFields || (hasOrder && order)) {
       // Convert v1 input format to v2 format
@@ -645,9 +672,9 @@ export class RecordOpenApiV2Service {
       'record.update.request.typecast': updateRecordsRo.typecast ?? false,
     });
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const updateResult = await executeUpdateRecordsEndpoint(
       context,
       {
@@ -684,9 +711,9 @@ export class RecordOpenApiV2Service {
     createRecordsRo: ICreateRecordsRo,
     _isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     // Preserve v1's default typecast behavior (false) to ensure proper validation
     const records = createRecordsRo.records;
@@ -718,9 +745,9 @@ export class RecordOpenApiV2Service {
   }
 
   async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const result = await executeSubmitRecordEndpoint(
       context,
@@ -755,9 +782,9 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<IPasteVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     (
       context as IExecutionContext & {
         [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
@@ -829,9 +856,9 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     (
       context as IExecutionContext & {
         [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
@@ -1097,9 +1124,9 @@ export class RecordOpenApiV2Service {
   }
 
   async clear(tableId: string, rangesRo: IRangesRo): Promise<null> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
@@ -1140,9 +1167,9 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
@@ -1268,9 +1295,9 @@ export class RecordOpenApiV2Service {
     rangesRo: IRangesRo,
     _windowId?: string
   ): Promise<{ ids: string[] }> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
@@ -1315,9 +1342,9 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
@@ -1364,9 +1391,9 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDuplicateSelectionStreamEvent>> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
@@ -1414,19 +1441,27 @@ export class RecordOpenApiV2Service {
     recordIds: string[],
     _windowId?: string
   ): Promise<IRecordsVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
 
-    // Query records before deletion to return them in V1 format
-    const recordSnapshots = await this.recordService.getSnapshotBulkWithPermission(
-      tableId,
-      recordIds,
-      undefined,
-      FieldKeyType.Id,
-      undefined,
-      true
-    );
+    const recordsBeforeDelete: IRecord[] = [];
+    for (let index = 0; index < recordIds.length; index += 1000) {
+      const selectedRecordIds = recordIds.slice(index, index + 1000);
+      const page = await this.executeListRecordsEndpoint(
+        {
+          tableId,
+          fieldKeyType: FieldKeyType.Id,
+          selectedRecordIds,
+          limit: selectedRecordIds.length,
+          ignoreViewQuery: true,
+        },
+        context,
+        queryBus
+      );
+      recordsBeforeDelete.push(...(page.records as IRecord[]));
+    }
 
     const v2Input = {
       tableId,
@@ -1440,7 +1475,7 @@ export class RecordOpenApiV2Service {
 
       // Return records that were deleted (V1 format)
       return {
-        records: recordSnapshots.map((snapshot) => snapshot.data as IRecord),
+        records: recordsBeforeDelete,
       };
     }
 
@@ -1961,9 +1996,9 @@ export class RecordOpenApiV2Service {
     recordId: string,
     order?: IRecordInsertOrderRo
   ): Promise<IRecord> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const result = await executeDuplicateRecordEndpoint(
       context,

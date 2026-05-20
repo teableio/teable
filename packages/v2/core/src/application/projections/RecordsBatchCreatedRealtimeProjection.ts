@@ -60,6 +60,8 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
 
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
+      // The Created path wraps safeTry inside `async () => ...`, so the inferred
+      // return is Promise<Result<undefined, _>> (the async wraps ResultAsync).
       const tasks: Array<() => Promise<Result<undefined, DomainError>>> = [];
 
       for (const record of event.records) {
