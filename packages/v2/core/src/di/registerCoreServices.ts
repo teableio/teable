@@ -40,12 +40,14 @@ import { TableFieldLimitFieldOperationPlugin } from '../application/services/Tab
 import { TableDataSafetyLimitFieldOperationPlugin } from '../application/services/TableDataSafetyLimitFieldOperationPlugin';
 import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
+import { TableDataSafetyLimitViewOperationPlugin } from '../application/services/TableDataSafetyLimitViewOperationPlugin';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableSchemaOperationRepairHandler } from '../application/services/TableSchemaOperationRepairHandler';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoStackService } from '../application/services/UndoRedoStackService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
+import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
 import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
@@ -54,11 +56,13 @@ import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { ITableDataSafetyLimitPlugin } from '../ports/TableDataSafetyLimitPlugin';
 import type { ITableOperationPlugin } from '../ports/TableOperationPlugin';
+import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
 import { v2CoreTokens } from '../ports/tokens';
 import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
 import { registerRecordWritePlugin } from './registerRecordWritePlugin';
 import { registerTableDataSafetyLimitPlugin } from './registerTableDataSafetyLimitPlugin';
 import { registerTableOperationPlugin } from './registerTableOperationPlugin';
+import { registerViewOperationPlugin } from './registerViewOperationPlugin';
 
 /**
  * Register all v2 core internal application services.
@@ -389,6 +393,24 @@ export const registerV2CoreServices = (
 
   if (!container.isRegistered(v2CoreTokens.tableOperationPluginRunner)) {
     container.register(v2CoreTokens.tableOperationPluginRunner, TableOperationPluginRunner, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.viewOperationPlugins)) {
+    container.registerInstance(v2CoreTokens.viewOperationPlugins, [] as IViewOperationPlugin[]);
+  }
+
+  registerViewOperationPlugin(
+    container,
+    new TableDataSafetyLimitViewOperationPlugin(tableDataSafetyLimitComposer),
+    {
+      source: 'registerV2CoreServices',
+    }
+  );
+
+  if (!container.isRegistered(v2CoreTokens.viewOperationPluginRunner)) {
+    container.register(v2CoreTokens.viewOperationPluginRunner, ViewOperationPluginRunner, {
       lifecycle,
     });
   }

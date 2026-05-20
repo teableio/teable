@@ -1,17 +1,25 @@
 import type { QueryClient } from '@tanstack/react-query';
+import type { IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks';
+import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks/helper';
 import type { SSRResult, ISSRContext } from './types';
 
 export const redirect = (destination: string): SSRResult => ({
   redirect: { destination, permanent: false },
 });
 
+interface IDefaultNodeOptions {
+  filterNode?: (node: IBaseNodeVo) => boolean;
+}
+
 /**
  * Get the default node URL when a specific node is not found
  * This function will redirect to the first available non-folder node in the base
  */
-export const getDefaultNodeUrl = async (ctx: ISSRContext): Promise<string | null> => {
+export const getDefaultNodeUrl = async (
+  ctx: ISSRContext,
+  options?: IDefaultNodeOptions
+): Promise<string | null> => {
   const { ssrApi, baseId } = ctx;
 
   try {
@@ -19,16 +27,17 @@ export const getDefaultNodeUrl = async (ctx: ISSRContext): Promise<string | null
       ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
       ssrApi.getBaseNodeList(baseId),
     ]);
+    const availableNodes = options?.filterNode ? nodes.filter(options.filterNode) : nodes;
 
     // Try to find the last visited node, but skip if it's a folder
-    let findNode = nodes.find(
+    let findNode = availableNodes.find(
       (n) =>
         n.resourceId === lastVisitNode?.resourceId && n.resourceType !== BaseNodeResourceType.Folder
     );
 
     // If not found, find the first non-folder node
     if (!findNode) {
-      findNode = nodes.find((n) => n.resourceType !== BaseNodeResourceType.Folder);
+      findNode = availableNodes.find((n) => n.resourceType !== BaseNodeResourceType.Folder);
     }
 
     if (findNode) {
@@ -59,6 +68,7 @@ export const validateResourceExists = async <T>(
     queryKey: readonly unknown[];
     fetchList: (queryClient: QueryClient) => Promise<T[]>;
     extractIds: (list: T[]) => string[];
+    filterDefaultNode?: (node: IBaseNodeVo, resourceIds: Set<string>) => boolean;
   }
 ): Promise<SSRResult | null> => {
   const { queryClient } = ctx;
@@ -69,10 +79,15 @@ export const validateResourceExists = async <T>(
   });
 
   const ids = options.extractIds(list);
+  const resourceIds = new Set(ids);
 
   // If resource doesn't exist, redirect to default node
-  if (!ids.includes(options.resourceId)) {
-    const defaultUrl = await getDefaultNodeUrl(ctx);
+  if (!resourceIds.has(options.resourceId)) {
+    const defaultUrl = await getDefaultNodeUrl(ctx, {
+      filterNode: options.filterDefaultNode
+        ? (node) => options.filterDefaultNode!(node, resourceIds)
+        : undefined,
+    });
     if (defaultUrl) {
       return redirect(defaultUrl);
     }

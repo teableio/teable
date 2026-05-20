@@ -273,7 +273,11 @@ export class RecordModifySharedService {
       tableId: table.id,
       dbTableName,
       itemLength: recordCount,
-      indexField: await this.viewService.getOrCreateViewIndexField(dbTableName, orderRo.viewId),
+      indexField: await this.viewService.getOrCreateViewIndexFieldForTable(
+        table.id,
+        dbTableName,
+        orderRo.viewId
+      ),
       orderRo,
       update: async (result) => {
         indexes = result;
