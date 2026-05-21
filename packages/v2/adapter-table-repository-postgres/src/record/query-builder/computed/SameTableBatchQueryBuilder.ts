@@ -1,4 +1,4 @@
-import { domainError, FieldType, FieldValueTypeVisitor } from '@teable/v2-core';
+import { CellValueType, domainError, FieldType, FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   ConditionalLookupField,
   DomainError,
@@ -256,27 +256,38 @@ export class SameTableBatchQueryBuilder {
   }
 
   private normalizeFormulaValueSql(formulaField: FormulaField, expr: SqlExpr): string {
-    if (expr.storageKind !== 'json' || !this.shouldExtractJsonDisplay(expr)) {
-      return expr.valueSql;
-    }
+    let valueSql = expr.valueSql;
 
     const formulaIsMultiple = formulaField
       .isMultipleCellValue()
       .map((multiplicity) => multiplicity.isMultiple())
       .unwrapOr(false);
 
-    if (formulaIsMultiple || expr.isArray) {
-      const normalized = normalizeToJsonArrayWithStrategy(
-        expr.valueSql,
-        this.typeValidationStrategy
-      );
-      return `(
+    if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
+      if (formulaIsMultiple || expr.isArray) {
+        const normalized = normalizeToJsonArrayWithStrategy(
+          expr.valueSql,
+          this.typeValidationStrategy
+        );
+        valueSql = `(
         SELECT jsonb_agg(to_jsonb(${extractJsonScalarText('elem')}) ORDER BY ord)
         FROM jsonb_array_elements(${normalized}) WITH ORDINALITY AS _jae(elem, ord)
       )`;
+      } else {
+        valueSql = extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+      }
     }
 
-    return extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+    const fieldValueTypeResult = formulaField.accept(new FieldValueTypeVisitor());
+    if (
+      fieldValueTypeResult.isOk() &&
+      !formulaIsMultiple &&
+      fieldValueTypeResult.value.cellValueType.equals(CellValueType.number())
+    ) {
+      return `NULLIF(BTRIM((${valueSql})::text), '')::double precision`;
+    }
+
+    return valueSql;
   }
 
   private shouldExtractJsonDisplay(expr: SqlExpr): boolean {
