@@ -10,7 +10,11 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementBuilders';
+import {
+  dataStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 
 /**
  * Schema rule for creating/dropping a JSONB column for link field values.
@@ -85,7 +89,7 @@ export class LinkValueColumnRule implements ISchemaRule {
         .alterTable(ctx.tableName)
         .addColumn(columnName, 'jsonb', (col) => col.ifNotExists());
 
-      return ok([statement]);
+      return ok([dataStatement(statement)]);
     });
   }
 

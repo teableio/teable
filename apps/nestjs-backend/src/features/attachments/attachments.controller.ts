@@ -46,12 +46,21 @@ export class AttachmentsController {
     @Query('token') token: string,
     @Query('response-content-disposition') responseContentDisposition?: string
   ) {
+    const headers: Record<string, string> = {};
+    headers['Cross-Origin-Resource-Policy'] = 'unsafe-none';
+    headers['Content-Security-Policy'] = '';
+
     const hasCache = this.attachmentsService.localFileConditionalCaching(path, req.headers, res);
     if (hasCache) {
+      res.set(headers);
       res.status(304);
       return;
     }
-    const { fileStream, headers } = await this.attachmentsService.readLocalFile(path, token);
+    const { fileStream, headers: fileHeaders } = await this.attachmentsService.readLocalFile(
+      path,
+      token
+    );
+    Object.assign(headers, fileHeaders);
     if (responseContentDisposition) {
       const fileNameMatch =
         responseContentDisposition.match(/filename\*=UTF-8''([^;]+)/) ||
@@ -64,8 +73,6 @@ export class AttachmentsController {
         headers['Content-Disposition'] = responseContentDisposition;
       }
     }
-    headers['Cross-Origin-Resource-Policy'] = 'unsafe-none';
-    headers['Content-Security-Policy'] = '';
     res.set(headers);
     return new StreamableFile(fileStream);
   }

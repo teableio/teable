@@ -57,7 +57,9 @@ import type {
   IDbConnectionVo,
   IGetBaseAllVo,
   IGetBasePermissionVo,
+  IDuplicateBaseCheckVo,
   IGetBaseVo,
+  IMoveBaseCheckVo,
   IGetSharedBaseVo,
   IImportBaseVo,
   IListBaseCollaboratorUserVo,
@@ -81,8 +83,10 @@ import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
+import { BaseDuplicateService } from './base-duplicate.service';
+import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
-import { BaseImportService } from './base-import.service';
+import { BaseImportService, formatBaseImportError } from './base-import.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -91,10 +95,12 @@ export class BaseController {
   constructor(
     private readonly baseService: BaseService,
     private readonly baseExportService: BaseExportService,
+    private readonly baseExportV2Service: BaseExportV2Service,
     private readonly baseImportService: BaseImportService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly invitationService: InvitationService,
+    private readonly baseDuplicateService: BaseDuplicateService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -176,7 +182,7 @@ export class BaseController {
     } catch (error) {
       sendEvent({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Unknown import error',
+        message: formatBaseImportError(error, 'Unknown import error'),
       });
     } finally {
       clearInterval(heartbeat);
@@ -185,6 +191,9 @@ export class BaseController {
   }
 
   @Post('duplicate')
+  @UseV2Feature('duplicateBase')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   @EmitControllerEvent(Events.BASE_CREATE)
@@ -192,7 +201,82 @@ export class BaseController {
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))
     duplicateBaseRo: IDuplicateBaseRo
   ): Promise<ICreateBaseVo> {
+    if (this.cls.get('useV2')) {
+      return await this.baseService.duplicateBaseV2(duplicateBaseRo);
+    }
     return await this.baseService.duplicateBase(duplicateBaseRo);
+  }
+
+  @Post('duplicate-stream')
+  @UseV2Feature('duplicateBase')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  async duplicateBaseStream(
+    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
+    duplicateBaseRo: IDuplicateBaseRo,
+    @Res() res: ExpressResponse
+  ) {
+    const sseHeartbeatMs = 15_000;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const isStreamClosed = () => res.writableEnded || res.destroyed;
+    // eslint-disable-next-line sonarjs/no-identical-functions
+    const sendEvent = (data: unknown) => {
+      if (isStreamClosed()) return;
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
+    };
+    const heartbeat = setInterval(() => {
+      if (isStreamClosed()) return;
+      res.write(': ping\n\n');
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
+    }, sseHeartbeatMs);
+    res.on('close', () => clearInterval(heartbeat));
+
+    try {
+      sendEvent({ type: 'progress', phase: 'duplicate_started' });
+      const result = this.cls.get('useV2')
+        ? await this.baseService.duplicateBaseV2WithProgress(
+            duplicateBaseRo,
+            (phase: string | { phase: string }, detail?: string) => {
+              sendEvent(
+                typeof phase === 'string'
+                  ? { type: 'progress', phase, detail }
+                  : { type: 'progress', ...phase }
+              );
+            }
+          )
+        : { base: await this.baseService.duplicateBase(duplicateBaseRo) };
+
+      sendEvent({ type: 'done', data: result.base });
+    } catch (error) {
+      sendEvent({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown duplicate base error',
+      });
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
+    }
+  }
+
+  @Get(':baseId/duplicate-check')
+  @Permissions('base|read')
+  async duplicateBaseCheck(
+    @Param('baseId') baseId: string,
+    @Query('destSpaceId') destSpaceId: string
+  ): Promise<IDuplicateBaseCheckVo> {
+    const affectedFields = await this.baseDuplicateService.previewCrossSpaceAffectedFields(
+      baseId,
+      destSpaceId
+    );
+    return { affectedFields };
   }
 
   @Post('create-from-template')
@@ -424,7 +508,70 @@ export class BaseController {
   async exportBase(@Param('baseId') baseId: string, @Query('includeData') includeData?: string) {
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
+    const base = await this.baseService.getBaseById(baseId);
+    if (base.v2Status?.reason === 'new_base') {
+      return await this.baseExportV2Service.exportBaseZip(baseId, includeDataValue);
+    }
     return await this.baseExportService.exportBaseZip(baseId, includeDataValue);
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/export-stream')
+  async exportBaseStream(
+    @Param('baseId') baseId: string,
+    @Query('includeData') includeData: string | undefined,
+    @Res() res: ExpressResponse
+  ) {
+    const includeDataValue =
+      includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
+    const sseHeartbeatMs = 15_000;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const isStreamClosed = () => res.writableEnded || res.destroyed;
+    // eslint-disable-next-line sonarjs/no-identical-functions
+    const sendEvent = (data: unknown) => {
+      if (isStreamClosed()) return;
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
+    };
+    const heartbeat = setInterval(() => {
+      if (isStreamClosed()) return;
+      res.write(': ping\n\n');
+      (res as ExpressResponse & { flush?: () => void }).flush?.();
+    }, sseHeartbeatMs);
+    res.on('close', () => clearInterval(heartbeat));
+
+    try {
+      const base = await this.baseService.getBaseById(baseId);
+      const exporter =
+        base.v2Status?.reason === 'new_base'
+          ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
+          : this.baseExportService.exportBaseZip.bind(this.baseExportService);
+      const result = await exporter(baseId, includeDataValue, (phase, detail, event) => {
+        sendEvent({
+          type: 'progress',
+          ...event,
+          phase,
+          detail: event?.detail ?? detail,
+        });
+      });
+      if (!result) {
+        throw new Error('Export base stream ended without result');
+      }
+      sendEvent({ type: 'done', data: result });
+    } catch (error) {
+      sendEvent({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown export error',
+      });
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
+    }
   }
 
   @Put(':baseId/move')
@@ -434,6 +581,16 @@ export class BaseController {
     @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo
   ) {
     await this.baseService.moveBase(baseId, moveBaseRo);
+  }
+
+  @Get(':baseId/move-check')
+  @Permissions('space|update')
+  async moveBaseCheck(
+    @Param('baseId') baseId: string,
+    @Query('spaceId') spaceId: string
+  ): Promise<IMoveBaseCheckVo> {
+    const affectedFields = await this.baseService.previewMoveBaseCrossSpace(baseId, spaceId);
+    return { affectedFields };
   }
 
   @Permissions('base|update')
