@@ -394,7 +394,7 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) = COALESCE(((SELECT CASE
@@ -414,7 +414,7 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -1151,7 +1151,7 @@ exports[`binary comparison operators > 'Eq' 'lookup' '=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') = COALESCE((SELECT CASE
@@ -1171,7 +1171,7 @@ exports[`binary comparison operators > 'Eq' 'lookup' '=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
@@ -2981,7 +2981,7 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) > COALESCE(((SELECT CASE
@@ -3001,7 +3001,7 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -3738,7 +3738,7 @@ exports[`binary comparison operators > 'Gt' 'lookup' '>' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') > COALESCE((SELECT CASE
@@ -3758,7 +3758,7 @@ exports[`binary comparison operators > 'Gt' 'lookup' '>' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
@@ -5568,7 +5568,7 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) >= COALESCE(((SELECT CASE
@@ -5588,7 +5588,7 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -6325,7 +6325,7 @@ exports[`binary comparison operators > 'Gte' 'lookup' '>=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') >= COALESCE((SELECT CASE
@@ -6345,7 +6345,7 @@ exports[`binary comparison operators > 'Gte' 'lookup' '>=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
@@ -8155,7 +8155,7 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) < COALESCE(((SELECT CASE
@@ -8175,7 +8175,7 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -8912,7 +8912,7 @@ exports[`binary comparison operators > 'Lt' 'lookup' '<' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') < COALESCE((SELECT CASE
@@ -8932,7 +8932,7 @@ exports[`binary comparison operators > 'Lt' 'lookup' '<' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
@@ -10742,7 +10742,7 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) <= COALESCE(((SELECT CASE
@@ -10762,7 +10762,7 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -11499,7 +11499,7 @@ exports[`binary comparison operators > 'Lte' 'lookup' '<=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') <= COALESCE((SELECT CASE
@@ -11519,7 +11519,7 @@ exports[`binary comparison operators > 'Lte' 'lookup' '<=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
@@ -13329,7 +13329,7 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0) <> COALESCE(((SELECT CASE
@@ -13349,7 +13349,7 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, 0))",
@@ -14086,7 +14086,7 @@ exports[`binary comparison operators > 'Neq' 'lookup' '!=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') <> COALESCE((SELECT CASE
@@ -14106,7 +14106,7 @@ exports[`binary comparison operators > 'Neq' 'lookup' '!=' 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",

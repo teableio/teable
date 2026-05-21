@@ -158,8 +158,11 @@ export class SchemaRepairer {
           };
           const repairResult = getRuleRepairHint(rule, ctx, validation);
           const repair = repairResult.isOk() ? repairResult.value : undefined;
+          const shouldUseManualRepair =
+            rule.repairMode === 'manual' ||
+            Boolean(repair?.mode === 'manual' && repair.manualRepairSchema);
 
-          if (rule.repairMode === 'manual') {
+          if (shouldUseManualRepair) {
             if (!options?.manualRepairValues) {
               yield {
                 ...warnResult(pending, 'Rule requires manual repair', 'manual', details),

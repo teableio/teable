@@ -126,7 +126,7 @@ const handleSSEEvent = (
     case 'done':
       return event.data;
     case 'error':
-      throw new Error(event.message);
+      throw new Error(event.message.trim() || 'Import base failed');
   }
 };
 
