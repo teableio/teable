@@ -75,7 +75,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
       const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
       const activeTableResult = await tableRepository.findOne(context, specResult);
       let tableResult = activeTableResult;
-      let shouldRunSideEffects = activeTableResult.isOk();
+      let shouldRunSideEffects = command.mode === 'permanent' && activeTableResult.isOk();
 
       if (
         command.mode === 'permanent' &&
@@ -83,7 +83,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         isNotFoundError(activeTableResult.error)
       ) {
         tableResult = await tableRepository.findOne(context, specResult, { state: 'all' });
-        shouldRunSideEffects = false;
+        shouldRunSideEffects = true;
       }
 
       if (tableResult.isErr()) {
@@ -122,10 +122,22 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         { scope: 'data' }
       );
       if (dataPhaseResult.isErr()) {
-        yield* await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
-          type: 'table.delete',
-          lastError: dataPhaseResult.error.message,
-        });
+        const failResult = await failTableSchemaOperation(
+          unitOfWork,
+          tableRepository,
+          context,
+          table,
+          {
+            type: 'table.delete',
+            lastError: dataPhaseResult.error.message,
+          }
+        );
+        if (failResult.isErr()) {
+          logger.warn('DeleteTableHandler.failStateUpdateFailed', {
+            error: failResult.error.message,
+            originalError: dataPhaseResult.error.message,
+          });
+        }
         return err(dataPhaseResult.error);
       }
 
@@ -138,10 +150,22 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         { scope: 'meta' }
       );
       if (finalizeMetaResult.isErr()) {
-        yield* await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
-          type: 'table.delete',
-          lastError: finalizeMetaResult.error.message,
-        });
+        const failResult = await failTableSchemaOperation(
+          unitOfWork,
+          tableRepository,
+          context,
+          table,
+          {
+            type: 'table.delete',
+            lastError: finalizeMetaResult.error.message,
+          }
+        );
+        if (failResult.isErr()) {
+          logger.warn('DeleteTableHandler.failStateUpdateFailed', {
+            error: failResult.error.message,
+            originalError: finalizeMetaResult.error.message,
+          });
+        }
         return err(finalizeMetaResult.error);
       }
       yield* await completeTableSchemaOperation(unitOfWork, tableRepository, context, table, {

@@ -320,6 +320,45 @@ describe('useInstances hook', () => {
     );
   });
 
+  it('should reconcile instances and extra on changed event', () => {
+    const queryMethods = {
+      on: vi.fn(),
+      once: vi.fn(),
+      removeAllListeners: vi.fn(),
+      removeListener: vi.fn(),
+      destroy: vi.fn((cb?: () => void) => cb?.()),
+    };
+    const query = {
+      collection: mockProps.collection,
+      query: {},
+      results: [...initData],
+      extra: { groupPoints: [{ id: 'old-group' }] },
+      ready: true,
+      sent: true,
+      ...queryMethods,
+    } as unknown as Query<any>;
+    const connection = {
+      createSubscribeQuery: vi.fn(() => query),
+      getPresence: vi.fn(() => createMockPresence().presence),
+    } as any;
+
+    const { result } = renderHook(() => useInstances(mockProps), {
+      wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+    });
+
+    expect(result.current.instances.map((instance) => instance.id)).toEqual(['1', '2']);
+
+    act(() => {
+      query.results = [initData[1], initData[0]];
+      query.extra = { groupPoints: [{ id: 'new-group' }] };
+      const changedListener = queryMethods.on.mock.calls.find((args: any) => args[0] === 'changed');
+      changedListener?.[1](query.results);
+    });
+
+    expect(result.current.instances.map((instance) => instance.id)).toEqual(['2', '1']);
+    expect(result.current.extra).toEqual({ groupPoints: [{ id: 'new-group' }] });
+  });
+
   it('doc on op', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
@@ -1130,6 +1169,43 @@ describe('useInstances hook', () => {
     });
 
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('recreates record queries with grouping when bare setRecord presence arrives', async () => {
+    const { connection, createSubscribeQuery, presenceController, collection } =
+      createMockConnection({
+        collection: 'rec_tblSchemaRefresh12',
+        queryParams: {
+          groupBy: [{ fieldId: 'fldStatus', order: 'asc' }],
+        },
+      });
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection,
+          queryParams: {
+            groupBy: [{ fieldId: 'fldStatus', order: 'asc' }],
+          },
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setRecord',
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
   });
 
   it('removes projected record instances when deleteRecord presence carries record ids', () => {

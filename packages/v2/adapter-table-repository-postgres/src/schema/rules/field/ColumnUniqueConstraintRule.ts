@@ -10,6 +10,7 @@ import type {
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
 import {
+  dataStatement,
   dropConstraintStatement,
   dropIndexStatement,
   type TableIdentifier,
@@ -142,7 +143,7 @@ export class ColumnUniqueConstraintRule implements ISchemaRule {
         .unique()
         .ifNotExists();
 
-      return ok([statement]);
+      return ok([dataStatement(statement)]);
     });
   }
 

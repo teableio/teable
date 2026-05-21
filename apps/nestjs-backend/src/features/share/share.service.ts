@@ -3,7 +3,6 @@ import { Injectable } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
@@ -29,6 +28,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
@@ -55,7 +55,7 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
@@ -253,19 +253,19 @@ export class ShareService {
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
-    const { tableId, view, shareMeta } = shareInfo;
+    const { tableId, view } = shareInfo;
     const { fields, typecast } = shareViewFormSubmitRo;
-    if (!shareMeta?.submit?.allow) {
-      throw new CustomHttpException('not allowed to submit', HttpErrorCode.RESTRICTED_RESOURCE, {
-        localization: {
-          i18nKey: 'httpErrors.share.notAllowedToSubmit',
-        },
-      });
-    }
     if (!view) {
       throw new CustomHttpException('view is required', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.share.viewRequired',
+        },
+      });
+    }
+    if (view.type !== ViewType.Form) {
+      throw new CustomHttpException('not allowed to submit', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.notAllowedToSubmit',
         },
       });
     }
@@ -470,9 +470,10 @@ export class ShareService {
     queryBuilder.whereNotNull(dbFieldName);
     this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
     const nativeQuery = queryBuilder.toQuery();
-    const rows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ user_id: string | null }[]>(nativeQuery);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<{ user_id: string | null }[]>(
+      tableId,
+      nativeQuery
+    );
 
     return Array.from(
       new Set(

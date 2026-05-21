@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { chunk } from 'lodash';
+import { DatabaseRouter } from '../../../../global/database-router.service';
 import { Timing } from '../../../../utils/timing';
 
 export interface ILinkEdge {
@@ -36,7 +36,7 @@ const IN_CHUNK = 500;
 
 @Injectable()
 export class LinkCascadeResolver {
-  constructor(private readonly dataPrismaService: DataPrismaService) {}
+  constructor(private readonly databaseRouter: DatabaseRouter) {}
 
   /**
    * Iterative BFS over link edges using only frontier ids; avoids full edge table scans and keeps
@@ -186,9 +186,12 @@ from ${fkTableRef}
 where ${srcCol} in (${placeholders})
   and ${srcCol} is not null
   and ${dstCol} is not null`;
-    return await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
+    return await this.databaseRouter.queryDataPrismaForTable<Array<{ record_id?: string }>>(
+      edge.foreignTableId,
+      sql,
+      { useTransaction: true },
+      ...srcIds
+    );
   }
 
   private async fetchEdgeTargetsBatched(
@@ -211,7 +214,11 @@ where ${srcCol} in (${placeholders})
 from ${fkTableRef}
 where ${srcCol} is not null
   and ${dstCol} is not null`;
-    return this.dataPrismaService.txClient().$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
+    return this.databaseRouter.queryDataPrismaForTable<Array<{ record_id?: string }>>(
+      edge.foreignTableId,
+      sql,
+      { useTransaction: true }
+    );
   }
 
   private quoteIdentifier(identifier: string): string {
