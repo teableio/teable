@@ -1,5 +1,7 @@
 import {
+  CellValueType,
   FieldType,
+  FieldValueTypeVisitor,
   type AttachmentField,
   type AutoNumberField,
   type ButtonField,
@@ -460,6 +462,15 @@ export class ComputedFieldSelectExpressionVisitor
         finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
       } else {
         finalValueSql = expr.valueSql;
+      }
+
+      const fieldValueTypeResult = field.accept(new FieldValueTypeVisitor());
+      if (
+        fieldValueTypeResult.isOk() &&
+        !formulaIsMultiple &&
+        fieldValueTypeResult.value.cellValueType.equals(CellValueType.number())
+      ) {
+        finalValueSql = `NULLIF(BTRIM((${finalValueSql})::text), '')::double precision`;
       }
 
       const typedSql = guardValueSql(finalValueSql, expr.errorConditionSql);
