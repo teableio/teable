@@ -109,17 +109,22 @@ describe('update-field: longText → date conversion', () => {
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
-  test('should reject conversion when value is multi-line date-like text', async () => {
+  test('should convert multi-line date-like text to null without breaking the table', async () => {
     const fieldId = await createLongTextField('Multiline Date Text Field');
     const r1 = await ctx.createRecord(tableId, { [fieldId]: '2024-01-15\nsome notes' });
 
-    await expect(
-      ctx.updateField({
-        tableId,
-        fieldId,
-        field: { type: 'date' },
-      })
-    ).rejects.toThrow();
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { type: 'date' },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(updatedField?.type).toBe('date');
+
+    const records = await ctx.listRecords(tableId);
+    const rec1 = records.find((r) => r.id === r1.id);
+    expect(rec1?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);

@@ -22,12 +22,12 @@ import {
   RecordOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -69,7 +69,7 @@ export class FieldConvertingService {
     private readonly fieldService: FieldService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
@@ -620,11 +620,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -674,11 +672,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       let oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -770,11 +766,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       let oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]) as number;
@@ -821,9 +815,9 @@ export class FieldConvertingService {
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const nativeSql = this.knex(dbTableName).select('__id', dbFieldName).whereNotNull(dbFieldName);
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.toQuery(), { useTransaction: true });
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]);
@@ -870,9 +864,9 @@ export class FieldConvertingService {
       .select('__id', field.dbFieldName)
       .whereNotNull(field.dbFieldName);
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.toQuery(), { useTransaction: true });
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
       opsMap[row.__id] = [
@@ -1468,9 +1462,15 @@ export class FieldConvertingService {
   async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance
+    oldField: IFieldInstance,
+    skipDestructive?: boolean
   ) {
-    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(tableId, newField, oldField);
+    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(
+      tableId,
+      newField,
+      oldField,
+      skipDestructive
+    );
   }
 
   private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {
@@ -1510,7 +1510,10 @@ export class FieldConvertingService {
       .toQuery();
 
     await handleDBValidationErrors({
-      fn: () => this.dataPrismaService.txClient().$executeRawUnsafe(fieldValidationQuery),
+      fn: () =>
+        this.databaseRouter.executeDataPrismaForTable(tableId, fieldValidationQuery, {
+          useTransaction: true,
+        }),
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Field ${oldField.id} unique validation failed`,
@@ -1553,6 +1556,7 @@ export class FieldConvertingService {
     }
 
     const matchedIndexes = await this.fieldService.findUniqueIndexesForField(
+      tableId,
       dbTableName,
       dbFieldName
     );
@@ -1571,7 +1575,9 @@ export class FieldConvertingService {
       .map(({ sql }) => sql);
 
     for (const sql of executeSqls) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, sql, {
+        useTransaction: true,
+      });
     }
   }
 

@@ -142,6 +142,41 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(attachment.smThumbnailUrl).not.toBe(attachment.presignedUrl);
   });
 
+  it('should keep cross-origin headers on the 304 cache-hit read path', async () => {
+    const field = await createField(table.id, { type: FieldType.Attachment });
+    const uploadResult = await uploadAttachment(
+      table.id,
+      table.records[0].id,
+      field.id,
+      fs.createReadStream(filePath)
+    );
+    expect(uploadResult.status).toBe(201);
+
+    const attachment = (uploadResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    const presignedUrl = attachment.presignedUrl ?? '';
+    const readUrl = presignedUrl.startsWith('http') ? presignedUrl : `${appUrl}${presignedUrl}`;
+
+    const axios = createAxios();
+    axios.defaults.validateStatus = (status) => status === 200 || status === 304;
+
+    // The 200 read sets a non-`same-origin` CORP so the attachment can be
+    // embedded cross-origin.
+    const firstRes = await axios.get(readUrl, { responseType: 'arraybuffer' });
+    expect(firstRes.status).toBe(200);
+    const corp = firstRes.headers['cross-origin-resource-policy'];
+    expect(corp).not.toBe('same-origin');
+
+    // Regression: revalidation returns 304 — it must carry the same CORP header
+    // as the 200 read, otherwise helmet's default `same-origin` leaks into the
+    // 304 and the browser blocks the cross-origin embedded attachment.
+    const cachedRes = await axios.get(readUrl, {
+      responseType: 'arraybuffer',
+      headers: { 'If-Modified-Since': firstRes.headers['last-modified'] },
+    });
+    expect(cachedRes.status).toBe(304);
+    expect(cachedRes.headers['cross-origin-resource-policy']).toBe(corp);
+  });
+
   it('should write attachment with simplified ro format without typecast', async () => {
     // Step 1: Upload attachment to get token
     const field = await createField(table.id, { type: FieldType.Attachment });

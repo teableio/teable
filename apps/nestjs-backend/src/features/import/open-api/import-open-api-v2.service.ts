@@ -120,10 +120,10 @@ export class ImportOpenApiV2Service {
     maxRowCount?: number,
     projection?: string[]
   ): Promise<{ totalImported: number }> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const { attachmentUrl, fileType, insertConfig } = importOptions;
     const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;

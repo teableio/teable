@@ -25,6 +25,7 @@ export default defineConfig({
       enabled: false,
     },
     pool: 'forks',
+    isolate: false,
     fileParallelism: !isCI,
     maxWorkers: isCI ? 1 : undefined,
     coverage: {

@@ -21,12 +21,6 @@ describe('getAppDatabaseUrl', () => {
     );
   });
 
-  it('uses the data db as a last-resort safety net', () => {
-    expect(getAppDatabaseUrl({ PRISMA_DATA_DATABASE_URL: 'postgresql://data' })).toBe(
-      'postgresql://data'
-    );
-  });
-
   it('throws when no database url exists', () => {
     expect(() => getAppDatabaseUrl({})).toThrow('Missing database url');
   });

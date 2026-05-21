@@ -66,6 +66,7 @@ model DataDbConnection {
   urlFingerprint   String                 @unique @map("url_fingerprint")
   displayHost      String?                @map("display_host")
   displayDatabase  String?                @map("display_database")
+  internalSchema   String                 @map("internal_schema")
   status           DataDbConnectionStatus @default(pending)
   schemaVersion    String?                @map("schema_version")
   capabilities     Json?
