@@ -64,9 +64,10 @@ type IRecordHistoryDb = V1TeableDatabase & {
 };
 
 const getRecordHistoryDb = async (
-  v2ContainerService: V2ContainerService
+  v2ContainerService: V2ContainerService,
+  tableId: string
 ): Promise<Kysely<IRecordHistoryDb>> => {
-  const container = await v2ContainerService.getContainer();
+  const container = await v2ContainerService.getContainerForTable(tableId);
   return container.resolve<Kysely<IRecordHistoryDb>>(v2DataDbTokens.db);
 };
 
@@ -315,7 +316,7 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
     }
 
     // Insert history records
-    const db = await getRecordHistoryDb(this.v2ContainerService);
+    const db = await getRecordHistoryDb(this.v2ContainerService, tableIdStr);
     await insertRecordHistoryEntries(db, recordHistoryList);
 
     // Emit RECORD_HISTORY_CREATE event for compatibility
@@ -422,7 +423,7 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
     }
 
     // Insert history records in batches
-    const db = await getRecordHistoryDb(this.v2ContainerService);
+    const db = await getRecordHistoryDb(this.v2ContainerService, tableIdStr);
     for (let i = 0; i < recordHistoryList.length; i += batchSize) {
       const batch = recordHistoryList.slice(i, i + batchSize);
       await insertRecordHistoryEntries(db, batch);

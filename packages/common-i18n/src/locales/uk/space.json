@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Сповіщення",
+    "duplicateBaseDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
+    "affectedTableSuffix": "({{count}} поле(ів))",
+    "convertAndDuplicate": "Перетворити та дублювати"
+  },
   "initialSpaceName": "Простір {{name}}",
   "action": {
     "createBase": "Створіть базу",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Обсяг даних великий. Експорт може зайняти деякий час. Ви можете тимчасово залишити сторінку.",
     "exportReadyDescription": "Будь ласка, завантажте файл .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Переміщення успішне",
-    "moveBaseSuccessDescription": "{{baseName}} успішно переміщено до {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} успішно переміщено до {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Сповіщення",
+    "moveBaseCrossSpaceDataLossWarning": "Перехресні посилання між просторами не підтримуються. Пов'язані поля будуть перетворені на текстові поля. Цю дію не можна скасувати."
   },
   "deleteSpaceModal": {
     "title": "Видалити простір",
@@ -90,7 +98,6 @@
     "importWayTip": "Натисніть або перетягніть файл у цю область для завантаження",
     "baseImportTips": "Натисніть або перетягніть файл .tea у цю область для завантаження",
     "confirm": "Підтвердити та продовжити",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

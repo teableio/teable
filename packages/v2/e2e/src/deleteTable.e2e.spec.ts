@@ -295,6 +295,20 @@ describe('v2 http deleteTable (e2e)', () => {
       throw new Error(`DeleteTable failed (${response.status}): ${await response.text()}`);
     }
   };
+  const restoreTableWithBaseId = async (baseId: string, targetTableId: string) => {
+    const response = await fetch(`${ctx.baseUrl}/tables/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId: targetTableId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`RestoreTable failed (${response.status}): ${await response.text()}`);
+    }
+  };
   const postExplain = async (path: string, payload: Record<string, unknown>) => {
     const response = await fetch(`${ctx.baseUrl}${path}`, {
       method: 'POST',
@@ -500,7 +514,7 @@ describe('v2 http deleteTable (e2e)', () => {
       });
       await ctx.drainOutbox();
 
-      await deleteTableWithBaseId(foreignBaseId, foreignTable.id, { mode: 'soft' });
+      await deleteTableWithBaseId(foreignBaseId, foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
       const refreshedHost = await ctx.getTableById(hostTable.id);
@@ -516,6 +530,126 @@ describe('v2 http deleteTable (e2e)', () => {
       expect(refreshedLookupField?.type).toBe('singleLineText');
       expect(refreshedLookupField?.hasError).toBe(true);
       expect(updatedRecord?.fields[linkFieldId]).toBe('Cross-A');
+    } finally {
+      await ctx.drainOutbox().catch(() => undefined);
+      await safeDeleteTable(hostTableId);
+      if (foreignBaseId && foreignTableId) {
+        await deleteTableWithBaseId(foreignBaseId, foreignTableId, { mode: 'permanent' }).catch(
+          () => undefined
+        );
+      }
+    }
+  });
+
+  it('restores cross-base incoming link and lookup fields when restoring a foreign table', async () => {
+    let foreignBaseId: string | undefined;
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      foreignBaseId = await createBase(nextName('v2-restore-foreign-cross-base'));
+
+      const foreignTable = await ctx.createTable({
+        baseId: foreignBaseId,
+        name: nextName('Restore Foreign Cross Base Target'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Value' },
+        ],
+        records: [{ fields: { Name: 'Foreign-A', Value: 'alpha' } }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      const foreignValueFieldId = foreignTable.fields.find((field) => field.name === 'Value')?.id;
+      if (!foreignPrimaryFieldId || !foreignValueFieldId) {
+        throw new Error('Missing restore foreign cross-base field ids');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Foreign Cross Base Host'),
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+      if (!hostPrimaryFieldId) {
+        throw new Error('Missing restore foreign cross-base host primary field');
+      }
+
+      const tableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Cross Base Link',
+          options: {
+            baseId: foreignBaseId,
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId = tableWithLink.fields.find(
+        (field) => field.name === 'Cross Base Link'
+      )?.id;
+      if (!linkFieldId) {
+        throw new Error('Missing restore foreign cross-base link field');
+      }
+
+      const tableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'lookup',
+          name: 'Cross Base Lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignValueFieldId,
+          },
+        },
+      });
+      const lookupFieldId = tableWithLookup.fields.find(
+        (field) => field.name === 'Cross Base Lookup'
+      )?.id;
+      if (!lookupFieldId) {
+        throw new Error('Missing restore foreign cross-base lookup field');
+      }
+
+      const foreignRecord = (await ctx.listRecords(foreignTable.id, { baseId: foreignBaseId })).at(
+        0
+      );
+      if (!foreignRecord) {
+        throw new Error('Missing restore foreign cross-base record');
+      }
+
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Host Cross',
+      });
+      await ctx.updateRecord(hostTable.id, hostRecord.id, {
+        [linkFieldId]: { id: foreignRecord.id },
+      });
+      await ctx.drainOutbox();
+
+      await deleteTableWithBaseId(foreignBaseId, foreignTable.id, { mode: 'soft' });
+      await restoreTableWithBaseId(foreignBaseId, foreignTable.id);
+      await ctx.drainOutbox();
+
+      const restoredHost = await ctx.getTableById(hostTable.id);
+      const restoredRecords = await ctx.listRecords(hostTable.id);
+      const restoredRecord = restoredRecords.find((record) => record.id === hostRecord.id);
+
+      expect(restoredHost.fields.find((field) => field.id === linkFieldId)?.type).toBe('link');
+      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.type).toBe(
+        'singleLineText'
+      );
+      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.isLookup).toBe(true);
+      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.hasError).toBeFalsy();
+      expect(restoredRecord?.fields[lookupFieldId]).toEqual(['alpha']);
     } finally {
       await ctx.drainOutbox().catch(() => undefined);
       await safeDeleteTable(hostTableId);
@@ -637,7 +771,7 @@ describe('v2 http deleteTable (e2e)', () => {
       expect(beforeDeleteRecord?.fields[lookupFieldId]).toEqual(['alpha']);
       expect(beforeDeleteRecord?.fields[formulaFieldId]).toBe('has lookup');
 
-      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+      await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
       const refreshedHost = await ctx.getTableById(hostTable.id);
@@ -660,6 +794,94 @@ describe('v2 http deleteTable (e2e)', () => {
       expect(updatedRecord?.fields[formulaFieldId]).toBeNull();
     } finally {
       await ctx.drainOutbox().catch(() => undefined);
+      await safeDeleteTable(hostTableId);
+      await safeDeleteTable(foreignTableId);
+    }
+  });
+
+  it('deletes a foreign table when referencing link fields already have duplicate names', async () => {
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('DeleteTable Duplicate Link Name Foreign'),
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      if (!foreignPrimaryFieldId) {
+        throw new Error('Missing duplicate-name foreign primary field');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('DeleteTable Duplicate Link Name Host'),
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const tableWithFirstLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Public Release Drafts A',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const firstLinkFieldId = tableWithFirstLink.fields.find(
+        (field) => field.name === 'Public Release Drafts A'
+      )?.id;
+      if (!firstLinkFieldId) {
+        throw new Error('Missing first duplicate-name link field');
+      }
+
+      const tableWithSecondLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Public Release Drafts B',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const secondLinkFieldId = tableWithSecondLink.fields.find(
+        (field) => field.name === 'Public Release Drafts B'
+      )?.id;
+      if (!secondLinkFieldId) {
+        throw new Error('Missing second duplicate-name link field');
+      }
+
+      await sql`
+        UPDATE "field"
+        SET "name" = 'Public Release Drafts'
+        WHERE "id" IN (${firstLinkFieldId}, ${secondLinkFieldId})
+      `.execute(ctx.testContainer.db);
+
+      await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
+
+      const refreshedHost = await ctx.getTableById(hostTable.id);
+      const convertedFields = refreshedHost.fields.filter((field) =>
+        [firstLinkFieldId, secondLinkFieldId].includes(field.id)
+      );
+
+      expect(convertedFields).toHaveLength(2);
+      expect(convertedFields.every((field) => field.name === 'Public Release Drafts')).toBe(true);
+      expect(convertedFields.every((field) => field.type === 'singleLineText')).toBe(true);
+    } finally {
       await safeDeleteTable(hostTableId);
       await safeDeleteTable(foreignTableId);
     }
@@ -729,7 +951,7 @@ describe('v2 http deleteTable (e2e)', () => {
 
       const beforeEventCount = ctx.testContainer.eventBus.events().length;
 
-      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+      await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
       const newEvents = ctx.testContainer.eventBus.events().slice(beforeEventCount);
@@ -957,6 +1179,125 @@ describe('v2 http deleteTable (e2e)', () => {
       expect(records[0]?.fields[primaryFieldId]).toBe('Alpha');
     } finally {
       await safeDeleteTable(tableId);
+    }
+  });
+
+  it('restores a soft-deleted table with cross-base link and lookup fields', async () => {
+    let foreignBaseId: string | undefined;
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      foreignBaseId = await createBase(nextName('v2-restore-cross-base-foreign-base'));
+
+      const foreignTable = await ctx.createTable({
+        baseId: foreignBaseId,
+        name: nextName('Restore Cross Base Foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Value' },
+        ],
+        records: [{ fields: { Name: 'Foreign-A', Value: 'alpha' } }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      const foreignValueFieldId = foreignTable.fields.find((field) => field.name === 'Value')?.id;
+      if (!foreignPrimaryFieldId || !foreignValueFieldId) {
+        throw new Error('Missing restore cross-base foreign field ids');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Cross Base Host'),
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+      if (!hostPrimaryFieldId) {
+        throw new Error('Missing restore cross-base host primary field');
+      }
+
+      const tableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Cross Base Link',
+          options: {
+            baseId: foreignBaseId,
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId = tableWithLink.fields.find(
+        (field) => field.name === 'Cross Base Link'
+      )?.id;
+      if (!linkFieldId) {
+        throw new Error('Missing restore cross-base link field');
+      }
+
+      const tableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'lookup',
+          name: 'Cross Base Lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignValueFieldId,
+          },
+        },
+      });
+      const lookupFieldId = tableWithLookup.fields.find(
+        (field) => field.name === 'Cross Base Lookup'
+      )?.id;
+      if (!lookupFieldId) {
+        throw new Error('Missing restore cross-base lookup field');
+      }
+
+      const foreignRecord = (await ctx.listRecords(foreignTable.id, { baseId: foreignBaseId })).at(
+        0
+      );
+      if (!foreignRecord) {
+        throw new Error('Missing restore cross-base foreign record');
+      }
+
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Host Cross',
+      });
+      await ctx.updateRecord(hostTable.id, hostRecord.id, {
+        [linkFieldId]: { id: foreignRecord.id },
+      });
+      await ctx.drainOutbox();
+
+      await ctx.deleteTable(hostTable.id, { mode: 'soft' });
+      await ctx.restoreTable(hostTable.id);
+      await ctx.drainOutbox();
+
+      const restoredTable = await ctx.getTableById(hostTable.id);
+      const restoredRecords = await ctx.listRecords(hostTable.id);
+      const restoredRecord = restoredRecords.find((record) => record.id === hostRecord.id);
+
+      expect(restoredTable.fields.find((field) => field.id === linkFieldId)?.type).toBe('link');
+      expect(restoredTable.fields.find((field) => field.id === lookupFieldId)?.type).toBe(
+        'singleLineText'
+      );
+      expect(restoredTable.fields.find((field) => field.id === lookupFieldId)?.isLookup).toBe(true);
+      expect(restoredRecord?.fields[hostPrimaryFieldId]).toBe('Host Cross');
+    } finally {
+      await ctx.drainOutbox().catch(() => undefined);
+      await safeDeleteTable(hostTableId);
+      if (foreignBaseId && foreignTableId) {
+        await deleteTableWithBaseId(foreignBaseId, foreignTableId, { mode: 'permanent' }).catch(
+          () => undefined
+        );
+      }
     }
   });
 
@@ -1207,7 +1548,7 @@ describe('v2 http deleteTable (e2e)', () => {
 
       ctx.clearLogs();
 
-      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+      await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
       const hostBackfillStarts = getTableLogEntriesByMessage(
@@ -1398,7 +1739,7 @@ describe('v2 http deleteTable (e2e)', () => {
 
       await ctx.drainOutbox();
       ctx.clearLogs();
-      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+      await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
       const hostBackfillStarts = getTableLogEntriesByMessage(
@@ -1427,7 +1768,7 @@ describe('v2 http deleteTable (e2e)', () => {
         'computed:backfillMany:sql',
         hostTable.id
       );
-      expect(hostBackfillSqlLogs).toHaveLength(1);
+      expect(hostBackfillSqlLogs).toHaveLength(2);
       for (const entry of hostBackfillSqlLogs) {
         const sqlText = isObjectRecord(entry.context) ? entry.context['sql'] : undefined;
         expect(typeof sqlText).toBe('string');

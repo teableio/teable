@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
 import { getRecordGetCollaborators, getUserCollaborators } from '@teable/openapi';
-import { cn } from '@teable/ui-lib';
+import { cn, HoverCard, HoverCardContent, HoverCardPortal, HoverCardTrigger } from '@teable/ui-lib';
 import { useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../../../config/react-query-keys';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -28,6 +28,7 @@ interface IFilterUserBaseProps extends IFilterUserProps {
   data?: {
     userId: string;
     userName: string;
+    email: string;
     avatar?: string | null;
   }[];
   disableMe?: boolean;
@@ -45,9 +46,10 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
   const options = useMemo(() => {
     if (!data?.length) return [];
 
-    const map = data.map(({ userId, userName, avatar }) => ({
+    const map = data.map(({ userId, userName, email, avatar }) => ({
       value: userId,
       label: userName,
+      email,
       avatar: avatar,
     }));
 
@@ -55,6 +57,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
       map.unshift({
         value: Me,
         label: t('filter.currentUser'),
+        email: currentUser.email,
         avatar: null,
       });
     }
@@ -95,25 +98,57 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
     [isMultiple]
   );
 
-  const optionRender = useCallback((option: (typeof options)[number]) => {
-    return (
-      <div key={option.value} className="px w-full truncate rounded-lg text-secondary-foreground">
-        <UserOption
-          className="w-full gap-2 truncate"
-          avatar={
-            isMeTag(option.value) ? (
-              <span className="flex size-full items-center justify-center bg-secondary">
-                <UserIcon className="size-4" />
-              </span>
-            ) : (
-              option.avatar
-            )
-          }
-          name={option.label}
-        />
-      </div>
-    );
-  }, []);
+  const optionRender = useCallback(
+    (option: (typeof options)[number]) => {
+      const isMe = isMeTag(option.value);
+      const id = isMe ? currentUser.id : option.value;
+      const name = isMe ? currentUser.name || option.label : option.label;
+      const email = isMe ? currentUser.email : option.email;
+
+      return (
+        <HoverCard key={option.value} openDelay={200}>
+          <HoverCardTrigger asChild>
+            <div className="w-full min-w-0 truncate rounded-lg text-secondary-foreground">
+              <UserOption
+                className="w-full gap-2 truncate"
+                avatar={
+                  isMe ? (
+                    <span className="flex size-full items-center justify-center bg-secondary">
+                      <UserIcon className="size-4" />
+                    </span>
+                  ) : (
+                    option.avatar
+                  )
+                }
+                name={option.label}
+              />
+            </div>
+          </HoverCardTrigger>
+          <HoverCardPortal>
+            <HoverCardContent
+              side="right"
+              align="start"
+              sideOffset={8}
+              className="flex w-max max-w-[160px] flex-col justify-center gap-1 truncate px-3 py-2 text-sm"
+            >
+              <div className="truncate">
+                <span className="font-medium" title={name}>
+                  {name}
+                </span>
+                <span className="pl-2 text-xs text-muted-foreground">
+                  {id === currentUser.id ? `(${t('noun.you')})` : null}
+                </span>
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                <span title={email}>{email}</span>
+              </div>
+            </HoverCardContent>
+          </HoverCardPortal>
+        </HoverCard>
+      );
+    },
+    [currentUser.email, currentUser.id, currentUser.name, t]
+  );
 
   return (
     <>
@@ -126,7 +161,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           displayRender={displayRender}
           optionRender={optionRender}
           className={cn('flex h-8 overflow-hidden px-2', className ? className : 'w-40')}
-          popoverClassName="w-40"
+          popoverClassName="w-max min-w-40 max-w-[min(360px,calc(100vw-32px))] [&_[cmdk-input-wrapper]]:h-8 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-0 [&_[cmdk-input]]:h-8"
           placeholderClassName="text-xs"
           onSearch={onSearch}
         />
@@ -139,7 +174,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           displayRender={displayRender}
           optionRender={optionRender}
           className={cn('h-8 px-2', className ? className : 'w-40')}
-          popoverClassName="w-40"
+          popoverClassName="w-max min-w-40 max-w-[min(360px,calc(100vw-32px))] [&_[cmdk-input-wrapper]]:h-8 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-0 [&_[cmdk-input]]:h-8"
           placeholderClassName="text-xs"
           onSearch={onSearch}
         />
@@ -186,6 +221,7 @@ const FilterUserSelect = (props: IFilterUserProps) => {
     : collaboratorsData?.users?.map((item) => ({
         userId: item.id,
         userName: item.name,
+        email: item.email,
         avatar: item.avatar,
       }));
 

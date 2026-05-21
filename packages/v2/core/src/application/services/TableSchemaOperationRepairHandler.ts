@@ -24,7 +24,7 @@ import {
   completeTablesSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
 
-const repairTypes = ['table.create', 'table.create_many', 'table.import'] as const;
+const repairTypes = ['table.create', 'table.create_many', 'table.import', 'table.update'] as const;
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -127,6 +127,11 @@ const unsupportedRepair = (message: string, details?: PayloadRecord): DomainErro
     details,
   });
 
+const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
+  if (operation.type !== 'table.update') return true;
+  return /\bcolumn\b.*\bdoes not exist\b/i.test(operation.lastError ?? '');
+};
+
 @injectable()
 export class TableSchemaOperationRepairHandler implements ISchemaOperationHandler {
   readonly type = repairTypes;
@@ -156,6 +161,15 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
           unsupportedRepair('Only structure-only DotTea imports can be repaired automatically', {
             operationType: operation.type,
             source: payload.source,
+          })
+        );
+      }
+      if (!isRepairableTableUpdate(operation)) {
+        return err(
+          unsupportedRepair('Only missing-column table updates can be repaired automatically', {
+            operationType: operation.type,
+            operationId: operation.id,
+            lastError: operation.lastError ?? undefined,
           })
         );
       }

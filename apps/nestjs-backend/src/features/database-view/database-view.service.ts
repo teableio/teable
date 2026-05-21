@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { TableDomain } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { ReferenceService } from '../calculation/reference.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import type { IDatabaseView } from './database-view.interface';
@@ -18,7 +18,7 @@ export class DatabaseViewService implements IDatabaseView {
     @InjectRecordQueryBuilder()
     private readonly recordQueryBuilderService: IRecordQueryBuilder,
     private readonly prisma: PrismaService,
-    private readonly dataPrisma: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly referenceService: ReferenceService
   ) {}
 
@@ -29,7 +29,7 @@ export class DatabaseViewService implements IDatabaseView {
     const sqls = this.dbProvider.createDatabaseView(table, qb, { materialized: true });
     const viewName = this.dbProvider.generateDatabaseViewName(table.id);
 
-    await this.dataPrisma.$tx(async (tx) => {
+    await this.databaseRouter.dataPrismaTransactionForTable(table.id, async (tx) => {
       for (const sql of sqls) {
         await tx.$executeRawUnsafe(sql);
       }
@@ -64,7 +64,7 @@ export class DatabaseViewService implements IDatabaseView {
     });
 
     const sqls = this.dbProvider.recreateDatabaseView(table, qb);
-    await this.dataPrisma.$tx(async (tx) => {
+    await this.databaseRouter.dataPrismaTransactionForTable(table.id, async (tx) => {
       for (const sql of sqls) {
         await tx.$executeRawUnsafe(sql);
       }
@@ -83,7 +83,7 @@ export class DatabaseViewService implements IDatabaseView {
   public async refreshView(tableId: string) {
     const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
     if (sql) {
-      await this.dataPrisma.$executeRawUnsafe(sql);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
     }
   }
 
@@ -93,14 +93,14 @@ export class DatabaseViewService implements IDatabaseView {
     for (const tableId of tableIds) {
       const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
       if (sql) {
-        await this.dataPrisma.$executeRawUnsafe(sql);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
       }
     }
   }
 
   private async dropDataView(tableId: string) {
     const sqls = this.dbProvider.dropDatabaseView(tableId);
-    await this.dataPrisma.$tx(async (tx) => {
+    await this.databaseRouter.dataPrismaTransactionForTable(tableId, async (tx) => {
       for (const sql of sqls) {
         await tx.$executeRawUnsafe(sql);
       }
