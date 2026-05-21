@@ -2903,6 +2903,31 @@ export type I18nTranslations = {
             "automationNodeNeedTest": string;
             "automationNodeTestOutdated": string;
             "invalidToken": string;
+            "limit": {
+                "fieldOptionsMaxBytes": string;
+                "selectChoicesMax": string;
+                "selectChoiceNameMaxLength": string;
+                "selectDefaultValuesMax": string;
+                "cellValueMaxBytes": string;
+                "recordFieldsMaxBytes": string;
+                "recordsPerMutationMax": string;
+                "computedCellValueMaxBytes": string;
+                "formulaMaxLength": string;
+                "tablesPerBaseMax": string;
+                "fieldsPerTableMax": string;
+                "rowsPerTableMax": string;
+                "viewsPerTableMax": string;
+                "createTableFieldsMax": string;
+                "createTableViewsMax": string;
+                "createTableRecordsMax": string;
+                "viewFilterItemsMax": string;
+                "viewFilterDepthMax": string;
+                "viewSortItemsMax": string;
+                "viewGroupItemsMax": string;
+                "viewOptionsMaxBytes": string;
+                "nameMaxLength": string;
+                "descriptionMaxLength": string;
+            };
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -3025,8 +3050,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
-                "ownedSpaceLimitExceeded": string;
-                "ownedSpaceLimitExceededOther": string;
+                "freeOwnedSpaceLimitExceeded": string;
+                "freeOwnedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
@@ -3722,6 +3747,86 @@ export type I18nTranslations = {
         };
         "collaborators": string;
         "more": string;
+        "export": {
+            "phase": {
+                "preparing": string;
+                "exportingArchive": string;
+                "exportingStructure": string;
+                "exportingAttachments": string;
+                "exportingAttachmentMetadata": string;
+                "exportingTableData": string;
+                "tableDataStarted": string;
+                "tableDataProgress": string;
+                "tableDataDone": string;
+                "exportingExtraFiles": string;
+                "exportingAppFiles": string;
+                "uploadingArchive": string;
+                "generatingDownloadUrl": string;
+                "rowsProgress": string;
+                "done": string;
+            };
+        };
+        "dataDb": {
+            "create": {
+                "title": string;
+                "description": string;
+                "defaultOption": string;
+                "defaultHint": string;
+                "byodbOption": string;
+                "byodbHint": string;
+                "urlLabel": string;
+                "sslHint": string;
+                "testConnection": string;
+                "testing": string;
+                "retestRequired": string;
+                "databaseLabel": string;
+                "databasePlaceholder": string;
+                "databaseHint": string;
+                "preflightPassed": string;
+                "preflightFailed": string;
+                "missingCapabilities": string;
+                "testFailed": string;
+                "errors": {
+                    "INVALID_DATABASE_URL": {
+                        "message": string;
+                    };
+                    "PRIVATE_NETWORK_BLOCKED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "CONNECTION_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "IPV6_NETWORK_UNREACHABLE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                    };
+                    "DDL_PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "NON_EMPTY_UNKNOWN_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "INCOMPATIBLE_TEABLE_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                };
+            };
+            "fields": {
+                "host": string;
+                "database": string;
+                "internalSchema": string;
+                "version": string;
+                "classification": string;
+            };
+        };
     };
     "table": {
         "toolbar": {
@@ -4281,6 +4386,7 @@ export type I18nTranslations = {
                     "noFocus": string;
                     "noPermission": string;
                 };
+                "pasteNoEditableFields": string;
                 "clearFailed": string;
                 "clearConfirmTitle": string;
                 "clearConfirmDescription": string;
@@ -4934,6 +5040,10 @@ export type I18nTranslations = {
                     "contextTooltip": string;
                     "contextTipNewChat": string;
                     "contextTipMemory": string;
+                };
+                "contextCompaction": {
+                    "auto": string;
+                    "manual": string;
                 };
                 "taskProgress": {
                     "title": string;

@@ -130,7 +130,12 @@ export class ComputedFieldBackfillService {
       return this.enqueue(context, input);
     }
 
-    return this.executeSync(context, input);
+    const syncResult = await this.executeSync(context, input);
+    if (syncResult.isOk()) {
+      return syncResult;
+    }
+
+    return this.enqueueAfterSyncFailure(context, input, syncResult.error);
   }
 
   /**
@@ -170,12 +175,63 @@ export class ComputedFieldBackfillService {
       });
     }
 
-    return this.executeSyncMany(context, {
+    const syncResult = await this.executeSyncMany(context, {
       table: input.table,
       fields: computedFields,
       skipDistinctFilter: input.skipDistinctFilter,
       includeOneManyTwoWay: input.includeOneManyTwoWay,
     });
+    if (syncResult.isOk()) {
+      return syncResult;
+    }
+
+    return this.enqueueManyAfterSyncFailure(
+      context,
+      {
+        table: input.table,
+        fields: computedFields,
+        includeOneManyTwoWay: input.includeOneManyTwoWay,
+      },
+      syncResult.error
+    );
+  }
+
+  private async enqueueAfterSyncFailure(
+    context: IExecutionContext,
+    input: ComputedFieldBackfillInput,
+    error: DomainError
+  ): Promise<Result<void, DomainError>> {
+    this.logger.warn('computed:backfill:sync_failed_enqueue_fallback', {
+      tableId: input.table.id().toString(),
+      fieldId: input.field.id().toString(),
+      error: error.message,
+    });
+
+    const enqueueResult = await this.enqueue(context, input);
+    if (enqueueResult.isErr()) {
+      return err(enqueueResult.error);
+    }
+
+    return ok(undefined);
+  }
+
+  private async enqueueManyAfterSyncFailure(
+    context: IExecutionContext,
+    input: { table: Table; fields: ReadonlyArray<Field>; includeOneManyTwoWay?: boolean },
+    error: DomainError
+  ): Promise<Result<void, DomainError>> {
+    this.logger.warn('computed:backfillMany:sync_failed_enqueue_fallback', {
+      tableId: input.table.id().toString(),
+      fieldIds: input.fields.map((field) => field.id().toString()),
+      error: error.message,
+    });
+
+    const enqueueResult = await this.enqueueMany(context, input);
+    if (enqueueResult.isErr()) {
+      return err(enqueueResult.error);
+    }
+
+    return ok(undefined);
   }
 
   /**

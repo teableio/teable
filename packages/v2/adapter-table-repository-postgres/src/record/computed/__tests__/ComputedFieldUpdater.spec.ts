@@ -533,6 +533,55 @@ const createSameTableFormulaChainTable = () => {
   };
 };
 
+const createWideSameLevelFormulaTable = (formulaFieldCount: number) => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+  const valueFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+
+  const valueFieldResult = createNumberField({
+    id: valueFieldId,
+    name: FieldName.create('Value')._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('col_value').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('WideSameLevelFormula')._unsafeUnwrap())
+    .addFieldFromResult(valueFieldResult);
+
+  const formulaFieldIds: FieldId[] = [];
+  for (let index = 0; index < formulaFieldCount; index += 1) {
+    const fieldId = FieldId.create(`fld${index.toString().padStart(16, '0')}`)._unsafeUnwrap();
+    formulaFieldIds.push(fieldId);
+
+    const formulaFieldResult = createFormulaField({
+      id: fieldId,
+      name: FieldName.create(`Formula${index}`)._unsafeUnwrap(),
+      expression: FormulaExpression.create(
+        `{${valueFieldId.toString()}} + ${index}`
+      )._unsafeUnwrap(),
+    }).andThen((field) =>
+      DbFieldName.rehydrate(`col_formula_${index}`).andThen((dbName) =>
+        field.setDbFieldName(dbName).map(() => field)
+      )
+    );
+    builder.addFieldFromResult(formulaFieldResult);
+  }
+
+  const table = builder.view().defaultGrid().done().build()._unsafeUnwrap();
+
+  return {
+    baseId,
+    table,
+    valueFieldId,
+    formulaFieldIds,
+  };
+};
+
 const createConditionalPropagationTables = () => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
   const sourceTableId = TableId.create(CONDITIONAL_SOURCE_TABLE_ID)._unsafeUnwrap();
@@ -805,6 +854,90 @@ describe('ComputedFieldUpdater', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.computed_cell_value_max_bytes');
+  });
+
+  it('chunks wide same-level computed updates and bumps record versions once', async () => {
+    const { baseId, table, formulaFieldIds } = createWideSameLevelFormulaTable(17);
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: formulaFieldIds,
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 17,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb([
+      [
+        {
+          __id: RECORD_ID,
+          __old_version: 1,
+          col_formula_0: 10,
+        },
+      ],
+      [
+        {
+          __id: RECORD_ID,
+          __old_version: 1,
+          col_formula_16: 26,
+        },
+      ],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.execute(plan, { actorId }, undefined, { collectChanges: true });
+
+    expect(result.isOk()).toBe(true);
+    const updates = driver.queries.filter((query) =>
+      query.sql.startsWith('update "bseaaaaaaaaaaaaaaaa"."tblrrrrrrrrrrrrrrrr"')
+    );
+    const returningUpdates = updates.filter((query) => query.sql.includes(' RETURNING '));
+    const versionBumps = updates.filter((query) => !query.sql.includes(' RETURNING '));
+
+    expect(returningUpdates).toHaveLength(2);
+    expect(returningUpdates[0]?.sql).toContain('"col_formula_0" = "c"."__set_col_formula_0"');
+    expect(returningUpdates[0]?.sql).toContain('"col_formula_15" = "c"."__set_col_formula_15"');
+    expect(returningUpdates[0]?.sql).not.toContain('"col_formula_16"');
+    expect(returningUpdates[0]?.sql).not.toContain('"__version" =');
+    expect(returningUpdates[1]?.sql).toContain('"col_formula_16" = "c"."__set_col_formula_16"');
+    expect(returningUpdates[1]?.sql).not.toContain('"__version" =');
+    expect(versionBumps).toHaveLength(1);
+    expect(versionBumps[0]?.sql).toContain('set "__version" = "__version" + 1');
+    expect(versionBumps[0]?.parameters).toStrictEqual([RECORD_ID]);
+
+    expect(result._unsafeUnwrap().changesByStep).toHaveLength(1);
+    const recordChange = result._unsafeUnwrap().changesByStep[0]?.recordChanges[0];
+    expect(recordChange?.recordId).toBe(RECORD_ID);
+    expect(recordChange?.oldVersion).toBe(1);
+    expect(recordChange?.changes).toHaveLength(17);
+    expect(recordChange?.changes).toContainEqual({
+      fieldId: formulaFieldIds[0]!.toString(),
+      oldValue: undefined,
+      newValue: 10,
+    });
+    expect(recordChange?.changes).toContainEqual({
+      fieldId: formulaFieldIds[16]!.toString(),
+      oldValue: undefined,
+      newValue: 26,
+    });
   });
 
   it('deduplicates equivalent dirty propagation selects before building the batch SQL', async () => {

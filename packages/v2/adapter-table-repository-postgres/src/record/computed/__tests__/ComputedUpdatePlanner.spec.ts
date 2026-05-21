@@ -900,6 +900,31 @@ describe('ComputedUpdatePlanner', () => {
       expect(allTargetEdge?.filterCondition).toBeUndefined();
     });
 
+    it('uses conditionalFiltered mode when inserting a record with a filter field value', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [categoryFieldId],
+        changeType: 'insert',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const conditionalEdge = plan.edges.find(
+        (edge) =>
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
+          edge.propagationMode === 'conditionalFiltered'
+      );
+      expect(conditionalEdge?.filterCondition?.includeBeforeImage).toBeUndefined();
+      expect(conditionalEdge?.filterCondition?.filterDto).toEqual(filterDto);
+      expect(conditionalEdge?.allTargetRecordsReasons).toBeUndefined();
+    });
+
     it('uses conditionalFiltered with before-image when updating filter field and old values are available', async () => {
       const planner = createPlanner();
 

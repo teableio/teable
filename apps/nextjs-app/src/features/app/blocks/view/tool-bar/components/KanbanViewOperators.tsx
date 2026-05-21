@@ -5,7 +5,6 @@ import {
   Share2,
   Layers,
   Settings,
-  Plus,
   AlertTriangle,
 } from '@teable/icons';
 import type { IFieldInstance, IFieldCreateOrSelectModalRef, KanbanView } from '@teable/sdk';
@@ -18,12 +17,10 @@ import {
   generateLocalId,
   FieldCreateOrSelectModal,
   useTablePermission,
-  CreateRecordModal,
-  useIsReadOnlyPreview,
   usePersonalView,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
+import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -31,6 +28,7 @@ import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -42,7 +40,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
-  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { isPersonalView } = usePersonalView();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
@@ -88,18 +85,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   if (!view) return null;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      {!isReadOnlyPreview && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <FieldCreateOrSelectModal
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}
@@ -226,6 +212,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </ToolBarButton>
         )}
       </Sort>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

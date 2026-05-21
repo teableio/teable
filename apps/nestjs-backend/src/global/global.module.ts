@@ -24,12 +24,14 @@ import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
 import { ModelModule } from '../features/model/model.module';
+import { DataDbMigrationService } from '../features/space/data-db-migration.service';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { SessionCsrfMiddleware } from '../middleware/session-csrf.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
 import { DataDbClientManager } from './data-db-client-manager.service';
+import { DataDbRuntimeCacheService } from './data-db-runtime-cache.service';
 import { DatabaseRouter } from './database-router.service';
 import { KnexModule } from './knex';
 
@@ -93,7 +95,9 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
+    DataDbRuntimeCacheService,
     DataDbClientManager,
+    DataDbMigrationService,
     DatabaseRouter,
     RequestInfoMiddleware,
     SessionCsrfMiddleware,
@@ -112,7 +116,9 @@ const globalModules = {
   ],
   exports: [
     DbProvider,
+    DataDbRuntimeCacheService,
     DataDbClientManager,
+    DataDbMigrationService,
     DatabaseRouter,
     KnexModule,
     PrismaModule,
