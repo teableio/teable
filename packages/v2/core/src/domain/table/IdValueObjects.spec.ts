@@ -38,6 +38,13 @@ describe('FieldId', () => {
     FieldId.create(valid)._unsafeUnwrap();
     FieldId.create(invalidLegacy)._unsafeUnwrapErr();
   });
+
+  it('accepts legacy duplicated field ids without accepting composite storage tokens', () => {
+    const duplicatedFieldId = `fld${'b'.repeat(16)}_1`;
+    const compositeStorageToken = `fld${'b'.repeat(16)}_fld${'c'.repeat(16)}`;
+    FieldId.create(duplicatedFieldId)._unsafeUnwrap();
+    FieldId.create(compositeStorageToken)._unsafeUnwrapErr();
+  });
 });
 
 describe('RecordId', () => {

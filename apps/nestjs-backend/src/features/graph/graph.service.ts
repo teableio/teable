@@ -3,7 +3,6 @@ import type { IFieldRo, ILinkFieldOptions, IConvertFieldRo } from '@teable/core'
 import { FieldType, Relationship, isLinkLookupOptions } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   IGraphEdge,
   IGraphNode,
@@ -18,6 +17,7 @@ import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
@@ -61,7 +61,7 @@ export class GraphService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -197,7 +197,8 @@ export class GraphService {
       field.id,
       [field.id],
       { [field.id]: field },
-      { [field.id]: tableMap[tableId].dbTableName }
+      { [field.id]: tableMap[tableId].dbTableName },
+      { [field.id]: tableId }
     );
     const estimateTime = field.isComputed ? this.getEstimateTime(updateCellCount) : 200;
     return {
@@ -423,7 +424,8 @@ export class GraphService {
       fieldId,
       topoFieldIds,
       fieldMap,
-      fieldId2DbTableName
+      fieldId2DbTableName,
+      fieldId2TableId
     );
 
     const resetLinkFieldLookupFieldIds =
@@ -462,7 +464,8 @@ export class GraphService {
     hostFieldId: string,
     fieldIds: string[],
     fieldMap: IFieldMap,
-    fieldId2DbTableName: Record<string, string>
+    fieldId2DbTableName: Record<string, string>,
+    fieldId2TableId: Record<string, string>
   ): Promise<number> {
     const queries = fieldIds
       .map((fieldId) =>
@@ -473,8 +476,17 @@ export class GraphService {
     let total = 0;
     for (const { fieldId, fieldName, query } of queries) {
       try {
-        const [{ count }] =
-          await this.dataPrismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+        const tableId = fieldId2TableId[fieldId];
+        if (!tableId) {
+          this.logger.warn(
+            `Skip affected cell count for field=${fieldId} name="${fieldName}" because table id is missing`
+          );
+          continue;
+        }
+        const [{ count }] = await this.databaseRouter.queryDataPrismaForTable<{ count: bigint }[]>(
+          tableId,
+          query
+        );
         total += Number(count);
       } catch (error) {
         if (this.shouldSkipAffectedCountError(error)) {
@@ -615,7 +627,8 @@ export class GraphService {
       fieldId,
       allFieldIds,
       fieldMap,
-      fieldId2DbTableName
+      fieldId2DbTableName,
+      fieldId2TableId
     );
 
     return {

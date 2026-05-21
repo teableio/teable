@@ -146,6 +146,7 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
         payload: {
           baseId: command.baseId,
           tableName,
+          table,
           fieldCount: table.getFields().length,
           viewCount: table.views().length,
           recordCount: rows?.length ?? 0,
