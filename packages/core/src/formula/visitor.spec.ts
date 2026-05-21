@@ -241,6 +241,21 @@ describe('EvalVisitor', () => {
     expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
   });
 
+  it('matches numeric field values stored as strings in SWITCH cases', () => {
+    const numericStringRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: '30',
+      },
+    };
+
+    expect(evalFormula('IF({fldNumber}=30,20,0)', fieldContext, numericStringRecord)).toBe(20);
+    expect(
+      evalFormula('SWITCH({fldNumber},30,20,45,30,60,40,0)', fieldContext, numericStringRecord)
+    ).toBe(20);
+  });
+
   it('evaluates TEXTBEFORE and TEXTSPLIT function calls', () => {
     expect(evalFormula('TEXTBEFORE("20, 04, 79", ",")', fieldContext, record)).toBe('20');
     expect(evalFormula('TEXTSPLIT("20, 04, 79", ",")', fieldContext, record)).toEqual([

@@ -48,6 +48,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
         gaId: process.env.GA_ID,
         googleAdsConversionId: process.env.GOOGLE_ADS_CONVERSION_ID,
+        marketingGaId: process.env.MARKETING_GA_ID,
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),

@@ -88,15 +88,7 @@ export class CollaboratorService {
       const userIds = collaborators
         .filter((c) => c.principalType === PrincipalType.User)
         .map((c) => c.principalId);
-      if (userIds.length > 0) {
-        const countMap = await this.countUserOwnedSpaces(userIds);
-        for (const uid of userIds) {
-          await this.validateOwnedSpaceLimit(
-            countMap.get(uid) ?? 0,
-            uid !== currentUserId ? uid : undefined
-          );
-        }
-      }
+      await this.validateOwnedSpaceLimit(spaceId, userIds);
     }
     // if has exist base collaborator, then delete it
     const bases = await this.prismaService.txClient().base.findMany({
@@ -564,14 +556,8 @@ export class CollaboratorService {
     return collaborators.length === 1 && collaborators[0].principal_id === userId;
   }
 
-  async countUserOwnedSpaces(userId: string): Promise<number>;
-  async countUserOwnedSpaces(userIds: string[]): Promise<Map<string, number>>;
-  async countUserOwnedSpaces(
-    userIdOrIds: string | string[]
-  ): Promise<number | Map<string, number>> {
-    const isSingle = typeof userIdOrIds === 'string';
-    const userIds = isSingle ? [userIdOrIds] : userIdOrIds;
-    if (userIds.length === 0) return isSingle ? 0 : new Map();
+  protected async getUserOwnedSpaceIds(userIds: string[]): Promise<Map<string, string[]>> {
+    if (userIds.length === 0) return new Map();
     const builder = this.knex('collaborator')
       .join('space', 'collaborator.resource_id', 'space.id')
       .whereIn('collaborator.principal_id', userIds)
@@ -579,44 +565,21 @@ export class CollaboratorService {
       .where('collaborator.resource_type', CollaboratorType.Space)
       .where('collaborator.role_name', Role.Owner)
       .whereNull('space.deleted_time')
-      .groupBy('collaborator.principal_id')
-      .select('collaborator.principal_id as user_id')
-      .count('* as count');
-    const result = await this.prismaService
+      .select('collaborator.principal_id as user_id', 'collaborator.resource_id as space_id');
+    const rows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ user_id: string; count: number }[]>(builder.toQuery());
-    if (isSingle) {
-      return Number(result[0]?.count ?? 0);
+      .$queryRawUnsafe<{ user_id: string; space_id: string }[]>(builder.toQuery());
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const ids = map.get(row.user_id) ?? [];
+      ids.push(row.space_id);
+      map.set(row.user_id, ids);
     }
-    const countMap = new Map<string, number>();
-    for (const row of result) {
-      countMap.set(row.user_id, Number(row.count));
-    }
-    return countMap;
+    return map;
   }
 
-  async validateOwnedSpaceLimit(currentCount: number, userId?: string): Promise<void> {
-    const maxCount = this.thresholdConfig.maxOwnedSpaceCount;
-    if (maxCount <= 0 || currentCount < maxCount) return;
-
-    const userName = userId
-      ? await this.prismaService.user
-          .findUnique({ where: { id: userId }, select: { name: true, email: true } })
-          .then((user) => (user ? `${user.name} (${user.email})` : undefined))
-      : undefined;
-
-    throw new CustomHttpException(
-      `Owned space limit exceeded, max: ${maxCount}${userName ? `, user: ${userName}` : ''}`,
-      HttpErrorCode.VALIDATION_ERROR,
-      {
-        localization: {
-          i18nKey: userId
-            ? 'httpErrors.space.ownedSpaceLimitExceededOther'
-            : 'httpErrors.space.ownedSpaceLimitExceeded',
-          context: userId ? { max: maxCount, name: userName } : { max: maxCount },
-        },
-      }
-    );
+  async validateOwnedSpaceLimit(_spaceId: string, _userIds: string[]): Promise<void> {
+    // no-op in community; EE overrides with free-space limit
   }
 
   async deleteCollaborator({
@@ -736,11 +699,7 @@ export class CollaboratorService {
       targetColl.roleName !== Role.Owner &&
       principalType === PrincipalType.User
     ) {
-      const count = await this.countUserOwnedSpaces(principalId);
-      await this.validateOwnedSpaceLimit(
-        count,
-        principalId !== currentUserId ? principalId : undefined
-      );
+      await this.validateOwnedSpaceLimit(resourceId, [principalId]);
     }
 
     const res = await this.prismaService.txClient().collaborator.updateMany({

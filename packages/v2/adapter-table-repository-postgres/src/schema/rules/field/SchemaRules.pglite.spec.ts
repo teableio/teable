@@ -944,6 +944,66 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(afterResult._unsafeUnwrap().valid).toBe(true);
     });
 
+    it('should require manual repair when existing values violate uniqueness', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "email_col")
+        VALUES ('rec001', 'duplicate'), ('rec002', 'duplicate'), ('rec003', 'unique')
+      `.execute(db);
+
+      const fieldResult = createRealField('uniqdupe', 'Email', 'email_col', { unique: true });
+      const field = fieldResult._unsafeUnwrap();
+
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new ColumnUniqueConstraintRule(field, columnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('column_unique_duplicate_values');
+      expect(repairHint?.available).toBe(true);
+      expect(repairHint?.mode).toBe('manual');
+      expect(repairHint?.manualRepairSchema?.properties.resolution).toBeDefined();
+    });
+
+    it('should manually rewrite duplicate text values and create unique index', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "email_col")
+        VALUES ('rec001', 'duplicate'), ('rec002', 'duplicate'), ('rec003', 'unique')
+      `.execute(db);
+
+      const fieldResult = createRealField('uniqdupefix', 'Email', 'email_col', { unique: true });
+      const field = fieldResult._unsafeUnwrap();
+
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new ColumnUniqueConstraintRule(field, columnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      const repairResult = await rule.manualRepair(ctx, {
+        resolution: 'append_record_id_to_duplicates',
+      });
+
+      expect(repairResult.isOk()).toBe(true);
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      const duplicateResult = await sql<{ duplicates: number }>`
+        SELECT COUNT(*)::int AS duplicates
+        FROM (
+          SELECT "email_col"
+          FROM ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)}
+          WHERE "email_col" IS NOT NULL
+          GROUP BY "email_col"
+          HAVING COUNT(*) > 1
+        ) duplicated
+      `.execute(db);
+      expect(duplicateResult.rows[0]?.duplicates).toBe(0);
+    });
+
     it('up then down should return to original state', async () => {
       await createTestTable(TABLE_NAME, ['email_col TEXT']);
 
@@ -1025,6 +1085,31 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       const result = await rule.isValid(ctx);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should not advertise automatic repair when existing NULL values block NOT NULL', async () => {
+      await createTestTable(TABLE_NAME, ['name_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "name_col")
+        VALUES ('rec001', NULL), ('rec002', 'ready')
+      `.execute(db);
+
+      const fieldResult = createRealField('nnnulls', 'Name', 'name_col', { notNull: true });
+      const field = fieldResult._unsafeUnwrap();
+
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new NotNullConstraintRule(field, columnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('not_null_existing_nulls');
+      expect(repairHint).toMatchObject({
+        available: false,
+        mode: 'auto',
+      });
     });
 
     it('up then down should return to original state', async () => {
@@ -1317,6 +1402,66 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
+    it('should require manual repair when duplicate values block a unique index', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "email_col")
+        VALUES ('rec001', 'target'), ('rec002', 'target'), ('rec003', 'other')
+      `.execute(db);
+
+      const fieldResult = createRealField('uidxdupe', 'Email', 'email_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('unique_index_duplicate_values');
+      expect(repairHint?.available).toBe(true);
+      expect(repairHint?.mode).toBe('manual');
+      expect(repairHint?.manualRepairSchema?.properties.resolution).toBeDefined();
+    });
+
+    it('should manually clear duplicate values and create a unique index', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "email_col")
+        VALUES ('rec001', 'target'), ('rec002', 'target'), ('rec003', 'other')
+      `.execute(db);
+
+      const fieldResult = createRealField('uidxdupefix', 'Email', 'email_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      const repairResult = await rule.manualRepair(ctx, {
+        resolution: 'clear_duplicate_values',
+      });
+
+      expect(repairResult.isOk()).toBe(true);
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      const duplicateResult = await sql<{ duplicates: number }>`
+        SELECT COUNT(*)::int AS duplicates
+        FROM (
+          SELECT "email_col"
+          FROM ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)}
+          WHERE "email_col" IS NOT NULL
+          GROUP BY "email_col"
+          HAVING COUNT(*) > 1
+        ) duplicated
+      `.execute(db);
+      expect(duplicateResult.rows[0]?.duplicates).toBe(0);
+    });
+
     it('up then down should return to original state', async () => {
       await createTestTable(TABLE_NAME, ['email_col TEXT']);
 
@@ -1393,7 +1538,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
-    it('should resolve the FK target table from table_meta dbTableName', async () => {
+    it('should create FK constraint against resolved physical table name', async () => {
       const targetTableMetaId = createValidTableId('logical_target');
       const targetPhysicalTableName = 'students_custom';
 
@@ -1411,7 +1556,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       const rule = ForeignKeyRule.forField(
         field,
         'fk_col',
-        { schema: TEST_SCHEMA, tableName: targetTableMetaId },
+        { schema: TEST_SCHEMA, tableName: targetPhysicalTableName },
         fkColumnRule,
         'Students',
         'CASCADE',
@@ -1423,7 +1568,9 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        await db.executeQuery(stmt.compile(db));
+        const compiled = stmt.compile(db);
+        expect(compiled.sql).not.toContain('table_meta');
+        await db.executeQuery(compiled);
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -1808,6 +1955,57 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().valid).toBe(false);
       expect(result._unsafeUnwrap().missing?.some((m) => m.includes('junction table'))).toBe(true);
+    });
+
+    it('should require manual repair when the junction table host schema is missing', async () => {
+      await createTestTable(SOURCE_TABLE);
+      await createTestTable(TARGET_TABLE);
+
+      const fieldResult = createRealField('jctmissing', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const linkField = createMockLinkField('jctmissing', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, {
+        ...createJunctionConfig(),
+        junctionTable: { schema: 'missing_base_schema', tableName: JUNCTION_TABLE },
+      });
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('junction_table_host_schema_missing');
+      expect(repairHint?.available).toBe(true);
+      expect(repairHint?.mode).toBe('manual');
+      expect(repairHint?.manualRepairSchema?.properties.resolution).toBeDefined();
+    });
+
+    it('should manually create missing host schema and rebuild the junction table', async () => {
+      await createTestTable(SOURCE_TABLE);
+      await createTestTable(TARGET_TABLE);
+
+      const fieldResult = createRealField('jctmissingmanual', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const missingSchema = 'missing_base_schema_manual';
+      const linkField = createMockLinkField('jctmissingmanual', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, {
+        ...createJunctionConfig(),
+        junctionTable: { schema: missingSchema, tableName: JUNCTION_TABLE },
+      });
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      const repairResult = await rule.manualRepair(ctx, {
+        resolution: 'create_missing_host_schema',
+      });
+
+      expect(repairResult.isOk()).toBe(true);
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      await sql`DROP SCHEMA IF EXISTS ${sql.id(missingSchema)} CASCADE`.execute(db);
     });
 
     it('should create junction table with up() and validate it exists', async () => {
@@ -2234,8 +2432,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
 
-    it('should resolve the junction FK target table from table_meta dbTableName', async () => {
-      const logicalTargetTableName = FOREIGN_TABLE_META_ID;
+    it('should create junction FK against resolved physical table name', async () => {
       const physicalTargetTableName = 'test_jct_fk_target_legacy';
 
       await createTestTable(SOURCE_TABLE);
@@ -2265,7 +2462,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         foreignKeyName: 'foreign_key',
         orderColumnName: 'order_col',
         sourceTable: { schema: TEST_SCHEMA, tableName: SOURCE_TABLE },
-        foreignTable: { schema: TEST_SCHEMA, tableName: logicalTargetTableName },
+        foreignTable: { schema: TEST_SCHEMA, tableName: physicalTargetTableName },
         foreignTableMetaId: FOREIGN_TABLE_META_ID,
         withIndexes: false,
       };
@@ -2274,7 +2471,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         linkField,
         { schema: TEST_SCHEMA, tableName: JUNCTION_TABLE },
         'foreign_key',
-        { schema: TEST_SCHEMA, tableName: logicalTargetTableName },
+        { schema: TEST_SCHEMA, tableName: physicalTargetTableName },
         'foreign',
         junctionRule,
         FOREIGN_TABLE_META_ID
@@ -2284,7 +2481,9 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
-        await db.executeQuery(stmt.compile(db));
+        const compiled = stmt.compile(db);
+        expect(compiled.sql).not.toContain('table_meta');
+        await db.executeQuery(compiled);
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -2522,6 +2721,56 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         WHERE __id = 'rec_status_1'
       `.execute(db);
       expect(recordRow.rows[0]?.status_col).toBe('choKeep');
+    });
+
+    it('should remove empty select option names from field metadata', async () => {
+      await createTestTable(TABLE_NAME, ['status_col TEXT']);
+
+      const fieldResult = createRealSingleSelectField({
+        id: 'som008',
+        name: 'Status Empty Choice',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      });
+      expect(fieldResult.isOk()).toBe(true);
+      const field = fieldResult._unsafeUnwrap();
+
+      await sql`INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Status Empty Choice',
+          'singleSelect',
+          ${JSON.stringify({
+            choices: [
+              { id: 'choEmpty', name: '', color: 'redBright' },
+              { id: 'choKeep', name: 'Keep', color: 'blueBright' },
+              { id: 'choBlank', name: '   ', color: 'yellowBright' },
+              { id: 'choDone', name: 'Done', color: 'greenBright' },
+            ],
+          })},
+          ${TABLE_NAME}
+        )`.execute(db);
+
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const invalidResult = await rule.isValid(ctx);
+      expect(invalidResult._unsafeUnwrap().valid).toBe(false);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const fieldRow = await db
+        .selectFrom('field')
+        .select('options')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const options = JSON.parse(fieldRow.options as string) as {
+        choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+      };
+      expect(options.choices).toEqual(expectedChoices);
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
     it('should remap single-select values that point to removed duplicate choices', async () => {
@@ -3036,6 +3285,14 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         symmetricFieldId,
         conflictFieldName: 'Competing Link',
       });
+
+      const repairHint = rule.getRepairHint(
+        createContext(TABLE_NAME, field),
+        result._unsafeUnwrap()
+      );
+      expect(repairHint._unsafeUnwrap()?.available).toBe(true);
+      expect(repairHint._unsafeUnwrap()?.mode).toBe('manual');
+      expect(repairHint._unsafeUnwrap()?.manualRepairSchema).toBeDefined();
     });
   });
 
@@ -3135,6 +3392,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       ruleId: string;
       expectedStatus?: 'warn' | 'error';
       manualRepairValues?: Record<string, string | boolean>;
+      tableLocationsById?: ReadonlyMap<string, { schema: string | null; tableName: string }>;
       verifyAfterRepair?: () => Promise<void>;
     }) => {
       const {
@@ -3143,17 +3401,28 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         ruleId,
         expectedStatus = 'error',
         manualRepairValues,
+        tableLocationsById,
         verifyAfterRepair,
       } = params;
 
-      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+        tableLocationsById,
+      });
       const initialCheckResults = await collectFinalResults(checker.checkField(table, fieldId));
 
       expect(initialCheckResults.find((result) => result.ruleId === ruleId)?.status).toBe(
         expectedStatus
       );
 
-      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+        tableLocationsById,
+      });
       const repairResults = await collectFinalRepairResults(
         repairer.repairRule(table, fieldId, ruleId, {
           manualRepairValues,
@@ -3291,6 +3560,162 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           });
         },
       });
+    });
+
+    it('should manually repair a missing symmetric target by converting the current link to one-way', async () => {
+      const tableName = createValidTableId('smmiss_current');
+      const foreignTableName = createValidTableId('smmiss_foreign');
+      await createTestTable(tableName);
+      await createTestTable(foreignTableName);
+
+      const field = createRealLinkField({
+        id: createValidFieldId('symmiss1'),
+        name: 'Current Link',
+        dbFieldName: 'link_value',
+        relationship: 'oneMany',
+        foreignTableId: foreignTableName,
+        fkHostTableName: foreignTableName,
+        selfKeyName: '__fk_symmiss1',
+        foreignKeyName: '__id',
+        symmetricFieldId: createValidFieldId('symmiss2'),
+      })._unsafeUnwrap();
+      const symmetricFieldId = field.symmetricFieldId()?.toString();
+      expect(symmetricFieldId).toBeTruthy();
+      const table = createTableAggregate(tableName, field);
+
+      await sql`
+        INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Current Link',
+          'link',
+          ${JSON.stringify({
+            symmetricFieldId,
+            relationship: 'oneMany',
+            foreignTableId: foreignTableName,
+          })},
+          ${table.id().toString()}
+        )
+      `.execute(db);
+
+      const rule = LinkSymmetricFieldRule.forField(field as LinkField);
+      expect(rule).toBeDefined();
+      if (!rule) {
+        return;
+      }
+
+      const ctx = createContext(tableName, field);
+      const validation = await rule.isValid(ctx);
+      expect(validation._unsafeUnwrap().valid).toBe(false);
+      const repairHint = rule.getRepairHint(ctx, validation._unsafeUnwrap());
+      expect(repairHint._unsafeUnwrap()?.available).toBe(true);
+      expect(repairHint._unsafeUnwrap()?.manualRepairSchema).toBeDefined();
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const ruleId = `symmetric_field:${field.id().toString()}`;
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId, {
+          manualRepairValues: {
+            resolution: 'convert_current_to_one_way',
+          },
+        })
+      );
+
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.status).toBe('success');
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.outcome).toBe('repaired');
+
+      const fieldRow = await db
+        .selectFrom('field')
+        .select('options')
+        .where('id', '=', field.id().toString())
+        .executeTakeFirstOrThrow();
+      const options =
+        typeof fieldRow.options === 'string'
+          ? JSON.parse(fieldRow.options)
+          : (fieldRow.options as Record<string, unknown>);
+
+      expect(options).toMatchObject({
+        symmetricFieldId,
+        isOneWay: true,
+      });
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should manually repair a broken symmetric back reference by converting the current link to one-way', async () => {
+      const tableName = createValidTableId('smbroken_current');
+      const foreignTableName = createValidTableId('smbroken_foreign');
+      await createTestTable(tableName);
+      await createTestTable(foreignTableName);
+
+      const field = createRealLinkField({
+        id: createValidFieldId('symbroken1'),
+        name: 'Current Link',
+        dbFieldName: 'link_value',
+        relationship: 'oneMany',
+        foreignTableId: foreignTableName,
+        fkHostTableName: foreignTableName,
+        selfKeyName: '__fk_symbroken1',
+        foreignKeyName: '__id',
+        symmetricFieldId: createValidFieldId('symbroken2'),
+      })._unsafeUnwrap();
+      const symmetricFieldId = field.symmetricFieldId()?.toString();
+      expect(symmetricFieldId).toBeTruthy();
+      const table = createTableAggregate(tableName, field);
+
+      await sql`
+        INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${field.id().toString()},
+          'Current Link',
+          'link',
+          ${JSON.stringify({
+            symmetricFieldId,
+            relationship: 'oneMany',
+            foreignTableId: foreignTableName,
+          })},
+          ${table.id().toString()}
+        )
+      `.execute(db);
+      await sql`
+        INSERT INTO field (id, name, type, options, table_id)
+        VALUES (
+          ${symmetricFieldId!},
+          'Broken Back Link',
+          'link',
+          ${JSON.stringify({ symmetricFieldId: createValidFieldId('symbroken3') })},
+          ${foreignTableName}
+        )
+      `.execute(db);
+
+      const rule = LinkSymmetricFieldRule.forField(field as LinkField);
+      expect(rule).toBeDefined();
+      if (!rule) {
+        return;
+      }
+
+      const ctx = createContext(tableName, field);
+      const validation = await rule.isValid(ctx);
+      expect(validation._unsafeUnwrap().valid).toBe(false);
+      expect(validation._unsafeUnwrap().missingItems?.[0]?.code).toBe(
+        'symmetric_field_wrong_back_reference'
+      );
+      const repairHint = rule.getRepairHint(ctx, validation._unsafeUnwrap());
+      expect(repairHint._unsafeUnwrap()?.available).toBe(true);
+      expect(repairHint._unsafeUnwrap()?.manualRepairSchema).toBeDefined();
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const ruleId = `symmetric_field:${field.id().toString()}`;
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId, {
+          manualRepairValues: {
+            resolution: 'convert_current_to_one_way',
+          },
+        })
+      );
+
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.status).toBe('success');
+      expect(repairResults.find((result) => result.ruleId === ruleId)?.outcome).toBe('repaired');
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
     it('should report missing system __id uniqueness when checking system rules', async () => {
@@ -3619,7 +4044,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(repairResult?.repair?.available).toBe(false);
     });
 
-    it('should expose orphaned foreign key rows during check and skip repair', async () => {
+    it('should manually repair orphaned foreign key rows after confirmation', async () => {
       const sourceTableName = 'test_schema_fk_orphan_source';
       const targetTableName = createValidTableId('tgt_fk_orphan');
       const fkColumnName = '__fk_orphan_rule';
@@ -3644,60 +4069,77 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         hasOrderColumn: false,
       })._unsafeUnwrap();
       const table = createTableAggregate(sourceTableName, field);
+      const ruleId = `fk:${field.id().toString()}:${fkColumnName}`;
 
       const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
       const checkResults = await collectFinalResults(
         checker.checkField(table, field.id().toString())
       );
-      const checkResult = checkResults.find(
-        (result) => result.ruleId === `fk:${field.id().toString()}:${fkColumnName}`
-      );
+      const checkResult = checkResults.find((result) => result.ruleId === ruleId);
 
       expect(checkResult?.status).toBe('warn');
-      expect(checkResult?.repair).toEqual({
-        available: false,
-        mode: 'auto',
-        reason: {
+      expect(checkResult?.repair).toMatchObject({
+        available: true,
+        mode: 'manual',
+        reason: expect.objectContaining({
           key: 'table:table.integrity.v2.repairMeta.reason.foreignKeyOrphanRows',
           values: {
             fieldName: 'Orphan FK Rule',
             targetTableName: targetTableName,
             count: 1,
           },
-          fallback:
-            'Automatic repair is unavailable because "Orphan FK Rule" still has invalid linked rows.',
-        },
-        description: {
+        }),
+        description: expect.objectContaining({
           key: 'table:table.integrity.v2.repairMeta.description.foreignKeyOrphanRows',
           values: {
             fieldName: 'Orphan FK Rule',
             targetTableName: targetTableName,
             count: 1,
           },
-          fallback:
-            'Clean up the invalid linked rows for "Orphan FK Rule" before adding the foreign key constraint again.',
-        },
+        }),
+        manualRepairSchema: expect.objectContaining({
+          properties: expect.objectContaining({
+            resolution: expect.objectContaining({
+              defaultValue: 'clear_orphan_values',
+            }),
+          }),
+        }),
       });
 
       const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
-      const repairResults = await collectFinalRepairResults(
-        repairer.repairRule(
-          table,
-          field.id().toString(),
-          `fk:${field.id().toString()}:${fkColumnName}`
-        )
+      const pendingRepairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId)
       );
-      const repairResult = repairResults.find(
-        (result) => result.ruleId === `fk:${field.id().toString()}:${fkColumnName}`
-      );
+      const pendingRepairResult = pendingRepairResults.find((result) => result.ruleId === ruleId);
 
-      expect(repairResult?.status).toBe('skipped');
-      expect(repairResult?.outcome).toBe('skipped');
-      expect(repairResult?.message).toBe('Skipped: repair unavailable');
-      expect(repairResult?.repair?.available).toBe(false);
+      expect(pendingRepairResult?.status).toBe('warn');
+      expect(pendingRepairResult?.outcome).toBe('manual');
+      expect(pendingRepairResult?.message).toBe('Rule requires manual repair');
+
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, field.id().toString(), ruleId, {
+          manualRepairValues: {
+            resolution: 'clear_orphan_values',
+          },
+        })
+      );
+      const repairResult = repairResults.find((result) => result.ruleId === ruleId);
+
+      expect(repairResult?.status).toBe('success');
+      expect(repairResult?.outcome).toBe('repaired');
+      expect(await constraintExists(sourceTableName, `fk_${fkColumnName}`)).toBe(true);
+
+      const orphanRows = await sql
+        .raw<{
+          cnt: string;
+        }>(
+          `SELECT count(*)::text AS cnt FROM ${TEST_SCHEMA}.${sourceTableName} WHERE "${fkColumnName}" = 'missing_target_001'`
+        )
+        .execute(db);
+      expect(orphanRows.rows[0]?.cnt).toBe('0');
     });
 
-    it('should expose orphaned junction foreign key rows during check and skip repair', async () => {
+    it('should manually repair orphaned junction foreign key rows after confirmation', async () => {
       const sourceTableName = createValidTableId('src_junction_unavail');
       const targetTableName = createValidTableId('tgt_junction_unavail');
       const junctionTableName = 'junction_unavailable_rule';
@@ -3743,47 +4185,64 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       );
 
       expect(checkResult?.status).toBe('warn');
-      expect(checkResult?.repair).toEqual({
-        available: false,
-        mode: 'auto',
-        reason: {
-          key: 'table:table.integrity.v2.repairMeta.reason.junctionForeignKeyOrphanRows',
-          values: {
-            fieldName: 'Orphan Junction FK Rule',
-            targetTableName: targetTableName,
-            count: 1,
-          },
-          fallback:
-            'Automatic repair is unavailable because the junction rows for "Orphan Junction FK Rule" still contain invalid references.',
+      expect(checkResult?.repair?.available).toBe(true);
+      expect(checkResult?.repair?.mode).toBe('manual');
+      expect(checkResult?.repair?.manualRepairSchema).toBeDefined();
+      expect(checkResult?.repair?.reason).toEqual({
+        key: 'table:table.integrity.v2.repairMeta.reason.junctionForeignKeyOrphanRows',
+        values: {
+          fieldName: 'Orphan Junction FK Rule',
+          targetTableName: targetTableName,
+          count: 1,
         },
-        description: {
-          key: 'table:table.integrity.v2.repairMeta.description.junctionForeignKeyOrphanRows',
-          values: {
-            fieldName: 'Orphan Junction FK Rule',
-            targetTableName: targetTableName,
-            count: 1,
-          },
-          fallback:
-            'Clean up the invalid junction rows for "Orphan Junction FK Rule" before adding the foreign key back.',
-        },
+        fallback:
+          'The junction rows for "Orphan Junction FK Rule" contain invalid references and need confirmation before cleanup.',
       });
 
       const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
-      const repairResults = await collectFinalRepairResults(
+      const pendingManualRepairResults = await collectFinalRepairResults(
         repairer.repairRule(
           table,
           field.id().toString(),
           `junction_fk:${field.id().toString()}:foreign`
         )
       );
-      const repairResult = repairResults.find(
+      const pendingManualRepairResult = pendingManualRepairResults.find(
         (result) => result.ruleId === `junction_fk:${field.id().toString()}:foreign`
       );
 
-      expect(repairResult?.status).toBe('skipped');
-      expect(repairResult?.outcome).toBe('skipped');
-      expect(repairResult?.message).toBe('Skipped: repair unavailable');
-      expect(repairResult?.repair?.available).toBe(false);
+      expect(pendingManualRepairResult?.status).toBe('warn');
+      expect(pendingManualRepairResult?.outcome).toBe('manual');
+      expect(pendingManualRepairResult?.message).toBe('Rule requires manual repair');
+      expect(pendingManualRepairResult?.repair?.manualRepairSchema).toBeDefined();
+
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(
+          table,
+          field.id().toString(),
+          `junction_fk:${field.id().toString()}:foreign`,
+          {
+            manualRepairValues: {
+              resolution: 'delete_orphan_rows',
+            },
+          }
+        )
+      );
+      const repairResult = repairResults.find(
+        (result) => result.ruleId === `junction_fk:${field.id().toString()}:foreign`
+      );
+      expect(repairResult?.status).toBe('success');
+      expect(repairResult?.outcome).toBe('repaired');
+
+      const orphanRows = await sql
+        .raw<{
+          cnt: string;
+        }>(
+          `SELECT count(*)::text AS cnt FROM ${TEST_SCHEMA}.${junctionTableName} WHERE "${foreignKeyName}" = 'missing_target_001'`
+        )
+        .execute(db);
+      expect(orphanRows.rows[0]?.cnt).toBe('0');
+      expect(await constraintExists(junctionTableName, `fk_${foreignKeyName}`)).toBe(true);
     });
 
     it('should repair generated-column metadata drift for stored columns', async () => {
@@ -4349,14 +4808,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         foreignKeyName,
         hasOrderColumn: true,
       })._unsafeUnwrap();
-      const table = createTableAggregate(sourceTableName, field);
+      const otherField = createRealLinkField({
+        id: 'otherLinkB',
+        name: 'Other Link',
+        dbFieldName: 'link_value',
+        relationship: 'manyMany',
+        foreignTableId: targetTableName,
+        fkHostTableName: junctionTableName,
+        selfKeyName,
+        foreignKeyName,
+        hasOrderColumn: true,
+      })._unsafeUnwrap();
+      const table = createTableAggregateWithId(
+        createValidTableId(`table_${sourceTableName}`),
+        sourceTableName,
+        [field, otherField]
+      );
       const sourceTableId = table.id().toString();
 
       await sql`
         INSERT INTO field (id, name, type, table_id, db_field_name)
         VALUES
           (${field.id().toString()}, 'ManyMany Ambiguous Link', 'link', ${sourceTableId}, 'link_value'),
-          (${createValidFieldId('otherLinkB')}, 'Other Link', 'link', ${sourceTableId}, 'link_value')
+          (${otherField.id().toString()}, 'Other Link', 'link', ${sourceTableId}, 'link_value')
       `.execute(db);
 
       await sql.raw(`DROP TABLE ${TEST_SCHEMA}.${junctionTableName}`).execute(db);
@@ -5211,6 +5685,74 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           fieldId: field.id().toString(),
           ruleId: `junction_fk:${field.id().toString()}:self`,
           expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair a missing junction foreign key when the logical target resolves to a physical table', async () => {
+        const sourceTableName = createValidTableId('src_junction_fk_meta');
+        const logicalTargetTableId = createValidTableId('logical_junction_fk');
+        const physicalTargetTableName = createValidTableId('physical_junction_fk');
+        const junctionTableName = 'junction_fk_rule_meta';
+        const selfKeyName = '__fk_junction_fk_meta_self';
+        const foreignKeyName = '__fk_junction_fk_meta_foreign';
+
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await createTestTable(physicalTargetTableName);
+        await createExplicitTestTable(junctionTableName, [
+          '__id SERIAL PRIMARY KEY',
+          `${selfKeyName} TEXT`,
+          `${foreignKeyName} TEXT`,
+          '__order DOUBLE PRECISION',
+        ]);
+        await sql`
+          INSERT INTO table_meta (id, db_table_name, deleted_time)
+          VALUES (${logicalTargetTableId}, ${`${TEST_SCHEMA}.${physicalTargetTableName}`}, NULL)
+        `.execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT uniq_${selfKeyName}_${foreignKeyName} UNIQUE (${selfKeyName}, ${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${selfKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${selfKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${foreignKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${selfKeyName}
+             FOREIGN KEY (${selfKeyName}) REFERENCES ${TEST_SCHEMA}.${sourceTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'jctfkmeta001',
+          name: 'Junction Foreign Key Meta Rule',
+          dbFieldName: 'link_value',
+          relationship: 'manyMany',
+          foreignTableId: logicalTargetTableId,
+          fkHostTableName: junctionTableName,
+          selfKeyName,
+          foreignKeyName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `junction_fk:${field.id().toString()}:foreign`,
+          expectedStatus: 'warn',
+          tableLocationsById: new Map([
+            [logicalTargetTableId, { schema: TEST_SCHEMA, tableName: physicalTargetTableName }],
+          ]),
         });
       });
     });
