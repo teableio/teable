@@ -9,7 +9,10 @@ export class V2TableMutationCacheInvalidatorService implements TableMutationCach
   constructor(private readonly v2ContainerService: V2ContainerService) {}
 
   async invalidateDroppedTable(dbTableName: string): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const baseId = dbTableName.split('.')[0];
+    const container = baseId
+      ? await this.v2ContainerService.getContainerForBase(baseId)
+      : await this.v2ContainerService.getContainer();
     const rootDb = container.resolve<object>(v2DataDbTokens.db);
     invalidateUndoCaptureTableCache(dbTableName, rootDb);
   }

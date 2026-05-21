@@ -67,6 +67,12 @@ export type UpdateFromSelectParams = {
    * type-aware comparison impossible.
    */
   skipDistinctFilter?: boolean;
+  /**
+   * Whether this UPDATE should increment __version for changed rows.
+   * Wide computed updates may split field assignments across multiple
+   * statements, then bump versions once after all field chunks finish.
+   */
+  incrementVersion?: boolean;
 };
 
 /**
@@ -77,6 +83,8 @@ export type UpdateWithReturningResult = {
   compiled: CompiledQuery;
   /** Mapping from column name to field ID */
   columnToFieldId: Map<string, string>;
+  /** Mapping from column name to RETURNING alias for the old value */
+  oldColumnAliases: Map<string, string>;
 };
 
 /**
@@ -88,6 +96,13 @@ export type UpdatedRecordRow = {
   __old_version: number;
   [column: string]: unknown;
 };
+
+const oldValueAliasForColumn = (column: string): string => `__old_${column.replaceAll(/\W/g, '_')}`;
+
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+
+const quoteQualifiedTableName = (value: string): string =>
+  value.split('.').map(quoteIdentifier).join('.');
 
 /**
  * Build UPDATE...FROM statements using a computed SELECT subquery.
@@ -118,6 +133,7 @@ export class UpdateFromSelectBuilder {
 
     return this.prepareUpdateProjectionContext(params, selectAlias).andThen(
       ({ tableName, projectionPlan, typedSelectQuery }) => {
+        const incrementVersion = params.incrementVersion ?? true;
         const distinctFilter = params.skipDistinctFilter
           ? undefined
           : projectionPlan.buildDistinctFilter(tableAlias);
@@ -125,7 +141,7 @@ export class UpdateFromSelectBuilder {
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
           .from(typedSelectQuery.as(selectAlias))
-          .set((eb) => projectionPlan.buildSetValues(tableAlias)(eb))
+          .set((eb) => projectionPlan.buildSetValues(tableAlias, { incrementVersion })(eb))
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -166,6 +182,7 @@ export class UpdateFromSelectBuilder {
 
     return this.prepareUpdateProjectionContext(params, selectAlias).andThen(
       ({ tableName, projectionPlan, typedSelectQuery }) => {
+        const incrementVersion = params.incrementVersion ?? true;
         const distinctFilter = params.skipDistinctFilter
           ? undefined
           : projectionPlan.buildDistinctFilter(tableAlias);
@@ -174,7 +191,7 @@ export class UpdateFromSelectBuilder {
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
           .from(typedSelectQuery.as(selectAlias))
-          .set((eb) => projectionPlan.buildSetValues(tableAlias)(eb))
+          .set((eb) => projectionPlan.buildSetValues(tableAlias, { incrementVersion })(eb))
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -194,18 +211,40 @@ export class UpdateFromSelectBuilder {
         // Add RETURNING clause for record ID, old version, and all updated columns
         // Use double quotes to preserve case-sensitivity in PostgreSQL
         // Return __version - 1 as __old_version (the version BEFORE this computed update)
+        const oldVersionExpression = incrementVersion
+          ? `"${tableAlias}"."__version" - 1`
+          : `"${tableAlias}"."__version"`;
+        const oldTableAlias = '__old';
         const returningColumns = [
           `"${tableAlias}"."__id"`,
-          `"${tableAlias}"."__version" - 1 as "__old_version"`,
+          `${oldVersionExpression} as "__old_version"`,
         ];
+        const oldColumnAliases = new Map<string, string>();
         for (const [column] of columnMapping) {
+          const oldAlias = oldValueAliasForColumn(column);
+          oldColumnAliases.set(column, oldAlias);
+          returningColumns.push(`"${oldTableAlias}"."${column}" as "${oldAlias}"`);
           returningColumns.push(`"${tableAlias}"."${column}"`);
         }
 
         // Use raw SQL for RETURNING since Kysely's typing doesn't support it well for updates
         const compiled = query.compile();
+        const whereIndex = compiled.sql.lastIndexOf(' where ');
+        if (whereIndex === -1) {
+          return err(
+            domainError.validation({
+              message: 'UpdateFromSelect returning query is missing WHERE clause',
+            })
+          );
+        }
+        const sqlWithOldTable =
+          compiled.sql.slice(0, whereIndex) +
+          `, ${quoteQualifiedTableName(tableName)} as "${oldTableAlias}"` +
+          compiled.sql.slice(whereIndex, whereIndex + ' where '.length) +
+          `"${oldTableAlias}"."__id" = "${selectAlias}"."__id" and ` +
+          compiled.sql.slice(whereIndex + ' where '.length);
         const returningClause = ` RETURNING ${returningColumns.join(', ')}`;
-        const sqlWithReturning = compiled.sql + returningClause;
+        const sqlWithReturning = sqlWithOldTable + returningClause;
 
         return ok({
           compiled: {
@@ -213,6 +252,7 @@ export class UpdateFromSelectBuilder {
             sql: sqlWithReturning,
           },
           columnToFieldId: columnMapping,
+          oldColumnAliases,
         });
       }
     );
@@ -682,12 +722,15 @@ class UpdateAssignmentProjectionPlan {
   }
 
   buildSetValues(
-    tableAlias: string
+    tableAlias: string,
+    options?: { incrementVersion?: boolean }
   ): (eb: ExpressionBuilder<DynamicDB, string>) => Record<string, unknown> {
     return (eb) => {
       const values: Record<string, unknown> = {};
-      // Increment __version for computed updates (like V1 does)
-      values['__version'] = sql`"${sql.raw(tableAlias)}"."__version" + 1`;
+      if (options?.incrementVersion ?? true) {
+        // Increment __version for computed updates (like V1 does)
+        values['__version'] = sql`"${sql.raw(tableAlias)}"."__version" + 1`;
+      }
 
       for (const plan of this.assignmentPlans) {
         values[plan.column] = plan.buildProjectedRef(eb, this.projectionAlias);

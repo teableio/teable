@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Check, Database } from '@teable/icons';
-import { duplicateBase, getSpaceList, type IGetBaseVo } from '@teable/openapi';
+import {
+  duplicateBase,
+  duplicateBaseStream,
+  getSpaceList,
+  type DuplicateBaseProgressCallback,
+  type IDuplicateBaseProgressEvent,
+  type IDuplicateBaseRo,
+  type IGetBaseVo,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -14,6 +22,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Progress,
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -23,7 +32,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { getDuplicateProgressPercent, mergeDuplicateProgress } from './duplicateBaseProgress';
 import { useDuplicateBaseStore } from './useDuplicateBaseStore';
+
+type DuplicateBaseMutationParams = IDuplicateBaseRo & {
+  useStream: boolean;
+  onProgress?: DuplicateBaseProgressCallback;
+};
+
+type DuplicateBaseMutationResult =
+  | Awaited<ReturnType<typeof duplicateBase>>
+  | Awaited<ReturnType<typeof duplicateBaseStream>>;
 
 const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   const { closeModal } = useDuplicateBaseStore();
@@ -34,6 +53,10 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   const [baseName, setBaseName] = useState(`${base.name} (${t('space:baseModal.copy')})`);
   const [successDuplicate, setSuccessDuplicate] = useState(false);
   const [newBaseId, setNewBaseId] = useState<string>();
+  const [duplicateProgress, setDuplicateProgress] = useState<IDuplicateBaseProgressEvent | null>(
+    null
+  );
+  const useStreamDuplicate = base.v2Status?.useV2 ?? Boolean(base.isCanary);
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -42,8 +65,13 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
 
   const queryClient = useQueryClient();
 
-  const { mutateAsync: duplicateBaseMutator, isPending: isLoading } = useMutation({
-    mutationFn: duplicateBase,
+  const { mutateAsync: duplicateBaseMutator, isPending: isLoading } = useMutation<
+    DuplicateBaseMutationResult,
+    Error,
+    DuplicateBaseMutationParams
+  >({
+    mutationFn: ({ useStream, onProgress, ...params }) =>
+      useStream ? duplicateBaseStream(params, onProgress) : duplicateBase(params),
     onSuccess: ({ data }) => {
       targetSpaceId &&
         queryClient.invalidateQueries({
@@ -54,6 +82,18 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       });
       setSuccessDuplicate(true);
       setNewBaseId(data.id);
+      setDuplicateProgress((progress) =>
+        progress
+          ? {
+              ...progress,
+              phase: 'duplicate_done',
+              processedRows: progress.totalRows ?? progress.processedRows,
+            }
+          : progress
+      );
+    },
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
@@ -69,11 +109,26 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
 
     // toast.message(t('space:baseModal.copying'));
 
+    setDuplicateProgress(
+      useStreamDuplicate
+        ? {
+            type: 'progress',
+            phase: 'structure_creating',
+          }
+        : null
+    );
+
     duplicateBaseMutator({
       fromBaseId: base.id,
       spaceId: targetSpaceId,
       name: baseName,
       withRecords,
+      useStream: useStreamDuplicate,
+      onProgress: (_phase, _detail, event) => {
+        if (event) {
+          setDuplicateProgress((previous) => mergeDuplicateProgress(previous, event));
+        }
+      },
     });
   };
 
@@ -121,6 +176,23 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
         <p className="text-xs text-secondary-foreground">
           {t('space:baseModal.duplicateRecordsTip')}
         </p>
+        {useStreamDuplicate && isLoading && (
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between text-xs text-secondary-foreground">
+              <span>{t('space:baseModal.copying')}</span>
+              <span>{getDuplicateProgressPercent(duplicateProgress)}%</span>
+            </div>
+            <Progress value={getDuplicateProgressPercent(duplicateProgress)} />
+            {duplicateProgress?.tableName && (
+              <div className="text-xs text-secondary-foreground">
+                {duplicateProgress.tableName}
+                {duplicateProgress.processedRows != null && duplicateProgress.totalRows != null
+                  ? ` ${duplicateProgress.processedRows}/${duplicateProgress.totalRows}`
+                  : null}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-4">
           <Label htmlFor="username" className="text-right">
             {t('space:baseModal.copyToSpace')}
@@ -134,7 +206,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       </div>
       <DialogFooter className="mt-4">
         <DialogClose asChild>
-          <Button size="sm" type="button" variant="ghost">
+          <Button size="sm" type="button" variant="ghost" disabled={isLoading}>
             {t('common:actions.cancel')}
           </Button>
         </DialogClose>
@@ -153,6 +225,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             }
           }}
           className="flex items-center gap-2"
+          disabled={isLoading}
         >
           {successDuplicate
             ? t('space:baseModal.duplicateBaseSucceedAndJump')

@@ -14,7 +14,6 @@ import type {
 import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
 import {
   createForeignKeyConstraintStatement,
-  createForeignKeyConstraintStatementFromTableMeta,
   dropConstraintStatement,
   type TableIdentifier,
 } from '../helpers/StatementBuilders';
@@ -390,24 +389,15 @@ export class ForeignKeyRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const sourceTable = this.getLocalTable(ctx);
     return ok([
-      this.targetTableMetaId
-        ? createForeignKeyConstraintStatementFromTableMeta(
-            sourceTable,
-            this.constraintName,
-            this.columnName,
-            this.targetTableMetaId,
-            '__id',
-            this.onDelete,
-            this.targetTable
-          )
-        : createForeignKeyConstraintStatement(
-            sourceTable,
-            this.constraintName,
-            this.columnName,
-            this.targetTable,
-            '__id',
-            this.onDelete
-          ),
+      createForeignKeyConstraintStatement(
+        sourceTable,
+        this.constraintName,
+        this.columnName,
+        this.targetTable,
+        '__id',
+        this.onDelete,
+        this.targetTableMetaId
+      ),
     ]);
   }
 

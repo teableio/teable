@@ -5,6 +5,10 @@ import { z } from '../zod';
 
 export const SPACE_DATA_DB_PREFLIGHT = '/space/data-db/preflight';
 export const GET_SPACE_DATA_DB = '/space/{spaceId}/data-db';
+export const UPDATE_SPACE_DATA_DB = '/space/{spaceId}/data-db';
+export const RETEST_SPACE_DATA_DB = '/space/{spaceId}/data-db/retest';
+export const RETRY_SPACE_DATA_DB_MIGRATION = '/space/{spaceId}/data-db/retry';
+const refreshedDataDbSummaryDescription = 'Returns the refreshed data database binding summary.';
 
 export const dataDbModeSchema = z.enum(['default', 'byodb']);
 export const dataDbTargetModeSchema = z.enum([
@@ -36,6 +40,10 @@ export const dataDbCapabilitiesSchema = z.object({
   grantPrivileges: z.boolean(),
   inspectActivity: z.boolean(),
 });
+export const dataDbInternalSchemaSchema = z
+  .string()
+  .regex(/^[a-z_]\w*$/i)
+  .optional();
 
 export const dataDbPreflightErrorSchema = z.object({
   code: z.string(),
@@ -46,6 +54,7 @@ export const dataDbPreflightErrorSchema = z.object({
 export const dataDbPreflightRoSchema = z.object({
   url: z.string().min(1),
   targetMode: dataDbTargetModeSchema.optional().default('initialize-empty'),
+  internalSchema: dataDbInternalSchemaSchema,
 });
 
 export type IDataDbPreflightRo = z.infer<typeof dataDbPreflightRoSchema>;
@@ -57,8 +66,11 @@ export const dataDbPreflightVoSchema = z.object({
   urlFingerprint: z.string().optional(),
   displayHost: z.string().optional(),
   displayDatabase: z.string().optional(),
+  internalSchema: z.string().optional(),
   serverVersion: z.string().optional(),
   classification: dataDbClassificationSchema,
+  availableDatabases: z.array(z.string()).optional(),
+  requiresDatabaseSelection: z.boolean().optional(),
   capabilities: dataDbCapabilitiesSchema,
   errors: z.array(dataDbPreflightErrorSchema),
 });
@@ -71,6 +83,8 @@ export const dataDbConnectionSummaryVoSchema = z.object({
   provider: z.literal('postgres').optional(),
   displayHost: z.string().optional(),
   displayDatabase: z.string().optional(),
+  internalSchema: z.string().optional(),
+  schemaVersion: z.string().nullable().optional(),
   lastValidatedAt: z.string().optional(),
   lastError: z.string().optional(),
   capabilities: dataDbCapabilitiesSchema.optional(),
@@ -126,10 +140,101 @@ export const GetSpaceDataDbRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
+export const UpdateSpaceDataDbRoute: RouteConfig = registerRoute({
+  method: 'patch',
+  path: UPDATE_SPACE_DATA_DB,
+  description:
+    'Update PostgreSQL credentials or connection parameters for the existing BYODB database',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: dataDbPreflightRoSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: refreshedDataDbSummaryDescription,
+      content: {
+        'application/json': {
+          schema: dataDbConnectionSummaryVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
+export const RetestSpaceDataDbRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: RETEST_SPACE_DATA_DB,
+  description: 'Retest the PostgreSQL data database connection for a BYODB space',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: refreshedDataDbSummaryDescription,
+      content: {
+        'application/json': {
+          schema: dataDbConnectionSummaryVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
+export const RetrySpaceDataDbMigrationRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: RETRY_SPACE_DATA_DB_MIGRATION,
+  description: 'Retry pending PostgreSQL data database migrations for a BYODB space',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: refreshedDataDbSummaryDescription,
+      content: {
+        'application/json': {
+          schema: dataDbConnectionSummaryVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
 export const preflightSpaceDataDb = async (data: IDataDbPreflightRo) => {
   return axios.post<IDataDbPreflightVo>(SPACE_DATA_DB_PREFLIGHT, data);
 };
 
 export const getSpaceDataDb = async (spaceId: string) => {
   return axios.get<IDataDbConnectionSummaryVo>(urlBuilder(GET_SPACE_DATA_DB, { spaceId }));
+};
+
+export const updateSpaceDataDb = async (spaceId: string, data: IDataDbPreflightRo) => {
+  return axios.patch<IDataDbConnectionSummaryVo>(
+    urlBuilder(UPDATE_SPACE_DATA_DB, { spaceId }),
+    data
+  );
+};
+
+export const retestSpaceDataDb = async (spaceId: string) => {
+  return axios.post<IDataDbConnectionSummaryVo>(urlBuilder(RETEST_SPACE_DATA_DB, { spaceId }));
+};
+
+export const retrySpaceDataDbMigration = async (spaceId: string) => {
+  return axios.post<IDataDbConnectionSummaryVo>(
+    urlBuilder(RETRY_SPACE_DATA_DB_MIGRATION, { spaceId })
+  );
 };

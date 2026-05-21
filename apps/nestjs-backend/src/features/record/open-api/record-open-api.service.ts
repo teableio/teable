@@ -8,7 +8,6 @@ import type {
   IMakeOptional,
 } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CreateRecordAction,
@@ -32,6 +31,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
@@ -49,7 +49,6 @@ import type { IUpdateRecordsInternalRo } from '../type';
 export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly recordService: RecordService,
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
@@ -58,7 +57,8 @@ export class RecordOpenApiService {
     private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly fieldService: FieldService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly dataDbClientManager: DataDbClientManager
   ) {}
 
   @retryOnDeadlock()
@@ -231,7 +231,8 @@ export class RecordOpenApiService {
       dateFilter['lte'] = new Date(endDate);
     }
 
-    const list = await this.dataPrismaService.recordHistory.findMany({
+    const dataPrisma = await this.dataDbClientManager.dataPrismaForTable(tableId);
+    const list = await dataPrisma.recordHistory.findMany({
       where: {
         tableId,
         ...(recordId ? { recordId } : {}),

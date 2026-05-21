@@ -1,6 +1,5 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Public } from '../auth/decorators/public.decorator';
 
@@ -11,18 +10,14 @@ export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
     private readonly db: PrismaHealthIndicator,
-    private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService
+    private readonly prismaService: PrismaService
   ) {}
 
   @Get()
   @HealthCheck()
   check() {
     try {
-      return this.health.check([
-        () => this.db.pingCheck('metaDatabase', this.prismaService),
-        () => this.db.pingCheck('dataDatabase', this.dataPrismaService),
-      ]);
+      return this.health.check([() => this.db.pingCheck('metaDatabase', this.prismaService)]);
     } catch (error) {
       this.logger.error(error);
       throw error;

@@ -1,153 +1,275 @@
-import type { OnModuleDestroy } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   DataPrismaService,
   PrismaClient as DataPrismaClient,
-  getDataDatabaseUrl,
+  getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import createKnex, { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { withDataDbInternalSchemaParam } from '../features/space/data-db-internal-schema';
+import { DataDbMigrationService } from '../features/space/data-db-migration.service';
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
+import type { IClsStore } from '../types/cls';
+import {
+  DATA_DB_KNEX_CACHE_NAMESPACE,
+  DATA_DB_PRISMA_CACHE_NAMESPACE,
+  DataDbRuntimeCacheService,
+} from './data-db-runtime-cache.service';
 import { DATA_KNEX } from './knex';
 
-@Injectable()
-export class DataDbClientManager implements OnModuleDestroy {
-  private readonly knexClients = new Map<string, Knex>();
-  private readonly prismaClients = new Map<string, DataPrismaClient>();
+export interface IResolvedDataDatabase {
+  cacheKey: string;
+  url: string;
+  isMetaFallback: boolean;
+  connectionId?: string;
+  internalSchema?: string;
+}
 
+export interface IDataDbRoutingOptions {
+  useTransaction?: boolean;
+}
+
+type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>;
+
+@Injectable()
+export class DataDbClientManager {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly defaultDataPrismaService: DataPrismaService,
-    @InjectModel(DATA_KNEX) private readonly defaultDataKnex: Knex
+    private readonly metaFallbackDataPrismaService: DataPrismaService,
+    @InjectModel(DATA_KNEX) private readonly metaFallbackDataKnex: Knex,
+    private readonly runtimeCache: DataDbRuntimeCacheService,
+    @Optional()
+    private readonly dataDbMigrationService?: DataDbMigrationService,
+    @Optional()
+    @Inject(ClsService)
+    private readonly cls?: ClsService<IClsStore>
   ) {}
 
-  async getDataDatabaseUrlForSpace(spaceId: string) {
-    const binding = await this.prismaService.spaceDataDbBinding.findUnique({
+  private getMetaRoutingClient(options?: IDataDbRoutingOptions): IMetaRoutingClient {
+    return options?.useTransaction ? this.prismaService.txClient() : this.prismaService;
+  }
+
+  async getDataDatabaseForSpace(
+    spaceId: string,
+    options?: IDataDbRoutingOptions
+  ): Promise<IResolvedDataDatabase> {
+    const resolved = await this.resolveSpaceDataDb(spaceId, options);
+
+    if (resolved.isMetaFallback) {
+      return {
+        cacheKey: 'meta-fallback',
+        url: getMetaDatabaseUrl(),
+        isMetaFallback: true,
+      };
+    }
+
+    return {
+      cacheKey: resolved.connectionId,
+      connectionId: resolved.connectionId,
+      internalSchema: resolved.internalSchema,
+      url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
+      isMetaFallback: false,
+    };
+  }
+
+  async getDataDatabaseUrlForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
+    return (await this.getDataDatabaseForSpace(spaceId, options)).url;
+  }
+
+  async getDataDatabaseForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    const base = await this.getMetaRoutingClient(options).base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new Error(`Base ${baseId} not found`);
+    }
+    return await this.getDataDatabaseForSpace(base.spaceId, options);
+  }
+
+  async getDataDatabaseUrlForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    return (await this.getDataDatabaseForBase(baseId, options)).url;
+  }
+
+  async getDataDatabaseForTable(tableId: string, options?: IDataDbRoutingOptions) {
+    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
+      where: { id: tableId },
+      select: { base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      throw new Error(`Table ${tableId} not found`);
+    }
+    return await this.getDataDatabaseForSpace(table.base.spaceId, options);
+  }
+
+  async getDataDatabaseUrlForTable(tableId: string, options?: IDataDbRoutingOptions) {
+    return (await this.getDataDatabaseForTable(tableId, options)).url;
+  }
+
+  async dataKnexForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
+    const resolved = await this.resolveSpaceDataDb(spaceId, options);
+
+    if (resolved.isMetaFallback) {
+      return this.metaFallbackDataKnex;
+    }
+
+    return await this.runtimeCache.getOrCreate(
+      DATA_DB_KNEX_CACHE_NAMESPACE,
+      resolved.connectionId,
+      () =>
+        createKnex({
+          client: 'pg',
+          connection: resolved.url,
+          searchPath: [resolved.internalSchema],
+          pool: {
+            min: 0,
+            max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5),
+          },
+        }),
+      (client) => client.destroy()
+    );
+  }
+
+  async dataPrismaForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
+    const resolved = await this.resolveSpaceDataDb(spaceId, options);
+
+    if (resolved.isMetaFallback) {
+      return this.metaFallbackDataPrismaService;
+    }
+
+    return await this.runtimeCache.getOrCreate(
+      DATA_DB_PRISMA_CACHE_NAMESPACE,
+      resolved.connectionId,
+      () =>
+        new DataPrismaClient({
+          datasources: {
+            db: {
+              url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
+            },
+          },
+        }),
+      (client) => client.$disconnect()
+    );
+  }
+
+  async dataKnexForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    const base = await this.getMetaRoutingClient(options).base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new Error(`Base ${baseId} not found`);
+    }
+    return await this.dataKnexForSpace(base.spaceId, options);
+  }
+
+  async dataKnexForTable(tableId: string, options?: IDataDbRoutingOptions) {
+    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
+      where: { id: tableId },
+      select: { base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      throw new Error(`Table ${tableId} not found`);
+    }
+    return await this.dataKnexForSpace(table.base.spaceId, options);
+  }
+
+  async dataPrismaForTable(tableId: string, options?: IDataDbRoutingOptions) {
+    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
+      where: { id: tableId },
+      select: { base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      throw new Error(`Table ${tableId} not found`);
+    }
+    return await this.dataPrismaForSpace(table.base.spaceId, options);
+  }
+
+  async dataPrismaForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    const base = await this.getMetaRoutingClient(options).base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new Error(`Base ${baseId} not found`);
+    }
+    return await this.dataPrismaForSpace(base.spaceId, options);
+  }
+
+  async invalidateConnection(connectionId: string) {
+    await this.runtimeCache.deleteByKey(connectionId);
+  }
+
+  private async resolveSpaceDataDb(
+    spaceId: string,
+    options?: IDataDbRoutingOptions
+  ): Promise<
+    | { isMetaFallback: true }
+    | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string }
+  > {
+    const binding = await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
       where: { spaceId },
       include: { dataDbConnection: true },
     });
 
     if (!binding || binding.mode === 'default') {
-      return getDataDatabaseUrl();
+      return { isMetaFallback: true };
     }
 
-    if (binding.state !== 'ready' || binding.dataDbConnection?.status !== 'ready') {
+    const connection = binding.dataDbConnection;
+    if (!connection) {
+      throw new Error(`Data database connection for space ${spaceId} was not found`);
+    }
+
+    const migratableStates = this.dataDbMigrationService
+      ? ['ready', 'migrating', 'error']
+      : ['ready'];
+
+    if (!migratableStates.includes(binding.state)) {
       throw new Error(`Data database binding for space ${spaceId} is not ready`);
     }
 
-    if (!binding.dataDbConnection.encryptedUrl) {
+    if (!migratableStates.includes(connection.status)) {
+      throw new Error(`Data database binding for space ${spaceId} is not ready`);
+    }
+
+    if (!connection.encryptedUrl) {
       throw new Error(`Data database connection for space ${spaceId} has no encrypted URL`);
     }
 
-    return decryptDataDbUrl(binding.dataDbConnection.encryptedUrl);
-  }
+    if (this.cls?.isActive()) {
+      this.cls.set('dataDb', {
+        mode: 'byodb',
+        spaceId,
+        connectionId: connection.id,
+        urlFingerprint: connection.urlFingerprint,
+        displayHost: connection.displayHost,
+        displayDatabase: connection.displayDatabase,
+        internalSchema: connection.internalSchema,
+      });
+    }
 
-  async dataKnexForSpace(spaceId: string) {
-    const binding = await this.prismaService.spaceDataDbBinding.findUnique({
-      where: { spaceId },
-      include: { dataDbConnection: true },
+    const url = decryptDataDbUrl(connection.encryptedUrl);
+    await this.dataDbMigrationService?.ensureConnectionMigrated({
+      connectionId: connection.id,
+      internalSchema: connection.internalSchema,
+      url,
     });
 
-    if (!binding || binding.mode === 'default') {
-      return this.defaultDataKnex;
-    }
-
-    if (binding.state !== 'ready' || binding.dataDbConnection?.status !== 'ready') {
-      throw new Error(`Data database binding for space ${spaceId} is not ready`);
-    }
-
-    const connectionId = binding.dataDbConnection.id;
-    const existing = this.knexClients.get(connectionId);
-    if (existing) {
-      return existing;
-    }
-
-    const client = createKnex({
-      client: 'pg',
-      connection: decryptDataDbUrl(binding.dataDbConnection.encryptedUrl),
-      pool: {
-        min: 0,
-        max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5),
-      },
-    });
-    this.knexClients.set(connectionId, client);
-    return client;
-  }
-
-  async dataPrismaForSpace(spaceId: string) {
-    const binding = await this.prismaService.spaceDataDbBinding.findUnique({
-      where: { spaceId },
-      include: { dataDbConnection: true },
-    });
-
-    if (!binding || binding.mode === 'default') {
-      return this.defaultDataPrismaService;
-    }
-
-    if (binding.state !== 'ready' || binding.dataDbConnection?.status !== 'ready') {
-      throw new Error(`Data database binding for space ${spaceId} is not ready`);
-    }
-
-    const connectionId = binding.dataDbConnection.id;
-    const existing = this.prismaClients.get(connectionId);
-    if (existing) {
-      return existing;
-    }
-
-    const client = new DataPrismaClient({
-      datasources: {
-        db: {
-          url: decryptDataDbUrl(binding.dataDbConnection.encryptedUrl),
-        },
-      },
-    });
-    this.prismaClients.set(connectionId, client);
-    return client;
-  }
-
-  async dataKnexForBase(baseId: string) {
-    const base = await this.prismaService.base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
-    }
-    return await this.dataKnexForSpace(base.spaceId);
-  }
-
-  async dataPrismaForBase(baseId: string) {
-    const base = await this.prismaService.base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
-    }
-    return await this.dataPrismaForSpace(base.spaceId);
-  }
-
-  invalidateConnection(connectionId: string) {
-    const knex = this.knexClients.get(connectionId);
-    if (knex) {
-      void knex.destroy();
-      this.knexClients.delete(connectionId);
-    }
-
-    const prisma = this.prismaClients.get(connectionId);
-    if (prisma) {
-      void prisma.$disconnect();
-      this.prismaClients.delete(connectionId);
-    }
+    return {
+      connectionId: connection.id,
+      internalSchema: connection.internalSchema,
+      isMetaFallback: false,
+      url,
+    };
   }
 
   async onModuleDestroy() {
     await Promise.all([
-      ...Array.from(this.knexClients.values()).map((client) => client.destroy()),
-      ...Array.from(this.prismaClients.values()).map((client) => client.$disconnect()),
+      this.runtimeCache.deleteByNamespace(DATA_DB_KNEX_CACHE_NAMESPACE),
+      this.runtimeCache.deleteByNamespace(DATA_DB_PRISMA_CACHE_NAMESPACE),
     ]);
-    this.knexClients.clear();
-    this.prismaClients.clear();
   }
 }
