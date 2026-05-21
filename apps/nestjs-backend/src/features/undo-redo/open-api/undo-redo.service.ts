@@ -306,9 +306,9 @@ export class UndoRedoService {
     mode: 'undo' | 'redo'
   ): Promise<IUndoRedoResponse<IUndoVo | IRedoVo> | undefined> {
     try {
-      const container = await this.v2ContainerService.getContainer();
+      const container = await this.v2ContainerService.getContainerForTable(tableId);
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-      const context = await this.v2ContextFactory.createContext();
+      const context = await this.v2ContextFactory.createContext(container);
       context.windowId = windowId;
 
       const commandResult =
@@ -393,11 +393,11 @@ export class UndoRedoService {
           return;
         }
 
-        const container = await this.v2ContainerService.getContainer();
+        const container = await this.v2ContainerService.getContainerForTable(tableId);
         const stackService = container.resolve<V2UndoRedoStackService>(
           v2CoreTokens.undoRedoService
         );
-        const context = await this.v2ContextFactory.createContext();
+        const context = await this.v2ContextFactory.createContext(container);
         context.windowId = windowId;
 
         const replayContext = toUndoRedoStackReplayContext(context);

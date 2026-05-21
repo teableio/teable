@@ -52,6 +52,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
       locale={sdkLocale}
       forcedTheme={query.theme as string}
       maxSearchFieldCount={maxSearchFieldCount}
+      shareId={shareId}
     >
       <ShareViewContext.Provider value={props.shareViewData}>
         <Head>
