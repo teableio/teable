@@ -11,13 +11,34 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { metrics, trace, SpanStatusCode } from '@opentelemetry/api';
 import * as Sentry from '@sentry/nestjs';
+import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { TemplateAppTokenNotAllowedException } from '../custom.exception';
+import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
+import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
+
+const dataDbRuntimeErrorCounter = metrics
+  .getMeter('teable-observability')
+  .createCounter('teable.data_db.runtime_errors', {
+    description: 'Runtime errors from an external data database bound to a space',
+  });
+const dataDbOtelAttribute = {
+  mode: 'teable.data_db.mode',
+  errorCode: 'teable.data_db.error_code',
+  connectionId: 'teable.data_db.connection_id',
+  urlFingerprint: 'teable.data_db.url_fingerprint',
+  host: 'teable.data_db.host',
+  database: 'teable.data_db.database',
+  internalSchema: 'teable.data_db.internal_schema',
+  retryable: 'teable.data_db.retryable',
+  userActionable: 'teable.data_db.user_actionable',
+} as const;
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -34,8 +55,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const dataDbContext = this.getDataDbContext();
+    const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
 
-    this.captureException(exception);
+    this.annotateActiveSpan(dataDbError);
+    this.recordDataDbMetric(dataDbError);
+    this.captureException(exception, dataDbError);
 
     if (
       enableGlobalErrorLogging ||
@@ -54,6 +79,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message: exception.message,
       });
     }
+    if (dataDbError) {
+      return response.status(503).json({
+        message:
+          'The data database bound to this space is currently unavailable. Please check the external database connection and try again.',
+        status: 503,
+        code: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
+        data: {
+          dataDb: {
+            code: dataDbError.code,
+            retryable: dataDbError.retryable,
+            userActionable: dataDbError.userActionable,
+            connectionId: dataDbContext?.connectionId,
+            urlFingerprint: dataDbContext?.urlFingerprint,
+            displayHost: dataDbContext?.displayHost,
+            displayDatabase: dataDbContext?.displayDatabase,
+            internalSchema: dataDbContext?.internalSchema,
+          },
+        },
+      });
+    }
     const customHttpException = exceptionParse(exception);
     const status = customHttpException.getStatus();
     return response.status(status).json({
@@ -64,11 +109,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private captureException(exception: Error | HttpException) {
+  private captureException(
+    exception: Error | HttpException,
+    dataDbError?: IDataDbRuntimeErrorClassification | null
+  ) {
     if (this.isExpectedError(exception)) return;
 
     Sentry.withScope((scope) => {
       this.setSentryContext(scope);
+      this.setSentryDataDbContext(scope, dataDbError);
       Sentry.captureException(exception, {
         mechanism: { handled: false, type: 'auto.function.nestjs.exception_captured' },
       });
@@ -95,6 +144,67 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
   }
 
+  private setSentryDataDbContext(
+    scope: Sentry.Scope,
+    dataDbError?: IDataDbRuntimeErrorClassification | null
+  ) {
+    const dataDbContext = this.getDataDbContext();
+    if (!dataDbContext || !dataDbError) return;
+
+    scope.setTag('data_db.mode', dataDbContext.mode);
+    scope.setTag('data_db.error_code', dataDbError.code);
+    scope.setTag('data_db.connection_id', dataDbContext.connectionId);
+    scope.setTag('data_db.host', dataDbContext.displayHost ?? 'unknown');
+    scope.setTag('data_db.database', dataDbContext.displayDatabase ?? 'unknown');
+    scope.setTag('data_db.internal_schema', dataDbContext.internalSchema ?? 'unknown');
+    scope.setContext('data_db', {
+      ...dataDbContext,
+      errorCode: dataDbError.code,
+      driverCode: dataDbError.driverCode,
+      retryable: dataDbError.retryable,
+      userActionable: dataDbError.userActionable,
+    });
+  }
+
+  private annotateActiveSpan(dataDbError?: IDataDbRuntimeErrorClassification | null) {
+    const dataDbContext = this.getDataDbContext();
+    if (!dataDbContext || !dataDbError) return;
+
+    const span = trace.getActiveSpan();
+    if (!span) return;
+
+    span.setAttributes({
+      [dataDbOtelAttribute.mode]: dataDbContext.mode,
+      [dataDbOtelAttribute.errorCode]: dataDbError.code,
+      [dataDbOtelAttribute.connectionId]: dataDbContext.connectionId,
+      [dataDbOtelAttribute.urlFingerprint]: dataDbContext.urlFingerprint ?? '',
+      [dataDbOtelAttribute.host]: dataDbContext.displayHost ?? '',
+      [dataDbOtelAttribute.database]: dataDbContext.displayDatabase ?? '',
+      [dataDbOtelAttribute.internalSchema]: dataDbContext.internalSchema ?? '',
+      [dataDbOtelAttribute.retryable]: dataDbError.retryable,
+      [dataDbOtelAttribute.userActionable]: dataDbError.userActionable,
+    });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: dataDbError.code });
+  }
+
+  private recordDataDbMetric(dataDbError?: IDataDbRuntimeErrorClassification | null) {
+    if (!dataDbError) return;
+
+    dataDbRuntimeErrorCounter.add(1, {
+      [dataDbOtelAttribute.errorCode]: dataDbError.code,
+      [dataDbOtelAttribute.retryable]: dataDbError.retryable,
+      [dataDbOtelAttribute.userActionable]: dataDbError.userActionable,
+    });
+  }
+
+  private getDataDbContext() {
+    try {
+      return this.cls?.get('dataDb');
+    } catch {
+      return undefined;
+    }
+  }
+
   private isExpectedError(exception: unknown) {
     return (
       typeof exception === 'object' &&
@@ -104,10 +214,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   protected logError(exception: Error, request: Request) {
+    const dataDbContext = this.getDataDbContext();
+    const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
     this.logger.error(
       {
         url: request?.url,
         message: exception.message,
+        dataDb: dataDbError
+          ? {
+              code: dataDbError.code,
+              connectionId: dataDbContext?.connectionId,
+              urlFingerprint: dataDbContext?.urlFingerprint,
+              displayHost: dataDbContext?.displayHost,
+              displayDatabase: dataDbContext?.displayDatabase,
+              internalSchema: dataDbContext?.internalSchema,
+            }
+          : undefined,
       },
       exception.stack
     );

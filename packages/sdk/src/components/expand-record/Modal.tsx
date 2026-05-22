@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, cn } from '@teable/ui-lib';
+import { Dialog, DialogContent, DialogOverlay, cn } from '@teable/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useRef } from 'react';
 import { ModalContext } from './ModalContext';
@@ -22,6 +22,7 @@ export const Modal: FC<
         container={container}
         className={cn('h-full block p-0 max-w-4xl', className)}
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
+        overlay={<DialogOverlay onClick={() => onClose?.()} />}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             onClose?.();
