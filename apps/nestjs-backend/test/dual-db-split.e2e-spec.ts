@@ -48,7 +48,7 @@ const metaDatabaseUrl =
   process.env.PRISMA_META_DATABASE_URL ??
   process.env.PRISMA_DATABASE_URL ??
   process.env.DATABASE_URL;
-const dataDatabaseUrl = process.env.PRISMA_DATA_DATABASE_URL;
+const dataDatabaseUrl = undefined;
 const isTrueSplitDb =
   databaseIdentity(metaDatabaseUrl) != null &&
   databaseIdentity(dataDatabaseUrl) != null &&
@@ -323,7 +323,7 @@ describeSplitDb('Dual DB split smoke (e2e)', () => {
     );
 
     expect(recordTrashItem).toBeDefined();
-    await restoreTrash(recordTrashItem!.id);
+    await restoreTrash(recordTrashItem!.id, table.id);
 
     await expect(
       waitForCount(() => countTableTrash(dataPrisma, table.id, ResourceType.Record), 0)

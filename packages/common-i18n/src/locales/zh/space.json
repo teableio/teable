@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "温馨提示",
+    "duplicateBaseDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
+    "affectedTableSuffix": "（{{count}} 个字段）",
+    "convertAndDuplicate": "转换并复制"
+  },
   "initialSpaceName": "{{name}}的空间",
   "action": {
     "createBase": "创建数据库",
@@ -62,7 +68,9 @@
     "exportSlowTip": "数据量较大，导出可能需要较长时间，您可以暂时离开。",
     "exportReadyDescription": "请下载 .tea 文件，{{importHint}}",
     "moveBaseSuccessTitle": "移动成功",
-    "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}",
+    "moveBaseCrossSpaceTitle": "温馨提示",
+    "moveBaseCrossSpaceDataLossWarning": "不支持跨空间关联，相关字段会被转化成文本字段。此操作不可撤销。"
   },
   "deleteSpaceModal": {
     "title": "删除空间",
@@ -140,6 +148,25 @@
       "computedBackfillFailed": "公式或引用字段计算失败：{{tableName}}（{{detail}}），导入已完成",
       "done": "导入完成",
       "clickToView": "点击查看"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "正在准备导出",
+      "exportingArchive": "正在创建导出文件",
+      "exportingStructure": "正在导出结构",
+      "exportingAttachments": "正在导出附件",
+      "exportingAttachmentMetadata": "正在导出附件元数据",
+      "exportingTableData": "正在导出记录",
+      "tableDataStarted": "正在导出记录：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "tableDataProgress": "正在导出记录：{{tableName}}",
+      "tableDataDone": "记录导出完成：{{tableName}}",
+      "exportingExtraFiles": "正在导出额外文件",
+      "exportingAppFiles": "正在导出应用文件",
+      "uploadingArchive": "正在上传导出文件",
+      "generatingDownloadUrl": "正在生成下载链接",
+      "rowsProgress": "已导出 {{count}} 行",
+      "done": "导出完成"
     }
   },
   "template": {
@@ -231,6 +258,67 @@
       "goToFix": "去修复",
       "redeploy": "重新部署",
       "unnamedApp": "未命名应用"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "数据数据库",
+      "description": "选择此空间的数据库结构和记录存储位置。",
+      "defaultOption": "使用 Teable 默认数据库",
+      "defaultHint": "适用于大多数空间。",
+      "byodbOption": "使用我的 PostgreSQL 数据库",
+      "byodbHint": "在客户自管数据库中使用 Teable 内部 Schema 初始化此空间。",
+      "urlLabel": "PostgreSQL 连接 URL",
+      "sslHint": "请使用 PostgreSQL 服务要求的 SSL 参数。测试后不会显示密码。",
+      "testConnection": "测试连接",
+      "testing": "测试中...",
+      "retestRequired": "URL 修改后需要重新测试。",
+      "databaseLabel": "数据库",
+      "databasePlaceholder": "选择数据库",
+      "databaseHint": "选择该空间要使用的 PostgreSQL 数据库，然后重新测试连接。",
+      "preflightPassed": "连接检查通过",
+      "preflightFailed": "连接检查失败",
+      "missingCapabilities": "缺少权限",
+      "testFailed": "数据库连接测试失败。",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "PostgreSQL 连接 URL 无效。"
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "默认禁止连接内网数据库主机。",
+          "remediation": "仅在可信的自托管部署中开启 TEABLE_SSRF_PROTECTION_DISABLED=true。"
+        },
+        "CONNECTION_FAILED": {
+          "message": "无法连接到数据库。",
+          "remediation": "请检查主机、端口、数据库名、用户名、密码和 SSL 参数。"
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "数据库主机解析到了 IPv6 地址，但当前 Teable 部署无法访问 IPv6 网络。",
+          "remediation": "请使用可通过 IPv4 访问的数据库地址或连接池地址，或为当前 Teable 部署开启 IPv6 出站网络。"
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "数据库权限检查失败。"
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "当前账号缺少初始化 Teable 数据库所需的 DDL 权限。",
+          "remediation": "请为该账号授予创建 Schema、表、函数和触发器所需的权限。"
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable 内部 Schema 中已有非 Teable 管理的对象。",
+          "remediation": "请使用没有冲突内部 Schema 的数据库，或清理该 Schema 中的未知对象。"
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "此数据库包含不完整或不兼容的 Teable 数据对象。",
+          "remediation": "请使用空数据库，或使用兼容的 Teable 数据数据库迁移/接管流程。"
+        }
+      }
+    },
+    "fields": {
+      "host": "主机",
+      "database": "数据库",
+      "internalSchema": "内部 Schema",
+      "version": "版本",
+      "classification": "分类"
     }
   }
 }

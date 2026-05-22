@@ -7,7 +7,10 @@ import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { DbFieldName } from '../../fields/DbFieldName';
 import type { FieldId } from '../../fields/FieldId';
 import { MultipleSelectField } from '../../fields/types/MultipleSelectField';
-import { ensureSelectFieldOptionCountWithinLimit } from '../../fields/types/SelectFieldOptionWriteConfig';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNamesWithinLimit,
+} from '../../fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
@@ -116,6 +119,11 @@ export class UpdateMultipleSelectOptionsSpec<
       this.domainContextValue
     );
     if (limitResult.isErr()) return err(limitResult.error);
+    const nameLimitResult = ensureSelectFieldOptionNamesWithinLimit(
+      this.nextOptionsValue.map((option) => option.name().toString()),
+      this.domainContextValue
+    );
+    if (nameLimitResult.isErr()) return err(nameLimitResult.error);
 
     const fieldResult = t.getField((f) => f.id().equals(this.fieldIdValue));
     if (fieldResult.isErr()) return err(fieldResult.error);

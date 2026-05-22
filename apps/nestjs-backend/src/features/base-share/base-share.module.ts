@@ -4,6 +4,7 @@ import { authConfig } from '../../configs/auth.config';
 import { AuthModule } from '../auth/auth.module';
 import { PermissionModule } from '../auth/permission.module';
 import { BaseModule } from '../base/base.module';
+import { CanaryModule } from '../canary';
 import { FieldModule } from '../field/field.module';
 import { ViewModule } from '../view/view.module';
 import { BaseShareAuthService } from './base-share-auth.service';
@@ -19,6 +20,7 @@ import { BaseShareJwtStrategy } from './strategies/jwt.strategy';
     AuthModule,
     PermissionModule,
     BaseModule,
+    CanaryModule,
     FieldModule,
     ViewModule,
     JwtModule.registerAsync({
