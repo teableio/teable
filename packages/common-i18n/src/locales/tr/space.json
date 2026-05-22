@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Bildirim",
+    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "affectedTableSuffix": "({{count}} alan)",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
   "initialSpaceName": "{{name}}'in alanı",
   "action": {
     "createBase": "Veritabanı oluştur",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir. Geçici olarak ayrılabilirsiniz.",
     "exportReadyDescription": "Lütfen .tea dosyasını indirin, {{importHint}}",
     "moveBaseSuccessTitle": "Taşıma başarılı",
-    "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı"
+    "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı",
+    "moveBaseCrossSpaceTitle": "Bildirim",
+    "moveBaseCrossSpaceDataLossWarning": "Alanlar arası referanslar desteklenmiyor. İlgili alanlar metin alanlarına dönüştürülecek. Bu işlem geri alınamaz."
   },
   "deleteSpaceModal": {
     "title": "Alanı Sil",
@@ -90,7 +98,6 @@
     "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyip bırakın",
     "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
     "confirm": "Onayla ve devam et",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

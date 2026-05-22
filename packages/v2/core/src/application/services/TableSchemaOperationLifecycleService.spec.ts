@@ -16,6 +16,7 @@ import {
   beginTableSchemaOperation,
   beginTablesSchemaOperation,
   completeTableSchemaOperation,
+  failRecoverableTableSchemaOperation,
   failTableSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
 
@@ -128,6 +129,37 @@ describe('TableSchemaOperationLifecycleService', () => {
         lastError: 'data phase failed',
         operationType: 'table.create',
         phase: 'error',
+        payload: undefined,
+      })
+    );
+  });
+
+  it('records recoverable failures without marking the table unavailable', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const targetTable = table('tblLifecycle00000R');
+
+    const result = await failRecoverableTableSchemaOperation(
+      unitOfWork,
+      tableRepository,
+      context(),
+      targetTable,
+      {
+        type: 'table.update',
+        lastError: 'record write failed after schema metadata stayed rollback-safe',
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      targetTable,
+      'ready',
+      expect.objectContaining({
+        lastError: 'record write failed after schema metadata stayed rollback-safe',
+        operationType: 'table.update',
+        phase: 'error',
+        status: 'error',
         payload: undefined,
       })
     );

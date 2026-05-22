@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Hinweis",
+    "duplicateBaseDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "affectedTableSuffix": "({{count}} Feld(er))",
+    "convertAndDuplicate": "Umwandeln & duplizieren"
+  },
   "initialSpaceName": "{{name}}' Space",
   "action": {
     "createBase": "Base erstellen",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Die Datenmenge ist groß. Der Export kann eine Weile dauern. Sie können vorübergehend die Seite verlassen.",
     "exportReadyDescription": "Bitte laden Sie die .tea-Datei herunter, {{importHint}}",
     "moveBaseSuccessTitle": "Verschiebung erfolgreich",
-    "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben"
+    "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben",
+    "moveBaseCrossSpaceTitle": "Hinweis",
+    "moveBaseCrossSpaceDataLossWarning": "Bereichsübergreifende Verweise werden nicht unterstützt. Die betroffenen Felder werden in Textfelder umgewandelt. Diese Aktion kann nicht rückgängig gemacht werden."
   },
   "deleteSpaceModal": {
     "title": "Space löschen",
@@ -90,7 +98,6 @@
     "importWayTip": "Klicken oder ziehen Sie die Datei in diesen Bereich zum Hochladen",
     "baseImportTips": "Klicken oder ziehen Sie die .tea-Datei in diesen Bereich zum Hochladen",
     "confirm": "Bestätigen und fortfahren",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

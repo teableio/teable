@@ -12,6 +12,7 @@ export interface IServerEnv {
   umamiWebSiteId?: string;
   gaId?: string;
   googleAdsConversionId?: string;
+  marketingGaId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];

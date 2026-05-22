@@ -17,7 +17,9 @@ import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
+import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
+import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportAttachmentsCsvModule } from './base-import-processor/base-import-attachments-csv.module';
 import { BaseImportAttachmentsModule } from './base-import-processor/base-import-attachments.module';
@@ -55,9 +57,11 @@ import { DbConnectionService } from './db-connection.service';
     DbProvider,
     BaseService,
     BaseExportService,
+    BaseExportV2Service,
     BaseImportService,
     DbConnectionService,
     BaseDuplicateService,
+    BaseDuplicateV2Service,
     BaseQueryService,
     TableDuplicateService,
   ],
@@ -65,7 +69,9 @@ import { DbConnectionService } from './db-connection.service';
     BaseService,
     DbConnectionService,
     BaseDuplicateService,
+    BaseDuplicateV2Service,
     BaseExportService,
+    BaseExportV2Service,
     BaseImportService,
     BaseQueryService,
   ],

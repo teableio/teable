@@ -54,6 +54,23 @@ export class UserService {
     );
   }
 
+  async getUsersByIdsOrEmails(params: { ids?: string[]; emails?: string[] }) {
+    const { ids = [], emails = [] } = params;
+    const conditions = [];
+    if (ids.length > 0) conditions.push({ id: { in: ids } });
+    if (emails.length > 0) conditions.push({ email: { in: emails.map((e) => e.toLowerCase()) } });
+    if (conditions.length === 0) return [];
+
+    const users = await this.prismaService.user.findMany({
+      where: { OR: conditions, deletedTime: null },
+    });
+    return users.map((u) => ({
+      ...u,
+      avatar: u.avatar && getPublicFullStorageUrl(u.avatar),
+      notifyMeta: u.notifyMeta ? (JSON.parse(u.notifyMeta) as IUserNotifyMeta) : null,
+    }));
+  }
+
   async getUserByEmail(email: string) {
     return await this.prismaService.txClient().user.findUnique({
       where: { email: email.toLowerCase(), deletedTime: null },

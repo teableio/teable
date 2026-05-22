@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import type { ICanaryConfig, V2Feature } from '@teable/openapi';
 import { SettingKey } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import type { IClsStore, V2Reason } from '../../types/cls';
+import type { IClsStore, IV2Reason } from '../../types/cls';
 import { SettingService } from '../setting/setting.service';
 
 export interface IV2Decision {
   useV2: boolean;
-  reason: V2Reason;
+  reason: IV2Reason;
 }
 
 export interface IBaseV2DecisionContext {

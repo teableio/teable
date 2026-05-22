@@ -116,9 +116,18 @@ export const useGridAsyncRecords = (
         ? initGroupPoints
         : (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints) ?? null
   );
+  const recordsScopeKey = useMemo(
+    () =>
+      JSON.stringify({
+        initQuery,
+        outerQuery,
+      }),
+    [initQuery, outerQuery]
+  );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
+  const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
 
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
@@ -171,6 +180,16 @@ export const useGridAsyncRecords = (
   }, [records, extra]);
 
   useEffect(() => onForceUpdate(), [onForceUpdate]);
+
+  useEffect(() => {
+    if (previousRecordsScopeKeyRef.current === recordsScopeKey) return;
+    previousRecordsScopeKeyRef.current = recordsScopeKey;
+
+    setLoadedRecordMap({});
+    setLoadedRecordSearchHitMap(undefined);
+    setGroupPoints(null);
+    setVisiblePages(defaultVisiblePages);
+  }, [recordsScopeKey]);
 
   useEffect(() => {
     const { y, height } = visiblePages;

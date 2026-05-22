@@ -117,7 +117,6 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   }, [spaceList, currentSpaceId]);
 
   const organization = user?.organization;
-
   const { mutate: addSpace, isPending: isLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: async (data) => {
@@ -142,6 +141,10 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   };
 
   const handleCreateSpace = () => {
+    if (isLoading) {
+      return;
+    }
+
     const name =
       spaceName.trim() ||
       getUniqName(t('common:noun.space'), spaceList?.length ? spaceList?.map((s) => s.name) : []);
@@ -336,22 +339,20 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
         }}
         onConfirm={handleCreateSpace}
         content={
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2">
-              <Input
-                placeholder={getUniqName(
-                  t('common:noun.space'),
-                  spaceList?.length ? spaceList?.map((s) => s.name) : []
-                )}
-                value={spaceName}
-                onChange={(e) => setSpaceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCreateSpace();
-                  }
-                }}
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder={getUniqName(
+                t('common:noun.space'),
+                spaceList?.length ? spaceList?.map((s) => s.name) : []
+              )}
+              value={spaceName}
+              onChange={(e) => setSpaceName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateSpace();
+                }
+              }}
+            />
           </div>
         }
       />

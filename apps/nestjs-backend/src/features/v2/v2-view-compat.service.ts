@@ -9,6 +9,15 @@ import {
   type ISetViewPropertyOpContext,
 } from '@teable/core';
 import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  v2CoreTokens,
+  ViewOperationKind,
+  type DomainError,
+  type IExecutionContext,
+  type ViewOperationPayloadViewConfig,
+  type ViewOperationPluginContext,
+  type ViewOperationPluginRunner,
+} from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { snakeCase } from 'lodash';
@@ -18,6 +27,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
+import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 type IV2ViewCompatDb = V1TeableDatabase & {
@@ -43,16 +53,20 @@ type IV2ViewCompatDb = V1TeableDatabase & {
 export class V2ViewCompatService {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {}
 
-  private async getDb(): Promise<Kysely<IV2ViewCompatDb>> {
-    const container = await this.v2ContainerService.getContainer();
-    return container.resolve<Kysely<IV2ViewCompatDb>>(v2MetaDbTokens.db);
+  private throwDomainError(error: DomainError): never {
+    throw new CustomHttpException(error.message, HttpErrorCode.VALIDATION_ERROR, {
+      domainCode: error.code,
+      domainTags: error.tags,
+      details: error.details,
+    });
   }
 
   private mergeSetViewPropertyByOpContexts(opContexts: ISetViewPropertyOpContext[]) {
-    const result: Record<string, string | number | boolean | null> = {};
+    const result: Record<string, unknown> = {};
     for (const opContext of opContexts) {
       const { key, newValue } = opContext;
       const parseResult = viewVoSchema.partial().safeParse({ [key]: newValue });
@@ -69,12 +83,7 @@ export class V2ViewCompatService {
       }
 
       const parsedValue = parseResult.data[key];
-      result[key] =
-        parsedValue == null
-          ? null
-          : typeof parsedValue === 'object'
-            ? JSON.stringify(parsedValue)
-            : parsedValue;
+      result[key] = parsedValue == null ? null : parsedValue;
     }
 
     return result;
@@ -129,13 +138,38 @@ export class V2ViewCompatService {
     return rawOpMap;
   }
 
-  async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
+  private async ensureViewOperation(
+    runner: ViewOperationPluginRunner,
+    executionContext: IExecutionContext,
+    context: ViewOperationPluginContext
+  ): Promise<void> {
+    const preparedResult = await runner.prepare(context);
+    if (preparedResult.isErr()) {
+      this.throwDomainError(preparedResult.error);
+    }
+
+    const guardResult = await preparedResult.value.guard(executionContext);
+    if (guardResult.isErr()) {
+      this.throwDomainError(guardResult.error);
+    }
+  }
+
+  async batchUpdateViewByOps(
+    tableId: string,
+    opsMap: { [viewId: string]: IOtOperation[] },
+    context?: IExecutionContext
+  ) {
     const updatedViewIds = Object.keys(opsMap);
     if (!updatedViewIds.length) {
       return;
     }
 
-    const db = await this.getDb();
+    const container = await this.v2ContainerService.getContainer();
+    const db = container.resolve<Kysely<IV2ViewCompatDb>>(v2MetaDbTokens.db);
+    const viewOperationPluginRunner = container.resolve<ViewOperationPluginRunner>(
+      v2CoreTokens.viewOperationPluginRunner
+    );
+    const executionContext = context ?? (await this.v2ContextFactory.createContext());
     const views = await db
       .selectFrom('view')
       .where('id', 'in', updatedViewIds)
@@ -153,8 +187,22 @@ export class V2ViewCompatService {
         continue;
       }
 
+      await this.ensureViewOperation(viewOperationPluginRunner, executionContext, {
+        kind: ViewOperationKind.update,
+        executionContext,
+        payload: {
+          tableId,
+          viewId: view.id,
+          patch: properties as ViewOperationPayloadViewConfig,
+        },
+        isTransactionBound: false,
+      });
+
       const dbValues = Object.fromEntries(
-        Object.entries(properties).map(([key, value]) => [snakeCase(key), value])
+        Object.entries(properties).map(([key, value]) => [
+          snakeCase(key),
+          value == null ? null : typeof value === 'object' ? JSON.stringify(value) : value,
+        ])
       );
 
       await db
