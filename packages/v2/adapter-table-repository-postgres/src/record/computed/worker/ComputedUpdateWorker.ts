@@ -1,7 +1,9 @@
+import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   domainError,
   FieldId,
+  isNotFoundError,
   registerAfterCommit,
   TableByIdSpec,
   TableId,
@@ -18,15 +20,19 @@ import type {
   IUnitOfWork,
   ILogger,
   IEventBus,
+  Table,
   ITracer,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
   ComputedUpdatePlan,
@@ -34,7 +40,6 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
-import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedBeforeImageRecordDto,
@@ -68,11 +73,21 @@ const MAX_STAGE_DEPTH = 50;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
+const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
 type SeedRecordChunk = {
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
 };
+
+type LoadTaskTableResult =
+  | {
+      status: 'loaded';
+      table: Table;
+    }
+  | {
+      status: 'blocked';
+    };
 
 const countSeedRecordDtos = (
   seedRecordIds: ReadonlyArray<string>,
@@ -229,6 +244,15 @@ const chunkOrchestration = (
     chunkIndex,
     scope: 'chunk',
   };
+};
+
+const isComputedTaskStatementTimeout = (error: DomainError): boolean => {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes(POSTGRES_STATEMENT_TIMEOUT_CODE) ||
+    message.includes('statement timeout') ||
+    message.includes('canceling statement due to statement timeout')
+  );
 };
 
 export type ComputedUpdateWorkerParams = {
@@ -556,6 +580,34 @@ export class ComputedUpdateWorker {
     );
   }
 
+  private async applyTaskStatementTimeout(
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<void, DomainError>> {
+    const timeoutMs = this.outboxConfig.taskStatementTimeoutMs;
+    if (timeoutMs <= 0) return ok(undefined);
+
+    const trx = getPostgresTransaction(context);
+    if (!trx) return ok(undefined);
+
+    try {
+      await trx.executeQuery(sql.raw(`SET LOCAL statement_timeout = ${timeoutMs}`).compile(trx));
+      this.logger.debug('computed:worker:statement_timeout_set', {
+        taskStatementTimeoutMs: timeoutMs,
+        ...logContext,
+      });
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to set computed task statement timeout: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        })
+      );
+    }
+  }
+
   private async processClaimedTask(
     task: AnyOutboxItem,
     actorId: ActorId,
@@ -587,6 +639,7 @@ export class ComputedUpdateWorker {
     };
     let failurePhase:
       | 'deserialize_plan'
+      | 'set_statement_timeout'
       | 'collect_seed_field_ids'
       | 'collect_seed_table_ids'
       | 'acquire_locks'
@@ -651,6 +704,10 @@ export class ComputedUpdateWorker {
     }
 
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      failurePhase = 'set_statement_timeout';
+      const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+      if (timeoutResult.isErr()) return err(timeoutResult.error);
+
       const run = createComputedUpdateRun({
         runId,
         originRunIds,
@@ -704,7 +761,8 @@ export class ComputedUpdateWorker {
         txContext,
         stageFieldIdsResult.value,
         seedGroups,
-        seedAllTableIds
+        seedAllTableIds,
+        stageResult.value.changesByStep
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
@@ -756,7 +814,9 @@ export class ComputedUpdateWorker {
         return ok(false);
       }
       logTaskFailure(executeResult.error);
-      await this.handleTaskFailure(computedTask, executeResult.error.message, context);
+      await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
+        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+      });
       return err(executeResult.error);
     }
 
@@ -804,9 +864,16 @@ export class ComputedUpdateWorker {
   private async handleTaskFailure(
     task: AnyOutboxItem,
     message: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options: { forceDeadLetter?: boolean } = {}
   ): Promise<boolean> {
-    const result = await this.outbox.markFailed(task, message, context);
+    const failedTask = options.forceDeadLetter
+      ? {
+          ...task,
+          attempts: Math.max(task.attempts, task.maxAttempts - 1),
+        }
+      : task;
+    const result = await this.outbox.markFailed(failedTask, message, context);
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
         taskId: task.id,
@@ -828,12 +895,14 @@ export class ComputedUpdateWorker {
   private async releaseTaskForRetry(
     task: AnyOutboxItem,
     reason: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    retryDelayMs?: number
   ): Promise<boolean> {
     const result = await this.outbox.releaseForRetry(
       {
         task,
         reason,
+        retryDelayMs,
       },
       context
     );
@@ -858,6 +927,40 @@ export class ComputedUpdateWorker {
       reason,
     });
     return true;
+  }
+
+  private async loadActiveTableForTask(params: {
+    task: AnyOutboxItem;
+    tableId: TableId;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+  }): Promise<Result<LoadTaskTableResult, DomainError>> {
+    const tableSpec = TableByIdSpec.create(params.tableId);
+    const activeResult = await this.tableRepository.findOne(params.context, tableSpec);
+    if (activeResult.isOk()) return ok({ status: 'loaded', table: activeResult.value });
+    if (!isNotFoundError(activeResult.error)) return err(activeResult.error);
+
+    const anyStateResult = await this.tableRepository.findOne(params.context, tableSpec, {
+      state: 'all',
+    });
+    if (anyStateResult.isErr()) {
+      return err(isNotFoundError(anyStateResult.error) ? activeResult.error : anyStateResult.error);
+    }
+
+    const tableId = params.tableId.toString();
+    const message = `Computed update blocked by inactive table: tableId=${tableId}`;
+    this.logger.warn('computed:worker:inactive_table_blocked', {
+      taskId: params.task.id,
+      tableId,
+      ...params.logContext,
+    });
+    await this.releaseTaskForRetry(
+      params.task,
+      message,
+      params.context,
+      this.outboxConfig.maxBackoffMs
+    );
+    return ok({ status: 'blocked' });
   }
 
   private async splitLargeComputedTask(
@@ -975,8 +1078,12 @@ export class ComputedUpdateWorker {
     }
 
     // Load table with fields
-    const tableSpec = TableByIdSpec.create(tableIdResult.value);
-    const tableResult = await this.tableRepository.findOne(context, tableSpec);
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: tableIdResult.value,
+      context,
+      logContext: runLogContext,
+    });
     if (tableResult.isErr()) {
       this.logger.error('computed:worker:field_backfill_failed', {
         taskId: task.id,
@@ -986,18 +1093,9 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
+    if (tableResult.value.status === 'blocked') return ok(false);
 
-    const table = tableResult.value;
-    if (!table) {
-      const message = `Table not found: ${task.tableId}`;
-      this.logger.error('computed:worker:field_backfill_failed', {
-        taskId: task.id,
-        error: message,
-        ...runLogContext,
-      });
-      await this.handleTaskFailure(task, message, context);
-      return err(domainError.notFound({ code: 'table.not_found', message }));
-    }
+    const table = tableResult.value.table;
 
     // Get fields to backfill
     const fieldsToBackfill: ReturnType<typeof table.getFields> = [];
@@ -1022,6 +1120,9 @@ export class ComputedUpdateWorker {
     const executeResult: Result<boolean, DomainError> = await this.unitOfWork.withTransaction(
       context,
       async (txContext) => {
+        const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+        if (timeoutResult.isErr()) return err(timeoutResult.error);
+
         // Execute sync backfill for all fields
         const backfillResult = await this.backfillService.executeSyncMany(txContext, {
           table,
@@ -1044,7 +1145,9 @@ export class ComputedUpdateWorker {
         error: executeResult.error.message,
         ...runLogContext,
       });
-      await this.handleTaskFailure(task, executeResult.error.message, context);
+      await this.handleTaskFailure(task, executeResult.error.message, context, {
+        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+      });
       return err(executeResult.error);
     }
 
@@ -1077,6 +1180,7 @@ export class ComputedUpdateWorker {
     };
     let failurePhase:
       | 'deserialize_seed_payload'
+      | 'set_statement_timeout'
       | 'load_seed_table'
       | 'plan_seed'
       | 'acquire_locks'
@@ -1131,29 +1235,32 @@ export class ComputedUpdateWorker {
 
     // Load table with fields
     failurePhase = 'load_seed_table';
-    const tableSpec = TableByIdSpec.create(seedData.seedTableId);
-    const tableResult = await this.tableRepository.findOne(context, tableSpec);
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: seedData.seedTableId,
+      context,
+      logContext: runLogContext,
+    });
     if (tableResult.isErr()) {
       logSeedFailure(tableResult.error);
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
+    if (tableResult.value.status === 'blocked') return ok(false);
 
-    const table = tableResult.value;
-    if (!table) {
-      const message = `Table not found: ${task.seedTableId}`;
-      logSeedFailure(message);
-      await this.handleTaskFailure(task, message, context);
-      return err(domainError.notFound({ code: 'table.not_found', message }));
-    }
+    const table = tableResult.value.table;
 
     // Compute the full plan from seed data
     failurePhase = 'plan_seed';
-    const planResult = await this.planner.plan(
+    const planResult = await this.planner.planStage(
       {
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: seedData.seedRecordIds,
+        extraSeedRecords: seedData.extraSeedRecords,
+        beforeImageRecords: seedData.beforeImageRecords,
         table,
         changedFieldIds: seedData.changedFieldIds,
-        changedRecordIds: seedData.seedRecordIds,
         changeType: seedData.changeType,
         cyclePolicy: seedData.cyclePolicy,
         impact: seedData.impact
@@ -1171,11 +1278,7 @@ export class ComputedUpdateWorker {
       return err(planResult.error);
     }
 
-    const plan: ComputedUpdatePlan = {
-      ...planResult.value,
-      extraSeedRecords: seedData.extraSeedRecords,
-      beforeImageRecords: seedData.beforeImageRecords,
-    };
+    const plan: ComputedUpdatePlan = planResult.value;
 
     // If no steps, nothing to do
     if (plan.steps.length === 0) {
@@ -1189,6 +1292,10 @@ export class ComputedUpdateWorker {
 
     // Execute the plan within a transaction
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      failurePhase = 'set_statement_timeout';
+      const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+      if (timeoutResult.isErr()) return err(timeoutResult.error);
+
       const run = createComputedUpdateRun({
         runId: task.runId,
         totalSteps: plan.steps.length,
@@ -1250,7 +1357,8 @@ export class ComputedUpdateWorker {
         txContext,
         stageFieldIds,
         seedGroups,
-        seedAllTableIds
+        seedAllTableIds,
+        stageResult.value.changesByStep
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
@@ -1293,7 +1401,9 @@ export class ComputedUpdateWorker {
         return ok(false);
       }
       logSeedFailure(executeResult.error);
-      await this.handleTaskFailure(task, executeResult.error.message, context);
+      await this.handleTaskFailure(task, executeResult.error.message, context, {
+        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+      });
       return err(executeResult.error);
     }
 
@@ -1312,7 +1422,8 @@ export class ComputedUpdateWorker {
     context: IExecutionContext,
     seedFieldIds: ReadonlyArray<FieldId>,
     seedGroups: ReadonlyArray<ComputedSeedGroup>,
-    seedAllTableIds?: ReadonlyArray<TableId>
+    seedAllTableIds?: ReadonlyArray<TableId>,
+    changesByStep: ReadonlyArray<StepChangeData> = []
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
     if (seedFieldIds.length === 0 && (!seedAllTableIds || seedAllTableIds.length === 0))
@@ -1322,6 +1433,23 @@ export class ComputedUpdateWorker {
     if (!seedSplit && (!seedAllTableIds || seedAllTableIds.length === 0))
       return ok({ ...plan, steps: [], edges: [] });
 
+    let beforeImageRecords: ComputedUpdatePlan['beforeImageRecords'] = [];
+    if (seedSplit && changesByStep.length > 0) {
+      const tableSpec = TableByIdSpec.create(seedSplit.seedTableId);
+      const tableResult = await this.tableRepository.findOne(context, tableSpec);
+      if (tableResult.isErr()) return err(tableResult.error);
+
+      const beforeImageResult = buildBeforeImageRecordsFromStepChanges({
+        seedTableId: seedSplit.seedTableId,
+        seedRecordIds: seedSplit.seedRecordIds,
+        seedFieldIds,
+        changesByStep,
+        tableById: new Map([[seedSplit.seedTableId.toString(), tableResult.value]]),
+      });
+      if (beforeImageResult.isErr()) return err(beforeImageResult.error);
+      beforeImageRecords = beforeImageResult.value;
+    }
+
     const startTime = Date.now();
     const result = await this.planner.planStage(
       {
@@ -1329,7 +1457,7 @@ export class ComputedUpdateWorker {
         seedTableId: seedSplit?.seedTableId ?? plan.seedTableId,
         seedRecordIds: seedSplit?.seedRecordIds ?? [],
         extraSeedRecords: seedSplit?.extraSeedRecords ?? [],
-        beforeImageRecords: [],
+        beforeImageRecords,
         changedFieldIds: seedFieldIds,
         // After the initial insert/delete is processed, subsequent stages should behave like
         // updates. Follow-up stages are recomputing surviving records based on computed-field
@@ -1463,7 +1591,7 @@ const buildComputedUpdateEvents = (
       newVersion: change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
-        oldValue: null as unknown,
+        oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));

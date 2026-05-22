@@ -2093,7 +2093,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
         } catch (error) {
           return err(
-            wrapDatabaseError(error, 'update', { tableName, fields: table.getFields() }, context.$t)
+            wrapDatabaseError(
+              error,
+              'update',
+              {
+                tableName,
+                fields: table.getFields(),
+              },
+              context.$t
+            )
           );
         }
       }.bind(this)
@@ -2126,6 +2134,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const updatedRecords: Array<
           NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]
         > = [];
+        const beforeImageByRecordId = new Map<string, ComputedBeforeImageRecord>();
         const allValueFieldIds = new Map<string, core.FieldId>();
         const allLinkFieldIds = new Map<string, core.FieldId>();
         const extraSeedMap = new Map<
@@ -2216,10 +2225,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
 
           try {
+            const batchImpactHint = {
+              valueFieldIds: impact.valueFieldIds,
+              linkFieldIds: impact.impactHint.linkFieldIds,
+            };
+            const normalizedBatchImpact = this.normalizeImpactHint(batchImpactHint);
+            const batchChangedFieldIds = this.expandComputedSeedFieldIds(batchTable, [
+              ...batchImpactHint.valueFieldIds,
+              ...batchImpactHint.linkFieldIds,
+            ]);
+            const beforeImageCapturePlan = await this.resolveBeforeImageCapturePlan(
+              context,
+              batchTable,
+              batchChangedFieldIds,
+              'update',
+              normalizedBatchImpact
+            );
+            if (beforeImageCapturePlan.isErr()) {
+              return err(beforeImageCapturePlan.error);
+            }
+
             // Generate and execute batch UPDATE SQL
             const returnedOldFields = collectBatchUpdateReturnedOldFields(
               batchTable,
-              columnUpdateData
+              columnUpdateData,
+              beforeImageCapturePlan.value.trackedFields.map(({ fieldId, dbFieldName }) => ({
+                fieldId: fieldId.toString(),
+                dbFieldName,
+              }))
             );
             const updateSqlResult = buildBatchUpdateSql({
               tableName,
@@ -2227,6 +2260,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               systemColumns,
               table: batchTable,
               db,
+              returnedOldFields,
             });
             if (updateSqlResult.isErr()) {
               return err(updateSqlResult.error);
@@ -2300,6 +2334,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             }
 
             if (batchUpdatedRecords.length > 0) {
+              if (beforeImageCapturePlan.value.needsBeforeImage) {
+                for (const update of batchUpdatedRecords) {
+                  const recordIdKey = update.recordId.toString();
+                  if (beforeImageByRecordId.has(recordIdKey)) {
+                    continue;
+                  }
+
+                  beforeImageByRecordId.set(
+                    recordIdKey,
+                    beforeImageCapturePlan.value.trackedFields.length === 0
+                      ? buildEmptyBeforeImageRecord(update.recordId)
+                      : buildBeforeImageFromTrackedValues(
+                          update.recordId,
+                          beforeImageCapturePlan.value.trackedFields,
+                          update.oldFieldValues
+                        )
+                  );
+                }
+              }
+
               // Acquire advisory locks for linked records (deduplicated, single query)
               const baseId = batchTable.baseId().toString();
               await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
@@ -2394,7 +2448,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                     affectedRecords,
                     impact,
                     extraSeedRecords,
-                    [],
+                    [...beforeImageByRecordId.values()],
                     {
                       forceOutbox: true,
                       scheduleDispatchAfterCommit: true,
@@ -2405,14 +2459,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                     table,
                     affectedRecords,
                     impact,
-                    extraSeedRecords
+                    extraSeedRecords,
+                    [...beforeImageByRecordId.values()]
                   )
               : await this.runComputedUpdateManyByIds(
                   context,
                   table,
                   affectedRecords,
                   impact,
-                  extraSeedRecords
+                  extraSeedRecords,
+                  [...beforeImageByRecordId.values()]
                 );
             if (computedResult.isErr()) {
               return err(computedResult.error);
@@ -3608,7 +3664,7 @@ const buildComputedUpdateEvents = (
       newVersion: change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
-        oldValue: null as unknown,
+        oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));

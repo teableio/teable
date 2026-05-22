@@ -164,6 +164,29 @@ export const failTableSchemaOperation = async (
     )
   );
 
+export const failRecoverableTableSchemaOperation = async (
+  unitOfWork: IUnitOfWork,
+  tableRepository: ITableRepository,
+  context: IExecutionContext,
+  table: Table,
+  options: FailTableSchemaOperationOptions
+): Promise<Result<void, DomainError>> =>
+  setTableProvisionState(
+    unitOfWork,
+    tableRepository,
+    context,
+    table,
+    'ready',
+    operationOptions(
+      {
+        ...options,
+        status: options.status ?? 'error',
+      },
+      options.payload === undefined ? undefined : tablePayload(table, options.payload),
+      'error'
+    )
+  );
+
 export const failTablesSchemaOperation = async (
   unitOfWork: IUnitOfWork,
   tableRepository: ITableRepository,

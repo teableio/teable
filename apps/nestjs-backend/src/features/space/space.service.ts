@@ -63,7 +63,14 @@ export class SpaceService {
     return false;
   }
 
-  private async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
+  protected createOrganizationSpace(
+    _space: { id: string; name: string },
+    _spaceCreateInput: Prisma.SpaceCreateInput
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  protected async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
     return await this.prismaService.$tx(async (prisma) => {
       const result = await prisma.space.create({
         select: {
@@ -72,6 +79,7 @@ export class SpaceService {
         },
         data: spaceCreateInput,
       });
+      await this.createOrganizationSpace(result, spaceCreateInput);
       await this.collaboratorService.createSpaceCollaborator({
         collaborators: [
           {

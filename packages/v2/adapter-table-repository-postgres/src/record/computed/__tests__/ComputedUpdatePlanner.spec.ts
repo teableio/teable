@@ -900,6 +900,31 @@ describe('ComputedUpdatePlanner', () => {
       expect(allTargetEdge?.filterCondition).toBeUndefined();
     });
 
+    it('uses conditionalFiltered mode when inserting a record with a filter field value', async () => {
+      const planner = createPlanner();
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        changedFieldIds: [categoryFieldId],
+        changeType: 'insert',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      const conditionalEdge = plan.edges.find(
+        (edge) =>
+          edgeTargetsField(edge, conditionalRollupFieldId) &&
+          edge.propagationMode === 'conditionalFiltered'
+      );
+      expect(conditionalEdge?.filterCondition?.includeBeforeImage).toBeUndefined();
+      expect(conditionalEdge?.filterCondition?.filterDto).toEqual(filterDto);
+      expect(conditionalEdge?.allTargetRecordsReasons).toBeUndefined();
+    });
+
     it('uses conditionalFiltered with before-image when updating filter field and old values are available', async () => {
       const planner = createPlanner();
 
@@ -1129,6 +1154,15 @@ describe('ComputedUpdatePlanner', () => {
         seedTableId: sameTableId,
         seedRecordIds: [sameRecordId],
         extraSeedRecords: [],
+        beforeImageRecords: [
+          {
+            recordId: sameRecordId,
+            fieldValuesByDbName: {
+              col_category: 'electronics-choice-id',
+              col_price: 42,
+            },
+          },
+        ],
         changedFieldIds: [samePriceFieldId],
         changeType: 'delete',
       });
@@ -1150,6 +1184,7 @@ describe('ComputedUpdatePlanner', () => {
       );
       expect(sameTableEdge?.toTableId.equals(sameTableId)).toBe(true);
       expect(sameTableEdge?.propagationMode).toBe('allTargetRecords');
+      expect(sameTableEdge?.allTargetRecordsReasons).toEqual(['conditional_delete']);
     });
 
     it('uses allTargetRecords mode when filter field and value field are both changed', async () => {

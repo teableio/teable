@@ -24,19 +24,40 @@ export interface BuildBatchUpdateSqlParams {
   };
   table: Table;
   db: Kysely<DynamicDB>;
+  returnedOldFields?: ReadonlyArray<BatchUpdateReturnedOldField>;
+}
+
+export interface BatchUpdateReturnedOldFieldInput {
+  fieldId: string;
+  dbFieldName: string;
 }
 
 export interface BatchUpdateReturnedOldField {
   fieldId: string;
+  dbFieldName: string;
   alias: string;
 }
 
 export function collectBatchUpdateReturnedOldFields(
   table: Table,
-  columnUpdateData: ReadonlyMap<string, ReadonlyArray<{ recordId: string; value: unknown }>>
+  columnUpdateData: ReadonlyMap<string, ReadonlyArray<{ recordId: string; value: unknown }>>,
+  extraFields: ReadonlyArray<BatchUpdateReturnedOldFieldInput> = []
 ): BatchUpdateReturnedOldField[] {
   const fields: BatchUpdateReturnedOldField[] = [];
   const seenFieldIds = new Set<string>();
+
+  const addField = (fieldId: string, dbFieldName: string) => {
+    if (seenFieldIds.has(fieldId)) {
+      return;
+    }
+    seenFieldIds.add(fieldId);
+    fields.push({
+      fieldId,
+      dbFieldName,
+      alias: `old_${fields.length}`,
+    });
+  };
+
   for (const [columnName] of columnUpdateData) {
     if (isSystemColumn(columnName)) {
       continue;
@@ -48,15 +69,13 @@ export function collectBatchUpdateReturnedOldFields(
     }
 
     const fieldId = fieldResult.value.id().toString();
-    if (seenFieldIds.has(fieldId)) {
-      continue;
-    }
-    seenFieldIds.add(fieldId);
-    fields.push({
-      fieldId,
-      alias: `old_${fields.length}`,
-    });
+    addField(fieldId, columnName);
   }
+
+  for (const field of extraFields) {
+    addField(field.fieldId, field.dbFieldName);
+  }
+
   return fields;
 }
 
@@ -172,9 +191,11 @@ export function buildBatchUpdateSql(
       }
     }
 
-    const returnedOldFields = collectReturnedOldFields(allColumnFields);
+    const returnedOldFields =
+      params.returnedOldFields ?? collectBatchUpdateReturnedOldFields(table, columnUpdateData);
     const matchedOldValueSelects = returnedOldFields.map(
-      ({ name, alias }) => `${escapeSqlIdentifier(name)} AS ${escapeSqlIdentifier(alias)}`
+      ({ dbFieldName, alias }) =>
+        `${escapeSqlIdentifier(dbFieldName)} AS ${escapeSqlIdentifier(alias)}`
     );
     const returningOldValueSelects = returnedOldFields.map(
       ({ alias }) => `matched.${escapeSqlIdentifier(alias)} AS ${escapeSqlIdentifier(alias)}`
@@ -257,7 +278,7 @@ RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')
       rowValues.push(escapeAndQuoteSqlValue(recordId));
 
       // Add varying field values using FieldSqlLiteralVisitor
-      for (const { name, field, presenceAlias: _presenceAlias } of varyingColumns) {
+      for (const { name, field } of varyingColumns) {
         const valueMap = columnValueMaps.get(name);
         const hasValue = valueMap?.has(recordId) ?? false;
         const value = hasValue ? valueMap?.get(recordId) : null;
@@ -366,25 +387,6 @@ function isTrackedLastModifiedField(field: Field | null): boolean {
   }
   const type = field.type();
   return type.equals(FieldType.lastModifiedTime()) || type.equals(FieldType.lastModifiedBy());
-}
-
-function collectReturnedOldFields(
-  columns: ReadonlyArray<BatchColumnField>
-): Array<{ name: string; alias: string; fieldId: string }> {
-  const fields: Array<{ name: string; alias: string; fieldId: string }> = [];
-  const seenFieldIds = new Set<string>();
-  for (const { name, field } of columns) {
-    if (!field || isTrackedLastModifiedField(field)) {
-      continue;
-    }
-    const fieldId = field.id().toString();
-    if (seenFieldIds.has(fieldId)) {
-      continue;
-    }
-    seenFieldIds.add(fieldId);
-    fields.push({ name, alias: `old_${fields.length}`, fieldId });
-  }
-  return fields;
 }
 
 function buildConstantNullDistinctWhereClause(
