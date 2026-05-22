@@ -20,6 +20,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
@@ -394,7 +395,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         currentPlan,
         context,
         nextSeedFieldIds,
-        seedGroups
+        seedGroups,
+        prepared.value,
+        syncResult.value.changesByStep
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
@@ -490,7 +493,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
     seedFieldIds: ReadonlyArray<FieldId>,
-    seedGroups: ReadonlyArray<ComputedSeedGroup>
+    seedGroups: ReadonlyArray<ComputedSeedGroup>,
+    prepared: PreparedDirtyState,
+    changesByStep: ReadonlyArray<StepChangeData>
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
     if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
@@ -498,12 +503,22 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
     if (!seedSplit) return ok({ ...plan, steps: [], edges: [] });
 
+    const beforeImageResult = buildBeforeImageRecordsFromStepChanges({
+      seedTableId: seedSplit.seedTableId,
+      seedRecordIds: seedSplit.seedRecordIds,
+      seedFieldIds,
+      changesByStep,
+      tableById: prepared.tableById,
+    });
+    if (beforeImageResult.isErr()) return err(beforeImageResult.error);
+
     return this.planner.planStage(
       {
         baseId: plan.baseId,
         seedTableId: seedSplit.seedTableId,
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
+        beforeImageRecords: beforeImageResult.value,
         changedFieldIds: seedFieldIds,
         changeType:
           plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
@@ -646,7 +661,7 @@ const buildComputedUpdateEvents = (
       newVersion: change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
-        oldValue: null as unknown,
+        oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));

@@ -63,7 +63,7 @@ export const TableTrash = (props: ITableTrashProps) => {
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
-    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
+    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId, tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.restoreSucceed'));

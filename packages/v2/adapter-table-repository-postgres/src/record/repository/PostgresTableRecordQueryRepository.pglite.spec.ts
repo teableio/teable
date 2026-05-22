@@ -441,8 +441,63 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
       orderedIds.map((recordId) => recordId.toString())
     );
     expect(driver.queries).toHaveLength(1);
-    expect(driver.queries[0].sql).toContain('order by case when "t"."__id" =');
+    expect(driver.queries[0].sql).toContain('order by array_position($');
     expect(driver.queries[0].sql).not.toContain('order by "t"."__auto_number"');
+    expect(driver.queries[0].parameters).toEqual([
+      ...orderedIds.map((recordId) => recordId.toString()),
+      orderedIds.map((recordId) => recordId.toString()),
+    ]);
+  });
+
+  it('re-checks view row order column existence after it is created', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'row-order',
+      rows: [
+        { name: 'A', age: 10 },
+        { name: 'B', age: 20 },
+        { name: 'C', age: 30 },
+      ],
+    });
+    const viewId = fixture.table.views()[0]!.id().toString();
+    const orderColumn = `__row_${viewId}` as const;
+
+    const firstResult = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [{ column: orderColumn, direction: 'asc' }],
+    });
+    expect(firstResult.isOk()).toBe(true);
+    if (firstResult.isErr()) return;
+    expect(firstResult.value.records.map((record) => record.id)).toEqual(fixture.insertedRecordIds);
+
+    await sql`
+      ALTER TABLE ${sql.table(`${fixture.table.baseId().toString()}.${fixture.table.id().toString()}`)}
+      ADD COLUMN ${sql.id(orderColumn)} double precision
+    `.execute(db);
+    await sql`
+      UPDATE ${sql.table(`${fixture.table.baseId().toString()}.${fixture.table.id().toString()}`)}
+      SET ${sql.id(orderColumn)} =
+        CASE __auto_number
+          WHEN 1 THEN 2
+          WHEN 2 THEN 3
+          ELSE 1
+        END
+    `.execute(db);
+
+    const secondResult = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [{ column: orderColumn, direction: 'asc' }],
+    });
+    expect(secondResult.isOk()).toBe(true);
+    if (secondResult.isErr()) return;
+    expect(secondResult.value.records.map((record) => record.id)).toEqual([
+      fixture.insertedRecordIds[2],
+      fixture.insertedRecordIds[0],
+      fixture.insertedRecordIds[1],
+    ]);
   });
 
   it('streams correct pages for cursor pagination and respects projection', async () => {

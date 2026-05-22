@@ -58,7 +58,7 @@ export const DEFAULT_TABLE_DATA_SAFETY_LIMITS: ResolvedTableDataSafetyLimitConfi
   fieldOptions: {
     maxBytes: 262_144,
     maxSelectChoices: 1_000,
-    maxSelectChoiceNameLength: 100,
+    maxSelectChoiceNameLength: 1_000,
     maxSelectDefaultValues: 100,
   },
   recordValues: {
