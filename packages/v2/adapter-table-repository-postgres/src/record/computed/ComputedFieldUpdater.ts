@@ -72,14 +72,53 @@ const BEFORE_IMAGE_TABLE = 'tmp_computed_before_image';
 const BEFORE_IMAGE_SNAPSHOT_COL = 'field_values';
 const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
+const COMPUTED_UPDATE_FIELD_CHUNK_SIZE = 16;
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
+type ComputedUpdateQueryPlan = {
+  selectQuery: QB;
+  fieldIds: ReadonlyArray<FieldId>;
+};
+
+const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  if (items.length <= size) return [items];
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
+const mergeRecordChanges = (
+  target: Map<string, RecordChangeData>,
+  changes: ReadonlyArray<RecordChangeData>
+): void => {
+  for (const change of changes) {
+    const existing = target.get(change.recordId);
+    if (!existing) {
+      target.set(change.recordId, {
+        recordId: change.recordId,
+        oldVersion: change.oldVersion,
+        changes: [...change.changes],
+      });
+      continue;
+    }
+
+    target.set(change.recordId, {
+      recordId: change.recordId,
+      oldVersion: Math.min(existing.oldVersion, change.oldVersion),
+      changes: [...existing.changes, ...change.changes],
+    });
+  }
+};
 /**
  * Change data for a single field in a record.
  */
 export type FieldChangeData = {
   fieldId: string;
+  oldValue?: unknown;
   newValue: unknown;
 };
 
@@ -946,7 +985,7 @@ export class ComputedFieldUpdater {
             });
           }
 
-          let selectQueries: QB[] | undefined;
+          let queryPlans: ComputedUpdateQueryPlan[] | undefined;
 
           // If this step represents a collapsed same-table formula chain, execute using a CTE chain
           // so later formulas read the computed values of earlier formulas (and avoid volatile
@@ -1010,7 +1049,7 @@ export class ComputedFieldUpdater {
                 stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
                 stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
 
-                const batchSelectQueries: QB[] = [];
+                const batchQueryPlans: ComputedUpdateQueryPlan[] = [];
                 for (const recordIds of effectiveChunks) {
                   const batchResult = yield* batchBuilder.build({
                     table,
@@ -1023,38 +1062,53 @@ export class ComputedFieldUpdater {
                       recordIdColumn: DIRTY_RECORD_ID_COL,
                     },
                   });
-                  batchSelectQueries.push(batchResult.selectQuery);
+                  batchQueryPlans.push({ selectQuery: batchResult.selectQuery, fieldIds });
                 }
-                selectQueries = batchSelectQueries;
+                queryPlans = batchQueryPlans;
               }
             }
           }
 
-          if (!selectQueries) {
-            const builder = new ComputedTableRecordQueryBuilder(db, {
-              typeValidationStrategy: this.typeValidationStrategy,
-              forceLookupArrayOutput: true,
-            })
-              .from(table)
-              .select(fieldIds)
-              .withDirtyFilter({ tableId: step.tableId.toString() });
-            yield* await builder.prepare({
-              context,
-              tableRepository: this.tableRepository,
-            });
-            selectQueries = [yield* builder.build()];
+          const shouldChunkFields =
+            collectChanges && !collapsedBatch && fieldIds.length > COMPUTED_UPDATE_FIELD_CHUNK_SIZE;
+          const fieldChunks = shouldChunkFields
+            ? chunkArray(fieldIds, COMPUTED_UPDATE_FIELD_CHUNK_SIZE)
+            : [fieldIds];
+
+          stepSpan?.setAttribute('step.fieldChunkCount', fieldChunks.length);
+          stepSpan?.setAttribute('step.fieldChunked', shouldChunkFields ? 1 : 0);
+
+          if (!queryPlans) {
+            queryPlans = [];
+            for (const fieldChunk of fieldChunks) {
+              const builder = new ComputedTableRecordQueryBuilder(db, {
+                typeValidationStrategy: this.typeValidationStrategy,
+                forceLookupArrayOutput: true,
+              })
+                .from(table)
+                .select(fieldChunk)
+                .withDirtyFilter({ tableId: step.tableId.toString() });
+              yield* await builder.prepare({
+                context,
+                tableRepository: this.tableRepository,
+              });
+              queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+            }
           }
 
           const recordChanges: RecordChangeData[] = [];
           const executedSqls: Array<{ sql: string; parameterCount: number }> = [];
 
           if (collectChanges) {
-            for (let i = 0; i < selectQueries.length; i++) {
-              const selectQuery = selectQueries[i];
+            const mergedRecordChanges = new Map<string, RecordChangeData>();
+
+            for (let i = 0; i < queryPlans.length; i++) {
+              const { selectQuery, fieldIds: chunkFieldIds } = queryPlans[i];
               const compiledResult = yield* updateBuilder.buildWithReturning({
                 table,
-                fieldIds,
+                fieldIds: chunkFieldIds,
                 selectQuery,
+                incrementVersion: !shouldChunkFields,
               });
               executedSqls.push({
                 sql: compiledResult.compiled.sql,
@@ -1062,7 +1116,7 @@ export class ComputedFieldUpdater {
               });
 
               const chunkSuffix =
-                selectQueries.length > 1 ? `:chunk=${i + 1}/${selectQueries.length}` : '';
+                queryPlans.length > 1 ? `:chunk=${i + 1}/${queryPlans.length}` : '';
               const sqlLogContext = run
                 ? { ...toRunLogContext(run), parameters: compiledResult.compiled.parameters }
                 : { parameters: compiledResult.compiled.parameters };
@@ -1079,8 +1133,10 @@ export class ComputedFieldUpdater {
               for (const row of rows) {
                 const changes: FieldChangeData[] = [];
                 for (const [column, fieldId] of compiledResult.columnToFieldId) {
+                  const oldValueAlias = compiledResult.oldColumnAliases.get(column);
                   changes.push({
                     fieldId,
+                    oldValue: oldValueAlias ? row[oldValueAlias] : undefined,
                     newValue: row[column],
                   });
                 }
@@ -1096,7 +1152,26 @@ export class ComputedFieldUpdater {
                 chunkRecordChanges
               );
               if (safetyResult.isErr()) return err(safetyResult.error);
-              recordChanges.push(...chunkRecordChanges);
+              if (shouldChunkFields) {
+                mergeRecordChanges(mergedRecordChanges, chunkRecordChanges);
+              } else {
+                recordChanges.push(...chunkRecordChanges);
+              }
+            }
+
+            if (shouldChunkFields) {
+              recordChanges.push(...mergedRecordChanges.values());
+              if (recordChanges.length > 0) {
+                const changedRecordIds = [...mergedRecordChanges.keys()];
+                const versionBump = sql`update ${sql.raw(toQualifiedIdentifierLiteral(tableName))}
+                  set "__version" = "__version" + 1
+                  where "__id" in (${sql.join(changedRecordIds)})`.compile(db);
+                executedSqls.push({
+                  sql: versionBump.sql,
+                  parameterCount: versionBump.parameters.length,
+                });
+                await db.executeQuery(versionBump);
+              }
             }
 
             const sqlSummary =
@@ -1123,11 +1198,11 @@ export class ComputedFieldUpdater {
             return ok({ traceInfo, recordChanges });
           }
 
-          for (let i = 0; i < selectQueries.length; i++) {
-            const selectQuery = selectQueries[i];
+          for (let i = 0; i < queryPlans.length; i++) {
+            const { selectQuery, fieldIds: chunkFieldIds } = queryPlans[i];
             const compiled = yield* updateBuilder.build({
               table,
-              fieldIds,
+              fieldIds: chunkFieldIds,
               selectQuery,
               // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
               // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
@@ -1137,8 +1212,7 @@ export class ComputedFieldUpdater {
               parameterCount: compiled.parameters.length,
             });
 
-            const chunkSuffix =
-              selectQueries.length > 1 ? `:chunk=${i + 1}/${selectQueries.length}` : '';
+            const chunkSuffix = queryPlans.length > 1 ? `:chunk=${i + 1}/${queryPlans.length}` : '';
             const sqlLogContext = run
               ? { ...toRunLogContext(run), parameters: compiled.parameters }
               : { parameters: compiled.parameters };
@@ -1490,7 +1564,9 @@ export class ComputedFieldUpdater {
           .withoutBaseId()
           .byIds([...tableIds.values()])
           .build();
-        const tables = yield* await this.tableRepository.find(context, spec);
+        const tables = yield* await this.tableRepository.find(context, spec, {
+          state: 'activeWithPending',
+        });
 
         return ok(tables);
       }.bind(this)

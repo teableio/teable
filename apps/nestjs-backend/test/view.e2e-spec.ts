@@ -463,6 +463,12 @@ describe('OpenAPI ViewController (e2e)', () => {
         expect(shareMeta).toEqual(viewShareDefault.defaultShareMeta);
       }
     );
+
+    it('stores submit.requireLogin on form views', async () => {
+      await updateViewShareMeta(tableId, formViewId, { submit: { requireLogin: true } });
+      const view = await getView(tableId, formViewId);
+      expect(view.shareMeta?.submit?.requireLogin).toBe(true);
+    });
   });
 
   describe('filter by view ', () => {

@@ -26,8 +26,11 @@ describe('TableTrashListener', () => {
         create: vi.fn(),
       },
     };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const listener = new TableTrashListener(
-      dataPrismaService as never,
+      dataDbClientManager as never,
       {
         bigTransactionTimeout: 30_000,
       } as never
@@ -44,6 +47,9 @@ describe('TableTrashListener', () => {
 
     await listener.recordDeleteListener(payload);
 
+    expect(dataDbClientManager.dataPrismaForTable).toHaveBeenCalledWith('tblTrashListenerTable', {
+      useTransaction: true,
+    });
     expect(dataPrismaService.$tx).toHaveBeenCalledWith(expect.any(Function), {
       timeout: 30_000,
     });
@@ -95,14 +101,18 @@ describe('TableTrashListener', () => {
         create: tableTrashCreate,
       },
     };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const listener = new TableTrashListener(
-      dataPrismaService as never,
+      dataDbClientManager as never,
       {
         bigTransactionTimeout: 30_000,
       } as never
     );
     const fieldPayload: IDeleteFieldsPayload = {
       operationId: 'oprTrashListenerField',
+      windowId: 'winTrashListenerWindow',
       tableId: 'tblTrashListenerTable',
       userId: 'usrTrashListenerUser',
       fields: [{ id: 'fldTrashListenerField', name: 'Name' }] as never,
@@ -110,6 +120,7 @@ describe('TableTrashListener', () => {
     };
     const viewPayload: IDeleteViewPayload = {
       operationId: 'oprTrashListenerView',
+      windowId: 'winTrashListenerWindow',
       tableId: 'tblTrashListenerTable',
       userId: 'usrTrashListenerUser',
       viewId: 'viwTrashListenerView',
@@ -118,6 +129,16 @@ describe('TableTrashListener', () => {
     await listener.fieldDeleteListener(fieldPayload);
     await listener.viewDeleteListener(viewPayload);
 
+    expect(dataDbClientManager.dataPrismaForTable).toHaveBeenNthCalledWith(
+      1,
+      'tblTrashListenerTable',
+      { useTransaction: true }
+    );
+    expect(dataDbClientManager.dataPrismaForTable).toHaveBeenNthCalledWith(
+      2,
+      'tblTrashListenerTable',
+      { useTransaction: true }
+    );
     expect(tableTrashCreate).toHaveBeenNthCalledWith(1, {
       data: {
         id: 'oprTrashListenerField',

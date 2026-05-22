@@ -312,23 +312,21 @@ async function ensureLargeTableContext(): Promise<ILargeTableContext> {
         throw new Error('Benchmark setup failed: no linked records available.');
       }
 
-      await Promise.all(
-        seededRecords.records.map((record, index) => {
-          const value = [
-            { id: linkTargets[index % linkTargets.length] },
-            { id: linkTargets[(index + 1) % linkTargets.length] },
-          ];
+      for (const [index, record] of seededRecords.records.entries()) {
+        const value = [
+          { id: linkTargets[index % linkTargets.length] },
+          { id: linkTargets[(index + 1) % linkTargets.length] },
+        ];
 
-          return updateRecord(mainTable.id, record.id, {
-            fieldKeyType: FieldKeyType.Id,
-            record: {
-              fields: {
-                [linkField.id]: value,
-              },
+        await updateRecord(mainTable.id, record.id, {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: {
+              [linkField.id]: value,
             },
-          });
-        })
-      );
+          },
+        });
+      }
 
       const sampleRecordId = seededRecords.records[0]?.id;
 
@@ -373,7 +371,7 @@ describe('Large table operations timing (e2e)', () => {
 
   beforeAll(async () => {
     context = await ensureLargeTableContext();
-  });
+  }, 300_000);
 
   afterAll(async () => {
     if (context) {

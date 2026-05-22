@@ -15,17 +15,16 @@ import { sortSchema } from './sort';
 
 export const sharePasswordSchema = z.string().min(3);
 
+export const shareViewMetaSubmitSchema = z.object({
+  requireLogin: z.boolean().optional(),
+});
+
 export const shareViewMetaSchema = z.object({
   allowCopy: z.boolean().optional(),
   includeHiddenField: z.boolean().optional(),
   password: sharePasswordSchema.optional(),
   includeRecords: z.boolean().optional(),
-  submit: z
-    .object({
-      allow: z.boolean().optional(),
-      requireLogin: z.boolean().optional(),
-    })
-    .optional(),
+  submit: shareViewMetaSubmitSchema.optional(),
 });
 
 export type IShareViewMeta = z.infer<typeof shareViewMetaSchema>;

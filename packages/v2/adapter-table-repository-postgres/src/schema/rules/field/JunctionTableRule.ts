@@ -2,25 +2,36 @@ import { domainError, type DomainError, type LinkField } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { z } from 'zod';
 
 import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
   SchemaRuleI18nValue,
+  SchemaRuleManualRepairOptions,
+  SchemaRuleManualRepairValues,
   SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import {
+  serializeManualRepairSchema,
+  withManualRepairFieldMeta,
+  withManualRepairFormMeta,
+} from '../core/ManualRepairSchema';
 import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
 import {
   backfillJunctionTableFromLinkValueStatement,
+  compressSql,
   createForeignKeyConstraintStatement,
-  createForeignKeyConstraintStatementFromTableMeta,
   createIndexStatement,
+  dataStatement,
   dropConstraintStatement,
   dropIndexStatement,
   dropTableStatement,
+  quoteIdentifier,
+  quoteTableIdentifier,
   type TableIdentifier,
 } from '../helpers/StatementBuilders';
 
@@ -57,6 +68,47 @@ export class JunctionTableExistsRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string> = [];
   readonly required = true;
+
+  private readonly missingHostSchemaManualRepairSchema = withManualRepairFormMeta(
+    z.object({
+      resolution: withManualRepairFieldMeta(z.enum(['create_missing_host_schema']), {
+        widget: 'select',
+        title: {
+          key: 'table:table.integrity.v2.repairMeta.manual.junctionHostSchema.resolutionLabel',
+          fallback: 'Repair strategy',
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.manual.junctionHostSchema.resolutionDescription',
+          fallback:
+            'The configured schema for the junction table is missing. Confirm creating it before rebuilding the junction table from the current link values.',
+        },
+        options: {
+          create_missing_host_schema: {
+            value: 'create_missing_host_schema',
+            label: {
+              key: 'table:table.integrity.v2.repairMeta.manual.junctionHostSchema.option.create',
+              fallback: 'Create the missing schema and rebuild the junction table',
+            },
+          },
+        },
+      }).default('create_missing_host_schema'),
+    }),
+    {
+      title: {
+        key: 'table:table.integrity.v2.repairMeta.manual.junctionHostSchema.title',
+        fallback: 'Resolve missing junction table schema',
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.manual.junctionHostSchema.description',
+        fallback:
+          'This repair is manual because the link metadata points to a schema that no longer exists. Confirm the schema should be recreated for this link before applying the repair.',
+      },
+      submitLabel: {
+        key: 'table:table.integrity.v2.repairMeta.manual.apply',
+        fallback: 'Apply manual repair',
+      },
+    }
+  );
 
   constructor(
     private readonly field: LinkField,
@@ -183,12 +235,43 @@ export class JunctionTableExistsRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
+    const self = this;
     const config = this.config;
     const junctionTable = config.junctionTable;
     const schemaName = junctionTable.schema ?? 'public';
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const missing: string[] = [];
+
+      if (junctionTable.schema) {
+        const schemaResult = await sql<{ exists: boolean }>`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.schemata
+            WHERE schema_name = ${junctionTable.schema}
+          ) as exists
+        `.execute(ctx.db);
+
+        if (!schemaResult.rows[0]?.exists) {
+          return ok({
+            valid: false,
+            missing: [`schema "${schemaName}"`],
+            missingItems: [
+              {
+                code: 'junction_table_host_schema_missing',
+                message: {
+                  fallback:
+                    `The schema "${schemaName}" for the junction table of ` +
+                    `"${self.field.name().toString()}" does not exist.`,
+                },
+                description: {
+                  fallback:
+                    'Automatic repair cannot recreate this junction table because its configured host schema is missing.',
+                },
+              },
+            ],
+          });
+        }
+      }
 
       // 1. Check if table exists
       const tableExistsResult = await ctx.introspector.tableExists(
@@ -229,8 +312,36 @@ export class JunctionTableExistsRule implements ISchemaRule {
 
   getRepairHint(
     _ctx: SchemaRuleContext,
-    _validation: SchemaRuleValidationResult
+    validation: SchemaRuleValidationResult
   ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    const hostSchemaMissing = validation.missingItems?.some(
+      (item) => item.code === 'junction_table_host_schema_missing'
+    );
+
+    if (hostSchemaMissing) {
+      const manualRepairSchemaResult = serializeManualRepairSchema(
+        this.missingHostSchemaManualRepairSchema
+      );
+
+      return ok({
+        available: true,
+        mode: 'manual',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.junctionHostSchemaMissing',
+          fallback:
+            'The junction table host schema for ' + `"${this.field.name().toString()}" is missing.`,
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.description.junctionHostSchemaMissing',
+          fallback:
+            'Confirm creating the missing schema before rebuilding the junction table. The repair can only restore relation rows that are still present in the source link-value column.',
+        },
+        manualRepairSchema: manualRepairSchemaResult.isOk()
+          ? manualRepairSchemaResult.value
+          : undefined,
+      });
+    }
+
     return ok({
       available: true,
       mode: 'auto',
@@ -268,43 +379,56 @@ export class JunctionTableExistsRule implements ISchemaRule {
           'double precision'
         );
       }
-      statements.push(createTableBuilder);
+      statements.push(dataStatement(createTableBuilder));
 
       // Also repair partially-created junction tables by adding any missing columns.
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn('__id', 'serial', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn('__id', 'serial', (col) => col.ifNotExists())
+        )
       );
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+        )
       );
       statements.push(
-        schemaBuilder
-          .alterTable(config.junctionTable.tableName)
-          .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+        dataStatement(
+          schemaBuilder
+            .alterTable(config.junctionTable.tableName)
+            .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+        )
       );
 
       if (config.orderColumnName) {
         statements.push(
-          schemaBuilder
-            .alterTable(config.junctionTable.tableName)
-            .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+          dataStatement(
+            schemaBuilder
+              .alterTable(config.junctionTable.tableName)
+              .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+          )
         );
       }
 
       const sourceLinkValueColumnName = yield* resolveColumnName(self.field);
+      const sameColumnLinkFieldCount =
+        ctx.table?.getFields().filter((field) => {
+          const dbFieldName = field.dbFieldName().andThen((name) => name.value());
+          return dbFieldName.isOk() && dbFieldName.value === sourceLinkValueColumnName;
+        }).length ?? 1;
       statements.push(
         backfillJunctionTableFromLinkValueStatement({
           sourceTable: config.sourceTable,
-          sourceTableId: ctx.tableId,
           sourceLinkValueColumnName,
           junctionTable: config.junctionTable,
           selfKeyName: config.selfKeyName,
           foreignKeyName: config.foreignKeyName,
           orderColumnName: config.orderColumnName,
+          skipBackfill: sameColumnLinkFieldCount > 1,
         })
       );
 
@@ -315,6 +439,68 @@ export class JunctionTableExistsRule implements ISchemaRule {
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     // DROP TABLE CASCADE will automatically drop FK constraints and indexes
     return ok([dropTableStatement(this.config.junctionTable)]);
+  }
+
+  async manualRepair(
+    ctx: SchemaRuleContext,
+    values: SchemaRuleManualRepairValues | undefined,
+    options?: SchemaRuleManualRepairOptions
+  ): Promise<Result<void, DomainError>> {
+    const resolution =
+      typeof values?.resolution === 'string' ? values.resolution : 'create_missing_host_schema';
+
+    if (resolution !== 'create_missing_host_schema') {
+      return err(
+        domainError.validation({
+          message: 'Unsupported manual repair strategy',
+          details: { resolution },
+        })
+      );
+    }
+
+    const schemaName = this.config.junctionTable.schema;
+    if (!schemaName) {
+      return err(
+        domainError.validation({
+          message: 'Junction table host schema is not configured',
+          details: {
+            fieldId: this.field.id().toString(),
+            junctionTable: this.config.junctionTable,
+          },
+        })
+      );
+    }
+
+    if (options?.dryRun) {
+      return ok(undefined);
+    }
+
+    try {
+      await ctx.db.schema.createSchema(schemaName).ifNotExists().execute();
+
+      const statementsResult = this.up(ctx);
+      if (statementsResult.isErr()) {
+        return err(statementsResult.error);
+      }
+
+      for (const statement of statementsResult.value) {
+        await ctx.db.executeQuery(statement.compile(ctx.db));
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to restore junction table host schema: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'schema.repair_failed',
+          details: {
+            fieldId: this.field.id().toString(),
+            schemaName,
+            junctionTable: this.config.junctionTable,
+          },
+        })
+      );
+    }
   }
 }
 
@@ -376,7 +562,7 @@ export class JunctionTableUniqueConstraintRule implements ISchemaRule {
       .alterTable(this.junctionTable.tableName)
       .addUniqueConstraint(this.constraintName, [this.selfKeyName, this.foreignKeyName]);
 
-    return ok([builder]);
+    return ok([dataStatement(builder)]);
   }
 
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -451,6 +637,47 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = false;
+
+  private readonly orphanRowsManualRepairSchema = withManualRepairFormMeta(
+    z.object({
+      resolution: withManualRepairFieldMeta(z.enum(['delete_orphan_rows']), {
+        widget: 'select',
+        title: {
+          key: 'table:table.integrity.v2.repairMeta.manual.junctionForeignKeyOrphanRows.resolutionLabel',
+          fallback: 'Repair strategy',
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.manual.junctionForeignKeyOrphanRows.resolutionDescription',
+          fallback:
+            'Invalid junction rows point to records that no longer exist. Confirm deleting those invalid relation rows before restoring the foreign key.',
+        },
+        options: {
+          delete_orphan_rows: {
+            value: 'delete_orphan_rows',
+            label: {
+              key: 'table:table.integrity.v2.repairMeta.manual.junctionForeignKeyOrphanRows.option.deleteOrphanRows',
+              fallback: 'Delete invalid relation rows',
+            },
+          },
+        },
+      }).default('delete_orphan_rows'),
+    }),
+    {
+      title: {
+        key: 'table:table.integrity.v2.repairMeta.manual.junctionForeignKeyOrphanRows.title',
+        fallback: 'Clean invalid junction rows',
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.manual.junctionForeignKeyOrphanRows.description',
+        fallback:
+          'This repair deletes junction rows that point to missing records, then restores the foreign key constraint.',
+      },
+      submitLabel: {
+        key: 'table:table.integrity.v2.repairMeta.manual.apply',
+        fallback: 'Apply manual repair',
+      },
+    }
+  );
 
   constructor(
     private readonly field: LinkField,
@@ -750,36 +977,148 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
             count: orphanCount,
           };
 
+    const manualRepairSchemaResult = serializeManualRepairSchema(this.orphanRowsManualRepairSchema);
+
     return ok({
-      available: false,
-      mode: 'auto',
+      available: true,
+      mode: 'manual',
       reason: {
         key: 'table:table.integrity.v2.repairMeta.reason.junctionForeignKeyOrphanRows',
         values: orphanValues,
-        fallback: `Automatic repair is unavailable because the junction rows for "${fieldName}" still contain invalid references.`,
+        fallback: `The junction rows for "${fieldName}" contain invalid references and need confirmation before cleanup.`,
       },
       description: {
         key: 'table:table.integrity.v2.repairMeta.description.junctionForeignKeyOrphanRows',
         values: orphanValues,
-        fallback: `Clean up the invalid junction rows for "${fieldName}" before adding the foreign key back.`,
+        fallback: `Confirm deleting the invalid junction rows for "${fieldName}" before adding the foreign key back.`,
       },
+      manualRepairSchema: manualRepairSchemaResult.isOk()
+        ? manualRepairSchemaResult.value
+        : undefined,
     });
   }
 
-  up(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (this.targetTableMetaId) {
-      return ok([
-        createForeignKeyConstraintStatementFromTableMeta(
-          this.junctionTable,
-          this.constraintName,
-          this.columnName,
-          this.targetTableMetaId,
-          '__id',
-          'CASCADE',
-          this.targetTable
-        ),
-      ]);
+  async manualRepair(
+    ctx: SchemaRuleContext,
+    values: SchemaRuleManualRepairValues | undefined,
+    options?: SchemaRuleManualRepairOptions
+  ): Promise<Result<void, DomainError>> {
+    const resolution =
+      typeof values?.resolution === 'string' ? values.resolution : 'delete_orphan_rows';
+
+    if (resolution !== 'delete_orphan_rows') {
+      return err(
+        domainError.validation({
+          message: 'Unsupported manual repair strategy',
+          details: { resolution },
+        })
+      );
     }
+
+    if (options?.dryRun) {
+      return ok(undefined);
+    }
+
+    const resolvedTargetTableResult = await this.resolveTargetTable(ctx);
+    if (resolvedTargetTableResult.isErr()) {
+      return err(resolvedTargetTableResult.error);
+    }
+
+    const resolvedTargetTable = resolvedTargetTableResult.value ?? this.targetTable;
+
+    const targetExistsResult = await ctx.introspector.tableExists(
+      resolvedTargetTable.schema,
+      resolvedTargetTable.tableName
+    );
+    if (targetExistsResult.isErr()) {
+      return err(targetExistsResult.error);
+    }
+
+    if (!targetExistsResult.value) {
+      return err(
+        domainError.validation({
+          message: 'Junction foreign key target table does not exist',
+          details: {
+            fieldId: this.field.id().toString(),
+            targetTable: resolvedTargetTable,
+          },
+        })
+      );
+    }
+
+    const deleteResult = await this.deleteOrphanRows(ctx, resolvedTargetTable);
+    if (deleteResult.isErr()) {
+      return err(deleteResult.error);
+    }
+
+    try {
+      const createConstraintStatement = createForeignKeyConstraintStatement(
+        this.junctionTable,
+        this.constraintName,
+        this.columnName,
+        resolvedTargetTable,
+        '__id',
+        'CASCADE'
+      );
+      await ctx.db.executeQuery(createConstraintStatement.compile(ctx.db));
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to restore junction foreign key: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'schema.repair_failed',
+          details: {
+            fieldId: this.field.id().toString(),
+            constraintName: this.constraintName,
+            junctionTable: this.junctionTable,
+            targetTable: resolvedTargetTable,
+          },
+        })
+      );
+    }
+  }
+
+  private async deleteOrphanRows(
+    ctx: SchemaRuleContext,
+    targetTable: TableIdentifier
+  ): Promise<Result<void, DomainError>> {
+    const junctionTableRef = quoteTableIdentifier(this.junctionTable);
+    const targetTableRef = quoteTableIdentifier(targetTable);
+    const junctionColumnRef = quoteIdentifier(this.columnName);
+    const targetColumnRef = quoteIdentifier('__id');
+
+    try {
+      await sql
+        .raw(
+          compressSql(`
+          DELETE FROM ${junctionTableRef} AS junction_rows
+          WHERE junction_rows.${junctionColumnRef} IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM ${targetTableRef} AS target_rows
+              WHERE target_rows.${targetColumnRef} = junction_rows.${junctionColumnRef}
+            )
+        `)
+        )
+        .execute(ctx.db);
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to delete orphan junction rows: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'schema.repair_failed',
+          details: {
+            fieldId: this.field.id().toString(),
+            junctionTable: this.junctionTable,
+            columnName: this.columnName,
+            targetTable,
+          },
+        })
+      );
+    }
+  }
+
+  up(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return ok([
       createForeignKeyConstraintStatement(
         this.junctionTable,
@@ -787,7 +1126,8 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
         this.columnName,
         this.targetTable,
         '__id',
-        'CASCADE'
+        'CASCADE',
+        this.targetTableMetaId
       ),
     ]);
   }

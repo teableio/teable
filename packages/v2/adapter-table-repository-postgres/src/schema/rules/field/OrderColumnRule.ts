@@ -9,7 +9,11 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementBuilders';
+import {
+  dataStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 
 /**
  * Schema rule for creating/dropping an order column for link fields.
@@ -99,7 +103,7 @@ export class OrderColumnRule implements ISchemaRule {
       .alterTable(targetTable.tableName)
       .addColumn(columnName, 'double precision', (col) => col.ifNotExists());
 
-    return ok([statement]);
+    return ok([dataStatement(statement)]);
   }
 
   down(_ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
