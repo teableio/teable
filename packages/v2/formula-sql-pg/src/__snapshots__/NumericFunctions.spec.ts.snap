@@ -142,7 +142,7 @@ exports[`numeric functions > 'Abs' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)",
@@ -429,7 +429,7 @@ exports[`numeric functions > 'Abs' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -449,7 +449,7 @@ exports[`numeric functions > 'Abs' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -469,7 +469,7 @@ exports[`numeric functions > 'Abs' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE ABS((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -489,7 +489,7 @@ exports[`numeric functions > 'Abs' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -513,7 +513,7 @@ exports[`numeric functions > 'Abs' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) END))::text END",
@@ -856,7 +856,7 @@ exports[`numeric functions > 'Average' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -873,7 +873,7 @@ exports[`numeric functions > 'Average' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp))) + 1, 0)",
@@ -1177,7 +1177,7 @@ exports[`numeric functions > 'Average' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -1194,7 +1194,7 @@ exports[`numeric functions > 'Average' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp))) + 1, 0)",
@@ -1557,7 +1557,7 @@ exports[`numeric functions > 'Ceiling' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -1858,7 +1858,7 @@ exports[`numeric functions > 'Ceiling' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -2216,7 +2216,7 @@ exports[`numeric functions > 'Even' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision AS val) AS v)",
@@ -2530,7 +2530,7 @@ exports[`numeric functions > 'Even' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -2550,7 +2550,7 @@ exports[`numeric functions > 'Even' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -2570,7 +2570,7 @@ exports[`numeric functions > 'Even' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -2593,7 +2593,7 @@ exports[`numeric functions > 'Even' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -2617,7 +2617,7 @@ exports[`numeric functions > 'Even' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) AS val) AS v) END))::text END",
@@ -2982,7 +2982,7 @@ exports[`numeric functions > 'Exp' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)",
@@ -3269,7 +3269,7 @@ exports[`numeric functions > 'Exp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -3289,7 +3289,7 @@ exports[`numeric functions > 'Exp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -3309,7 +3309,7 @@ exports[`numeric functions > 'Exp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE EXP((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -3329,7 +3329,7 @@ exports[`numeric functions > 'Exp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -3353,7 +3353,7 @@ exports[`numeric functions > 'Exp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) END))::text END",
@@ -3704,7 +3704,7 @@ exports[`numeric functions > 'Floor' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -4005,7 +4005,7 @@ exports[`numeric functions > 'Floor' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -4345,7 +4345,7 @@ exports[`numeric functions > 'Int' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -4646,7 +4646,7 @@ exports[`numeric functions > 'Int' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -4983,7 +4983,7 @@ exports[`numeric functions > 'Log' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision) / NULLIF(LN((10)::double precision), 0))",
@@ -5278,7 +5278,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -5298,7 +5298,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -5318,7 +5318,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -5338,7 +5338,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (LN((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -5358,7 +5358,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -5382,7 +5382,7 @@ exports[`numeric functions > 'Log' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) / NULLIF(LN((10)::double precision), 0)) END))::text END",
@@ -5754,7 +5754,7 @@ exports[`numeric functions > 'Max' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -6059,7 +6059,7 @@ exports[`numeric functions > 'Max' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -6415,7 +6415,7 @@ exports[`numeric functions > 'Min' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -6720,7 +6720,7 @@ exports[`numeric functions > 'Min' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -7081,7 +7081,7 @@ exports[`numeric functions > 'Mod' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision::numeric, (2)::double precision::numeric)::double precision END))::text END",
@@ -7376,7 +7376,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR ((2)::double precision) = 0) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -7396,7 +7396,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -7416,7 +7416,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END WHEN ((2)::double precision) = 0 THEN '#ERROR:DIV0:division_by_zero' ELSE '#ERROR:DIV0:division_by_zero' END ELSE ((CASE WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -7436,7 +7436,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) OR ((2)::double precision) = 0) THEN NULL ELSE MOD((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -7456,7 +7456,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -7480,7 +7480,7 @@ exports[`numeric functions > 'Mod' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)::numeric, (2)::double precision::numeric)::double precision END))::text END",
@@ -7847,7 +7847,7 @@ exports[`numeric functions > 'Odd' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision AS val) AS v)",
@@ -8161,7 +8161,7 @@ exports[`numeric functions > 'Odd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8181,7 +8181,7 @@ exports[`numeric functions > 'Odd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8201,7 +8201,7 @@ exports[`numeric functions > 'Odd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -8224,7 +8224,7 @@ exports[`numeric functions > 'Odd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -8248,7 +8248,7 @@ exports[`numeric functions > 'Odd' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END) AS val) AS v) END))::text END",
@@ -8617,7 +8617,7 @@ exports[`numeric functions > 'Power' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision, (2)::double precision)",
@@ -8912,7 +8912,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8932,7 +8932,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8952,7 +8952,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8972,7 +8972,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE POWER((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -8992,7 +8992,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -9016,7 +9016,7 @@ exports[`numeric functions > 'Power' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END), (2)::double precision) END))::text END",
@@ -9395,7 +9395,7 @@ exports[`numeric functions > 'Round' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -9716,7 +9716,7 @@ exports[`numeric functions > 'Round' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -10100,7 +10100,7 @@ exports[`numeric functions > 'RoundDown' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -10421,7 +10421,7 @@ exports[`numeric functions > 'RoundDown' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -10847,7 +10847,7 @@ exports[`numeric functions > 'RoundUp' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -11168,7 +11168,7 @@ exports[`numeric functions > 'RoundUp' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -11546,7 +11546,7 @@ exports[`numeric functions > 'Sqrt' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::double precision)",
@@ -11833,7 +11833,7 @@ exports[`numeric functions > 'Sqrt' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -11853,7 +11853,7 @@ exports[`numeric functions > 'Sqrt' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -11873,7 +11873,7 @@ exports[`numeric functions > 'Sqrt' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE SQRT((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (SELECT CASE
@@ -11893,7 +11893,7 @@ exports[`numeric functions > 'Sqrt' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (SELECT (CASE
@@ -11917,7 +11917,7 @@ exports[`numeric functions > 'Sqrt' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) END))::text END",
@@ -12260,7 +12260,7 @@ exports[`numeric functions > 'Sum' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -12565,7 +12565,7 @@ exports[`numeric functions > 'Sum' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS t(elem)
@@ -12961,7 +12961,7 @@ exports[`numeric functions > 'Value' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
@@ -13254,7 +13254,7 @@ exports[`numeric functions > 'Value' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)

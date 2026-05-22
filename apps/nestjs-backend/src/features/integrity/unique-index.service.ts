@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { FieldService } from '../field/field.service';
 
@@ -12,7 +12,7 @@ import { FieldService } from '../field/field.service';
 export class UniqueIndexService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     private readonly fieldService: FieldService
   ) {}
@@ -26,7 +26,8 @@ export class UniqueIndexService {
 
     const colId = '__id';
     const idUniqueIndexExists =
-      (await this.fieldService.findUniqueIndexesForField(table.dbTableName, colId)).length > 0;
+      (await this.fieldService.findUniqueIndexesForField(table.id, table.dbTableName, colId))
+        .length > 0;
 
     if (!idUniqueIndexExists) {
       issues.push({
@@ -43,6 +44,7 @@ export class UniqueIndexService {
 
     for (const field of uniqueFields) {
       const indexNames = await this.fieldService.findUniqueIndexesForField(
+        table.id,
         table.dbTableName,
         field.dbFieldName
       );
@@ -98,7 +100,7 @@ export class UniqueIndexService {
     if (!sql) {
       return;
     }
-    await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+    await this.databaseRouter.executeDataPrismaForTable(tableId, sql, { useTransaction: true });
 
     return {
       type: IntegrityIssueType.UniqueIndexNotFound,

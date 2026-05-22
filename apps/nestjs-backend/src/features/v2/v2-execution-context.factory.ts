@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import type { IExecutionContext, ITracer } from '@teable/v2-core';
 import { ActorId, v2CoreTokens, type TableDataSafetyLimitConfig } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
@@ -24,8 +25,8 @@ export class V2ExecutionContextFactory {
    * Creates a complete execution context with actorId, tracer, and requestId.
    * @throws HttpException if user.id is not available or ActorId creation fails
    */
-  async createContext(): Promise<IExecutionContext> {
-    const container = await this.v2ContainerService.getContainer();
+  async createContext(container?: DependencyContainer): Promise<IExecutionContext> {
+    container ??= await this.v2ContainerService.getContainer();
     const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
     const tableLimits = container.isRegistered(v2CoreTokens.tableDataSafetyLimits)
       ? container.resolve<TableDataSafetyLimitConfig>(v2CoreTokens.tableDataSafetyLimits)

@@ -29,7 +29,7 @@ describe('FieldCalculationService', () => {
         txClient: () => ({ $queryRawUnsafe: metaQueryRawUnsafe }),
       } as never,
       {
-        txClient: () => ({ $queryRawUnsafe: dataQueryRawUnsafe }),
+        queryDataPrismaForBase: dataQueryRawUnsafe,
       } as never,
       {} as never,
       {} as never,
@@ -38,7 +38,10 @@ describe('FieldCalculationService', () => {
     );
 
     await expect(service.getRowCount('bseTest.projects')).resolves.toBe(7);
-    expect(dataQueryRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(dataQueryRawUnsafe).toHaveBeenCalledWith(
+      'bseTest',
+      'select count(*) as "count" from "bseTest"."projects"'
+    );
     expect(metaQueryRawUnsafe).not.toHaveBeenCalled();
     await knex.destroy();
   });

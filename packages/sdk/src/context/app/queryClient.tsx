@@ -26,6 +26,29 @@ export function toCamelCaseErrorCode(errorCode: string): string {
     .join('');
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getValidationLimitMessage = (
+  data: ICustomHttpExceptionData | undefined,
+  t: ILocaleFunction,
+  prefix?: string
+) => {
+  const domainCode = data?.domainCode;
+  if (typeof domainCode !== 'string' || !domainCode.startsWith('validation.limit.')) {
+    return;
+  }
+
+  const limitKey = toCamelCaseErrorCode(domainCode.slice('validation.limit.'.length));
+  const key = `httpErrors.limit.${limitKey}`;
+  const prefixedKey = prefix ? `${prefix}:${key}` : key;
+  const details = isRecord(data?.details) ? data.details : {};
+  const message = t(prefixedKey as TKey, details);
+  return typeof message === 'string' && message !== prefixedKey && message !== key
+    ? message
+    : undefined;
+};
+
 export const getLocalizationMessage = (
   localization: ILocalization,
   t: ILocaleFunction,
@@ -38,7 +61,11 @@ export const getLocalizationMessage = (
 
 export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?: string) => {
   const { message, data } = error as IHttpError;
-  const { localization } = (data as ICustomHttpExceptionData) || {};
+  const customData = (data as ICustomHttpExceptionData) || {};
+  const limitMessage = getValidationLimitMessage(customData, t, prefix);
+  if (limitMessage) return limitMessage;
+
+  const { localization } = customData;
   return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 

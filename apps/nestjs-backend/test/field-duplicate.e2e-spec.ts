@@ -16,6 +16,7 @@ import {
   Relationship,
   ViewType,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -1187,6 +1188,66 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
 
       const keys = ['name', 'dbFieldName', 'id', 'isPrimary'];
       expect(omit(expectedButtonField, keys)).toEqual(omit(copiedButtonField, keys));
+    });
+  });
+
+  describe('duplicate field falls back to end when source has no columnMeta entry', () => {
+    let table: ITableFullVo;
+    let view: { id: string };
+    let sourceField: { id: string; name: string };
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'sparse_columnmeta_table',
+        fields: [
+          { type: FieldType.SingleLineText, name: 'source' } as IFieldRo,
+          { type: FieldType.SingleLineText, name: 'after' } as IFieldRo,
+        ],
+      });
+      view = (await createView(table.id, { name: 'sparse_view', type: ViewType.Grid })).data;
+      sourceField = table.fields.find((f) => f.name === 'source')!;
+
+      // Simulate sparse columnMeta: drop the source field's entry directly in
+      // DB. Reproduces the legacy/migrated-view shape where columnMeta is not
+      // exhaustive — the path that used to yield `NaN` orderIndex and dump the
+      // duplicate to position 0.
+      const prisma = app.get(PrismaService);
+      const row = await prisma.view.findUniqueOrThrow({
+        where: { id: view.id },
+        select: { columnMeta: true },
+      });
+      const meta = row.columnMeta
+        ? (JSON.parse(row.columnMeta) as Record<string, { order: number }>)
+        : {};
+      delete meta[sourceField.id];
+      await prisma.view.update({
+        where: { id: view.id },
+        data: { columnMeta: JSON.stringify(meta) },
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('places duplicate at the rightmost end, never at position 0', async () => {
+      const dup = (
+        await duplicateField(table.id, sourceField.id, {
+          name: `${sourceField.name}_copy`,
+          viewId: view.id,
+        })
+      ).data;
+
+      const afterView = (await getView(table.id, view.id)).data;
+      const dupOrder = afterView.columnMeta[dup.id]?.order;
+      const otherOrders = Object.entries(afterView.columnMeta)
+        .filter(([fid]) => fid !== dup.id)
+        .map(([, c]) => (c as { order: number }).order)
+        .filter((o) => typeof o === 'number' && Number.isFinite(o));
+
+      expect(typeof dupOrder).toBe('number');
+      expect(Number.isFinite(dupOrder)).toBe(true);
+      expect(otherOrders.every((o) => o < dupOrder)).toBe(true);
     });
   });
 

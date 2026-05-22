@@ -57,6 +57,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore() {
+    return ok(undefined);
+  }
+
   async delete() {
     return ok(undefined);
   }
@@ -64,14 +68,20 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   inserted: Table[] = [];
+  insertManyOptions: Array<{ knownTables?: ReadonlyArray<Table> } | undefined> = [];
 
   async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
     return ok(undefined);
   }
 
-  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+  async insertMany(
+    _context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    options?: { knownTables?: ReadonlyArray<Table> }
+  ) {
     this.inserted.push(...tables);
+    this.insertManyOptions.push(options);
     return ok(undefined);
   }
 
@@ -160,5 +170,30 @@ describe('TableCreationService', () => {
     expect(payload.persistedTables[0]?.id().equals(tableB.id())).toBe(true);
     expect(payload.persistedTables[1]?.id().equals(tableA.id())).toBe(true);
     expect(sideEffectService.calls).toHaveLength(2);
+  });
+
+  it('passes external and persisted tables as known schema locations', async () => {
+    const table = buildTable('d', 'a');
+    const externalTable = buildTable('d', 'b');
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const sideEffectService = new FakeFieldCreationSideEffectService();
+    const service = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      sideEffectService as never
+    );
+
+    const result = await service.execute(createContext(), {
+      baseId: table.baseId(),
+      tables: [table],
+      externalTables: [externalTable],
+      referencesByTable: [[]],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      schemaRepository.insertManyOptions[0]?.knownTables?.map((t) => t.id().toString())
+    ).toEqual([externalTable.id().toString(), table.id().toString()]);
   });
 });
