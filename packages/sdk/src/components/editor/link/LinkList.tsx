@@ -1,6 +1,6 @@
 import type { ILinkCellValue } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { getIdsFromRanges, RangeType, IdReturnType } from '@teable/openapi';
+import { getIdsFromRanges } from '@teable/openapi';
 import { Skeleton, sonner } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
@@ -37,6 +37,7 @@ import {
   useGridTooltipStore,
 } from '../../grid-enhancements';
 import { LinkListType } from './interface';
+import { buildLinkRangeToIdQuery } from './LinkListRangeQuery';
 
 const MAX_SELECT_COUNT = 1000;
 
@@ -112,7 +113,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   // Selected records ref - maintains the source of truth for selected records (id -> title)
   const selectedRecordsRef = useRef<Map<string, string | undefined>>(new Map());
 
-  const { recordMap, isQuerying, onReset, onForceUpdate, onVisibleRegionChanged } =
+  const { recordMap, recordsQuery, isQuerying, onReset, onForceUpdate, onVisibleRegionChanged } =
     useGridAsyncRecordsQuery(recordQuery);
 
   const columns = useMemo(() => {
@@ -342,12 +343,10 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       }
 
       try {
-        const { data } = await getIdsFromRanges(tableId, {
-          ranges,
-          type: RangeType.Rows,
-          returnType: IdReturnType.RecordId,
-          viewId: viewId ?? undefined,
-        });
+        const { data } = await getIdsFromRanges(
+          tableId,
+          buildLinkRangeToIdQuery(ranges, recordsQuery, viewId ?? undefined)
+        );
 
         if (data.recordIds) {
           const idToTitleMap = new Map<string, string | undefined>();
@@ -373,7 +372,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
         toast.error(t('editor.link.rangeSelectFailed'));
       }
     },
-    [tableId, viewId, recordMap, emitChange, setRowSelection, t, isMultiple]
+    [tableId, recordsQuery, viewId, recordMap, emitChange, setRowSelection, t, isMultiple]
   );
 
   const onExpandInner = (rowIndex: number) => {

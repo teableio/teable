@@ -102,7 +102,7 @@ export const checkTableAccess = (
   const message =
     invalidTableNames.length > 0
       ? `Table ${invalidTableNames.map((n: string) => `'${n}'`).join(', ')} not found. ` +
-        `dbTableName from get-tables-meta is already \`schema.table\` (e.g. \`bseXXX.tblYYY\`); ` +
+        `dbTableName from table get is already \`schema.table\` (e.g. \`bseXXX.tblYYY\`); ` +
         `use it in SQL as \`FROM "bseXXX"."tblYYY"\`.`
       : String(whiteListError?.message ?? whiteListError);
 

@@ -10,7 +10,12 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { buildTableIdentifier, dropConstraintStatement, dropColumnStatement } from '../helpers';
+import {
+  buildTableIdentifier,
+  dataStatement,
+  dropColumnStatement,
+  dropConstraintStatement,
+} from '../helpers';
 
 export const SYSTEM_RULE_FIELD_ID = '__system__';
 export const SYSTEM_RULE_FIELD_NAME = 'System Columns';
@@ -103,9 +108,11 @@ class SystemColumnExistsRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const target = { schema: ctx.schema, tableName: ctx.tableName };
     return ok([
-      sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
-        this.columnName
-      )} ${sql.raw(this.columnDefinition)}`,
+      dataStatement(
+        sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
+          this.columnName
+        )} ${sql.raw(this.columnDefinition)}`
+      ),
     ]);
   }
 
@@ -156,8 +163,10 @@ class SystemColumnNotNullRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const qualifiedTable = toQualifiedTableSql({ schema: ctx.schema, tableName: ctx.tableName });
     return ok([
-      sql.raw(
-        `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} SET NOT NULL`
+      dataStatement(
+        sql.raw(
+          `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} SET NOT NULL`
+        )
       ),
     ]);
   }
@@ -165,8 +174,10 @@ class SystemColumnNotNullRule implements ISchemaRule {
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const qualifiedTable = toQualifiedTableSql({ schema: ctx.schema, tableName: ctx.tableName });
     return ok([
-      sql.raw(
-        `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} DROP NOT NULL`
+      dataStatement(
+        sql.raw(
+          `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} DROP NOT NULL`
+        )
       ),
     ]);
   }
@@ -209,10 +220,12 @@ class SystemUniqueIndexRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const qualifiedTable = toQualifiedTableSql({ schema: ctx.schema, tableName: ctx.tableName });
     return ok([
-      sql.raw(
-        `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdentifier(
-          this.constraintName
-        )} UNIQUE (${quoteIdentifier(this.columnName)})`
+      dataStatement(
+        sql.raw(
+          `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdentifier(
+            this.constraintName
+          )} UNIQUE (${quoteIdentifier(this.columnName)})`
+        )
       ),
     ]);
   }
@@ -265,10 +278,12 @@ class SystemPrimaryKeyRule implements ISchemaRule {
     const qualifiedTable = toQualifiedTableSql({ schema: ctx.schema, tableName: ctx.tableName });
     const constraintName = this.constraintName(ctx.tableName);
     return ok([
-      sql.raw(
-        `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdentifier(
-          constraintName
-        )} PRIMARY KEY (${quoteIdentifier(this.columnName)})`
+      dataStatement(
+        sql.raw(
+          `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdentifier(
+            constraintName
+          )} PRIMARY KEY (${quoteIdentifier(this.columnName)})`
+        )
       ),
     ]);
   }
@@ -337,8 +352,10 @@ class SystemDefaultRule implements ISchemaRule {
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const qualifiedTable = toQualifiedTableSql({ schema: ctx.schema, tableName: ctx.tableName });
     return ok([
-      sql.raw(
-        `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} DROP DEFAULT`
+      dataStatement(
+        sql.raw(
+          `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(this.columnName)} DROP DEFAULT`
+        )
       ),
     ]);
   }
@@ -354,21 +371,27 @@ const createAutoNumberDefaultStatements = (
   const sequenceLiteral = toQualifiedSequenceLiteral(target, sequenceName);
 
   return [
-    sql.raw(`CREATE SEQUENCE IF NOT EXISTS ${qualifiedSequence}`),
-    sql.raw(
-      `ALTER SEQUENCE ${qualifiedSequence} OWNED BY ${qualifiedTable}.${quoteIdentifier(
-        '__auto_number'
-      )}`
+    dataStatement(sql.raw(`CREATE SEQUENCE IF NOT EXISTS ${qualifiedSequence}`)),
+    dataStatement(
+      sql.raw(
+        `ALTER SEQUENCE ${qualifiedSequence} OWNED BY ${qualifiedTable}.${quoteIdentifier(
+          '__auto_number'
+        )}`
+      )
     ),
-    sql.raw(
-      `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(
-        '__auto_number'
-      )} SET DEFAULT nextval(${sequenceLiteral}::regclass)`
+    dataStatement(
+      sql.raw(
+        `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(
+          '__auto_number'
+        )} SET DEFAULT nextval(${sequenceLiteral}::regclass)`
+      )
     ),
-    sql.raw(
-      `SELECT setval(${sequenceLiteral}::regclass, GREATEST(COALESCE((SELECT MAX(${quoteIdentifier(
-        '__auto_number'
-      )}) FROM ${qualifiedTable}), 0), 1), true)`
+    dataStatement(
+      sql.raw(
+        `SELECT setval(${sequenceLiteral}::regclass, GREATEST(COALESCE((SELECT MAX(${quoteIdentifier(
+          '__auto_number'
+        )}) FROM ${qualifiedTable}), 0), 1), true)`
+      )
     ),
   ];
 };
@@ -408,10 +431,12 @@ export const createSystemTableRules = (): ReadonlyArray<ISchemaRule> => {
           tableName: ctx.tableName,
         });
         return [
-          sql.raw(
-            `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(
-              '__created_time'
-            )} SET DEFAULT now()`
+          dataStatement(
+            sql.raw(
+              `ALTER TABLE ${qualifiedTable} ALTER COLUMN ${quoteIdentifier(
+                '__created_time'
+              )} SET DEFAULT now()`
+            )
           ),
         ];
       },

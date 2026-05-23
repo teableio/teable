@@ -36,7 +36,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
     jitter: Number(process.env.BACKEND_DB_DEADLOCK_JITTER ?? 1.0),
   },
   baseNodeMaxFolderDepth: Number(process.env.BASE_NODE_MAX_FOLDER_DEPTH ?? 2),
-  maxOwnedSpaceCount: Number(process.env.MAX_SPACE_OWNER_COUNT ?? 10),
+  maxFreeOwnedSpaceCount: Number(process.env.MAX_FREE_SPACE_OWNER_COUNT ?? 2),
   changeEmailSendCodeMailRate: Number(process.env.BACKEND_CHANGE_EMAIL_SEND_CODE_MAIL_RATE ?? 30),
   resetPasswordSendMailRate: Number(process.env.BACKEND_RESET_PASSWORD_SEND_MAIL_RATE ?? 30),
   signupVerificationSendCodeMailRate: Number(

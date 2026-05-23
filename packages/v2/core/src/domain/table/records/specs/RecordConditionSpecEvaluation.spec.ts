@@ -202,6 +202,53 @@ describe('RecordConditionSpec evaluation', () => {
     expect(isGreater.isSatisfiedBy(badRecord)).toBe(false);
   });
 
+  it('evaluates scalar operators against multi-valued stored lookup values', () => {
+    const { record, textField, numberField, dateField } = buildBaseRecord();
+    const lookupRecord = TableRecord.create({
+      id: record.id(),
+      tableId: record.tableId(),
+      fieldValues: [
+        { fieldId: textField.id(), value: cell(['Allowed foreign', 'Other foreign']) },
+        { fieldId: numberField.id(), value: cell([3, 10]) },
+        {
+          fieldId: dateField.id(),
+          value: cell(['2024-01-02T00:00:00.000Z', '2024-01-05T00:00:00.000Z']),
+        },
+      ],
+    })._unsafeUnwrap();
+    const is = SingleLineTextConditionSpec.create(
+      textField,
+      'is',
+      RecordConditionLiteralValue.create('Allowed foreign')._unsafeUnwrap()
+    );
+    const isNot = SingleLineTextConditionSpec.create(
+      textField,
+      'isNot',
+      RecordConditionLiteralValue.create('Blocked foreign')._unsafeUnwrap()
+    );
+    const contains = SingleLineTextConditionSpec.create(
+      textField,
+      'contains',
+      RecordConditionLiteralValue.create('foreign')._unsafeUnwrap()
+    );
+    const numberGreater = NumberConditionSpec.create(
+      numberField,
+      'isGreater',
+      RecordConditionLiteralValue.create(5)._unsafeUnwrap()
+    );
+    const dateBefore = DateConditionSpec.create(
+      dateField,
+      'isBefore',
+      RecordConditionLiteralValue.create('2024-01-03T00:00:00.000Z')._unsafeUnwrap()
+    );
+
+    expect(is.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(isNot.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(contains.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(numberGreater.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(dateBefore.isSatisfiedBy(lookupRecord)).toBe(true);
+  });
+
   it('evaluates date operators with literal and date values', () => {
     const { record, dateField } = buildBaseRecord();
     const before = DateConditionSpec.create(

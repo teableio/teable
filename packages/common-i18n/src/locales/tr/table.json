@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Bildirim",
+    "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateTableTitle": "Bildirim",
+    "duplicateTableDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateBaseTitle": "Bildirim",
+    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
   "toolbar": {
     "comingSoon": "Çok yakında",
     "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
