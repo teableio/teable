@@ -37,6 +37,21 @@ export type ComputedUpdateOutboxConfig = {
    * Larger claimed tasks are split into child tasks before acquiring computed locks.
    */
   maxSeedRecordsPerTask: number;
+  /**
+   * Maximum active processing tasks for the same base before pending claims are deferred.
+   * Stale processing rows can still be reclaimed after the lease window.
+   */
+  maxConcurrentProcessingPerBase: number;
+  /**
+   * Maximum active processing tasks for the same base + seed table before pending claims are
+   * deferred. This keeps duplicate hot seed work from being claimed by multiple workers.
+   */
+  maxConcurrentProcessingPerSeedTable: number;
+  /**
+   * Per-statement timeout applied inside computed worker task transactions.
+   * A value of 0 disables the database-side timeout.
+   */
+  taskStatementTimeoutMs: number;
 };
 
 export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
@@ -48,6 +63,9 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   heartbeatIntervalMs: 30 * 1000,
   reclaimBatchSize: 50,
   maxSeedRecordsPerTask: 500,
+  maxConcurrentProcessingPerBase: 2,
+  maxConcurrentProcessingPerSeedTable: 2,
+  taskStatementTimeoutMs: 60 * 1000,
 };
 
 export const normalizeComputedUpdateOutboxConfig = (
@@ -64,6 +82,12 @@ export const normalizeComputedUpdateOutboxConfig = (
     ),
     reclaimBatchSize: Math.max(1, Math.trunc(config.reclaimBatchSize)),
     maxSeedRecordsPerTask: Math.max(1, Math.trunc(config.maxSeedRecordsPerTask)),
+    maxConcurrentProcessingPerBase: Math.max(1, Math.trunc(config.maxConcurrentProcessingPerBase)),
+    maxConcurrentProcessingPerSeedTable: Math.max(
+      1,
+      Math.trunc(config.maxConcurrentProcessingPerSeedTable)
+    ),
+    taskStatementTimeoutMs: Math.max(0, Math.trunc(config.taskStatementTimeoutMs)),
   };
 };
 

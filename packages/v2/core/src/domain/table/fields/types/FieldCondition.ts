@@ -20,7 +20,11 @@ import {
 } from '../../records/specs/RecordConditionValues';
 import type { TableRecord } from '../../records/TableRecord';
 import type { Table } from '../../Table';
+import { DbFieldName } from '../DbFieldName';
+import type { Field } from '../Field';
 import { FieldId } from '../FieldId';
+import { FieldName } from '../FieldName';
+import { SingleLineTextField } from './SingleLineTextField';
 
 /**
  * Represents a single filter item in a condition.
@@ -96,11 +100,20 @@ const fieldConditionDtoSchema = z.object({
   limit: z.number().int().positive().optional(),
 });
 
+const RECORD_ID_FIELD_ID = '__id';
+type ConditionFieldId = FieldId | typeof RECORD_ID_FIELD_ID;
+
+const isRecordIdFieldId = (value: unknown): value is typeof RECORD_ID_FIELD_ID =>
+  value === RECORD_ID_FIELD_ID;
+
+const conditionFieldIdEquals = (a: ConditionFieldId, b: ConditionFieldId): boolean =>
+  typeof a === 'string' || typeof b === 'string' ? a === b : a.equals(b);
+
 /**
  * Internal representation of a filter item.
  */
 type FilterItem = {
-  fieldId: FieldId;
+  fieldId: ConditionFieldId;
   operator: RecordConditionOperator;
   value?: unknown;
   /**
@@ -223,6 +236,57 @@ export class FieldCondition extends ValueObject {
   /**
    * Parses v1 IFilter format into a flat array of FilterItems.
    */
+  private static parseConditionFieldId(fieldId: string): Result<ConditionFieldId, DomainError> {
+    if (isRecordIdFieldId(fieldId)) return ok(RECORD_ID_FIELD_ID);
+    return FieldId.create(fieldId);
+  }
+
+  private static createRecordIdField(): Result<Field, DomainError> {
+    const nameResult = FieldName.create(RECORD_ID_FIELD_ID);
+    if (nameResult.isErr()) return err(nameResult.error);
+
+    const fieldResult = SingleLineTextField.create({
+      id: FieldId.mustGenerate(),
+      name: nameResult.value,
+    });
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const dbFieldNameResult = DbFieldName.rehydrate(RECORD_ID_FIELD_ID);
+    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+
+    const setDbFieldNameResult = fieldResult.value.setDbFieldName(dbFieldNameResult.value);
+    if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+
+    return ok(fieldResult.value);
+  }
+
+  private static resolveConditionField(
+    fieldIdValue: string,
+    fields: ReadonlyArray<Field>,
+    options: {
+      code: string;
+      messagePrefix: string;
+    }
+  ): Result<Field, DomainError> {
+    if (isRecordIdFieldId(fieldIdValue)) return FieldCondition.createRecordIdField();
+
+    const fieldIdResult = FieldId.create(fieldIdValue);
+    if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+    const field = fields.find((f) => f.id().equals(fieldIdResult.value));
+    if (!field) {
+      return err(
+        domainError.notFound({
+          code: options.code,
+          message: `${options.messagePrefix}: ${fieldIdValue}`,
+          details: { fieldId: fieldIdValue },
+        })
+      );
+    }
+
+    return ok(field);
+  }
+
   private static parseV1Filter(
     filter: IFilterDTO
   ): Result<{ items: FilterItem[]; conjunction: 'and' | 'or' }, DomainError> {
@@ -233,7 +297,7 @@ export class FieldCondition extends ValueObject {
         // This is a filter item
         const filterItemEntry = entry as IFilterItemDTO;
 
-        const fieldIdResult = FieldId.create(filterItemEntry.fieldId);
+        const fieldIdResult = FieldCondition.parseConditionFieldId(filterItemEntry.fieldId);
         if (fieldIdResult.isErr()) return err(fieldIdResult.error);
 
         const operatorResult = recordConditionOperatorSchema.safeParse(filterItemEntry.operator);
@@ -267,7 +331,7 @@ export class FieldCondition extends ValueObject {
    * Returns the filter items as internal representation.
    */
   filterItems(): ReadonlyArray<{
-    fieldId: FieldId;
+    fieldId: ConditionFieldId;
     operator: RecordConditionOperator;
     value?: unknown;
     isSymbol?: boolean;
@@ -328,7 +392,9 @@ export class FieldCondition extends ValueObject {
    * Returns the field IDs referenced by filter items.
    */
   filterFieldIds(): ReadonlyArray<FieldId> {
-    return this.filterItemsValue.map((item) => item.fieldId);
+    return this.filterItemsValue
+      .map((item) => item.fieldId)
+      .filter((fieldId): fieldId is FieldId => !isRecordIdFieldId(fieldId));
   }
 
   referencedFieldIds(): ReadonlyArray<FieldId> {
@@ -442,7 +508,7 @@ export class FieldCondition extends ValueObject {
     for (let i = 0; i < this.filterItemsValue.length; i++) {
       const a = this.filterItemsValue[i];
       const b = other.filterItemsValue[i];
-      if (!a.fieldId.equals(b.fieldId)) return false;
+      if (!conditionFieldIdEquals(a.fieldId, b.fieldId)) return false;
       if (a.operator !== b.operator) return false;
       // Deep compare values (simple JSON comparison)
       if (JSON.stringify(a.value) !== JSON.stringify(b.value)) return false;
@@ -517,18 +583,16 @@ export class FieldCondition extends ValueObject {
                 ? (filterItemEntry.value as { fieldId: string }).fieldId
                 : filterItemEntry.fieldId;
 
-            const fieldIdResult = FieldId.create(effectiveFieldIdValue);
-            if (fieldIdResult.isErr()) return err(fieldIdResult.error);
-            const field = fields.find((f) => f.id().equals(fieldIdResult.value));
-            if (!field) {
-              return err(
-                domainError.notFound({
-                  code: 'field.condition.field_not_found',
-                  message: `Field not found: ${effectiveFieldIdValue}`,
-                  details: { fieldId: effectiveFieldIdValue },
-                })
-              );
-            }
+            const fieldResult = FieldCondition.resolveConditionField(
+              effectiveFieldIdValue,
+              fields,
+              {
+                code: 'field.condition.field_not_found',
+                messagePrefix: 'Field not found',
+              }
+            );
+            if (fieldResult.isErr()) return err(fieldResult.error);
+            const field = fieldResult.value;
 
             let conditionValue: RecordConditionValue | undefined;
             // `value: null` is commonly used by v1-style filters for operators that don't require a value
@@ -541,17 +605,16 @@ export class FieldCondition extends ValueObject {
                     ? filterItemEntry.fieldId
                     : (filterItemEntry.value as { fieldId: string }).fieldId
                   : String(filterItemEntry.value);
-                const refFieldId = yield* FieldId.create(refFieldIdValue);
-                const refField = hostFields.find((f) => f.id().equals(refFieldId));
-                if (!refField) {
-                  return err(
-                    domainError.notFound({
-                      code: 'field.condition.reference_field_not_found',
-                      message: `Reference field not found: ${refFieldIdValue}`,
-                      details: { fieldId: refFieldIdValue },
-                    })
-                  );
-                }
+                const refFieldResult = FieldCondition.resolveConditionField(
+                  refFieldIdValue,
+                  hostFields,
+                  {
+                    code: 'field.condition.reference_field_not_found',
+                    messagePrefix: 'Reference field not found',
+                  }
+                );
+                if (refFieldResult.isErr()) return err(refFieldResult.error);
+                const refField = refFieldResult.value;
                 conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
               } else if (Array.isArray(filterItemEntry.value)) {
                 conditionValue = yield* RecordConditionLiteralListValue.create(

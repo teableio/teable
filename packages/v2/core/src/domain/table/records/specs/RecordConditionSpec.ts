@@ -178,6 +178,54 @@ const evaluateScalarOperator = (
   recordValue: unknown,
   comparisonValue: Primitive
 ): boolean => {
+  const recordValues = toPrimitiveArray(recordValue);
+  if (recordValues && Array.isArray(recordValue)) {
+    if (operator === 'is') return recordValues.includes(comparisonValue);
+    if (operator === 'isNot') return !recordValues.includes(comparisonValue);
+
+    if (operator === 'contains' || operator === 'doesNotContain') {
+      if (typeof comparisonValue !== 'string') return false;
+      const contains = recordValues.some(
+        (value) => typeof value === 'string' && value.includes(comparisonValue)
+      );
+      return operator === 'contains' ? contains : !contains;
+    }
+
+    if (
+      operator === 'isGreater' ||
+      operator === 'isGreaterEqual' ||
+      operator === 'isLess' ||
+      operator === 'isLessEqual'
+    ) {
+      if (typeof comparisonValue !== 'number') return false;
+      return recordValues.some((value) => {
+        if (typeof value !== 'number') return false;
+        if (operator === 'isGreater') return value > comparisonValue;
+        if (operator === 'isGreaterEqual') return value >= comparisonValue;
+        if (operator === 'isLess') return value < comparisonValue;
+        return value <= comparisonValue;
+      });
+    }
+
+    if (
+      operator === 'isBefore' ||
+      operator === 'isAfter' ||
+      operator === 'isOnOrBefore' ||
+      operator === 'isOnOrAfter'
+    ) {
+      const comparisonTimestamp = parseTimestamp(comparisonValue);
+      if (comparisonTimestamp == null) return false;
+      return recordValues.some((value) => {
+        const recordTimestamp = parseTimestamp(value);
+        if (recordTimestamp == null) return false;
+        if (operator === 'isBefore') return recordTimestamp < comparisonTimestamp;
+        if (operator === 'isAfter') return recordTimestamp > comparisonTimestamp;
+        if (operator === 'isOnOrBefore') return recordTimestamp <= comparisonTimestamp;
+        return recordTimestamp >= comparisonTimestamp;
+      });
+    }
+  }
+
   const normalizedValue = isPrimitive(recordValue) ? recordValue : undefined;
 
   if (operator === 'is') return Object.is(normalizedValue, comparisonValue);

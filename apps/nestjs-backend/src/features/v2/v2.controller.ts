@@ -45,9 +45,9 @@ export class V2Controller {
   tables() {
     return {
       create: implement(v2Contract.tables.create).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainer();
+        const container = await this.v2Container.getContainerForBase(input.baseId);
         const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext();
+        const context = await this.v2ContextFactory.createContext(container);
 
         const result = await executeCreateTableEndpoint(context, input, commandBus);
 
@@ -56,9 +56,9 @@ export class V2Controller {
         throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       getById: implement(v2Contract.tables.getById).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainer();
+        const container = await this.v2Container.getContainerForTable(input.tableId);
         const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-        const context = await this.v2ContextFactory.createContext();
+        const context = await this.v2ContextFactory.createContext(container);
 
         const result = await executeGetTableByIdEndpoint(context, input, queryBus);
         if (result.status === 200) return result.body;
@@ -66,9 +66,9 @@ export class V2Controller {
         throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       deleteRecords: implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainer();
+        const container = await this.v2Container.getContainerForTable(input.tableId);
         const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext();
+        const context = await this.v2ContextFactory.createContext(container);
 
         const result = await executeDeleteRecordsEndpoint(context, input, commandBus);
 
@@ -77,9 +77,9 @@ export class V2Controller {
         throwOrpcErrorByStatus(result.status, result.body.error);
       }),
       updateRecords: implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
-        const container = await this.v2Container.getContainer();
+        const container = await this.v2Container.getContainerForTable(input.tableId);
         const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-        const context = await this.v2ContextFactory.createContext();
+        const context = await this.v2ContextFactory.createContext(container);
 
         const result = await executeUpdateRecordsEndpoint(context, input, commandBus);
 
