@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Avviso",
+    "duplicateBaseDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "affectedTableSuffix": "({{count}} campo/i)",
+    "convertAndDuplicate": "Converti e duplica"
+  },
   "initialSpaceName": "Spazio di {{name}}",
   "action": {
     "createBase": "Crea una base",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Il volume dei dati è grande. L'esportazione potrebbe richiedere del tempo. Puoi uscire temporaneamente.",
     "exportReadyDescription": "Scarica il file .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Spostamento riuscito",
-    "moveBaseSuccessDescription": "{{baseName}} è stato spostato con successo in {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} è stato spostato con successo in {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Avviso",
+    "moveBaseCrossSpaceDataLossWarning": "I riferimenti tra spazi non sono supportati. I campi correlati saranno convertiti in campi di testo. Questa azione non può essere annullata."
   },
   "deleteSpaceModal": {
     "title": "Elimina spazio",
@@ -90,7 +98,6 @@
     "importWayTip": "Clicca o trascina il file in quest'area per caricarlo",
     "baseImportTips": "Clicca o trascina il file .tea in quest'area per caricarlo",
     "confirm": "Conferma e continua",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { generateClientId, getRandomString, nullsToUndefined } from '@teable/core';
+import { SYSTEM_USER_ID, generateClientId, getRandomString, nullsToUndefined } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   AuthorizedVo,
@@ -79,6 +79,7 @@ export class OAuthService {
   };
 
   async getOAuth(clientId: string): Promise<OAuthGetVo> {
+    await this.validateOwnership(clientId);
     const res = await this.prismaService.oAuthApp.findUnique({
       where: {
         clientId,
@@ -110,6 +111,7 @@ export class OAuthService {
   }
 
   async updateOAuth(clientId: string, ro: OAuthCreateRo): Promise<OAuthUpdateVo> {
+    await this.validateOwnership(clientId);
     const { redirectUris, name, description, scopes, homepage, logo } = ro;
     const res = await this.prismaService.oAuthApp.update({
       where: {
@@ -141,7 +143,27 @@ export class OAuthService {
     );
   }
 
+  private validateOwnership = async (clientId: string) => {
+    const app = await this.prismaService.oAuthApp.findUnique({
+      where: {
+        clientId,
+      },
+      select: { createdBy: true },
+    });
+    if (!app) {
+      throw new NotFoundException('OAuth client not found');
+    }
+    const user = this.cls.get('user');
+    if (user.isAdmin && SYSTEM_USER_ID === app.createdBy) {
+      return;
+    }
+    if (app.createdBy !== user.id) {
+      throw new ForbiddenException('No permission to operate on this OAuth client');
+    }
+  };
+
   async deleteOAuth(clientId: string): Promise<void> {
+    await this.validateOwnership(clientId);
     await this.prismaService.$tx(async (prisma) => {
       await prisma.oAuthApp.delete({
         where: {
@@ -158,10 +180,16 @@ export class OAuthService {
 
   async getOAuthList(): Promise<OAuthGetListVo> {
     const userId = this.cls.get('user.id');
+    const isAdmin = this.cls.get('user.isAdmin');
+    const where: Prisma.OAuthAppWhereInput = isAdmin
+      ? {
+          OR: [{ createdBy: userId }, { createdBy: SYSTEM_USER_ID }],
+        }
+      : {
+          createdBy: userId,
+        };
     const res = await this.prismaService.oAuthApp.findMany({
-      where: {
-        createdBy: userId,
-      },
+      where,
       select: {
         clientId: true,
         name: true,
@@ -174,6 +202,7 @@ export class OAuthService {
   }
 
   async generateSecret(clientId: string): Promise<GenerateOAuthSecretVo> {
+    await this.validateOwnership(clientId);
     const secret = getRandomString(40).toLocaleLowerCase();
     const hashedSecret = await bcrypt.hash(secret, 10);
 
@@ -198,6 +227,7 @@ export class OAuthService {
   }
 
   async deleteSecret(clientId: string, secretId: string): Promise<void> {
+    await this.validateOwnership(clientId);
     await this.prismaService.oAuthAppSecret.delete({
       where: {
         id: secretId,
@@ -207,14 +237,7 @@ export class OAuthService {
   }
 
   async revokeAccess(clientId: string) {
-    // validate clientId is match with current user
-    const currentUserId = this.cls.get('user.id');
-    const app = await this.prismaService.oAuthApp.findFirst({
-      where: { clientId, createdBy: currentUserId },
-    });
-    if (!app) {
-      throw new ForbiddenException('No permission to revoke access: ' + clientId);
-    }
+    await this.validateOwnership(clientId);
     await this.prismaService.$tx(async (prisma) => {
       await prisma.oAuthAppAuthorized.deleteMany({
         where: { clientId },

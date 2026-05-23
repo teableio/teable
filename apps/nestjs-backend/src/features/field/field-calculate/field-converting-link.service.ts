@@ -9,13 +9,13 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   HttpErrorCode,
 } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -37,7 +37,7 @@ const isLink = (field: IFieldInstance): field is LinkFieldDto =>
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -199,12 +199,22 @@ export class FieldConvertingLinkService {
     );
     // Execute all queries (FK/junction creation, order columns, etc.)
     for (const query of createColumnQueries) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(query);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, query, { useTransaction: true });
     }
   }
 
-  private async linkToOther(tableId: string, oldField: LinkFieldDto) {
+  private async linkToOther(tableId: string, oldField: LinkFieldDto, skipDestructive?: boolean) {
     await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
+
+    // Cross-space move path: caller wants both sides of a symmetric pair to be
+    // converted independently, each preserving its own values. Skipping
+    // cleanForeignKey leaves the junction/FK intact so the partner can still
+    // read its values when its own conversion runs; skipping the symmetric
+    // cascade keeps the partner field alive so it can be converted in turn.
+    // Storage left behind here is orphaned and is dropped by the caller (e.g.
+    // moveBase) once every paired field has been converted.
+    if (skipDestructive) return;
+
     await this.fieldSupplementService.cleanForeignKey(oldField.options);
 
     if (oldField.options.symmetricFieldId) {
@@ -227,14 +237,15 @@ export class FieldConvertingLinkService {
   async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance
+    oldField: IFieldInstance,
+    skipDestructive?: boolean
   ) {
     if (isLink(newField) && isLink(oldField) && !isEqual(newField.options, oldField.options)) {
       return this.linkOptionsChange(tableId, newField, oldField);
     }
 
     if (!isLink(newField) && isLink(oldField)) {
-      return this.linkToOther(tableId, oldField);
+      return this.linkToOther(tableId, oldField, skipDestructive);
     }
 
     if (isLink(newField) && !isLink(oldField)) {

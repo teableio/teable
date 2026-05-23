@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Avis",
+    "duplicateBaseDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "affectedTableSuffix": "({{count}} champ(s))",
+    "convertAndDuplicate": "Convertir et dupliquer"
+  },
   "initialSpaceName": "Espace de {{name}}",
   "action": {
     "createBase": "Créer une base",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps. Vous pouvez quitter temporairement.",
     "exportReadyDescription": "Veuillez télécharger le fichier .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Déplacement réussi",
-    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Avis",
+    "moveBaseCrossSpaceDataLossWarning": "Les références inter-espaces ne sont pas prises en charge. Les champs associés seront convertis en champs de texte. Cette action est irréversible."
   },
   "deleteSpaceModal": {
     "title": "Supprimer l'espace",
@@ -90,7 +98,6 @@
     "importWayTip": "Cliquez ou glissez-déposez le fichier dans cette zone pour télécharger",
     "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
     "confirm": "Confirmer et continuer",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

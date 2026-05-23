@@ -18,7 +18,6 @@ import {
   isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { IBaseJson, IFieldJson, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
 import { pick, get } from 'lodash';
@@ -26,6 +25,8 @@ import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
@@ -42,7 +43,7 @@ export class FieldDuplicateService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -50,7 +51,11 @@ export class FieldDuplicateService {
     private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
-  async createCommonFields(fields: IFieldWithTableIdJson[], fieldMap: Record<string, string>) {
+  async createCommonFields(
+    fields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const byTable = new Map<string, IFieldWithTableIdJson[]>();
     for (const field of fields) {
       const list = byTable.get(field.targetTableId) ?? [];
@@ -69,23 +74,38 @@ export class FieldDuplicateService {
         })
       );
 
-      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       for (let index = 0; index < tableFields.length; index++) {
         const original = tableFields[index];
         const newFieldVo = newFieldVos[index];
-        await this.replenishmentConstraint(newFieldVo.id, targetTableId, original.order, {
-          notNull: original.notNull,
-          unique: original.unique,
-          dbFieldName: newFieldVo.dbFieldName,
-          isPrimary: original.isPrimary,
-        });
+        await this.replenishmentConstraint(
+          newFieldVo.id,
+          targetTableId,
+          original.order,
+          {
+            notNull: original.notNull,
+            unique: original.unique,
+            dbFieldName: newFieldVo.dbFieldName,
+            isPrimary: original.isPrimary,
+          },
+          undefined,
+          routingOptions
+        );
         fieldMap[original.id] = newFieldVo.id;
       }
     }
   }
 
-  async createButtonFields(fields: IFieldWithTableIdJson[], fieldMap: Record<string, string>) {
+  async createButtonFields(
+    fields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const newFields = fields.map((field) => {
       const { options } = field;
       return {
@@ -96,12 +116,13 @@ export class FieldDuplicateService {
         },
       };
     }) as IFieldWithTableIdJson[];
-    return await this.createCommonFields(newFields, fieldMap);
+    return await this.createCommonFields(newFields, fieldMap, routingOptions);
   }
 
   async createTmpPrimaryFormulaFields(
     primaryFormulaFields: IFieldWithTableIdJson[],
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const byTable = new Map<string, IFieldWithTableIdJson[]>();
     for (const field of primaryFormulaFields) {
@@ -124,7 +145,11 @@ export class FieldDuplicateService {
         })
       );
 
-      const newFields = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFields = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       for (let index = 0; index < tableFields.length; index++) {
         const original = tableFields[index];
@@ -140,12 +165,19 @@ export class FieldDuplicateService {
           });
         }
 
-        await this.replenishmentConstraint(newField.id, targetTableId, original.order, {
-          notNull: original.notNull,
-          unique: original.unique,
-          dbFieldName: original.dbFieldName,
-          isPrimary: original.isPrimary,
-        });
+        await this.replenishmentConstraint(
+          newField.id,
+          targetTableId,
+          original.order,
+          {
+            notNull: original.notNull,
+            unique: original.unique,
+            dbFieldName: original.dbFieldName,
+            isPrimary: original.isPrimary,
+          },
+          undefined,
+          routingOptions
+        );
         fieldMap[original.id] = newField.id;
 
         if (original.hasError) {
@@ -223,7 +255,9 @@ export class FieldDuplicateService {
           this.logger.debug(
             "Executing SQL to modify primary formula field's column: " + alterTableQuery
           );
-          await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
+          await this.databaseRouter.executeDataPrismaForTable(targetTableId, alterTableQuery, {
+            useTransaction: true,
+          });
         }
         await this.prismaService.txClient().field.update({
           where: {
@@ -281,7 +315,8 @@ export class FieldDuplicateService {
     linkFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
-    fkMap: Record<string, string>
+    fkMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const selfLinkFields = linkFields.filter(
       ({ options, sourceTableId }) =>
@@ -310,19 +345,34 @@ export class FieldDuplicateService {
       ({ id }) => ![...selfLinkFields, ...crossBaseLinkFields].map(({ id }) => id).includes(id)
     );
 
-    await this.createSelfLinkFields(selfLinkFields, fieldMap, fkMap);
+    await this.createSelfLinkFields(selfLinkFields, fieldMap, fkMap, routingOptions);
 
     // deal with cross base link fields
-    await this.createCommonLinkFields(crossBaseLinkFields, tableIdMap, fieldMap, fkMap, true);
+    await this.createCommonLinkFields(
+      crossBaseLinkFields,
+      tableIdMap,
+      fieldMap,
+      fkMap,
+      true,
+      routingOptions
+    );
 
-    await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap, fkMap);
+    await this.createCommonLinkFields(
+      commonLinkFields,
+      tableIdMap,
+      fieldMap,
+      fkMap,
+      false,
+      routingOptions
+    );
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   async createSelfLinkFields(
     fields: IFieldWithTableIdJson[],
     fieldMap: Record<string, string>,
-    fkMap: Record<string, string>
+    fkMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const twoWaySelfLinkFields = fields.filter(
       ({ options }) => !(options as ILinkFieldOptions).isOneWay
@@ -366,7 +416,11 @@ export class FieldDuplicateService {
         })
       );
 
-      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
         where: {
@@ -438,7 +492,11 @@ export class FieldDuplicateService {
         };
       });
 
-      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
         where: {
@@ -483,7 +541,8 @@ export class FieldDuplicateService {
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
     fkMap: Record<string, string>,
-    allowCrossBase: boolean = false
+    allowCrossBase: boolean = false,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const oneWayFields = fields.filter(({ options }) => (options as ILinkFieldOptions).isOneWay);
     const twoWayFields = fields.filter(({ options }) => !(options as ILinkFieldOptions).isOneWay);
@@ -513,7 +572,11 @@ export class FieldDuplicateService {
         }
       );
 
-      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
         where: {
@@ -592,7 +655,11 @@ export class FieldDuplicateService {
         };
       });
 
-      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(targetTableId, fieldRos);
+      const newFieldVos = await this.fieldOpenApiService.createFieldsByRo(
+        targetTableId,
+        fieldRos,
+        routingOptions
+      );
 
       const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
         where: {
@@ -677,10 +744,13 @@ export class FieldDuplicateService {
     });
 
     if (genDbFieldName !== dbFieldName) {
+      const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(targetTableId, {
+        useTransaction: true,
+      });
       const exists = await this.dbProvider.checkColumnExist(
         resolvedDbTableName,
         genDbFieldName,
-        this.dataPrismaService.txClient()
+        dataPrisma
       );
       if (exists) {
         // Debug logging for rename operation to diagnose failures
@@ -700,7 +770,9 @@ export class FieldDuplicateService {
         for (const sql of alterTableSql) {
           // eslint-disable-next-line no-console
           console.log('[repairSymmetricField] executing SQL', sql);
-          await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+          await this.databaseRouter.executeDataPrismaForTable(targetTableId, sql, {
+            useTransaction: true,
+          });
         }
       }
     }
@@ -820,7 +892,8 @@ export class FieldDuplicateService {
     dependFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
-    scope: 'base' | 'table' = 'base'
+    scope: 'base' | 'table' = 'base',
+    routingOptions?: IDataDbRoutingOptions
   ): Promise<void> {
     if (!dependFields.length) return;
 
@@ -847,7 +920,9 @@ export class FieldDuplicateService {
           curField,
           tableIdMap,
           fieldMap,
-          scope
+          scope,
+          false,
+          routingOptions
         );
         continue;
       }
@@ -861,7 +936,8 @@ export class FieldDuplicateService {
             tableIdMap,
             fieldMap,
             scope,
-            true
+            true,
+            routingOptions
           );
         } else if (!countMap[curField.id] || countMap[curField.id] < maxCount) {
           dependFields.push(curField);
@@ -891,7 +967,8 @@ export class FieldDuplicateService {
 
   async bootstrapPrimaryDependencyFields(
     fields: IFieldWithTableIdJson[],
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     for (const field of fields) {
       if (!field.isPrimary || !field.aiConfig || field.isLookup) continue;
@@ -909,13 +986,18 @@ export class FieldDuplicateService {
         order,
       } = field;
 
-      const newField = await this.fieldOpenApiService.createField(targetTableId, {
-        type,
-        dbFieldName,
-        description,
-        options,
-        name,
-      });
+      const newField = await this.fieldOpenApiService.createField(
+        targetTableId,
+        {
+          type,
+          dbFieldName,
+          description,
+          options,
+          name,
+        },
+        undefined,
+        routingOptions
+      );
 
       await this.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,
@@ -935,7 +1017,8 @@ export class FieldDuplicateService {
     tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>,
     scope: 'base' | 'table' = 'base',
-    hasError = false
+    hasError = false,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const hasFieldError = Boolean(field.hasError);
     const isAiConfig = field.aiConfig && !field.isLookup;
@@ -948,7 +1031,12 @@ export class FieldDuplicateService {
 
     if (shouldConvertErroredComputed) {
       // During base import, persist errored computed fields as plain text so users keep the data.
-      await this.duplicateErroredComputedFieldAsText(targetTableId, field, sourceToTargetFieldMap);
+      await this.duplicateErroredComputedFieldAsText(
+        targetTableId,
+        field,
+        sourceToTargetFieldMap,
+        routingOptions
+      );
       return;
     }
 
@@ -968,14 +1056,16 @@ export class FieldDuplicateService {
           targetTableId,
           field,
           tableIdMap,
-          sourceToTargetFieldMap
+          sourceToTargetFieldMap,
+          routingOptions
         );
         break;
       case isAiConfig:
         await this.duplicateFieldAiConfig(
           targetTableId,
           field as unknown as IFieldInstance,
-          sourceToTargetFieldMap
+          sourceToTargetFieldMap,
+          routingOptions
         );
         break;
       case isRollup:
@@ -984,7 +1074,8 @@ export class FieldDuplicateService {
           targetTableId,
           field,
           tableIdMap,
-          sourceToTargetFieldMap
+          sourceToTargetFieldMap,
+          routingOptions
         );
         break;
       case isConditionalRollup:
@@ -993,7 +1084,8 @@ export class FieldDuplicateService {
           targetTableId,
           field,
           tableIdMap,
-          sourceToTargetFieldMap
+          sourceToTargetFieldMap,
+          routingOptions
         );
         break;
       case isFormula:
@@ -1001,7 +1093,8 @@ export class FieldDuplicateService {
           targetTableId,
           field,
           sourceToTargetFieldMap,
-          hasError || hasFieldError
+          hasError || hasFieldError,
+          routingOptions
         );
     }
   }
@@ -1009,7 +1102,8 @@ export class FieldDuplicateService {
   private async duplicateErroredComputedFieldAsText(
     targetTableId: string,
     field: IFieldWithTableIdJson,
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const { id, name, description, dbFieldName, order, notNull, unique, isPrimary } = field;
 
@@ -1023,7 +1117,12 @@ export class FieldDuplicateService {
       createFieldRo.dbFieldName = dbFieldName;
     }
 
-    const newField = await this.fieldOpenApiService.createField(targetTableId, createFieldRo);
+    const newField = await this.fieldOpenApiService.createField(
+      targetTableId,
+      createFieldRo,
+      undefined,
+      routingOptions
+    );
 
     await this.replenishmentConstraint(newField.id, targetTableId, order, {
       notNull,
@@ -1040,7 +1139,8 @@ export class FieldDuplicateService {
     targetTableId: string,
     field: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const {
       dbFieldName,
@@ -1101,23 +1201,28 @@ export class FieldDuplicateService {
 
       const effectiveLookupFieldId = hasError ? mockFieldId : (mappedLookupFieldId as string);
 
-      newField = await this.fieldOpenApiService.createField(targetTableId, {
-        type: (hasError ? mockType : lookupFieldType) as FieldType,
-        dbFieldName,
-        description,
-        isLookup: true,
-        isConditionalLookup: true,
-        name,
-        options,
-        lookupOptions: {
-          baseId: remappedLookupOptions?.baseId ?? conditionalOptions?.baseId,
-          foreignTableId: remappedLookupOptions?.foreignTableId ?? mappedForeignTableId,
-          lookupFieldId: effectiveLookupFieldId,
-          filter: remappedLookupOptions?.filter ?? conditionalOptions?.filter ?? null,
-          sort: remappedLookupOptions?.sort ?? conditionalOptions?.sort ?? undefined,
-          limit: remappedLookupOptions?.limit ?? conditionalOptions?.limit ?? undefined,
+      newField = await this.fieldOpenApiService.createField(
+        targetTableId,
+        {
+          type: (hasError ? mockType : lookupFieldType) as FieldType,
+          dbFieldName,
+          description,
+          isLookup: true,
+          isConditionalLookup: true,
+          name,
+          options,
+          lookupOptions: {
+            baseId: remappedLookupOptions?.baseId ?? conditionalOptions?.baseId,
+            foreignTableId: remappedLookupOptions?.foreignTableId ?? mappedForeignTableId,
+            lookupFieldId: effectiveLookupFieldId,
+            filter: remappedLookupOptions?.filter ?? conditionalOptions?.filter ?? null,
+            sort: remappedLookupOptions?.sort ?? conditionalOptions?.sort ?? undefined,
+            limit: remappedLookupOptions?.limit ?? conditionalOptions?.limit ?? undefined,
+          },
         },
-      });
+        undefined,
+        routingOptions
+      );
 
       if (hasError) {
         await this.prismaService.txClient().field.update({
@@ -1148,25 +1253,30 @@ export class FieldDuplicateService {
       const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptionsRo;
       const isSelfLink = foreignTableId === sourceTableId;
 
-      newField = await this.fieldOpenApiService.createField(targetTableId, {
-        type: (hasError ? mockType : lookupFieldType) as FieldType,
-        dbFieldName,
-        description,
-        isLookup: true,
-        lookupOptions: {
-          foreignTableId:
-            (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
-          linkFieldId: sourceToTargetFieldMap[linkFieldId],
-          lookupFieldId: isSelfLink
-            ? hasError
-              ? mockFieldId
-              : sourceToTargetFieldMap[lookupFieldId]
-            : hasError
-              ? mockFieldId
-              : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
+      newField = await this.fieldOpenApiService.createField(
+        targetTableId,
+        {
+          type: (hasError ? mockType : lookupFieldType) as FieldType,
+          dbFieldName,
+          description,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId:
+              (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
+            linkFieldId: sourceToTargetFieldMap[linkFieldId],
+            lookupFieldId: isSelfLink
+              ? hasError
+                ? mockFieldId
+                : sourceToTargetFieldMap[lookupFieldId]
+              : hasError
+                ? mockFieldId
+                : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
+          },
+          name,
         },
-        name,
-      });
+        undefined,
+        routingOptions
+      );
 
       if (hasError) {
         await this.prismaService.txClient().field.update({
@@ -1199,7 +1309,8 @@ export class FieldDuplicateService {
     targetTableId: string,
     fieldInstance: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const {
       dbFieldName,
@@ -1221,25 +1332,31 @@ export class FieldDuplicateService {
     const isSelfLink = foreignTableId === sourceTableId;
 
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
-    const newField = await this.fieldOpenApiService.createField(targetTableId, {
-      type: FieldType.Rollup,
-      dbFieldName,
-      description,
-      lookupOptions: {
-        // foreignTableId may are cross base table id, so we need to use tableIdMap to get the target table id
-        foreignTableId: (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
-        linkFieldId: sourceToTargetFieldMap[linkFieldId],
-        lookupFieldId: isSelfLink
-          ? hasError
-            ? mockFieldId
-            : sourceToTargetFieldMap[lookupFieldId]
-          : hasError
-            ? mockFieldId
-            : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
+    const newField = await this.fieldOpenApiService.createField(
+      targetTableId,
+      {
+        type: FieldType.Rollup,
+        dbFieldName,
+        description,
+        lookupOptions: {
+          // foreignTableId may are cross base table id, so we need to use tableIdMap to get the target table id
+          foreignTableId:
+            (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
+          linkFieldId: sourceToTargetFieldMap[linkFieldId],
+          lookupFieldId: isSelfLink
+            ? hasError
+              ? mockFieldId
+              : sourceToTargetFieldMap[lookupFieldId]
+            : hasError
+              ? mockFieldId
+              : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
+        },
+        options,
+        name,
       },
-      options,
-      name,
-    });
+      undefined,
+      routingOptions
+    );
     await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
       notNull,
       unique,
@@ -1270,7 +1387,8 @@ export class FieldDuplicateService {
     targetTableId: string,
     fieldInstance: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const {
       dbFieldName,
@@ -1302,13 +1420,18 @@ export class FieldDuplicateService {
       false
     ) as IConditionalRollupFieldOptions;
 
-    const newField = await this.fieldOpenApiService.createField(targetTableId, {
-      type: FieldType.ConditionalRollup,
-      dbFieldName,
-      description,
-      options: remappedOptions,
-      name,
-    });
+    const newField = await this.fieldOpenApiService.createField(
+      targetTableId,
+      {
+        type: FieldType.ConditionalRollup,
+        dbFieldName,
+        description,
+        options: remappedOptions,
+        name,
+      },
+      undefined,
+      routingOptions
+    );
 
     await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
       notNull,
@@ -1335,7 +1458,8 @@ export class FieldDuplicateService {
     targetTableId: string,
     fieldInstance: IFieldWithTableIdJson,
     sourceToTargetFieldMap: Record<string, string>,
-    hasError: boolean = false
+    hasError: boolean = false,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const {
       type,
@@ -1353,20 +1477,25 @@ export class FieldDuplicateService {
     } = fieldInstance;
     const { expression } = options as IFormulaFieldOptions;
     const newExpression = replaceStringByMap(expression, { sourceToTargetFieldMap });
-    const newField = await this.fieldOpenApiService.createField(targetTableId, {
-      type,
-      dbFieldName,
-      description,
-      options: {
-        ...options,
-        expression: hasError
-          ? DEFAULT_EXPRESSION
-          : newExpression
-            ? JSON.parse(newExpression)
-            : undefined,
+    const newField = await this.fieldOpenApiService.createField(
+      targetTableId,
+      {
+        type,
+        dbFieldName,
+        description,
+        options: {
+          ...options,
+          expression: hasError
+            ? DEFAULT_EXPRESSION
+            : newExpression
+              ? JSON.parse(newExpression)
+              : undefined,
+        },
+        name,
       },
-      name,
-    });
+      undefined,
+      routingOptions
+    );
     await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
       notNull,
       unique,
@@ -1426,7 +1555,9 @@ export class FieldDuplicateService {
       );
 
       for (const alterTableQuery of modifyColumnSql) {
-        await this.dataPrismaService.txClient().$executeRawUnsafe(alterTableQuery);
+        await this.databaseRouter.executeDataPrismaForTable(targetTableId, alterTableQuery, {
+          useTransaction: true,
+        });
       }
 
       await this.prismaService.txClient().field.update({
@@ -1464,7 +1595,8 @@ export class FieldDuplicateService {
   private async duplicateFieldAiConfig(
     targetTableId: string,
     fieldInstance: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>
+    sourceToTargetFieldMap: Record<string, string>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     if (!fieldInstance.aiConfig) return;
 
@@ -1472,14 +1604,19 @@ export class FieldDuplicateService {
       fieldInstance;
     const aiConfig = this.mapAiConfigForDuplicate(fieldInstance.aiConfig, sourceToTargetFieldMap);
 
-    const newField = await this.fieldOpenApiService.createField(targetTableId, {
-      type,
-      dbFieldName,
-      description,
-      options,
-      aiConfig,
-      name,
-    });
+    const newField = await this.fieldOpenApiService.createField(
+      targetTableId,
+      {
+        type,
+        dbFieldName,
+        description,
+        options,
+        aiConfig,
+        name,
+      },
+      undefined,
+      routingOptions
+    );
 
     await this.replenishmentConstraint(newField.id, targetTableId, 1, {
       notNull,
@@ -1520,7 +1657,8 @@ export class FieldDuplicateService {
       dbFieldName,
       isPrimary,
     }: { notNull?: boolean; unique?: boolean; dbFieldName: string; isPrimary?: boolean },
-    dbTableName?: string
+    dbTableName?: string,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     await this.prismaService.txClient().field.update({
       where: {
@@ -1574,7 +1712,11 @@ export class FieldDuplicateService {
         .toSQL();
 
       for (const sql of fieldValidationSqls) {
-        await this.dataPrismaService.txClient().$executeRawUnsafe(sql.sql);
+        await this.databaseRouter.executeDataPrismaForTable(
+          targetTableId,
+          sql.sql,
+          routingOptions ?? { useTransaction: true }
+        );
       }
     }
   }
