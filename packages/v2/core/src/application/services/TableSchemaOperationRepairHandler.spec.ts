@@ -174,6 +174,76 @@ describe('TableSchemaOperationRepairHandler', () => {
     );
   });
 
+  it('repairs a missing-column table update operation and completes the same operation key', async () => {
+    const table = createTable('f', 'Repair Update');
+    const { handler, tableRepository, tableSchemaRepository, fieldCreationSideEffectService } =
+      createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        lastError: 'Failed to update table schema: error: column "Missing_Field" does not exist',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({
+        idempotencyKey: `repair-op:table:${table.id().toString()}`,
+        operationType: 'table.update',
+      })
+    );
+  });
+
+  it('keeps arbitrary table update failures visible without replaying unsafe schema repair', async () => {
+    const table = createTable('g', 'Unsafe Update');
+    const { handler, tableRepository, tableSchemaRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        lastError: 'Failed to update table schema: error: cannot cast type jsonb to double',
+      })
+    );
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'schema_operation.repair_not_supported',
+    });
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({
+        idempotencyKey: `repair-op:table:${table.id().toString()}`,
+        operationType: 'table.update',
+        status: 'error',
+        phase: 'error',
+        lastError: 'Failed to update table schema: error: cannot cast type jsonb to double',
+      })
+    );
+    expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+  });
+
   it('refuses to repair create operations that need record replay', async () => {
     const table = createTable('b', 'Repair Records');
     const { handler, tableSchemaRepository } = createHandler([table]);

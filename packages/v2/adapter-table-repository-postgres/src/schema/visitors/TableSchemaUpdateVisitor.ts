@@ -82,14 +82,15 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntrospector';
 import { createSchemaRuleContext } from '../rules/context/SchemaRuleContext';
+import type { TableSchemaStatementBuilder } from '../rules/core';
 import { createFieldSchemaRules } from '../rules/field/FieldSchemaRulesFactory';
 import { ReferenceRule } from '../rules/field/ReferenceRule';
+import type { TableIdentifier } from '../rules/helpers';
 import {
   generateFieldConversionStatements,
   type FieldConversionParams,
 } from './FieldTypeConversionVisitor';
 import { FieldValueDuplicateVisitor } from './FieldValueDuplicateVisitor';
-import type { TableSchemaStatementBuilder } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
@@ -99,6 +100,7 @@ type TableSchemaUpdateVisitorParams = {
   tableName: string;
   tableId: string;
   table: Table;
+  tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
 };
 
 export class TableSchemaUpdateVisitor
@@ -155,6 +157,7 @@ export class TableSchemaUpdateVisitor
     const indexName = TableSchemaUpdateVisitor.getSearchIndexName(tableName, fieldId, dbFieldName);
     const qualifiedIndex = schema ? `"${schema}"."${indexName}"` : `"${indexName}"`;
     return {
+      scope: 'data',
       compile: () => sql`DROP INDEX IF EXISTS ${sql.raw(qualifiedIndex)}`.compile(db),
     };
   }
@@ -222,6 +225,7 @@ export class TableSchemaUpdateVisitor
     `;
 
     return {
+      scope: 'data',
       compile: () => sql.raw(createSql).compile(db),
     };
   }
@@ -276,6 +280,7 @@ export class TableSchemaUpdateVisitor
     );
     const pgSchema = schema ?? 'public';
     return {
+      scope: 'data',
       compile: () =>
         sql`ALTER INDEX IF EXISTS ${sql.raw(`"${pgSchema}"."${oldIndexName}"`)} RENAME TO ${sql.raw(`"${newIndexName}"`)}`.compile(
           db
@@ -520,9 +525,12 @@ export class TableSchemaUpdateVisitor
           newField,
         });
         const valueStatements = yield* sourceField.accept(valueVisitor);
-        const valueDuplicationStatements = valueStatements.map((query) => ({
-          compile: () => query,
-        }));
+        const valueDuplicationStatements: TableSchemaStatementBuilder[] = valueStatements.map(
+          (query) => ({
+            scope: 'data',
+            compile: () => query,
+          })
+        );
 
         const allStatements = [...schemaStatements, ...valueDuplicationStatements];
         yield* addCond(allStatements);
@@ -615,6 +623,7 @@ export class TableSchemaUpdateVisitor
 
       const statements: TableSchemaStatementBuilder[] = [
         {
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullTableName)} RENAME COLUMN ${sql.ref(previousName)} TO ${sql.ref(nextName)}`.compile(
               db
@@ -715,6 +724,7 @@ export class TableSchemaUpdateVisitor
         if (spec.nextNotNull().toBoolean()) {
           // Add NOT NULL constraint
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(dbFieldName)} SET NOT NULL`.compile(
                 db
@@ -723,6 +733,7 @@ export class TableSchemaUpdateVisitor
         } else {
           // Remove NOT NULL constraint
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(dbFieldName)} DROP NOT NULL`.compile(
                 db
@@ -739,6 +750,7 @@ export class TableSchemaUpdateVisitor
         if (spec.nextUnique().toBoolean()) {
           // Add UNIQUE constraint
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`ALTER TABLE ${sql.raw(fullTableName)} ADD CONSTRAINT ${sql.ref(constraintName)} UNIQUE (${sql.ref(dbFieldName)})`.compile(
                 db
@@ -747,6 +759,7 @@ export class TableSchemaUpdateVisitor
         } else {
           // Remove UNIQUE constraint
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
                 db
@@ -802,6 +815,7 @@ export class TableSchemaUpdateVisitor
         // Keep errored computed fields aligned with query behavior (undefined/null)
         // by clearing any stale persisted values.
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL`.compile(
               visitor.params.db
@@ -945,6 +959,7 @@ export class TableSchemaUpdateVisitor
       // Clamp values: UPDATE records SET col = newMax WHERE col > newMax
       const statements: TableSchemaStatementBuilder[] = [
         {
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = ${newMax} WHERE ${sql.ref(dbFieldName)} > ${newMax}`.compile(
               db
@@ -1000,6 +1015,7 @@ export class TableSchemaUpdateVisitor
         // Array → Single: Extract first element from jsonb array
         // User field stores as jsonb, so we extract the first element
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = (${sql.ref(dbFieldName)}->0) WHERE ${sql.ref(dbFieldName)} IS NOT NULL AND jsonb_array_length(${sql.ref(dbFieldName)}) > 0`.compile(
               db
@@ -1008,6 +1024,7 @@ export class TableSchemaUpdateVisitor
       } else if (spec.isSingleToMultiple()) {
         // Single → Array: Wrap in jsonb array
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = jsonb_build_array(${sql.ref(dbFieldName)}) WHERE ${sql.ref(dbFieldName)} IS NOT NULL`.compile(
               db
@@ -1084,6 +1101,7 @@ export class TableSchemaUpdateVisitor
         : `"${visitor.params.tableName}"`;
 
       statements.push({
+        scope: 'data',
         compile: () =>
           sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL WHERE ${sql.ref(dbFieldName)} IS NOT NULL`.compile(
             visitor.params.db
@@ -1119,6 +1137,7 @@ export class TableSchemaUpdateVisitor
         const oldName = previous.name().toString();
         const newName = next.name().toString();
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = ${newName} WHERE ${sql.ref(dbFieldName)} = ${oldName}`.compile(
               db
@@ -1130,6 +1149,7 @@ export class TableSchemaUpdateVisitor
       for (const removed of spec.removedOptions()) {
         const deletedName = removed.name().toString();
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL WHERE ${sql.ref(dbFieldName)} = ${deletedName}`.compile(
               db
@@ -1180,6 +1200,7 @@ export class TableSchemaUpdateVisitor
         const oldName = previous.name().toString();
         const newName = next.name().toString();
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`
               UPDATE ${sql.raw(fullTableName)}
@@ -1197,6 +1218,7 @@ export class TableSchemaUpdateVisitor
       for (const removed of spec.removedOptions()) {
         const deletedName = removed.name().toString();
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`
               UPDATE ${sql.raw(fullTableName)}
@@ -1300,6 +1322,7 @@ export class TableSchemaUpdateVisitor
       if (nextIsMultiple) {
         return [
           {
+            scope: 'data',
             compile: () =>
               sql`UPDATE ${sql.raw(fullHostTableName)}
                   SET ${sql.ref(dbFieldName)} = CASE
@@ -1314,6 +1337,7 @@ export class TableSchemaUpdateVisitor
 
       return [
         {
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullHostTableName)}
                 SET ${sql.ref(dbFieldName)} = CASE
@@ -1385,6 +1409,7 @@ export class TableSchemaUpdateVisitor
 
       return [
         {
+          scope: 'data',
           compile: () =>
             sql
               .raw(
@@ -1393,9 +1418,11 @@ export class TableSchemaUpdateVisitor
               .compile(db),
         },
         {
+          scope: 'data',
           compile: () => sql`DROP INDEX IF EXISTS ${sql.raw(fullIndexName)}`.compile(db),
         },
         {
+          scope: 'data',
           compile: () =>
             sql
               .raw(
@@ -1432,6 +1459,7 @@ export class TableSchemaUpdateVisitor
           if (nextHasOrder && !prevHasOrder) {
             // Add __order column to junction table
             statements.push({
+              scope: 'data',
               compile: () =>
                 sql`ALTER TABLE ${sql.raw(fullJunctionTableName)} ADD COLUMN IF NOT EXISTS "__order" double precision`.compile(
                   db
@@ -1440,6 +1468,7 @@ export class TableSchemaUpdateVisitor
           } else if (prevHasOrder && !nextHasOrder) {
             // Drop __order column from junction table
             statements.push({
+              scope: 'data',
               compile: () =>
                 sql`ALTER TABLE ${sql.raw(fullJunctionTableName)} DROP COLUMN IF EXISTS "__order"`.compile(
                   db
@@ -1516,12 +1545,14 @@ export class TableSchemaUpdateVisitor
 
         // 1. Create FK columns on the new host table.
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
               db
             ),
         });
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
               db
@@ -1530,6 +1561,7 @@ export class TableSchemaUpdateVisitor
 
         // 2. Move relationships from old host FK to new host FK.
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullNewHostTableName)} AS n
                 SET ${sql.ref(newFkColumnName)} = (
@@ -1548,12 +1580,14 @@ export class TableSchemaUpdateVisitor
 
         // 3. Drop old FK columns from the old host table.
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
               db
             ),
         });
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
               db
@@ -1606,6 +1640,7 @@ export class TableSchemaUpdateVisitor
 
         // 1. Add FK column to FK host table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullFkHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
               db
@@ -1614,6 +1649,7 @@ export class TableSchemaUpdateVisitor
 
         // 2. Add order column to FK host table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullFkHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
               db
@@ -1627,6 +1663,7 @@ export class TableSchemaUpdateVisitor
           ? `ORDER BY j."__order", j."__id"`
           : `ORDER BY j."__id"`;
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`UPDATE ${sql.raw(fullFkHostTableName)} AS h
                 SET ${sql.ref(newFkColumnName)} = (
@@ -1645,6 +1682,7 @@ export class TableSchemaUpdateVisitor
 
         // 4. Drop junction table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`DROP TABLE IF EXISTS ${sql.raw(fullJunctionTableName)} CASCADE`.compile(db),
         });
@@ -1762,6 +1800,7 @@ END
 $v2_link_trim$;`;
 
           statements.push({
+            scope: 'data',
             compile: () => sql.raw(trimSymmetricSql).compile(db),
           });
         }
@@ -1823,6 +1862,7 @@ $v2_link_trim$;`;
         // 1. Create junction table, with or without __order column depending on target relationship
         if (junctionNeedsOrder) {
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`CREATE TABLE IF NOT EXISTS ${sql.raw(fullJunctionTableName)} ("__id" serial PRIMARY KEY, ${sql.ref(newSelfKeyName)} text, ${sql.ref(newForeignKeyName)} text, "__order" double precision)`.compile(
                 db
@@ -1830,6 +1870,7 @@ $v2_link_trim$;`;
           });
         } else {
           statements.push({
+            scope: 'data',
             compile: () =>
               sql`CREATE TABLE IF NOT EXISTS ${sql.raw(fullJunctionTableName)} ("__id" serial PRIMARY KEY, ${sql.ref(newSelfKeyName)} text, ${sql.ref(newForeignKeyName)} text)`.compile(
                 db
@@ -1839,6 +1880,7 @@ $v2_link_trim$;`;
 
         // 2. Migrate data from FK column to junction table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`INSERT INTO ${sql.raw(fullJunctionTableName)} (${sql.ref(newSelfKeyName)}, ${sql.ref(newForeignKeyName)}) SELECT ${sql.raw(junctionSelfSourceExpr)}, ${sql.raw(junctionForeignSourceExpr)} FROM ${sql.raw(fullForeignTableName)} WHERE ${sql.raw(sourceLinkedIdExpr)} IS NOT NULL`.compile(
               db
@@ -1847,6 +1889,7 @@ $v2_link_trim$;`;
 
         // 3. Drop FK column from foreign table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullForeignTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
               db
@@ -1855,6 +1898,7 @@ $v2_link_trim$;`;
 
         // 4. Drop order column from foreign table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullForeignTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
               db
@@ -1915,6 +1959,7 @@ $v2_link_trim$;`;
         // 1. Create new junction table with proper columns
         const newOrderCol = nextHasOrder ? `, "__order" double precision` : '';
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`CREATE TABLE IF NOT EXISTS ${sql.raw(fullNewJunctionTableName)} (
                 "__id" serial PRIMARY KEY,
@@ -1938,6 +1983,7 @@ $v2_link_trim$;`;
         }
 
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`INSERT INTO ${sql.raw(fullNewJunctionTableName)} (${sql.raw(insertColumns.join(', '))})
                 SELECT ${sql.raw(selectColumns.join(', '))}
@@ -1946,6 +1992,7 @@ $v2_link_trim$;`;
 
         // 3. Drop old junction table
         statements.push({
+          scope: 'data',
           compile: () =>
             sql`DROP TABLE IF EXISTS ${sql.raw(fullOldJunctionTableName)} CASCADE`.compile(db),
         });
@@ -2033,6 +2080,7 @@ $v2_link_trim$;`;
       // Only drop the JSONB column, NOT the junction table
       const statements: TableSchemaStatementBuilder[] = [
         {
+          scope: 'data',
           compile: () =>
             sql`ALTER TABLE ${sql.raw(fullTableName)} DROP COLUMN IF EXISTS ${sql.ref(dbFieldName)}`.compile(
               db
