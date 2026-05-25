@@ -24,6 +24,7 @@ interface ILinkEditorProps {
   className?: string;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   displayType?: LinkDisplayType;
+  isSelectedRowBgVisible?: boolean;
   onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
 }
 
@@ -40,6 +41,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     readonly,
     className,
     displayType = LinkDisplayType.Grid,
+    isSelectedRowBgVisible,
   } = props;
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
@@ -128,6 +130,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                     recordQuery={recordQuery}
                     onChange={onRecordListChange}
                     onExpand={onRecordExpand}
+                    isSelectedRowBgVisible={isSelectedRowBgVisible}
                   />
                 </RowCountProvider>
               </LinkFilterProvider>

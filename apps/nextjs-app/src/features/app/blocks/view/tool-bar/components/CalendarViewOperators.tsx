@@ -1,42 +1,24 @@
-import { Filter as FilterIcon, Share2, Plus, EyeOff, Settings, AlertTriangle } from '@teable/icons';
+import { Filter as FilterIcon, Share2, EyeOff, Settings, AlertTriangle } from '@teable/icons';
 import type { CalendarView } from '@teable/sdk';
-import {
-  ViewFilter,
-  VisibleFields,
-  useTablePermission,
-  CreateRecordModal,
-  useIsReadOnlyPreview,
-} from '@teable/sdk';
+import { ViewFilter, VisibleFields } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarConfig } from '../../calendar/components/CalendarConfig';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as CalendarView | undefined;
-  const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange } = useToolbarChange();
-  const isReadOnlyPreview = useIsReadOnlyPreview();
   if (!view) return null;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      {!isReadOnlyPreview && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <CalendarConfig>
         <ToolBarButton
           disabled={disabled}
@@ -91,6 +73,6 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
           </ToolBarButton>
         )}
       </ViewFilter>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

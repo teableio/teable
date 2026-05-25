@@ -13,7 +13,7 @@ import type {
   SchemaOperationType,
 } from './SchemaOperationRepository';
 
-export type TableQueryState = 'active' | 'deleted' | 'all';
+export type TableQueryState = 'active' | 'activeWithPending' | 'deleted' | 'all';
 
 export type TableFindOptions = IFindOptions<TableSortKey> & {
   state?: TableQueryState;

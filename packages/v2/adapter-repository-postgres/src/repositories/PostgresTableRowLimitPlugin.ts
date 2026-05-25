@@ -137,9 +137,10 @@ export class PostgresTableRowLimitPlugin
       if (rowCount + recordCount > preparedState.maxRowCount) {
         return err(
           core.domainError.validation({
-            code: 'validation.max_row_limit',
+            code: 'validation.limit.rows_per_table_max',
             message: `Exceed max row limit: ${preparedState.maxRowCount}, please contact us to increase the limit`,
             details: {
+              max: preparedState.maxRowCount,
               maxRowCount: preparedState.maxRowCount,
               rowCount,
               recordCount,

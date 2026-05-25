@@ -1715,6 +1715,7 @@ export type I18nTranslations = {
             "modelServiceError": string;
             "imageProcessingFailed": string;
             "imageProcessingFailedDescription": string;
+            "sandboxSameChatBusy": string;
             "sandboxBusy": string;
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
@@ -2792,6 +2793,8 @@ export type I18nTranslations = {
         };
         "selectionStatistic": {
             "tip": string;
+            "copyTip": string;
+            "copied": string;
         };
         "baseQuery": {
             "add": string;
@@ -2903,6 +2906,31 @@ export type I18nTranslations = {
             "automationNodeNeedTest": string;
             "automationNodeTestOutdated": string;
             "invalidToken": string;
+            "limit": {
+                "fieldOptionsMaxBytes": string;
+                "selectChoicesMax": string;
+                "selectChoiceNameMaxLength": string;
+                "selectDefaultValuesMax": string;
+                "cellValueMaxBytes": string;
+                "recordFieldsMaxBytes": string;
+                "recordsPerMutationMax": string;
+                "computedCellValueMaxBytes": string;
+                "formulaMaxLength": string;
+                "tablesPerBaseMax": string;
+                "fieldsPerTableMax": string;
+                "rowsPerTableMax": string;
+                "viewsPerTableMax": string;
+                "createTableFieldsMax": string;
+                "createTableViewsMax": string;
+                "createTableRecordsMax": string;
+                "viewFilterItemsMax": string;
+                "viewFilterDepthMax": string;
+                "viewSortItemsMax": string;
+                "viewGroupItemsMax": string;
+                "viewOptionsMaxBytes": string;
+                "nameMaxLength": string;
+                "descriptionMaxLength": string;
+            };
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -3025,8 +3053,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
-                "ownedSpaceLimitExceeded": string;
-                "ownedSpaceLimitExceededOther": string;
+                "freeOwnedSpaceLimitExceeded": string;
+                "freeOwnedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
@@ -3190,6 +3218,7 @@ export type I18nTranslations = {
                 "recordMapNotFound": string;
                 "forbidDeletePrimaryField": string;
                 "foreignTableIdInvalid": string;
+                "crossSpaceLinkForbidden": string;
                 "relationshipInvalid": string;
                 "linkFieldIdInvalid": string;
                 "lookupFieldIdInvalid": string;
@@ -3486,6 +3515,12 @@ export type I18nTranslations = {
         };
     };
     "space": {
+        "crossSpace": {
+            "duplicateBaseTitle": string;
+            "duplicateBaseDescription": string;
+            "affectedTableSuffix": string;
+            "convertAndDuplicate": string;
+        };
         "initialSpaceName": string;
         "action": {
             "createBase": string;
@@ -3548,6 +3583,8 @@ export type I18nTranslations = {
             "exportReadyDescription": string;
             "moveBaseSuccessTitle": string;
             "moveBaseSuccessDescription": string;
+            "moveBaseCrossSpaceTitle": string;
+            "moveBaseCrossSpaceDataLossWarning": string;
         };
         "deleteSpaceModal": {
             "title": string;
@@ -3722,8 +3759,97 @@ export type I18nTranslations = {
         };
         "collaborators": string;
         "more": string;
+        "export": {
+            "phase": {
+                "preparing": string;
+                "exportingArchive": string;
+                "exportingStructure": string;
+                "exportingAttachments": string;
+                "exportingAttachmentMetadata": string;
+                "exportingTableData": string;
+                "tableDataStarted": string;
+                "tableDataProgress": string;
+                "tableDataDone": string;
+                "exportingExtraFiles": string;
+                "exportingAppFiles": string;
+                "uploadingArchive": string;
+                "generatingDownloadUrl": string;
+                "rowsProgress": string;
+                "done": string;
+            };
+        };
+        "dataDb": {
+            "create": {
+                "title": string;
+                "description": string;
+                "defaultOption": string;
+                "defaultHint": string;
+                "byodbOption": string;
+                "byodbHint": string;
+                "urlLabel": string;
+                "sslHint": string;
+                "testConnection": string;
+                "testing": string;
+                "retestRequired": string;
+                "databaseLabel": string;
+                "databasePlaceholder": string;
+                "databaseHint": string;
+                "preflightPassed": string;
+                "preflightFailed": string;
+                "missingCapabilities": string;
+                "testFailed": string;
+                "errors": {
+                    "INVALID_DATABASE_URL": {
+                        "message": string;
+                    };
+                    "PRIVATE_NETWORK_BLOCKED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "CONNECTION_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "IPV6_NETWORK_UNREACHABLE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                    };
+                    "DDL_PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "NON_EMPTY_UNKNOWN_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "INCOMPATIBLE_TEABLE_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                };
+            };
+            "fields": {
+                "host": string;
+                "database": string;
+                "internalSchema": string;
+                "version": string;
+                "classification": string;
+            };
+        };
     };
     "table": {
+        "crossSpace": {
+            "duplicateFieldTitle": string;
+            "duplicateFieldDescription": string;
+            "duplicateTableTitle": string;
+            "duplicateTableDescription": string;
+            "duplicateBaseTitle": string;
+            "duplicateBaseDescription": string;
+            "convertAndDuplicate": string;
+        };
         "toolbar": {
             "comingSoon": string;
             "viewFilterInShare": string;
@@ -4281,6 +4407,7 @@ export type I18nTranslations = {
                     "noFocus": string;
                     "noPermission": string;
                 };
+                "pasteNoEditableFields": string;
                 "clearFailed": string;
                 "clearConfirmTitle": string;
                 "clearConfirmDescription": string;
@@ -4528,6 +4655,8 @@ export type I18nTranslations = {
                             "foreignKeyOrphanRows": string;
                             "junctionForeignKeyTargetTableMissing": string;
                             "junctionForeignKeyOrphanRows": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
                         };
                         "description": {
                             "symmetricFieldConflict": string;
@@ -4536,6 +4665,8 @@ export type I18nTranslations = {
                             "junctionForeignKeyTargetTableMissing": string;
                             "junctionForeignKeyOrphanRows": string;
                             "autoRule": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
                         };
                         "manual": {
                             "apply": string;
@@ -4548,6 +4679,42 @@ export type I18nTranslations = {
                                     "keepCurrent": string;
                                     "keepDuplicate": string;
                                     "convertDuplicate": string;
+                                };
+                            };
+                            "symmetricFieldMissing": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "convertCurrent": string;
+                                };
+                            };
+                            "symmetricFieldBroken": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "convertCurrent": string;
+                                };
+                            };
+                            "foreignKeyOrphanRows": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "clearOrphanValues": string;
+                                };
+                            };
+                            "junctionForeignKeyOrphanRows": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "deleteOrphanRows": string;
                                 };
                             };
                         };
@@ -4934,6 +5101,10 @@ export type I18nTranslations = {
                     "contextTooltip": string;
                     "contextTipNewChat": string;
                     "contextTipMemory": string;
+                };
+                "contextCompaction": {
+                    "auto": string;
+                    "manual": string;
                 };
                 "taskProgress": {
                     "title": string;
