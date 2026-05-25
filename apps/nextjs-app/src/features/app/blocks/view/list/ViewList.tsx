@@ -12,6 +12,7 @@ export const ViewList = () => {
   const permission = useTablePermission();
   const editable = permission['view|update'];
   const [editing, setEditing] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   return isHydrated && editable ? (
     views.length ? (
@@ -20,7 +21,7 @@ export const ViewList = () => {
           <div
             ref={setNodeRef}
             {...attributes}
-            {...(editing ? {} : listeners)}
+            {...(editing || contextMenuOpen ? {} : listeners)}
             style={style}
             className={cn('relative', {
               'opacity-50': isDragging,
@@ -28,6 +29,7 @@ export const ViewList = () => {
           >
             <ViewListItem
               onEdit={(value) => setEditing(value)}
+              onContextMenuOpenChange={setContextMenuOpen}
               view={view}
               removable={!!permission['view|delete'] && views.length > 1}
               isActive={view.id === activeViewId}
