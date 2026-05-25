@@ -211,11 +211,13 @@ describe('OpenAPI RecordController (e2e)', () => {
         typecast: true,
       });
 
+      const beforeNowTypecast = Date.now();
       const res3 = await updateRecord(table.id, table.records[0].id, {
         record: { fields: { [dateField.id]: 'now' } },
         fieldKeyType: FieldKeyType.Id,
         typecast: true,
       });
+      const afterNowTypecast = Date.now();
 
       expect(res1.fields[singleUserField.id]).toMatchObject({
         email: 'test@e2e.com',
@@ -229,9 +231,9 @@ describe('OpenAPI RecordController (e2e)', () => {
       ]);
 
       expect(res3.fields[dateField.id]).toBeDefined();
-      expect(new Date(res3.fields[dateField.id] as string).toISOString().slice(0, -7)).toEqual(
-        new Date().toISOString().slice(0, -7)
-      );
+      const typecastTime = new Date(res3.fields[dateField.id] as string).getTime();
+      expect(typecastTime).toBeGreaterThanOrEqual(beforeNowTypecast - 1000);
+      expect(typecastTime).toBeLessThanOrEqual(afterNowTypecast + 1000);
     });
 
     it('should not auto create options when preventAutoNewOptions is true', async () => {

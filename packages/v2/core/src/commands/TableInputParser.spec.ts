@@ -24,6 +24,38 @@ describe('TableInputParser', () => {
     expect(table.views()).toHaveLength(1);
   });
 
+  it('applies post-build field metadata when building from raw input', () => {
+    const primaryFieldId = `fld${'p'.repeat(16)}`;
+    const aiConfig = {
+      modelKey: 'test-e2e',
+      sourceFieldId: primaryFieldId,
+      type: 'summary',
+    };
+
+    const result = buildTableFromInput({
+      baseId: `bse${'m'.repeat(16)}`,
+      name: 'Metadata',
+      fields: [
+        { type: 'singleLineText', id: primaryFieldId, name: 'Name', isPrimary: true },
+        {
+          type: 'singleLineText',
+          id: `fld${'a'.repeat(16)}`,
+          name: 'AI Summary',
+          description: 'Generated summary',
+          aiConfig,
+        },
+      ],
+    });
+
+    const aiField = result
+      ._unsafeUnwrap()
+      .table.getField((field) => field.name().toString() === 'AI Summary')
+      ._unsafeUnwrap();
+
+    expect(aiField.description()).toBe('Generated summary');
+    expect(aiField.aiConfig()).toEqual(aiConfig);
+  });
+
   it('rejects multiple primary fields', () => {
     const specs = parseFieldSpecs([
       { type: 'singleLineText', name: 'A', isPrimary: true },

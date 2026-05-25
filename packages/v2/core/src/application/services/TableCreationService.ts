@@ -204,7 +204,9 @@ export class TableCreationService {
       );
 
       // Create physical table structures
-      yield* await service.tableSchemaRepository.insertMany(context, persistedTables);
+      yield* await service.tableSchemaRepository.insertMany(context, persistedTables, {
+        knownTables: [...externalTables, ...persistedTables],
+      });
 
       // Build initial table state
       let tableState = new Map<string, Table>();

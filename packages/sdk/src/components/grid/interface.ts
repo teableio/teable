@@ -129,6 +129,7 @@ export enum MouseButtonType {
 }
 
 export enum RowControlType {
+  Spacer = 'Spacer',
   Drag = 'Drag',
   Expand = 'Expand',
   Checkbox = 'Checkbox',

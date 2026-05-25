@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'async_hooks';
 import type { ILogger } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -90,5 +91,41 @@ describe('ComputedUpdatePollingService', () => {
       'computed:polling:scheduled',
       expect.objectContaining({ workerId: 'poll-debug', delayMs: 1000 })
     );
+  });
+
+  it('runs auto-started polling outside the request async context that created it', async () => {
+    vi.useFakeTimers();
+
+    const storage = new AsyncLocalStorage<{ tableId: string }>();
+    const seenContexts: Array<{ tableId: string } | undefined> = [];
+    const worker = {
+      runOnce: vi.fn().mockImplementation(() => {
+        seenContexts.push(storage.getStore());
+        return Promise.resolve(ok(seenContexts.length === 1 ? 5 : 0));
+      }),
+    };
+    const logger = createLogger();
+
+    let service: ComputedUpdatePollingService | undefined;
+    storage.run({ tableId: 'tbl-from-request' }, () => {
+      service = new ComputedUpdatePollingService(
+        worker as never,
+        {
+          ...defaultPollingConfig,
+          enabled: true,
+          workerId: 'poll-detached',
+          batchSize: 5,
+          pollIntervalMs: 1000,
+        },
+        logger
+      );
+    });
+
+    await vi.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(seenContexts).toEqual([undefined, undefined]);
+
+    await service?.stop();
   });
 });

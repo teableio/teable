@@ -76,13 +76,18 @@ export const replaceDefaultUrl = (
   return newDefaultUrl;
 };
 
+export interface ILinkFieldTableInfo {
+  dbFieldName: string;
+  selfKeyName: string;
+  isMultipleCellValue: boolean;
+}
+
+export type ILinkFieldTableMap = Record<string, ILinkFieldTableInfo[]>;
+
 export const mergeLinkFieldTableMaps = (
-  map1: Record<
-    string,
-    { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
-  >,
-  map2: Record<string, { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]>
-) => {
+  map1: ILinkFieldTableMap,
+  map2: ILinkFieldTableMap
+): ILinkFieldTableMap => {
   const merged = { ...map1 };
   Object.entries(map2).forEach(([tableId, fields]) => {
     merged[tableId] = [...(merged[tableId] || []), ...fields];
