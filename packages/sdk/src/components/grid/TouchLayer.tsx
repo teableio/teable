@@ -77,6 +77,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     searchCursor,
     mouseState,
     rowControls,
+    rowControlPaddingX,
     imageManager,
     spriteManager,
     forceRenderFlag,
@@ -267,6 +268,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           searchCursor={searchCursor}
           coordInstance={coordInstance}
           rowControls={rowControls}
+          rowControlPaddingX={rowControlPaddingX}
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}

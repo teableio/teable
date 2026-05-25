@@ -378,6 +378,7 @@ describe('IntegrityV2Service repair telemetry', () => {
     );
 
     expect(tableRepository.find).toHaveBeenCalledTimes(1);
+    expect(tableRepository.find.mock.calls[0]?.[2]).toEqual({ state: 'all' });
     expect(tableRepository.find.mock.calls[0]?.[1]).toMatchObject({
       left: {
         baseIdValue: foreignBaseId,

@@ -12,6 +12,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "Select..."
   },
+  "view": {
+    "signInToEdit": "<a>Sign in</a> to edit",
+    "login": "Sign in"
+  },
   "openOnNewPage": "Open on new page",
   "errorTips": "Sharing source has enabled a Authority matrix, viewing is not allowed"
 }

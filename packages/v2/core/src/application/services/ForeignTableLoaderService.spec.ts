@@ -60,6 +60,28 @@ describe('ForeignTableLoaderService', () => {
     expect(result._unsafeUnwrap()[0]?.id().toString()).toBe(table.id().toString());
   });
 
+  it('loads referenced tables from the explicit reference base', async () => {
+    const localTable = buildTable('a', 'c');
+    const externalTable = buildTable('d', 'e');
+    const repo = new MemoryTableRepository();
+    const context = createContext();
+    await repo.insert(context, localTable);
+    await repo.insert(context, externalTable);
+
+    const service = new ForeignTableLoaderService(repo);
+    const references: LinkForeignTableReference[] = [
+      { foreignTableId: externalTable.id(), baseId: externalTable.baseId() },
+    ];
+
+    const result = await service.load(context, {
+      baseId: localTable.baseId(),
+      references,
+    });
+
+    expect(result._unsafeUnwrap()).toHaveLength(1);
+    expect(result._unsafeUnwrap()[0]?.id().toString()).toBe(externalTable.id().toString());
+  });
+
   it('returns not found when references are missing', async () => {
     const table = buildTable('c', 'd');
     const repo = new MemoryTableRepository();

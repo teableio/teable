@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 import type { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/nestjs';
 import {
   domainError,
   type SchemaOperationRecord,
@@ -13,13 +14,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { V2ContainerService } from './v2-container.service';
 import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.service';
 
+const sentryScope = {
+  setContext: vi.fn(),
+  setLevel: vi.fn(),
+  setTag: vi.fn(),
+};
+
+vi.mock('@sentry/nestjs', () => ({
+  captureException: vi.fn(),
+  withScope: vi.fn((callback: (scope: typeof sentryScope) => void) => callback(sentryScope)),
+}));
+
 const operation = (id: string): SchemaOperationRecord =>
   ({
     id,
     type: 'table.create',
     status: 'running',
     phase: 'running',
-    target: { resourceType: 'table', resourceId: 'tblSchemaOpRunner' },
+    target: {
+      resourceType: 'table',
+      resourceId: 'tblSchemaOpRunner',
+      baseId: 'bseSchemaOpRunner',
+      tableId: 'tblSchemaOpRunner',
+    },
     idempotencyKey: `schema-op:${id}`,
     attempts: 0,
     maxAttempts: 8,
@@ -80,6 +97,11 @@ const createService = ({
 describe('V2SchemaOperationRunnerService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.mocked(Sentry.captureException).mockClear();
+    vi.mocked(Sentry.withScope).mockClear();
+    sentryScope.setContext.mockClear();
+    sentryScope.setLevel.mockClear();
+    sentryScope.setTag.mockClear();
   });
 
   afterEach(() => {
@@ -116,6 +138,50 @@ describe('V2SchemaOperationRunnerService', () => {
         workerId: expect.stringMatching(/^schema-operation-/),
         now: expect.any(Date),
         staleRunningBefore: expect.any(Date),
+      })
+    );
+
+    service.onModuleDestroy();
+  });
+
+  it('captures terminal schema operation failures to Sentry with operation context', async () => {
+    const failure = domainError.notImplemented({
+      code: 'schema_operation.repair_not_supported',
+      message: 'Only missing-column table updates can be repaired automatically',
+    });
+    const { service } = createService({
+      results: [
+        okResult({
+          status: 'failed',
+          operation: {
+            ...operation('sgoTerminal'),
+            status: 'dead',
+            phase: 'error',
+            attempts: 2,
+            lastError: 'Only missing-column table updates can be repaired automatically',
+          },
+          terminal: true,
+          retryable: false,
+          error: failure,
+          originalLastError: 'Unexpected unit of work error: error: too many range table entries',
+        }),
+        okResult({ status: 'idle', reason: 'empty' }),
+      ],
+    });
+
+    await service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(sentryScope.setTag).toHaveBeenCalledWith('feature', 'v2-schema-operation-runner');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('table.id', 'tblSchemaOpRunner');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('schema_operation.id', 'sgoTerminal');
+    expect(sentryScope.setContext).toHaveBeenCalledWith(
+      'schema_operation',
+      expect.objectContaining({
+        id: 'sgoTerminal',
+        originalLastError: 'Unexpected unit of work error: error: too many range table entries',
+        runnerError: 'Only missing-column table updates can be repaired automatically',
       })
     );
 
