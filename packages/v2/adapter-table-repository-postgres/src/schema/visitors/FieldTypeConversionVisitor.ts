@@ -2,6 +2,7 @@ import {
   AbstractFieldVisitor,
   CellValueType,
   DateTimeFormatting,
+  DEFAULT_TABLE_DATA_SAFETY_LIMITS,
   NumberFormatting,
   domainError,
 } from '@teable/v2-core';
@@ -39,10 +40,8 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
-import {
-  PostgresTableSchemaFieldCreateVisitor,
-  type TableSchemaStatementBuilder,
-} from './PostgresTableSchemaFieldCreateVisitor';
+import type { TableSchemaStatementBuilder } from '../rules/core';
+import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
 export type FieldConversionParams = {
@@ -59,12 +58,21 @@ const createCompiledStatementBuilder = (
   db: Kysely<V1TeableDatabase>,
   sqlText: string
 ): TableSchemaStatementBuilder => ({
+  scope: 'data',
   compile: () => sql.raw(sqlText).compile(db),
 });
 
 const quoteIdent = (value: string): string => `"${value.replace(/"/g, '""')}"`;
 
 const quoteLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+const ISO_DATE_OR_DATETIME_SQL_REGEX =
+  '^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?([Zz]|[+-][0-9]{2}(:?[0-9]{2})?)?)?$';
+
+const SELECT_CHOICE_NAME_MAX_LENGTH =
+  DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength;
+
+const selectChoiceNameLengthError = `Select choice name exceeds ${SELECT_CHOICE_NAME_MAX_LENGTH} characters`;
 
 const buildSelectOptionsFromValuesStatement = (
   params: FieldConversionParams,
@@ -87,10 +95,28 @@ existing_choices AS (
 existing_names AS (
   SELECT choice->>'name' AS name FROM existing_choices
 ),
+oversized_values AS (
+  SELECT name FROM distinct_values
+  WHERE char_length(name) > ${SELECT_CHOICE_NAME_MAX_LENGTH}
+),
+oversized_guard AS (
+  SELECT CASE
+    WHEN EXISTS (SELECT 1 FROM oversized_values)
+    -- Keep the invalid cast runtime-bound; Postgres folds constant casts before CASE short-circuits.
+    THEN CAST(
+      ${quoteLiteral(selectChoiceNameLengthError)}
+      || COALESCE((SELECT '' FROM oversized_values LIMIT 1), '')
+      AS integer
+    )
+    ELSE 1
+  END AS ok
+),
 new_values AS (
   SELECT name, ROW_NUMBER() OVER () AS rn
   FROM distinct_values
+  CROSS JOIN oversized_guard
   WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
+    AND oversized_guard.ok = 1
 ),
 new_choices AS (
   SELECT jsonb_agg(
@@ -247,16 +273,12 @@ const buildScalarToLinkMigrationStatements = (
       }
     }
 
-    if (
-      !isOneWay &&
-      sourceFkColumnName &&
-      (relationship === 'manyOne' || relationship === 'oneOne')
-    ) {
-      const sourceQualifiedName = `${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)}`;
-      const sourceFkIdent = quoteIdent(sourceFkColumnName);
-      const sourceOrderExpr = sourceOrderColumnName
-        ? `${quoteIdent(sourceOrderColumnName)} IS NULL DESC, ${quoteIdent(sourceOrderColumnName)} ASC, "__id" ASC`
-        : '"__id" ASC';
+    if (!isOneWay && (relationship === 'manyOne' || relationship === 'oneOne')) {
+      if (!sourceFkColumnName) {
+        return err(
+          domainError.unexpected({ message: 'Missing source FK column for link mapping' })
+        );
+      }
       const foreignTableId = newLinkField.foreignTableId().toString();
       const currentFieldId = newLinkField.id().toString();
       const explicitSymmetricFieldId = newLinkField.symmetricFieldId()?.toString();
@@ -274,8 +296,14 @@ const buildScalarToLinkMigrationStatements = (
     AND (
       options::jsonb->>'symmetricFieldId' = ${quoteLiteral(currentFieldId)}${explicitSymmetricClause}
     )
-  ORDER BY id
-  LIMIT 1;`;
+      ORDER BY id
+      LIMIT 1;`;
+
+      const sourceQualifiedName = `${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)}`;
+      const sourceFkIdent = quoteIdent(sourceFkColumnName);
+      const sourceOrderExpr = sourceOrderColumnName
+        ? `${quoteIdent(sourceOrderColumnName)} IS NULL DESC, ${quoteIdent(sourceOrderColumnName)} ASC, "__id" ASC`
+        : '"__id" ASC';
 
       if (relationship === 'manyOne') {
         symmetricBackfillSql = `
@@ -317,6 +345,62 @@ const buildScalarToLinkMigrationStatements = (
     );
   END IF;`;
       }
+    } else if (!isOneWay && relationship === 'oneMany') {
+      const foreignTableId = newLinkField.foreignTableId().toString();
+      const currentFieldId = newLinkField.id().toString();
+      const explicitSymmetricFieldId = newLinkField.symmetricFieldId()?.toString();
+      const explicitSymmetricClause = explicitSymmetricFieldId
+        ? ` OR id = ${quoteLiteral(explicitSymmetricFieldId)}`
+        : '';
+
+      symmetricDeclareSql = '  symmetric_col text;';
+      symmetricResolveSql = `
+  SELECT db_field_name INTO symmetric_col
+  FROM field
+  WHERE table_id = ${quoteLiteral(foreignTableId)}
+    AND type = 'link'
+    AND deleted_time IS NULL
+    AND (
+      options::jsonb->>'symmetricFieldId' = ${quoteLiteral(currentFieldId)}${explicitSymmetricClause}
+    )
+  ORDER BY id
+  LIMIT 1;`;
+
+      symmetricBackfillSql = `
+  IF symmetric_col IS NOT NULL THEN
+    EXECUTE format(
+      'WITH candidates AS (
+         SELECT t.__id AS source_id, p.part_idx, f.__id AS foreign_id
+         FROM %I.%I AS t
+         CROSS JOIN LATERAL (
+           SELECT trim(part) AS token, ordinality AS part_idx
+           FROM unnest(string_to_array(t.%I::text, '','')) WITH ORDINALITY AS parts(part, ordinality)
+           WHERE trim(part) <> ''''
+         ) AS p
+         JOIN %I.%I AS f ON f.%I::text = p.token
+         WHERE t.%I IS NOT NULL
+       ),
+       picked AS (
+         SELECT DISTINCT ON (foreign_id) foreign_id, source_id, part_idx
+         FROM candidates
+         ORDER BY foreign_id, part_idx, source_id
+       )
+       UPDATE %I.%I AS f
+       SET %I = jsonb_build_object(''id'', p.source_id)
+       FROM picked AS p
+       WHERE f.__id = p.foreign_id',
+      ${quoteLiteral(sourceSchema)},
+      ${quoteLiteral(sourceTableName)},
+      ${quoteLiteral(tmpColumnName)},
+      foreign_schema,
+      foreign_name,
+      lookup_col,
+      ${quoteLiteral(tmpColumnName)},
+      foreign_schema,
+      foreign_name,
+      symmetric_col
+    );
+  END IF;`;
     }
 
     const mapFkSql = `
@@ -641,7 +725,7 @@ const buildLookupToBasicFieldMigrationStatements = (
         case 'checkbox':
           return `CASE WHEN lower((${firstValueExpression})::text) IN ('true', 't', '1', 'yes', 'y') THEN TRUE WHEN lower((${firstValueExpression})::text) IN ('false', 'f', '0', 'no', 'n') THEN FALSE WHEN (${firstValueExpression}) IS NOT NULL AND (${firstValueExpression}) <> '' THEN TRUE ELSE NULL END`;
         case 'date':
-          return `CASE WHEN (${firstValueExpression}) ~ '^\\d{4}-\\d{2}-\\d{2}' THEN (${firstValueExpression})::timestamptz ELSE NULL END`;
+          return `CASE WHEN (${firstValueExpression}) ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN (${firstValueExpression})::timestamptz ELSE NULL END`;
         case 'singleSelect':
           return firstValueExpression;
         case 'multipleSelect':
@@ -737,7 +821,7 @@ function buildFormulaMigrationSql(
     }
     if (isString) {
       // Try to parse string as timestamp
-      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${tmp} ~ '^\\d{4}' THEN ${tmp}::timestamptz ELSE NULL END ${whereNotNull}`;
+      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${tmp} ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN ${tmp}::timestamptz ELSE NULL END ${whereNotNull}`;
     }
     // number, boolean → date: incompatible
     return null;
@@ -1306,7 +1390,7 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
    * Create a statement builder from a compiled query.
    */
   protected toBuilder(query: CompiledQuery): TableSchemaStatementBuilder {
-    return { compile: () => query };
+    return { scope: 'data', compile: () => query };
   }
 
   /**
@@ -1316,6 +1400,7 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
     const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     return {
+      scope: 'data',
       compile: () =>
         sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN "${sql.raw(dbFieldName)}" TYPE ${sql.raw(newType)} USING "${sql.raw(dbFieldName)}"::${sql.raw(newType)}`.compile(
           db
@@ -1331,6 +1416,7 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
     const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     return {
+      scope: 'data',
       compile: () =>
         sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN "${sql.raw(dbFieldName)}" TYPE ${sql.raw(newType)} USING ${sql.raw(usingExpr)}`.compile(
           db
@@ -1374,6 +1460,7 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
     // 4. Merges new choices with existing choices
     // 5. Updates the field table
     return {
+      scope: 'data',
       compile: () =>
         sql`
           WITH distinct_values AS (
@@ -1390,10 +1477,28 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
           existing_names AS (
             SELECT choice->>'name' AS name FROM existing_choices
           ),
+          oversized_values AS (
+            SELECT name FROM distinct_values
+            WHERE char_length(name) > ${sql.val(SELECT_CHOICE_NAME_MAX_LENGTH)}
+          ),
+          oversized_guard AS (
+            SELECT CASE
+              WHEN EXISTS (SELECT 1 FROM oversized_values)
+              -- Keep the invalid cast runtime-bound; Postgres folds constant casts before CASE short-circuits.
+              THEN CAST(
+                ${sql.val(selectChoiceNameLengthError)}
+                || COALESCE((SELECT '' FROM oversized_values LIMIT 1), '')
+                AS integer
+              )
+              ELSE 1
+            END AS ok
+          ),
           new_values AS (
             SELECT name, ROW_NUMBER() OVER () AS rn
             FROM distinct_values
+            CROSS JOIN oversized_guard
             WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
+              AND oversized_guard.ok = 1
           ),
           new_choices AS (
             SELECT jsonb_agg(
@@ -1699,7 +1804,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     return ok([
       this.alterColumnTypeUsing(
         'timestamptz',
-        `CASE WHEN ${col} ~ '^\\d{4}-\\d{2}-\\d{2}' THEN ${col}::timestamptz ELSE NULL END`
+        `CASE WHEN ${col} ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN ${col}::timestamptz ELSE NULL END`
       ),
     ]);
   }
@@ -1735,6 +1840,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     if (fieldId) {
       const colors = SELECT_OPTION_COLORS;
       statements.push({
+        scope: 'data',
         compile: () =>
           sql`
             WITH distinct_values AS (
@@ -1791,6 +1897,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
 
     // CSV-aware split: aggregate quoted/unquoted fields into jsonb array
     statements.push({
+      scope: 'data',
       compile: () =>
         sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.raw(col)} = (
           SELECT jsonb_agg(COALESCE(trim(m[1]), trim(m[2])))::text
@@ -1891,12 +1998,15 @@ $v2_user_conv$;`;
 
     return ok([
       {
+        scope: 'data',
         compile: () => sql.raw(updateSql).compile(db),
       },
       {
+        scope: 'data',
         compile: () => sql.raw(cleanupSql).compile(db),
       },
       {
+        scope: 'data',
         compile: () =>
           sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.raw(col)} TYPE jsonb USING ${sql.raw(col)}::jsonb`.compile(
             db
@@ -1929,6 +2039,7 @@ class LongTextFieldConversionVisitor extends TextFieldConversionVisitor {
     const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     return {
+      scope: 'data',
       compile: () =>
         sql`UPDATE ${sql.raw(fullTableName)} SET "${sql.raw(dbFieldName)}" = REPLACE(REPLACE("${sql.raw(dbFieldName)}", E'\r\n', ' '), E'\n', ' ') WHERE "${sql.raw(dbFieldName)}" IS NOT NULL AND "${sql.raw(dbFieldName)}" LIKE '%' || E'\n' || '%'`.compile(
           db
@@ -2008,6 +2119,7 @@ class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
     const max = field.ratingMax().toNumber();
     const statements: TableSchemaStatementBuilder[] = [
       {
+        scope: 'data',
         compile: () =>
           sql`UPDATE ${sql.raw(fullTableName)} SET "${sql.raw(dbFieldName)}" = GREATEST(0, LEAST(FLOOR("${sql.raw(dbFieldName)}"), ${sql.val(max)}))`.compile(
             db
@@ -2453,6 +2565,7 @@ class MultipleSelectFieldConversionVisitor extends BaseFieldConversionVisitor {
     if (fieldId) {
       const colors = SELECT_OPTION_COLORS;
       statements.push({
+        scope: 'data',
         compile: () =>
           sql`
             WITH distinct_values AS (
@@ -2646,6 +2759,7 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
     const col = `"${dbFieldName}"`;
     return ok([
       {
+        scope: 'data',
         compile: () =>
           sql`UPDATE ${sql.raw(fullTableName)}
               SET ${sql.raw(col)} = CASE
@@ -2727,6 +2841,7 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
     const statements: TableSchemaStatementBuilder[] = [];
 
     statements.push({
+      scope: 'data',
       compile: () =>
         sql`UPDATE ${sql.raw(fullTableName)}
             SET ${sql.raw(col)} = CASE
@@ -2772,6 +2887,7 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
 
     // Convert user objects to array of title strings
     statements.push({
+      scope: 'data',
       compile: () =>
         sql`UPDATE ${sql.raw(fullTableName)} SET "${sql.raw(dbFieldName)}" = CASE
           WHEN "${sql.raw(dbFieldName)}" IS NULL THEN NULL
@@ -2791,6 +2907,7 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
     if (fieldId) {
       const colors = SELECT_OPTION_COLORS;
       statements.push({
+        scope: 'data',
         compile: () =>
           sql`
             WITH distinct_values AS (

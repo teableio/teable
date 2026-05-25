@@ -364,6 +364,8 @@ export const normalizeField = (
   const baseField: NormalizedDotTeaField = {
     ...(field.id ? { id: field.id } : {}),
     ...(field.dbFieldName ? { dbFieldName: field.dbFieldName } : {}),
+    ...(field.description !== undefined ? { description: field.description } : {}),
+    ...(field.aiConfig !== undefined ? { aiConfig: field.aiConfig } : {}),
     type: resolvedType,
     name: field.name ?? resolvedType,
     isPrimary: field.isPrimary,

@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "ご注意",
+    "duplicateFieldDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateTableTitle": "ご注意",
+    "duplicateTableDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateBaseTitle": "ご注意",
+    "duplicateBaseDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "convertAndDuplicate": "変換して複製"
+  },
   "toolbar": {
     "comingSoon": "近日公開",
     "viewFilterInShare": "このビューはビュー共有リンクで使用されています。ビュー構成を変更するとビュー共有リンクも変更されます。",
@@ -1031,10 +1040,9 @@
     "allAttachments": {
       "title": "すべての添付ファイルをダウンロード",
       "loading": "プレビューを読み込み中...",
-      "rowsWithAttachments": "{{count}} 行に添付ファイルがあります",
-      "totalAttachments": "{{count}} 個の添付ファイル",
-      "totalSize": "合計サイズ: {{size}}",
-      "startDownload": "ダウンロード開始",
+      "rowsWithAttachments": "添付行",
+      "totalAttachments": "添付数",
+      "totalSize": "合計サイズ",
       "confirmTitle": "{{count}} ファイルをダウンロード",
       "confirmDescription": "合計サイズ: {{size}}。ファイルはZIPファイルに圧縮されます。",
       "confirm": "ダウンロード",

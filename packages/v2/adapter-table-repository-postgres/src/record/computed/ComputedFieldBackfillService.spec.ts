@@ -1,5 +1,13 @@
-import { BaseId, TableId, type IExecutionContext, type Table } from '@teable/v2-core';
-import { ok } from 'neverthrow';
+import {
+  BaseId,
+  FieldId,
+  TableId,
+  domainError,
+  type Field,
+  type IExecutionContext,
+  type Table,
+} from '@teable/v2-core';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ComputedFieldBackfillService } from './ComputedFieldBackfillService';
@@ -18,6 +26,18 @@ const createTestTable = (): Table => {
     id: () => id,
     baseId: () => baseId,
   } as unknown as Table;
+};
+
+const createComputedField = (id = FIELD_ID): Field => {
+  const fieldId = FieldId.create(id)._unsafeUnwrap();
+  return {
+    id: () => fieldId,
+    type: () => ({
+      toString: () => 'conditionalLookup',
+      equals: () => false,
+    }),
+    computed: () => ({ toBoolean: () => true }),
+  } as unknown as Field;
 };
 
 const createTwoWayOneManyLinkField = () => {
@@ -104,9 +124,11 @@ const createService = () =>
       warn: vi.fn(),
       error: vi.fn(),
     } as never,
-    { hash: vi.fn() } as never,
+    { sha256: vi.fn(() => 'hash') } as never,
     {} as never,
-    { enqueueBackfill: vi.fn(), enqueueManyBackfill: vi.fn() } as never,
+    {
+      enqueueFieldBackfill: vi.fn(async () => ok({ taskId: 'cuo_test', merged: false })),
+    } as never,
     { mode: 'sync', hybridThreshold: 5000 },
     {} as never
   );
@@ -296,5 +318,61 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       HOST_TABLE_ID,
       `__fk_${FIELD_ID}`
     );
+  });
+
+  it('falls back to an outbox task when sync computed backfill fails', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createComputedField();
+    const syncFailure = domainError.infrastructure({ message: 'computed query timed out' });
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(err(syncFailure));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).toHaveBeenCalledTimes(1);
+    expect((service as any).logger.warn).toHaveBeenCalledWith(
+      'computed:backfillMany:sync_failed_enqueue_fallback',
+      expect.objectContaining({
+        tableId: HOST_TABLE_ID,
+        fieldIds: [FIELD_ID],
+        error: 'computed query timed out',
+      })
+    );
+    expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('enqueues multi-field transaction backfills instead of building one wide sync query', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const fieldA = createComputedField(`fld${'g'.repeat(16)}`);
+    const fieldB = createComputedField(`fld${'h'.repeat(16)}`);
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    const result = await service.backfillMany(
+      {
+        transaction: { kind: 'unitOfWorkTransaction' },
+      } as IExecutionContext,
+      {
+        table,
+        fields: [fieldA, fieldB],
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).not.toHaveBeenCalled();
+    expect((service as any).logger.info).toHaveBeenCalledWith(
+      'computed:backfillMany:transaction_enqueue',
+      expect.objectContaining({
+        tableId: HOST_TABLE_ID,
+        fieldIds: [`fld${'g'.repeat(16)}`, `fld${'h'.repeat(16)}`],
+      })
+    );
+    expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Avis",
+    "duplicateFieldDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "duplicateTableTitle": "Avis",
+    "duplicateTableDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "duplicateBaseTitle": "Avis",
+    "duplicateBaseDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "convertAndDuplicate": "Convertir et dupliquer"
+  },
   "toolbar": {
     "comingSoon": "Bientôt disponible",
     "viewFilterInShare": "Cette vue est utilisée dans un lien de partage de vue. Les modifications apportées à la configuration de la vue modifieront également le lien de partage de la vue.",
@@ -1032,10 +1041,9 @@
     "allAttachments": {
       "title": "Télécharger toutes les pièces jointes",
       "loading": "Chargement de l'aperçu...",
-      "rowsWithAttachments": "{{count}} lignes avec pièces jointes",
-      "totalAttachments": "{{count}} pièces jointes",
-      "totalSize": "Taille totale : {{size}}",
-      "startDownload": "Démarrer le téléchargement",
+      "rowsWithAttachments": "Lignes avec PJ",
+      "totalAttachments": "Pièces jointes",
+      "totalSize": "Taille totale",
       "confirmTitle": "Télécharger {{count}} fichiers",
       "confirmDescription": "Taille totale : {{size}}. Les fichiers seront compressés dans un fichier ZIP.",
       "confirm": "Télécharger",

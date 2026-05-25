@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { ColumnType } from 'kysely';
 
+export type V1ProvisionState = 'pending' | 'ready' | 'error' | 'deleting';
+export type V1ProvisionStateColumn = ColumnType<
+  V1ProvisionState,
+  V1ProvisionState | undefined,
+  V1ProvisionState
+>;
+
 export interface V1UserTable {
   id: string;
   name: string;
@@ -29,6 +36,7 @@ export interface V1BaseTable {
   order: number;
   icon: string | null;
   schema_pass: string | null;
+  provision_state: V1ProvisionStateColumn;
   deleted_time: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
   created_time: ColumnType<Date, Date | undefined, never>;
   created_by: string;
@@ -52,6 +60,7 @@ export interface V1TableMetaTable {
   icon: string | null;
   db_table_name: string;
   db_view_name: string | null;
+  provision_state: V1ProvisionStateColumn;
   version: number;
   order: number;
   created_time: ColumnType<Date, Date | undefined, never>;
@@ -73,6 +82,7 @@ export interface V1FieldTable {
   is_multiple_cell_value: boolean | null;
   db_field_type: string;
   db_field_name: string;
+  provision_state: V1ProvisionStateColumn;
   not_null: boolean | null;
   unique: boolean | null;
   is_primary: boolean | null;

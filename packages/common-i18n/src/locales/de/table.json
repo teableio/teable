@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Hinweis",
+    "duplicateFieldDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateTableTitle": "Hinweis",
+    "duplicateTableDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateBaseTitle": "Hinweis",
+    "duplicateBaseDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "convertAndDuplicate": "Umwandeln & duplizieren"
+  },
   "toolbar": {
     "comingSoon": "Demnächst verfügbar",
     "viewFilterInShare": "Diese Ansicht wird in einem Ansichtsfreigabelink verwendet. Änderungen an der Konfiguration der Ansicht ändern auch den Link zur Ansichtsfreigabe.",
@@ -1053,10 +1062,9 @@
     "allAttachments": {
       "title": "Alle Anhänge herunterladen",
       "loading": "Vorschau wird geladen...",
-      "rowsWithAttachments": "{{count}} Zeilen mit Anhängen",
-      "totalAttachments": "{{count}} Anhänge",
-      "totalSize": "Gesamtgröße: {{size}}",
-      "startDownload": "Download starten",
+      "rowsWithAttachments": "Anhangzeilen",
+      "totalAttachments": "Anhänge",
+      "totalSize": "Gesamtgröße",
       "confirmTitle": "{{count}} Dateien herunterladen",
       "confirmDescription": "Gesamtgröße: {{size}}. Die Dateien werden in eine ZIP-Datei komprimiert.",
       "confirm": "Herunterladen",

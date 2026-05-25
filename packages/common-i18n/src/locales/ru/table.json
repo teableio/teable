@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Уведомление",
+    "duplicateFieldDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "duplicateTableTitle": "Уведомление",
+    "duplicateTableDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "duplicateBaseTitle": "Уведомление",
+    "duplicateBaseDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "convertAndDuplicate": "Преобразовать и дублировать"
+  },
   "toolbar": {
     "comingSoon": "Скоро",
     "viewFilterInShare": "Этот вид используется в ссылке для общего доступа. Изменения в настройках вида также изменят ссылку для общего доступа.",
@@ -1032,10 +1041,9 @@
     "allAttachments": {
       "title": "Скачать все вложения",
       "loading": "Загрузка предпросмотра...",
-      "rowsWithAttachments": "{{count}} строк с вложениями",
-      "totalAttachments": "{{count}} вложений",
-      "totalSize": "Общий размер: {{size}}",
-      "startDownload": "Начать загрузку",
+      "rowsWithAttachments": "Строки с влож.",
+      "totalAttachments": "Вложения",
+      "totalSize": "Общий размер",
       "confirmTitle": "Скачать {{count}} файлов",
       "confirmDescription": "Общий размер: {{size}}. Файлы будут сжаты в ZIP-архив.",
       "confirm": "Скачать",

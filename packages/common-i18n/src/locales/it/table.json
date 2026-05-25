@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Avviso",
+    "duplicateFieldDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "duplicateTableTitle": "Avviso",
+    "duplicateTableDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "duplicateBaseTitle": "Avviso",
+    "duplicateBaseDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "convertAndDuplicate": "Converti e duplica"
+  },
   "toolbar": {
     "comingSoon": "Prossimamente",
     "viewFilterInShare": "Questa vista è utilizzata in un link di condivisione della vista. Le modifiche alla configurazione della vista cambieranno anche il link di condivisione della vista.",
@@ -1057,10 +1066,9 @@
     "allAttachments": {
       "title": "Scarica tutti gli allegati",
       "loading": "Caricamento anteprima...",
-      "rowsWithAttachments": "{{count}} righe con allegati",
-      "totalAttachments": "{{count}} allegati",
-      "totalSize": "Dimensione totale: {{size}}",
-      "startDownload": "Avvia download",
+      "rowsWithAttachments": "Righe con allegati",
+      "totalAttachments": "Allegati",
+      "totalSize": "Dimensione totale",
       "confirmTitle": "Scarica {{count}} file",
       "confirmDescription": "Dimensione totale: {{size}}. I file verranno compressi in un file ZIP.",
       "confirm": "Scarica",
