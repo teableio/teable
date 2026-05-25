@@ -109,6 +109,13 @@ describe('lookup array normalization', () => {
     // Should not have bare ''::jsonb which would fail
     expect(normalized).not.toContain("''::jsonb");
   });
+
+  it('normalizes null lookup projections without polymorphic to_jsonb calls', () => {
+    const expr = makeExpr('NULL', 'unknown', true, undefined, undefined, lookupField, 'array');
+    const normalized = builder.normalizeArray(expr);
+
+    expect(normalized).toBe("'[]'::jsonb");
+  });
 });
 
 const unwrapOrThrow = <T>(result: Result<T, DomainError>, label: string): T => {

@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Aviso",
+    "duplicateFieldDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "duplicateTableTitle": "Aviso",
+    "duplicateTableDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "duplicateBaseTitle": "Aviso",
+    "duplicateBaseDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "convertAndDuplicate": "Convertir y duplicar"
+  },
   "toolbar": {
     "comingSoon": "Próximamente",
     "viewFilterInShare": "Esta vista se está utilizando en un enlace compartido. Las modificaciones a la configuración de la vista también cambiarán el enlace compartido.",

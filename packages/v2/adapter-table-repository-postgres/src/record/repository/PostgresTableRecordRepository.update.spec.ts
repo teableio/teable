@@ -7,6 +7,7 @@ import {
   LinkFieldConfig,
   RecordByIdsSpec,
   RecordId,
+  RecordsBatchUpdated,
   Table,
   TableRecord,
   TableId,
@@ -23,6 +24,7 @@ import type {
   ISpecification,
   ITablePersistenceDTO,
   LinkField,
+  IEventBus,
   IRecordOrderCalculator,
   ITableRecordConditionSpecVisitor,
 } from '@teable/v2-core';
@@ -165,7 +167,7 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
     if (compiledQuery.sql.includes("current_setting('teable.undo_batch_id', true)")) {
       return [{ batch_id: currentUndoBatchId ?? null }];
     }
-    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+    if (compiledQuery.sql.includes('FROM "__undo_log"')) {
       return [
         {
           operation: 'UPDATE',
@@ -316,7 +318,7 @@ const isUndoCaptureQuery = (query: CompiledQuery) => {
   const text = query.sql;
   return (
     text.includes('teable_undo_capture_') ||
-    text.includes('"public"."__undo_log"') ||
+    text.includes('"__undo_log"') ||
     text.includes("table_name = '__undo_log'") ||
     text.includes('__teable_capture_undo_row') ||
     text.includes('FROM pg_trigger AS t') ||
@@ -349,7 +351,7 @@ const createUndoLogRowProvider = (
   }>
 ): RowProvider => {
   return (compiledQuery) => {
-    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+    if (compiledQuery.sql.includes('FROM "__undo_log"')) {
       return [...rows];
     }
     return [];
@@ -1718,6 +1720,7 @@ const createHybridRepository = (
     computedUpdatePlanner?: ComputedUpdatePlanner;
     computedUpdateOutbox?: IComputedUpdateOutbox;
     computedUpdateStrategy?: IUpdateStrategy;
+    eventBus?: IEventBus;
   } = {}
 ) => {
   const logger = createLogger();
@@ -1744,7 +1747,7 @@ const createHybridRepository = (
       db as unknown as Kysely<V1TeableDatabase>,
       logger
     ),
-    createNoopEventBus(),
+    overrides.eventBus ?? createNoopEventBus(),
     hasher
   );
 };
@@ -1943,6 +1946,136 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
 
     // enqueueSeedTask must NOT be called in sync mode (plan had 0 steps)
     expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('publishes computed update events with old values in sync mode', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SyncComputedEventTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const updateResult = table
+      .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Bob']]))
+      ._unsafeUnwrap();
+
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordIdA],
+        extraSeedRecords: [],
+        steps: [{ tableId, level: 0, fieldIds: [textFieldId] }],
+        edges: [],
+        estimatedComplexity: 1,
+        changeType: 'update' as const,
+      })
+    );
+
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+    } as unknown as ComputedUpdatePlanner;
+
+    const syncStrategy = {
+      mode: 'sync' as const,
+      name: 'sync',
+      execute: async () =>
+        ok({
+          changesByStep: [
+            {
+              tableId: tableId.toString(),
+              recordChanges: [
+                {
+                  recordId: recordIdA.toString(),
+                  oldVersion: 7,
+                  changes: [
+                    {
+                      fieldId: textFieldId.toString(),
+                      oldValue: 'Plastic',
+                      newValue: 'Plastic',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      scheduleDispatch: vi.fn(),
+    };
+
+    const publishedEvents: unknown[] = [];
+    const eventBus: IEventBus = {
+      publish: async (context, event) => {
+        publishedEvents.push(event);
+        return createNoopEventBus().publish(context, event);
+      },
+      publishMany: async (_context, events) => {
+        publishedEvents.push(...events);
+        return ok(undefined);
+      },
+      subscribe: () => ({ unsubscribe: () => undefined }),
+    } as IEventBus;
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const { db } = createRecordingDb((compiledQuery) => {
+      if (
+        compiledQuery.sql.includes(`UPDATE ${tableName} AS t`) &&
+        compiledQuery.sql.includes('RETURNING')
+      ) {
+        return [{ record_id: recordIdA.toString(), new_version: 2 }];
+      }
+      return [];
+    });
+
+    const repo = createHybridRepository(db, table, {
+      computedUpdatePlanner,
+      computedUpdateStrategy: syncStrategy,
+      eventBus,
+    });
+
+    function* batches() {
+      yield ok([updateResult]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+
+    const batchEvent = publishedEvents.find(
+      (event): event is RecordsBatchUpdated => event instanceof RecordsBatchUpdated
+    );
+    expect(batchEvent?.updates[0]?.changes[0]).toMatchObject({
+      fieldId: textFieldId.toString(),
+      oldValue: 'Plastic',
+      newValue: 'Plastic',
+    });
 
     vi.useRealTimers();
   });

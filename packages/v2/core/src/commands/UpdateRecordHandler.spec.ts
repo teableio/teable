@@ -720,6 +720,78 @@ describe('UpdateRecordHandler', () => {
     expect(recordQueryRepository.findCalls).toBe(0);
   });
 
+  it('checks plugin field scope against the loaded record', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(
+        new Map<string, string | number>([
+          [textFieldId.toString(), 'Old Title'],
+          [numberFieldId.toString(), 100],
+        ])
+      )
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: {
+        [textFieldId.toString()]: 'Old Title',
+        [numberFieldId.toString()]: 100,
+      },
+      version: 1,
+    };
+
+    const scopedPlugin = {
+      name: 'scoped-update-fields',
+      supports: (operation: RecordWriteOperationKind) =>
+        operation === RecordWriteOperationKind.updateOne,
+      scope: () =>
+        ok({
+          updateFieldIds: new Set([textFieldId.toString(), numberFieldId.toString()]),
+          resolveUpdateFieldIdsForRecord: () => new Set([textFieldId.toString()]),
+        }),
+    };
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner([scopedPlugin]),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
+      new FakeEventBus(),
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      new FakeUnitOfWork()
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [numberFieldId.toString()]: 200 },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'record_write_plugin.update_fields_forbidden',
+      details: {
+        deniedFieldIds: [numberFieldId.toString()],
+      },
+    });
+    expect(recordQueryRepository.findOneCalls).toBe(1);
+    expect(recordQueryRepository.findCalls).toBe(0);
+  });
+
   it('resolves link titles when typecast is enabled', async () => {
     const { table, tableId, textFieldId } = buildTable();
     const recordResult = table

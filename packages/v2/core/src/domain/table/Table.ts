@@ -30,7 +30,10 @@ import type { FieldHasError } from './fields/types/FieldHasError';
 import type { FieldNotNull } from './fields/types/FieldNotNull';
 import type { FieldUnique } from './fields/types/FieldUnique';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
-import { ensureSelectFieldOptionCountWithinLimit } from './fields/types/SelectFieldOptionWriteConfig';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNamesWithinLimit,
+} from './fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
 import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
@@ -951,6 +954,11 @@ export class Table extends AggregateRoot<TableId> {
       domainContext
     );
     if (limitResult.isErr()) return err(limitResult.error);
+    const nameLimitResult = ensureSelectFieldOptionNamesWithinLimit(
+      mergedOptions.map((option) => option.name().toString()),
+      domainContext
+    );
+    if (nameLimitResult.isErr()) return err(nameLimitResult.error);
 
     const nextFieldResult = isSingle
       ? SingleSelectField.create({
@@ -1138,12 +1146,13 @@ export class Table extends AggregateRoot<TableId> {
       }
     }
 
-    // Check for name uniqueness if name changed (excluding the current field)
-    const nameConflict = this.fieldsValue.some(
-      (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
-    );
-    if (nameConflict) {
-      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    if (!oldField.name().equals(newField.name())) {
+      const nameConflict = this.fieldsValue.some(
+        (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
+      );
+      if (nameConflict) {
+        return err(domainError.conflict({ message: 'Field names must be unique' }));
+      }
     }
 
     const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? newField : f));
