@@ -16,6 +16,7 @@
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
     "back": "Geri",
+    "download": "İndir",
     "remove": "Kaldır",
     "removeConfig": "Yapılandırmayı sil",
     "saveSucceed": "Başarıyla Kaydedildi!",
@@ -1149,9 +1150,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "12 MAYIS GUNCELLEMESI",
-    "title": "App Builder icin yerlesik giris",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "19 MAYIS GUNCELLEMESI",
+    "title": "Teable Credits 10 kat daha verimli!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

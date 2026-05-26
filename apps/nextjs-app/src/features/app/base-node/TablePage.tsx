@@ -82,6 +82,8 @@ export const getTableServerSideProps = async (
     queryKey: ReactQueryKeys.tableList(baseId),
     fetchList: () => ssrApi.getTables(baseId),
     extractIds: (list) => list.map((t) => t.id),
+    filterDefaultNode: (node, tableIds) =>
+      node.resourceType !== BaseNodeResourceType.Table || tableIds.has(node.resourceId),
   });
 
   if (validationResult) {

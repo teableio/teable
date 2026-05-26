@@ -28,14 +28,19 @@ import { TableDataSafetyLimitTableOperationPlugin } from './TableDataSafetyLimit
 const actorId = ActorId.create('system')._unsafeUnwrap();
 const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
 
-const createTable = (idSeed: string, name: string, tableBaseId = baseId): Table =>
+const createTable = (
+  idSeed: string,
+  name: string,
+  tableBaseId = baseId,
+  fieldName = 'Title'
+): Table =>
   Table.builder()
     .withId(TableId.create(`tbl${idSeed.repeat(16)}`)._unsafeUnwrap())
     .withBaseId(tableBaseId)
     .withName(TableName.create(name)._unsafeUnwrap())
     .field()
     .singleLineText()
-    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .withName(FieldName.create(fieldName)._unsafeUnwrap())
     .primary()
     .done()
     .view()
@@ -81,6 +86,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async delete(): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -115,6 +124,24 @@ const createViewsPerTableOnlyPlugin = (repository: ITableRepository) =>
           maxTablesPerBase: 3,
           maxCreateTableFields: 2,
           maxCreateTableViews: 5,
+          maxCreateTableRecords: 2,
+          maxViewsPerTable: 2,
+        },
+      }),
+    ])
+  );
+
+const createFieldsPerTableOnlyPlugin = (repository: ITableRepository) =>
+  new TableDataSafetyLimitTableOperationPlugin(
+    repository,
+    new TableDataSafetyLimitComposer([
+      new StaticTableDataSafetyLimitPlugin({
+        displayText: { maxNameLength: 20 },
+        tableSchema: {
+          maxTablesPerBase: 3,
+          maxFieldsPerTable: 2,
+          maxCreateTableFields: 5,
+          maxCreateTableViews: 2,
           maxCreateTableRecords: 2,
           maxViewsPerTable: 2,
         },
@@ -357,6 +384,44 @@ describe('TableDataSafetyLimitTableOperationPlugin', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.views_per_table_max');
+  });
+
+  it('rejects create when the field count exceeds the configured fields-per-table limit', async () => {
+    const repository = new FakeTableRepository();
+    const result = await runPlugin(
+      createFieldsPerTableOnlyPlugin(repository),
+      createContext(TableOperationKind.create, {
+        baseId,
+        tableName: TableName.create('Create')._unsafeUnwrap(),
+        fieldCount: 3,
+        viewCount: 1,
+        recordCount: 0,
+        viewNames: ['View A'],
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.fields_per_table_max');
+  });
+
+  it('rejects create when a built field exceeds display text limits', async () => {
+    const repository = new FakeTableRepository();
+    const result = await runPlugin(
+      createPlugin(repository),
+      createContext(TableOperationKind.create, {
+        baseId,
+        tableName: TableName.create('Create')._unsafeUnwrap(),
+        table: createTable('e', 'Create', baseId, 'Too Long Field'),
+        fieldCount: 1,
+        viewCount: 1,
+        recordCount: 0,
+        viewNames: ['View A'],
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.name_max_length');
+    expect(result._unsafeUnwrapErr().details?.target).toBe('field.name');
   });
 
   it('composes multiple table limit plugins with the strictest numeric limit', async () => {

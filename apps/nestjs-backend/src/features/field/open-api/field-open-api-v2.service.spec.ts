@@ -75,6 +75,8 @@ const createService = () =>
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
+    {} as never,
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1031,6 +1033,8 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1429,6 +1433,8 @@ describe('FieldOpenApiV2Service createField', () => {
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1495,6 +1501,8 @@ describe('FieldOpenApiV2Service createField', () => {
       } as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never
@@ -1580,6 +1588,8 @@ describe('FieldOpenApiV2Service createFields', () => {
       } as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never

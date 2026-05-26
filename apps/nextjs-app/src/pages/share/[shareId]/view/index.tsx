@@ -1,5 +1,5 @@
 import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
-import type { ShareViewGetVo } from '@teable/openapi';
+import type { IUserMeVo, ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
@@ -32,10 +32,17 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
           };
         }
       }
+      // For allowEdit shares, probe the viewer's identity server-side so the
+      // client doesn't need to fire a userMe request (which would 401 for
+      // anonymous viewers and trip the global 401-redirect handler).
+      const ssrUser = shareViewData.shareMeta?.allowEdit
+        ? await ssrApi.getUserMe().catch(() => null)
+        : null;
       return {
         props: {
           shareViewData,
           driver,
+          ssrUser,
           ...(await getTranslationsProps(context, i18nNamespaces)),
         },
       };
@@ -58,9 +65,11 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
 export default function ShareView({
   shareViewData,
   driver,
+  ssrUser,
 }: {
   shareViewData: ShareViewGetVo;
   driver: DriverClient;
+  ssrUser?: IUserMeVo | null;
 }) {
-  return <ShareViewPage shareViewData={shareViewData} driver={driver} />;
+  return <ShareViewPage shareViewData={shareViewData} driver={driver} ssrUser={ssrUser ?? null} />;
 }

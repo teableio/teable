@@ -2,7 +2,7 @@
 import { FieldType, DbFieldType, CellValueType, OpName } from '../..';
 import type { ISetFieldPropertyOpContext } from '../../op-builder/field/set-field-property';
 import type { IFieldVo } from './field.schema';
-import { applyFieldPropertyOps } from './field.util';
+import { applyFieldPropertyOps, hasCrossBaseField, isCrossBaseField } from './field.util';
 
 describe('applyFieldPropertyOps', () => {
   const mockField: IFieldVo = {
@@ -110,5 +110,56 @@ describe('applyFieldPropertyOps', () => {
 
     expect(result.description).toBeUndefined();
     expect(mockField.description).toBe('Original description');
+  });
+});
+
+describe('isCrossBaseField / hasCrossBaseField', () => {
+  const currentBaseId = 'bseCurrent';
+  const foreignBaseId = 'bseOther';
+
+  it('flags a direct cross-base link field', () => {
+    const field = {
+      type: FieldType.Link,
+      options: { baseId: foreignBaseId, foreignTableId: 'tblOther' },
+    } as unknown as IFieldVo;
+    expect(isCrossBaseField(field, currentBaseId)).toBe(true);
+  });
+
+  it('returns false for a same-base link', () => {
+    const field = {
+      type: FieldType.Link,
+      options: { foreignTableId: 'tblLocal' },
+    } as unknown as IFieldVo;
+    expect(isCrossBaseField(field, currentBaseId)).toBe(false);
+  });
+
+  it('flags lookups whose link points into another base', () => {
+    const field = {
+      type: FieldType.SingleLineText,
+      options: {},
+      isLookup: true,
+      lookupOptions: {
+        linkFieldId: 'fldLink',
+        foreignTableId: 'tblOther',
+        baseId: foreignBaseId,
+      },
+    } as unknown as IFieldVo;
+    expect(isCrossBaseField(field, currentBaseId)).toBe(true);
+  });
+
+  it('hasCrossBaseField scans an array and returns true on first match', () => {
+    const fields = [
+      { type: FieldType.SingleLineText, options: {} },
+      { type: FieldType.Link, options: { baseId: foreignBaseId, foreignTableId: 'tblOther' } },
+    ] as unknown as IFieldVo[];
+    expect(hasCrossBaseField(fields, currentBaseId)).toBe(true);
+  });
+
+  it('returns false when currentBaseId is missing', () => {
+    const field = {
+      type: FieldType.Link,
+      options: { baseId: foreignBaseId, foreignTableId: 'tblOther' },
+    } as unknown as IFieldVo;
+    expect(isCrossBaseField(field, undefined)).toBe(false);
   });
 });

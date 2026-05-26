@@ -13,7 +13,11 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementBuilders';
+import {
+  dataStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 import type { GeneratedColumnRule } from './GeneratedColumnRule';
 
 /**
@@ -91,9 +95,11 @@ export class GeneratedColumnMetaRule implements ISchemaRule {
 
       return ok([
         dropColumnStatement(table, columnName),
-        schemaBuilder
-          .alterTable(ctx.tableName)
-          .addColumn(columnName, dataType, (column) => column.ifNotExists()),
+        dataStatement(
+          schemaBuilder
+            .alterTable(ctx.tableName)
+            .addColumn(columnName, dataType, (column) => column.ifNotExists())
+        ),
       ]);
     });
   }

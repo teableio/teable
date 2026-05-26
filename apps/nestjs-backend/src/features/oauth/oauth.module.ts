@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { authConfig, type IAuthConfig } from '../../configs/auth.config';
+import { DistributedLockModule } from '../../distributed-lock';
 import { AccessTokenModule } from '../access-token/access-token.module';
+import { OAuthAppInitService } from './oauth-app-init.service';
 import { OAuthServerController } from './oauth-server.controller';
 import { OAuthServerService } from './oauth-server.service';
 import { OAuthTxStore } from './oauth-tx-store';
@@ -15,6 +17,7 @@ import { OAuthPkceClientStrategy } from './strategies/oauth2-pkce-client.strateg
 @Module({
   imports: [
     AccessTokenModule,
+    DistributedLockModule,
     PassportModule.register({ session: true }),
     JwtModule.registerAsync({
       useFactory: (config: IAuthConfig) => ({
@@ -30,6 +33,7 @@ import { OAuthPkceClientStrategy } from './strategies/oauth2-pkce-client.strateg
   providers: [
     OAuthServerService,
     OAuthService,
+    OAuthAppInitService,
     OAuthClientStrategy,
     OAuthPkceClientStrategy,
     OAuthTxStore,
