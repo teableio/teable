@@ -14,6 +14,7 @@ import { LinkListType } from './interface';
 import { LinkCard } from './LinkCard';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
+import { buildLinkRecordQueryBase } from './LinkRecordQuery';
 
 const { toast } = sonner;
 interface ILinkEditorProps {
@@ -24,6 +25,7 @@ interface ILinkEditorProps {
   className?: string;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   displayType?: LinkDisplayType;
+  isSelectedRowBgVisible?: boolean;
   onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
 }
 
@@ -40,6 +42,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     readonly,
     className,
     displayType = LinkDisplayType.Grid,
+    isSelectedRowBgVisible,
   } = props;
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
@@ -65,9 +68,10 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   const recordQuery = useMemo((): IGetRecordsRo => {
     return {
+      ...buildLinkRecordQueryBase(options),
       selectedRecordIds,
     };
-  }, [selectedRecordIds]);
+  }, [options, selectedRecordIds]);
 
   const updateExpandRecordId = (recordId?: string) => {
     if (recordId) {
@@ -128,6 +132,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                     recordQuery={recordQuery}
                     onChange={onRecordListChange}
                     onExpand={onRecordExpand}
+                    isSelectedRowBgVisible={isSelectedRowBgVisible}
                   />
                 </RowCountProvider>
               </LinkFilterProvider>

@@ -2,12 +2,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../../global/database-router.service';
 import { retryOnDeadlock } from '../../../../utils/retry-decorator';
 import { Timing } from '../../../../utils/timing';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
@@ -20,7 +20,7 @@ export class RecordComputedUpdateService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -115,7 +115,7 @@ export class RecordComputedUpdateService {
   }
 
   @Timing()
-  private async lockRestrictRecords(dbTableName: string, recordIds?: string[]) {
+  private async lockRestrictRecords(tableId: string, dbTableName: string, recordIds?: string[]) {
     if (!recordIds?.length) {
       return;
     }
@@ -130,7 +130,7 @@ export class RecordComputedUpdateService {
     if (!sql) {
       return;
     }
-    await this.dataPrismaService.txClient().$queryRawUnsafe(sql);
+    await this.databaseRouter.queryDataPrismaForTable(tableId, sql, { useTransaction: true });
   }
 
   @retryOnDeadlock()
@@ -159,7 +159,7 @@ export class RecordComputedUpdateService {
 
     // Acquire row-level locks in a deterministic order to avoid deadlocks when multiple
     // computed updates touch the same set of records concurrently.
-    await this.lockRestrictRecords(dbTableName, restrictRecordIds);
+    await this.lockRestrictRecords(tableId, dbTableName, restrictRecordIds);
 
     const sql = this.dbProvider.updateFromSelectSql({
       dbTableName,
@@ -171,9 +171,9 @@ export class RecordComputedUpdateService {
     });
     this.logger.debug('updateFromSelect SQL:', sql);
     try {
-      return await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);
+      return await this.databaseRouter.queryDataPrismaForTable<
+        Array<{ __id: string; __version: number } & Record<string, unknown>>
+      >(tableId, sql, { useTransaction: true });
     } catch (error) {
       this.handleRawQueryError(error, sql, tableId, fields);
     }

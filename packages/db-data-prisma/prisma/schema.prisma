@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("PRISMA_DATA_DATABASE_URL")
+  url      = env("PRISMA_DATABASE_URL")
 }
 
 model ComputedUpdateOutbox {

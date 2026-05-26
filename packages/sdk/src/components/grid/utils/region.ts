@@ -10,6 +10,7 @@ import type {
 } from '../interface';
 import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
+import { getRowControlCheckboxOffsetX, getRowControlOffsetX } from './rowControl';
 
 interface ICheckRegionProps
   extends Pick<
@@ -25,6 +26,7 @@ interface ICheckRegionProps
     | 'coordInstance'
     | 'columnStatistics'
     | 'isMultiSelectionEnable'
+    | 'rowControlPaddingX'
     | 'getLinearRow'
   > {
   rowControls: IRowControlItem[];
@@ -49,7 +51,7 @@ export interface IRegionData extends IRectangle {
 }
 
 // Define all possible row controls and their corresponding RegionTypes
-const rowControlDefinitions = {
+const rowControlDefinitions: Partial<Record<RowControlType, RegionType>> = {
   [RowControlType.Drag]: RegionType.RowHeaderDragHandler,
   [RowControlType.Checkbox]: RegionType.RowHeaderCheckbox,
   [RowControlType.Expand]: RegionType.RowHeaderExpandHandler,
@@ -254,7 +256,14 @@ const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null =>
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, theme, rowControls, coordInstance, isMultiSelectionEnable } = props;
+  const {
+    position,
+    theme,
+    rowControls,
+    rowControlPaddingX,
+    coordInstance,
+    isMultiSelectionEnable,
+  } = props;
   const { x, y, rowIndex, columnIndex } = position;
   if (
     !isMultiSelectionEnable ||
@@ -267,7 +276,13 @@ const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
   const { iconSizeXS } = theme;
   const halfIconSize = iconSizeXS / 2;
   const { rowInitSize, columnInitSize } = coordInstance;
-  const minX = columnInitSize / 2 - halfIconSize;
+  const offsetX = getRowControlCheckboxOffsetX({
+    width: columnInitSize,
+    theme,
+    rowControls,
+    rowControlPaddingX,
+  });
+  const minX = offsetX - halfIconSize;
   const minY = rowInitSize / 2 - halfIconSize;
   if (inRange(x, minX, minX + iconSizeXS) && inRange(y, minY, minY + iconSizeXS)) {
     return {
@@ -295,7 +310,7 @@ const checkIsAppendRow = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, theme, rowControls, scrollState, coordInstance } = props;
+  const { position, theme, rowControls, rowControlPaddingX, scrollState, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
 
   if (rowIndex <= -1 || columnIndex !== -1) return null;
@@ -312,15 +327,20 @@ const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   const { scrollTop } = scrollState;
   const { columnInitSize } = coordInstance;
   const halfIconSize = iconSizeXS / 2;
-  const controlSize = columnInitSize / (rowControls.length || 1);
   const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
 
   for (let i = 0; i < rowControls.length; i++) {
     const type = rowControls[i].type;
     const regionType = rowControlDefinitions[type];
-    if (!rowControls.some((item) => item.type === type)) continue;
 
-    const minX = controlSize * (i + 0.5) - halfIconSize;
+    const offsetX = getRowControlOffsetX(
+      columnInitSize,
+      theme,
+      rowControlPaddingX,
+      rowControls.length,
+      i
+    );
+    const minX = offsetX - halfIconSize;
     const minY = offsetY + rowHeadIconPaddingTop;
     const inControlXRange = inRange(x, minX, minX + iconSizeXS);
     const inYRangeRowHeader = inRange(y, minY, minY + iconSizeXS);

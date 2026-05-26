@@ -9,6 +9,7 @@ import { TeableLogo } from '@/components/TeableLogo';
 import { CalendarViewBase } from '@/features/app/blocks/view/calendar/CalendarViewBase';
 import { CalendarProvider } from '@/features/app/blocks/view/calendar/context';
 import { useBrand } from '@/features/app/hooks/useBrand';
+import { ShareSignInButton } from '../../ShareSignInButton';
 import { CalendarToolbar } from './toolbar';
 
 export const CalendarView = () => {
@@ -23,7 +24,10 @@ export const CalendarView = () => {
     <div className={cn('flex size-full flex-col', embed ? '' : 'md:px-3 md:pb-3')}>
       {!embed && (
         <div className="flex w-full justify-between px-1 py-2 md:px-0 md:py-3">
-          <h1 className="font-semibold md:text-lg">{view?.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-semibold md:text-lg">{view?.name}</h1>
+            <ShareSignInButton />
+          </div>
           <a href="/" className="flex items-center">
             <TeableLogo className="md:text-2xl" />
             <p className="ml-1 font-semibold">{brandName}</p>

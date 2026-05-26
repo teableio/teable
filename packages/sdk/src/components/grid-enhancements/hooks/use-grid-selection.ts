@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { getRecordStatus, saveQueryParams } from '@teable/openapi';
 import { isEqual } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ShareViewContext } from '../../../context/table/ShareViewContext';
 import { useFields, useRecord, useTableId, useViewId } from '../../../hooks';
 import type { Record as IRecord } from '../../../model';
 import type { IGridRef } from '../../grid/Grid';
@@ -45,6 +46,12 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const viewId = useViewId() as string;
   const tableId = useTableId() as string;
   const { setSelection } = useGridViewStore();
+  // In share-view context the common /api/table/.../record/.../status endpoint
+  // is rejected (reads must go through /api/share/*). The presort positioning
+  // optimization can degrade silently — share users still interact with cells
+  // normally without this status verification.
+  const { shareId } = useContext(ShareViewContext);
+  const isShareContext = Boolean(shareId);
 
   const { mutateAsync: mutateGetRecordStatus } = useMutation({
     mutationFn: async ({
@@ -203,13 +210,14 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
     const activeRecordId = activeCell.recordId;
 
     if (recordMap[rowIndex]?.id === activeRecordId) return;
+    if (isShareContext) return;
 
     mutateGetRecordStatus({
       tableId,
       recordId: activeCell.recordId,
       skip: activeCell.rowIndex,
     });
-  }, [activeCell, gridRef, recordMap, tableId, mutateGetRecordStatus]);
+  }, [activeCell, gridRef, recordMap, tableId, mutateGetRecordStatus, isShareContext]);
 
   useEffect(() => {
     if (!gridRef.current?.isEditing()) return;

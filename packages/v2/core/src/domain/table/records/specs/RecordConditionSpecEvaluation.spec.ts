@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Field } from '../../fields/Field';
 import { FieldId } from '../../fields/FieldId';
 import { FieldName } from '../../fields/FieldName';
 import { CheckboxField } from '../../fields/types/CheckboxField';
 import { DateField } from '../../fields/types/DateField';
+import { LookupField } from '../../fields/types/LookupField';
+import { LookupOptions } from '../../fields/types/LookupOptions';
 import { MultipleSelectField } from '../../fields/types/MultipleSelectField';
 import { NumberField } from '../../fields/types/NumberField';
 import { SelectOption } from '../../fields/types/SelectOption';
@@ -37,6 +40,19 @@ const cell = (value: unknown) => TableRecordCellValue.create(value)._unsafeUnwra
 
 const buildSelectOption = (name: string) =>
   SelectOption.create({ name, color: 'blue' })._unsafeUnwrap();
+
+const buildLookupField = (innerField: Field, seed: string) =>
+  LookupField.create({
+    id: fieldId(seed),
+    name: fieldName(`${innerField.name().toString()} Lookup`),
+    innerField,
+    lookupOptions: LookupOptions.create({
+      linkFieldId: fieldId('r').toString(),
+      lookupFieldId: innerField.id().toString(),
+      foreignTableId: tableId(seed).toString(),
+    })._unsafeUnwrap(),
+    isMultipleCellValue: true,
+  })._unsafeUnwrap();
 
 const buildBaseRecord = () => {
   const textField = SingleLineTextField.create({
@@ -200,6 +216,53 @@ describe('RecordConditionSpec evaluation', () => {
       fieldValues: [{ fieldId: numberField.id(), value: cell('ten') }],
     })._unsafeUnwrap();
     expect(isGreater.isSatisfiedBy(badRecord)).toBe(false);
+  });
+
+  it('evaluates scalar operators against multi-valued stored lookup values', () => {
+    const { record, textField, numberField, dateField } = buildBaseRecord();
+    const lookupRecord = TableRecord.create({
+      id: record.id(),
+      tableId: record.tableId(),
+      fieldValues: [
+        { fieldId: textField.id(), value: cell(['Allowed foreign', 'Other foreign']) },
+        { fieldId: numberField.id(), value: cell([3, 10]) },
+        {
+          fieldId: dateField.id(),
+          value: cell(['2024-01-02T00:00:00.000Z', '2024-01-05T00:00:00.000Z']),
+        },
+      ],
+    })._unsafeUnwrap();
+    const is = SingleLineTextConditionSpec.create(
+      textField,
+      'is',
+      RecordConditionLiteralValue.create('Allowed foreign')._unsafeUnwrap()
+    );
+    const isNot = SingleLineTextConditionSpec.create(
+      textField,
+      'isNot',
+      RecordConditionLiteralValue.create('Blocked foreign')._unsafeUnwrap()
+    );
+    const contains = SingleLineTextConditionSpec.create(
+      textField,
+      'contains',
+      RecordConditionLiteralValue.create('foreign')._unsafeUnwrap()
+    );
+    const numberGreater = NumberConditionSpec.create(
+      numberField,
+      'isGreater',
+      RecordConditionLiteralValue.create(5)._unsafeUnwrap()
+    );
+    const dateBefore = DateConditionSpec.create(
+      dateField,
+      'isBefore',
+      RecordConditionLiteralValue.create('2024-01-03T00:00:00.000Z')._unsafeUnwrap()
+    );
+
+    expect(is.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(isNot.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(contains.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(numberGreater.isSatisfiedBy(lookupRecord)).toBe(true);
+    expect(dateBefore.isSatisfiedBy(lookupRecord)).toBe(true);
   });
 
   it('evaluates date operators with literal and date values', () => {
@@ -381,6 +444,38 @@ describe('RecordConditionSpec evaluation', () => {
     expect(multiToOtherSingle.isSatisfiedBy(record)).toBe(false);
     expect(singleToMultiIsNot.isSatisfiedBy(record)).toBe(true);
     expect(multiToSingleIsNot.isSatisfiedBy(record)).toBe(true);
+  });
+
+  it('matches user operators against lookup fields with user inner fields', () => {
+    const { ownerField } = buildBaseRecord();
+    const lookupField = buildLookupField(ownerField, 'q');
+    const alice = { id: 'usrAlice', title: 'Alice' };
+
+    const record = TableRecord.create({
+      id: recordId('q'),
+      tableId: tableId('q'),
+      fieldValues: [{ fieldId: lookupField.id(), value: cell([alice]) }],
+    })._unsafeUnwrap();
+
+    const hasAny = UserConditionSpec.create(
+      lookupField,
+      'hasAnyOf',
+      RecordConditionLiteralListValue.create(['usrAlice'])._unsafeUnwrap()
+    );
+    const is = UserConditionSpec.create(
+      lookupField,
+      'is',
+      RecordConditionLiteralValue.create('usrAlice')._unsafeUnwrap()
+    );
+    const mismatch = UserConditionSpec.create(
+      lookupField,
+      'hasAnyOf',
+      RecordConditionLiteralListValue.create(['usrBob'])._unsafeUnwrap()
+    );
+
+    expect(hasAny.isSatisfiedBy(record)).toBe(true);
+    expect(is.isSatisfiedBy(record)).toBe(true);
+    expect(mismatch.isSatisfiedBy(record)).toBe(false);
   });
 
   it('returns false for unsupported operators and still mutates ok', () => {

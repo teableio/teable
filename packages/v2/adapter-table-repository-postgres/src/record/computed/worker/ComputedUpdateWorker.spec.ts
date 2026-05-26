@@ -1,15 +1,23 @@
 import { domainError, FieldId, RecordId, RecordsBatchUpdated, TableId } from '@teable/v2-core';
-import type { IEventBus, IHasher, ILogger, ITableRepository, IUnitOfWork } from '@teable/v2-core';
+import type {
+  IEventBus,
+  IHasher,
+  ILogger,
+  ITableRepository,
+  IUnitOfWork,
+  Table,
+} from '@teable/v2-core';
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
-import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
+import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
+  type SeedOutboxItem,
   type IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
 import { ComputedUpdateWorker } from './ComputedUpdateWorker';
@@ -118,6 +126,30 @@ const createMockTask = (
   ...overrides,
 });
 
+const createMockSeedTask = (overrides: Partial<SeedOutboxItem> = {}): SeedOutboxItem => ({
+  id: 'cuo123456789012346',
+  taskType: 'seed',
+  baseId: BASE_ID,
+  seedTableId: TABLE_ID,
+  seedRecordIds: [RECORD_ID],
+  extraSeedRecords: [],
+  beforeImageRecords: [],
+  changedFieldIds: [FIELD_ID],
+  changeType: 'update',
+  runId: 'run123',
+  planHash: 'seed-hash123',
+  status: 'processing',
+  attempts: 5,
+  maxAttempts: 8,
+  nextRunAt: new Date(),
+  lockedAt: new Date(),
+  lockedBy: 'worker-1',
+  lastError: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
+
 describe('ComputedUpdateWorker', () => {
   describe('runOnce', () => {
     it('returns 0 when no tasks are claimed', async () => {
@@ -194,6 +226,57 @@ describe('ComputedUpdateWorker', () => {
       expect(markFailed).toHaveBeenCalledWith(task, expect.any(String), expect.anything());
     });
 
+    it('forces statement-timeout failures into dead letter', async () => {
+      const task = createMockTask({ attempts: 1, maxAttempts: 8 });
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markFailed,
+      });
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          err(
+            domainError.infrastructure({
+              message: 'canceling statement due to statement timeout',
+            })
+          )
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const logger = createLogger();
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        logger,
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(markFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: task.id,
+          attempts: task.maxAttempts - 1,
+          maxAttempts: task.maxAttempts,
+        }),
+        expect.stringContaining('statement timeout'),
+        expect.anything()
+      );
+    });
+
     it('releases the task for retry when computed locks are unavailable', async () => {
       const task = createMockTask();
       const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
@@ -249,6 +332,62 @@ describe('ComputedUpdateWorker', () => {
       );
       expect(markFailed).not.toHaveBeenCalled();
       expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('releases seed tasks for retry when the seed table exists but is not active', async () => {
+      const task = createMockSeedTask();
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const planner = {
+        plan: vi.fn(),
+      } as unknown as ComputedUpdatePlanner;
+      const tableRepository: ITableRepository = {
+        ...createTableRepository(),
+        findOne: vi
+          .fn()
+          .mockResolvedValueOnce(err(domainError.notFound({ message: 'Table not found' })))
+          .mockResolvedValueOnce(ok({} as Table)),
+      };
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+        markFailed,
+      });
+
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        createUpdaterStub(),
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(0);
+      expect(tableRepository.findOne).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.anything(),
+        { state: 'all' }
+      );
+      expect(releaseForRetry).toHaveBeenCalledWith(
+        {
+          task,
+          reason: `Computed update blocked by inactive table: tableId=${TABLE_ID}`,
+          retryDelayMs: defaultComputedUpdateOutboxConfig.maxBackoffMs,
+        },
+        expect.anything()
+      );
+      expect(markFailed).not.toHaveBeenCalled();
+      expect(planner.plan).not.toHaveBeenCalled();
     });
 
     it('splits large computed tasks into smaller child tasks before acquiring locks', async () => {

@@ -17,6 +17,7 @@ import {
 import express from 'express';
 import fastify from 'fastify';
 import { afterAll, beforeAll, bench, describe } from 'vitest';
+import { benchmarkTableDataSafetyLimits } from './benchmarkTableDataSafetyLimits';
 
 const benchOptions = {
   iterations: 0,
@@ -131,7 +132,9 @@ const createTable = async (
 };
 
 const setup = async () => {
-  const testContainer = await createV2NodeTestContainer();
+  const testContainer = await createV2NodeTestContainer({
+    tableDataSafetyLimits: benchmarkTableDataSafetyLimits,
+  });
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
   dispose = testContainer.dispose;
   baseId = testContainer.baseId.toString();
