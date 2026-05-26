@@ -1,4 +1,15 @@
 import Script from 'next/script';
+import { useEffect, useState } from 'react';
+import { syncMarketingAttributionFromUrl } from '@/lib/marketing-attribution';
+
+const GOOGLE_LINKER_DOMAINS = ['teable.ai', 'app.teable.ai'];
+
+declare global {
+  interface Window {
+    gtag?: (command: string, targetId: string | Date, config?: Record<string, unknown>) => void;
+    dataLayer?: unknown[];
+  }
+}
 
 export const MicrosoftClarity = ({
   clarityId,
@@ -77,16 +88,65 @@ export const Umami = ({
 
 export const GoogleAnalytics = ({
   gaId,
+  googleAdsId,
+  marketingGaId,
   user,
 }: {
   gaId?: string;
+  googleAdsId?: string;
+  marketingGaId?: string;
   user?: {
     id?: string;
     name?: string;
     email?: string;
   };
 }) => {
-  if (!gaId) {
+  const scriptId = gaId ?? googleAdsId ?? marketingGaId;
+  const userId = user?.id;
+  const userEmail = user?.email;
+  const [isGtagReady, setIsGtagReady] = useState(false);
+
+  useEffect(() => {
+    if (!isGtagReady || !window.gtag) {
+      return;
+    }
+
+    syncMarketingAttributionFromUrl();
+
+    const linker = { domains: GOOGLE_LINKER_DOMAINS };
+
+    if (gaId) {
+      // Always pass a 3rd arg. gtag.js crashes with "reading 'update'" when called
+      // as gtag('config', id) (2-arg form) on cached library loads — only share view
+      // hits this because it's the one page where pageProps.user is undefined.
+      window.gtag(
+        'config',
+        gaId,
+        userId ? { user_id: userId, custom_map: { custom_dimension_1: 'user_email' } } : {}
+      );
+    }
+
+    if (googleAdsId) {
+      window.gtag('config', googleAdsId, { linker });
+    }
+
+    if (marketingGaId) {
+      window.gtag('config', marketingGaId, { linker });
+    }
+  }, [gaId, googleAdsId, isGtagReady, marketingGaId, userId]);
+
+  useEffect(() => {
+    if (!isGtagReady || !window.gtag || !gaId || !userEmail) {
+      return;
+    }
+
+    window.gtag('event', 'login', {
+      send_to: gaId,
+      custom_dimension_1: userEmail,
+    });
+  }, [gaId, isGtagReady, userEmail]);
+
+  if (!scriptId) {
     return null;
   }
 
@@ -95,18 +155,17 @@ export const GoogleAnalytics = ({
       <Script
         id="google-analytics"
         strategy="afterInteractive"
-        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${scriptId}`}
       />
       <Script
         id="google-analytics-init"
         strategy="afterInteractive"
+        onReady={() => setIsGtagReady(true)}
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${gaId}');
-            ${user ? `gtag('config', '${gaId}', { user_id: '${user.id}', custom_map: { custom_dimension_1: 'user_email' } }); gtag('event', 'login', { custom_dimension_1: '${user.email}' });` : ''}
           `,
         }}
       />

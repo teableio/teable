@@ -7,7 +7,7 @@ import type {
   IBaseNodeTableResourceMeta,
   IDuplicateBaseNodeRo,
 } from '@teable/openapi';
-import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
+import { BaseNodeResourceType, duplicateTableCheck, SUPPORTEDTYPE } from '@teable/openapi';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
@@ -486,6 +486,33 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
   };
 
+  // Cross-space preview that drives the inline warning. We resolve this
+  // BEFORE opening the duplicate dialog (see handleDuplicateClick below) so
+  // the warning is part of the dialog's initial render rather than appearing
+  // late after the user has already started configuring.
+  const [affectedCrossSpace, setAffectedCrossSpace] = useState<Array<{
+    fieldId: string;
+    fieldName: string;
+  }> | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handleDuplicateClick = async () => {
+    if (!baseId || !resourceId) {
+      setDuplicateSetting(true);
+      return;
+    }
+    setIsPreviewing(true);
+    try {
+      const res = await duplicateTableCheck(baseId, resourceId);
+      const affected = res.data.affectedFields;
+      setAffectedCrossSpace(affected && affected.length > 0 ? affected : null);
+    } catch {
+      setAffectedCrossSpace(null);
+    }
+    setIsPreviewing(false);
+    setDuplicateSetting(true);
+  };
+
   const { mutateAsync: duplicateTableFn, isPending: isLoading } = useMutation({
     mutationFn: async (ro?: IDuplicateBaseNodeRo) => onDuplicate?.(ro),
     onSuccess: () => {
@@ -494,6 +521,8 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
       });
       setDuplicateSetting(false);
     },
+    // Cross-space affected-fields are surfaced inline; bypass the global toast.
+    meta: { preventGlobalError: true },
   });
 
   const onRecordClick = (recordId: string) => {
@@ -559,10 +588,17 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
       {duplicateSetting && (
         <ConfirmDialog
           open={duplicateSetting}
-          onOpenChange={setDuplicateSetting}
+          onOpenChange={(open) => {
+            setDuplicateSetting(open);
+            if (!open) setAffectedCrossSpace(null);
+          }}
           title={`${t('common:actions.duplicate')} ${table?.name}`}
           cancelText={t('common:actions.cancel')}
-          confirmText={t('common:actions.duplicate')}
+          confirmText={
+            affectedCrossSpace
+              ? t('table:crossSpace.convertAndDuplicate')
+              : t('common:actions.duplicate')
+          }
           confirmLoading={isLoading}
           content={
             <div className="flex flex-col space-y-2 text-sm">
@@ -582,6 +618,26 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                 />
                 <Label htmlFor="include-record">{t('table:import.menu.includeRecords')}</Label>
               </div>
+              {affectedCrossSpace && (
+                <div className="mt-2 rounded-md border border-yellow-300 bg-yellow-50 p-2.5 text-xs text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200">
+                  <p className="font-medium">{t('table:crossSpace.duplicateTableTitle')}</p>
+                  <p className="mt-1">
+                    {t('table:crossSpace.duplicateTableDescription', {
+                      count: affectedCrossSpace.length,
+                    })}
+                  </p>
+                  <div className="mt-2 flex max-h-40 flex-wrap gap-1 overflow-y-auto">
+                    {affectedCrossSpace.map((f) => (
+                      <span
+                        key={f.fieldId}
+                        className="inline-flex items-center rounded border border-yellow-300/60 bg-background/70 px-1.5 py-0.5 text-[11px] dark:border-yellow-700/60 dark:bg-yellow-950/40"
+                      >
+                        {f.fieldName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           }
           onCancel={() => setDuplicateSetting(false)}
@@ -633,7 +689,9 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
-            onClick={() => setDuplicateSetting(true)}
+            onClick={() => {
+              void handleDuplicateClick();
+            }}
           />
         )}
         {menuPermission.exportTable && (
@@ -752,7 +810,13 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             </DropdownMenuItem>
           )}
           {menuPermission.duplicateTable && (
-            <DropdownMenuItem onClick={() => setDuplicateSetting(true)}>
+            <DropdownMenuItem
+              disabled={isPreviewing}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDuplicateClick();
+              }}
+            >
               <CopyPlus className="mr-2 size-4" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>

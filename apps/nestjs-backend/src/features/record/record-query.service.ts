@@ -2,7 +2,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { TableDomain, type IRecord } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { fieldCore2FieldInstance } from '../field/model/factory';
@@ -17,7 +17,7 @@ export class RecordQueryService {
   private readonly logger = new Logger(RecordQueryService.name);
 
   constructor(
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
@@ -59,9 +59,9 @@ export class RecordQueryService {
 
       this.logger.debug(`Querying records: ${sql}`);
 
-      const rawRecords = await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<{ [key: string]: unknown }[]>(sql);
+      const rawRecords = await this.databaseRouter.queryDataPrismaForTable<
+        { [key: string]: unknown }[]
+      >(table.id, sql);
 
       const fields = table.fieldList.map((f) => fieldCore2FieldInstance(f));
 

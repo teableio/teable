@@ -29,7 +29,7 @@ import { CloneViewVisitor } from '../../domain/table/views/visitors/CloneViewVis
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
 import { MemoryTableRepository } from '../../ports/memory/MemoryTableRepository';
-import type { ITableRepository } from '../../ports/TableRepository';
+import type { ITableRepository, TableFindOptions } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
@@ -86,6 +86,19 @@ class FakeUnitOfWork implements IUnitOfWork {
   ): Promise<Result<T, DomainError>> {
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     return work({ ...context, transaction });
+  }
+}
+
+class RecordingFindOneStateRepository extends MemoryTableRepository {
+  readonly findOneStates: Array<Pick<TableFindOptions, 'state'> | undefined> = [];
+
+  override async findOne(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOptions, 'state'>
+  ): Promise<Result<Table, DomainError>> {
+    this.findOneStates.push(options);
+    return super.findOne(context, spec);
   }
 }
 
@@ -571,7 +584,7 @@ describe('FieldUpdateSideEffectService', () => {
 
   it('uses latest foreign table from repo during execute for non-link -> link conversion', async () => {
     const context = createContext();
-    const repo = new MemoryTableRepository();
+    const repo = new RecordingFindOneStateRepository();
     const flow = buildFlow(repo);
     const service = new FieldUpdateSideEffectService(
       flow,
@@ -649,6 +662,7 @@ describe('FieldUpdateSideEffectService', () => {
     });
 
     expect(result.isOk()).toBe(true);
+    expect(repo.findOneStates).toContainEqual({ state: 'activeWithPending' });
     const foreignInRepo = repo.tables().find((t) => t.id().equals(foreignTableId));
     expect(foreignInRepo?.getFields(buildFieldSpec((builder) => builder.isLink()))).toHaveLength(1);
   });

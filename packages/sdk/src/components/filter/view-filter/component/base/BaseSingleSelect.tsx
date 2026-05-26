@@ -98,7 +98,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           onSelect(option.value);
           setOpen(false);
         }}
-        className="truncate text-sm"
+        className="w-full truncate text-sm"
       >
         <Check
           className={cn(

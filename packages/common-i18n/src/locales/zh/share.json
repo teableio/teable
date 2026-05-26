@@ -12,6 +12,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "请选择..."
   },
+  "view": {
+    "signInToEdit": "<a>登录</a>可编辑",
+    "login": "登录"
+  },
   "openOnNewPage": "在新页面查看",
   "errorTips": "分享来源已启用权限矩阵，无法查看"
 }

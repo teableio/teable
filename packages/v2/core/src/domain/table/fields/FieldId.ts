@@ -3,12 +3,13 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
-import { generatePrefixedId, prefixedIdRegex } from '../../shared/IdGenerator';
+import { generatePrefixedId } from '../../shared/IdGenerator';
 import { ValueObject } from '../../shared/ValueObject';
 
 const fieldIdPrefix = 'fld';
 const fieldIdBodyLength = 16;
-const fieldIdSchema = z.string().regex(prefixedIdRegex(fieldIdPrefix, fieldIdBodyLength));
+const fieldIdPattern = new RegExp(`^${fieldIdPrefix}[0-9a-zA-Z]{${fieldIdBodyLength}}(?:_\\d+)?$`);
+const fieldIdSchema = z.string().regex(fieldIdPattern);
 
 export class FieldId extends ValueObject {
   private constructor(private readonly value: string) {

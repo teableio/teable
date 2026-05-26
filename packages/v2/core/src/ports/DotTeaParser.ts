@@ -11,6 +11,8 @@ export interface DotTeaFieldInput {
   readonly id?: string;
   readonly name?: string;
   readonly dbFieldName?: string;
+  readonly description?: string | null;
+  readonly aiConfig?: unknown | null;
   readonly type: string;
   readonly isPrimary?: boolean;
   readonly isLookup?: boolean;
@@ -49,6 +51,8 @@ export interface DotTeaStructure {
 export interface NormalizedDotTeaField {
   readonly id?: string;
   readonly dbFieldName?: string;
+  readonly description?: string | null;
+  readonly aiConfig?: unknown | null;
   readonly type: string;
   readonly name: string;
   readonly isPrimary?: boolean;
