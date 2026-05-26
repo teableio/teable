@@ -5,11 +5,13 @@ const {
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeListTableRecordsEndpoint,
   executeRestoreTableEndpoint,
 } = vi.hoisted(() => ({
   executeCreateTableEndpoint: vi.fn(),
   executeDeleteTableEndpoint: vi.fn(),
   executeDuplicateTableEndpoint: vi.fn(),
+  executeListTableRecordsEndpoint: vi.fn(),
   executeRestoreTableEndpoint: vi.fn(),
 }));
 
@@ -17,6 +19,7 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeListTableRecordsEndpoint,
   executeRestoreTableEndpoint,
 }));
 
@@ -55,12 +58,14 @@ describe('TableOpenApiV2Service.createTable', () => {
     tableService?: Record<string, unknown>;
     fieldOpenApiService?: Record<string, unknown>;
     viewService?: Record<string, unknown>;
-    recordService?: Record<string, unknown>;
     prismaService?: Record<string, unknown>;
     dbProvider?: Record<string, unknown>;
   }) =>
     new TableOpenApiV2Service(
       {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: vi.fn().mockReturnValue({}),
+        }),
         getContainer: vi.fn().mockResolvedValue({
           resolve: vi.fn().mockReturnValue({}),
         }),
@@ -71,14 +76,14 @@ describe('TableOpenApiV2Service.createTable', () => {
       (overrides?.tableService ?? {}) as never,
       (overrides?.fieldOpenApiService ?? {}) as never,
       (overrides?.viewService ?? {}) as never,
-      (overrides?.recordService ?? {}) as never,
       (overrides?.prismaService ?? {}) as never,
       {
         generateDbTableName: vi
           .fn()
           .mockImplementation((baseId: string, name: string) => `${baseId}.${name}`),
         ...overrides?.dbProvider,
-      } as never
+      } as never,
+      {} as never
     );
 
   it('fills missing legacy link lookupFieldId and prefixes legacy dbTableName before calling v2', async () => {
@@ -164,6 +169,33 @@ describe('TableOpenApiV2Service.createTable', () => {
     });
 
     const recordIds = Array.from({ length: 1001 }, (_, index) => `rec${index + 1}`);
+    executeListTableRecordsEndpoint
+      .mockResolvedValueOnce({
+        status: 200,
+        body: {
+          ok: true,
+          data: {
+            records: recordIds.slice(0, 1000).map((recordId) => ({
+              id: recordId,
+              fields: {},
+            })),
+            pagination: { hasMore: true },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        body: {
+          ok: true,
+          data: {
+            records: recordIds.slice(1000).map((recordId) => ({
+              id: recordId,
+              fields: {},
+            })),
+            pagination: { hasMore: false },
+          },
+        },
+      });
     const tableService = {
       getTableMeta: vi.fn().mockResolvedValue({
         id: 'tblTest',
@@ -190,27 +222,10 @@ describe('TableOpenApiV2Service.createTable', () => {
         },
       ]),
     };
-    const recordService = {
-      getDocIdsByQuery: vi
-        .fn()
-        .mockResolvedValueOnce({ ids: recordIds.slice(0, 1000) })
-        .mockResolvedValueOnce({ ids: recordIds.slice(1000) }),
-      getSnapshotBulkWithPermission: vi.fn().mockResolvedValue(
-        [...recordIds].reverse().map((recordId) => ({
-          data: {
-            id: recordId,
-            name: recordId,
-            fields: {},
-          },
-        }))
-      ),
-    };
-
     const service = createService({
       tableService,
       fieldOpenApiService,
       viewService,
-      recordService,
     });
 
     const result = await service.createTable('bseTest', {
@@ -222,16 +237,32 @@ describe('TableOpenApiV2Service.createTable', () => {
       })),
     });
 
-    expect(recordService.getDocIdsByQuery).toHaveBeenNthCalledWith(1, 'tblTest', {
-      viewId: 'viwDefault',
-      skip: 0,
-      take: 1000,
-    });
-    expect(recordService.getDocIdsByQuery).toHaveBeenNthCalledWith(2, 'tblTest', {
-      viewId: 'viwDefault',
-      skip: 1000,
-      take: 1,
-    });
+    expect(executeListTableRecordsEndpoint).toHaveBeenNthCalledWith(
+      1,
+      {},
+      {
+        tableId: 'tblTest',
+        viewId: 'viwDefault',
+        fieldKeyType: 'name',
+        cellFormat: 'json',
+        limit: 1000,
+        offset: 0,
+      },
+      {}
+    );
+    expect(executeListTableRecordsEndpoint).toHaveBeenNthCalledWith(
+      2,
+      {},
+      {
+        tableId: 'tblTest',
+        viewId: 'viwDefault',
+        fieldKeyType: 'name',
+        cellFormat: 'json',
+        limit: 1,
+        offset: 1000,
+      },
+      {}
+    );
     expect(result.records).toHaveLength(1001);
     expect(result.records[0]?.id).toBe('rec1');
     expect(result.records[1000]?.id).toBe('rec1001');
@@ -247,12 +278,14 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
     tableService?: Record<string, unknown>;
     fieldOpenApiService?: Record<string, unknown>;
     viewService?: Record<string, unknown>;
-    recordService?: Record<string, unknown>;
     prismaService?: Record<string, unknown>;
     dbProvider?: Record<string, unknown>;
   }) =>
     new TableOpenApiV2Service(
       {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: vi.fn().mockReturnValue({}),
+        }),
         getContainer: vi.fn().mockResolvedValue({
           resolve: vi.fn().mockReturnValue({}),
         }),
@@ -263,14 +296,14 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       (overrides?.tableService ?? {}) as never,
       (overrides?.fieldOpenApiService ?? {}) as never,
       (overrides?.viewService ?? {}) as never,
-      (overrides?.recordService ?? {}) as never,
       (overrides?.prismaService ?? {}) as never,
       {
         generateDbTableName: vi
           .fn()
           .mockImplementation((baseId: string, name: string) => `${baseId}.${name}`),
         ...overrides?.dbProvider,
-      } as never
+      } as never,
+      {} as never
     );
 
   it('rebuilds the legacy duplicate-table response from the duplicated v2 table', async () => {

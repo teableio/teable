@@ -14,9 +14,34 @@ import type { IResourceMeta } from '../decorators/resource_meta.decorator';
 import { RESOURCE_META } from '../decorators/resource_meta.decorator';
 import { IS_TOKEN_ACCESS } from '../decorators/token.decorator';
 import { PermissionService } from '../permission.service';
-import { getTemplateHeader, getBaseShareHeader } from '../utils';
+import { getTemplateHeader, getBaseShareHeader, getShareViewHeader } from '../utils';
 
 const i18nKeyCheckIdNotExist = 'httpErrors.permission.checkIdNotExist';
+const shareViewCommonWritePermissions = new Set<Action>([
+  'record|create',
+  'record|update',
+  'record|delete',
+]);
+// Endpoint rules for X-Tea-Share-View. Each rule pairs a path family with the
+// permission(s) that family declares. The header is rejected on any path that
+// doesn't match a rule, so adding a path requires explicit consideration of
+// what permission set the share-view permission model already grants.
+const shareViewEndpointRules: { regex: RegExp; permissions: Set<Action> }[] = [
+  {
+    // Common record/selection writes — scope-checked by ShareViewScopeService
+    // before each handler executes.
+    regex: /^\/api\/table\/[^/]+\/(?:record|selection)(?:\/|$)/,
+    permissions: shareViewCommonWritePermissions,
+  },
+  {
+    // undo-redo replays the share editor's own op history. The values it
+    // writes are bounded by what the editor was already allowed to write
+    // originally (each historical op passed ShareViewScopeService). Only
+    // needs table|read because the handler reads the user's undo stack.
+    regex: /^\/api\/table\/[^/]+\/undo-redo(?:\/|$)/,
+    permissions: new Set<Action>(['table|read']),
+  },
+];
 
 @Injectable()
 export class PermissionGuard {
@@ -185,6 +210,62 @@ export class PermissionGuard {
     }
   }
 
+  protected async shareViewPermissionCheck(context: ExecutionContext, shareId: string) {
+    await this.ensureShareViewAuth(context, shareId);
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
+    if (!resourceId) {
+      throw new CustomHttpException(
+        `Share view permission check ID does not exist`,
+        this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: i18nKeyCheckIdNotExist,
+          },
+        }
+      );
+    }
+    const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!permissions?.length) {
+      throw new ForbiddenException('Share view permissions are required');
+    }
+    const ownPermissions = await this.permissionService.validShareViewPermissions(
+      shareId,
+      resourceId,
+      permissions
+    );
+    // Preserve logged-in user identity for allowEdit; fall back to anonymous
+    const currentUserId = this.cls.get('user.id');
+    if (!currentUserId || isAnonymous(currentUserId)) {
+      this.cls.set('user', {
+        id: ANONYMOUS_USER_ID,
+        name: ANONYMOUS_USER_ID,
+        email: '',
+      });
+    }
+    this.cls.set('permissions', ownPermissions);
+    return true;
+  }
+
+  private async ensureShareViewAuth(context: ExecutionContext, shareId: string) {
+    const requirePassword = await this.permissionService.shareViewRequiresPassword(shareId);
+    if (!requirePassword) {
+      return;
+    }
+    const req = context.switchToHttp().getRequest();
+    const cookies = cookie.parse(req.headers.cookie ?? '');
+    const token = cookies[shareId];
+    if (!token) {
+      throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
+    }
+    const valid = await this.permissionService.validateShareViewPasswordToken(shareId, token);
+    if (!valid) {
+      throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
+    }
+  }
+
   private async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
       throw new CustomHttpException(
@@ -320,16 +401,78 @@ export class PermissionGuard {
   }
 
   /**
-   * Resolve RESOURCE-level permission using resource-specific auth (base share > template).
+   * Same shape as tryBaseSharePermissionCheck, but for X-Tea-Share-View.
+   * When present, the user's effective permissions on common endpoints are
+   * derived entirely from the share view — never from their base/space role.
+   */
+  private async tryShareViewPermissionCheck(
+    context: ExecutionContext,
+    shareViewHeader: string | undefined
+  ): Promise<boolean | undefined> {
+    if (!shareViewHeader) {
+      return undefined;
+    }
+    const shareId = this.permissionService.getShareViewIdByHeader(shareViewHeader);
+    if (!shareId) {
+      return undefined;
+    }
+    const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!permissions?.length) {
+      return undefined;
+    }
+
+    // X-Tea-Share-View is only a write sandbox for the common table surface.
+    // Common reads (GET and POST socket/doc-ids), comments, copy, duplicate,
+    // and other mixed read/write actions must use dedicated share endpoints
+    // because only those endpoints apply view filters and hidden-field masks.
+    // undo-redo is whitelisted separately (see shareViewEndpointRules).
+    const req = context.switchToHttp().getRequest();
+    const method = req.method as string;
+    const path = (req.path as string | undefined) ?? '';
+    const allowedMethod = ['POST', 'PATCH', 'DELETE'].includes(method);
+    const matchedRule = shareViewEndpointRules.find((rule) => rule.regex.test(path));
+    const allowedPermissions = matchedRule
+      ? permissions.every((permission) => matchedRule.permissions.has(permission))
+      : false;
+    if (!allowedMethod || !matchedRule || !allowedPermissions) {
+      throw new CustomHttpException(
+        'This endpoint cannot be used with X-Tea-Share-View',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
+    if (!resourceId || resourceId.startsWith(IdPrefix.Space)) {
+      return undefined;
+    }
+    return await this.shareViewPermissionCheck(context, shareId);
+  }
+
+  /**
+   * Resolve RESOURCE-level permission using resource-specific auth
+   * (base share > share view > template).
    * @returns true if resolved, undefined if no valid auth header found
    */
   private async resolveResourcePermission(
     context: ExecutionContext,
     baseShareHeader: string | undefined,
+    shareViewHeader: string | undefined,
     templateHeader: string | undefined
   ): Promise<boolean | undefined> {
     if (baseShareHeader) {
       const result = await this.tryBaseSharePermissionCheck(context, baseShareHeader);
+      if (result !== undefined) return result;
+    }
+    if (shareViewHeader) {
+      const result = await this.tryShareViewPermissionCheck(context, shareViewHeader);
       if (result !== undefined) return result;
     }
     if (templateHeader) {
@@ -357,15 +500,19 @@ export class PermissionGuard {
 
   /**
    * Fallback permission check for PUBLIC endpoints when normal check fails.
-   * Tries base share first, then template, re-throws original error if all fail.
+   * Tries base share, then share view, then template, re-throws original error if all fail.
    */
   private async resolvePublicFallback(
     context: ExecutionContext,
     baseShareHeader: string | undefined,
+    shareViewHeader: string | undefined,
     originalError: unknown
   ): Promise<boolean> {
     const baseShareResult = await this.tryBaseShareFallback(context, baseShareHeader);
     if (baseShareResult !== undefined) return baseShareResult;
+
+    const shareViewResult = await this.tryShareViewFallback(context, shareViewHeader);
+    if (shareViewResult !== undefined) return shareViewResult;
 
     this.logger.log('Fallback to template permission check');
     try {
@@ -397,11 +544,28 @@ export class PermissionGuard {
     }
   }
 
+  private async tryShareViewFallback(
+    context: ExecutionContext,
+    shareViewHeader: string | undefined
+  ): Promise<boolean | undefined> {
+    if (!shareViewHeader) return undefined;
+    const shareId = this.permissionService.getShareViewIdByHeader(shareViewHeader);
+    if (!shareId) return undefined;
+
+    this.logger.log('Fallback to share view permission check');
+    try {
+      return await this.shareViewPermissionCheck(context, shareId);
+    } catch (e) {
+      this.logger.error(`Share view fallback failed: ${e}`);
+      return undefined;
+    }
+  }
+
   /**
    * Permission check with public/share/template fallback.
    *
    * Priority flow:
-   *   1. RESOURCE-level: exclusively use resource-specific auth (base share > template)
+   *   1. RESOURCE-level: exclusively use resource-specific auth (base share > share view > template)
    *   2. Share link check — when share header is present, share permissions are the ceiling
    *      for ALL users (anonymous or authenticated), so personal role never exceeds the link
    *   3. Anonymous user handling (template / USER-level)
@@ -414,14 +578,20 @@ export class PermissionGuard {
     const req = context.switchToHttp().getRequest();
     const templateHeader = getTemplateHeader(req);
     const baseShareHeader = getBaseShareHeader(req);
+    const shareViewHeader = getShareViewHeader(req);
     const allowAnonymousType = this.reflector.getAllAndOverride<AllowAnonymousType | undefined>(
       IS_ALLOW_ANONYMOUS,
       [context.getHandler(), context.getClass()]
     );
 
-    // 1. RESOURCE-level: exclusively use resource-specific auth (base share > template)
+    // 1. RESOURCE-level: exclusively use resource-specific auth (base share > share view > template)
     if (allowAnonymousType === AllowAnonymousType.RESOURCE) {
-      const result = await this.resolveResourcePermission(context, baseShareHeader, templateHeader);
+      const result = await this.resolveResourcePermission(
+        context,
+        baseShareHeader,
+        shareViewHeader,
+        templateHeader
+      );
       if (result !== undefined) return result;
       // No valid resource auth header — fall through to normal checks
     }
@@ -429,6 +599,10 @@ export class PermissionGuard {
     // 2. Share link — permissions are bounded by the link, regardless of user role
     if (baseShareHeader) {
       const result = await this.tryBaseSharePermissionCheck(context, baseShareHeader);
+      if (result !== undefined) return result;
+    }
+    if (shareViewHeader) {
+      const result = await this.tryShareViewPermissionCheck(context, shareViewHeader);
       if (result !== undefined) return result;
     }
 
@@ -442,7 +616,7 @@ export class PermissionGuard {
       return await permissionCheck();
     } catch (error) {
       if (allowAnonymousType !== AllowAnonymousType.PUBLIC) throw error;
-      return this.resolvePublicFallback(context, baseShareHeader, error);
+      return this.resolvePublicFallback(context, baseShareHeader, shareViewHeader, error);
     }
   }
 

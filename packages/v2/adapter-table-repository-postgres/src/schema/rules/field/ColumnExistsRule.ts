@@ -18,7 +18,11 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
-import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementBuilders';
+import {
+  dataStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { NotNullConstraintRule } from './NotNullConstraintRule';
 
@@ -152,7 +156,7 @@ export class ColumnExistsRule implements ISchemaRule {
         .alterTable(ctx.tableName)
         .addColumn(columnName, dataType, (col) => col.ifNotExists());
 
-      return ok([statement]);
+      return ok([dataStatement(statement)]);
     });
   }
 

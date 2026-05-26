@@ -6,10 +6,18 @@ import type {
   TableCreationServiceInput,
   TableCreationServiceResult,
 } from '../application/services/TableCreationService';
+import {
+  StaticTableDataSafetyLimitPlugin,
+  TableDataSafetyLimitComposer,
+} from '../application/services/TableDataSafetyLimitComposer';
+import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
+import type { TableSortKey } from '../domain/table/TableSortKey';
 import type {
   DotTeaStructure,
   IDotTeaParser,
@@ -21,10 +29,12 @@ import type {
   IUnitOfWorkTransaction,
   UnitOfWorkScope,
 } from '../ports/ExecutionContext';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ImportDotTeaStructureCommand } from './ImportDotTeaStructureCommand';
 import { ImportDotTeaStructureHandler } from './ImportDotTeaStructureHandler';
+import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const baseId = `bse${'d'.repeat(16)}`;
 
@@ -67,7 +77,10 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async findOne() {
+  async findOne(
+    _: IExecutionContext,
+    __: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<Table, DomainError>> {
     return err({
       code: 'not_implemented',
       message: 'not implemented',
@@ -76,7 +89,11 @@ class FakeTableRepository implements ITableRepository {
     });
   }
 
-  async find() {
+  async find(
+    _: IExecutionContext,
+    __: ISpecification<Table, ITableSpecVisitor>,
+    ___?: IFindOptions<TableSortKey>
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok([]);
   }
 
@@ -146,7 +163,7 @@ class FakeTableCreationService {
   ): Promise<Result<TableCreationServiceResult, DomainError>> {
     const persisted = await this.persistMetadata(context, input);
     if (persisted.isErr()) {
-      return persisted;
+      return err(persisted.error);
     }
     return this.provisionData(context, {
       ...input,
@@ -402,5 +419,55 @@ describe('ImportDotTeaStructureHandler', () => {
     expect(firstValue.tableIdMap[tableId]).not.toBe(secondValue.tableIdMap[tableId]);
     expect(firstValue.fieldIdMap[fieldId]).not.toBe(secondValue.fieldIdMap[fieldId]);
     expect(firstValue.viewIdMap[viewId]).not.toBe(secondValue.viewIdMap[viewId]);
+  });
+
+  it('runs table operation safety limits for imported structures', async () => {
+    const parser = new FakeDotTeaParser(
+      ok({
+        tables: [
+          {
+            name: 'Products',
+            fields: [
+              { name: 'Name', type: 'singleLineText', isPrimary: true },
+              { name: 'Sku', type: 'singleLineText' },
+            ],
+          },
+        ],
+      })
+    );
+    const tableRepository = new FakeTableRepository();
+    const tableCreationService = new FakeTableCreationService();
+    const tableOperationPluginRunner = createTableOperationPluginRunner([
+      new TableDataSafetyLimitTableOperationPlugin(
+        tableRepository,
+        new TableDataSafetyLimitComposer([
+          new StaticTableDataSafetyLimitPlugin({
+            tableSchema: {
+              maxFieldsPerTable: 1,
+            },
+          }),
+        ])
+      ),
+    ]);
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      tableRepository,
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      tableOperationPluginRunner
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.fields_per_table_max');
+    expect(tableCreationService.lastInput).toBeUndefined();
   });
 });

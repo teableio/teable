@@ -16,6 +16,7 @@
     "zoomIn": "ズームイン",
     "zoomOut": "ズームアウト",
     "back": "戻る",
+    "download": "ダウンロード",
     "remove": "削除",
     "removeConfig": "設定を削除",
     "saveSucceed": "保存成功！",
@@ -1161,9 +1162,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "5月12日アップデート",
-    "title": "App Builder の組み込みログイン",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "5月19日アップデート",
+    "title": "Teable Credits が10倍に!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

@@ -116,7 +116,7 @@ const hasUndoLogTable = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
     SELECT EXISTS (
       SELECT 1
       FROM information_schema.tables
-      WHERE table_schema = 'public'
+      WHERE table_schema = current_schema()
       AND table_name = '__undo_log'
     ) AS "exists"
   `.execute(db);
@@ -129,7 +129,7 @@ const hasUndoLogNewRowColumn = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
     SELECT EXISTS (
       SELECT 1
       FROM information_schema.columns
-      WHERE table_schema = 'public'
+      WHERE table_schema = current_schema()
       AND table_name = '__undo_log'
       AND column_name = 'new_row'
     ) AS "exists"
@@ -144,7 +144,7 @@ const hasUndoLogFunction = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
       SELECT 1
       FROM pg_proc
       WHERE proname = '__teable_capture_undo_row'
-      AND pronamespace = 'public'::regnamespace
+      AND pronamespace = current_schema()::regnamespace
     ) AS "exists"
   `.execute(db);
 
@@ -205,7 +205,7 @@ const createTableTrigger = async <DB>(db: DbOrTx<DB>, tableRef: QualifiedIdentif
     CREATE OR REPLACE TRIGGER "__teable_undo_capture"
     AFTER INSERT OR UPDATE OR DELETE ON ${tableRef}
     FOR EACH ROW
-    EXECUTE FUNCTION "public"."__teable_capture_undo_row"()
+    EXECUTE FUNCTION "__teable_capture_undo_row"()
   `
     )
     .execute(db);
@@ -312,7 +312,7 @@ export const loadAndClearUndoLogRows = async <DB>(
 ): Promise<UndoLogRow[]> => {
   const rowsResult = await sql<UndoLogRow>`
     WITH deleted AS (
-      DELETE FROM "public"."__undo_log"
+      DELETE FROM "__undo_log"
       WHERE "batch_id" = ${batchId}
       RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row"
     )

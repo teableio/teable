@@ -1,6 +1,6 @@
 import type { ILinkCellValue } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { getIdsFromRanges, RangeType, IdReturnType } from '@teable/openapi';
+import { getIdsFromRanges } from '@teable/openapi';
 import { Skeleton, sonner } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
@@ -15,7 +15,15 @@ import {
 } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { useTableId, useViewId } from '../../../hooks';
-import type { ICell, ICellItem, IGridColumn, IGridRef, IRectangle, IRange } from '../../grid';
+import type {
+  ICell,
+  ICellItem,
+  IGridColumn,
+  IGridRef,
+  IRectangle,
+  IRange,
+  IRowControlItem,
+} from '../../grid';
 
 import {
   CombinedSelection,
@@ -37,6 +45,7 @@ import {
   useGridTooltipStore,
 } from '../../grid-enhancements';
 import { LinkListType } from './interface';
+import { buildLinkRangeToIdQuery } from './LinkListRangeQuery';
 
 const MAX_SELECT_COUNT = 1000;
 
@@ -47,6 +56,7 @@ interface ILinkListProps {
   hiddenFieldIds?: string[];
   readonly?: boolean;
   isMultiple?: boolean;
+  isSelectedRowBgVisible?: boolean;
   recordQuery?: IGetRecordsRo;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue[]) => void;
@@ -71,6 +81,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     cellValue,
     recordQuery,
     isMultiple,
+    isSelectedRowBgVisible = true,
     hiddenFieldIds,
     onChange,
     onExpand,
@@ -92,6 +103,10 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const [hasTabSwitchStartedQuerying, setHasTabSwitchStartedQuerying] = useState(false);
 
   const theme = useGridTheme();
+  const gridTheme = useMemo(
+    () => (isSelectedRowBgVisible ? theme : { ...theme, cellBgSelected: theme.cellBg }),
+    [isSelectedRowBgVisible, theme]
+  );
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { columns: baseColumns, cellValue2GridDisplay } = useGridColumns(false, hiddenFieldIds);
@@ -112,7 +127,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   // Selected records ref - maintains the source of truth for selected records (id -> title)
   const selectedRecordsRef = useRef<Map<string, string | undefined>>(new Map());
 
-  const { recordMap, isQuerying, onReset, onForceUpdate, onVisibleRegionChanged } =
+  const { recordMap, recordsQuery, isQuerying, onReset, onForceUpdate, onVisibleRegionChanged } =
     useGridAsyncRecordsQuery(recordQuery);
 
   const columns = useMemo(() => {
@@ -166,9 +181,8 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
 
   const componentId = useMemo(() => uniqueId('link-editor-'), []);
 
-  const rowControls = useMemo(() => {
-    const controls = [];
-
+  const rowControls = useMemo<IRowControlItem[]>(() => {
+    const controls: IRowControlItem[] = [];
     if (!readonly) {
       controls.push({
         type: RowControlType.Checkbox,
@@ -342,12 +356,10 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       }
 
       try {
-        const { data } = await getIdsFromRanges(tableId, {
-          ranges,
-          type: RangeType.Rows,
-          returnType: IdReturnType.RecordId,
-          viewId: viewId ?? undefined,
-        });
+        const { data } = await getIdsFromRanges(
+          tableId,
+          buildLinkRangeToIdQuery(ranges, recordsQuery, viewId ?? undefined)
+        );
 
         if (data.recordIds) {
           const idToTitleMap = new Map<string, string | undefined>();
@@ -373,7 +385,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
         toast.error(t('editor.link.rangeSelectFailed'));
       }
     },
-    [tableId, viewId, recordMap, emitChange, setRowSelection, t, isMultiple]
+    [tableId, recordsQuery, viewId, recordMap, emitChange, setRowSelection, t, isMultiple]
   );
 
   const onExpandInner = (rowIndex: number) => {
@@ -413,16 +425,18 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
             }}
             scrollBufferX={0}
             scrollBufferY={0}
-            theme={theme}
+            theme={gridTheme}
             columns={columns}
             freezeColumnCount={0}
             rowCount={isSelectedType && !cellValue ? 0 : rowCount ?? 0}
             rowIndexVisible={false}
             customIcons={customIcons}
             rowControls={rowControls}
+            rowControlPaddingX={8}
             draggable={DraggableType.None}
             selectable={readonly ? SelectableType.None : SelectableType.Row}
-            isMultiSelectionEnable={isMultiple}
+            isMultiSelectionEnable={isMultiple && !isSelectedType}
+            isRowClickSelectionEnabled={!isSelectedType}
             onItemHovered={onItemHovered}
             getCellContent={getCellContent}
             onVisibleRegionChanged={onVisibleRegionChanged}

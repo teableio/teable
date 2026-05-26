@@ -9,4 +9,5 @@ export * from './filter-link-records';
 export * from './auto-fill-field';
 export * from './stop-fill-field';
 export * from './duplicate';
+export * from './duplicate-check';
 export * from './get-delete-references';

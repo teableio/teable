@@ -115,6 +115,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     draggable,
     selectable,
     rowControls,
+    rowControlPaddingX,
     mouseState,
     scrollState,
     imageManager,
@@ -129,6 +130,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnHeaderHeight,
     collapsedGroupIds,
     collaborators,
+    isRowClickSelectionEnabled,
     searchCursor,
     searchHitIndex,
     activeCell,
@@ -245,6 +247,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     selectable,
     coordInstance,
     isMultiSelectionEnable,
+    isRowClickSelectionEnabled,
     getLinearRow,
     setActiveCell,
     onSelectionChanged,
@@ -343,6 +346,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       coordInstance,
       scrollState,
       rowControls,
+      rowControlPaddingX,
       isFreezing,
       isOutOfBounds,
       isColumnResizable,
@@ -839,6 +843,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           columnStatistics={columnStatistics}
           coordInstance={coordInstance}
           rowControls={rowControls}
+          rowControlPaddingX={rowControlPaddingX}
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}

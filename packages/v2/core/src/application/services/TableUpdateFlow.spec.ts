@@ -8,7 +8,9 @@ import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { Table } from '../../domain/table/Table';
@@ -25,6 +27,7 @@ import type {
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import type {
   ITableRepository,
+  TableProvisionOperationOptions,
   TableProvisionState,
   TableUpdatePersistResult,
 } from '../../ports/TableRepository';
@@ -57,8 +60,15 @@ const buildTable = () => {
   return builder.build()._unsafeUnwrap();
 };
 
+const buildTextField = (seed: string, name: string) =>
+  SingleLineTextField.create({
+    id: FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create(name)._unsafeUnwrap(),
+  })._unsafeUnwrap();
+
 class FakeTableRepository implements ITableRepository {
   provisionStateChanges: TableProvisionState[] = [];
+  provisionOperations: Array<TableProvisionOperationOptions | undefined> = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     return ok(table);
@@ -101,9 +111,11 @@ class FakeTableRepository implements ITableRepository {
   async setProvisionState(
     _: IExecutionContext,
     __: Table,
-    state: TableProvisionState
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
     this.provisionStateChanges.push(state);
+    this.provisionOperations.push(operation);
     return ok(undefined);
   }
 }
@@ -221,7 +233,11 @@ describe('TableUpdateFlow', () => {
     expect(responseEventNames).not.toContain('TableActionTriggerRequested');
     expect(publishedEventNames).toContain('TableRenamed');
     expect(publishedEventNames).toContain('TableActionTriggerRequested');
-    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+    ]);
   });
 
   it('flushes repository deferred tasks after afterPersist hooks', async () => {
@@ -263,6 +279,32 @@ describe('TableUpdateFlow', () => {
 
     expect(result.isOk()).toBe(true);
     expect(order).toEqual(['schema-update', 'after-persist', 'deferred-task']);
+  });
+
+  it('does not change provision state when prepare validation fails before persistence', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const nextName = TableName.create('Flow Table Invalid')._unsafeUnwrap();
+    const result = await flow.execute(
+      createContext(),
+      { table },
+      (tableToUpdate) => tableToUpdate.update((mutator) => mutator.rename(nextName)),
+      {
+        hooks: {
+          prepare: async () => err(domainError.validation({ message: 'invalid update' })),
+        },
+      }
+    );
+
+    expect(result._unsafeUnwrapErr().message).toBe('invalid update');
+    expect(repository.provisionStateChanges).toEqual([]);
   });
 
   it('attaches persisted view versions to view column meta events', async () => {
@@ -370,7 +412,7 @@ describe('TableUpdateFlow', () => {
     expect(observedNames).toEqual(['Flow Table Final']);
   });
 
-  it('marks tables error when an outer transaction rolls back after deferring ready', async () => {
+  it('keeps tables available when an outer transaction rolls back after deferring ready', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
     const unitOfWork = new FakeUnitOfWork();
@@ -395,6 +437,72 @@ describe('TableUpdateFlow', () => {
     );
 
     expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
-    expect(repository.provisionStateChanges).toEqual(['pending', 'error']);
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+    ]);
+    expect(repository.provisionOperations.at(-1)?.result).toEqual({
+      nonRepairableFailure: 'Parent transaction rolled back',
+    });
+  });
+
+  it('does not mark repairable error when metadata did not persist for a physical schema update', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    repository.updateOne = async () => err(domainError.infrastructure({ message: 'meta failed' }));
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const addedField = buildTextField('b', 'Metadata Failed Field');
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) => mutator.addField(addedField))
+    );
+
+    expect(result._unsafeUnwrapErr().message).toBe('meta failed');
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+    ]);
+    expect(repository.provisionOperations.at(-1)?.result).toEqual({
+      nonRepairableFailure: 'meta failed',
+    });
+  });
+
+  it('records repairable schema failures when an outer rollback can leave physical schema missing', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      unitOfWork
+    );
+
+    const addedField = buildTextField('a', 'Added Field');
+    const outerResult = await unitOfWork.withTransaction(
+      createContext(),
+      async (outerContext) => {
+        const innerResult = await flow.execute(outerContext, { table }, (tableToUpdate) =>
+          tableToUpdate.update((mutator) => mutator.addField(addedField))
+        );
+        expect(innerResult.isOk()).toBe(true);
+        return err(domainError.unexpected({ message: 'outer rollback' }));
+      },
+      { scope: 'data' }
+    );
+
+    expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      'error',
+    ]);
   });
 });

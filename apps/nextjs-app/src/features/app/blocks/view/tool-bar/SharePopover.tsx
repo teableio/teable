@@ -152,6 +152,12 @@ export const SharePopover: React.FC<{
 
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
+  const needConfigAllowEdit = [
+    ViewType.Grid,
+    ViewType.Kanban,
+    ViewType.Gallery,
+    ViewType.Calendar,
+  ].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
 
   return (
@@ -225,6 +231,18 @@ export const SharePopover: React.FC<{
                   />
                   <Label className="text-xs" htmlFor="share-includeHiddenField">
                     {t('table:toolbar.others.share.showAllFields')}
+                  </Label>
+                </div>
+              )}
+              {needConfigAllowEdit && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-allowEdit"
+                    checked={shareMeta?.allowEdit}
+                    onCheckedChange={(checked) => setShareMeta({ allowEdit: checked })}
+                  />
+                  <Label className="text-xs" htmlFor="share-allowEdit">
+                    {t('table:toolbar.others.share.allowEdit')}
                   </Label>
                 </div>
               )}

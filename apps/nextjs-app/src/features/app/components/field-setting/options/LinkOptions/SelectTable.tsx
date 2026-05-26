@@ -3,7 +3,7 @@ import { ArrowUpRight, Database, Table2 } from '@teable/icons';
 import { getBaseAll } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { AnchorContext, TableProvider } from '@teable/sdk/context';
-import { useBaseId, useTableId, useTables } from '@teable/sdk/hooks';
+import { useBase, useBaseId, useTableId, useTables } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
@@ -135,18 +135,23 @@ interface IBasePickerProps {
 
 const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  let { data: bases } = useQuery({
+  const selfBase = useBase();
+  const { data: allBases } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
     queryFn: () =>
       getBaseAll().then((data) => data.data) as Promise<
-        { id: string; name: string; icon?: string }[]
+        { id: string; name: string; icon?: string; spaceId: string }[]
       >,
   });
 
+  let bases = allBases?.filter((base) => base.spaceId === selfBase?.spaceId);
+
   if (baseId && !bases?.find((base) => base.id === baseId)) {
-    bases = bases?.concat({
-      id: baseId!,
-      name: t('table:field.editor.baseNoPermission'),
+    const grandfathered = allBases?.find((base) => base.id === baseId);
+    bases = (bases ?? []).concat({
+      id: baseId,
+      name: grandfathered ? grandfathered.name : t('table:field.editor.baseNoPermission'),
+      spaceId: grandfathered?.spaceId ?? '',
     });
   }
 

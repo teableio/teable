@@ -14,7 +14,7 @@ export const useBaseUsage = (props?: { disabled?: boolean }) => {
   const { data: baseUsage } = useQuery({
     queryKey: ['base-usage', baseId],
     queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
-    enabled: !props?.disabled && (isCloud || isEE) && !isReadOnlyPreview,
+    enabled: !props?.disabled && Boolean(baseId) && (isCloud || isEE) && !isReadOnlyPreview,
   });
 
   return baseUsage;
@@ -32,7 +32,7 @@ export const useBaseUsageWithLoading = (props?: { disabled?: boolean }) => {
   } = useQuery({
     queryKey: ['base-usage', baseId],
     queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
-    enabled: !props?.disabled && (isCloud || isEE),
+    enabled: !props?.disabled && Boolean(baseId) && (isCloud || isEE),
   });
 
   return { baseUsage, loading: isLoading, isFetched };

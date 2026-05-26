@@ -15,6 +15,7 @@ import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { ConditionalLookupField } from './ConditionalLookupField';
 import { ConditionalLookupOptions } from './ConditionalLookupOptions';
+import { FieldCondition } from './FieldCondition';
 import { FieldHasError } from './FieldHasError';
 import { FormulaExpression } from './FormulaExpression';
 import { FormulaField } from './FormulaField';
@@ -51,6 +52,62 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
     conditionalLookupOptions: lookupOptions,
   })._unsafeUnwrap();
 };
+
+describe('FieldCondition v1 compatibility', () => {
+  it('accepts __id as the physical record id field in legacy filters', () => {
+    const baseId = createBaseId('0');
+    const hostTableId = createTableId('1');
+    const foreignTableId = createTableId('2');
+    const hostLookupFieldId = createFieldId('3');
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostLookupFieldId)
+      .withName(FieldName.create('Legacy Record Id Ref')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('4'))
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const condition = FieldCondition.create({
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: '__id',
+            operator: 'is',
+            value: { type: 'field', fieldId: hostLookupFieldId.toString() },
+          },
+        ],
+      },
+    })._unsafeUnwrap();
+
+    expect(condition.filterFieldIds()).toEqual([]);
+    expect(condition.referencedFieldIds().map((fieldId) => fieldId.toString())).toEqual([
+      hostLookupFieldId.toString(),
+    ]);
+    expect(condition.toRecordConditionSpec(foreignTable, hostTable).isOk()).toBe(true);
+  });
+});
 
 describe('ConditionalLookupField foreign target option sync', () => {
   it('derives select options from the foreign target during pending validation', () => {

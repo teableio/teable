@@ -18,7 +18,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { trackSignUpConversion } from '@/components/google-ads';
+import { trackSignUp } from '@/components/google-ads';
 import { useCutDown } from '@/features/app/hooks/useCutDown';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
@@ -153,10 +153,14 @@ export const SignForm: FC<ISignForm> = (props) => {
 
       // Track Google Ads conversion for successful sign-up with user info
       if (variables.type === 'signup' && data.data) {
-        trackSignUpConversion(env.googleAdsConversionId, {
-          id: data.data.id,
-          email: data.data.email,
-          name: data.data.name,
+        trackSignUp({
+          conversionId: env.googleAdsConversionId,
+          marketingGaId: env.marketingGaId,
+          userInfo: {
+            id: data.data.id,
+            email: data.data.email,
+            name: data.data.name,
+          },
         });
       }
 
