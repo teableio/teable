@@ -7,6 +7,7 @@ import { PluginPosition } from '../plugin';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 export const EXPORT_BASE = '/base/{baseId}/export';
+export const EXPORT_BASE_STREAM = '/base/{baseId}/export-stream';
 
 export const viewJsonSchema = viewVoSchema
   .pick({
@@ -205,6 +206,56 @@ export const ExportBaseRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
+export interface IExportBaseProgressEvent {
+  type: 'progress';
+  phase: string;
+  detail?: string;
+  tableId?: string;
+  tableName?: string;
+  tableIndex?: number;
+  totalTables?: number;
+  processedRows?: number;
+  batchProcessedRows?: number;
+  currentBatch?: number;
+}
+
+export interface IExportBaseVo {
+  previewUrl: string;
+  baseName: string;
+  fileName: string;
+}
+
+export type ExportBaseProgressCallback = (
+  phase: string,
+  detail?: string,
+  event?: IExportBaseProgressEvent
+) => void;
+
+export type IExportBaseSSEEvent =
+  | IExportBaseProgressEvent
+  | { type: 'done'; data: IExportBaseVo }
+  | { type: 'error'; message: string };
+
+export const ExportBaseStreamRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: EXPORT_BASE_STREAM,
+  description: 'export a base by baseId with SSE progress stream',
+  request: {
+    params: z.object({
+      baseId: z.string(),
+    }),
+    query: z.object({
+      includeData: z.boolean().optional().default(true),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'SSE stream with progress events and final export result',
+    },
+  },
+  tags: ['base'],
+});
+
 export const exportBase = async (baseId: string, options?: { includeData?: boolean }) => {
   const includeData = options?.includeData ?? true;
   return await axios.get<null>(
@@ -217,4 +268,118 @@ export const exportBase = async (baseId: string, options?: { includeData?: boole
       },
     }
   );
+};
+
+const buildSSERequestHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+  };
+  for (const name of ['Authorization', 'Cookie']) {
+    const value = axios.defaults.headers.common?.[name];
+    if (value && typeof value === 'string') {
+      headers[name] = value;
+    }
+  }
+  return headers;
+};
+
+const handleSSEEvent = (
+  event: IExportBaseSSEEvent,
+  onProgress?: ExportBaseProgressCallback
+): IExportBaseVo | undefined => {
+  switch (event.type) {
+    case 'progress':
+      onProgress?.(event.phase, event.detail, event);
+      return undefined;
+    case 'done':
+      return event.data;
+    case 'error':
+      throw new Error(event.message);
+  }
+};
+
+const parseSSELine = (line: string): IExportBaseSSEEvent | undefined => {
+  if (!line.startsWith('data: ')) return undefined;
+  const jsonStr = line.slice(6).trim();
+  if (!jsonStr || jsonStr === '[DONE]') return undefined;
+  return JSON.parse(jsonStr) as IExportBaseSSEEvent;
+};
+
+const processSSELine = (
+  line: string,
+  onProgress?: ExportBaseProgressCallback
+): IExportBaseVo | undefined => {
+  try {
+    const event = parseSSELine(line);
+    if (!event) return undefined;
+    return handleSSEEvent(event, onProgress);
+  } catch (e) {
+    if (!(e instanceof SyntaxError)) throw e;
+    return undefined;
+  }
+};
+
+const readSSEStream = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onProgress?: ExportBaseProgressCallback
+): Promise<IExportBaseVo | null> => {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result: IExportBaseVo | null = null;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      result = processSSELine(line, onProgress) ?? result;
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    result = processSSELine(buffer, onProgress) ?? result;
+  }
+
+  return result;
+};
+
+export const exportBaseStream = async (
+  baseId: string,
+  options?: { includeData?: boolean },
+  onProgress?: ExportBaseProgressCallback
+): Promise<{ data: IExportBaseVo }> => {
+  const includeData = options?.includeData ?? true;
+  const baseURL = axios.defaults.baseURL || '/api';
+  const url = `${baseURL}${urlBuilder(EXPORT_BASE_STREAM, { baseId })}?includeData=${String(
+    includeData
+  )}`;
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: buildSSERequestHeaders(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Export base failed: ${response.status} ${errorText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body for SSE stream');
+  }
+
+  const result = await readSSEStream(reader, onProgress);
+  if (!result) {
+    throw new Error('Export base stream ended without result');
+  }
+
+  return { data: result };
 };

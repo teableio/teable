@@ -76,11 +76,12 @@ export class V2FieldDeletedCompatProjection implements IEventHandler<FieldDelete
     if (Object.keys(compatContext.frozenFieldOps).length > 0) {
       await this.v2ViewCompatService.batchUpdateViewByOps(
         compatContext.tableId,
-        compatContext.frozenFieldOps
+        compatContext.frozenFieldOps,
+        context
       );
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(compatContext.tableId);
     const db = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2DataDbTokens.db);
 
     await db

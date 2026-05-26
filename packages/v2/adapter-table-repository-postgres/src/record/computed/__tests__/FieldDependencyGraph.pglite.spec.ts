@@ -130,6 +130,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
       .addColumn('id', 'varchar', (col) => col.primaryKey())
       .addColumn('base_id', 'varchar', (col) => col.notNull())
       .addColumn('name', 'varchar')
+      .addColumn('provision_state', 'varchar', (col) => col.defaultTo('ready'))
       .addColumn('deleted_time', 'timestamp')
       .execute();
 
@@ -164,6 +165,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
         id: productsTableId.toString(),
         base_id: baseId.toString(),
         name: 'Products',
+        provision_state: 'ready',
       })
       .execute();
 
@@ -174,6 +176,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
         id: reportsTableId.toString(),
         base_id: baseId.toString(),
         name: 'Reports',
+        provision_state: 'ready',
       })
       .execute();
 
@@ -402,5 +405,41 @@ describe('FieldDependencyGraph PGlite integration', () => {
           edge.kind === 'same_record'
       )
     ).toBe(true);
+  });
+
+  it('ignores fields that point to non-loadable foreign tables', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    await db
+      .updateTable(`${TEST_SCHEMA}.table_meta` as any)
+      .set({ provision_state: 'error' })
+      .where('id', '=', productsTableId.toString())
+      .execute();
+
+    try {
+      const result = await graph.load(baseId, undefined, {
+        requiredFieldIds: [reportLinkFieldId],
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      expect(result.value.fieldsById.has(reportLinkFieldId.toString())).toBe(false);
+      expect(
+        result.value.edges.some(
+          (edge) =>
+            edge.fromTableId.equals(productsTableId) || edge.toTableId.equals(productsTableId)
+        )
+      ).toBe(false);
+    } finally {
+      await db
+        .updateTable(`${TEST_SCHEMA}.table_meta` as any)
+        .set({ provision_state: 'ready' })
+        .where('id', '=', productsTableId.toString())
+        .execute();
+    }
   });
 });

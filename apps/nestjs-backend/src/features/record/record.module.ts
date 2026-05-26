@@ -7,6 +7,7 @@ import { RecordQueryBuilderModule } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
 import { RecordQueryService } from './record-query.service';
 import { RecordService } from './record.service';
+import { ShareViewScopeService } from './share-view-scope.service';
 import { UserNameListener } from './user-name.listener.service';
 
 @Module({
@@ -18,7 +19,8 @@ import { UserNameListener } from './user-name.listener.service';
     DbProvider,
     TableIndexService,
     RecordPermissionService,
+    ShareViewScopeService,
   ],
-  exports: [RecordService, RecordQueryService, RecordPermissionService],
+  exports: [RecordService, RecordQueryService, RecordPermissionService, ShareViewScopeService],
 })
 export class RecordModule {}

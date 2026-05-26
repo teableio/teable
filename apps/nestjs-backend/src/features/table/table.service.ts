@@ -12,7 +12,6 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { ICreateTableRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -20,12 +19,21 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import { DATA_KNEX } from '../../global/knex';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { DATA_KNEX } from '../../global/knex';
 import { BatchService } from '../calculation/batch.service';
+
+type IDataPrismaExecutor = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  txClient?: () => IDataPrismaExecutor;
+};
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
@@ -34,7 +42,7 @@ export class TableService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly dataDbClientManager: DataDbClientManager,
     private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex
@@ -51,11 +59,13 @@ export class TableService implements IReadonlyAdapterService {
       .$executeRaw`select id from base where id = ${baseId} for update`;
   }
 
-  private async cleanupCreatedDataTable(dbTableName: string, reason: unknown) {
+  private async cleanupCreatedDataTable(
+    dataPrisma: IDataPrismaExecutor,
+    dbTableName: string,
+    reason: unknown
+  ) {
     try {
-      await this.dataPrismaService
-        .txClient()
-        .$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
+      await dataPrisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
     } catch (cleanupError) {
       this.logger.error(
         `Failed to clean up data table ${dbTableName} after table metadata provisioning error: ${
@@ -64,6 +74,10 @@ export class TableService implements IReadonlyAdapterService {
         cleanupError instanceof Error ? cleanupError.stack : undefined
       );
     }
+  }
+
+  private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
+    return prisma.txClient?.() ?? prisma;
   }
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
@@ -152,8 +166,12 @@ export class TableService implements IReadonlyAdapterService {
       table.integer('__version').notNullable();
     });
 
+    let dataPrisma: IDataPrismaExecutor | undefined;
     try {
-      const dataPrisma = this.dataPrismaService.txClient();
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
+      dataPrisma = this.getDataPrismaExecutor(scopedDataPrisma);
       for (const sql of createTableSchema.toSQL()) {
         await dataPrisma.$executeRawUnsafe(sql.sql);
       }
@@ -165,7 +183,9 @@ export class TableService implements IReadonlyAdapterService {
         },
       });
     } catch (error) {
-      await this.cleanupCreatedDataTable(dbTableName, error);
+      if (dataPrisma) {
+        await this.cleanupCreatedDataTable(dataPrisma, dbTableName, error);
+      }
       await this.prismaService.txClient().tableMeta.update({
         where: { id: tableMeta.id },
         data: {
@@ -210,7 +230,7 @@ export class TableService implements IReadonlyAdapterService {
 
   async getTableMeta(baseId: string, tableId: string): Promise<ITableVo> {
     const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { id: tableId, baseId, deletedTime: null },
+      where: { id: tableId, baseId, deletedTime: null, provisionState: ProvisionState.ready },
     });
 
     if (!tableMeta) {
@@ -440,7 +460,7 @@ export class TableService implements IReadonlyAdapterService {
   ): Promise<ISnapshotBase<ITableVo>[]> {
     const { ignoreDefaultViewId } = ops;
     const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { baseId, id: { in: ids }, deletedTime: null },
+      where: { baseId, id: { in: ids }, deletedTime: null, provisionState: ProvisionState.ready },
       orderBy: { order: 'asc' },
     });
 
@@ -473,6 +493,7 @@ export class TableService implements IReadonlyAdapterService {
       where: {
         deletedTime: null,
         baseId,
+        provisionState: ProvisionState.ready,
         ...(projectionTableIds
           ? {
               id: { in: projectionTableIds },
