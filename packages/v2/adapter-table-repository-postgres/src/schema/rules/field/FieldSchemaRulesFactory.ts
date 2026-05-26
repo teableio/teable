@@ -57,6 +57,8 @@ export interface FieldSchemaRulesContext {
   tableName: string;
   /** Current table ID */
   tableId: string;
+  /** Known logical table ID to physical table location mapping for batch schema creation. */
+  tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
 }
 
 /**
@@ -241,6 +243,10 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
         schema: baseId ? baseId.toString() : ctx.schema,
         tableName: foreignTableId,
       };
+      const resolvedForeignTable = ctx.tableLocationsById?.get(foreignTableId) ?? foreignTable;
+      const resolvedForeignTableMetaId = ctx.tableLocationsById?.has(foreignTableId)
+        ? undefined
+        : foreignTableId;
       const currentTable: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
 
       if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
@@ -256,8 +262,8 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           foreignKeyName,
           orderColumnName,
           sourceTable: currentTable,
-          foreignTable,
-          foreignTableMetaId: foreignTableId,
+          foreignTable: resolvedForeignTable,
+          foreignTableMetaId: resolvedForeignTableMetaId,
           withIndexes: relationship === 'manyMany', // Only ManyMany gets indexes
         };
 
@@ -277,7 +283,7 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
             ? yield* field.selfKeyNameString()
             : yield* field.foreignKeyNameString();
         const hasOrderColumn = field.hasOrderColumn();
-        const referencedTable = relationship === 'oneMany' ? currentTable : foreignTable;
+        const referencedTable = relationship === 'oneMany' ? currentTable : resolvedForeignTable;
         const referencedTableName = relationship === 'oneMany' ? ctx.tableName : foreignTableId;
 
         const fkColumnRule = FkColumnRule.forField(
@@ -306,7 +312,7 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
             referencedTableName,
             onDelete,
             fkHostTable,
-            relationship === 'oneMany' ? undefined : foreignTableId
+            relationship === 'oneMany' ? undefined : resolvedForeignTableMetaId
           )
         );
 

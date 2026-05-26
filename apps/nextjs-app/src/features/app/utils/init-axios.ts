@@ -1,9 +1,16 @@
 import type { IGetBaseVo } from '@teable/openapi';
-import { axios, IS_TEMPLATE_HEADER, X_CANARY_HEADER, BASE_SHARE_ID_HEADER } from '@teable/openapi';
+import {
+  axios,
+  IS_TEMPLATE_HEADER,
+  X_CANARY_HEADER,
+  BASE_SHARE_ID_HEADER,
+  SHARE_VIEW_ID_HEADER,
+} from '@teable/openapi';
 
 interface IInitAxiosOptions {
   base?: IGetBaseVo;
   shareId?: string;
+  shareViewId?: string;
 }
 
 /**
@@ -40,7 +47,7 @@ export const initAxios = (options: IInitAxiosOptions = {}) => {
   if (interceptorRegistered) return;
 
   axios.interceptors.request.use((config) => {
-    const { base, shareId } = currentOptions;
+    const { base, shareId, shareViewId } = currentOptions;
 
     // Template preview
     if (base?.template?.headers) {
@@ -55,6 +62,13 @@ export const initAxios = (options: IInitAxiosOptions = {}) => {
     // Base share page — skip user-scoped endpoints that need the user's own permissions
     if (shareId && !isUserScopedUrl(config.url)) {
       config.headers[BASE_SHARE_ID_HEADER] = shareId;
+    }
+
+    // Share-view page — sandbox the user to share-view permissions on common
+    // endpoints. Reads/writes inside /api/share/* go through their own guards
+    // and aren't affected by this header.
+    if (shareViewId && !isUserScopedUrl(config.url)) {
+      config.headers[SHARE_VIEW_ID_HEADER] = shareViewId;
     }
 
     return config;

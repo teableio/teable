@@ -1,6 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { DEFAULT_EFFORT_LEVEL, effortLevelSchema } from '../../ai/effort';
 import {
   DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
   realtimeTranscriptionModelSchema,
@@ -282,6 +281,8 @@ export const v2FeatureSchema = z.enum([
   'deleteRecord',
   'duplicateRecord',
   'duplicateTable',
+  'duplicateBase',
+  'exportBase',
   'reorderRecords',
   'paste',
   'clear',
@@ -308,30 +309,6 @@ export type ICanaryConfig = z.infer<typeof canaryConfigSchema>;
 
 // Header name for canary release override
 export const X_CANARY_HEADER = 'x-teable-canary';
-
-export const sandboxAgentModelSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-
-export type ISandboxAgentModel = z.infer<typeof sandboxAgentModelSchema>;
-
-export const sandboxAgentConfigSchema = z.object({
-  spaceIds: z.array(z.string()).default([]),
-  forceAll: z.boolean().optional(),
-  defaultAgent: z.enum(['claude']).default('claude').optional(),
-  models: z.record(z.string(), z.array(sandboxAgentModelSchema)).optional().default({}),
-  maxDuration: z.number().min(1).max(1440).default(300).optional(),
-  maxIdleTime: z.number().min(60).max(7200).default(1800).optional(),
-  maxConcurrentChats: z.number().min(1).max(20).default(3).optional(),
-  activeSnapshotId: z.string().optional(),
-  activeAppBuilderSnapshotId: z.string().optional(),
-  defaultEffort: effortLevelSchema.default(DEFAULT_EFFORT_LEVEL).optional(),
-});
-
-export type ISandboxAgentConfig = z.infer<typeof sandboxAgentConfigSchema>;
-
-export const X_SANDBOX_AGENT_HEADER = 'x-teable-sandbox-agent';
 
 export const imTelegramConfigSchema = z.object({
   botToken: z.string(),
@@ -362,7 +339,6 @@ export const updateSettingRoSchema = z.object({
   appConfig: appConfigSchema.optional(),
   brandName: z.string().optional(),
   canaryConfig: canaryConfigSchema.optional(),
-  sandboxAgentConfig: sandboxAgentConfigSchema.optional(),
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   imConfig: imConfigSchema.nullable().optional(),

@@ -155,7 +155,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                   key={option.value}
                   value={option.value}
                   onSelect={() => selectHandler(option.value)}
-                  className="truncate p-1 text-[13px]"
+                  className="w-full truncate p-1 text-[13px]"
                 >
                   <Check
                     className={cn(

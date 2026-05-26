@@ -97,6 +97,10 @@ export class TableWhereVisitor
     super();
     if (state === 'active') {
       this.addCond((eb) => eb.eb('deleted_time', 'is', null));
+      this.addCond(() => sql<boolean>`"table_meta"."provision_state" = 'ready'`);
+    } else if (state === 'activeWithPending') {
+      this.addCond((eb) => eb.eb('deleted_time', 'is', null));
+      this.addCond(() => sql<boolean>`"table_meta"."provision_state" in ('ready', 'pending')`);
     } else if (state === 'deleted') {
       this.addCond((eb) => eb.eb('deleted_time', 'is not', null));
     }

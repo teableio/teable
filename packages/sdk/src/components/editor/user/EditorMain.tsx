@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { getUserCollaborators } from '@teable/openapi';
+import { getShareViewCollaborators, getUserCollaborators } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useContext, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
+import { ShareViewContext } from '../../../context/table/ShareViewContext';
 import { useBaseId } from '../../../hooks';
 import type { ICellEditor, ICellEditorContext } from '../type';
 import type { IUserEditorRef } from './EditorBase';
@@ -24,21 +25,30 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
 const DefaultDataWrapper = forwardRef<IUserEditorRef, IUserEditorMainProps>((props, ref) => {
   const { t } = useTranslation();
   const baseId = useBaseId();
+  const { shareId } = useContext(ShareViewContext);
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
-      search: search,
-    }),
+  const shareQuery = useQuery({
+    queryKey: ReactQueryKeys.shareViewCollaborators(shareId as string, { search }),
+    queryFn: ({ queryKey }) =>
+      getShareViewCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
+    enabled: Boolean(shareId),
+  });
+  const baseQuery = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, { search }),
     queryFn: ({ queryKey }) =>
       getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
+    enabled: !shareId && Boolean(baseId),
   });
 
-  const users = data?.users?.map((item) => ({
-    userId: item.id,
-    userName: item.name,
-    email: item.email,
-    avatar: item.avatar,
-  }));
+  const isLoading = shareId ? shareQuery.isLoading : baseQuery.isLoading;
+  const users = shareId
+    ? shareQuery.data
+    : baseQuery.data?.users?.map((item) => ({
+        userId: item.id,
+        userName: item.name,
+        email: item.email,
+        avatar: item.avatar,
+      }));
 
   const collaborators = props.includeMe
     ? [{ userId: 'me', userName: t('filter.currentUser'), email: '' }, ...(users || [])]

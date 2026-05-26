@@ -5,19 +5,27 @@ import {
   Filter as FilterIcon,
   LayoutList,
   AlertTriangle,
+  Plus,
 } from '@teable/icons';
 import { useView, RowHeight, Group, HideFields } from '@teable/sdk';
-import { cn } from '@teable/ui-lib/shadcn';
+import { CreateRecordModal } from '@teable/sdk/components';
+import { useTablePermission } from '@teable/sdk/hooks';
+import { Button, cn } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useRef } from 'react';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
 import { useToolBarStore } from '@/features/app/blocks/view/tool-bar/components/useToolBarStore';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
+import { tableConfig } from '@/features/i18n/table.config';
 import { ShareViewFilter } from '../../share-view-filter';
 import { Sort } from './Sort';
 
 export const Toolbar = () => {
   const view = useView();
+  const permission = useTablePermission();
+  const canCreate = Boolean(permission['record|create']);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
   const filterRef = useRef<HTMLButtonElement>(null);
   const sortRef = useRef<HTMLButtonElement>(null);
@@ -43,6 +51,14 @@ export const Toolbar = () => {
 
   return (
     <div className="flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
+      {canCreate && (
+        <CreateRecordModal>
+          <Button size="xs" variant="outline">
+            <Plus className="size-4" />
+            <span className="hidden @2xl/toolbar:inline">{t('table:view.addRecord')}</span>
+          </Button>
+        </CreateRecordModal>
+      )}
       <HideFields>
         {(text, isActive) => (
           <ToolBarButton isActive={isActive} text={text} textClassName="@2xl/toolbar:inline">

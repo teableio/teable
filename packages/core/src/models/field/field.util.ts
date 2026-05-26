@@ -4,6 +4,7 @@ import type { FormulaFieldCore, LinkFieldCore } from './derivate';
 import type { FieldCore } from './field';
 import type { IFieldVo } from './field.schema';
 import type { IFieldWithExpression } from './field.type';
+import { isLinkLookupOptions } from './lookup-options-base.schema';
 
 export function isFormulaField(field: FieldCore): field is FormulaFieldCore {
   return field.type === FieldType.Formula;
@@ -20,6 +21,41 @@ export function isFieldHasExpression(field: FieldCore): field is IFieldWithExpre
     field.type === FieldType.LastModifiedTime ||
     field.type === FieldType.CreatedTime
   );
+}
+
+/**
+ * Returns true when the field reaches into a different base, either as a direct
+ * cross-base link or as a lookup / rollup whose underlying link points to another
+ * base. Operates on the field VO so it can run on the frontend and the backend.
+ */
+export function isCrossBaseField(
+  field: Pick<IFieldVo, 'type' | 'options' | 'lookupOptions'>,
+  currentBaseId: string | undefined
+): boolean {
+  if (!currentBaseId) return false;
+
+  if (field.type === FieldType.Link) {
+    const linkBaseId = (field.options as { baseId?: string } | undefined)?.baseId;
+    if (linkBaseId && linkBaseId !== currentBaseId) return true;
+  }
+
+  const lookupOptions = field.lookupOptions;
+  if (lookupOptions) {
+    if (isLinkLookupOptions(lookupOptions)) {
+      if (lookupOptions.baseId && lookupOptions.baseId !== currentBaseId) return true;
+    } else if (lookupOptions.baseId && lookupOptions.baseId !== currentBaseId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function hasCrossBaseField(
+  fields: Pick<IFieldVo, 'type' | 'options' | 'lookupOptions'>[],
+  currentBaseId: string | undefined
+): boolean {
+  return fields.some((field) => isCrossBaseField(field, currentBaseId));
 }
 
 /**

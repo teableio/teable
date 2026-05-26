@@ -2,6 +2,7 @@ import type { ISpan, ITracer, SpanAttributes } from '@teable/v2-core';
 import type { Kysely, Transaction, CompiledQuery } from 'kysely';
 
 import type { TableSchemaStatementBuilder } from '../schema/rules/core';
+import { assertSchemaStatementRelationAccess } from '../schema/rules/core';
 export {
   getPostgresTransaction,
   resolvePostgresDbOrTx,
@@ -10,6 +11,7 @@ export {
 type ExecuteQueryTraceOptions = {
   readonly tracer?: ITracer;
   readonly attributes?: SpanAttributes;
+  readonly enforceRelationAccess?: boolean;
 };
 
 const schemaStatementSpanName = 'teable.postgres.schema_statement.execute';
@@ -101,9 +103,13 @@ export const executeTableSchemaStatements = async <DB>(
   statements: ReadonlyArray<TableSchemaStatementBuilder>,
   trace?: ExecuteQueryTraceOptions
 ): Promise<void> => {
-  await executeCompiledQueries(
-    db,
-    statements.map((statement) => statement.compile(db)),
-    trace
-  );
+  const compiled = statements.map((statement) => {
+    const compiledQuery = statement.compile(db);
+    if (trace?.enforceRelationAccess) {
+      assertSchemaStatementRelationAccess(statement, compiledQuery);
+    }
+    return compiledQuery;
+  });
+
+  await executeCompiledQueries(db, compiled, trace);
 };

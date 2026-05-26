@@ -290,7 +290,12 @@ export class PostgresSchemaOperationRepository implements core.ISchemaOperationR
           SELECT "id"
           FROM "schema_operation"
           WHERE (
-            ("status" IN ('pending', 'error') AND "next_run_at" <= ${now})
+            ("status" = 'error' AND "next_run_at" <= ${now})
+            OR (
+              "status" = 'pending'
+              AND "next_run_at" <= ${now}
+              AND "last_modified_time" <= ${staleRunningBefore}
+            )
             OR (
               "status" = 'running'
               AND "locked_at" IS NOT NULL

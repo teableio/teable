@@ -801,7 +801,9 @@
     "totalAttachmentSize": "添付ファイルの合計サイズ"
   },
   "selectionStatistic": {
-    "tip": "「数値型」フィールドのみを集計します。"
+    "tip": "「数値型」フィールドのみを集計します。",
+    "copyTip": "クリックしてコピー",
+    "copied": "コピーしました"
   },
   "baseQuery": {
     "add": "追加",
@@ -913,6 +915,31 @@
     "automationNodeNeedTest": "自動化ノードはテストが必要です",
     "automationNodeTestOutdated": "自動化ノードのテストが古くなっています",
     "invalidToken": "無効なトークン",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
       "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
@@ -1035,8 +1062,8 @@
       "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
       "notBelongToOrg": "このスペースは組織に属していません",
       "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}",
-      "ownedSpaceLimitExceeded": "管理できるスペースの上限数（{{max}}）に達しました",
-      "ownedSpaceLimitExceededOther": "{{name}} は管理できるスペースの上限数（{{max}}）に達しています"
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "ベース が見つかりません",
@@ -1085,6 +1112,7 @@
     "share": {
       "incorrectPassword": "パスワードが正しくありません",
       "notAllowedToSubmit": "フォームの送信は許可されていません",
+      "notAllowedToEdit": "この共有では編集は許可されていません",
       "viewRequired": "この操作にはビューが必要です",
       "hiddenFieldsSubmissionNotAllowed": "非表示フィールドが含まれている場合、フォームの送信は許可されません",
       "submitRecordsError": "レコードの送信に失敗しました",
@@ -1098,7 +1126,8 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "この共有ビューではパスワード制限が有効になっていません",
       "shareViewNotFound": "共有ビューが見つからないか、共有が無効になっています",
-      "linkFieldNotFound": "リンクフィールドが見つかりません"
+      "linkFieldNotFound": "リンクフィールドが見つかりません",
+      "loginRequired": "この共有ビューを編集するにはサインインしてください"
     },
     "baseShare": {
       "notFound": "ベース共有が見つからないか、共有が無効になっています",
@@ -1198,6 +1227,7 @@
       "recordMapNotFound": "テーブル {{tableName}} のフィールド {{fieldName}} のレコードが見つかりません",
       "forbidDeletePrimaryField": "プライマリフィールドの削除は禁止されています",
       "foreignTableIdInvalid": "外部テーブル {{foreignTableId}} が無効です",
+      "crossSpaceLinkForbidden": "クロススペース参照はサポートされていません。同じスペース内のテーブルを選択してください（対象 {{foreignTableId}} は別のスペースにあります）。",
       "relationshipInvalid": "リレーションシップ {{relationship}} が無効です",
       "linkFieldIdInvalid": "リンクフィールド {{linkFieldId}} が無効です",
       "lookupFieldIdInvalid": "ルックアップフィールド {{lookupFieldId}} が無効です",

@@ -19,6 +19,7 @@ import {
 } from '../canary/interceptors/v2-indicator.interceptor';
 import type { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import type { RecordOpenApiService } from '../record/open-api/record-open-api.service';
+import type { ShareViewScopeService } from '../record/share-view-scope.service';
 import { SelectionController } from './selection.controller';
 import type { SelectionService } from './selection.service';
 
@@ -34,7 +35,10 @@ describe('SelectionController', () => {
       'clearStream' | 'deleteByRangeStream' | 'duplicateByRangeStream' | 'pasteStream'
     >
   >;
-  let cls: Mocked<Pick<ClsService<IClsStore>, 'get'>>;
+  let cls: { get: ReturnType<typeof vi.fn> };
+  let shareViewScopeService: Mocked<
+    Pick<ShareViewScopeService, 'assertPaste' | 'assertSelectionMutation'>
+  >;
 
   const rangesRo: IRangesRo = {
     viewId: 'viwTest',
@@ -95,12 +99,17 @@ describe('SelectionController', () => {
     cls = {
       get: vi.fn(),
     };
+    shareViewScopeService = {
+      assertPaste: vi.fn().mockResolvedValue(undefined),
+      assertSelectionMutation: vi.fn().mockResolvedValue(undefined),
+    };
 
     controller = new SelectionController(
       selectionService as unknown as SelectionService,
       recordOpenApiService as unknown as RecordOpenApiService,
       recordOpenApiV2Service as unknown as RecordOpenApiV2Service,
-      cls as unknown as ClsService<IClsStore>
+      cls as unknown as ClsService<IClsStore>,
+      shareViewScopeService as unknown as ShareViewScopeService
     );
   });
 
@@ -263,7 +272,7 @@ describe('SelectionController', () => {
         v2Reason: 'canary',
         v2Feature: 'deleteRecord',
       };
-      return values[key];
+      return typeof key === 'string' ? values[key] : undefined;
     });
     const response = createMockSseResponse();
 
@@ -524,7 +533,7 @@ describe('SelectionController', () => {
       const values: Record<string, unknown> = {
         useV2: true,
       };
-      return values[key];
+      return typeof key === 'string' ? values[key] : undefined;
     });
 
     async function* createStream(): AsyncIterable<IPasteSelectionStreamEvent> {

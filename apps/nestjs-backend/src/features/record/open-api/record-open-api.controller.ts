@@ -15,6 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   createRecordsRoSchema,
@@ -24,7 +25,6 @@ import {
   deleteRecordsQuerySchema,
   getRecordHistoryQuerySchema,
   updateRecordsRoSchema,
-  recordInsertOrderRoSchema,
   recordGetCollaboratorsRoSchema,
   formSubmitRoSchema,
   optionalRecordOrderSchema,
@@ -64,6 +64,7 @@ import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { RecordService } from '../record.service';
+import { ShareViewScopeService } from '../share-view-scope.service';
 import { FieldKeyPipe } from './field-key.pipe';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -80,7 +81,11 @@ export class RecordOpenApiController {
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly recordOpenApiV2Service: RecordOpenApiV2Service
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    // protected (not private) so the EE override controller can call
+    // assertXxx from its own write methods — subclass methods bypass the
+    // community implementations, so scope enforcement must be reachable.
+    protected readonly shareViewScopeService: ShareViewScopeService
   ) {}
 
   @Permissions('record|update')
@@ -145,6 +150,8 @@ export class RecordOpenApiController {
     @Headers('x-window-id') windowId?: string,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertUpdateRecord(tableId, recordId, updateRecordRo);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.updateRecord(tableId, recordId, updateRecordRo);
@@ -169,6 +176,15 @@ export class RecordOpenApiController {
     @UploadedFile() file?: Express.Multer.File,
     @Body('fileUrl') fileUrl?: string
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertUpdateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: [],
+        },
+      },
+    });
+
     return await this.recordOpenApiService.uploadAttachment(
       tableId,
       recordId,
@@ -186,6 +202,15 @@ export class RecordOpenApiController {
     @Param('fieldId') fieldId: string,
     @Body(new ZodValidationPipe(insertAttachmentRoSchema)) body: IInsertAttachmentRo
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertUpdateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: body.attachments,
+        },
+      },
+    });
+
     return await this.recordOpenApiService.insertAttachment(
       tableId,
       recordId,
@@ -204,6 +229,8 @@ export class RecordOpenApiController {
     @Headers('x-window-id') windowId?: string,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord[]> {
+    await this.shareViewScopeService.assertUpdateRecords(tableId, updateRecordsRo);
+
     if (this.cls.get('useV2')) {
       return await this.recordOpenApiV2Service.updateRecords(tableId, updateRecordsRo);
     }
@@ -227,6 +254,8 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
+    await this.shareViewScopeService.assertCreateRecords(tableId, createRecordsRo);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return await this.recordOpenApiV2Service.createRecords(
@@ -251,6 +280,8 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(formSubmitRoSchema)) formSubmitRo: IFormSubmitRo
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertFormSubmit(tableId, formSubmitRo);
+
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.formSubmit(tableId, formSubmitRo);
     }
@@ -281,6 +312,8 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Headers('x-window-id') windowId?: string
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertDeleteRecords(tableId, [recordId]);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       const result = await this.recordOpenApiV2Service.deleteRecords(tableId, [recordId], windowId);
@@ -298,6 +331,8 @@ export class RecordOpenApiController {
     @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery,
     @Headers('x-window-id') windowId?: string
   ): Promise<IRecordsVo> {
+    await this.shareViewScopeService.assertDeleteRecords(tableId, query.recordIds);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.deleteRecords(tableId, query.recordIds, windowId);
@@ -393,6 +428,15 @@ export class RecordOpenApiController {
     @Param('recordId') _recordId: string,
     @Param('fieldId') _fieldId: string
   ): Promise<IAutoFillCellVo> {
+    await this.shareViewScopeService.assertUpdateRecord(_tableId, _recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [_fieldId]: null,
+        },
+      },
+    });
+
     return { taskId: '' };
   }
 
@@ -415,6 +459,15 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IRecord> {
+    await this.shareViewScopeService.assertUpdateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: null,
+        },
+      },
+    });
+
     return await this.recordOpenApiService.resetButton(tableId, recordId, fieldId);
   }
 }
