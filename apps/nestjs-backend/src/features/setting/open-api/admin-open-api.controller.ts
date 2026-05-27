@@ -1,5 +1,11 @@
-import { Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import {
+  adminSendNotificationRoSchema,
+  type IAdminSendNotificationRo,
+  type IAdminSendNotificationVo,
+} from '@teable/openapi';
 import { Response } from 'express';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { AdminOpenApiService } from './admin-open-api.service';
 
@@ -36,5 +42,12 @@ export class AdminOpenApiController {
   @Delete('performance-cache')
   async deletePerformanceCache(@Query('key') key?: string) {
     return await this.adminService.deletePerformanceCache(key);
+  }
+
+  @Post('notification')
+  async sendNotification(
+    @Body(new ZodValidationPipe(adminSendNotificationRoSchema)) ro: IAdminSendNotificationRo
+  ): Promise<IAdminSendNotificationVo> {
+    return this.adminService.sendAdminNotification(ro);
   }
 }

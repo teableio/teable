@@ -9,6 +9,7 @@ import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -427,7 +428,7 @@ describe('ImportRecordsHandler', () => {
     expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.importAppend);
   });
 
-  it('returns validation.max_row_limit for async sources that exceed maxRowCount', async () => {
+  it('returns validation.limit.rows_per_table_max for async sources that exceed maxRowCount', async () => {
     const { table, textFieldId } = buildTable();
     async function* rowsAsync() {
       yield ['row 1'];
@@ -472,7 +473,7 @@ describe('ImportRecordsHandler', () => {
     );
 
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('validation.max_row_limit');
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.rows_per_table_max');
     expect(tableRecordRepository.inserted).toHaveLength(0);
     expect(calls.prepare).toHaveLength(0);
     expect(calls.guard).toHaveLength(0);
@@ -582,7 +583,13 @@ describe('ImportRecordsHandler', () => {
     expect(result.isOk()).toBe(true);
     expect(sideEffectCalls).toBe(1);
     expect(updateFlowCalls).toBe(1);
-    expect(eventBus.publishedMany).toEqual([[event]]);
+    // ImportRecordsHandler now also emits a RecordsBatchCreated per yielded batch
+    // so projection handlers (audit, realtime, automation) can react to imported records.
+    expect(eventBus.publishedMany).toHaveLength(1);
+    const published = eventBus.publishedMany[0];
+    expect(published).toHaveLength(2);
+    expect(published[0]).toBe(event);
+    expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
     expect(tableRecordRepository.inserted).toHaveLength(1);
   });
 
@@ -595,8 +602,15 @@ describe('ImportRecordsHandler', () => {
       })
     );
     const tableRecordRepository = new FakeTableRecordRepository();
-    const originalRecord = { id: 'raw-record' } as unknown as TableRecord;
-    const resolvedRecord = { id: 'resolved-record' } as unknown as TableRecord;
+    // Stub TableRecord shape so handler's RecordsBatchCreated builder can call
+    // .id().toString() and .fields().entries() without exploding.
+    const stubRecord = (id: string) =>
+      ({
+        id: () => ({ toString: () => id }),
+        fields: () => ({ entries: () => [] }),
+      }) as unknown as TableRecord;
+    const originalRecord = stubRecord('raw-record');
+    const resolvedRecord = stubRecord('resolved-record');
     const mutateSpec = {
       mutate: () => ok(resolvedRecord),
     } as unknown as ICellValueSpec;

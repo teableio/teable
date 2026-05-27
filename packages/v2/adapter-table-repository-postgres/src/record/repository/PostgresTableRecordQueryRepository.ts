@@ -193,14 +193,9 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           // Build the query
           let builtQuery = yield* queryBuilder.build();
           if (explicitRecordIdsOrder?.length) {
-            const recordRankClauses = explicitRecordIdsOrder.map((recordId, index) => {
-              const rank = index + 1;
-              return sql`when ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)} = ${recordId.toString()} then ${rank}`;
-            });
+            const orderedRecordIds = explicitRecordIdsOrder.map((recordId) => recordId.toString());
             builtQuery = builtQuery.orderBy(
-              sql`case ${sql.join(recordRankClauses, sql` `)} else ${
-                explicitRecordIdsOrder.length + 1
-              } end`
+              sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
             );
           }
           if (searchWhereClause.value !== null) {
@@ -593,10 +588,12 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     `.execute(db);
 
     const exists = Boolean(columnCheckResult.rows[0]?.exists);
-    this.orderColumnExistsCache.set(cacheKey, {
-      exists,
-      cachedAt: now,
-    });
+    if (exists) {
+      this.orderColumnExistsCache.set(cacheKey, {
+        exists,
+        cachedAt: now,
+      });
+    }
     return exists;
   }
 
