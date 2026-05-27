@@ -264,6 +264,43 @@ describe('DotTeaFieldNormalizer', () => {
     expect(normalized.type).toBe('singleLineText');
   });
 
+  it('treats link-typed lookup exports as lookup fields, not physical link fields', () => {
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const hostLinkFieldId = `fld${'l'.repeat(16)}`;
+    const lookupLinkFieldId = `fld${'k'.repeat(16)}`;
+    const lookupFieldId = `fld${'v'.repeat(16)}`;
+
+    const normalized = normalizeField(
+      {
+        id: lookupLinkFieldId,
+        type: 'link',
+        isLookup: true,
+        name: 'Looked up link',
+        lookupOptions: {
+          foreignTableId,
+          linkFieldId: hostLinkFieldId,
+          lookupFieldId,
+        },
+      },
+      new Map([[hostLinkFieldId, 'link']]),
+      {
+        availableTableIds: new Set([hostTableId, foreignTableId]),
+        fieldIdsByTableId: new Map([[foreignTableId, new Set([lookupFieldId])]]),
+      }
+    );
+
+    expect(normalized).toMatchObject({
+      id: lookupLinkFieldId,
+      type: 'lookup',
+      options: {
+        foreignTableId,
+        linkFieldId: hostLinkFieldId,
+        lookupFieldId,
+      },
+    });
+  });
+
   it('preserves required many-one link fields from dottea exports', () => {
     const hostTableId = `tbl${'h'.repeat(16)}`;
     const foreignTableId = `tbl${'f'.repeat(16)}`;

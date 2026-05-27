@@ -8,6 +8,10 @@ export abstract class DuplicateTableQueryAbstract {
     targetTable: string,
     newColumns: string[],
     oldColumns: string[],
-    crossBaseLinkDbFieldNames: { dbFieldName: string; isMultipleCellValue: boolean }[]
+    crossBaseLinkDbFieldNames: { dbFieldName: string; isMultipleCellValue: boolean }[],
+    range?: {
+      minAutoNumberExclusive?: number;
+      maxAutoNumberInclusive?: number;
+    }
   ): Knex.QueryBuilder;
 }

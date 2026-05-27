@@ -21,17 +21,33 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-
-type ComputedFieldBackfillInput = {
-  table: Table;
-  field: Field;
-};
 import type { DynamicDB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
 import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { buildFieldBackfillTaskInput } from './outbox/FieldBackfillOutboxPayload';
 import type { IComputedUpdateOutbox } from './outbox/IComputedUpdateOutbox';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
+
+type ComputedFieldBackfillInput = {
+  table: Table;
+  field: Field;
+};
+
+const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
+
+const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  if (size <= 0 || items.length <= size) return [items];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
+const hasUnitOfWorkTransaction = (context: IExecutionContext): boolean => {
+  const transaction = context.transaction as { kind?: string } | undefined;
+  return transaction?.kind === 'unitOfWorkTransaction';
+};
 
 /**
  * Configuration for field backfill behavior.
@@ -130,7 +146,12 @@ export class ComputedFieldBackfillService {
       return this.enqueue(context, input);
     }
 
-    return this.executeSync(context, input);
+    const syncResult = await this.executeSync(context, input);
+    if (syncResult.isOk()) {
+      return syncResult;
+    }
+
+    return this.enqueueAfterSyncFailure(context, input, syncResult.error);
   }
 
   /**
@@ -159,6 +180,21 @@ export class ComputedFieldBackfillService {
       return ok(undefined);
     }
 
+    if (
+      hasUnitOfWorkTransaction(context) &&
+      computedFields.length > BACKFILL_SYNC_FIELD_CHUNK_SIZE
+    ) {
+      this.logger.info('computed:backfillMany:transaction_enqueue', {
+        tableId: input.table.id().toString(),
+        fieldIds: computedFields.map((field) => field.id().toString()),
+      });
+      return this.enqueueMany(context, {
+        table: input.table,
+        fields: computedFields,
+        includeOneManyTwoWay: input.includeOneManyTwoWay,
+      });
+    }
+
     // Determine execution mode
     const shouldAsync = await this.shouldUseAsyncMode(context, input.table);
 
@@ -170,12 +206,63 @@ export class ComputedFieldBackfillService {
       });
     }
 
-    return this.executeSyncMany(context, {
+    const syncResult = await this.executeSyncMany(context, {
       table: input.table,
       fields: computedFields,
       skipDistinctFilter: input.skipDistinctFilter,
       includeOneManyTwoWay: input.includeOneManyTwoWay,
     });
+    if (syncResult.isOk()) {
+      return syncResult;
+    }
+
+    return this.enqueueManyAfterSyncFailure(
+      context,
+      {
+        table: input.table,
+        fields: computedFields,
+        includeOneManyTwoWay: input.includeOneManyTwoWay,
+      },
+      syncResult.error
+    );
+  }
+
+  private async enqueueAfterSyncFailure(
+    context: IExecutionContext,
+    input: ComputedFieldBackfillInput,
+    error: DomainError
+  ): Promise<Result<void, DomainError>> {
+    this.logger.warn('computed:backfill:sync_failed_enqueue_fallback', {
+      tableId: input.table.id().toString(),
+      fieldId: input.field.id().toString(),
+      error: error.message,
+    });
+
+    const enqueueResult = await this.enqueue(context, input);
+    if (enqueueResult.isErr()) {
+      return err(enqueueResult.error);
+    }
+
+    return ok(undefined);
+  }
+
+  private async enqueueManyAfterSyncFailure(
+    context: IExecutionContext,
+    input: { table: Table; fields: ReadonlyArray<Field>; includeOneManyTwoWay?: boolean },
+    error: DomainError
+  ): Promise<Result<void, DomainError>> {
+    this.logger.warn('computed:backfillMany:sync_failed_enqueue_fallback', {
+      tableId: input.table.id().toString(),
+      fieldIds: input.fields.map((field) => field.id().toString()),
+      error: error.message,
+    });
+
+    const enqueueResult = await this.enqueueMany(context, input);
+    if (enqueueResult.isErr()) {
+      return err(enqueueResult.error);
+    }
+
+    return ok(undefined);
   }
 
   /**
@@ -385,49 +472,56 @@ export class ComputedFieldBackfillService {
 
     return safeTry<void, DomainError>(
       async function* (this: ComputedFieldBackfillService) {
-        // Build SELECT query for all computed fields
-        const builder = new ComputedTableRecordQueryBuilder(db, {
-          typeValidationStrategy: this.typeValidationStrategy,
-          forceLookupArrayOutput: true,
-        })
-          .from(input.table)
-          .select(fieldIds);
+        const fieldChunks = chunkArray(filtered, BACKFILL_SYNC_FIELD_CHUNK_SIZE);
+        for (let index = 0; index < fieldChunks.length; index += 1) {
+          const fields = fieldChunks[index]!;
+          const chunkFieldIds = fields.map((f) => f.id());
 
-        yield* await builder.prepare({
-          context,
-          tableRepository: this.tableRepository,
-        });
+          const builder = new ComputedTableRecordQueryBuilder(db, {
+            typeValidationStrategy: this.typeValidationStrategy,
+            forceLookupArrayOutput: true,
+          })
+            .from(input.table)
+            .select(chunkFieldIds);
 
-        const selectQuery = yield* builder.build();
+          yield* await builder.prepare({
+            context,
+            tableRepository: this.tableRepository,
+          });
 
-        const updateBuilder = new UpdateFromSelectBuilder(db);
-        const compiled = yield* updateBuilder.build({
-          table: input.table,
-          fieldIds,
-          selectQuery,
-          skipDistinctFilter: input.skipDistinctFilter,
-        });
+          const selectQuery = yield* builder.build();
 
-        this.logger.debug('computed:backfillMany:sql', {
-          tableId: input.table.id().toString(),
-          fieldCount: fieldIds.length,
-          sql: compiled.sql,
-        });
+          const updateBuilder = new UpdateFromSelectBuilder(db);
+          const compiled = yield* updateBuilder.build({
+            table: input.table,
+            fieldIds: chunkFieldIds,
+            selectQuery,
+            skipDistinctFilter: input.skipDistinctFilter,
+          });
 
-        try {
-          await db.executeQuery(compiled);
-        } catch (error) {
-          const fieldDetails = filtered
-            .map((f) => {
-              const dbName = f.dbFieldName().andThen((n) => n.value());
-              return `${f.id().toString()}(dbFieldName=${dbName.isOk() ? dbName.value : 'unknown'})`;
-            })
-            .join(', ');
-          return err(
-            domainError.infrastructure({
-              message: `Failed to backfill computed fields [${fieldDetails}] (table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
-            })
-          );
+          this.logger.debug('computed:backfillMany:sql', {
+            tableId: input.table.id().toString(),
+            fieldCount: chunkFieldIds.length,
+            chunkIndex: index,
+            chunkCount: fieldChunks.length,
+            sql: compiled.sql,
+          });
+
+          try {
+            await db.executeQuery(compiled);
+          } catch (error) {
+            const fieldDetails = fields
+              .map((f) => {
+                const dbName = f.dbFieldName().andThen((n) => n.value());
+                return `${f.id().toString()}(dbFieldName=${dbName.isOk() ? dbName.value : 'unknown'})`;
+              })
+              .join(', ');
+            return err(
+              domainError.infrastructure({
+                message: `Failed to backfill computed fields [${fieldDetails}] (table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+              })
+            );
+          }
         }
 
         this.logger.debug('computed:backfillMany:done', {

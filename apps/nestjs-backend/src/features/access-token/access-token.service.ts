@@ -14,6 +14,16 @@ import type { IClsStore } from '../../types/cls';
 import { AccessTokenModel } from '../model/access-token';
 import { getAccessToken } from './access-token.encryptor';
 
+const lastUsedTimeUpdateIntervalMs = 5 * 60 * 1000;
+
+const shouldUpdateLastUsedTime = (
+  lastUsedTime: Date | string | null | undefined,
+  now: Date
+): boolean => {
+  if (!lastUsedTime) return true;
+  return now.getTime() - new Date(lastUsedTime).getTime() >= lastUsedTimeUpdateIntervalMs;
+};
+
 @Injectable()
 export class AccessTokenService {
   constructor(
@@ -74,10 +84,29 @@ export class AccessTokenService {
     ) {
       throw new UnauthorizedException('token expired');
     }
-    await this.prismaService.accessToken.update({
-      where: { id: accessTokenId },
-      data: { lastUsedTime: new Date().toISOString() },
-    });
+    const now = new Date();
+    if (shouldUpdateLastUsedTime(accessTokenEntity.lastUsedTime, now)) {
+      const updated = await this.prismaService.accessToken.updateMany({
+        where: {
+          id: accessTokenId,
+          OR: [
+            { lastUsedTime: null },
+            { lastUsedTime: { lt: new Date(now.getTime() - lastUsedTimeUpdateIntervalMs) } },
+          ],
+        },
+        data: { lastUsedTime: now.toISOString() },
+      });
+      if (updated.count === 0) {
+        const currentToken = await this.prismaService.accessToken.findUnique({
+          where: { id: accessTokenId },
+          select: { id: true },
+        });
+        if (!currentToken) {
+          await this.performanceCacheService.del(generateAccessTokenCacheKey(accessTokenId));
+          throw new UnauthorizedException('token not found');
+        }
+      }
+    }
 
     return {
       userId: accessTokenEntity.userId,

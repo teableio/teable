@@ -16,9 +16,10 @@ import {
   MessageSquareDot,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
-import { duplicateField } from '@teable/openapi';
+import { duplicateField, duplicateFieldCheck } from '@teable/openapi';
 import type { GridView } from '@teable/sdk';
 import {
+  useBaseId,
   useFieldPermission,
   useFields,
   useGridViewStore,
@@ -30,7 +31,7 @@ import {
   useView,
 } from '@teable/sdk';
 import { insertSingle } from '@teable/sdk/utils';
-
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   cn,
   Command,
@@ -87,6 +88,7 @@ export const FieldMenu = () => {
   const view = useView() as GridView | undefined;
   const { filter, sort, group } = view || {};
   const tableId = useTableId();
+  const baseId = useBaseId();
   const shareId = router.query.shareId as string | undefined;
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { isViewConfigurable } = useViewConfigurable();
@@ -112,6 +114,13 @@ export const FieldMenu = () => {
   }>({
     open: false,
   });
+  const [crossSpaceFieldDup, setCrossSpaceFieldDup] = useState<{
+    open: boolean;
+    tableId?: string;
+    fieldId?: string;
+    name?: string;
+    viewId?: string;
+  }>({ open: false });
   const { openDialog: openDownloadDialog } = useColumnDownloadDialogStore();
 
   const { mutateAsync: duplicateFieldFn } = useMutation({
@@ -227,23 +236,37 @@ export const FieldMenu = () => {
         icon: <CopyPlus className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !menuFieldPermission['field|update'],
         onClick: async () => {
-          if (!tableId) return;
+          if (!tableId || !baseId) return;
           const fieldId = fieldIds[0];
           const field = allFields.find((f) => f.id === fieldId);
           const newName = `${field?.name} ${t('common:noun.copy')}`;
           const toastId = toast.loading(t('table:import.menu.duplicating'));
           try {
-            await duplicateFieldFn({
-              tableId,
-              fieldId: fieldIds[0],
-              duplicateFieldRo: {
+            const previewRes = await duplicateFieldCheck(baseId, tableId, fieldId);
+            const affected = previewRes.data.affectedFields;
+            if (affected.length > 0) {
+              toast.dismiss(toastId);
+              setCrossSpaceFieldDup({
+                open: true,
+                tableId,
+                fieldId,
                 name: newName,
                 viewId: view.id,
-              },
+              });
+              return;
+            }
+            await duplicateFieldFn({
+              tableId,
+              fieldId,
+              duplicateFieldRo: { name: newName, viewId: view.id },
             });
             toast.success(t('table:import.menu.duplicateSuccess'), { id: toastId });
+            onSelectionClear?.();
+            closeHeaderMenu();
           } catch {
             toast.error(t('table:import.menu.duplicateFailed'), { id: toastId });
+            onSelectionClear?.();
+            closeHeaderMenu();
           }
         },
       },
@@ -477,8 +500,10 @@ export const FieldMenu = () => {
                     if (disabled) return;
 
                     await onClick();
-                    // Don't auto-close menu for delete action
-                    if (type !== MenuItemType.Delete) {
+                    // Don't auto-close for actions that own their own follow-up
+                    // dialog; those handle closing the menu after the dialog
+                    // resolves.
+                    if (type !== MenuItemType.Delete && type !== MenuItemType.Duplicate) {
                       onSelectionClear?.();
                       closeHeaderMenu();
                     }
@@ -523,8 +548,10 @@ export const FieldMenu = () => {
                                 return;
                               }
                               await onClick();
-                              // Don't auto-close menu for delete action
-                              if (type !== MenuItemType.Delete) {
+                              // Don't auto-close for actions that own their own
+                              // follow-up dialog; those handle closing the menu
+                              // after the dialog resolves.
+                              if (type !== MenuItemType.Delete && type !== MenuItemType.Duplicate) {
                                 onSelectionClear?.();
                                 closeHeaderMenu();
                               }
@@ -554,6 +581,48 @@ export const FieldMenu = () => {
           onSelectionClear?.();
           closeHeaderMenu();
         }}
+      />
+
+      <ConfirmDialog
+        open={crossSpaceFieldDup.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCrossSpaceFieldDup({ open: false });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          }
+        }}
+        title={t('table:crossSpace.duplicateFieldTitle')}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('table:crossSpace.convertAndDuplicate')}
+        onCancel={() => {
+          setCrossSpaceFieldDup({ open: false });
+          onSelectionClear?.();
+          closeHeaderMenu();
+        }}
+        onConfirm={async () => {
+          const { tableId: tId, fieldId, name, viewId } = crossSpaceFieldDup;
+          if (!tId || !fieldId || !name) return;
+          const toastId = toast.loading(t('table:import.menu.duplicating'));
+          try {
+            await duplicateFieldFn({
+              tableId: tId,
+              fieldId,
+              duplicateFieldRo: {
+                name,
+                viewId,
+              },
+            });
+            toast.success(t('table:import.menu.duplicateSuccess'), { id: toastId });
+          } catch {
+            toast.error(t('table:import.menu.duplicateFailed'), { id: toastId });
+          } finally {
+            setCrossSpaceFieldDup({ open: false });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          }
+        }}
+        content={<p className="text-sm">{t('table:crossSpace.duplicateFieldDescription')}</p>}
       />
     </>
   );

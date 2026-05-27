@@ -26,6 +26,7 @@ export interface IRenderLayerProps
     | 'columns'
     | 'commentCountMap'
     | 'rowControls'
+    | 'rowControlPaddingX'
     | 'imageManager'
     | 'spriteManager'
     | 'scrollState'
@@ -74,6 +75,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     commentCountMap,
     isEditing,
     rowControls,
+    rowControlPaddingX,
     visibleRegion,
     imageManager,
     spriteManager,
@@ -152,6 +154,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       commentCountMap,
       isEditing,
       rowControls,
+      rowControlPaddingX,
       visibleRegion,
       imageManager,
       spriteManager,
@@ -198,6 +201,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     commentCountMap,
     isEditing,
     rowControls,
+    rowControlPaddingX,
     visibleRegion,
     imageManager,
     spriteManager,

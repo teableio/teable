@@ -18,10 +18,13 @@ describe('trash-backed undo operations', () => {
         delete: vi.fn().mockResolvedValue(undefined),
       },
     };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const operation = new DeleteFieldsOperation(
       fieldOpenApiService as never,
       recordOpenApiService as never,
-      dataPrismaService as never
+      dataDbClientManager as never
     );
 
     await operation.undo({
@@ -37,9 +40,15 @@ describe('trash-backed undo operations', () => {
     expect(dataPrismaService.tableTrash.count).toHaveBeenCalledWith({
       where: { id: 'otrash1' },
     });
-    expect(fieldOpenApiService.createFields).toHaveBeenCalledWith('tbl1', [
-      { id: 'fld1', name: 'Name' },
-    ]);
+    expect(dataDbClientManager.dataPrismaForTable).toHaveBeenCalledWith('tbl1', {
+      useTransaction: true,
+    });
+    expect(fieldOpenApiService.createFields).toHaveBeenCalledWith(
+      'tbl1',
+      [{ id: 'fld1', name: 'Name' }],
+      undefined,
+      { restoreViewOrder: true }
+    );
     expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith('tbl1', {
       fieldKeyType: FieldKeyType.Id,
       records: [{ id: 'rec1' }],
@@ -66,10 +75,13 @@ describe('trash-backed undo operations', () => {
         });
       }),
     };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const operation = new DeleteRecordsOperation(
       recordOpenApiService as never,
-      dataPrismaService as never,
-      { bigTransactionTimeout: 60_000 } as never
+      { bigTransactionTimeout: 60_000 } as never,
+      dataDbClientManager as never
     );
 
     await operation.undo({
@@ -84,6 +96,9 @@ describe('trash-backed undo operations', () => {
     expect(recordOpenApiService.multipleCreateRecords).toHaveBeenCalledWith('tbl1', {
       fieldKeyType: FieldKeyType.Id,
       records: [{ id: 'rec1' }, { id: 'rec2' }],
+    });
+    expect(dataDbClientManager.dataPrismaForTable).toHaveBeenCalledWith('tbl1', {
+      useTransaction: true,
     });
     expect(dataPrismaService.$tx).toHaveBeenCalled();
     expect(tableTrashDelete).toHaveBeenCalledWith({
@@ -108,10 +123,13 @@ describe('trash-backed undo operations', () => {
         delete: vi.fn().mockResolvedValue(undefined),
       },
     };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const operation = new DeleteViewOperation(
       viewOpenApiService as never,
       viewService as never,
-      dataPrismaService as never
+      dataDbClientManager as never
     );
 
     await operation.undo({

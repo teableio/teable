@@ -8,6 +8,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seç..."
   },
+  "view": {
+    "signInToEdit": "Düzenlemek için <a>oturum açın</a>",
+    "login": "Oturum aç"
+  },
   "openOnNewPage": "Yeni sayfada aç",
   "errorTips": "Paylaşım kaynağında Yetki Matrisi etkinleştirildi, görüntülemeye izin verilmiyor"
 }

@@ -100,8 +100,7 @@ export const registerV2NodePgDependencies = async (
       'Missing pg meta connectionString (options.metaConnectionString or PRISMA_META_DATABASE_URL)'
     );
   }
-  const dataConnectionString =
-    options.dataConnectionString ?? process.env.PRISMA_DATA_DATABASE_URL ?? metaConnectionString;
+  const dataConnectionString = options.dataConnectionString ?? metaConnectionString;
 
   if (metaConnectionString === dataConnectionString) {
     await registerV2PostgresDb(c, { pg: { connectionString: metaConnectionString } });
