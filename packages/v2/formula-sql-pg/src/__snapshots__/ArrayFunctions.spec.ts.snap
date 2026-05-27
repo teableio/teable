@@ -99,7 +99,7 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
@@ -117,7 +117,7 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
@@ -207,7 +207,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
@@ -225,7 +225,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
@@ -547,7 +547,7 @@ exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
@@ -565,7 +565,7 @@ exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
@@ -652,7 +652,7 @@ exports[`array functions > 'ArrayCompact' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
@@ -670,7 +670,7 @@ exports[`array functions > 'ArrayCompact' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
@@ -1022,7 +1022,7 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -1039,7 +1039,7 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -1126,7 +1126,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -1143,7 +1143,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -1450,7 +1450,7 @@ exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -1467,7 +1467,7 @@ exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -1551,7 +1551,7 @@ exports[`array functions > 'ArrayFlatten' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -1568,7 +1568,7 @@ exports[`array functions > 'ArrayFlatten' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -1899,7 +1899,7 @@ exports[`array functions > 'ArrayJoin' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) AS elem
@@ -1980,7 +1980,7 @@ exports[`array functions > 'ArrayJoin' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -2247,7 +2247,7 @@ exports[`array functions > 'ArrayJoin' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) AS elem
@@ -2325,7 +2325,7 @@ exports[`array functions > 'ArrayJoin' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -2631,7 +2631,7 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -2648,7 +2648,7 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -2735,7 +2735,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -2752,7 +2752,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -3059,7 +3059,7 @@ exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -3076,7 +3076,7 @@ exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
         WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -3160,7 +3160,7 @@ exports[`array functions > 'ArrayUnique' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
@@ -3177,7 +3177,7 @@ exports[`array functions > 'ArrayUnique' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
@@ -3539,7 +3539,7 @@ exports[`array functions > 'Count' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -3774,7 +3774,7 @@ exports[`array functions > 'Count' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -4054,7 +4054,7 @@ exports[`array functions > 'CountA' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -4293,7 +4293,7 @@ exports[`array functions > 'CountA' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS elem
@@ -4575,7 +4575,7 @@ exports[`array functions > 'CountAll' with 'conditionalLookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."ConditionalLookupType")))
+        ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)), 0)",
@@ -4806,7 +4806,7 @@ exports[`array functions > 'CountAll' with 'lookup' 1`] = `
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
         WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
-        ELSE to_jsonb((("t"."LookupType")))
+        ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)), 0)",

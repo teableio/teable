@@ -262,6 +262,45 @@ const createFormulaChainTable = async (
   };
 };
 
+const createWideFormulaTable = async (
+  commandBus: ICommandBus,
+  baseId: BaseId,
+  formulaFieldCount: number
+): Promise<{
+  table: Table;
+  fieldIds: Map<string, FieldId>;
+  baseFieldId: FieldId;
+  formulaFieldIds: FieldId[];
+}> => {
+  const baseFieldId = `fld${'w'.repeat(16)}`;
+  const formulaFieldInputs = Array.from({ length: formulaFieldCount }, (_, index) => ({
+    id: `fld${index.toString().padStart(16, '0')}`,
+    name: `Formula${index}`,
+    expression: `{${baseFieldId}} + ${index}`,
+  }));
+
+  const { table, fieldIds } = await createTable(commandBus, baseId, {
+    name: 'WideFormulaTable',
+    fields: [
+      { type: 'singleLineText', name: 'Name', isPrimary: true },
+      { type: 'number', id: baseFieldId, name: 'Base' },
+      ...formulaFieldInputs.map((field) => ({
+        type: 'formula',
+        id: field.id,
+        name: field.name,
+        options: { expression: field.expression },
+      })),
+    ],
+  });
+
+  return {
+    table,
+    fieldIds,
+    baseFieldId: fieldIds.get('Base')!,
+    formulaFieldIds: formulaFieldInputs.map((field) => fieldIds.get(field.name)!),
+  };
+};
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -790,6 +829,66 @@ describe('ComputedOptimization (e2e)', () => {
       expect(row[baseDbField]).toBe(5);
       expect(row[formula1DbField]).toBe(10); // 5 * 2
       expect(row[formula2DbField]).toBe(20); // 10 + 10
+    });
+
+    it('updates wide same-level formula tables in field chunks', async () => {
+      const { container, baseId, processOutbox, spyLogger } = getTestContainer();
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
+
+      const { table, fieldIds, baseFieldId, formulaFieldIds } = await createWideFormulaTable(
+        commandBus,
+        baseId,
+        20
+      );
+      const nameFieldId = fieldIds.get('Name')!;
+
+      const recordId = await createRecord(commandBus, table.id(), {
+        [nameFieldId.toString()]: 'WideFormulaTest',
+        [baseFieldId.toString()]: 5,
+      });
+      await processOutbox();
+
+      spyLogger.clear();
+      await updateRecord(commandBus, table.id(), recordId, {
+        [baseFieldId.toString()]: 10,
+      });
+      await processOutbox();
+
+      const plan = spyLogger.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan?.steps.some((step) => step.fieldIds.length >= 20)).toBe(true);
+
+      const chunkedSqlLogs = spyLogger.getEntriesByMessage(/computed:update:table=.*:chunk=/);
+      expect(chunkedSqlLogs.length).toBeGreaterThanOrEqual(2);
+      expect(chunkedSqlLogs[0]?.message).toContain(':chunk=1/2:sql:');
+      expect(chunkedSqlLogs[1]?.message).toContain(':chunk=2/2:sql:');
+
+      const dbTableName = table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+      const rows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)
+        .selectFrom(dbTableName)
+        .selectAll()
+        .where('__id', '=', recordId.toString())
+        .execute();
+      expect(rows.length).toBe(1);
+
+      const firstFormulaColumn = table
+        .getField((field) => field.id().equals(formulaFieldIds[0]!))
+        ._unsafeUnwrap()
+        .dbFieldName()
+        ._unsafeUnwrap()
+        .value()
+        ._unsafeUnwrap();
+      const lastFormulaColumn = table
+        .getField((field) => field.id().equals(formulaFieldIds[19]!))
+        ._unsafeUnwrap()
+        .dbFieldName()
+        ._unsafeUnwrap()
+        .value()
+        ._unsafeUnwrap();
+
+      expect(rows[0]?.[firstFormulaColumn]).toBe(10);
+      expect(rows[0]?.[lastFormulaColumn]).toBe(29);
     });
 
     it('deletes record with formula chain', async () => {

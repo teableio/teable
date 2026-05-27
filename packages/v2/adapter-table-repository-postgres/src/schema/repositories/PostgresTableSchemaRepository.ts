@@ -64,7 +64,10 @@ import type { TableSchemaStatementBuilder } from '../rules/core';
 import { DependencyChangeDetectorVisitor } from '../visitors/DependencyChangeDetectorVisitor';
 import { FieldValueChangeCollectorVisitor } from '../visitors/FieldValueChangeCollectorVisitor';
 import type { ICreateTableBuilderRef } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
-import { PostgresTableSchemaFieldCreateVisitor } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
+import {
+  buildTableLocationsById,
+  PostgresTableSchemaFieldCreateVisitor,
+} from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { TableAddFieldCollectorVisitor } from '../visitors/TableAddFieldCollectorVisitor';
 import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 
@@ -142,6 +145,53 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     return resolvePostgresDbOrTx(this.metaDb, context, scope);
   }
 
+  private parseTableIdentifier(dbTableName: string): { schema: string | null; tableName: string } {
+    const [schema, ...rest] = dbTableName.split('.');
+    if (rest.length === 0) {
+      return { schema: null, tableName: schema ?? dbTableName };
+    }
+
+    return { schema: schema ?? null, tableName: rest.join('.') };
+  }
+
+  private async loadTableLocationsForUpdate(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<
+    Result<ReadonlyMap<string, { schema: string | null; tableName: string }>, DomainError>
+  > {
+    const repository = this;
+    return safeTry<ReadonlyMap<string, { schema: string | null; tableName: string }>, DomainError>(
+      async function* () {
+        const locations = new Map(yield* buildTableLocationsById([table]));
+        const metaDb = repository.resolveMetaDb(context);
+        const introspector = new PostgresSchemaIntrospector(metaDb as Kysely<V1TeableDatabase>);
+        const tableMetaExists = yield* await introspector.tableExists('public', 'table_meta');
+
+        if (!tableMetaExists) {
+          return ok(locations);
+        }
+
+        const rows = await metaDb
+          .selectFrom('table_meta')
+          .select(['id', 'db_table_name'])
+          .where('base_id', '=', table.baseId().toString())
+          .where('deleted_time', 'is', null)
+          .where('db_table_name', 'is not', null)
+          .execute();
+
+        for (const row of rows) {
+          if (!row.db_table_name) {
+            continue;
+          }
+          locations.set(row.id, repository.parseTableIdentifier(row.db_table_name));
+        }
+
+        return ok(locations);
+      }
+    );
+  }
+
   private async executeScopedTableSchemaStatements(
     context: IExecutionContext,
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
@@ -154,12 +204,15 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const flush = async () => {
       if (!currentScope || batch.length === 0) return;
       const targetDb = currentScope === 'meta' ? this.resolveMetaDb(context) : db;
-      await executeTableSchemaStatements(targetDb, batch, trace);
+      await executeTableSchemaStatements(targetDb, batch, {
+        ...trace,
+        enforceRelationAccess: this.db !== this.metaDb,
+      });
       batch = [];
     };
 
     for (const statement of statements) {
-      const statementScope = statement.scope ?? 'data';
+      const statementScope = statement.scope;
       if (currentScope && currentScope !== statementScope) {
         await flush();
       }
@@ -278,7 +331,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   private async insertTableFieldSchemas(
     context: IExecutionContext,
-    table: Table
+    table: Table,
+    knownTables: ReadonlyArray<Table> = [table]
   ): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
@@ -287,6 +341,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
+      const tableLocationsById = yield* buildTableLocationsById(knownTables);
       const db = resolvePostgresDbOrTx(repository.db, context);
 
       const visitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate({
@@ -294,6 +349,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         schema,
         tableName,
         tableId: table.id().toString(),
+        tableLocationsById,
       });
       const statements = yield* visitor.apply(table);
 
@@ -302,7 +358,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       }
 
       try {
-        await executeTableSchemaStatements(db, statements, {
+        await repository.executeScopedTableSchemaStatements(context, db, statements, {
           tracer: context.tracer,
           attributes: {
             [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
@@ -383,6 +439,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         schema,
         tableName,
         tableId: table.id().toString(),
+        tableLocationsById: yield* buildTableLocationsById([table]),
       });
       const fieldStatements = yield* visitor.apply(table);
 
@@ -430,15 +487,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   @TraceSpan()
   async insertMany(
     context: IExecutionContext,
-    tables: ReadonlyArray<Table>
+    tables: ReadonlyArray<Table>,
+    options?: { knownTables?: ReadonlyArray<Table> }
   ): Promise<Result<void, DomainError>> {
+    const knownTables = options?.knownTables ?? tables;
     for (const table of tables) {
       const result = await this.insertTableSkeleton(context, table);
       if (result.isErr()) return err(result.error);
     }
 
     for (const table of tables) {
-      const result = await this.insertTableFieldSchemas(context, table);
+      const result = await this.insertTableFieldSchemas(context, table, knownTables);
       if (result.isErr()) return err(result.error);
     }
 
@@ -461,6 +520,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table
   ): Promise<Result<void, DomainError>> {
+    return this.ensureInsertedWithKnownTables(context, table, [table]);
+  }
+
+  private async ensureInsertedWithKnownTables(
+    context: IExecutionContext,
+    table: Table,
+    knownTables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
@@ -477,16 +544,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         return ok(undefined);
       }
 
-      try {
-        await ensureUndoCaptureInfrastructure(
-          repository.db,
-          db,
-          toQualifiedIdentifierLiteral(schema, tableName),
-          `${schema ?? 'public'}.${tableName}`
-        );
-      } catch {
-        // Snapshot capture wiring is best-effort and must not block schema repair.
-      }
+      yield* await repository.insertTableFieldSchemas(context, table, knownTables);
+      yield* await repository.ensureUndoCaptureForTable(context, table);
 
       return ok(undefined);
     });
@@ -498,7 +557,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>> {
     for (const table of tables) {
-      const result = await this.ensureInserted(context, table);
+      const result = await this.ensureInsertedWithKnownTables(context, table, tables);
       if (result.isErr()) return err(result.error);
     }
 
@@ -523,12 +582,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         .andThen((name) => name.split({ defaultSchema: null }));
 
       const db = resolvePostgresDbOrTx(repository.db, context);
+      const tableLocationsById = yield* await repository.loadTableLocationsForUpdate(
+        context,
+        table
+      );
       const visitor = new TableSchemaUpdateVisitor({
         db,
         schema,
         tableName,
         tableId: table.id().toString(),
         table,
+        tableLocationsById,
       });
       yield* mutateSpec.accept(visitor);
       const statements = yield* visitor.where();

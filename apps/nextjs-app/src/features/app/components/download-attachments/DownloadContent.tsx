@@ -1,5 +1,5 @@
 import type { IFieldVo } from '@teable/core';
-import { HelpCircle, ChevronDown, ChevronRight, Check } from '@teable/icons';
+import { HelpCircle, ChevronDown, Check } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { useFields, useFieldStaticGetter } from '@teable/sdk';
 import {
@@ -236,7 +236,7 @@ export const DownloadContent = ({
   if (loading) {
     return (
       <>
-        <div className="flex flex-col gap-3 py-4">
+        <div className="flex flex-col gap-4">
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-5 w-36" />
           <Skeleton className="h-5 w-40" />
@@ -245,7 +245,7 @@ export const DownloadContent = ({
           <Button variant="outline" onClick={onClose}>
             {t('table:download.allAttachments.cancel')}
           </Button>
-          <Button disabled>{t('table:download.allAttachments.startDownload')}</Button>
+          <Button disabled>{t('common:actions.download')}</Button>
         </div>
       </>
     );
@@ -268,35 +268,52 @@ export const DownloadContent = ({
     );
   }
 
+  const [totalSizeValue, totalSizeUnit] = formatFileSize(preview.totalSize).split(' ');
+
   return (
     <>
-      <div className="flex flex-col gap-3 py-4">
-        <p className="text-sm">
-          {t('table:download.allAttachments.rowsWithAttachments', {
-            count: preview.rowsWithAttachments,
-          })}
-        </p>
-        <p className="text-sm">
-          {t('table:download.allAttachments.totalAttachments', {
-            count: preview.totalAttachments,
-          })}
-        </p>
-        <p className="text-sm font-medium">
-          {t('table:download.allAttachments.totalSize', {
-            size: formatFileSize(preview.totalSize),
-          })}
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-3 overflow-hidden rounded-md border bg-background">
+          {[
+            {
+              label: t('table:download.allAttachments.rowsWithAttachments'),
+              value: preview.rowsWithAttachments,
+            },
+            {
+              label: t('table:download.allAttachments.totalAttachments'),
+              value: preview.totalAttachments,
+            },
+            {
+              label: t('table:download.allAttachments.totalSize'),
+              value: (
+                <>
+                  {totalSizeValue}
+                  {totalSizeUnit && (
+                    <span className="ml-1 text-sm font-normal text-foreground">
+                      {totalSizeUnit}
+                    </span>
+                  )}
+                </>
+              ),
+            },
+          ].map(({ label, value }, index) => (
+            <div key={label} className={cn('min-w-0 px-4 py-3', index > 0 && 'border-l')}>
+              <div className="truncate text-xs font-medium text-muted-foreground">{label}</div>
+              <div className="mt-1 truncate text-base font-semibold text-foreground">{value}</div>
+            </div>
+          ))}
+        </div>
 
         {/* Advanced options */}
         <Collapsible>
           <CollapsibleTrigger className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             {t('table:download.allAttachments.advancedOptions')}
-            <ChevronRight className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+            <ChevronDown className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-2">
+          <CollapsibleContent className="space-y-4 pt-2">
             {/* Naming field selector */}
-            <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-normal text-foreground">
                 {t('table:download.allAttachments.namingFieldLabel')}
               </Label>
               <Popover open={selectorOpen} onOpenChange={setSelectorOpen} modal>
@@ -305,7 +322,7 @@ export const DownloadContent = ({
                     variant="outline"
                     role="combobox"
                     aria-expanded={selectorOpen}
-                    className="w-full justify-between dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
+                    className="h-8 w-full justify-between dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
                   >
                     <div className="flex items-center gap-2 truncate">
                       {(() => {
@@ -342,7 +359,10 @@ export const DownloadContent = ({
                     <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[200px] p-0">
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                  align="start"
+                >
                   <Command>
                     <CommandInput placeholder={t('common:actions.search')} />
                     <CommandList className="max-h-60">
@@ -435,7 +455,7 @@ export const DownloadContent = ({
           {t('table:download.allAttachments.cancel')}
         </Button>
         <Button onClick={handleStartDownload} disabled={downloading}>
-          {t('table:download.allAttachments.startDownload')}
+          {t('common:actions.download')}
         </Button>
       </div>
     </>

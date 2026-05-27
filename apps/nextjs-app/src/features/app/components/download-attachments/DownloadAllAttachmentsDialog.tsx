@@ -23,7 +23,7 @@ export const DownloadAllAttachmentsDialog = () => {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && closeDialog()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-[450px]">
         <DialogHeader>
           <DialogTitle>{t('table:download.allAttachments.title')}</DialogTitle>
         </DialogHeader>

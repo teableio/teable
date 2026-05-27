@@ -1,12 +1,10 @@
 import type { Table } from '@teable/v2-core';
-import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely } from 'kysely';
 
-import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import { getRuleRepairHint } from '../core/RuleRepairMetadata';
 import {
   createSchemaRulePlanner,
   getSchemaRulePlanningStageDescription,
+  type SchemaRulePlannerParams,
 } from '../planner/SchemaRulePlanner';
 import {
   type SchemaCheckResult,
@@ -20,11 +18,7 @@ import {
 /**
  * Parameters for creating a SchemaChecker.
  */
-export interface SchemaCheckerParams {
-  db: Kysely<V1TeableDatabase>;
-  introspector: SchemaIntrospector;
-  schema: string | null;
-}
+export interface SchemaCheckerParams extends SchemaRulePlannerParams {}
 
 /**
  * Checks the schema of a table field by field, rule by rule.

@@ -84,6 +84,8 @@ const createV2ContainerService = () => {
     selectFrom: vi.fn().mockReturnValue(selectQuery),
   };
   const dataDb = {
+    deleteFrom: vi.fn().mockReturnValue(deleteQuery),
+    insertInto: vi.fn().mockReturnValue(insertQuery),
     transaction: vi.fn(() => ({
       execute: vi.fn(async () => undefined),
     })),
@@ -108,6 +110,7 @@ const createV2ContainerService = () => {
     selectQuery,
     service: {
       getContainer: vi.fn().mockResolvedValue(container),
+      getContainerForTable: vi.fn().mockResolvedValue(container),
     },
   };
 };
@@ -117,6 +120,7 @@ describe('V2TableTrashedProjection', () => {
     const deletedTime = new Date('2026-03-12T00:00:00.000Z');
     const {
       db,
+      dataDb,
       deleteQuery,
       insertQuery,
       selectQuery,
@@ -152,12 +156,29 @@ describe('V2TableTrashedProjection', () => {
       deleted_time: deletedTime,
       deleted_by: 'usrTestUserId',
     });
+    expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblaaaaaaaaaaaaaaaa');
+    expect(dataDb.deleteFrom).toHaveBeenCalledWith('table_trash');
+    expect(dataDb.insertInto).toHaveBeenCalledWith('table_trash');
+    expect(insertQuery.values).toHaveBeenCalledWith({
+      id: expect.any(String),
+      table_id: 'tblaaaaaaaaaaaaaaaa',
+      resource_type: ResourceType.Table,
+      snapshot: JSON.stringify({
+        tableId: 'tblaaaaaaaaaaaaaaaa',
+        baseId: 'bseaaaaaaaaaaaaaaaa',
+        name: 'Trash Me',
+        fieldIds: [],
+        viewIds: [],
+      }),
+      created_by: 'usrTestUserId',
+      created_time: deletedTime,
+    });
   });
 });
 
 describe('V2TableRestoredProjection', () => {
   it('removes a table trash entry after restore', async () => {
-    const { db, deleteQuery, service: v2ContainerService } = createV2ContainerService();
+    const { db, dataDb, deleteQuery, service: v2ContainerService } = createV2ContainerService();
     const projection = new V2TableRestoredProjection(v2ContainerService as never);
     const context = {
       actorId: ActorId.create('usrTestUserId')._unsafeUnwrap(),
@@ -176,12 +197,17 @@ describe('V2TableRestoredProjection', () => {
     expect(db.deleteFrom).toHaveBeenCalledWith('trash');
     expect(deleteQuery.where).toHaveBeenNthCalledWith(1, 'resource_id', '=', 'tblaaaaaaaaaaaaaaaa');
     expect(deleteQuery.where).toHaveBeenNthCalledWith(2, 'resource_type', '=', ResourceType.Table);
+    expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblaaaaaaaaaaaaaaaa');
+    expect(dataDb.deleteFrom).toHaveBeenCalledWith('table_trash');
   });
 });
 
 describe('V2RecordTrashService', () => {
   it('persists deleted records through the v2 Kysely db transaction', async () => {
     const operations: Array<{ table: string; values: unknown }> = [];
+    type ITrashTransaction = {
+      insertInto: ReturnType<typeof vi.fn>;
+    };
     const trx = {
       insertInto: vi.fn((table: string) => ({
         values: (values: unknown) => ({
@@ -194,10 +220,10 @@ describe('V2RecordTrashService', () => {
           }),
         }),
       })),
-    };
+    } satisfies ITrashTransaction;
     const db = {
       transaction: vi.fn(() => ({
-        execute: async (callback: (trx: typeof trx) => Promise<void>) => callback(trx),
+        execute: async (callback: (trx: ITrashTransaction) => Promise<void>) => callback(trx),
       })),
     };
     const container = {
@@ -209,7 +235,7 @@ describe('V2RecordTrashService', () => {
       }),
     };
     const v2ContainerService = {
-      getContainer: vi.fn().mockResolvedValue(container),
+      getContainerForTable: vi.fn().mockResolvedValue(container),
     };
     const service = new V2RecordTrashService(v2ContainerService as never);
     const tracer = new FakeTracer();
@@ -231,7 +257,7 @@ describe('V2RecordTrashService', () => {
 
     await service.persistDeletedRecords(payload, { tracer } as Pick<IExecutionContext, 'tracer'>);
 
-    expect(v2ContainerService.getContainer).toHaveBeenCalled();
+    expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblaaaaaaaaaaaaaaaa');
     expect(db.transaction).toHaveBeenCalled();
     expect(operations).toHaveLength(2);
     expect(operations[0]).toEqual({

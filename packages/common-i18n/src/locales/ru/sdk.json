@@ -801,7 +801,9 @@
     "totalAttachmentSize": "Общий размер вложений"
   },
   "selectionStatistic": {
-    "tip": "Агрегируются только поля типа Число."
+    "tip": "Агрегируются только поля типа Число.",
+    "copyTip": "Нажмите, чтобы скопировать",
+    "copied": "Скопировано"
   },
   "baseQuery": {
     "add": "Добавить",
@@ -913,6 +915,31 @@
     "automationNodeNeedTest": "Узел автоматизации требует тестирования",
     "automationNodeTestOutdated": "Тест узла автоматизации устарел",
     "invalidToken": "Недействительный токен",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает пустые значения, пожалуйста, заполните его полностью перед отправкой.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает дубликаты значений, пожалуйста, заполните уникальное значение перед отправкой.",
@@ -1035,8 +1062,8 @@
       "cannotOperate": "Невозможно работать с пространством, убедитесь, что в пространстве есть члены организации и они являются владельцами",
       "notBelongToOrg": "Это пространство не принадлежит организации",
       "invalidSpaceIds": "Недопустимые идентификаторы пространства: {{spaceIds}}",
-      "ownedSpaceLimitExceeded": "Достигнуто максимальное количество управляемых пространств ({{max}})",
-      "ownedSpaceLimitExceededOther": "{{name}} достиг максимального количества управляемых пространств ({{max}})"
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "База не найдена",
@@ -1085,6 +1112,7 @@
     "share": {
       "incorrectPassword": "Неверный пароль",
       "notAllowedToSubmit": "Отправка формы не разрешена",
+      "notAllowedToEdit": "Редактирование этого общего ресурса не разрешено",
       "viewRequired": "Для этой операции требуется представление",
       "hiddenFieldsSubmissionNotAllowed": "Отправка формы не разрешена при наличии скрытых полей",
       "submitRecordsError": "Ошибка отправки записи",
@@ -1098,7 +1126,8 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "Ограничение паролем не включено для этого общего представления",
       "shareViewNotFound": "Общее представление не найдено или общий доступ отключен",
-      "linkFieldNotFound": "Поле связи не найдено"
+      "linkFieldNotFound": "Поле связи не найдено",
+      "loginRequired": "Войдите, чтобы редактировать это общее представление"
     },
     "baseShare": {
       "notFound": "Общий доступ к базе не найден или отключен",
@@ -1198,6 +1227,7 @@
       "recordMapNotFound": "Запись не найдена в таблице {{tableName}} для поля {{fieldName}}",
       "forbidDeletePrimaryField": "Запрещено удалять первичное поле",
       "foreignTableIdInvalid": "Внешняя таблица {{foreignTableId}} недействительна",
+      "crossSpaceLinkForbidden": "Перекрёстные ссылки между пространствами не поддерживаются. Пожалуйста, выберите таблицу в том же пространстве (целевая таблица {{foreignTableId}} находится в другом пространстве).",
       "relationshipInvalid": "Отношение {{relationship}} недействительно",
       "linkFieldIdInvalid": "Поле связи {{linkFieldId}} недействительно",
       "lookupFieldIdInvalid": "Поле поиска {{lookupFieldId}} недействительно",

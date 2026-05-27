@@ -226,12 +226,13 @@ export class IntegrityV2Service {
       throw new HttpException(parsedTableId.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableResult = await tableRepository.findOne(
       context,
-      TableByIdSpec.create(parsedTableId.value)
+      TableByIdSpec.create(parsedTableId.value),
+      { state: 'all' }
     );
 
     if (tableResult.isErr()) {
@@ -245,7 +246,8 @@ export class IntegrityV2Service {
     if (options?.includeBaseTables) {
       const tablesResult = await tableRepository.find(
         context,
-        TableByBaseIdSpec.create(table.baseId())
+        TableByBaseIdSpec.create(table.baseId()),
+        { state: 'all' }
       );
 
       if (tablesResult.isErr()) {
@@ -270,10 +272,10 @@ export class IntegrityV2Service {
       throw new HttpException(parsedBaseId.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const baseRepository = container.resolve<IBaseRepository>(v2CoreTokens.baseRepository);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const baseResult = await baseRepository.findOne(context, parsedBaseId.value);
 
     if (baseResult.isErr()) {
@@ -286,7 +288,8 @@ export class IntegrityV2Service {
 
     const tablesResult = await tableRepository.find(
       context,
-      TableByBaseIdSpec.create(parsedBaseId.value)
+      TableByBaseIdSpec.create(parsedBaseId.value),
+      { state: 'all' }
     );
 
     if (tablesResult.isErr()) {
@@ -475,7 +478,7 @@ export class IntegrityV2Service {
       throw new HttpException(specResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const tablesResult = await tableRepository.find(context, specResult.value);
+    const tablesResult = await tableRepository.find(context, specResult.value, { state: 'all' });
     if (tablesResult.isErr()) {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

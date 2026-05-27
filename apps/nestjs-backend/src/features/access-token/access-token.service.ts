@@ -8,11 +8,24 @@ import type {
   UpdateAccessTokenRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { Events } from '../../event-emitter/events';
 import { PerformanceCacheService } from '../../performance-cache';
 import { generateAccessTokenCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { AccessTokenModel } from '../model/access-token';
 import { getAccessToken } from './access-token.encryptor';
+
+const lastUsedTimeUpdateIntervalMs = 5 * 60 * 1000;
+
+const shouldUpdateLastUsedTime = (
+  lastUsedTime: Date | string | null | undefined,
+  now: Date
+): boolean => {
+  if (!lastUsedTime) return true;
+  return now.getTime() - new Date(lastUsedTime).getTime() >= lastUsedTimeUpdateIntervalMs;
+};
 
 @Injectable()
 export class AccessTokenService {
@@ -20,7 +33,8 @@ export class AccessTokenService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly accessTokenModel: AccessTokenModel,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly audit: AuditScope
   ) {}
 
   private transformAccessTokenEntity<
@@ -74,10 +88,29 @@ export class AccessTokenService {
     ) {
       throw new UnauthorizedException('token expired');
     }
-    await this.prismaService.accessToken.update({
-      where: { id: accessTokenId },
-      data: { lastUsedTime: new Date().toISOString() },
-    });
+    const now = new Date();
+    if (shouldUpdateLastUsedTime(accessTokenEntity.lastUsedTime, now)) {
+      const updated = await this.prismaService.accessToken.updateMany({
+        where: {
+          id: accessTokenId,
+          OR: [
+            { lastUsedTime: null },
+            { lastUsedTime: { lt: new Date(now.getTime() - lastUsedTimeUpdateIntervalMs) } },
+          ],
+        },
+        data: { lastUsedTime: now.toISOString() },
+      });
+      if (updated.count === 0) {
+        const currentToken = await this.prismaService.accessToken.findUnique({
+          where: { id: accessTokenId },
+          select: { id: true },
+        });
+        if (!currentToken) {
+          await this.performanceCacheService.del(generateAccessTokenCacheKey(accessTokenId));
+          throw new UnauthorizedException('token not found');
+        }
+      }
+    }
 
     return {
       userId: accessTokenEntity.userId,
@@ -106,6 +139,11 @@ export class AccessTokenService {
     return list.map(this.transformAccessTokenEntity);
   }
 
+  @Audit({
+    action: Events.ACCESS_TOKEN_CREATE,
+    resourceId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id')!,
+    emit: true,
+  })
   async createAccessToken(
     createAccessToken: CreateAccessTokenRo & { clientId?: string; userId?: string }
   ) {
@@ -147,6 +185,11 @@ export class AccessTokenService {
     };
   }
 
+  @Audit({
+    action: Events.ACCESS_TOKEN_DELETE,
+    resourceId: (_id: string, ctx) => ctx.cls.get('user.id') as string,
+    emit: true,
+  })
   async deleteAccessToken(id: string) {
     const userId = this.cls.get('user.id');
     await this.prismaService.accessToken.delete({
