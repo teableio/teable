@@ -13,6 +13,9 @@ export const RestoreTrashRoute: RouteConfig = registerRoute({
     params: z.object({
       trashId: z.string(),
     }),
+    query: z.object({
+      tableId: z.string().optional(),
+    }),
   },
   responses: {
     201: {
@@ -22,10 +25,12 @@ export const RestoreTrashRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
-export const restoreTrash = async (trashId: string) => {
+export const restoreTrash = async (trashId: string, tableId?: string) => {
   return axios.post(
     urlBuilder(RESTORE_TRASH, {
       trashId,
-    })
+    }),
+    undefined,
+    { params: { tableId } }
   );
 };

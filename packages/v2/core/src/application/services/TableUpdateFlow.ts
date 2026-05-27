@@ -4,13 +4,33 @@ import type { Result } from 'neverthrow';
 
 import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
 import type { BaseId } from '../../domain/base/BaseId';
-import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
+import {
+  domainError,
+  isConflictError,
+  isInvariantError,
+  isNotFoundError,
+  isValidationError,
+  type DomainError,
+} from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
 import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
+import {
+  RemoveSymmetricLinkFieldSpec,
+  UpdateLinkConfigSpec,
+  UpdateLinkRelationshipSpec,
+} from '../../domain/table/specs/field-updates';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
+import { TableAddFieldSpec } from '../../domain/table/specs/TableAddFieldSpec';
+import { TableAddFieldsSpec } from '../../domain/table/specs/TableAddFieldsSpec';
+import { TableDuplicateFieldSpec } from '../../domain/table/specs/TableDuplicateFieldSpec';
+import { TableRemoveFieldSpec } from '../../domain/table/specs/TableRemoveFieldSpec';
+import { TableUpdateFieldConstraintsSpec } from '../../domain/table/specs/TableUpdateFieldConstraintsSpec';
+import { TableUpdateFieldDbFieldNameSpec } from '../../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
+import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
@@ -28,7 +48,7 @@ import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
-  failTableSchemaOperation,
+  failRecoverableTableSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
 import {
   abortTableUpdateTransactionScope,
@@ -90,6 +110,31 @@ const normalizeHookResult = (
   return { events: result };
 };
 
+const shouldFailSchemaOperation = (error: DomainError): boolean => {
+  return !isValidationError(error) && !isConflictError(error) && !isInvariantError(error);
+};
+
+const mayRequirePhysicalSchemaRepair = (
+  mutateSpec: ISpecification<Table, ITableSpecVisitor>
+): boolean =>
+  flattenAndSpecs(mutateSpec).some((spec) => {
+    if (
+      spec instanceof TableAddFieldSpec ||
+      spec instanceof TableAddFieldsSpec ||
+      spec instanceof TableDuplicateFieldSpec ||
+      spec instanceof TableRemoveFieldSpec ||
+      spec instanceof TableUpdateFieldDbFieldNameSpec ||
+      spec instanceof TableUpdateFieldConstraintsSpec ||
+      spec instanceof UpdateLinkConfigSpec ||
+      spec instanceof UpdateLinkRelationshipSpec ||
+      spec instanceof RemoveSymmetricLinkFieldSpec
+    ) {
+      return true;
+    }
+
+    return spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion();
+  });
+
 @injectable()
 // Application service: wraps transactional table updates, persistence, schema changes, and events.
 // Mutations are provided by domain code; this class only orchestrates ports.
@@ -128,15 +173,10 @@ export class TableUpdateFlow {
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
-      yield* await beginTableSchemaOperation(
-        handler.unitOfWork,
-        handler.tableRepository,
-        context,
-        latestTable,
-        { type: 'table.update' }
-      );
 
       let transactionContextRef: IExecutionContext | undefined;
+      let schemaOperationStarted = false;
+      let tableMetadataPersisted = false;
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) => {
@@ -155,11 +195,25 @@ export class TableUpdateFlow {
               latestTable = normalizedResult.table ?? latestTable;
             }
 
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              latestTable,
+              {
+                type: 'table.update',
+                state: 'ready',
+                status: 'pending',
+              }
+            );
+            schemaOperationStarted = true;
+
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
               latestTable,
               mutateSpec
             );
+            tableMetadataPersisted = true;
             const dataPhaseResult = yield* await handler.unitOfWork.withTransaction(
               metaTransactionContext,
               async (dataTransactionContext) => {
@@ -200,16 +254,33 @@ export class TableUpdateFlow {
         if (transactionContextRef) {
           abortTableUpdateTransactionScope(transactionContextRef);
         }
-        yield* await failTableSchemaOperation(
-          handler.unitOfWork,
-          handler.tableRepository,
-          context,
-          latestTable,
-          {
-            lastError: transactionResult.error.message,
-            type: 'table.update',
-          }
-        );
+        if (schemaOperationStarted && shouldFailSchemaOperation(transactionResult.error)) {
+          await (tableMetadataPersisted && mayRequirePhysicalSchemaRepair(mutateSpec)
+            ? failRecoverableTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                context,
+                latestTable,
+                {
+                  lastError: transactionResult.error.message,
+                  type: 'table.update',
+                }
+              )
+            : completeTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                context,
+                latestTable,
+                {
+                  type: 'table.update',
+                  result: {
+                    nonRepairableFailure: transactionResult.error.message,
+                  },
+                }
+              ));
+        }
+        // Preserve the original failure; the operation-state write can fail when
+        // a reused transaction has already been aborted by the data phase.
         return err(transactionResult.error);
       }
 
@@ -227,23 +298,36 @@ export class TableUpdateFlow {
       };
       if (registerAfterCommit(context, finalizeReady)) {
         registerAfterRollback(context, async () => {
-          const errorResult = await failTableSchemaOperation(
-            handler.unitOfWork,
-            handler.tableRepository,
-            context,
-            latestTable,
-            {
-              lastError: 'Parent transaction rolled back',
-              type: 'table.update',
-            }
-          );
-          if (errorResult.isErr()) {
-            throw new Error(errorResult.error.message);
+          const operationResult = mayRequirePhysicalSchemaRepair(mutateSpec)
+            ? await failRecoverableTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                context,
+                latestTable,
+                {
+                  lastError: 'Parent transaction rolled back',
+                  type: 'table.update',
+                }
+              )
+            : await completeTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                context,
+                latestTable,
+                {
+                  type: 'table.update',
+                  result: {
+                    nonRepairableFailure: 'Parent transaction rolled back',
+                  },
+                }
+              );
+          if (operationResult.isErr()) {
+            throw new Error(operationResult.error.message);
           }
         });
         // Reused outer data transactions finalize ready only after the parent
-        // transaction commits, while a later outer rollback now flips the table
-        // back to error for reconciliation instead of leaving it pending forever.
+        // transaction commits, while a later outer rollback records the operation
+        // failure without making the table unavailable.
       } else {
         yield* await completeTableSchemaOperation(
           handler.unitOfWork,

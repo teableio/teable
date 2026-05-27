@@ -22,3 +22,4 @@ export enum ResourceType {
 
 export const IS_TEMPLATE_HEADER = 'X-Tea-Template';
 export const BASE_SHARE_ID_HEADER = 'X-Tea-Base-Share';
+export const SHARE_VIEW_ID_HEADER = 'X-Tea-Share-View';

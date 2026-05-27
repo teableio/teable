@@ -24,6 +24,7 @@ import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
+import { buildLinkRecordQueryBase } from './LinkRecordQuery';
 
 export interface ILinkEditorMainProps {
   fieldId: string;
@@ -93,6 +94,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const recordQuery = useMemo((): IGetRecordsRo => {
     const isSelectedList = listType === LinkListType.Selected;
     return {
+      ...buildLinkRecordQueryBase(options),
       search: searchQuery,
       // for new record, only limit in selected list
       selectedRecordIds: !recordId && isSelectedList ? selectedRecordIds : undefined,
@@ -106,6 +108,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     selectedRecordIds,
     recordId,
     listType,
+    options,
   ]);
 
   useEffect(() => {

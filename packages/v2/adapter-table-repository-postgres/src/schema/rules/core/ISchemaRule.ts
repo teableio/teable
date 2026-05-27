@@ -8,9 +8,14 @@ import type { SchemaRuleContext } from '../context/SchemaRuleContext';
  * Represents a compiled SQL statement that can be executed against the database.
  * This is the same type used in the existing visitors.
  */
-export type TableSchemaStatementBuilder = {
-  scope?: 'data' | 'meta';
+export type TableSchemaStatementScope = 'data' | 'meta';
+
+export type TableSchemaStatementCompiler = {
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
+};
+
+export type TableSchemaStatementBuilder = TableSchemaStatementCompiler & {
+  readonly scope: TableSchemaStatementScope;
 };
 
 export type SchemaRuleI18nValue = string | number | boolean;

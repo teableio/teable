@@ -1555,12 +1555,17 @@ const buildPropagationEdges = (
       const canUseBeforeImage =
         beforeImageRecords.length > 0 && edge.fromTableId.equals(seedTableId);
       const requiresOldMatchTracking =
-        filterFieldsChanged || changeType === 'delete' || !filterFieldsInSource;
+        changeType === 'delete' ||
+        !filterFieldsInSource ||
+        (changeType === 'update' && filterFieldsChanged);
+      const isSameTableDelete =
+        changeType === 'delete' &&
+        edge.fromTableId.equals(seedTableId) &&
+        edge.toTableId.equals(seedTableId);
 
-      // Use allTargetRecords when:
-      // 1. Filter fields were modified (can't determine old vs new match - records may enter/exit filter)
-      // 2. No filter DTO available
-      // 3. DELETE operation (records no longer exist for filter check)
+      // Use allTargetRecords only when we need old match tracking but do not have a before image.
+      // INSERT only has a "new" side, so current conditional filtering is precise enough even
+      // when the inserted field participates in the filter.
       //
       // Note: When only the lookup field changes (but not filter fields), we can use conditionalFiltered
       // because the set of records matching the filter hasn't changed - only their values have.
@@ -1572,6 +1577,16 @@ const buildPropagationEdges = (
           toTableId: edge.toTableId,
           propagationMode: 'allTargetRecords',
           allTargetRecordsReasons: ['conditional_missing_filter'],
+          order: levels.get(toId) ?? 0,
+        });
+      } else if (isSameTableDelete) {
+        addPropagationEdge({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['conditional_delete'],
           order: levels.get(toId) ?? 0,
         });
       } else if (requiresOldMatchTracking && canUseBeforeImage) {

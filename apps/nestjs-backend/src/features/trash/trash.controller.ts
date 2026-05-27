@@ -46,13 +46,14 @@ export class TrashController {
   @TokenAccess()
   async restoreTrash(
     @Param('trashId') trashId: string,
+    @Query('tableId') tableId: string | undefined,
     @Res({ passthrough: true }) response: Response
   ): Promise<void> {
     await this.prepareRestoreTableCanary(trashId, response);
     if (this.cls.get('useV2')) {
       return await this.trashService.restoreTrashV2(trashId);
     }
-    return await this.trashService.restoreTrash(trashId);
+    return await this.trashService.restoreTrash(trashId, tableId);
   }
 
   @Delete('reset-items')

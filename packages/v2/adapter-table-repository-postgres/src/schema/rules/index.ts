@@ -18,6 +18,8 @@ export type {
   SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
+  TableSchemaStatementCompiler,
+  TableSchemaStatementScope,
 } from './core';
 
 // Field rules
@@ -54,12 +56,14 @@ export {
   buildTableIdentifier,
   compressSql,
   createForeignKeyConstraintStatement,
+  dataStatement,
   createIndexStatement,
   createUniqueIndexStatement,
   dropColumnStatement,
   dropConstraintStatement,
   dropIndexStatement,
   dropTableStatement,
+  metaStatement,
   type TableIdentifier,
 } from './helpers';
 

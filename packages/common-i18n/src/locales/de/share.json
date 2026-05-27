@@ -8,6 +8,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "Auswählen..."
   },
+  "view": {
+    "signInToEdit": "<a>Anmelden</a> zum Bearbeiten",
+    "login": "Anmelden"
+  },
   "openOnNewPage": "Auf neuer Seite öffnen",
   "errorTips": "Die Freigabequelle hat eine Authority Matrix aktiviert, die Anzeige ist nicht erlaubt"
 }

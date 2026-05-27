@@ -8,6 +8,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seleccionar..."
   },
+  "view": {
+    "signInToEdit": "<a>Inicia sesión</a> para editar",
+    "login": "Iniciar sesión"
+  },
   "openOnNewPage": "Abrir en nueva página",
   "errorTips": "La fuente compartida tiene habilitada una Matriz de Autoridad, no se permite la visualización"
 }

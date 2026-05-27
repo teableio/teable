@@ -1,6 +1,10 @@
 import { sql } from 'kysely';
 
-import type { TableSchemaStatementBuilder } from '../core/ISchemaRule';
+import type {
+  TableSchemaStatementBuilder,
+  TableSchemaStatementCompiler,
+  TableSchemaStatementScope,
+} from '../core/ISchemaRule';
 
 /**
  * Represents a table in the database with optional schema.
@@ -18,12 +22,21 @@ export const quoteTableIdentifier = (target: TableIdentifier): string =>
     ? `${quoteIdentifier(target.schema)}.${quoteIdentifier(target.tableName)}`
     : quoteIdentifier(target.tableName);
 
-export const metaStatement = (
-  statement: TableSchemaStatementBuilder
+const scopedStatement = (
+  scope: TableSchemaStatementScope,
+  statement: TableSchemaStatementCompiler
 ): TableSchemaStatementBuilder => ({
-  scope: 'meta',
+  scope,
   compile: (executorProvider) => statement.compile(executorProvider),
 });
+
+export const dataStatement = (
+  statement: TableSchemaStatementCompiler
+): TableSchemaStatementBuilder => scopedStatement('data', statement);
+
+export const metaStatement = (
+  statement: TableSchemaStatementCompiler
+): TableSchemaStatementBuilder => scopedStatement('meta', statement);
 
 /**
  * Builds a qualified table reference for SQL statements.
@@ -43,13 +56,17 @@ export const dropColumnStatement = (
   target: TableIdentifier,
   columnName: string
 ): TableSchemaStatementBuilder =>
-  sql`alter table ${buildTableIdentifier(target)} drop column if exists ${sql.ref(columnName)} cascade`;
+  dataStatement(
+    sql`alter table ${buildTableIdentifier(target)} drop column if exists ${sql.ref(
+      columnName
+    )} cascade`
+  );
 
 /**
  * Creates a DROP TABLE statement.
  */
 export const dropTableStatement = (target: TableIdentifier): TableSchemaStatementBuilder =>
-  sql`drop table if exists ${buildTableIdentifier(target)} cascade`;
+  dataStatement(sql`drop table if exists ${buildTableIdentifier(target)} cascade`);
 
 /**
  * Creates a DROP INDEX statement.
@@ -59,9 +76,9 @@ export const dropIndexStatement = (
   indexName: string
 ): TableSchemaStatementBuilder => {
   if (!target.schema) {
-    return sql`drop index if exists ${sql.ref(indexName)}`;
+    return dataStatement(sql`drop index if exists ${sql.ref(indexName)}`);
   }
-  return sql`drop index if exists ${sql.ref(target.schema)}.${sql.ref(indexName)}`;
+  return dataStatement(sql`drop index if exists ${sql.ref(target.schema)}.${sql.ref(indexName)}`);
 };
 
 /**
@@ -71,7 +88,11 @@ export const dropConstraintStatement = (
   target: TableIdentifier,
   constraintName: string
 ): TableSchemaStatementBuilder =>
-  sql`alter table if exists ${buildTableIdentifier(target)} drop constraint if exists ${sql.ref(constraintName)}`;
+  dataStatement(
+    sql`alter table if exists ${buildTableIdentifier(target)} drop constraint if exists ${sql.ref(
+      constraintName
+    )}`
+  );
 
 /**
  * Creates a CREATE INDEX statement.
@@ -81,7 +102,11 @@ export const createIndexStatement = (
   indexName: string,
   columnName: string
 ): TableSchemaStatementBuilder =>
-  sql`create index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
+  dataStatement(
+    sql`create index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(
+      target
+    )} (${sql.ref(columnName)})`
+  );
 
 /**
  * Creates a CREATE UNIQUE INDEX statement.
@@ -91,7 +116,11 @@ export const createUniqueIndexStatement = (
   indexName: string,
   columnName: string
 ): TableSchemaStatementBuilder =>
-  sql`create unique index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
+  dataStatement(
+    sql`create unique index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(
+      target
+    )} (${sql.ref(columnName)})`
+  );
 
 /**
  * Creates a FK constraint statement that checks if the target table exists first.
@@ -103,104 +132,31 @@ export const createForeignKeyConstraintStatement = (
   columnName: string,
   targetTable: TableIdentifier,
   targetColumn: string,
-  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
+  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
+  _targetTableMetaId?: string
 ): TableSchemaStatementBuilder => {
-  const sourceTableFull = sourceTable.schema
-    ? `"${sourceTable.schema}"."${sourceTable.tableName}"`
-    : `"${sourceTable.tableName}"`;
-  const targetTableFull = targetTable.schema
-    ? `"${targetTable.schema}"."${targetTable.tableName}"`
-    : `"${targetTable.tableName}"`;
+  const sourceSchema = sourceTable.schema ?? 'public';
   const targetSchema = targetTable.schema ?? 'public';
 
-  return sql.raw(
-    compressSql(`
+  return dataStatement(
+    sql.raw(
+      compressSql(`
       DO $$
       BEGIN
         IF EXISTS (
           SELECT 1 FROM information_schema.tables 
-          WHERE table_schema = '${targetSchema}' 
-          AND table_name = '${targetTable.tableName}'
-        ) THEN
-          BEGIN
-            ALTER TABLE ${sourceTableFull} 
-            ADD CONSTRAINT "${constraintName}" 
-            FOREIGN KEY ("${columnName}") 
-            REFERENCES ${targetTableFull} ("${targetColumn}") 
-            ON DELETE ${onDelete};
-          EXCEPTION WHEN duplicate_object THEN
-            NULL;
-          END;
-        END IF;
-      END
-      $$;
-    `)
-  );
-};
-
-/**
- * Creates a FK constraint statement that resolves the target physical table from table_meta.
- * This is needed for legacy/custom db_table_name values that do not match logical table ids.
- */
-export const createForeignKeyConstraintStatementFromTableMeta = (
-  sourceTable: TableIdentifier,
-  constraintName: string,
-  columnName: string,
-  targetTableMetaId: string,
-  targetColumn: string,
-  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
-  fallbackTargetTable?: TableIdentifier
-): TableSchemaStatementBuilder => {
-  const sourceTableFull = quoteTableIdentifier(sourceTable);
-  const fallbackTargetSchema = fallbackTargetTable?.schema ?? 'public';
-  const fallbackTargetName = fallbackTargetTable?.tableName ?? '';
-
-  return sql.raw(
-    compressSql(`
-      DO $$
-      DECLARE
-        target_tbl text;
-        target_schema text;
-        target_name text;
-      BEGIN
-        IF to_regclass('public.table_meta') IS NULL THEN
-          target_schema := ${quoteLiteral(fallbackTargetSchema)};
-          target_name := ${quoteLiteral(fallbackTargetName)};
-        ELSE
-          SELECT db_table_name INTO target_tbl
-          FROM table_meta
-          WHERE id = ${quoteLiteral(targetTableMetaId)} AND deleted_time IS NULL
-          LIMIT 1;
-
-          IF target_tbl IS NULL THEN
-            target_schema := ${quoteLiteral(fallbackTargetSchema)};
-            target_name := ${quoteLiteral(fallbackTargetName)};
-          ELSIF strpos(target_tbl, '.') > 0 THEN
-            target_schema := split_part(target_tbl, '.', 1);
-            target_name := split_part(target_tbl, '.', 2);
-          ELSE
-            target_schema := 'public';
-            target_name := target_tbl;
-          END IF;
-        END IF;
-
-        IF target_name IS NULL OR target_name = '' THEN
-          RETURN;
-        END IF;
-
-        IF EXISTS (
-          SELECT 1
-          FROM information_schema.tables
-          WHERE table_schema = target_schema
-            AND table_name = target_name
+          WHERE table_schema = ${quoteLiteral(targetSchema)}
+          AND table_name = ${quoteLiteral(targetTable.tableName)}
         ) THEN
           BEGIN
             EXECUTE format(
-              'ALTER TABLE ${sourceTableFull} ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I.%I (%I) ON DELETE ${onDelete}',
+              'ALTER TABLE %I.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I.%I (%I) ON DELETE ${onDelete}',
+              ${quoteLiteral(sourceSchema)},
+              ${quoteLiteral(sourceTable.tableName)},
               ${quoteLiteral(constraintName)},
               ${quoteLiteral(columnName)},
-              target_schema,
-              target_name,
+              ${quoteLiteral(targetSchema)},
+              ${quoteLiteral(targetTable.tableName)},
               ${quoteLiteral(targetColumn)}
             );
           EXCEPTION WHEN duplicate_object THEN
@@ -210,6 +166,7 @@ export const createForeignKeyConstraintStatementFromTableMeta = (
       END
       $$;
     `)
+    )
   );
 };
 
@@ -221,9 +178,11 @@ export const addGeneratedColumnStatement = (
   columnName: string,
   definition: ReturnType<typeof sql>
 ): TableSchemaStatementBuilder =>
-  sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
-    columnName
-  )} ${definition}`;
+  dataStatement(
+    sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
+      columnName
+    )} ${definition}`
+  );
 
 export const backfillFkColumnFromLinkValueStatement = (
   target: TableIdentifier,
@@ -236,8 +195,9 @@ export const backfillFkColumnFromLinkValueStatement = (
   const schemaName = target.schema ?? 'public';
   const tableName = target.tableName;
 
-  return sql.raw(
-    compressSql(`
+  return dataStatement(
+    sql.raw(
+      compressSql(`
       DO $$
       BEGIN
         IF EXISTS (
@@ -259,6 +219,7 @@ export const backfillFkColumnFromLinkValueStatement = (
       END
       $$;
     `)
+    )
   );
 };
 
@@ -275,8 +236,9 @@ export const backfillForeignHostFkColumnFromLinkValueStatement = (params: {
   const sourceSchemaName = params.sourceTable.schema ?? 'public';
   const sourceTableName = params.sourceTable.tableName;
 
-  return sql.raw(
-    compressSql(`
+  return dataStatement(
+    sql.raw(
+      compressSql(`
       DO $$
       BEGIN
         IF EXISTS (
@@ -316,17 +278,18 @@ export const backfillForeignHostFkColumnFromLinkValueStatement = (params: {
       END
       $$;
     `)
+    )
   );
 };
 
 export const backfillJunctionTableFromLinkValueStatement = (params: {
   sourceTable: TableIdentifier;
-  sourceTableId?: string;
   sourceLinkValueColumnName: string;
   junctionTable: TableIdentifier;
   selfKeyName: string;
   foreignKeyName: string;
   orderColumnName?: string;
+  skipBackfill?: boolean;
 }): TableSchemaStatementBuilder => {
   const sourceTable = quoteTableIdentifier(params.sourceTable);
   const junctionTable = quoteTableIdentifier(params.junctionTable);
@@ -344,13 +307,15 @@ export const backfillJunctionTableFromLinkValueStatement = (params: {
     ? `d.self_id, d.foreign_id, d.order_pos::double precision`
     : `d.self_id, d.foreign_id`;
 
-  return sql.raw(
-    compressSql(`
+  return dataStatement(
+    sql.raw(
+      compressSql(`
       DO $$
-      DECLARE
-        same_db_field_count integer := 0;
-        has_field_deleted_time boolean := false;
       BEGIN
+        IF ${params.skipBackfill ? 'TRUE' : 'FALSE'} THEN
+          RETURN;
+        END IF;
+
         IF EXISTS (
           SELECT 1
           FROM information_schema.columns
@@ -358,36 +323,6 @@ export const backfillJunctionTableFromLinkValueStatement = (params: {
             AND table_name = ${quoteLiteral(sourceTableName)}
             AND column_name = ${quoteLiteral(params.sourceLinkValueColumnName)}
         ) THEN
-          IF ${params.sourceTableId ? 'TRUE' : 'FALSE'} AND EXISTS (
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'field'
-              AND column_name = 'db_field_name'
-          ) THEN
-            SELECT EXISTS (
-              SELECT 1
-              FROM information_schema.columns
-              WHERE table_schema = 'public'
-                AND table_name = 'field'
-                AND column_name = 'deleted_time'
-            ) INTO has_field_deleted_time;
-
-            IF has_field_deleted_time THEN
-              EXECUTE 'SELECT count(*) FROM field WHERE table_id = $1 AND db_field_name = $2 AND deleted_time IS NULL'
-              INTO same_db_field_count
-              USING ${quoteLiteral(params.sourceTableId ?? '')}, ${quoteLiteral(params.sourceLinkValueColumnName)};
-            ELSE
-              EXECUTE 'SELECT count(*) FROM field WHERE table_id = $1 AND db_field_name = $2'
-              INTO same_db_field_count
-              USING ${quoteLiteral(params.sourceTableId ?? '')}, ${quoteLiteral(params.sourceLinkValueColumnName)};
-            END IF;
-
-            IF same_db_field_count > 1 THEN
-              RETURN;
-            END IF;
-          END IF;
-
           WITH pairs AS (
             SELECT
               s."__id" AS self_id,
@@ -423,5 +358,6 @@ export const backfillJunctionTableFromLinkValueStatement = (params: {
       END
       $$;
     `)
+    )
   );
 };

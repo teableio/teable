@@ -54,7 +54,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
     }
   };
 
-  if (disableLink || notifyType === NotificationTypeEnum.ExportBase) {
+  if (disableLink || !url || notifyType === NotificationTypeEnum.ExportBase) {
     return (
       <>
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}

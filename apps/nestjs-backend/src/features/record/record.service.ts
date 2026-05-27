@@ -28,6 +28,7 @@ import {
   DriverClient,
   FieldKeyType,
   FieldType,
+  generateRecordHistoryId,
   generateRecordId,
   HttpErrorCode,
   identify,
@@ -44,9 +45,7 @@ import {
   TableDomain,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
-  CreateRecordAction,
   ICreateRecordsRo,
   IGetRecordQuery,
   IGetRecordsRo,
@@ -57,7 +56,6 @@ import type {
   IRecordGetCollaboratorsRo,
   IRecordStatusVo,
   IRecordsVo,
-  UpdateRecordAction,
 } from '@teable/openapi';
 import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -70,6 +68,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Events } from '../../event-emitter/events';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -124,7 +123,7 @@ export class RecordService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly batchService: BatchService,
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
@@ -147,7 +146,24 @@ export class RecordService {
     return field.dbFieldName;
   }
 
+  private getBaseIdFromDbTableName(dbTableName: string) {
+    return this.dbProvider.splitTableName(dbTableName)[0];
+  }
+
+  private async queryDataTableByPhysicalName<T = unknown>(
+    dbTableName: string,
+    query: string,
+    ...values: unknown[]
+  ) {
+    return this.databaseRouter.queryDataPrismaForBase<T>(
+      this.getBaseIdFromDbTableName(dbTableName),
+      query,
+      ...values
+    );
+  }
+
   private async getWritableCreatedTimeFieldNames(
+    tableId: string,
     dbTableName: string,
     fields: readonly FieldCore[]
   ): Promise<Set<string>> {
@@ -184,9 +200,11 @@ export class RecordService {
       .toSQL()
       .toNative();
 
-    const rows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<IGeneratedColumnStateRow[]>(sqlNative.sql, ...sqlNative.bindings);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<IGeneratedColumnStateRow[]>(
+      tableId,
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
     const columnStateMap = new Map(rows.map((row) => [row.column_name, row.is_generated]));
 
     return new Set(
@@ -221,12 +239,20 @@ export class RecordService {
     }, {});
   }
 
-  async getAllRecordCount(dbTableName: string) {
+  async getAllRecordCount(dbTableName: string, tableId?: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
-    const queryResult = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+    const queryResult = tableId
+      ? await this.databaseRouter.queryDataPrismaForTable<{ count?: number }[]>(
+          tableId,
+          sqlNative.sql,
+          ...sqlNative.bindings
+        )
+      : await this.queryDataTableByPhysicalName<{ count?: number }[]>(
+          dbTableName,
+          sqlNative.sql,
+          ...sqlNative.bindings
+        );
     return Number(queryResult[0]?.count ?? 0);
   }
 
@@ -279,7 +305,6 @@ export class RecordService {
 
   private async getLinkCellIds(tableId: string, field: IFieldInstance, recordId: string) {
     const prisma = this.prismaService.txClient();
-    const dataPrisma = this.dataPrismaService.txClient();
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -296,7 +321,9 @@ export class RecordService {
     );
     const sql = queryBuilder.where('__id', recordId).toQuery();
 
-    const result = await dataPrisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { id: string; [key: string]: unknown }[]
+    >(tableId, sql);
     return result
       .map((item) => {
         return field.convertDBValue2CellValue(item[field.dbFieldName]) as
@@ -765,7 +792,7 @@ export class RecordService {
     };
   }
 
-  async getBasicOrderIndexField(dbTableName: string, viewId: string | undefined) {
+  async getBasicOrderIndexField(tableId: string, dbTableName: string, viewId: string | undefined) {
     if (!viewId) {
       return '__auto_number';
     }
@@ -773,7 +800,7 @@ export class RecordService {
     const exists = await this.dbProvider.checkColumnExist(
       dbTableName,
       columnName,
-      this.dataPrismaService.txClient()
+      await this.databaseRouter.dataPrismaExecutorForTable(tableId)
     );
 
     if (exists) {
@@ -825,7 +852,7 @@ export class RecordService {
       enabledFieldIds,
     } = await this.prepareQuery(tableId, query);
 
-    const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
+    const basicSortIndex = await this.getBasicOrderIndexField(tableId, dbTableName, query.viewId);
 
     const restrictRecordIds =
       query.selectedRecordIds && !query.filterLinkCellCandidate
@@ -1110,12 +1137,14 @@ export class RecordService {
     return record.fields[fieldId];
   }
 
-  async getMaxRecordOrder(dbTableName: string) {
+  async getMaxRecordOrder(tableId: string, dbTableName: string) {
     const sqlNative = this.knex(dbTableName).max('__auto_number', { as: 'max' }).toSQL().toNative();
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ max?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ max?: number }[]>(
+      tableId,
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
 
     return Number(result[0]?.max ?? 0) + 1;
   }
@@ -1127,9 +1156,9 @@ export class RecordService {
       .select('__id as id', '__version as version')
       .whereIn('__id', recordIds)
       .toQuery();
-    const recordRaw = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
+    const recordRaw = await this.databaseRouter.queryDataPrismaForTable<
+      { id: string; version: number }[]
+    >(tableId, nativeQuery);
 
     if (recordIds.length !== recordRaw.length) {
       throw new CustomHttpException(
@@ -1158,11 +1187,12 @@ export class RecordService {
     await this.batchDel(tableId, recordIds);
   }
 
-  private async getViewIndexColumns(dbTableName: string) {
+  private async getViewIndexColumns(tableId: string, dbTableName: string) {
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
-    const columns = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      tableId,
+      columnInfoQuery
+    );
     return columns
       .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
       .map((column) => column.name);
@@ -1175,7 +1205,7 @@ export class RecordService {
     viewId?: string
   ): Promise<Record<string, number>[] | undefined> {
     const dbTableName = table.dbTableName;
-    const allViewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    const allViewIndexColumns = await this.getViewIndexColumns(table.id, dbTableName);
     const viewIndexColumns = viewId
       ? (() => {
           const viewIndexColumns = allViewIndexColumns.filter((column) => column.endsWith(viewId));
@@ -1203,9 +1233,10 @@ export class RecordService {
       .select('__id')
       .whereIn('__id', recordIds)
       .toQuery();
-    const indexValues = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<Record<string, number>[]>(indexQuery);
+    const indexValues = await this.databaseRouter.queryDataPrismaForTable<Record<string, number>[]>(
+      table.id,
+      indexQuery
+    );
 
     const indexMap = indexValues.reduce<Record<string, Record<string, number>>>((map, cur) => {
       const id = cur.__id;
@@ -1225,7 +1256,7 @@ export class RecordService {
     }[]
   ) {
     const dbTableName = await this.getDbTableName(tableId);
-    const viewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    const viewIndexColumns = await this.getViewIndexColumns(tableId, dbTableName);
     if (!viewIndexColumns.length) {
       return;
     }
@@ -1251,7 +1282,7 @@ export class RecordService {
       .filter(Boolean) as string[];
 
     for (const sql of updateRecordSqls) {
-      await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
     }
   }
 
@@ -1277,7 +1308,8 @@ export class RecordService {
     table: TableDomain,
     records: {
       fields: Record<string, unknown>;
-    }[]
+    }[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
     const user = this.cls.get('user');
     const userId = user.id;
@@ -1285,6 +1317,7 @@ export class RecordService {
     const dbTableName = table.dbTableName;
     const fields = await this.getFieldsByProjection(table.id);
     const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
+      table.id,
       dbTableName,
       fields
     );
@@ -1300,19 +1333,40 @@ export class RecordService {
     ) as IFieldInstance[];
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
-        map[curField.id] = curField;
+        map[curField[fieldKeyType]] = curField;
         return map;
       },
       {} as Record<string, IFieldInstance>
     );
 
+    const recordHistoryList: {
+      id: string;
+      table_id: string;
+      record_id: string;
+      field_id: string;
+      before: string;
+      after: string;
+      created_by: string;
+    }[] = [];
     const newRecords = records.map((record) => {
       const createdTime =
         writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined;
       const fieldsValues: Record<string, unknown> = {};
+      const recordId = generateRecordId();
       Object.entries(record.fields).forEach(([fieldId, value]) => {
         const fieldInstance = fieldInstanceMap[fieldId];
         fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
+        if (value !== '' && value != null) {
+          recordHistoryList.push({
+            id: generateRecordHistoryId(),
+            table_id: table.id,
+            record_id: recordId,
+            field_id: fieldInstance.id,
+            before: JSON.stringify({ data: null }),
+            after: JSON.stringify({ data: value }),
+            created_by: userId,
+          });
+        }
       });
       if (auditUserValue && createdByFields.length) {
         createdByFields.forEach((field) => {
@@ -1327,7 +1381,7 @@ export class RecordService {
         }
       });
       return removeUndefined({
-        __id: generateRecordId(),
+        __id: recordId,
         __created_by: userId,
         __created_time: createdTime,
         __version: 1,
@@ -1335,7 +1389,18 @@ export class RecordService {
       });
     });
     const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
-    await this.dataPrismaService.txClient().$executeRawUnsafe(sql);
+    await this.databaseRouter.executeDataPrismaForTable(table.id, sql);
+    if (recordHistoryList.length) {
+      const dataKnex = await this.databaseRouter.dataKnexForTable(table.id);
+      const dataDbUrl = await this.databaseRouter.getDataDatabaseUrlForTable(table.id);
+      const dataDbInternalSchema = new URL(dataDbUrl).searchParams.get('schema') || 'public';
+      const historySql = dataKnex
+        .withSchema(dataDbInternalSchema)
+        .insert(recordHistoryList)
+        .into('record_history')
+        .toQuery();
+      await this.databaseRouter.executeDataPrismaForTable(table.id, historySql);
+    }
   }
 
   async creditCheck(tableId: string) {
@@ -1348,7 +1413,7 @@ export class RecordService {
       select: { dbTableName: true, base: { select: { space: { select: { credit: true } } } } },
     });
 
-    const rowCount = await this.getAllRecordCount(table.dbTableName);
+    const rowCount = await this.getAllRecordCount(table.dbTableName, tableId);
 
     const maxRowCount =
       table.base.space.credit == null
@@ -1372,11 +1437,12 @@ export class RecordService {
     }
   }
 
-  private async getAllViewIndexesField(dbTableName: string) {
+  private async getAllViewIndexesField(tableId: string, dbTableName: string) {
     const query = this.dbProvider.columnInfo(dbTableName);
-    const columns = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(query);
+    const columns = await this.databaseRouter.queryDataPrismaForTable<{ name: string }[]>(
+      tableId,
+      query
+    );
     return columns
       .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
       .map((column) => column.name)
@@ -1423,8 +1489,9 @@ export class RecordService {
     await this.creditCheck(table.id);
 
     const { dbTableName, name: tableName } = table;
-    const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
+    const maxRecordOrder = await this.getMaxRecordOrder(table.id, dbTableName);
     const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
+      table.id,
       dbTableName,
       fields
     );
@@ -1434,7 +1501,7 @@ export class RecordService {
       select: { id: true },
     });
 
-    const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
+    const allViewIndexes = await this.getAllViewIndexesField(table.id, dbTableName);
 
     const validationFields = fields
       .filter((f) => !f.isComputed)
@@ -1554,7 +1621,7 @@ export class RecordService {
     );
 
     await handleDBValidationErrors({
-      fn: () => this.dataPrismaService.txClient().$executeRawUnsafe(sql),
+      fn: () => this.databaseRouter.executeDataPrismaForTable(table.id, sql),
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Fields ${validationFields.map((f) => f.id).join(', ')} unique validation failed`,
@@ -1594,7 +1661,7 @@ export class RecordService {
     const dbTableName = await this.getDbTableName(tableId);
 
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
-    await this.dataPrismaService.txClient().$executeRawUnsafe(nativeQuery);
+    await this.databaseRouter.executeDataPrismaForTable(tableId, nativeQuery);
   }
 
   public async getFieldsByProjection(
@@ -1825,11 +1892,9 @@ export class RecordService {
 
     let result: ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[];
     try {
-      result = await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<
-          ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
-        >(nativeQuery);
+      result = await this.databaseRouter.queryDataPrismaForTable<
+        ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+      >(tableId, nativeQuery);
     } catch (error) {
       this.handleRawQueryError(error, nativeQuery, {
         tableId,
@@ -2008,9 +2073,11 @@ export class RecordService {
     this.logger.debug('getRecordsQuery: %s', sqlDebug);
     let result: { __id: string }[];
     try {
-      result = await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
+      result = await this.databaseRouter.queryDataPrismaForTable<{ __id: string }[]>(
+        tableId,
+        sqlNative.sql,
+        ...sqlNative.bindings
+      );
     } catch (error) {
       this.handleRawQueryError(error, sqlNative.sql, {
         tableId,
@@ -2226,9 +2293,9 @@ export class RecordService {
 
     this.logger.debug('getSearchHitIndex query: %s', searchQuery);
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; fieldId: string }[]
+    >(tableId, searchQuery);
 
     if (!result.length) {
       return null;
@@ -2304,9 +2371,9 @@ export class RecordService {
 
     this.logger.debug('getRecordsFields query: %s', sql);
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(sql);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      (Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
+    >(tableId, sql);
 
     return result.map((record) => {
       return {
@@ -2349,9 +2416,10 @@ export class RecordService {
 
     const querySql = queryBuilder.toQuery();
 
-    return this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+    return this.databaseRouter.queryDataPrismaForTable<{ id: string; title: string }[]>(
+      tableId,
+      querySql
+    );
   }
 
   async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
@@ -2364,9 +2432,9 @@ export class RecordService {
 
     const querySql = queryBuilder.toQuery();
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; title: unknown }[]>(querySql);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { id: string; title: unknown }[]
+    >(tableId, querySql);
 
     return result.map((r) => ({
       id: r.id,
@@ -2387,9 +2455,10 @@ export class RecordService {
       true
     );
     queryBuilder.whereIn(`${alias}.__id`, recordIds);
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ __id: string }[]>(
+      tableId,
+      queryBuilder.toQuery()
+    );
     return result.map((r) => r.__id);
   }
 
@@ -2599,9 +2668,10 @@ export class RecordService {
     const rowCountSql = qb.count({ count: '*' });
     const sql = rowCountSql.toQuery();
     this.logger.debug('getRowCountSql: %s', sql);
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ count?: number }[]>(sql);
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ count?: number }[]>(
+      tableId,
+      sql
+    );
     return Number(result[0].count);
   }
 
@@ -2711,9 +2781,9 @@ export class RecordService {
     );
 
     try {
-      const result = await this.dataPrismaService
-        .txClient()
-        .$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(groupSql);
+      const result = await this.databaseRouter.queryDataPrismaForTable<
+        { [key: string]: unknown; __c: number }[]
+      >(tableId, groupSql);
       const pointsResult = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
@@ -2750,9 +2820,10 @@ export class RecordService {
     const dbTableName = await this.getDbTableName(tableId);
     const queryBuilder = this.knex(dbTableName).select('__id').where('__id', recordId).limit(1);
 
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ __id: string }[]>(
+      tableId,
+      queryBuilder.toQuery()
+    );
 
     const isDeleted = result.length === 0;
 
@@ -2779,22 +2850,6 @@ export class RecordService {
     );
     const isVisible = queryResult.ids.includes(recordId);
     return { isDeleted, isVisible };
-  }
-
-  async emitRecordAuditLogEvent(
-    action: UpdateRecordAction | CreateRecordAction,
-    tableId: string,
-    recordCount: number,
-    appId?: string
-  ) {
-    this.eventEmitter.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
-      action,
-      resourceId: tableId,
-      recordCount,
-      params: {
-        appId,
-      },
-    });
   }
 
   async getRecordsCollaborators(
@@ -2840,9 +2895,9 @@ export class RecordService {
     );
 
     const collaboratorIdsQuery = collaboratorsQueryBuilder.distinct('user_id').toQuery();
-    const collaboratorIds = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ user_id: string | null }[]>(collaboratorIdsQuery);
+    const collaboratorIds = await this.databaseRouter.queryDataPrismaForTable<
+      { user_id: string | null }[]
+    >(tableId, collaboratorIdsQuery);
     const userIds = Array.from(
       new Set(
         collaboratorIds
