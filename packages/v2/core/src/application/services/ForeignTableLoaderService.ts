@@ -168,31 +168,48 @@ export class ForeignTableLoaderService implements IForeignTableLoaderService {
     const result = await safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
       if (input.references.length === 0) return ok([]);
 
-      // baseId is optional - query by table IDs directly
-      const spec = yield* TableAggregate.specs(input.baseId)
-        .byIds(input.references.map((reference) => reference.foreignTableId))
-        .build();
+      const referencesByBaseId = new Map<
+        string,
+        { baseId?: BaseId; references: LinkForeignTableReference[] }
+      >();
+      for (const reference of input.references) {
+        const baseId = reference.baseId ?? input.baseId;
+        const key = baseId?.toString() ?? '__any__';
+        const group = referencesByBaseId.get(key) ?? { baseId, references: [] };
+        group.references.push(reference);
+        referencesByBaseId.set(key, group);
+      }
 
-      const foreignTables = yield* await tableRepository.find(context, spec);
-      const foreignTableIds = new Set(foreignTables.map((table) => table.id().toString()));
-      const missing = input.references.filter(
-        (reference) => !foreignTableIds.has(reference.foreignTableId.toString())
-      );
-      if (missing.length > 0)
+      const foreignTablesById = new Map<string, Table>();
+      const missingForeignTableIds: string[] = [];
+      for (const { baseId, references } of referencesByBaseId.values()) {
+        const spec = yield* TableAggregate.specs(baseId)
+          .byIds(references.map((reference) => reference.foreignTableId))
+          .build();
+
+        const foreignTables = yield* await tableRepository.find(context, spec);
+        const foreignTableIds = new Set(foreignTables.map((table) => table.id().toString()));
+        for (const table of foreignTables) {
+          foreignTablesById.set(table.id().toString(), table);
+        }
+        missingForeignTableIds.push(
+          ...references
+            .filter((reference) => !foreignTableIds.has(reference.foreignTableId.toString()))
+            .map((reference) => reference.foreignTableId.toString())
+        );
+      }
+
+      if (missingForeignTableIds.length > 0)
         return err(
           domainError.notFound({
-            message: `Foreign tables not found: ${missing
-              .map((reference) => reference.foreignTableId.toString())
-              .join(', ')}`,
+            message: `Foreign tables not found: ${missingForeignTableIds.join(', ')}`,
             details: {
-              missingForeignTableIds: missing.map((reference) =>
-                reference.foreignTableId.toString()
-              ),
+              missingForeignTableIds,
             },
           })
         );
 
-      return ok(foreignTables);
+      return ok(Array.from(foreignTablesById.values()));
     });
     return result;
   }

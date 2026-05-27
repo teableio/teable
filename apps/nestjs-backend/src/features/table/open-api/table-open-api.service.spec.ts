@@ -124,6 +124,7 @@ describe('TableOpenApiService.prepareFields', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     );
 
@@ -133,16 +134,95 @@ describe('TableOpenApiService.prepareFields', () => {
       }
     ).prepareFields('tblTest', [nameFieldRo, linkFieldRo, lookupFieldRo, rollupFieldRo]);
 
-    expect(fieldSupplementService.prepareCreateFields).toHaveBeenCalledWith('tblTest', [
-      nameFieldRo,
-      linkFieldRo,
-    ]);
+    expect(fieldSupplementService.prepareCreateFields).toHaveBeenCalledWith(
+      'tblTest',
+      [nameFieldRo, linkFieldRo],
+      undefined,
+      { useTransaction: true }
+    );
     expect(fieldSupplementService.prepareCreateField).toHaveBeenCalledTimes(2);
     expect(fields).toHaveLength(4);
   });
 });
 
 describe('TableOpenApiService.createTable', () => {
+  it('records legacy table creation schema operations in meta prisma', async () => {
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    const prismaService = {
+      txClient: vi.fn().mockReturnValue({
+        schemaOperation: { upsert },
+      }),
+    };
+    const cls = {
+      get: vi.fn().mockReturnValue('usrTest'),
+    };
+
+    const service = new TableOpenApiService(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      cls as never,
+      {} as never,
+      {} as never,
+      {} as never
+    );
+
+    await (
+      service as unknown as {
+        completeTableCreateSchemaOperation: (
+          baseId: string,
+          tableId: string,
+          recordCount: number
+        ) => Promise<void>;
+      }
+    ).completeTableCreateSchemaOperation('bseTest', 'tblTest', 2);
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { idempotencyKey: 'table.create:table:tblTest' },
+        create: expect.objectContaining({
+          type: 'table.create',
+          status: 'ready',
+          phase: 'ready',
+          resourceType: 'table',
+          resourceId: 'tblTest',
+          baseId: 'bseTest',
+          tableId: 'tblTest',
+          idempotencyKey: 'table.create:table:tblTest',
+          payload: { recordCount: 2 },
+          createdBy: 'usrTest',
+          lastModifiedBy: 'usrTest',
+        }),
+        update: expect.objectContaining({
+          type: 'table.create',
+          status: 'ready',
+          phase: 'ready',
+          resourceType: 'table',
+          resourceId: 'tblTest',
+          baseId: 'bseTest',
+          tableId: 'tblTest',
+          payload: { recordCount: 2 },
+          lockedAt: null,
+          lockedBy: null,
+          lastError: null,
+          lastModifiedBy: 'usrTest',
+        }),
+      })
+    );
+  });
+
   it('drops the data table when metadata transaction rolls back after physical creation', async () => {
     const projectsTable = 'bseTest.projects';
     const createError = new Error('field create failed');
@@ -176,8 +256,10 @@ describe('TableOpenApiService.createTable', () => {
     const prismaService = {
       $tx: vi.fn(async (fn: () => Promise<unknown>) => fn()),
     };
-    const dataPrismaService = {
-      $executeRawUnsafe: executeRawUnsafe,
+    const databaseRouter = {
+      executeDataPrismaForBase: vi.fn(async (_baseId: string, sql: string) =>
+        executeRawUnsafe(sql)
+      ),
     };
     const dbProvider = {
       dropTable: vi.fn().mockReturnValue('drop table "bseTest"."projects"'),
@@ -185,7 +267,7 @@ describe('TableOpenApiService.createTable', () => {
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       {} as never,
@@ -201,7 +283,8 @@ describe('TableOpenApiService.createTable', () => {
       {} as never,
       {} as never,
       {} as never,
-      { invalidateDroppedTable } as never
+      { invalidateDroppedTable } as never,
+      {} as never
     );
 
     await expect(
@@ -237,13 +320,14 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     const prismaService = {
       txClient: vi.fn().mockReturnValue(metaTxClient),
     };
-    const dataPrismaService = {
-      txClient: vi.fn().mockReturnValue(dataTxClient),
+    const databaseRouter = {
+      dataPrismaForBase: vi.fn().mockResolvedValue(dataTxClient),
     };
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -282,6 +366,68 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     expect(dataTxClient.recordTrash.deleteMany).toHaveBeenCalledWith({
       where: { tableId: { in: ['tblA', 'tblB'] } },
     });
+    expect(databaseRouter.dataPrismaForBase).toHaveBeenCalledWith('bseTest', undefined);
+  });
+
+  it('uses the routed data transaction client when requested', async () => {
+    const metaTxClient = {
+      field: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      view: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      attachmentsTable: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      ops: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      tableMeta: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      trash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+    };
+    const dataTxClient = {
+      recordHistory: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      tableTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      recordTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+    };
+    const dataRootClient = {
+      txClient: vi.fn().mockReturnValue(dataTxClient),
+      recordHistory: { deleteMany: vi.fn() },
+      tableTrash: { deleteMany: vi.fn() },
+      recordTrash: { deleteMany: vi.fn() },
+    };
+    const prismaService = {
+      txClient: vi.fn().mockReturnValue(metaTxClient),
+    };
+    const databaseRouter = {
+      dataPrismaForBase: vi.fn().mockResolvedValue(dataRootClient),
+    };
+
+    const service = new TableOpenApiService(
+      prismaService as never,
+      databaseRouter as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never
+    );
+
+    await service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true });
+
+    expect(databaseRouter.dataPrismaForBase).toHaveBeenCalledWith('bseTest', {
+      useTransaction: true,
+    });
+    expect(dataRootClient.txClient).toHaveBeenCalled();
+    expect(dataTxClient.recordHistory.deleteMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tblA'] } },
+    });
+    expect(dataRootClient.recordHistory.deleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -304,10 +450,10 @@ describe('TableOpenApiService.dropTables', () => {
     const prismaService = {
       txClient: vi.fn().mockReturnValue(metaTxClient),
     };
-    const dataPrismaService = {
-      txClient: vi.fn().mockReturnValue({
-        $executeRawUnsafe: executeRawUnsafe,
-      }),
+    const databaseRouter = {
+      executeDataPrismaForTable: vi.fn(async (_tableId: string, sql: string) =>
+        executeRawUnsafe(sql)
+      ),
     };
     const batchService = {
       saveRawOps: vi.fn().mockResolvedValue(undefined),
@@ -321,7 +467,7 @@ describe('TableOpenApiService.dropTables', () => {
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       {} as never,
@@ -337,7 +483,8 @@ describe('TableOpenApiService.dropTables', () => {
       {} as never,
       {} as never,
       {} as never,
-      tableMutationCacheInvalidator as never
+      tableMutationCacheInvalidator as never,
+      {} as never
     );
 
     await service.dropTables(['tblA']);
@@ -366,8 +513,8 @@ describe('TableOpenApiService.sqlQuery', () => {
       },
       $queryRawUnsafe: metaQueryRawUnsafe,
     };
-    const dataPrismaService = {
-      $queryRawUnsafe: dataQueryRawUnsafe,
+    const databaseRouter = {
+      queryDataPrismaForTable: vi.fn((_tableId: string, sql: string) => dataQueryRawUnsafe(sql)),
     };
     const recordService = {
       buildFilterSortQuery: vi.fn().mockResolvedValue({
@@ -379,10 +526,11 @@ describe('TableOpenApiService.sqlQuery', () => {
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       recordService as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -440,8 +588,11 @@ describe('TableOpenApiService.updateDbTableName', () => {
     const dataTxClient = {
       $executeRawUnsafe: dataExecuteRawUnsafe,
     };
-    const dataPrismaService = {
-      $tx: vi.fn(async (fn: (prisma: typeof dataTxClient) => Promise<unknown>) => fn(dataTxClient)),
+    const databaseRouter = {
+      dataPrismaTransactionForTable: vi.fn(
+        async (_tableId: string, fn: (prisma: typeof dataTxClient) => Promise<unknown>) =>
+          fn(dataTxClient)
+      ),
     };
     const tableService = {
       updateTable: vi.fn().mockResolvedValue(undefined),
@@ -457,7 +608,7 @@ describe('TableOpenApiService.updateDbTableName', () => {
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       {} as never,
@@ -471,6 +622,7 @@ describe('TableOpenApiService.updateDbTableName', () => {
       {} as never,
       dbProvider as never,
       { bigTransactionTimeout: 1000 } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never
@@ -513,8 +665,11 @@ describe('TableOpenApiService.updateDbTableName', () => {
     const dataTxClient = {
       $executeRawUnsafe: dataExecuteRawUnsafe,
     };
-    const dataPrismaService = {
-      $tx: vi.fn(async (fn: (prisma: typeof dataTxClient) => Promise<unknown>) => fn(dataTxClient)),
+    const databaseRouter = {
+      dataPrismaTransactionForTable: vi.fn(
+        async (_tableId: string, fn: (prisma: typeof dataTxClient) => Promise<unknown>) =>
+          fn(dataTxClient)
+      ),
     };
     const dbProvider = {
       joinDbTableName: vi.fn().mockReturnValue(renamedOrdersTable),
@@ -527,7 +682,7 @@ describe('TableOpenApiService.updateDbTableName', () => {
 
     const service = new TableOpenApiService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       {} as never,
@@ -541,6 +696,7 @@ describe('TableOpenApiService.updateDbTableName', () => {
       {} as never,
       dbProvider as never,
       { bigTransactionTimeout: 1000 } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never

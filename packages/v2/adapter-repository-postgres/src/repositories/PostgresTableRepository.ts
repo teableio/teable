@@ -44,9 +44,10 @@ const deduplicateSelectChoices = (
   const deduped: SelectChoiceDto[] = [];
   for (const choice of choices) {
     const normalizedName = choice.name.trim();
+    if (!normalizedName) continue;
     if (seen.has(normalizedName)) continue;
     seen.add(normalizedName);
-    deduped.push(choice);
+    deduped.push({ ...choice, name: normalizedName });
   }
   return deduped;
 };
@@ -655,7 +656,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -674,7 +675,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -769,7 +770,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -788,7 +789,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active') {
+              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -2110,6 +2111,20 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
       return core.fieldColorValues[index % core.fieldColorValues.length];
     };
+    const normalizeDefaultValue = (value: unknown): string | ReadonlyArray<string> | undefined => {
+      if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+        return trimmedValue ? trimmedValue : undefined;
+      }
+      if (Array.isArray(value)) {
+        const values = value
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+        return values.length > 0 ? values : undefined;
+      }
+      return undefined;
+    };
 
     if (Array.isArray(raw.options)) {
       const choices = raw.options.map((name, index) => ({
@@ -2134,7 +2149,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           };
         })
       : [];
-    const defaultValue = raw.defaultValue;
+    const defaultValue = normalizeDefaultValue(raw.defaultValue);
     const preventAutoNewOptions =
       typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;
 

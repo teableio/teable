@@ -19,7 +19,7 @@ import type {
 import { FieldType } from '@teable/core';
 import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
-import { useTableId } from '../../hooks';
+import { useTableId, useTablePermission } from '../../hooks';
 import type { ButtonField } from '../../model/field/button.field';
 import { transformSelectOptions } from '../cell-value';
 import {
@@ -54,8 +54,14 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
     hideExpand,
   } = props;
   const tableId = useTableId();
+  const permission = useTablePermission();
   const { id: fieldId, type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
+  // Adding a new option mutates the field's choices schema, so it requires
+  // field|update. Share-edit (record|update only) cannot create new options.
+  // Folded into the editor's existing preventAutoNewOptions semantics rather
+  // than swallowing the onOptionAdd callback.
+  const canAddOption = Boolean(permission['field|update']);
 
   useEffect(() => {
     editorRef?.current?.setValue?.(cellValue);
@@ -141,7 +147,9 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ISingleSelectCellValue}
-          preventAutoNewOptions={(options as ISelectFieldOptions).preventAutoNewOptions}
+          preventAutoNewOptions={
+            (options as ISelectFieldOptions).preventAutoNewOptions || !canAddOption
+          }
           options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           readonly={readonly}
@@ -155,6 +163,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as IMultipleSelectCellValue}
+          preventAutoNewOptions={!canAddOption}
           options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           isMultiple

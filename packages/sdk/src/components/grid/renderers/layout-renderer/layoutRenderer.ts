@@ -11,6 +11,8 @@ import {
   checkIfRowOrCellActive,
   checkIfRowOrCellSelected,
   calculateMaxRange,
+  getRowControlCheckboxOffsetX,
+  getRowControlOffsetX,
   hexToRGBA,
 } from '../../utils';
 import type { ISingleLineTextProps } from '../base-renderer';
@@ -129,6 +131,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     selection,
     isSelecting,
     rowControls,
+    rowControlPaddingX,
     rowIndexVisible,
     hoverCellPosition,
     theme,
@@ -288,6 +291,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           isChecked: isRowSelection && isRowSelected,
           rowIndexVisible,
           rowControls,
+          rowControlPaddingX,
           theme,
           spriteManager,
           commentCount: recordId ? commentCountMap?.[recordId] : undefined,
@@ -1165,6 +1169,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
     isHover,
     isChecked,
     rowControls,
+    rowControlPaddingX,
     spriteManager,
     rowIndexVisible,
     commentCount,
@@ -1212,8 +1217,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   ctx.font = `${10}px ${theme.fontFamily}`;
 
   if (commentCount) {
-    const controlSize = width / rowControls.length;
-    const offsetX = controlSize * (2 + 0.5);
+    const offsetX = getRowControlOffsetX(width, theme, rowControlPaddingX, rowControls.length, 2);
     drawCommentCount(ctx, {
       x: x + offsetX - halfSize,
       y: y + rowHeadIconPaddingTop,
@@ -1223,10 +1227,11 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   }
 
   if (isChecked || isHover || !rowIndexVisible) {
-    const controlSize = width / rowControls.length;
     for (let i = 0; i < rowControls.length; i++) {
       const { type, icon } = rowControls[i];
-      const offsetX = controlSize * (i + 0.5);
+      const offsetX = getRowControlOffsetX(width, theme, rowControlPaddingX, rowControls.length, i);
+
+      if (type === RowControlType.Spacer) continue;
 
       if (type === RowControlType.Checkbox) {
         drawCheckbox(ctx, {
@@ -1398,7 +1403,17 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
 };
 
 export const drawGridHeader = (ctx: CanvasRenderingContext2D, props: IGridHeaderDrawerProps) => {
-  const { x, y, width, height, theme, rowControls, isChecked, isMultiSelectionEnable } = props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    theme,
+    rowControls,
+    rowControlPaddingX,
+    isChecked,
+    isMultiSelectionEnable,
+  } = props;
   const {
     iconSizeXS,
     staticWhite,
@@ -1423,9 +1438,15 @@ export const drawGridHeader = (ctx: CanvasRenderingContext2D, props: IGridHeader
   });
 
   if (isMultiSelectionEnable && rowControls.some((item) => item.type === RowControlType.Checkbox)) {
+    const offsetX = getRowControlCheckboxOffsetX({
+      width,
+      theme,
+      rowControls,
+      rowControlPaddingX,
+    });
     drawCheckbox(ctx, {
-      x: width / 2 - halfSize + 0.5,
-      y: height / 2 - halfSize + 0.5,
+      x: x + offsetX - halfSize + 0.5,
+      y: y + height / 2 - halfSize,
       size: iconSizeXS,
       stroke: isChecked ? staticWhite : rowHeaderTextColor,
       fill: isChecked ? iconBgSelected : undefined,
@@ -1450,6 +1471,7 @@ export const drawColumnHeaders = (
     scrollState,
     selection,
     rowControls,
+    rowControlPaddingX,
     isInteracting,
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
@@ -1527,6 +1549,7 @@ export const drawColumnHeaders = (
     height: rowInitSize,
     theme,
     rowControls,
+    rowControlPaddingX,
     isChecked,
     isMultiSelectionEnable,
   });

@@ -7,6 +7,7 @@ import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import { createSchemaRuleContext } from '../context/SchemaRuleContext';
 import type { ISchemaRule } from '../core/ISchemaRule';
 import { createFieldSchemaRules } from '../field/FieldSchemaRulesFactory';
+import type { TableIdentifier } from '../helpers';
 import { schemaRuleResolver } from '../resolver/SchemaRuleResolver';
 import {
   createSystemTableRules,
@@ -18,6 +19,7 @@ export interface SchemaRulePlannerParams {
   db: Kysely<V1TeableDatabase>;
   introspector: SchemaIntrospector;
   schema: string | null;
+  tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
 }
 
 export interface SchemaRuleTarget {
@@ -191,6 +193,8 @@ export class SchemaRulePlanner {
 
   planTable(table: Table, target: SchemaRuleTarget = {}): ReadonlyArray<SchemaRulePlanEntry> {
     const tableLocation = resolveDbTableLocation(table, this.params.schema);
+    const tableLocationsById = new Map<string, TableIdentifier>(this.params.tableLocationsById);
+    tableLocationsById.set(table.id().toString(), tableLocation);
     const allFields = table.getFields();
 
     if (target.ruleId && !target.fieldId) {
@@ -267,6 +271,7 @@ export class SchemaRulePlanner {
         schema: tableLocation.schema,
         tableName: tableLocation.tableName,
         tableId: table.id().toString(),
+        tableLocationsById,
       });
 
       if (rulesResult.isErr()) {

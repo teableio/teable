@@ -801,7 +801,9 @@
     "totalAttachmentSize": "Загальний розмір вкладень"
   },
   "selectionStatistic": {
-    "tip": "Агрегуються лише поля типу Число."
+    "tip": "Агрегуються лише поля типу Число.",
+    "copyTip": "Натисніть, щоб скопіювати",
+    "copied": "Скопійовано"
   },
   "baseQuery": {
     "add": "Додати",
@@ -913,6 +915,31 @@
     "automationNodeNeedTest": "Вузол автоматизації потребує тестування",
     "automationNodeTestOutdated": "Тест вузла автоматизації застарів",
     "invalidToken": "Недійсний токен",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",
@@ -1035,8 +1062,8 @@
       "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
       "notBelongToOrg": "Цей простір не належить організації",
       "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}",
-      "ownedSpaceLimitExceeded": "Досягнуто максимальну кількість просторів, якими можна керувати ({{max}})",
-      "ownedSpaceLimitExceededOther": "{{name}} досяг максимальної кількості просторів, якими можна керувати ({{max}})"
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "База не знайдена",
@@ -1085,6 +1112,7 @@
     "share": {
       "incorrectPassword": "Неправильний пароль",
       "notAllowedToSubmit": "Відправлення форми не дозволено",
+      "notAllowedToEdit": "Редагування цього спільного доступу заборонено",
       "viewRequired": "Для цієї операції потрібне подання",
       "hiddenFieldsSubmissionNotAllowed": "Відправлення форми не дозволено, коли включені приховані поля",
       "submitRecordsError": "Помилка відправлення запису",
@@ -1098,7 +1126,8 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "Обмеження паролем не ввімкнено для цього спільного подання",
       "shareViewNotFound": "Спільне подання не знайдено або спільний доступ вимкнено",
-      "linkFieldNotFound": "Поле зв'язку не знайдено"
+      "linkFieldNotFound": "Поле зв'язку не знайдено",
+      "loginRequired": "Увійдіть, щоб редагувати це спільне подання"
     },
     "baseShare": {
       "notFound": "Спільний доступ до бази не знайдено або вимкнено",
@@ -1198,6 +1227,7 @@
       "recordMapNotFound": "Запис не знайдено в таблиці {{tableName}} для поля {{fieldName}}",
       "forbidDeletePrimaryField": "Заборонено видаляти первинне поле",
       "foreignTableIdInvalid": "Зовнішня таблиця {{foreignTableId}} недійсна",
+      "crossSpaceLinkForbidden": "Перехресні посилання між просторами не підтримуються. Будь ласка, виберіть таблицю в тому ж просторі (цільова таблиця {{foreignTableId}} знаходиться в іншому просторі).",
       "relationshipInvalid": "Відношення {{relationship}} недійсне",
       "linkFieldIdInvalid": "Поле зв'язку {{linkFieldId}} недійсне",
       "lookupFieldIdInvalid": "Поле пошуку {{lookupFieldId}} недійсне",

@@ -239,7 +239,7 @@ describe('OpenAPI ImportController (e2e)', () => {
       async (format) => {
         awaitWithEvent = createAwaitWithEventWithResult<void>(
           eventEmitterService,
-          Events.TABLE_RECORD_CREATE_RELATIVE
+          Events.TABLE_IMPORT_FINISH
         );
         const spaceRes = await apiCreateSpace({ name: `test${format}` });
         const spaceId = spaceRes?.data?.id;
@@ -367,7 +367,7 @@ describe('OpenAPI ImportController (e2e)', () => {
     it('should import data into Table from file', async () => {
       awaitWithEvent = createAwaitWithEventWithResult<void>(
         eventEmitterService,
-        Events.TABLE_RECORD_CREATE_RELATIVE
+        Events.TABLE_IMPORT_FINISH
       );
       const spaceRes = await apiCreateSpace({ name: 'test1' });
       const spaceId = spaceRes?.data?.id;

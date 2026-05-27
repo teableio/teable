@@ -232,6 +232,18 @@ describe('OpenAPI OAuthController (e2e)', () => {
     expect(error?.message).toBe('Invalid user');
   });
 
+  it('/api/oauth/decision (POST) - user mismatch', async () => {
+    // A logged-in user must not be able to approve another user's authorization transaction
+    const intruder = await createNewUserAxios({
+      email: `oauth-decision-intruder+${Date.now()}@example.com`,
+      password: '12345678',
+    });
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const error = await getError(() => decision(intruder, transactionID!));
+    expect(error?.status).toBe(400);
+    expect(error?.message).toBe('Invalid user');
+  });
+
   it('/api/oauth/access_token (POST)', async () => {
     const { transactionID } = await getAuthorize(axios, oauth);
 
@@ -274,6 +286,40 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userInfo.data.email).toEqual(testEmail);
+  });
+
+  it('/api/oauth/access_token (POST) - code issued for another client should fail', async () => {
+    // A code minted for `oauth` must not be redeemable with a different client's credentials
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const code = new URL(res.headers.location).searchParams.get('code');
+
+    const otherClient = await oauthCreate(oauthData);
+    const otherSecret = await generateOAuthSecret(otherClient.data.clientId);
+
+    const error = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: otherClient.data.clientId,
+          client_secret: otherSecret.data.secret,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(error?.status).toBe(401);
+    expect(error?.message).toBe('Invalid client');
+
+    await oauthDelete(otherClient.data.clientId);
   });
 
   it('/api/oauth/access_token (POST) - has decision', async () => {

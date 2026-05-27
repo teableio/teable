@@ -290,6 +290,7 @@ describe('DeleteTableHandler', () => {
     result._unsafeUnwrap();
 
     expect(schemaRepo.deleted).toHaveLength(0);
+    expect(sideEffectService.calls).toBe(0);
     expect(schemaRepo.deleteModes).toEqual(['soft']);
     expect(repo.deleted).toHaveLength(1);
     expect(repo.deleteModes).toEqual(['soft']);
@@ -305,7 +306,7 @@ describe('DeleteTableHandler', () => {
     ]);
   });
 
-  it('publishes side-effect post-persist events without returning them in the response payload', async () => {
+  it('publishes permanent-delete side-effect post-persist events without returning them in the response payload', async () => {
     const table = buildTable('s');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
@@ -333,6 +334,7 @@ describe('DeleteTableHandler', () => {
     const command = DeleteTableCommand.create({
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
+      mode: 'permanent',
     })._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), command);
@@ -342,7 +344,7 @@ describe('DeleteTableHandler', () => {
 
     expect(responseEventNames).not.toContain('TableActionTriggerRequested');
     expect(publishedEventNames).toContain('TableActionTriggerRequested');
-    expect(publishedEventNames).toContain('TableTrashed');
+    expect(publishedEventNames).toContain('TableDeleted');
   });
 
   it('permanently deletes tables and publishes TableDeleted', async () => {
@@ -376,7 +378,7 @@ describe('DeleteTableHandler', () => {
     expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
   });
 
-  it('permanently deletes an already trashed table without rerunning side effects', async () => {
+  it('runs side effects when permanently deleting an already trashed table', async () => {
     const table = buildTable('q');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
@@ -402,7 +404,7 @@ describe('DeleteTableHandler', () => {
     const result = await handler.handle(createContext(), command);
     result._unsafeUnwrap();
 
-    expect(sideEffectService.calls).toBe(0);
+    expect(sideEffectService.calls).toBe(1);
     expect(schemaRepo.deleteModes).toEqual(['permanent']);
     expect(repo.deleteModes).toEqual(['permanent']);
     expect(repo.provisionStateChanges.map(({ state }) => state)).toEqual(['deleting', 'ready']);
@@ -424,6 +426,7 @@ describe('DeleteTableHandler', () => {
     const commandResult = DeleteTableCommand.create({
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
+      mode: 'permanent',
     });
     commandResult._unsafeUnwrap();
 
@@ -452,6 +455,7 @@ describe('DeleteTableHandler', () => {
     const commandResult = DeleteTableCommand.create({
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
+      mode: 'permanent',
     });
     commandResult._unsafeUnwrap();
 
