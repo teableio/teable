@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UseGuards, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Res,
+  UseGuards,
+  Request,
+  UseInterceptors,
+} from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
@@ -10,7 +20,9 @@ import {
   type ICopyBaseShareVo,
 } from '@teable/openapi';
 import { Response } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
+import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -19,6 +31,10 @@ import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { PermissionService } from '../auth/permission.service';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
+import { BaseDuplicateV2Service } from '../base/base-duplicate-v2.service';
+import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import type { IBaseShareInfo } from './base-share-auth.service';
 import { BaseShareAuthService } from './base-share-auth.service';
 import { BaseShareAuthLocalGuard } from './guard/base-share-auth-local.guard';
@@ -30,7 +46,9 @@ export class BaseShareOpenController {
     private readonly baseShareAuthService: BaseShareAuthService,
     private readonly prismaService: PrismaService,
     private readonly baseDuplicateService: BaseDuplicateService,
-    private readonly permissionService: PermissionService
+    private readonly baseDuplicateV2Service: BaseDuplicateV2Service,
+    private readonly permissionService: PermissionService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @HttpCode(200)
@@ -148,7 +166,9 @@ export class BaseShareOpenController {
   }
 
   @HttpCode(200)
-  @UseGuards(BaseShareAuthGuard, PermissionGuard)
+  @UseV2Feature('duplicateBase')
+  @UseGuards(BaseShareAuthGuard, V2FeatureGuard, PermissionGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   @Post('/:shareId/base/copy')
@@ -205,21 +225,27 @@ export class BaseShareOpenController {
       nodes = [nodeId];
     }
 
-    // Copy the base using BaseDuplicateService
     // allowCrossBase = false to disconnect cross-base links
     // duplicateMode = CopyShareBase to handle node relationships correctly
-    const { base, recordsLength } = await this.baseDuplicateService.duplicateBase(
-      {
-        fromBaseId,
-        spaceId,
-        name,
-        withRecords,
-        nodes,
-        baseId: targetBaseId,
-      },
-      false, // allowCrossBase = false
-      BaseDuplicateMode.CopyShareBase
-    );
+    const duplicateRo = {
+      fromBaseId,
+      spaceId,
+      name,
+      withRecords,
+      nodes,
+      baseId: targetBaseId,
+    };
+    const { base, recordsLength } = this.cls.get('useV2')
+      ? await this.baseDuplicateV2Service.duplicateBase(
+          duplicateRo,
+          false,
+          BaseDuplicateMode.CopyShareBase
+        )
+      : await this.baseDuplicateService.duplicateBase(
+          duplicateRo,
+          false,
+          BaseDuplicateMode.CopyShareBase
+        );
 
     // Emit audit log for share base copy
     await this.baseDuplicateService.emitShareBaseCopyAuditLog(

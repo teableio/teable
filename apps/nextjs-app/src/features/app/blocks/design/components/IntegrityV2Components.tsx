@@ -307,7 +307,7 @@ const ManualRepairFieldInput = ({
   return <Input value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} />;
 };
 
-const ManualRepairDialog = ({
+export const ManualRepairDialog = ({
   result,
   triggerLabel,
   onSubmit,

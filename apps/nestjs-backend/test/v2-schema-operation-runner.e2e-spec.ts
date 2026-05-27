@@ -1,13 +1,19 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import { createTable as apiCreateTable } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
-import { initApp, permanentDeleteTable } from './utils/init-app';
+import {
+  createField,
+  createRecords,
+  initApp,
+  permanentDeleteTable,
+  updateRecord,
+} from './utils/init-app';
 
 process.env.V2_SCHEMA_OPERATION_RUNNER_POLL_INTERVAL_MS = '50';
 process.env.V2_SCHEMA_OPERATION_RUNNER_MAX_BATCH = '5';
@@ -28,6 +34,8 @@ const parseDbTableName = (dbTableName: string) => {
 
   return { schemaName, tableName };
 };
+
+const quoteIdent = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
 
 const tableExists = async (client: IRawQueryClient, dbTableName: string) => {
   const { schemaName, tableName } = parseDbTableName(dbTableName);
@@ -80,6 +88,40 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
       dbProvider.columnInfo(dbTableName)
     );
     return rows.map((row) => row.name);
+  };
+
+  const createFailingUpdateTrigger = async (dbTableName: string, suffix: string) => {
+    const { schemaName, tableName } = parseDbTableName(dbTableName);
+    const functionName = `fail_record_update_${suffix}`;
+    const triggerName = `fail_record_update_${suffix}`;
+    const qualifiedFunction = `${quoteIdent(schemaName)}.${quoteIdent(functionName)}`;
+    const qualifiedTable = `${quoteIdent(schemaName)}.${quoteIdent(tableName)}`;
+
+    await dataPrisma.$executeRawUnsafe(`
+      CREATE OR REPLACE FUNCTION ${qualifiedFunction}()
+      RETURNS trigger
+      LANGUAGE plpgsql
+      AS $$
+      BEGIN
+        RAISE EXCEPTION 'e2e simulated data write failure after metadata update';
+      END;
+      $$;
+    `);
+    await dataPrisma.$executeRawUnsafe(`
+      CREATE TRIGGER ${quoteIdent(triggerName)}
+      BEFORE UPDATE ON ${qualifiedTable}
+      FOR EACH ROW
+      EXECUTE FUNCTION ${qualifiedFunction}();
+    `);
+
+    return async () => {
+      await dataPrisma.$executeRawUnsafe(`
+        DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualifiedTable};
+      `);
+      await dataPrisma.$executeRawUnsafe(`
+        DROP FUNCTION IF EXISTS ${qualifiedFunction}();
+      `);
+    };
   };
 
   const waitForRecoveredTable = async (table: ITableFullVo, timeoutMs = 8_000) => {
@@ -172,5 +214,125 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
     await expect(getPhysicalColumns(table.dbTableName)).resolves.toContain(
       primaryField!.dbFieldName
     );
+  });
+
+  it('keeps a table ready when a typecast record update metadata change succeeds but data write fails', async () => {
+    const createRes = await apiCreateTable(baseId, {
+      name: 'Record update data failure availability',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        {
+          name: 'Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [{ name: 'Open', color: 'blue' }],
+          },
+        },
+      ],
+      records: [],
+    });
+    expect(createRes.status).toBe(201);
+    expect(createRes.headers['x-teable-v2']).toBe('true');
+
+    const table = createRes.data;
+    createdTables.push(table);
+    const statusField = table.fields.find((field) => field.name === 'Status');
+    expect(statusField?.id).toBeTruthy();
+    const { records } = await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [{ fields: { Name: 'Task 1', Status: 'Open' } }],
+    });
+    const recordId = records[0]?.id;
+    expect(recordId).toBeTruthy();
+
+    const cleanupTrigger = await createFailingUpdateTrigger(table.dbTableName, table.id);
+    try {
+      await updateRecord(
+        table.id,
+        recordId!,
+        {
+          record: {
+            fields: {
+              [statusField!.id]: 'Blocked',
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        },
+        500
+      );
+    } finally {
+      await cleanupTrigger();
+    }
+
+    const [tableMeta, operation] = await Promise.all([
+      metaPrisma.tableMeta.findUniqueOrThrow({
+        where: { id: table.id },
+        select: { provisionState: true },
+      }),
+      metaPrisma.schemaOperation.findFirst({
+        where: { tableId: table.id, type: 'table.update' },
+        orderBy: { createdTime: 'desc' },
+      }),
+    ]);
+
+    expect(tableMeta.provisionState).toBe(ProvisionState.ready);
+    expect(operation?.phase).toBe('error');
+    expect(['error', 'dead']).toContain(operation?.status);
+    await expect(tableExists(dataPrisma, table.dbTableName)).resolves.toBe(true);
+  });
+
+  it('keeps a table ready when computed field backfill fails during a schema update', async () => {
+    const createRes = await apiCreateTable(baseId, {
+      name: 'Computed backfill data failure availability',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: 'Amount', type: FieldType.Number },
+      ],
+      records: [],
+    });
+    expect(createRes.status).toBe(201);
+    expect(createRes.headers['x-teable-v2']).toBe('true');
+
+    const table = createRes.data;
+    createdTables.push(table);
+    const amountField = table.fields.find((field) => field.name === 'Amount');
+    expect(amountField?.id).toBeTruthy();
+
+    await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [{ fields: { Name: 'Task 1', Amount: 2 } }],
+    });
+
+    const cleanupTrigger = await createFailingUpdateTrigger(table.dbTableName, table.id);
+    try {
+      await createField(
+        table.id,
+        {
+          name: 'Computed Amount',
+          type: FieldType.Formula,
+          options: { expression: `{${amountField!.id}} * 2` },
+        },
+        500
+      );
+    } finally {
+      await cleanupTrigger();
+    }
+
+    const [tableMeta, operation] = await Promise.all([
+      metaPrisma.tableMeta.findUniqueOrThrow({
+        where: { id: table.id },
+        select: { provisionState: true },
+      }),
+      metaPrisma.schemaOperation.findFirst({
+        where: { tableId: table.id, type: 'table.update' },
+        orderBy: { createdTime: 'desc' },
+      }),
+    ]);
+
+    expect(tableMeta.provisionState).toBe(ProvisionState.ready);
+    expect(operation?.phase).toBe('error');
+    expect(['error', 'dead']).toContain(operation?.status);
+    await expect(tableExists(dataPrisma, table.dbTableName)).resolves.toBe(true);
   });
 });

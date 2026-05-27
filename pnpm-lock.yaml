@@ -267,6 +267,9 @@ importers:
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../../packages/v2/di
+      '@teable/v2-dottea':
+        specifier: workspace:*
+        version: link:../../packages/v2/dottea
       '@teable/v2-import':
         specifier: workspace:*
         version: link:../../packages/v2/import

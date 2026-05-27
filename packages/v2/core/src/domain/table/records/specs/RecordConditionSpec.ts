@@ -4,6 +4,9 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import type { Field } from '../../fields/Field';
+import { FieldType } from '../../fields/FieldType';
+import { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
+import { LookupField } from '../../fields/types/LookupField';
 import type { TableRecord } from '../TableRecord';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { RecordConditionOperator } from './RecordConditionOperators';
@@ -23,8 +26,23 @@ type ComparisonValue = Primitive | ReadonlyArray<Primitive> | RecordConditionDat
 const isPrimitive = (value: unknown): value is Primitive =>
   typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 
+const resolveEffectiveConditionField = (field: Field): Field => {
+  const fieldType = field.type();
+  if (fieldType.equals(FieldType.lookup())) {
+    const innerResult = (field as LookupField).innerField();
+    return innerResult.isOk() ? resolveEffectiveConditionField(innerResult.value) : field;
+  }
+
+  if (fieldType.equals(FieldType.conditionalLookup())) {
+    const innerResult = (field as ConditionalLookupField).innerField();
+    return innerResult.isOk() ? resolveEffectiveConditionField(innerResult.value) : field;
+  }
+
+  return field;
+};
+
 const isUserLikeField = (field: Field): boolean => {
-  const type = field.type().toString();
+  const type = resolveEffectiveConditionField(field).type().toString();
   return type === 'user' || type === 'link' || type === 'createdBy' || type === 'lastModifiedBy';
 };
 
@@ -178,6 +196,54 @@ const evaluateScalarOperator = (
   recordValue: unknown,
   comparisonValue: Primitive
 ): boolean => {
+  const recordValues = toPrimitiveArray(recordValue);
+  if (recordValues && Array.isArray(recordValue)) {
+    if (operator === 'is') return recordValues.includes(comparisonValue);
+    if (operator === 'isNot') return !recordValues.includes(comparisonValue);
+
+    if (operator === 'contains' || operator === 'doesNotContain') {
+      if (typeof comparisonValue !== 'string') return false;
+      const contains = recordValues.some(
+        (value) => typeof value === 'string' && value.includes(comparisonValue)
+      );
+      return operator === 'contains' ? contains : !contains;
+    }
+
+    if (
+      operator === 'isGreater' ||
+      operator === 'isGreaterEqual' ||
+      operator === 'isLess' ||
+      operator === 'isLessEqual'
+    ) {
+      if (typeof comparisonValue !== 'number') return false;
+      return recordValues.some((value) => {
+        if (typeof value !== 'number') return false;
+        if (operator === 'isGreater') return value > comparisonValue;
+        if (operator === 'isGreaterEqual') return value >= comparisonValue;
+        if (operator === 'isLess') return value < comparisonValue;
+        return value <= comparisonValue;
+      });
+    }
+
+    if (
+      operator === 'isBefore' ||
+      operator === 'isAfter' ||
+      operator === 'isOnOrBefore' ||
+      operator === 'isOnOrAfter'
+    ) {
+      const comparisonTimestamp = parseTimestamp(comparisonValue);
+      if (comparisonTimestamp == null) return false;
+      return recordValues.some((value) => {
+        const recordTimestamp = parseTimestamp(value);
+        if (recordTimestamp == null) return false;
+        if (operator === 'isBefore') return recordTimestamp < comparisonTimestamp;
+        if (operator === 'isAfter') return recordTimestamp > comparisonTimestamp;
+        if (operator === 'isOnOrBefore') return recordTimestamp <= comparisonTimestamp;
+        return recordTimestamp >= comparisonTimestamp;
+      });
+    }
+  }
+
   const normalizedValue = isPrimitive(recordValue) ? recordValue : undefined;
 
   if (operator === 'is') return Object.is(normalizedValue, comparisonValue);

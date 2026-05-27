@@ -153,7 +153,7 @@ describe('UpdateFromSelectBuilder', () => {
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
     `
     );
   });
@@ -181,6 +181,32 @@ describe('UpdateFromSelectBuilder', () => {
 
     // Verify __version is incremented in the SET clause
     expect(updateResult.value.sql).toContain('"__version" = "u"."__version" + 1');
+  });
+
+  it('can omit __version increment for externally versioned field chunks', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createFormulaTable();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.buildWithReturning({
+      table,
+      fieldIds: [formulaFieldId],
+      selectQuery: selectResult.value,
+      incrementVersion: false,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    expect(updateResult.value.compiled.sql).not.toContain('"__version" =');
+    expect(updateResult.value.compiled.sql).toContain('"u"."__version" as "__old_version"');
   });
 
   it('builds UPDATE FROM SELECT with dirtyFilter using INNER JOIN for better query planning', () => {
@@ -232,7 +258,7 @@ describe('UpdateFromSelectBuilder', () => {
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
     `
     );
   });
@@ -374,10 +400,61 @@ describe('UpdateFromSelectBuilder', () => {
 
       // Verify RETURNING includes the formula column
       expect(updateResult.value.compiled.sql).toContain('"u"."col_score"');
+      expect(updateResult.value.compiled.sql).toContain(
+        ', "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "__old" where "__old"."__id" = "c"."__id"'
+      );
+      expect(updateResult.value.compiled.sql).toContain('"__old"."col_score" as "__old_col_score"');
+      expect(updateResult.value.oldColumnAliases.get('col_score')).toBe('__old_col_score');
 
       // Verify columnToFieldId mapping
       const fieldIdForColumn = updateResult.value.columnToFieldId.get('col_score');
       expect(fieldIdForColumn).toBe(formulaFieldId.toString());
+    });
+
+    it('injects old table into the outer UPDATE FROM scope when source select has nested where clauses', () => {
+      const db = createTestDb();
+      const { table, formulaFieldId } = createFormulaTable();
+
+      const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+        .from(table)
+        .select([formulaFieldId]);
+      const selectResult = selectBuilder.build();
+      expect(selectResult.isOk()).toBe(true);
+      if (selectResult.isErr()) return;
+
+      const dirtySubquery = db
+        .selectFrom('tmp_computed_dirty as d')
+        .select('d.record_id')
+        .where('d.table_id', '=', table.id().toString());
+
+      const filteredSelect = selectResult.value.where(
+        `${COMPUTED_TABLE_ALIAS}.__id`,
+        'in',
+        dirtySubquery
+      );
+
+      const builder = new UpdateFromSelectBuilder(db);
+      const updateResult = builder.buildWithReturning({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: filteredSelect,
+      });
+
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      const sql = updateResult.value.compiled.sql;
+      const sourceAliasIndex = sql.lastIndexOf(') as "c"');
+      const oldTableIndex = sql.indexOf(
+        ', "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "__old" where "__old"."__id" = "c"."__id"'
+      );
+
+      expect(sourceAliasIndex).toBeGreaterThan(-1);
+      expect(oldTableIndex).toBeGreaterThan(sourceAliasIndex);
+      expect(sql).toContain('where "t"."__id" in (select "d"."record_id"');
+      expect(sql).not.toContain(
+        'from "tmp_computed_dirty" as "d", "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "__old"'
+      );
     });
   });
 });

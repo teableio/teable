@@ -51,8 +51,8 @@ describe('PostgresSchemaOperationRepository (pg)', () => {
     const now = new Date('2026-04-28T00:00:00.000Z');
     await repository.upsert(context(), {
       type: 'table.create',
-      status: 'pending',
-      phase: 'metadata_pending',
+      status: 'error',
+      phase: 'error',
       target: {
         resourceType: 'table',
         resourceId: 'tblClaim000000001',
@@ -60,6 +60,7 @@ describe('PostgresSchemaOperationRepository (pg)', () => {
       },
       idempotencyKey: 'claim-create:table:tblClaim000000001',
       payload: { tableId: 'tblClaim000000001' },
+      lastError: 'schema repair needed',
       nextRunAt: now,
     });
     await repository.upsert(context(), {
