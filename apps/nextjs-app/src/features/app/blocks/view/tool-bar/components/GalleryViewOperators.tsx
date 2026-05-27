@@ -1,35 +1,20 @@
-import {
-  ArrowUpDown,
-  Filter as FilterIcon,
-  Share2,
-  Settings,
-  Plus,
-  AlertTriangle,
-} from '@teable/icons';
+import { ArrowUpDown, Filter as FilterIcon, Share2, Settings, AlertTriangle } from '@teable/icons';
 import type { GalleryView } from '@teable/sdk';
-import {
-  Sort,
-  ViewFilter,
-  VisibleFields,
-  useTablePermission,
-  CreateRecordModal,
-  useIsReadOnlyPreview,
-} from '@teable/sdk';
+import { Sort, ViewFilter, VisibleFields } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
+import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as GalleryView | undefined;
-  const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
-  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
 
   const onCoverFieldChange = (fieldId: string | null) => {
@@ -47,18 +32,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   if (!view) return null;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      {!isReadOnlyPreview && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <VisibleFields
         footer={
           <>
@@ -143,6 +117,6 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           </ToolBarButton>
         )}
       </Sort>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

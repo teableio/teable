@@ -32,7 +32,7 @@ export type TableSchemaOperationOptions = {
 };
 
 export type BeginTableSchemaOperationOptions = TableSchemaOperationOptions & {
-  state?: Extract<TableProvisionState, 'pending' | 'deleting'>;
+  state?: Extract<TableProvisionState, 'pending' | 'ready' | 'deleting'>;
 };
 
 export type FailTableSchemaOperationOptions = Omit<TableSchemaOperationOptions, 'lastError'> & {
@@ -159,6 +159,29 @@ export const failTableSchemaOperation = async (
     'error',
     operationOptions(
       options,
+      options.payload === undefined ? undefined : tablePayload(table, options.payload),
+      'error'
+    )
+  );
+
+export const failRecoverableTableSchemaOperation = async (
+  unitOfWork: IUnitOfWork,
+  tableRepository: ITableRepository,
+  context: IExecutionContext,
+  table: Table,
+  options: FailTableSchemaOperationOptions
+): Promise<Result<void, DomainError>> =>
+  setTableProvisionState(
+    unitOfWork,
+    tableRepository,
+    context,
+    table,
+    'ready',
+    operationOptions(
+      {
+        ...options,
+        status: options.status ?? 'error',
+      },
       options.payload === undefined ? undefined : tablePayload(table, options.payload),
       'error'
     )

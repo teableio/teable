@@ -55,6 +55,7 @@ import {
   SentrySpanProcessor,
   wrapContextManagerClass,
 } from '@sentry/opentelemetry';
+import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
 
 // Use webpack's special require that bypasses bundling, falling back to standard require
 // This is needed because webpack transforms import.meta.url and createRequire in ways
@@ -267,12 +268,30 @@ const httpClientActiveRequestsProcessor: SpanProcessor = {
   forceFlush: () => Promise.resolve(),
 };
 
+const teableDbSpanAttributeProcessor: SpanProcessor = {
+  onStart(span): void {
+    const attributes = (span as unknown as { attributes?: Record<string, unknown> }).attributes;
+    const dbSystem = attributes?.['db.system'];
+    if (dbSystem !== 'postgresql' && dbSystem !== 'postgres') {
+      return;
+    }
+
+    setTeableDbSpanAttributesFromSpan(
+      span as unknown as Parameters<typeof setTeableDbSpanAttributesFromSpan>[0]
+    );
+  },
+  onEnd: () => undefined,
+  shutdown: () => Promise.resolve(),
+  forceFlush: () => Promise.resolve(),
+};
+
 // Span processors - NoopSpanProcessor ensures trace context is always generated
 // even when no exporter is configured (needed for trace ID in logs)
 const spanProcessors = [
   ...(hasSentry ? [new SentrySpanProcessor()] : []),
   ...(traceExporter ? [createSmartBatchProcessor(traceExporter)] : [new NoopSpanProcessor()]),
   httpClientActiveRequestsProcessor,
+  teableDbSpanAttributeProcessor,
 ];
 
 // When Sentry is enabled, use SentryPropagator and SentryContextManager to ensure
@@ -351,6 +370,9 @@ const otelSDK = new opentelemetry.NodeSDK({
     new PgInstrumentation({
       enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
       requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
+      requestHook: (span, queryInfo) => {
+        setTeableDbSpanAttributes(span, queryInfo.connection);
+      },
     }),
     new PinoInstrumentation(),
     new RuntimeNodeInstrumentation(),

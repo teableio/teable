@@ -818,7 +818,9 @@
     "totalAttachmentSize": "附件总大小"
   },
   "selectionStatistic": {
-    "tip": "仅统计「数字类型」字段。"
+    "tip": "仅统计「数字类型」字段。",
+    "copyTip": "点击复制",
+    "copied": "已复制"
   },
   "baseQuery": {
     "add": "添加",
@@ -930,6 +932,31 @@
     "automationNodeNeedTest": "自动化节点需要测试",
     "automationNodeTestOutdated": "自动化节点测试已过期",
     "invalidToken": "无效的令牌",
+    "limit": {
+      "fieldOptionsMaxBytes": "字段选项过大，最大允许 {{max}} 字节。",
+      "selectChoicesMax": "该选择字段的选项过多，最多允许 {{max}} 个选项。",
+      "selectChoiceNameMaxLength": "选择项名称过长，最多允许 {{max}} 个字符。",
+      "selectDefaultValuesMax": "该选择字段的默认值过多，最多允许 {{max}} 个默认值。",
+      "cellValueMaxBytes": "单元格值过大，最大允许 {{max}} 字节。",
+      "recordFieldsMaxBytes": "记录内容过大，最大允许 {{max}} 字节。",
+      "recordsPerMutationMax": "本次操作的记录数过多，最多一次处理 {{max}} 条记录。",
+      "computedCellValueMaxBytes": "计算单元格值过大，最大允许 {{max}} 字节。",
+      "formulaMaxLength": "公式过长，最多允许 {{max}} 个字符。",
+      "tablesPerBaseMax": "该 base 已达到表数量限制，最多允许 {{max}} 张表。",
+      "fieldsPerTableMax": "该表字段过多，最多允许 {{max}} 个字段。",
+      "rowsPerTableMax": "该表记录过多，最多允许 {{max}} 条记录。",
+      "viewsPerTableMax": "该表已达到视图数量限制，最多允许 {{max}} 个视图。",
+      "createTableFieldsMax": "新建表字段过多，最多允许 {{max}} 个字段。",
+      "createTableViewsMax": "新建表视图过多，最多允许 {{max}} 个视图。",
+      "createTableRecordsMax": "新建表记录过多，最多允许 {{max}} 条记录。",
+      "viewFilterItemsMax": "该视图的筛选条件过多，最多允许 {{max}} 个条件。",
+      "viewFilterDepthMax": "该视图的筛选嵌套过深，最多允许 {{max}} 层。",
+      "viewSortItemsMax": "该视图的排序规则过多，最多允许 {{max}} 条规则。",
+      "viewGroupItemsMax": "该视图的分组规则过多，最多允许 {{max}} 条规则。",
+      "viewOptionsMaxBytes": "视图配置过大，最大允许 {{max}} 字节。",
+      "nameMaxLength": "名称过长，最多允许 {{max}} 个字符。",
+      "descriptionMaxLength": "描述过长，最多允许 {{max}} 个字符。"
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
@@ -1052,8 +1079,8 @@
       "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
       "notBelongToOrg": "此空间不属于该组织",
       "invalidSpaceIds": "空间ID无效: {{spaceIds}}",
-      "ownedSpaceLimitExceeded": "您已达到可管理的空间数量上限（{{max}}）",
-      "ownedSpaceLimitExceededOther": "{{name}} 已达到可管理的空间数量上限（{{max}}）"
+      "freeOwnedSpaceLimitExceeded": "您已达到可拥有的免费空间数量上限（{{max}}），请升级现有空间或删除一个免费空间后再创建新空间。",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} 已达到可拥有的免费空间数量上限（{{max}}）。"
     },
     "base": {
       "notFound": "数据库不存在",
@@ -1102,6 +1129,7 @@
     "share": {
       "incorrectPassword": "密码错误",
       "notAllowedToSubmit": "不允许提交表单",
+      "notAllowedToEdit": "该分享视图不允许编辑",
       "viewRequired": "此操作需要视图",
       "hiddenFieldsSubmissionNotAllowed": "表单包含隐藏字段，不允许提交",
       "submitRecordsError": "记录提交失败",
@@ -1115,7 +1143,8 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "此共享未启用密码限制",
       "shareViewNotFound": "共享视图不存在或已禁用分享",
-      "linkFieldNotFound": "关联字段不存在"
+      "linkFieldNotFound": "关联字段不存在",
+      "loginRequired": "请登录后再编辑此分享视图"
     },
     "baseShare": {
       "notFound": "Base 分享不存在或分享已禁用",
@@ -1217,6 +1246,7 @@
       "recordMapNotFound": "在表 {{tableName}} 中找不到字段 {{fieldName}} 的记录",
       "forbidDeletePrimaryField": "不允许删除主字段",
       "foreignTableIdInvalid": "关联表 {{foreignTableId}} 无效",
+      "crossSpaceLinkForbidden": "不支持跨空间引用。请选择同一空间内的表（目标 {{foreignTableId}} 位于其他空间）。",
       "relationshipInvalid": "关联关系 {{relationship}} 无效",
       "linkFieldIdInvalid": "关联字段 {{linkFieldId}} 无效",
       "lookupFieldIdInvalid": "查找字段 {{lookupFieldId}} 无效",

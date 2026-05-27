@@ -12,7 +12,6 @@ import {
   ViewType,
 } from '@teable/core';
 import type { IGridColumnMeta, IFilter, IGroup, ISortItem } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { StatisticsFunc } from '@teable/openapi';
@@ -41,6 +40,8 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
@@ -65,6 +66,7 @@ type IStatisticsData = {
   // so this is undefined unless the caller is paginating.
   sort?: ISortItem[];
 };
+
 /**
  * Version 2 implementation of the aggregation service
  * This is a placeholder implementation that will be developed in the future
@@ -77,7 +79,7 @@ export class AggregationService implements IAggregationService {
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
     private readonly prisma: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -85,6 +87,22 @@ export class AggregationService implements IAggregationService {
     private readonly recordPermissionService: RecordPermissionService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
+
+  private async queryDataPrisma<T>(
+    tableId: string,
+    query: string,
+    ...values: unknown[]
+  ): Promise<T> {
+    return await this.databaseRouter.queryDataPrismaForTable<T>(tableId, query, ...values);
+  }
+
+  private async withDataPrismaTransaction<T>(
+    tableId: string,
+    fn: (prisma: IDataPrismaQueryExecutor) => Promise<T>
+  ): Promise<T> {
+    return await this.databaseRouter.dataPrismaTransactionForTable(tableId, fn);
+  }
+
   /**
    * Perform aggregation operations on table data
    * @param params - Parameters for aggregation including tableId, field IDs, view settings, and search
@@ -127,7 +145,7 @@ export class AggregationService implements IAggregationService {
     const isPaginated = take !== undefined;
     const baseSort = isPaginated ? [...(groupBy ?? []), ...(resolvedSort ?? [])] : undefined;
     const defaultOrderField = isPaginated
-      ? await this.recordService.getBasicOrderIndexField(dbTableName, withView?.viewId)
+      ? await this.recordService.getBasicOrderIndexField(tableId, dbTableName, withView?.viewId)
       : undefined;
 
     const rawAggregationData = await this.handleAggregation({
@@ -325,7 +343,7 @@ export class AggregationService implements IAggregationService {
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
-    return this.dataPrismaService.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
+    return this.queryDataPrisma<{ [field: string]: unknown }[]>(tableId, aggSql);
   }
   /**
    * Perform grouped aggregation operations
@@ -621,7 +639,7 @@ export class AggregationService implements IAggregationService {
     const rawQuery = qb.toQuery();
 
     this.logger.debug('handleRowCount raw query: %s', rawQuery);
-    return await this.dataPrismaService.$queryRawUnsafe<{ count: number }[]>(rawQuery);
+    return await this.queryDataPrisma<{ count: number }[]>(tableId, rawQuery);
   }
 
   private async fetchStatisticsParams(params: {
@@ -874,7 +892,7 @@ export class AggregationService implements IAggregationService {
 
     const sql = queryBuilder.toQuery();
 
-    const result = await this.dataPrismaService.$queryRawUnsafe<{ count: number }[] | null>(sql);
+    const result = await this.queryDataPrisma<{ count: number }[] | null>(tableId, sql);
 
     return {
       count: result ? Number(result[0]?.count) : 0,
@@ -941,7 +959,11 @@ export class AggregationService implements IAggregationService {
       Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
     );
 
-    const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
+    const basicSortIndex = await this.recordService.getBasicOrderIndexField(
+      tableId,
+      dbTableName,
+      viewId
+    );
 
     const filterQuery = (qb: Knex.QueryBuilder) => {
       this.dbProvider
@@ -993,7 +1015,7 @@ export class AggregationService implements IAggregationService {
     this.logger.debug('getRecordIndexBySearchOrder sql: %s', sql);
 
     try {
-      return await this.dataPrismaService.$tx(async (prisma) => {
+      return await this.withDataPrismaTransaction(tableId, async (prisma) => {
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
 
         // no result found
@@ -1035,9 +1057,7 @@ export class AggregationService implements IAggregationService {
         this.logger.debug('getRecordIndexBySearchOrder indexSql: %s', indexSql);
         const indexResult =
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          await this.dataPrismaService.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
-            indexSql
-          );
+          await prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(indexSql);
 
         if (indexResult?.length === 0) {
           return null;
@@ -1102,7 +1122,7 @@ export class AggregationService implements IAggregationService {
     this.logger.debug('getRecordIndex sql: %s', sql);
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const result = await this.dataPrismaService.$queryRawUnsafe<{ row_num: number }[]>(sql);
+    const result = await this.queryDataPrisma<{ row_num: number }[]>(tableId, sql);
 
     if (!result?.length) {
       return null;
@@ -1227,11 +1247,9 @@ export class AggregationService implements IAggregationService {
       endField: endField as DateFieldDto,
       dbTableName: viewCte || dbTableName,
     });
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { date: Date | string; count: number; ids: string[] | string }[]
-      >(queryBuilder.toQuery());
+    const result = await this.queryDataPrisma<
+      { date: Date | string; count: number; ids: string[] | string }[]
+    >(tableId, queryBuilder.toQuery());
 
     const countMap = result.reduce(
       (map, item) => {

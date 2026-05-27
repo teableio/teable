@@ -90,6 +90,30 @@ export const dedupeClaimRowsByScope = <T extends OutboxRow>(rows: ReadonlyArray<
   return selected;
 };
 
+const buildProcessingConcurrencyCondition = (
+  alias: string,
+  reclaimBefore: Date,
+  config: ComputedUpdateOutboxConfig
+) => sql<boolean>`
+  (
+    select count(*)::int
+    from ${sql.table(OUTBOX_TABLE)} as active
+    where active."status" = 'processing'
+      and active."locked_at" is not null
+      and active."locked_at" > ${reclaimBefore}
+      and active."base_id" = ${sql.ref(`${alias}.base_id`)}
+  ) < ${config.maxConcurrentProcessingPerBase}
+  and (
+    select count(*)::int
+    from ${sql.table(OUTBOX_TABLE)} as active
+    where active."status" = 'processing'
+      and active."locked_at" is not null
+      and active."locked_at" > ${reclaimBefore}
+      and active."base_id" = ${sql.ref(`${alias}.base_id`)}
+      and active."seed_table_id" = ${sql.ref(`${alias}.seed_table_id`)}
+  ) < ${config.maxConcurrentProcessingPerSeedTable}
+`;
+
 type SeedRecord = {
   tableId: string;
   recordId: string;
@@ -540,6 +564,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                       includeSpaceScope: includeSpaceScopeInSql,
                     })
                   )
+                  .where(buildProcessingConcurrencyCondition('o', reclaimBefore, this.config))
                   .orderBy('o.estimated_complexity', 'asc')
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')

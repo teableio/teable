@@ -10,6 +10,43 @@ import {
 } from '@/features/app/components/field-setting';
 import { useFieldSettingStore } from './useFieldSettingStore';
 
+const fieldTypes = new Set(Object.values(FieldType));
+
+const isFieldSettingCandidate = (field: unknown): field is IFieldVo => {
+  if (!field || typeof field !== 'object') {
+    return false;
+  }
+
+  const candidate = field as Partial<IFieldVo>;
+  return Boolean(
+    candidate.id &&
+      candidate.name &&
+      candidate.type &&
+      fieldTypes.has(candidate.type) &&
+      candidate.cellValueType &&
+      candidate.dbFieldType &&
+      candidate.dbFieldName
+  );
+};
+
+const getFieldSettingField = (field?: IFieldInstance): IFieldVo | undefined => {
+  const fieldVo = fieldVoSchema.safeParse(field);
+  if (fieldVo.success) {
+    return fieldVo.data;
+  }
+
+  if (isFieldSettingCandidate(field)) {
+    return field;
+  }
+
+  if (field) {
+    console.log('errorField:', field);
+    console.error(fieldVo.error);
+  }
+
+  return undefined;
+};
+
 export const FieldSetting = () => {
   const { setting, closeSetting } = useFieldSettingStore();
   const field = useField(setting?.fieldId);
@@ -56,16 +93,12 @@ export const FieldSetting = () => {
     return <></>;
   }
 
-  const fieldVo = fieldVoSchema.safeParse(field);
-  if (!fieldVo.success) {
-    console.log('errorField:', field);
-    console.error(fieldVo.error);
-  }
+  const fieldVo = getFieldSettingField(field);
 
   return (
     <FieldSettingInner
       visible={visible}
-      field={fieldVo.success ? fieldVo.data : undefined}
+      field={fieldVo}
       order={order}
       operator={setting?.operator || FieldOperator.Add}
       onCancel={onCancel}

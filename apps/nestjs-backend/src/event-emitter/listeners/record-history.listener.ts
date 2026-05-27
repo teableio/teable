@@ -3,15 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType, generateRecordHistoryId } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Field } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
 import { isEqual, isObject, isString } from 'lodash';
-import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { DataLoaderService } from '../../features/data-loader/data-loader.service';
 import { rawField2FieldObj } from '../../features/field/model/factory';
-import { DATA_KNEX } from '../../global/knex/knex.module';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { EventEmitterService } from '../event-emitter.service';
 import { Events, RecordUpdateEvent } from '../events';
 
@@ -21,10 +18,9 @@ const SELECT_FIELD_TYPE_SET = new Set([FieldType.SingleSelect, FieldType.Multipl
 @Injectable()
 export class RecordHistoryListener {
   constructor(
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly eventEmitterService: EventEmitterService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     private readonly dataLoaderService: DataLoaderService
   ) {}
 
@@ -129,9 +125,16 @@ export class RecordHistoryListener {
       });
 
       if (recordHistoryList.length) {
-        const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
+        const dataKnex = await this.databaseRouter.dataKnexForTable(tableId);
+        const dataDbUrl = await this.databaseRouter.getDataDatabaseUrlForTable(tableId);
+        const dataDbInternalSchema = new URL(dataDbUrl).searchParams.get('schema') || 'public';
+        const query = dataKnex
+          .withSchema(dataDbInternalSchema)
+          .insert(recordHistoryList)
+          .into('record_history')
+          .toQuery();
 
-        await this.dataPrismaService.txClient().$executeRawUnsafe(query);
+        await this.databaseRouter.executeDataPrismaForTable(tableId, query);
       }
     }
 

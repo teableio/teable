@@ -267,7 +267,10 @@ export const useCreateCellValue2GridDisplay = (
 
         switch (type) {
           case FieldType.SingleLineText: {
-            const { showAs } = field.options;
+            // Defensive ?? {} — observed in the wild where field.options is
+            // null on fields produced by legacy conversion paths. Crashing the
+            // whole grid render is worse than ignoring showAs for one cell.
+            const { showAs } = field.options ?? {};
 
             if (showAs != null) {
               const { type } = showAs;

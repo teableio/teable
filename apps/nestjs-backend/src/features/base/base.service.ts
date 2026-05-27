@@ -2,18 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   ActionPrefix,
   actionPrefixMap,
+  FieldType,
   generateBaseId,
   HttpErrorCode,
+  Relationship,
   Role,
   generateTemplateId,
+  type ILinkFieldOptions,
 } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
   ICreateBaseFromTemplateVo,
   ICreateBaseRo,
+  ICrossSpaceAffectedField,
   IDuplicateBaseRo,
   IGetBasePermissionVo,
   IMoveBaseRo,
@@ -45,10 +48,56 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { CanaryService } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
+import type { BaseImportProgressCallback } from './base-import.service';
+import {
+  computeCrossSpaceFieldLevels,
+  extractForeignTableId,
+  sortByConversionDepth,
+} from './cross-space-detection.util';
 import { replaceDefaultUrl } from './utils';
+
+type IDataPrismaExecutor = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
+};
+
+/**
+ * Stable key for deduplicating orphan link-storage drops across both sides of
+ * a symmetric pair. Both sides reference the same underlying junction (M:N) or
+ * FK column (N:1 / 1:1), so calling cleanForeignKey twice would error on the
+ * second drop. The key matches the storage `cleanForeignKey` actually targets:
+ *
+ *  - M:N (and one-way OneMany pointing at a junction) → `table:${junction}`
+ *  - N:1 / 1:1 / two-way OneMany                       → `column:${host}:${col}`
+ */
+function computeCrossSpaceCleanupKey(opts: ILinkFieldOptions): string {
+  const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = opts;
+  if (
+    relationship === Relationship.ManyMany ||
+    (relationship === Relationship.OneMany && isOneWay)
+  ) {
+    return `table:${fkHostTableName}`;
+  }
+  if (relationship === Relationship.ManyOne) {
+    return `column:${fkHostTableName}:${foreignKeyName}`;
+  }
+  if (relationship === Relationship.OneMany) {
+    return `column:${fkHostTableName}:${selfKeyName}`;
+  }
+  if (relationship === Relationship.OneOne) {
+    const col = foreignKeyName === '__id' ? selfKeyName : foreignKeyName;
+    return `column:${fkHostTableName}:${col}`;
+  }
+  return `unknown:${fkHostTableName}`;
+}
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  txClient?: () => IDataPrismaExecutor;
+};
 
 @Injectable()
 export class BaseService {
@@ -56,19 +105,24 @@ export class BaseService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly baseDuplicateV2Service: BaseDuplicateV2Service,
     private readonly permissionService: PermissionService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly canaryService: CanaryService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
+
+  private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
+    return prisma.txClient?.() ?? prisma;
+  }
 
   private async getRoleByBaseId(baseId: string, spaceId: string) {
     const userId = this.cls.get('user.id');
@@ -164,6 +218,7 @@ export class BaseService {
         createdBy: true,
         createdTime: true,
         lastModifiedTime: true,
+        v2Enabled: true,
       },
       where: {
         deletedTime: null,
@@ -197,14 +252,16 @@ export class BaseService {
     const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
 
     return baseList.map((base) => {
+      const { v2Enabled, ...baseInfo } = base;
       const isCreatorInSpace = validCreatorSet.has(`${base.spaceId}:${base.createdBy}`);
       const displayUserId = isCreatorInSpace ? base.createdBy : spaceOwnerMap.get(base.spaceId);
       const displayUser = displayUserId ? userMap[displayUserId] : undefined;
 
       return {
-        ...base,
+        ...baseInfo,
         role: roleMap[base.id] || roleMap[base.spaceId],
         isShared: sharedBaseIds.has(base.id),
+        v2Status: v2Enabled ? ({ useV2: true, reason: 'new_base' } as const) : undefined,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
         createdUser: displayUser
@@ -252,7 +309,9 @@ export class BaseService {
     try {
       const sqlList = this.dbProvider.createSchema(base.id);
       if (sqlList) {
-        const dataPrisma = await this.dataDbClientManager.dataPrismaForSpace(spaceId);
+        const dataPrisma = await this.dataDbClientManager.dataPrismaForSpace(spaceId, {
+          useTransaction: true,
+        });
         for (const sql of sqlList) {
           await dataPrisma.$executeRawUnsafe(sql);
         }
@@ -405,6 +464,36 @@ export class BaseService {
         return result.base;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
+  }
+
+  async duplicateBaseV2(duplicateBaseRo: IDuplicateBaseRo) {
+    const { fromBaseId } = duplicateBaseRo;
+
+    // Regular permission check, base update permission
+    await this.checkBaseUpdatePermission(fromBaseId);
+
+    this.logger.log(`base-duplicate-service-v2: Start to duplicating base: ${fromBaseId}`);
+
+    const result = await this.baseDuplicateV2Service.duplicateBase(duplicateBaseRo);
+    return result.base;
+  }
+
+  async duplicateBaseV2WithProgress(
+    duplicateBaseRo: IDuplicateBaseRo,
+    onProgress?: BaseImportProgressCallback
+  ) {
+    const { fromBaseId } = duplicateBaseRo;
+
+    await this.checkBaseUpdatePermission(fromBaseId);
+
+    this.logger.log(`base-duplicate-service-v2: Start to duplicating base stream: ${fromBaseId}`);
+
+    return await this.baseDuplicateV2Service.duplicateBase(
+      duplicateBaseRo,
+      true,
+      BaseDuplicateMode.Normal,
+      onProgress
     );
   }
 
@@ -571,7 +660,9 @@ export class BaseService {
 
         await this.dropBase(baseId, tableIds);
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
+        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
+          useTransaction: true,
+        });
         await this.cleanBaseRelatedData(baseId);
       },
       {
@@ -580,25 +671,38 @@ export class BaseService {
     );
   }
 
-  private async permanentEmptyBaseRelatedData(baseId: string) {
-    return await this.prismaService.$tx(
-      async (prisma) => {
-        const tables = await prisma.tableMeta.findMany({
-          where: { baseId },
-          select: { id: true },
-        });
-        const tableIds = tables.map(({ id }) => id);
+  private async permanentEmptyBaseRelatedData(
+    baseId: string,
+    options: {
+      transaction?: 'current';
+      emitRuntimeEvents?: boolean;
+      syncButtonField?: boolean;
+    } = {}
+  ) {
+    const remove = async () => {
+      const prisma = this.prismaService.txClient();
+      const tables = await prisma.tableMeta.findMany({
+        where: { baseId },
+        select: { id: true },
+      });
+      const tableIds = tables.map(({ id }) => id);
 
-        await this.dropBaseTable(tableIds);
-        await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
-        await this.cleanBaseRelatedDataWithoutBase(baseId);
-        await this.cleanRelativeNodesData(baseId);
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
-    );
+      await this.dropBaseTable(tableIds);
+      await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+      await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
+        useTransaction: true,
+      });
+      await this.cleanBaseRelatedDataWithoutBase(baseId);
+      await this.cleanRelativeNodesData(baseId);
+    };
+
+    if (options.transaction === 'current') {
+      return await remove();
+    }
+
+    return await this.prismaService.$tx(remove, {
+      timeout: this.thresholdConfig.bigTransactionTimeout,
+    });
   }
 
   private async cleanBaseRelatedDataWithoutBase(baseId: string) {
@@ -639,7 +743,10 @@ export class BaseService {
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
     if (sql) {
-      return await this.dataPrismaService.$executeRawUnsafe(sql);
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
+      return await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(sql);
     }
     await this.tableOpenApiService.dropTables(tableIds);
   }
@@ -681,13 +788,250 @@ export class BaseService {
   }
 
   async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
-    const { spaceId } = moveBaseRo;
+    const { spaceId: targetSpaceId } = moveBaseRo;
     // check if has the permission to create base in the target space
-    await this.checkBaseCreatePermission(spaceId);
-    await this.prismaService.base.update({
+    await this.checkBaseCreatePermission(targetSpaceId);
+
+    const { affected, levels } = await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId);
+    // Deepest-first: dependent lookup/rollup fields convert first via the
+    // regular convertField path so their values are snapshotted by
+    // cellValue2String before the upstream Link is downgraded. The Link
+    // fields themselves (level 0) then go through convertCrossSpaceLinkToText,
+    // which skips the destructive linkToOther cleanup so the symmetric
+    // partner in the other base survives and can be converted independently
+    // (preserving its own values).
+    const conversionOrder = sortByConversionDepth(affected, levels);
+
+    // Snapshot every converted Link's old options so we can drop the now-
+    // orphaned junction / FK column after the conversion tx commits (cleanup
+    // is intentionally deferred — running it during convert would break the
+    // symmetric partner's read path before its own snapshot lands).
+    const linkOptionsToCleanup: ILinkFieldOptions[] = [];
+
+    try {
+      await this.prismaService.$tx(async () => {
+        for (const f of conversionOrder) {
+          const stillNeedsConversion = await this.prismaService.txClient().field.findFirst({
+            where: { id: f.fieldId, tableId: f.tableId, deletedTime: null },
+            select: { id: true, type: true, isLookup: true, isConditionalLookup: true },
+          });
+          if (!stillNeedsConversion) {
+            // No longer expected with the cross-space convert path (symmetric
+            // partner is preserved). Log if it happens — it would indicate an
+            // unexpected upstream change.
+            this.logger.warn(
+              `[cross-space] move-base field unexpectedly missing: fieldId=${f.fieldId} tableId=${f.tableId} baseId=${f.baseId} reason=${f.reason}`
+            );
+            continue;
+          }
+          if (
+            stillNeedsConversion.type === FieldType.SingleLineText &&
+            !stillNeedsConversion.isLookup &&
+            !stillNeedsConversion.isConditionalLookup
+          ) {
+            continue;
+          }
+          const isRootLink =
+            stillNeedsConversion.type === FieldType.Link &&
+            !stillNeedsConversion.isLookup &&
+            !stillNeedsConversion.isConditionalLookup;
+          if (isRootLink) {
+            const { oldLinkOptions } = await this.fieldOpenApiService.convertCrossSpaceLinkToText(
+              f.tableId,
+              f.fieldId
+            );
+            linkOptionsToCleanup.push(oldLinkOptions);
+          } else {
+            await this.fieldOpenApiService.convertField(f.tableId, f.fieldId, {
+              type: FieldType.SingleLineText,
+            });
+          }
+        }
+        await this.prismaService.txClient().base.update({
+          where: { id: baseId },
+          data: { spaceId: targetSpaceId },
+        });
+      });
+    } catch (error) {
+      this.logger.error(
+        `[cross-space] move-base failed: baseId=${baseId} targetSpaceId=${targetSpaceId} affected=${affected.length} error=${(error as Error).message}`
+      );
+      throw error;
+    }
+
+    // Drop orphan junction / FK storage now that every Link in the pair has
+    // been converted. Best-effort: log warnings on failure rather than abort,
+    // since the move itself already succeeded and leaving orphan storage is
+    // recoverable (manual SQL or future sweep). Dedup by storage target so
+    // both sides of a symmetric pair don't fight over the same DROP.
+    const cleanupSeen = new Set<string>();
+    for (const opts of linkOptionsToCleanup) {
+      const key = computeCrossSpaceCleanupKey(opts);
+      if (cleanupSeen.has(key)) continue;
+      cleanupSeen.add(key);
+      try {
+        await this.fieldOpenApiService.cleanOrphanCrossSpaceLinkStorage(opts);
+      } catch (e) {
+        this.logger.warn(
+          `[cross-space] orphan link storage cleanup failed: key=${key} error=${(e as Error).message}`
+        );
+      }
+    }
+  }
+
+  async previewMoveBaseCrossSpace(
+    baseId: string,
+    targetSpaceId: string
+  ): Promise<ICrossSpaceAffectedField[]> {
+    return (await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId)).affected;
+  }
+
+  private async computeMoveBaseCrossSpaceImpact(
+    baseId: string,
+    targetSpaceId: string
+  ): Promise<{ affected: ICrossSpaceAffectedField[]; levels: Map<string, number> }> {
+    const prisma = this.prismaService.txClient();
+
+    const movingBase = await prisma.base.findUniqueOrThrow({
       where: { id: baseId },
-      data: { spaceId },
+      select: { id: true, name: true, spaceId: true },
     });
+
+    const myTables = await prisma.tableMeta.findMany({
+      where: { baseId, deletedTime: null },
+      select: { id: true, name: true },
+    });
+    if (!myTables.length) return { affected: [], levels: new Map() };
+    const myTableIds = myTables.map((t) => t.id);
+    const myTableNameMap = new Map(myTables.map((t) => [t.id, t.name]));
+    const myTableSet = new Set(myTableIds);
+
+    const fieldSelect = {
+      id: true,
+      name: true,
+      type: true,
+      tableId: true,
+      isLookup: true,
+      isConditionalLookup: true,
+      options: true,
+      lookupOptions: true,
+    } as const;
+
+    // ---- Outgoing: fields in my tables whose foreignTable lives in a different
+    // space than the move destination. Closure (direct + lookup/rollup chains)
+    // is handled by computeCrossSpaceFieldLevels.
+    const outgoingFields = await prisma.field.findMany({
+      where: { tableId: { in: myTableIds }, deletedTime: null },
+      select: fieldSelect,
+    });
+
+    const outgoingForeignIds = uniq(
+      outgoingFields
+        .map((f) => extractForeignTableId(f))
+        .filter((ft): ft is string => !!ft && !myTableSet.has(ft))
+    );
+    const outgoingForeignSpaceMap = outgoingForeignIds.length
+      ? new Map(
+          (
+            await prisma.tableMeta.findMany({
+              where: { id: { in: outgoingForeignIds }, deletedTime: null },
+              select: { id: true, base: { select: { spaceId: true } } },
+            })
+          ).map((t) => [t.id, t.base.spaceId])
+        )
+      : new Map<string, string>();
+
+    const outgoingLevels = computeCrossSpaceFieldLevels({
+      fields: outgoingFields,
+      isForeignInternal: (ft) => myTableSet.has(ft),
+      isForeignCrossSpace: (ft) => {
+        const s = outgoingForeignSpaceMap.get(ft);
+        return Boolean(s && s !== targetSpaceId);
+      },
+    });
+
+    // ---- Incoming: fields in OTHER tables (outside this base) whose
+    // foreignTable points at one of my tables, but only when the source-side
+    // base is not already in the destination space.
+    const incomingDirect = await prisma.field.findMany({
+      where: {
+        tableId: { notIn: myTableIds },
+        deletedTime: null,
+        OR: [
+          { type: FieldType.Link, isLookup: null },
+          { isLookup: true, isConditionalLookup: true },
+          { type: FieldType.ConditionalRollup },
+        ],
+      },
+      select: fieldSelect,
+    });
+    const incomingSourceTableIds = uniq(
+      incomingDirect.flatMap((f) => {
+        const ft = extractForeignTableId(f);
+        return ft && myTableSet.has(ft) ? [f.tableId] : [];
+      })
+    );
+    const incomingSourceTables = incomingSourceTableIds.length
+      ? await prisma.tableMeta.findMany({
+          where: { id: { in: incomingSourceTableIds }, deletedTime: null },
+          select: {
+            id: true,
+            name: true,
+            base: { select: { id: true, name: true, spaceId: true } },
+          },
+        })
+      : [];
+    const crossSpaceSourceTables = incomingSourceTables.filter(
+      (t) => t.base.spaceId !== targetSpaceId
+    );
+    const crossSpaceSourceTableMap = new Map(crossSpaceSourceTables.map((t) => [t.id, t]));
+
+    const incomingFields = crossSpaceSourceTableMap.size
+      ? await prisma.field.findMany({
+          where: {
+            tableId: { in: Array.from(crossSpaceSourceTableMap.keys()) },
+            deletedTime: null,
+          },
+          select: fieldSelect,
+        })
+      : [];
+    const incomingLevels = computeCrossSpaceFieldLevels({
+      fields: incomingFields,
+      isForeignCrossSpace: (ft) => myTableSet.has(ft),
+    });
+
+    const affected: ICrossSpaceAffectedField[] = [];
+    for (const f of outgoingFields) {
+      if (!outgoingLevels.has(f.id)) continue;
+      affected.push({
+        fieldId: f.id,
+        fieldName: f.name,
+        type: f.type,
+        tableId: f.tableId,
+        tableName: myTableNameMap.get(f.tableId) ?? '',
+        baseId: movingBase.id,
+        baseName: movingBase.name,
+        reason: 'direct_link',
+      });
+    }
+    for (const f of incomingFields) {
+      if (!incomingLevels.has(f.id)) continue;
+      const t = crossSpaceSourceTableMap.get(f.tableId);
+      if (!t) continue;
+      affected.push({
+        fieldId: f.id,
+        fieldName: f.name,
+        type: f.type,
+        tableId: f.tableId,
+        tableName: t.name,
+        baseId: t.base.id,
+        baseName: t.base.name,
+        reason: 'incoming_link',
+      });
+    }
+    // FieldIds are globally unique, so outgoing/incoming maps cannot collide.
+    const levels = new Map<string, number>([...outgoingLevels, ...incomingLevels]);
+    return { affected, levels };
   }
 
   async generateBaseErd(baseId: string): Promise<IBaseErdVo> {
@@ -863,7 +1207,11 @@ export class BaseService {
 
     if (existedBaseId) {
       // delete some related data
-      await this.cleanTemplateRelatedData(existedBaseId);
+      await this.cleanTemplateRelatedData(existedBaseId, {
+        transaction: 'current',
+        emitRuntimeEvents: false,
+        syncButtonField: false,
+      });
     }
 
     const {
@@ -890,8 +1238,15 @@ export class BaseService {
     };
   }
 
-  async cleanTemplateRelatedData(baseId: string) {
-    await this.permanentEmptyBaseRelatedData(baseId);
+  async cleanTemplateRelatedData(
+    baseId: string,
+    options: {
+      transaction?: 'current';
+      emitRuntimeEvents?: boolean;
+      syncButtonField?: boolean;
+    } = {}
+  ) {
+    await this.permanentEmptyBaseRelatedData(baseId, options);
   }
 
   /**

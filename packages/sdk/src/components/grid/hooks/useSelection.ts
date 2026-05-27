@@ -9,6 +9,7 @@ interface IUseSelectionProps {
   coordInstance: CoordinateManager;
   selectable?: SelectableType;
   isMultiSelectionEnable?: boolean;
+  isRowClickSelectionEnabled?: boolean;
   getLinearRow: (index: number) => ILinearRow;
   onSelectionChanged: IGridProps['onSelectionChanged'];
   onRowControlClick?: IGridProps['onRowControlClick'];
@@ -21,6 +22,7 @@ export const useSelection = (props: IUseSelectionProps) => {
     coordInstance,
     selectable,
     isMultiSelectionEnable,
+    isRowClickSelectionEnabled = true,
     getLinearRow,
     setActiveCell,
     onSelectionChanged,
@@ -174,6 +176,7 @@ export const useSelection = (props: IUseSelectionProps) => {
       case RegionType.Cell: {
         const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
         if (selectable === SelectableType.Row) {
+          if (!isRowClickSelectionEnabled) return;
           const range = [rowIndex, rowIndex] as IRange;
           if (
             isMultiSelectionEnable &&
