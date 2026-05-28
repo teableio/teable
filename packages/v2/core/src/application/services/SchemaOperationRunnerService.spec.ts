@@ -197,7 +197,11 @@ describe('SchemaOperationRunnerService', () => {
 
   it('marks non-retryable failures dead immediately', async () => {
     const repository = new FakeSchemaOperationRepository(
-      operation({ attempts: 1, maxAttempts: 8 })
+      operation({
+        attempts: 1,
+        maxAttempts: 8,
+        lastError: 'computed backfill failed: too many range table entries',
+      })
     );
     const failure = domainError.notImplemented({
       code: 'schema_operation.repair_not_supported',
@@ -216,6 +220,7 @@ describe('SchemaOperationRunnerService', () => {
       status: 'failed',
       terminal: true,
       retryable: false,
+      originalLastError: 'computed backfill failed: too many range table entries',
     });
     expect(repository.advance).toHaveBeenCalledWith(
       expect.any(Object),
@@ -223,6 +228,14 @@ describe('SchemaOperationRunnerService', () => {
       expect.objectContaining({
         lastError: 'Schema operation with records requires durable record replay payload',
         phase: 'error',
+        result: {
+          schemaOperationFailure: {
+            originalLastError: 'computed backfill failed: too many range table entries',
+            retryable: false,
+            runnerError: 'Schema operation with records requires durable record replay payload',
+            terminal: true,
+          },
+        },
         status: 'dead',
         nextRunAt: now,
       })

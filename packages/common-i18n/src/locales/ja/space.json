@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "ご注意",
+    "duplicateBaseDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "affectedTableSuffix": "（{{count}} 個のフィールド）",
+    "convertAndDuplicate": "変換して複製"
+  },
   "initialSpaceName": "{{name}}のスペース",
   "action": {
     "createBase": "ベースの作成",
@@ -58,7 +64,9 @@
     "exportSlowTip": "データ量が多いため、エクスポートに時間がかかる場合があります。一時的にページを離れても構いません。",
     "exportReadyDescription": ".tea ファイルをダウンロードしてください。{{importHint}}",
     "moveBaseSuccessTitle": "移動成功",
-    "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました"
+    "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました",
+    "moveBaseCrossSpaceTitle": "ご注意",
+    "moveBaseCrossSpaceDataLossWarning": "クロススペース参照はサポートされていません。関連するフィールドはテキストフィールドに変換されます。この操作は取り消せません。"
   },
   "deleteSpaceModal": {
     "title": "スペースを削除",
@@ -90,7 +98,6 @@
     "importWayTip": "クリックするか、ファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "baseImportTips": "クリックするか、.teaファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "confirm": "確認して続行",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

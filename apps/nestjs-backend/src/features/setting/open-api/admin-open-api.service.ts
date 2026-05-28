@@ -7,15 +7,20 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { NotificationSeverityEnum, NotificationTypeEnum } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IAdminSendNotificationRo } from '@teable/openapi';
 import { PluginStatus, UploadType } from '@teable/openapi';
 import { Response } from 'express';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../../performance-cache';
+import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
+import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()
 export class AdminOpenApiService {
@@ -24,7 +29,9 @@ export class AdminOpenApiService {
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly notificationService: NotificationService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async publishPlugin(pluginId: string) {
@@ -177,5 +184,21 @@ export class AdminOpenApiService {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await this.performanceCacheService.del(key as any);
+  }
+
+  async sendAdminNotification(ro: IAdminSendNotificationRo) {
+    const fromUserId = this.cls.get('user.id');
+    const { message, severity, userIds, emails } = ro;
+
+    return this.notificationService.sendCommonNotify(
+      {
+        fromUserId,
+        toUserId: userIds,
+        toEmail: emails,
+        message,
+        severity,
+      },
+      NotificationTypeEnum.AdminNotice
+    );
   }
 }

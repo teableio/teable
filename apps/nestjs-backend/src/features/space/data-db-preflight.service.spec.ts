@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable sonarjs/cognitive-complexity */
+/* eslint-disable sonarjs/no-duplicate-string */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDataDbPreflightClient } from './data-db-preflight.service';
 import {
@@ -10,9 +13,11 @@ type IFakeDbState = {
   schemas?: string[];
   tables?: Array<{ table_schema: string; table_name: string }>;
   functions?: string[];
+  databases?: string[];
   failCreateSchema?: boolean;
   failConnect?: boolean;
   failMessage?: string;
+  failCode?: string;
 };
 
 class FakePreflightClient implements IDataDbPreflightClient {
@@ -20,7 +25,9 @@ class FakePreflightClient implements IDataDbPreflightClient {
 
   async raw<T = unknown>(sql: string): Promise<{ rows: T[] }> {
     if (this.state.failConnect) {
-      throw new Error(this.state.failMessage ?? 'connection failed');
+      const error = new Error(this.state.failMessage ?? 'connection failed');
+      Object.assign(error, { code: this.state.failCode });
+      throw error;
     }
     if (sql.includes('CREATE SCHEMA') && this.state.failCreateSchema) {
       throw new Error('permission denied for database');
@@ -36,6 +43,13 @@ class FakePreflightClient implements IDataDbPreflightClient {
     }
     if (sql.includes('pg_stat_activity')) {
       return { rows: [{ count: '0' }] as T[] };
+    }
+    if (sql.includes('pg_database')) {
+      return {
+        rows: (this.state.databases ?? ['postgres', 'teable_data']).map((datname) => ({
+          datname,
+        })) as T[],
+      };
     }
     if (sql.includes('information_schema.schemata')) {
       return {
@@ -59,6 +73,7 @@ class FakePreflightClient implements IDataDbPreflightClient {
 }
 
 const DATA_URL = 'postgresql://teable:secret@example.com:5432/teable_data';
+const internalSchema = 'teable_meta_test';
 const BASELINE_TABLES = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
@@ -69,6 +84,7 @@ const BASELINE_TABLES = [
   'record_trash',
   '__undo_log',
 ];
+const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 
 const createService = (state: IFakeDbState) =>
   new DataDbPreflightService(undefined, () => new FakePreflightClient(state));
@@ -113,26 +129,50 @@ describe('DataDbPreflightService', () => {
 
   it('classifies a compatible Teable data database', async () => {
     const result = await createService({
-      schemas: ['public', 'bseabc'],
-      tables: BASELINE_TABLES.map((table_name) => ({ table_schema: 'public', table_name })),
+      schemas: ['public', internalSchema, 'bseabc'],
+      tables: [...BASELINE_TABLES, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
       functions: ['__teable_capture_undo_row'],
     }).preflight({
       url: DATA_URL,
       targetMode: 'adopt-existing',
+      internalSchema,
     });
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('teable-managed-compatible');
+    expect(result.errors).toEqual([]);
+  });
+
+  it('allows the internal data schema migration history table in Teable-managed schemas', async () => {
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...BASELINE_TABLES, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+      internalSchema,
+    });
+
+    expect(result.ok).toBe(true);
     expect(result.classification).toBe('teable-managed-compatible');
     expect(result.errors).toEqual([]);
   });
 
   it('rejects a partial Teable data database as incompatible', async () => {
     const result = await createService({
-      schemas: ['public'],
-      tables: [{ table_schema: 'public', table_name: 'record_history' }],
+      schemas: ['public', internalSchema],
+      tables: [{ table_schema: internalSchema, table_name: 'record_history' }],
     }).preflight({
       url: DATA_URL,
       targetMode: 'initialize-empty',
+      internalSchema,
     });
 
     expect(result.ok).toBe(false);
@@ -140,13 +180,46 @@ describe('DataDbPreflightService', () => {
     expect(result.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
   });
 
-  it('rejects non-empty unknown databases', async () => {
+  it('allows non-empty public schemas because BYODB uses Teable internal schemas', async () => {
     const result = await createService({
       schemas: ['public'],
       tables: [{ table_schema: 'public', table_name: 'customer_table' }],
     }).preflight({
       url: DATA_URL,
       targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('empty');
+    expect(result.errors).toEqual([]);
+  });
+
+  it('allows other base schemas while initializing an empty internal schema', async () => {
+    const result = await createService({
+      schemas: ['public', internalSchema, 'bse_existing_base'],
+      tables: [
+        { table_schema: 'bse_existing_base', table_name: 'sheet_table' },
+        { table_schema: 'public', table_name: 'customer_table' },
+      ],
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+      internalSchema,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('empty');
+    expect(result.errors).toEqual([]);
+  });
+
+  it('rejects unknown objects inside the Teable internal schema', async () => {
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [{ table_schema: internalSchema, table_name: 'customer_table' }],
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+      internalSchema,
     });
 
     expect(result.ok).toBe(false);
@@ -179,6 +252,74 @@ describe('DataDbPreflightService', () => {
 
     expect(JSON.stringify(result)).not.toContain('secret');
     expect(result.errors.map((error) => error.code)).toContain('CONNECTION_FAILED');
+  });
+
+  it('returns a specific error when an IPv6 address is unreachable', async () => {
+    const result = await createService({
+      failConnect: true,
+      failCode: 'ENETUNREACH',
+      failMessage: 'connect ENETUNREACH 2406:da1c:4c7:f800:9d0b:f8d1:c668:930:5432',
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.errors.map((error) => error.code)).toContain('IPV6_NETWORK_UNREACHABLE');
+    expect(result.errors[0]?.remediation).toContain('IPv4-reachable');
+  });
+
+  it('returns database choices when the URL database does not exist', async () => {
+    const requestedUrl = 'postgresql://teable:secret@example.com:5432/missing_db';
+    const clients: Record<string, IFakeDbState> = {
+      [requestedUrl]: {
+        failConnect: true,
+        failCode: '3D000',
+        failMessage: 'database "missing_db" does not exist',
+      },
+      ['postgresql://teable:secret@example.com:5432/postgres']: {
+        databases: ['postgres', 'teable_data'],
+      },
+    };
+    const service = new DataDbPreflightService(
+      undefined,
+      (url) => new FakePreflightClient(clients[url] ?? {})
+    );
+
+    const result = await service.preflight({
+      url: requestedUrl,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.displayDatabase).toBe('missing_db');
+    expect(result.serverVersion).toBe('14.12');
+    expect(result.availableDatabases).toEqual(['postgres', 'teable_data']);
+    expect(result.errors.map((error) => error.code)).toContain('CONNECTION_FAILED');
+    expect(JSON.stringify(result)).not.toContain('secret');
+  });
+
+  it('returns database choices when the URL omits the database name', async () => {
+    const requestedUrl = 'postgresql://teable:secret@example.com:5432';
+    const clients: Record<string, IFakeDbState> = {
+      ['postgresql://teable:secret@example.com:5432/postgres']: {
+        databases: ['postgres', 'teable_data'],
+      },
+    };
+    const service = new DataDbPreflightService(
+      undefined,
+      (url) => new FakePreflightClient(clients[url] ?? {})
+    );
+
+    const result = await service.preflight({
+      url: requestedUrl,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.displayDatabase).toBe('');
+    expect(result.availableDatabases).toEqual(['postgres', 'teable_data']);
+    expect(result.requiresDatabaseSelection).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
   it('rejects unsupported database URL drivers', async () => {
@@ -215,6 +356,8 @@ describe('DataDbPreflightService', () => {
             provider: 'postgres',
             displayHost: 'example.com:5432',
             displayDatabase: 'teable_data',
+            internalSchema,
+            schemaVersion: '20260421000000_init_data_db_baseline',
             lastValidatedAt: new Date('2026-05-06T00:00:00.000Z'),
             lastError: null,
             encryptedUrl: 'encrypted-secret',
@@ -240,6 +383,8 @@ describe('DataDbPreflightService', () => {
       provider: 'postgres',
       displayHost: 'example.com:5432',
       displayDatabase: 'teable_data',
+      internalSchema,
+      schemaVersion: '20260421000000_init_data_db_baseline',
       lastValidatedAt: '2026-05-06T00:00:00.000Z',
     });
     expect(JSON.stringify(summary)).not.toContain('encrypted-secret');

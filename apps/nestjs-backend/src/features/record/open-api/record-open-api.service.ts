@@ -8,14 +8,8 @@ import type {
   IMakeOptional,
 } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  CreateRecordAction,
-  ICreateRecordsRo,
-  IUpdateRecordsRo,
-  UpdateRecordAction,
-} from '@teable/openapi';
+import { CreateRecordAction, ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -32,10 +26,13 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { TableDomainQueryService } from '../../table-domain';
@@ -49,7 +46,6 @@ import type { IUpdateRecordsInternalRo } from '../type';
 export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly recordService: RecordService,
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
@@ -58,7 +54,9 @@ export class RecordOpenApiService {
     private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly fieldService: FieldService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly audit: AuditScope
   ) {}
 
   @retryOnDeadlock()
@@ -66,9 +64,10 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
     ignoreMissingFields: boolean = false,
-    isAiInternal?: string
+    // Kept for API compat; ignored — AI source is set by middleware now, user.id stays real.
+    _isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
-    const res = await this.prismaService.$tx(
+    return this.prismaService.$tx(
       async () =>
         this.recordModifyService.multipleCreateRecords(
           tableId,
@@ -77,34 +76,20 @@ export class RecordOpenApiService {
         ),
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
-
-    const appId = this.cls.get('appId');
-    if (appId) {
-      this.cls.set('skipRecordAuditLog', true);
-      await this.recordService.emitRecordAuditLogEvent(
-        CreateRecordAction.AppRecordCreate,
-        tableId,
-        createRecordsRo.records?.length ?? 0,
-        appId
-      );
-    } else if (isAiInternal) {
-      this.cls.set('skipRecordAuditLog', true);
-      this.cls.set('user.id', 'aiRobot');
-      await this.recordService.emitRecordAuditLogEvent(
-        CreateRecordAction.AiRecordCreate,
-        tableId,
-        createRecordsRo.records?.length ?? 0
-      );
-    }
-
-    return res;
   }
 
   /**
-   * create records without any ops, only typecast and sql
-   * @param tableId
-   * @param createRecordsRo
+   * Create records via raw SQL only (no ops, no events). Used by CSV import (new-table
+   * path) where the worker has set an Import / InplaceImport scope. Since raw SQL
+   * bypasses v2 / v1 event emission, we emit one atomic record-create row per chunk via
+   * the `@Audit` atomic emit mode (uses the caller's active operation; no-op if none).
    */
+  @Audit({
+    action: Events.TABLE_RECORD_CREATE,
+    emit: (_result, _tableId, createRecordsRo: ICreateRecordsRo) => ({
+      recordCount: createRecordsRo.records.length,
+    }),
+  })
   async createRecordsOnlySql(tableId: string, createRecordsRo: ICreateRecordsRo): Promise<void> {
     await this.prismaService.$tx(async () => {
       return await this.recordModifyService.createRecordsOnlySql(tableId, createRecordsRo);
@@ -132,34 +117,13 @@ export class RecordOpenApiService {
     tableId: string,
     updateRecordsRo: IUpdateRecordsRo,
     windowId?: string,
-    isAiInternal?: string
+    _isAiInternal?: string
   ) {
-    const res = await this.recordModifyService.updateRecords(
+    return this.recordModifyService.updateRecords(
       tableId,
       updateRecordsRo as IUpdateRecordsInternalRo,
       windowId
     );
-
-    const appId = this.cls.get('appId');
-    if (appId) {
-      this.cls.set('skipRecordAuditLog', true);
-      await this.recordService.emitRecordAuditLogEvent(
-        UpdateRecordAction.AppRecordUpdate,
-        tableId,
-        updateRecordsRo.records?.length ?? 0,
-        appId
-      );
-    } else if (isAiInternal) {
-      this.cls.set('skipRecordAuditLog', true);
-      this.cls.set('user.id', 'aiRobot');
-      await this.recordService.emitRecordAuditLogEvent(
-        UpdateRecordAction.AiRecordUpdate,
-        tableId,
-        updateRecordsRo.records?.length ?? 0
-      );
-    }
-
-    return res;
   }
 
   async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
@@ -231,7 +195,8 @@ export class RecordOpenApiService {
       dateFilter['lte'] = new Date(endDate);
     }
 
-    const list = await this.dataPrismaService.recordHistory.findMany({
+    const dataPrisma = await this.dataDbClientManager.dataPrismaForTable(tableId);
+    const list = await dataPrisma.recordHistory.findMany({
       where: {
         tableId,
         ...(recordId ? { recordId } : {}),
@@ -622,18 +587,7 @@ export class RecordOpenApiService {
     }
 
     // 3. Create record with form entry context
-    const { records } = await this.prismaService.$tx(async () => {
-      this.cls.set('entry', { type: 'form', id: viewId });
-      this.cls.set('skipRecordAuditLog', true);
-      return this.createRecords(tableId, {
-        records: [{ fields }],
-        fieldKeyType: FieldKeyType.Id,
-        typecast,
-      });
-    });
-
-    // 4. Emit form audit log
-    await this.emitFormAuditLog(tableId, records.length);
+    const { records } = await this.formSubmitCreateRecords(tableId, viewId, fields, typecast);
 
     // 5. Validate record creation
     if (records.length === 0) {
@@ -651,17 +605,22 @@ export class RecordOpenApiService {
     return records[0];
   }
 
-  private async emitFormAuditLog(tableId: string, length: number) {
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-
-    await this.cls.run(async () => {
-      this.cls.set('user.id', userId);
-      this.cls.set('origin', origin!);
-      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-        action: CreateRecordAction.FormSubmit,
-        resourceId: tableId,
-        recordCount: length,
+  @Audit({
+    rootAction: CreateRecordAction.FormSubmit,
+    resourceId: (tableId: string) => tableId,
+  })
+  private async formSubmitCreateRecords(
+    tableId: string,
+    viewId: string,
+    fields: IFormSubmitRo['fields'],
+    typecast?: boolean
+  ): Promise<ICreateRecordsVo> {
+    return this.prismaService.$tx(async () => {
+      this.cls.set('entry', { type: 'form', id: viewId });
+      return this.createRecords(tableId, {
+        records: [{ fields }],
+        fieldKeyType: FieldKeyType.Id,
+        typecast,
       });
     });
   }

@@ -6,7 +6,10 @@ import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { DbFieldName } from '../../fields/DbFieldName';
 import type { FieldId } from '../../fields/FieldId';
-import { ensureSelectFieldOptionCountWithinLimit } from '../../fields/types/SelectFieldOptionWriteConfig';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNamesWithinLimit,
+} from '../../fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import { SingleSelectField } from '../../fields/types/SingleSelectField';
 import type { Table } from '../../Table';
@@ -117,6 +120,11 @@ export class UpdateSingleSelectOptionsSpec<
       this.domainContextValue
     );
     if (limitResult.isErr()) return err(limitResult.error);
+    const nameLimitResult = ensureSelectFieldOptionNamesWithinLimit(
+      this.nextOptionsValue.map((option) => option.name().toString()),
+      this.domainContextValue
+    );
+    if (nameLimitResult.isErr()) return err(nameLimitResult.error);
 
     const fieldResult = t.getField((f) => f.id().equals(this.fieldIdValue));
     if (fieldResult.isErr()) return err(fieldResult.error);

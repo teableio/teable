@@ -42,6 +42,7 @@ import {
   listPluginPanels,
   LLMProviderType,
   moveBaseNode,
+  SettingKey,
   updateSetting,
   urlBuilder,
 } from '@teable/openapi';
@@ -53,8 +54,9 @@ import {
   createTable,
   getRecords,
   initApp,
-  updateRecord,
   permanentDeleteBase,
+  permanentDeleteSpace,
+  updateRecord,
 } from './utils/init-app';
 
 describe('OpenAPI Base Duplicate (e2e)', () => {
@@ -103,42 +105,109 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     return;
   }
 
-  it('duplicate base with cross base link and lookup field', async () => {
+  it('duplicate base with cross-space link/lookup downgrades values to title text', async () => {
+    // Source base (`base`) and link target (`base2`) share spaceId, so the link
+    // is legal at create time (same-space cross-base). The duplicate destination
+    // is a SEPARATE space — from its perspective the preserved link would point
+    // back into another space, which the duplicate must downgrade to text.
     const base2 = (await createBase({ spaceId, name: 'test base 2' })).data;
-    const base2Table = await createTable(base2.id, { name: 'table1' });
+    const destSpace = (await createSpace({ name: 'duplicate dest space' })).data;
+    try {
+      const base2Table = await createTable(base2.id, { name: 'table1', records: [] });
+      const base2PrimaryId = base2Table.fields[0].id;
 
-    const table1 = await createTable(base.id, { name: 'table1' });
+      // Peer record sets the title we expect to see flow into the duplicated
+      // base as plain text after the cross-space link/lookup are downgraded.
+      const peerRecord = (
+        await createRecords(base2Table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [base2PrimaryId]: 'peer-A' } }],
+        })
+      ).records[0];
 
-    const crossBaseLinkField = (
-      await createField(table1.id, {
-        name: 'cross base link field',
-        type: FieldType.Link,
-        options: {
-          baseId: base2.id,
-          relationship: Relationship.ManyMany,
-          foreignTableId: base2Table.id,
-        },
-      })
-    ).data;
+      const table1 = await createTable(base.id, { name: 'table1', records: [] });
+      const table1Primary = table1.fields.find((f) => f.isPrimary)!;
 
-    await createField(table1.id, {
-      name: 'cross base lookup field',
-      type: FieldType.SingleLineText,
-      isLookup: true,
-      lookupOptions: {
-        foreignTableId: base2Table.id,
-        linkFieldId: crossBaseLinkField.id,
-        lookupFieldId: base2Table.fields[0].id,
-      },
-    });
+      const crossBaseLinkField = (
+        await createField(table1.id, {
+          name: 'cross base link field',
+          type: FieldType.Link,
+          options: {
+            baseId: base2.id,
+            relationship: Relationship.ManyMany,
+            foreignTableId: base2Table.id,
+          },
+        })
+      ).data;
 
-    const dupResult = await duplicateBase({
-      fromBaseId: base.id,
-      spaceId: spaceId,
-      name: 'test base copy',
-    });
+      const crossBaseLookupField = (
+        await createField(table1.id, {
+          name: 'cross base lookup field',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: base2Table.id,
+            linkFieldId: crossBaseLinkField.id,
+            lookupFieldId: base2PrimaryId,
+          },
+        })
+      ).data;
 
-    expect(dupResult.status).toBe(201);
+      await createRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table1Primary.id]: 'src-1',
+              [crossBaseLinkField.id]: [{ id: peerRecord.id }],
+            },
+          },
+        ],
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: destSpace.id,
+        name: 'test base copy',
+        withRecords: true,
+      });
+      expect(dupResult.status).toBe(201);
+      duplicateBaseId = dupResult.data.id;
+
+      // Field downgrade is the easy half — the cellValue downgrade is what
+      // multiple recent fixes (0d441780e / ac5da54d0 / 175e2c59c / 9490800a9)
+      // were chasing. Without this assertion a regression would silently leave
+      // the new text columns null while still appearing structurally correct.
+      const dupTables = (await getTableList(duplicateBaseId)).data;
+      const dupTable1 = dupTables.find((t) => t.name === 'table1')!;
+      const dupFields = (await getFields(dupTable1.id)).data;
+      const dupLinkField = dupFields.find((f) => f.name === 'cross base link field')!;
+      const dupLookupField = dupFields.find((f) => f.name === 'cross base lookup field')!;
+
+      expect(dupLinkField.type).toBe(FieldType.SingleLineText);
+      expect(dupLookupField.type).toBe(FieldType.SingleLineText);
+      expect(dupLookupField.isLookup).toBeFalsy();
+
+      const dupRecords = await getRecords(dupTable1.id);
+      const dupRow = dupRecords.records[0];
+      // Link's source DB column stores the cached title text directly, so the
+      // SQL-direct copy lands on a clean "peer-A" in the new text column.
+      // Lookup's source DB column stores the multi-value JSON array (the
+      // lookup engine's storage contract), and duplicateBase uses SQL-direct
+      // row copy with no cellValue2String pass on downgraded fields — so the
+      // raw '["peer-A"]' is what survives the move. This documents the
+      // intentional split: downgrade preserves data verbatim, it doesn't
+      // re-stringify it.
+      expect(dupRow.fields[dupLinkField.name]).toBe('peer-A');
+      expect(dupRow.fields[dupLookupField.name]).toBe('["peer-A"]');
+    } finally {
+      await permanentDeleteBase(base2.id);
+      if (duplicateBaseId) {
+        await permanentDeleteBase(duplicateBaseId);
+        duplicateBaseId = undefined;
+      }
+      await permanentDeleteSpace(destSpace.id);
+    }
   });
 
   it('duplicate within current space', async () => {
@@ -584,6 +653,674 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(duplicatedDashboardList.map((d) => d.name).sort()).toEqual(
       [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
     );
+  });
+
+  it('should duplicate a complex base through v2 canary', async () => {
+    const previousCanaryEnv = process.env.ENABLE_CANARY_FEATURE;
+    process.env.ENABLE_CANARY_FEATURE = 'true';
+
+    const externalBase = (await createBase({ spaceId, name: 'external link base' })).data;
+    try {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          forceV2All: true,
+          spaceIds: [spaceId],
+        },
+      });
+
+      const externalTable = await createTable(externalBase.id, { name: 'vendors' });
+      const externalRecord = (
+        await createRecords(externalTable.id, {
+          records: [{ fields: { [externalTable.fields[0].id]: 'Vendor A' } }],
+        })
+      ).records[0];
+
+      const peopleFolder = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'People Folder',
+      }).then((res) => res.data);
+      const taskFolder = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Task Folder',
+      }).then((res) => res.data);
+
+      const peopleNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'People',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Score', type: FieldType.Number },
+        ],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      const taskNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Tasks',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      await moveBaseNode(base.id, peopleNode.id, { parentId: peopleFolder.id });
+      await moveBaseNode(base.id, taskNode.id, { parentId: taskFolder.id });
+
+      const [peopleDefaultRecords, taskDefaultRecords] = await Promise.all([
+        getRecords(peopleNode.resourceId).then(({ records }) => records),
+        getRecords(taskNode.resourceId).then(({ records }) => records),
+      ]);
+      if (peopleDefaultRecords.length) {
+        await deleteRecords(
+          peopleNode.resourceId,
+          peopleDefaultRecords.map(({ id }) => id)
+        );
+      }
+      if (taskDefaultRecords.length) {
+        await deleteRecords(
+          taskNode.resourceId,
+          taskDefaultRecords.map(({ id }) => id)
+        );
+      }
+
+      const peopleFields = (await getFields(peopleNode.resourceId)).data;
+      const peopleNameField = peopleFields.find(({ name }) => name === 'Name')!;
+      const scoreField = peopleFields.find(({ name }) => name === 'Score')!;
+      const taskTitleField = (await getFields(taskNode.resourceId)).data.find(
+        ({ name }) => name === 'Title'
+      )!;
+      const doubledScoreField = (
+        await createField(peopleNode.resourceId, {
+          name: 'Doubled Score',
+          type: FieldType.Formula,
+          options: { expression: `{${scoreField.id}} * 2`, timeZone: 'Asia/Shanghai' },
+        })
+      ).data;
+      const ownerLinkField = (
+        await createField(taskNode.resourceId, {
+          name: 'Owner',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: peopleNode.resourceId,
+          },
+        })
+      ).data;
+      const externalLinkField = (
+        await createField(taskNode.resourceId, {
+          name: 'External Vendor',
+          type: FieldType.Link,
+          options: {
+            baseId: externalBase.id,
+            relationship: Relationship.ManyMany,
+            foreignTableId: externalTable.id,
+          },
+        })
+      ).data;
+
+      const peopleRecord = (
+        await createRecords(peopleNode.resourceId, {
+          records: [
+            {
+              fields: {
+                [peopleNameField.id]: 'Alice',
+                [scoreField.id]: 11,
+              },
+            },
+          ],
+        })
+      ).records[0];
+      await createRecords(taskNode.resourceId, {
+        records: [
+          {
+            fields: {
+              [taskTitleField.id]: 'Task A',
+              [ownerLinkField.id]: [{ id: peopleRecord.id }],
+              [externalLinkField.id]: [{ id: externalRecord.id }],
+            },
+          },
+        ],
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'complex v2 base copy',
+        withRecords: true,
+      });
+      expect(dupResult.status).toBe(201);
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTables = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedPeopleTable = duplicatedTables.find(({ name }) => name === 'People')!;
+      const duplicatedTaskTable = duplicatedTables.find(({ name }) => name === 'Tasks')!;
+      expect(duplicatedPeopleTable.id).not.toBe(peopleNode.resourceId);
+      expect(duplicatedTaskTable.id).not.toBe(taskNode.resourceId);
+
+      const duplicatedPeopleFields = (await getFields(duplicatedPeopleTable.id)).data;
+      const duplicatedDoubledScoreField = duplicatedPeopleFields.find(
+        ({ name }) => name === doubledScoreField.name
+      );
+      expect(duplicatedDoubledScoreField?.options).toMatchObject({
+        expression: expect.stringContaining(
+          duplicatedPeopleFields.find(({ name }) => name === scoreField.name)!.id
+        ),
+      });
+
+      const duplicatedTasks = await getRecords(duplicatedTaskTable.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+      expect(duplicatedTasks.records).toHaveLength(1);
+      expect(duplicatedTasks.records[0].fields[ownerLinkField.name]).toMatchObject([
+        { title: 'Alice' },
+      ]);
+      expect(duplicatedTasks.records[0].fields[externalLinkField.name]).toMatchObject([
+        { title: 'Vendor A' },
+      ]);
+
+      const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+      const duplicatedPeopleFolder = duplicatedNodeTree.nodes.find(
+        ({ resourceMeta, resourceType }) =>
+          resourceMeta?.name === peopleFolder.resourceMeta?.name &&
+          resourceType === BaseNodeResourceType.Folder
+      );
+      const duplicatedPeopleNode = duplicatedNodeTree.nodes.find(
+        ({ resourceMeta, resourceType }) =>
+          resourceMeta?.name === peopleNode.resourceMeta?.name &&
+          resourceType === BaseNodeResourceType.Table
+      );
+      expect(duplicatedPeopleNode?.parentId).toBe(duplicatedPeopleFolder?.id);
+    } finally {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: false,
+          spaceIds: [],
+        },
+      });
+      process.env.ENABLE_CANARY_FEATURE = previousCanaryEnv;
+      await permanentDeleteBase(externalBase.id);
+    }
+  });
+
+  describe('V2 canary duplicate parity', () => {
+    let previousCanaryEnv: string | undefined;
+
+    beforeEach(async () => {
+      previousCanaryEnv = process.env.ENABLE_CANARY_FEATURE;
+      process.env.ENABLE_CANARY_FEATURE = 'true';
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          forceV2All: true,
+          spaceIds: [spaceId],
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: false,
+          forceV2All: false,
+          spaceIds: [],
+        },
+      });
+      process.env.ENABLE_CANARY_FEATURE = previousCanaryEnv;
+    });
+
+    it('duplicates schema, records, and auto number through v2', async () => {
+      const table = await createTable(base.id, { name: 'Basic Table' });
+
+      const structureOnlyResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 structure only copy',
+      });
+      duplicateBaseId = structureOnlyResult.data.id;
+
+      const structureOnlyTables = await getTableList(duplicateBaseId).then((res) => res.data);
+      const structureOnlyRecords = await getRecords(structureOnlyTables[0].id);
+      expect(structureOnlyTables).toHaveLength(1);
+      expect(structureOnlyTables[0].name).toBe(table.name);
+      expect(structureOnlyTables[0].id).not.toBe(table.id);
+      expect(structureOnlyRecords.records).toHaveLength(0);
+
+      await permanentDeleteBase(duplicateBaseId);
+      duplicateBaseId = undefined;
+
+      const sourceRecords = await getRecords(table.id);
+      await updateRecord(table.id, sourceRecords.records[0].id, {
+        record: { fields: { [table.fields[0].name]: 'new value' } },
+      });
+
+      const withRecordsResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 records copy',
+        withRecords: true,
+      });
+      duplicateBaseId = withRecordsResult.data.id;
+
+      const duplicatedTable = (await getTableList(duplicateBaseId)).data[0];
+      const duplicatedRecords = await getRecords(duplicatedTable.id);
+      expect(duplicatedRecords.records).toHaveLength(3);
+      expect(duplicatedRecords.records[0].lastModifiedBy).toBeFalsy();
+      expect(duplicatedRecords.records[0].createdTime).toBeTruthy();
+      expect(duplicatedRecords.records[0].fields[table.fields[0].name]).toEqual('new value');
+
+      await createRecords(duplicatedTable.id, { records: [{ fields: {} }] });
+      const recordsAfterCreate = await getRecords(duplicatedTable.id);
+      expect(recordsAfterCreate.records[recordsAfterCreate.records.length - 1].autoNumber).toEqual(
+        recordsAfterCreate.records.length
+      );
+    });
+
+    it('duplicates formula, link, lookup, rollup, bidirectional link, and ai field config through v2', async () => {
+      const peopleTable = await createTable(base.id, { name: 'People' });
+      const taskTable = await createTable(base.id, { name: 'Tasks' });
+
+      const peopleFields = (await getFields(peopleTable.id)).data;
+      const peoplePrimaryField = peopleFields.find(({ isPrimary }) => isPrimary)!;
+      const scoreField = (
+        await createField(peopleTable.id, {
+          name: 'Score',
+          type: FieldType.Number,
+        })
+      ).data;
+      const doubledScoreField = (
+        await createField(peopleTable.id, {
+          name: 'Doubled Score',
+          type: FieldType.Formula,
+          options: { expression: `{${scoreField.id}} * 2`, timeZone: 'Asia/Shanghai' },
+        })
+      ).data;
+      const ownerLinkField = (
+        await createField(taskTable.id, {
+          name: 'Owner',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: peopleTable.id,
+          },
+        })
+      ).data;
+      const ownerSymmetricField = (
+        await getField(
+          peopleTable.id,
+          (ownerLinkField.options as ILinkFieldOptions).symmetricFieldId as string
+        )
+      ).data;
+      const ownerLookupField = (
+        await createField(taskTable.id, {
+          name: 'Owner Name',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: peopleTable.id,
+            linkFieldId: ownerLinkField.id,
+            lookupFieldId: peoplePrimaryField.id,
+          },
+        })
+      ).data;
+      const ownerScoreRollupField = (
+        await createField(taskTable.id, {
+          name: 'Owner Score Sum',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'sum({values})',
+          },
+          lookupOptions: {
+            foreignTableId: peopleTable.id,
+            linkFieldId: ownerLinkField.id,
+            lookupFieldId: scoreField.id,
+          },
+        })
+      ).data;
+
+      const aiSetting = (
+        await updateSetting({
+          aiConfig: {
+            enable: true,
+            llmProviders: [
+              {
+                apiKey: 'test-ai-config',
+                baseUrl: 'localhost:3000/api/test',
+                models: 'test-e2e',
+                name: 'test',
+                type: LLMProviderType.ANTHROPIC,
+              },
+            ],
+          },
+        })
+      ).data;
+      const aiField = (
+        await createField(peopleTable.id, {
+          name: 'ai field',
+          type: FieldType.SingleLineText,
+          aiConfig: {
+            attachPrompt: 'test-attach-prompt',
+            modelKey: aiSetting.aiConfig?.llmProviders[0].models,
+            sourceFieldId: peoplePrimaryField.id,
+            type: FieldAIActionType.Summary,
+          },
+        })
+      ).data;
+
+      const peopleRecords = await getRecords(peopleTable.id);
+      const taskRecords = await getRecords(taskTable.id);
+      await updateRecord(peopleTable.id, peopleRecords.records[0].id, {
+        record: {
+          fields: {
+            [peoplePrimaryField.name]: 'Alice',
+            [scoreField.name]: 11,
+          },
+        },
+      });
+      await updateRecord(taskTable.id, taskRecords.records[0].id, {
+        record: {
+          fields: {
+            [taskTable.fields[0].name]: 'Task A',
+            [ownerLinkField.name]: [{ id: peopleRecords.records[0].id }],
+          },
+        },
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 field parity copy',
+        withRecords: true,
+      });
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTables = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedPeopleTable = duplicatedTables.find(({ name }) => name === peopleTable.name)!;
+      const duplicatedTaskTable = duplicatedTables.find(({ name }) => name === taskTable.name)!;
+      const duplicatedPeopleFields = (await getFields(duplicatedPeopleTable.id)).data;
+      const duplicatedTaskFields = (await getFields(duplicatedTaskTable.id)).data;
+
+      const duplicatedScoreField = duplicatedPeopleFields.find(
+        ({ name }) => name === scoreField.name
+      )!;
+      const duplicatedOwnerLinkField = duplicatedTaskFields.find(
+        ({ name }) => name === ownerLinkField.name
+      )!;
+      const duplicatedOwnerScoreRollupField = duplicatedTaskFields.find(
+        ({ name }) => name === ownerScoreRollupField.name
+      );
+      const duplicatedDoubledScoreField = duplicatedPeopleFields.find(
+        ({ name }) => name === doubledScoreField.name
+      );
+      expect(duplicatedDoubledScoreField?.options).toMatchObject({
+        expression: expect.stringContaining(duplicatedScoreField.id),
+      });
+
+      const duplicatedAiField = duplicatedPeopleFields.find(({ name }) => name === aiField.name);
+      expect(duplicatedAiField?.aiConfig).toEqual({
+        ...aiField.aiConfig,
+        sourceFieldId: duplicatedPeopleFields.find(({ name }) => name === peoplePrimaryField.name)!
+          .id,
+      });
+
+      const duplicatedPeopleRecords = await getRecords(duplicatedPeopleTable.id);
+      const duplicatedTaskRecords = await getRecords(duplicatedTaskTable.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+      expect(duplicatedTaskRecords.records[0].fields[ownerLinkField.name]).toMatchObject([
+        { id: duplicatedPeopleRecords.records[0].id, title: 'Alice' },
+      ]);
+      expect(duplicatedTaskRecords.records[0].fields[ownerLookupField.name]).toEqual(['Alice']);
+      expect(duplicatedPeopleRecords.records[0].fields[ownerSymmetricField.name]).toMatchObject([
+        { id: duplicatedTaskRecords.records[0].id },
+      ]);
+      expect(
+        duplicatedTaskFields.find(({ name }) => name === ownerLookupField.name)?.isLookup
+      ).toBe(true);
+      expect(duplicatedOwnerScoreRollupField?.type).toBe(FieldType.Rollup);
+      expect(duplicatedOwnerScoreRollupField?.lookupOptions).toMatchObject({
+        foreignTableId: duplicatedPeopleTable.id,
+        linkFieldId: duplicatedOwnerLinkField.id,
+        lookupFieldId: duplicatedScoreField.id,
+      });
+    });
+
+    it('duplicates folders, dashboards, and plugins through v2', async () => {
+      const folderNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder 1',
+      }).then((res) => res.data);
+      const pluginTableNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Plugin Table',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      await moveBaseNode(base.id, pluginTableNode.id, { parentId: folderNode.id });
+
+      const dashboard = (await createDashboard(base.id, { name: 'Dashboard 1' })).data;
+      await installPlugin(base.id, dashboard.id, {
+        name: 'dashboard plugin',
+        pluginId: 'plgchart',
+      });
+
+      const panel = (await createPluginPanel(pluginTableNode.resourceId, { name: 'panel1' })).data;
+      await installPluginPanel(pluginTableNode.resourceId, panel.id, {
+        name: 'panel plugin',
+        pluginId: 'plgchart',
+      });
+
+      const sheetView = (
+        await installViewPlugin(pluginTableNode.resourceId, {
+          name: 'sheetView1',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 extras parity copy',
+      });
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+      const duplicatedFolder = duplicatedNodeTree.nodes.find(
+        ({ resourceMeta, resourceType }) =>
+          resourceMeta?.name === folderNode.resourceMeta?.name &&
+          resourceType === BaseNodeResourceType.Folder
+      );
+      const duplicatedPluginTableNode = duplicatedNodeTree.nodes.find(
+        ({ resourceMeta, resourceType }) =>
+          resourceMeta?.name === pluginTableNode.resourceMeta?.name &&
+          resourceType === BaseNodeResourceType.Table
+      );
+      expect(duplicatedPluginTableNode?.parentId).toBe(duplicatedFolder?.id);
+
+      const duplicatedDashboard = (await getDashboardList(duplicateBaseId)).data.find(
+        ({ name }) => name === dashboard.name
+      )!;
+      const duplicatedDashboardInfo = (await getDashboard(duplicateBaseId, duplicatedDashboard.id))
+        .data;
+      expect(duplicatedDashboardInfo.layout).toHaveLength(1);
+      const duplicatedDashboardPlugin = (
+        await getDashboardInstallPlugin(
+          duplicateBaseId,
+          duplicatedDashboard.id,
+          duplicatedDashboardInfo.layout![0].pluginInstallId
+        )
+      ).data;
+      expect(duplicatedDashboardPlugin.name).toBe('dashboard plugin');
+
+      const duplicatedTable = (await getTableList(duplicateBaseId)).data.find(
+        ({ name }) => name === pluginTableNode.resourceMeta?.name
+      )!;
+      const duplicatedPanels = (await listPluginPanels(duplicatedTable.id)).data;
+      const duplicatedPanel = duplicatedPanels.find(({ name }) => name === panel.name)!;
+      const duplicatedPanelInfo = (await getPluginPanel(duplicatedTable.id, duplicatedPanel.id))
+        .data;
+      expect(duplicatedPanelInfo.layout).toHaveLength(1);
+      const duplicatedPanelPlugin = (
+        await getPluginPanelPlugin(
+          duplicatedTable.id,
+          duplicatedPanel.id,
+          duplicatedPanelInfo.layout![0].pluginInstallId
+        )
+      ).data;
+      expect(duplicatedPanelPlugin.name).toBe('panel plugin');
+
+      const duplicatedPluginViews = (await getViewList(duplicatedTable.id)).data.filter(
+        ({ type }) => type === ViewType.Plugin
+      );
+      expect(duplicatedPluginViews.find(({ name }) => name === sheetView.name)).toBeDefined();
+    });
+
+    it('duplicates base to another space through v2', async () => {
+      const newSpace = (await createSpace({ name: 'v2 target space' })).data;
+      try {
+        await createTable(base.id, { name: 'Cross Space Table' });
+        const dupResult = await duplicateBase({
+          fromBaseId: base.id,
+          spaceId: newSpace.id,
+          name: 'v2 cross space copy',
+        });
+        const newSpaceDuplicateBaseId = dupResult.data.id;
+
+        const baseResult = await getBaseList({ spaceId: newSpace.id });
+        const tableResult = await getTableList(newSpaceDuplicateBaseId);
+        const records = await getRecords(tableResult.data[0].id);
+        expect(baseResult.data).toHaveLength(1);
+        expect(tableResult.data).toHaveLength(1);
+        expect(records.records).toHaveLength(0);
+      } finally {
+        await deleteSpace(newSpace.id);
+      }
+    });
+
+    it('duplicates partial nodes, disconnected links, lookup conversion, and parent folders through v2', async () => {
+      const folderNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Orders Folder',
+      }).then((res) => res.data);
+      const ordersNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Orders',
+        fields: [{ name: 'Order', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      const customersNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Customers',
+        fields: [{ name: 'Customer', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      const productsNode = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Products',
+        fields: [{ name: 'Product', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      await moveBaseNode(base.id, ordersNode.id, { parentId: folderNode.id });
+      const productPrimaryField = (await getFields(productsNode.resourceId)).data.find(
+        ({ isPrimary }) => isPrimary
+      )!;
+
+      const customerLinkField = (
+        await createField(ordersNode.resourceId, {
+          name: 'customer',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: customersNode.resourceId,
+          },
+        })
+      ).data;
+      const productLinkField = (
+        await createField(ordersNode.resourceId, {
+          name: 'product',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: productsNode.resourceId,
+          },
+        })
+      ).data;
+      const productLookupField = (
+        await createField(ordersNode.resourceId, {
+          name: 'product lookup',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: productsNode.resourceId,
+            linkFieldId: productLinkField.id,
+            lookupFieldId: productPrimaryField.id,
+          },
+        })
+      ).data;
+
+      const orderRecords = await getRecords(ordersNode.resourceId);
+      const customerRecords = await getRecords(customersNode.resourceId);
+      const productRecords = await getRecords(productsNode.resourceId);
+      await updateRecord(ordersNode.resourceId, orderRecords.records[0].id, {
+        record: {
+          fields: {
+            [customerLinkField.name]: [{ id: customerRecords.records[0].id }],
+            [productLinkField.name]: [{ id: productRecords.records[0].id }],
+          },
+        },
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 partial nodes copy',
+        withRecords: true,
+        nodes: [ordersNode.id, customersNode.id],
+      });
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+      const duplicatedFolders = duplicatedNodeTree.nodes.filter(
+        ({ resourceType }) => resourceType === BaseNodeResourceType.Folder
+      );
+      const duplicatedTableNodes = duplicatedNodeTree.nodes.filter(
+        ({ resourceType }) => resourceType === BaseNodeResourceType.Table
+      );
+      expect(duplicatedFolders).toHaveLength(1);
+      expect(duplicatedFolders[0].resourceMeta?.name).toBe(folderNode.resourceMeta?.name);
+      expect(duplicatedTableNodes.map(({ resourceMeta }) => resourceMeta?.name).sort()).toEqual(
+        ['Customers', 'Orders'].sort()
+      );
+      expect(
+        duplicatedTableNodes.find(({ resourceMeta }) => resourceMeta?.name === 'Orders')?.parentId
+      ).toBe(duplicatedFolders[0].id);
+
+      const duplicatedTables = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedOrdersTable = duplicatedTables.find(({ name }) => name === 'Orders')!;
+      const duplicatedCustomersTable = duplicatedTables.find(({ name }) => name === 'Customers')!;
+      const duplicatedOrderFields = (await getFields(duplicatedOrdersTable.id)).data;
+      expect(duplicatedTables.map(({ name }) => name).sort()).toEqual(['Customers', 'Orders']);
+      expect(duplicatedOrderFields.find(({ name }) => name === customerLinkField.name)?.type).toBe(
+        FieldType.Link
+      );
+      expect(duplicatedOrderFields.find(({ name }) => name === productLinkField.name)?.type).toBe(
+        FieldType.SingleLineText
+      );
+      const duplicatedProductLookupField = duplicatedOrderFields.find(
+        ({ name }) => name === productLookupField.name
+      );
+      expect(duplicatedProductLookupField?.type).toBe(FieldType.SingleLineText);
+      expect(duplicatedProductLookupField?.isLookup).toBeFalsy();
+
+      const duplicatedOrderRecords = await getRecords(duplicatedOrdersTable.id);
+      const duplicatedCustomerRecords = await getRecords(duplicatedCustomersTable.id);
+      expect(duplicatedOrderRecords.records[0].fields[customerLinkField.name]).toMatchObject([
+        { id: duplicatedCustomerRecords.records[0].id },
+      ]);
+      const duplicatedProductLinkValue =
+        duplicatedOrderRecords.records[0].fields[productLinkField.name];
+      expect(
+        duplicatedProductLinkValue === null ||
+          duplicatedProductLinkValue === undefined ||
+          duplicatedProductLinkValue === ''
+      ).toBe(true);
+    });
   });
 
   describe('Duplicate cross space', () => {

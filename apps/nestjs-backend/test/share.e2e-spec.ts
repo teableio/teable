@@ -40,6 +40,15 @@ import {
   PrincipalType,
   createBase,
   getShareViewRowCount,
+  axios,
+  CREATE_RECORD,
+  DELETE_RECORD_URL,
+  GET_RECORDS_URL,
+  OPERATION_UNDO,
+  PASTE_URL,
+  SHARE_VIEW_COLLABORATORS,
+  SHARE_VIEW_ID_HEADER,
+  UPDATE_RECORD,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -382,6 +391,330 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
   });
 
+  describe('share view allowEdit permission scope', () => {
+    let editTable: ITableFullVo;
+    let editShareId: string;
+    let editViewId: string;
+    let nameFieldId: string;
+    let secretFieldId: string;
+    let visibleRecordId: string;
+    let filteredOutRecordId: string;
+
+    beforeAll(async () => {
+      editTable = await createTable(baseId, {
+        name: 'share-edit-scope-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Secret', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Name: 'Visible', Secret: 'visible-secret' } },
+          { fields: { Name: 'Hidden', Secret: 'hidden-secret' } },
+        ],
+      });
+      editViewId = editTable.defaultViewId!;
+      nameFieldId = editTable.fields[0].id;
+      secretFieldId = editTable.fields[1].id;
+      visibleRecordId = editTable.records[0].id;
+      filteredOutRecordId = editTable.records[1].id;
+
+      await updateViewFilter(editTable.id, editViewId, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: nameFieldId,
+              operator: is.value,
+              value: 'Visible',
+            },
+          ],
+        },
+      });
+      await apiUpdateViewColumnMeta(editTable.id, editViewId, [
+        { fieldId: secretFieldId, columnMeta: { hidden: true } },
+      ]);
+      const shareResult = await apiEnableShareView({ tableId: editTable.id, viewId: editViewId });
+      editShareId = shareResult.data.shareId;
+      await apiUpdateViewShareMeta(editTable.id, editViewId, {
+        allowEdit: true,
+        includeRecords: true,
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, editTable.id);
+    });
+
+    it('should allow logged-in share editors to update visible fields on visible records', async () => {
+      const result = await axios.patch<IRecord>(
+        urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+        {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: {
+              [nameFieldId]: 'Visible',
+            },
+          },
+        },
+        { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+      );
+
+      expect(result.data.fields[nameFieldId]).toEqual('Visible');
+    });
+
+    it('should deny share editors from updating hidden fields', async () => {
+      const error = await getError(() =>
+        axios.patch<IRecord>(
+          urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            record: {
+              fields: {
+                [secretFieldId]: 'leak',
+              },
+            },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should deny share editors from updating records outside the shared view filter', async () => {
+      const error = await getError(() =>
+        axios.patch<IRecord>(
+          urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: filteredOutRecordId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            record: {
+              fields: {
+                [nameFieldId]: 'Hidden edited',
+              },
+            },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should deny share editors from creating hidden-field values', async () => {
+      const error = await getError(() =>
+        axios.post(
+          urlBuilder(CREATE_RECORD, { tableId: editTable.id }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                fields: {
+                  [secretFieldId]: 'created secret',
+                },
+              },
+            ],
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should reject common read endpoints with the share-view header', async () => {
+      const error = await getError(() =>
+        axios.post(
+          urlBuilder(`${GET_RECORDS_URL}/socket/doc-ids`, { tableId: editTable.id }),
+          { viewId: editViewId, take: 10 },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should keep anonymous allowEdit viewers on collaborator narrow mode', async () => {
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(SHARE_VIEW_COLLABORATORS, { shareId: editShareId }))
+      );
+
+      expect(error?.status).toEqual(400);
+    });
+
+    it('should allow share editors to delete a visible record', async () => {
+      // Use a fresh record so we don't disturb the rest of the suite.
+      const created = await apiCreateRecords(editTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [nameFieldId]: 'Visible' } }],
+      });
+      const tempRecordId = created.data.records[0].id;
+
+      const result = await axios.delete(
+        urlBuilder(DELETE_RECORD_URL, { tableId: editTable.id, recordId: tempRecordId }),
+        { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+      );
+
+      expect(result.status).toEqual(200);
+    });
+
+    it('should deny share editors from deleting out-of-scope records', async () => {
+      const error = await getError(() =>
+        axios.delete(
+          urlBuilder(DELETE_RECORD_URL, { tableId: editTable.id, recordId: filteredOutRecordId }),
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should deny selection paste declaring a hidden field in projection', async () => {
+      const error = await getError(() =>
+        axios.patch(
+          urlBuilder(PASTE_URL, { tableId: editTable.id }),
+          {
+            viewId: editViewId,
+            ranges: [
+              [0, 0],
+              [0, 0],
+            ],
+            projection: [secretFieldId],
+            content: 'leaked',
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should accept selection paste with visible projection on visible rows', async () => {
+      // Confirms the strict assertSelectionQuery requirements (viewId match,
+      // no ignoreViewQuery, no filter override, non-empty visible projection)
+      // do not break the normal frontend payload shape.
+      const result = await axios.patch(
+        urlBuilder(PASTE_URL, { tableId: editTable.id }),
+        {
+          viewId: editViewId,
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+          projection: [nameFieldId],
+          content: 'Pasted',
+        },
+        { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+      );
+
+      expect(result.status).toEqual(200);
+    });
+
+    it('should deny anonymous writes carrying the share-view header', async () => {
+      const error = await getError(() =>
+        anonymousUser.patch(
+          urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            record: { fields: { [nameFieldId]: 'anonymous attempt' } },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should deny writes when allowEdit is turned off', async () => {
+      await apiUpdateViewShareMeta(editTable.id, editViewId, {
+        allowEdit: false,
+        includeRecords: true,
+      });
+      try {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+            {
+              fieldKeyType: FieldKeyType.Id,
+              record: { fields: { [nameFieldId]: 'edit off' } },
+            },
+            { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      } finally {
+        await apiUpdateViewShareMeta(editTable.id, editViewId, {
+          allowEdit: true,
+          includeRecords: true,
+        });
+      }
+    });
+
+    it('should deny writes when includeRecords is off even with allowEdit on', async () => {
+      await apiUpdateViewShareMeta(editTable.id, editViewId, {
+        allowEdit: true,
+        includeRecords: false,
+      });
+      try {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+            {
+              fieldKeyType: FieldKeyType.Id,
+              record: { fields: { [nameFieldId]: 'no records exposed' } },
+            },
+            { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      } finally {
+        await apiUpdateViewShareMeta(editTable.id, editViewId, {
+          allowEdit: true,
+          includeRecords: true,
+        });
+      }
+    });
+
+    it('should deny share-view header targeting a different table than its owning view', async () => {
+      // `tableId` is the suite-level table — different from editTable. Using
+      // editShareId here simulates an attacker pointing a legitimate share at
+      // unrelated tables in the same base.
+      const error = await getError(() =>
+        axios.post(
+          urlBuilder(CREATE_RECORD, { tableId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: {} }],
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+
+      expect(error?.status).toEqual(403);
+    });
+
+    it('should accept undo-redo calls in share-view context', async () => {
+      // PermissionGuard's share-view rule whitelists undo-redo so that share
+      // editors can reverse their own ops. Asserting the endpoint is reachable
+      // (not the undo semantics — empty stacks legally return 'empty').
+      const result = await axios.post(
+        urlBuilder(OPERATION_UNDO, { tableId: editTable.id }),
+        {},
+        {
+          headers: {
+            [SHARE_VIEW_ID_HEADER]: editShareId,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'x-window-id': 'share-edit-undo-test',
+          },
+        }
+      );
+
+      expect(result.status).toEqual(201);
+      expect(['fulfilled', 'empty', 'failed']).toContain(result.data.status);
+    });
+  });
+
   describe('api/:shareId/view/link-records (GET)', () => {
     let linkTableRes: ITableFullVo;
     const primaryFieldName = 'Text1';
@@ -715,9 +1048,35 @@ describe('OpenAPI ShareController (e2e)', () => {
         email: 'newuser@example.com',
         password: '12345678',
       });
-      expect(
+      await expect(
         user2Request.get(urlBuilder(SHARE_VIEW_GET, { shareId: shareResult.data.shareId }))
       ).rejects.toThrow();
+    });
+
+    it('should not expose link view lookup for hidden fields through a share-view header', async () => {
+      const linkField = await createField(table1.id, {
+        name: 'hidden link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+      await apiUpdateViewColumnMeta(table1.id, table1.defaultViewId!, [
+        { fieldId: linkField.data.id, columnMeta: { hidden: true } },
+      ]);
+      const shareResult = await apiEnableShareView({
+        tableId: table1.id,
+        viewId: table1.defaultViewId!,
+      });
+
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(SHARE_VIEW_GET, { shareId: linkField.data.id }), {
+          headers: { [SHARE_VIEW_ID_HEADER]: shareResult.data.shareId },
+        })
+      );
+
+      expect(error?.status).toEqual(403);
     });
 
     it('search and filterLinkCellSelected', async () => {
@@ -734,6 +1093,39 @@ describe('OpenAPI ShareController (e2e)', () => {
         filterLinkCellSelected: linkField.data.id,
       });
       expect(rowCountRes.data.rowCount).toEqual(0);
+    });
+
+    it('records endpoint honors search query', async () => {
+      const primary = table2.fields[0];
+      await apiCreateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [primary.id]: 'City College' } },
+          { fields: { [primary.id]: 'Ewha Womans University' } },
+        ],
+      });
+      const linkField = await createField(table1.id, {
+        name: 'link field search',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+
+      // global search across all visible fields should filter the candidate list
+      const matched = await apiGetShareViewRecords(linkField.data.id, {
+        search: ['City', '', true],
+        filterLinkCellCandidate: linkField.data.id,
+      });
+      expect(matched.data.records).toHaveLength(1);
+      expect(matched.data.records[0].fields[primary.id]).toEqual('City College');
+
+      const unmatched = await apiGetShareViewRecords(linkField.data.id, {
+        search: ['no-such-record', '', true],
+        filterLinkCellCandidate: linkField.data.id,
+      });
+      expect(unmatched.data.records).toHaveLength(0);
     });
   });
 

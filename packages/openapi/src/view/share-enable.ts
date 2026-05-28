@@ -6,7 +6,11 @@ import { z } from '../zod';
 export const ENABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/enable-share';
 
 export const enableShareViewVoSchema = z.object({
-  shareId: z.string(),
+  shareId: z
+    .string()
+    .describe(
+      'The share id of the view. Use it to access the shared view at `${endpoint}/share/{shareId}/view` (e.g. https://app.teable.ai/share/shrH7kunpHv8U9kfZyD/view).'
+    ),
 });
 
 export type IEnableShareViewVo = z.infer<typeof enableShareViewVoSchema>;

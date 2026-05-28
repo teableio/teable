@@ -395,6 +395,52 @@ const shouldRefreshAfterProjectedMutation = (
   return false;
 };
 
+const hasQueryItems = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
+const querySensitiveRecordMutationActions = new Set(['setRecord', 'addRecord', 'deleteRecord']);
+
+const isQuerySensitiveToRecordMutation = (collection: string, queryParams: unknown): boolean => {
+  if (!isRecordCollection(collection) || !(queryParams instanceof Object)) {
+    return false;
+  }
+
+  const query = queryParams as Pick<
+    IGetRecordsRo,
+    'filter' | 'orderBy' | 'groupBy' | 'search' | 'collapsedGroupIds'
+  >;
+
+  return Boolean(
+    query.filter ||
+      hasQueryItems(query.orderBy) ||
+      hasQueryItems(query.groupBy) ||
+      hasQueryItems(query.search) ||
+      hasQueryItems(query.collapsedGroupIds)
+  );
+};
+
+const hasRecordMutationAction = (
+  tableId: string,
+  batch: unknown,
+  actionKeys: ReadonlySet<string>
+): boolean => {
+  if (!Array.isArray(batch)) {
+    return false;
+  }
+
+  return batch.some((item) => {
+    if (!(item instanceof Object)) {
+      return false;
+    }
+
+    const action = item as ActionTrigger;
+    if (!action.actionKey || !actionKeys.has(action.actionKey)) {
+      return false;
+    }
+
+    const payloadTableId = action.payload?.tableId;
+    return payloadTableId == null || payloadTableId === tableId;
+  });
+};
+
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
  * keep every instance the latest data
@@ -424,6 +470,10 @@ export function useInstances<T, R extends { id: string }>({
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
   const projectedRefreshSeqRef = useRef(0);
+  const shouldRefreshQueryAfterRecordMutation = isQuerySensitiveToRecordMutation(
+    collection,
+    queryParams
+  );
 
   const refreshProjectedRecordFields = useCallback(
     async (fieldIds: string[]) => {
@@ -560,6 +610,18 @@ export function useInstances<T, R extends { id: string }>({
         return;
       }
 
+      if (
+        shouldRefreshQueryAfterRecordMutation &&
+        hasRecordMutationAction(
+          schemaRefreshCollectionTableId,
+          batch,
+          querySensitiveRecordMutationActions
+        )
+      ) {
+        setSchemaRefreshToken((current) => current + 1);
+        return;
+      }
+
       if (!isSchemaRefreshAction(schemaRefreshCollectionTableId, batch)) {
         return;
       }
@@ -592,6 +654,7 @@ export function useInstances<T, R extends { id: string }>({
     refreshProjectedRecordFields,
     removeProjectedRecordsByIds,
     schemaRefreshCollectionTableId,
+    shouldRefreshQueryAfterRecordMutation,
   ]);
 
   const handleReady = useCallback((query: Query<T>) => {
@@ -654,6 +717,21 @@ export function useInstances<T, R extends { id: string }>({
   const handleExtra = useCallback((extra: unknown) => {
     console.log('extra', extra);
     dispatch({ type: 'extra', extra });
+  }, []);
+
+  const handleChanged = useCallback((query: Query<T>, docs: Doc<T>[]) => {
+    console.log(
+      `${docs[0]?.collection}:changed:`,
+      docs.map((doc) => doc.id)
+    );
+    const results = query.results ?? docs;
+    dispatch({ type: 'ready', results, extra: query.extra });
+    results.forEach((doc) => {
+      opListeners.current.add(doc, (op) => {
+        console.log(`${query.collection} on op:`, op, doc);
+        dispatch({ type: 'update', doc });
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -757,12 +835,7 @@ export function useInstances<T, R extends { id: string }>({
     }
 
     const readyListener = () => handleReady(query);
-    const changedListener = (docs: Doc<T>[]) => {
-      console.log(
-        `${docs[0]?.collection}:changed:`,
-        docs.map((doc) => doc.id)
-      );
-    };
+    const changedListener = (docs: Doc<T>[]) => handleChanged(query, docs);
 
     if (query.ready) {
       readyListener();
@@ -788,7 +861,7 @@ export function useInstances<T, R extends { id: string }>({
       query.removeListener('move', handleMove);
       query.removeListener('extra', handleExtra);
     };
-  }, [query, handleInsert, handleRemove, handleMove, handleReady, handleExtra]);
+  }, [query, handleInsert, handleRemove, handleMove, handleReady, handleChanged, handleExtra]);
 
   return instances;
 }

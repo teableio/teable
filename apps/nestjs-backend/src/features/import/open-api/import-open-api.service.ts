@@ -1,19 +1,14 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import {
-  FieldType,
-  generateLogId,
-  getRandomString,
-  HttpErrorCode,
-  TimeFormatting,
-} from '@teable/core';
+import { FieldType, getRandomString, HttpErrorCode, TimeFormatting } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  IAnalyzeRo,
-  IImportOptionRo,
-  IImportStatusVo,
-  IInplaceImportOptionRo,
-  ITableFullVo,
+import {
+  CreateRecordAction,
+  type IAnalyzeRo,
+  type IImportOptionRo,
+  type IImportStatusVo,
+  type IInplaceImportOptionRo,
+  type ITableFullVo,
 } from '@teable/openapi';
 import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -21,6 +16,7 @@ import { CacheService } from '../../../cache/cache.service';
 import { CustomHttpException } from '../../../custom.exception';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
+import { AuditScope } from '../../audit/audit-scope';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -66,6 +62,7 @@ export class ImportOpenApiService {
     private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly cacheService: CacheService,
+    private readonly audit: AuditScope,
     @Optional() private readonly importMetrics?: ImportMetricsService
   ) {}
 
@@ -125,7 +122,7 @@ export class ImportOpenApiService {
     this.importMetrics?.recordImportQueued({ fileType, operationType: 'create_table' });
 
     // only record base table info, not include records
-    const tableResult = [];
+    const tableResult: ITableFullVo[] = [];
 
     for (const [sheetKey, value] of Object.entries(worksheets)) {
       const { importData, useFirstRowAsHeader, columns, name } = value;
@@ -156,65 +153,61 @@ export class ImportOpenApiService {
         return result;
       });
 
-      let table: ITableFullVo;
-
-      try {
-        table = await this.createSingleTable(baseId, name, fieldsRo);
-        tableResult.push(table);
-      } catch (e) {
-        this.logger.error(e);
-        throw e;
-      }
-
-      const { fields } = table;
-
-      const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${table.id}:${getRandomString(6)}`;
-
-      const logId = generateLogId();
-
-      if (importData && columns.length) {
-        await this.importTableCsvChunkQueueProcessor.queue.add(
-          `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
-          {
-            baseId,
-            table: {
-              id: table.id,
-              name: table.name,
-            },
-            userId,
-            origin,
-            importerParams: {
-              attachmentUrl,
-              fileType,
-              maxRowCount,
-            },
-            options: {
-              skipFirstNLines: useFirstRowAsHeader ? 1 : 0,
-              sheetKey,
-              notification,
-            },
-            recordsCal: {
-              fields: fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
-              columnInfo: columns,
-            },
-            ro: importRo,
-            logId,
-          },
-          {
-            jobId,
-            removeOnComplete: 1000,
-            removeOnFail: 1000,
+      const table = await this.audit.withOperation(
+        {
+          rootAction: CreateRecordAction.Import,
+          resourceId: baseId,
+          params: { fileType },
+        },
+        async () => {
+          const logId = this.audit.current()!.operationId;
+          let created: ITableFullVo;
+          try {
+            created = await this.createSingleTable(baseId, name, fieldsRo);
+          } catch (e) {
+            this.logger.error(e);
+            throw e;
           }
-        );
-        await this.cacheService
-          .setDetail(getImportLatestJobKey(table.id), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
-          .catch((e) => {
-            this.logger.warn(
-              `Failed to set latest import job index for table ${table.id}, job ${jobId}`,
-              e
+          tableResult.push(created);
+
+          const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${created.id}:${getRandomString(6)}`;
+
+          if (importData && columns.length) {
+            await this.importTableCsvChunkQueueProcessor.queue.add(
+              `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
+              {
+                baseId,
+                table: { id: created.id, name: created.name },
+                userId,
+                origin,
+                importerParams: { attachmentUrl, fileType, maxRowCount },
+                options: {
+                  skipFirstNLines: useFirstRowAsHeader ? 1 : 0,
+                  sheetKey,
+                  notification,
+                },
+                recordsCal: {
+                  fields: created.fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
+                  columnInfo: columns,
+                },
+                ro: importRo,
+                logId,
+              },
+              { jobId, removeOnComplete: 1000, removeOnFail: 1000 }
             );
-          });
-      }
+            await this.cacheService
+              .setDetail(getImportLatestJobKey(created.id), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+              .catch((e) => {
+                this.logger.warn(
+                  `Failed to set latest import job index for table ${created.id}, job ${jobId}`,
+                  e
+                );
+              });
+          }
+          return created;
+        }
+      );
+      void table;
     }
     return tableResult;
   }
@@ -328,51 +321,59 @@ export class ImportOpenApiService {
       return;
     }
 
-    const jobId = await this.generateChunkJobId(tableId);
-
-    const logId = generateLogId();
-
-    await this.importTableCsvChunkQueueProcessor.queue.add(
-      `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
+    await this.audit.withOperation(
       {
-        baseId,
-        table: {
-          id: tableId,
-          name: tableRaw.name,
-        },
-        userId,
-        origin,
-        importerParams: {
-          attachmentUrl,
-          fileType,
-          maxRowCount,
-        },
-        options: {
-          skipFirstNLines: excludeFirstRow ? 1 : 0,
-          sheetKey: sourceWorkSheetKey,
-          notification,
-        },
-        recordsCal: {
-          sourceColumnMap,
-          fields: fieldRaws as { id: string; name: string; type: FieldType }[],
-        },
-        ro: inplaceImportRo,
-        logId,
+        rootAction: CreateRecordAction.InplaceImport,
+        resourceId: tableId,
+        params: { fileType },
       },
-      {
-        jobId,
-        removeOnComplete: 1000,
-        removeOnFail: 1000,
+      async () => {
+        const jobId = await this.generateChunkJobId(tableId);
+        const logId = this.audit.current()!.operationId;
+
+        await this.importTableCsvChunkQueueProcessor.queue.add(
+          `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
+          {
+            baseId,
+            table: {
+              id: tableId,
+              name: tableRaw.name,
+            },
+            userId,
+            origin,
+            importerParams: {
+              attachmentUrl,
+              fileType,
+              maxRowCount,
+            },
+            options: {
+              skipFirstNLines: excludeFirstRow ? 1 : 0,
+              sheetKey: sourceWorkSheetKey,
+              notification,
+            },
+            recordsCal: {
+              sourceColumnMap,
+              fields: fieldRaws as { id: string; name: string; type: FieldType }[],
+            },
+            ro: inplaceImportRo,
+            logId,
+          },
+          {
+            jobId,
+            removeOnComplete: 1000,
+            removeOnFail: 1000,
+          }
+        );
+        await this.cacheService
+          .setDetail(getImportLatestJobKey(tableId), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+          .catch((e) => {
+            this.logger.warn(
+              `Failed to set latest import job index for table ${tableId}, job ${jobId}`,
+              e
+            );
+          });
       }
     );
-    await this.cacheService
-      .setDetail(getImportLatestJobKey(tableId), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
-      .catch((e) => {
-        this.logger.warn(
-          `Failed to set latest import job index for table ${tableId}, job ${jobId}`,
-          e
-        );
-      });
   }
 
   async getImportStatus(tableId: string): Promise<IImportStatusVo> {

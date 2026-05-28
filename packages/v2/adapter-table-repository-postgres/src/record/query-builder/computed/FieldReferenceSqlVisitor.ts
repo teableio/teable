@@ -404,9 +404,6 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
    */
   visitLookupField(field: LookupField): Result<SqlExpr, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
-      if (this.isMissingForeignTableId(field.foreignTableId().toString())) {
-        return this.missingForeignTableExpr(field);
-      }
       const exprOptionsResult = this.getLookupExprOptions(field);
       if (exprOptionsResult.isErr()) return err(exprOptionsResult.error);
       const exprOptions = exprOptionsResult.value;
@@ -464,7 +461,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   visitRollupField(field: RollupField): Result<SqlExpr, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
       if (this.isMissingForeignTableId(field.foreignTableId().toString())) {
-        return this.missingForeignTableExpr(field);
+        return this.erroredFieldExpr(field);
       }
       if (field.hasError().isError()) {
         return this.erroredFieldExpr(field);
@@ -495,12 +492,12 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   visitConditionalLookupField(field: ConditionalLookupField): Result<SqlExpr, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
       const options = field.conditionalLookupOptions();
-      if (this.isMissingForeignTableId(options.foreignTableId().toString())) {
-        return this.missingForeignTableExpr(field);
-      }
       const exprOptionsResult = this.getLookupExprOptions(field);
       if (exprOptionsResult.isErr()) return err(exprOptionsResult.error);
       const exprOptions = exprOptionsResult.value;
+      if (this.isMissingForeignTableId(options.foreignTableId().toString())) {
+        return this.erroredFieldExpr(field, exprOptions);
+      }
       if (field.hasError().isError()) {
         return this.erroredFieldExpr(field, exprOptions);
       }
@@ -536,7 +533,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
     return this.getColAlias(field).andThen((colAlias) => {
       const config = field.config();
       if (this.isMissingForeignTableId(config.foreignTableId().toString())) {
-        return this.missingForeignTableExpr(field);
+        return this.erroredFieldExpr(field);
       }
       if (field.hasError().isError()) {
         return this.erroredFieldExpr(field);
