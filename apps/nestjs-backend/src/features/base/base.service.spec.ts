@@ -68,6 +68,9 @@ describe('BaseService', () => {
           {} as never,
           canaryService as never,
           {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
           {} as never
         ),
         canaryService,
@@ -143,6 +146,88 @@ describe('BaseService', () => {
 
       expect(result.isCanary).toBe(true);
       expect(result.v2Status).toEqual({ useV2: true, reason: 'space_feature' });
+    });
+  });
+
+  describe('dropBase', () => {
+    it('runs base-level data DDL through the routed BYODB data client', async () => {
+      const defaultDataPrisma = {
+        $executeRawUnsafe: vi.fn(),
+      };
+      const routedTxClient = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(1),
+      };
+      const routedDataPrisma = {
+        txClient: vi.fn().mockReturnValue(routedTxClient),
+        $executeRawUnsafe: vi.fn(),
+      };
+      const dataDbClientManager = {
+        dataPrismaForBase: vi.fn().mockResolvedValue(routedDataPrisma),
+      };
+      const dbProvider = {
+        dropSchema: vi.fn().mockReturnValue('DROP SCHEMA "bse1" CASCADE'),
+      };
+      const tableOpenApiService = {
+        dropTables: vi.fn(),
+      };
+      const { service } = {
+        service: new BaseService(
+          {} as never,
+          defaultDataPrisma as never,
+          dataDbClientManager as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          tableOpenApiService as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          dbProvider as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never
+        ),
+      };
+
+      await service.dropBase('bse1', ['tbl1']);
+
+      expect(dataDbClientManager.dataPrismaForBase).toHaveBeenCalledWith('bse1', {
+        useTransaction: true,
+      });
+      expect(routedTxClient.$executeRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA "bse1" CASCADE');
+      expect(routedDataPrisma.$executeRawUnsafe).not.toHaveBeenCalled();
+      expect(defaultDataPrisma.$executeRawUnsafe).not.toHaveBeenCalled();
+      expect(tableOpenApiService.dropTables).not.toHaveBeenCalled();
+    });
+
+    it('falls back to table-level routed drops when the provider has no base schema DDL', async () => {
+      const tableOpenApiService = {
+        dropTables: vi.fn().mockResolvedValue(undefined),
+      };
+      const service = new BaseService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        tableOpenApiService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        { dropSchema: vi.fn().mockReturnValue('') } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+
+      await service.dropBase('bse1', ['tbl1', 'tbl2']);
+
+      expect(tableOpenApiService.dropTables).toHaveBeenCalledWith(['tbl1', 'tbl2']);
     });
   });
 });

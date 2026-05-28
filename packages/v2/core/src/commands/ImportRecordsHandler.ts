@@ -8,6 +8,8 @@ import { RecordWriteSideEffectService } from '../application/services/RecordWrit
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
+import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
@@ -134,9 +136,10 @@ export class ImportRecordsHandler
         if (error instanceof MaxRowCountExceededError) {
           return err(
             domainError.validation({
-              code: 'validation.max_row_limit',
+              code: 'validation.limit.rows_per_table_max',
               message: `Exceed max row limit: ${error.maxRowCount}`,
               details: {
+                max: error.maxRowCount,
                 maxRowCount: error.maxRowCount,
                 rowCount: error.rowCount,
               },
@@ -279,9 +282,36 @@ export class ImportRecordsHandler
         records = await this.resolveRecordLinks(context, records, createResult.value.mutateSpecs);
       }
 
+      // Emit a RecordsBatchCreated event so projection handlers (audit log,
+      // realtime, automation) see the imported batch. Without this, the records
+      // are inserted via insertManyStream but no domain event ever fires.
+      const eventRecords = this.toEventRecords(records);
+      if (eventRecords.length > 0) {
+        state.events.push(
+          RecordsBatchCreated.create({
+            tableId: state.table.id(),
+            baseId: state.table.baseId(),
+            records: eventRecords,
+          })
+        );
+      }
+
       // Yield processed batch for insertion
       yield records;
     }
+  }
+
+  private toEventRecords(records: ReadonlyArray<TableRecord>): ReadonlyArray<RecordValuesDTO> {
+    return records.map((record) => ({
+      recordId: record.id().toString(),
+      fields: record
+        .fields()
+        .entries()
+        .map((entry) => ({
+          fieldId: entry.fieldId.toString(),
+          value: entry.value.toValue(),
+        })),
+    }));
   }
 
   private async collectFieldValueBatches(

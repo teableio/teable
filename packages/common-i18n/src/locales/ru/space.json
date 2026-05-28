@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Уведомление",
+    "duplicateBaseDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "affectedTableSuffix": "({{count}} поле(й))",
+    "convertAndDuplicate": "Преобразовать и дублировать"
+  },
   "initialSpaceName": "{{name}}'s space",
   "action": {
     "createBase": "Создать базу",
@@ -58,7 +64,9 @@
     "exportSlowTip": "Объём данных большой. Экспорт может занять некоторое время. Вы можете временно покинуть страницу.",
     "exportReadyDescription": "Пожалуйста, скачайте файл .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Перемещение успешно",
-    "moveBaseSuccessDescription": "{{baseName}} успешно перемещена в {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} успешно перемещена в {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Уведомление",
+    "moveBaseCrossSpaceDataLossWarning": "Перекрёстные ссылки между пространствами не поддерживаются. Связанные поля будут преобразованы в текстовые поля. Это действие нельзя отменить."
   },
   "deleteSpaceModal": {
     "title": "Удалить пространство",
@@ -90,7 +98,6 @@
     "importWayTip": "Нажмите или перетащите файл в эту область для загрузки",
     "baseImportTips": "Нажмите или перетащите файл .tea в эту область для загрузки",
     "confirm": "Подтвердить и продолжить",
-
     "phase": {
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",

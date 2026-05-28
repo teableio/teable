@@ -34,7 +34,7 @@ export const TextPreview = (props: ITextPreviewProps) => {
   const renderAsMarkdown = isMarkdown(mimetype);
   const FileIcon = useMemo(() => getFileIcon(mimetype), [mimetype]);
 
-  const renderUnavailablePreview = (message: string, className = 'text-zinc-300') => (
+  const renderUnavailablePreview = (message: string, className = 'text-muted-foreground') => (
     <div
       className={cn(
         'flex size-full flex-col items-center justify-center gap-4 px-6 text-center',
@@ -100,17 +100,15 @@ export const TextPreview = (props: ITextPreviewProps) => {
   }
 
   if (error) {
-    return renderUnavailablePreview(error, 'text-red-400');
+    return renderUnavailablePreview(error, 'text-destructive');
   }
 
   if (text == null) return null;
 
   if (renderAsMarkdown) {
     return (
-      <div className="size-full overflow-auto rounded-md bg-zinc-900 p-6">
-        <div className="prose prose-sm prose-invert max-w-none">
-          <MarkdownReadonly value={text} />
-        </div>
+      <div className="size-full overflow-auto rounded-md border border-border bg-background p-6 text-foreground">
+        <MarkdownReadonly value={text} />
       </div>
     );
   }
@@ -119,8 +117,8 @@ export const TextPreview = (props: ITextPreviewProps) => {
     <pre
       className={cn(
         'size-full overflow-auto whitespace-pre-wrap break-words',
-        'rounded-md bg-zinc-900 p-4',
-        'font-mono text-[13px] leading-[20px] text-zinc-100'
+        'rounded-md border border-border bg-background p-4 text-foreground',
+        'font-mono text-[13px] leading-[20px]'
       )}
     >
       {text}

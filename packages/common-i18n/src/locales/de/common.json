@@ -17,6 +17,7 @@
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "back": "Zurück",
+    "download": "Herunterladen",
     "remove": "Entfernen",
     "removeConfig": "Konfiguration entfernen",
     "saveSucceed": "Speichern erfolgreich!",
@@ -1154,9 +1155,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "UPDATE VOM 12. MAI",
-    "title": "Integrierte Anmeldung fuer App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "UPDATE VOM 19. MAI",
+    "title": "Teable Credits jetzt 10x effizienter!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

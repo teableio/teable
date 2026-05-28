@@ -7,6 +7,7 @@ import {
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
+  HttpErrorCode,
   ViewType,
   generateFieldId,
   generateOperationId,
@@ -53,11 +54,13 @@ import { Knex } from 'knex';
 import { groupBy, isEqual, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { FieldReferenceCompatibilityException } from '../../../db-provider/filter-query/cell-value-filter.abstract';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -109,13 +112,17 @@ export type ILegacyDeleteFieldsPayloadSnapshot = {
   records: Awaited<ReturnType<RecordService['getRecordsFields']>> | undefined;
 };
 
+type CreateFieldsOptions = {
+  restoreViewOrder?: boolean;
+};
+
 @Injectable()
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly viewOpenApiService: ViewOpenApiService,
@@ -1149,7 +1156,9 @@ export class FieldOpenApiService {
   @Timing()
   async createFields(
     tableId: string,
-    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[]
+    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[],
+    routingOptions?: IDataDbRoutingOptions,
+    options: CreateFieldsOptions = {}
   ) {
     if (!fields.length) return;
 
@@ -1183,6 +1192,7 @@ export class FieldOpenApiService {
           set.add(fieldId);
         };
 
+        const columnMetaByFieldId = new Map(fields.map((field) => [field.id, field.columnMeta]));
         const createPayload = orderedFields.map((field) => {
           const { columnMeta, references, ...fieldVo } = field;
           if (references?.length) {
@@ -1191,7 +1201,10 @@ export class FieldOpenApiService {
 
           return {
             field: createFieldInstanceByVo(fieldVo),
-            columnMeta: columnMeta as unknown as Record<string, IColumn>,
+            columnMeta: (options.restoreViewOrder ? undefined : columnMeta) as unknown as Record<
+              string,
+              IColumn
+            >,
           };
         });
 
@@ -1200,7 +1213,8 @@ export class FieldOpenApiService {
           async () => {
             const createResult = await this.fieldCreatingService.alterCreateFieldsInExistingTable(
               tableId,
-              createPayload
+              createPayload,
+              routingOptions
             );
             created.push(...createResult);
 
@@ -1213,6 +1227,19 @@ export class FieldOpenApiService {
 
             if (referencesToRestore.size) {
               await this.restoreReference(Array.from(referencesToRestore));
+            }
+
+            if (options.restoreViewOrder) {
+              for (const { tableId: tid, field } of createResult) {
+                const columnMeta = columnMetaByFieldId.get(field.id);
+                if (columnMeta) {
+                  await this.viewService.initViewColumnMeta(
+                    tid,
+                    [field.id],
+                    [columnMeta as unknown as Record<string, IColumn>]
+                  );
+                }
+              }
             }
 
             const skipComputation = this.cls.get('skipFieldComputation');
@@ -1253,15 +1280,24 @@ export class FieldOpenApiService {
 
     // Recreate search indexes after schema changes (outside tx boundaries)
     for (const { tableId: tid, field } of createdFields) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tid, field);
+      await this.tableIndexService.createSearchFieldSingleIndex(tid, field, routingOptions);
     }
   }
 
   @Timing()
-  async createFieldsByRo(tableId: string, fieldRos: IFieldRo[]): Promise<IFieldVo[]> {
+  async createFieldsByRo(
+    tableId: string,
+    fieldRos: IFieldRo[],
+    routingOptions?: IDataDbRoutingOptions
+  ): Promise<IFieldVo[]> {
     if (!fieldRos.length) return [];
-    const fieldVos = await this.fieldSupplementService.prepareCreateFields(tableId, fieldRos);
-    await this.createFields(tableId, fieldVos);
+    const fieldVos = await this.fieldSupplementService.prepareCreateFields(
+      tableId,
+      fieldRos,
+      undefined,
+      routingOptions
+    );
+    await this.createFields(tableId, fieldVos, routingOptions);
     return fieldVos;
   }
 
@@ -1327,8 +1363,18 @@ export class FieldOpenApiService {
   }
 
   @Timing()
-  async createField(tableId: string, fieldRo: IFieldRo, windowId?: string) {
-    const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
+  async createField(
+    tableId: string,
+    fieldRo: IFieldRo,
+    windowId?: string,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
+    const fieldVo = await this.fieldSupplementService.prepareCreateField(
+      tableId,
+      fieldRo,
+      undefined,
+      routingOptions
+    );
     const fieldInstance = createFieldInstanceByVo(fieldVo);
     const columnMeta = fieldRo.order && {
       [fieldRo.order.viewId]: { order: fieldRo.order.orderIndex },
@@ -1344,7 +1390,8 @@ export class FieldOpenApiService {
             created = await this.fieldCreatingService.alterCreateField(
               tableId,
               fieldInstance,
-              columnMeta
+              columnMeta,
+              routingOptions
             );
             for (const { tableId: tid, field } of created) {
               let entry = sourceEntries.find((s) => s.tableId === tid);
@@ -1367,7 +1414,7 @@ export class FieldOpenApiService {
     );
 
     for (const { tableId: tid, field } of newFields) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tid, field);
+      await this.tableIndexService.createSearchFieldSingleIndex(tid, field, routingOptions);
     }
 
     const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
@@ -1578,6 +1625,7 @@ export class FieldOpenApiService {
     modifiedOps,
     supplementChange,
     dependentFieldIds,
+    skipLinkDestructive,
   }: {
     tableId: string;
     newField: IFieldInstance;
@@ -1589,6 +1637,13 @@ export class FieldOpenApiService {
       oldField: IFieldInstance;
     };
     dependentFieldIds?: string[];
+    /**
+     * Internal flag set by `convertCrossSpaceLinkToText`: when true, the link
+     * cleanup path skips dropping the junction/FK and skips the symmetric
+     * partner cascade, so both sides of a two-way link can be converted
+     * independently and each preserves its own values.
+     */
+    skipLinkDestructive?: boolean;
   }): Promise<{ compatibilityIssue: boolean }> {
     let encounteredCompatibilityIssue = false;
 
@@ -1662,7 +1717,12 @@ export class FieldOpenApiService {
         const { newField: sNew, oldField: sOld } = supplementChange;
         await this.syncConditionalFiltersByFieldChanges(sNew, sOld);
       }
-      await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
+      await this.fieldConvertingService.deleteOrCreateSupplementLink(
+        tableId,
+        newField,
+        oldField,
+        skipLinkDestructive
+      );
       await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
       if (supplementChange) {
         const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
@@ -1876,6 +1936,82 @@ export class FieldOpenApiService {
     return omit(newFieldVo, ['meta']) as IFieldVo;
   }
 
+  /**
+   * Cross-space variant of convertField for Link fields only. Performs the
+   * same Link → SingleLineText conversion that convertField would, but skips
+   * two destructive steps inside `linkToOther`:
+   *
+   *  - `cleanForeignKey` (which would drop the junction/FK and break the
+   *    symmetric partner's read path)
+   *  - the symmetric-partner cascade delete (which would remove the partner
+   *    field outright in the other base)
+   *
+   * The result is that each Link field can be converted independently while
+   * preserving its own current display values. The orchestrator (moveBase)
+   * is expected to walk affected fields in deepest-first order so dependent
+   * lookup/rollup fields are already converted via the regular `convertField`
+   * path before any Link gets here — that's why `dependentFieldIds` is left
+   * empty.
+   *
+   * Returns the original link options so the orchestrator can call
+   * `cleanOrphanCrossSpaceLinkStorage` after every paired field has been
+   * converted, dropping the now-orphaned junction/FK in a single sweep.
+   *
+   * Not exposed via REST; called internally from base.service.ts.
+   */
+  async convertCrossSpaceLinkToText(
+    tableId: string,
+    fieldId: string
+  ): Promise<{ field: IFieldVo; oldLinkOptions: ILinkFieldOptions }> {
+    return this.prismaService.$tx(
+      async () => {
+        // Pass `options: {}` explicitly so stageAnalysis assigns the empty
+        // default to the new SingleLineText field. Without this the new field
+        // ends up with `options: null`, which crashes any UI/grid code that
+        // does `const { showAs } = field.options`.
+        const analysisResult = await this.fieldConvertingService.stageAnalysis(tableId, fieldId, {
+          type: FieldType.SingleLineText,
+          options: {},
+        });
+        const { newField, oldField } = analysisResult;
+        const oldLinkOptions = oldField.options as ILinkFieldOptions;
+
+        await this.performConvertField({
+          tableId,
+          newField,
+          oldField,
+          modifiedOps: analysisResult.modifiedOps,
+          supplementChange: analysisResult.supplementChange,
+          dependentFieldIds: [],
+          skipLinkDestructive: true,
+        });
+
+        const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+        return {
+          field: omit(newFieldVo, ['meta']) as IFieldVo,
+          oldLinkOptions,
+        };
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
+  }
+
+  /**
+   * Drops the junction table (M:N) or FK column (N:1 / 1:1 / one-way variants)
+   * that backed a previously-converted cross-space Link. Intended to run after
+   * every paired Link in a move has been converted via
+   * `convertCrossSpaceLinkToText`, since at that point no field references the
+   * junction/FK any more.
+   *
+   * Idempotent in the typical case where both sides of a symmetric pair pass
+   * options pointing at the same storage — callers should still dedupe by
+   * storage key to avoid second-call errors. Errors are propagated so the
+   * caller can decide whether to log-and-continue or fail.
+   */
+  async cleanOrphanCrossSpaceLinkStorage(options: ILinkFieldOptions): Promise<void> {
+    await this.fieldSupplementService.cleanForeignKey(options);
+  }
+
   async getFilterLinkRecords(tableId: string, fieldId: string) {
     const field = await this.fieldService.getField(tableId, fieldId);
 
@@ -1902,7 +2038,6 @@ export class FieldOpenApiService {
     return [];
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   async duplicateField(
     sourceTableId: string,
     fieldId: string,
@@ -1911,125 +2046,36 @@ export class FieldOpenApiService {
   ) {
     const { name, viewId } = duplicateFieldRo;
     const { newField } = await this.prismaService.$tx(
-      async () => {
-        const prisma = this.prismaService.txClient();
-
-        // throw error if field not found
+      async (prisma) => {
         const fieldRaw = await prisma.field.findUniqueOrThrow({
-          where: {
-            id: fieldId,
-            deletedTime: null,
-          },
+          where: { id: fieldId, deletedTime: null },
         });
-
-        const fieldName = await this.fieldSupplementService.uniqFieldName(sourceTableId, name);
-
-        const dbFieldName = await this.fieldService.generateDbFieldName(sourceTableId, fieldName);
 
         const fieldInstance = createFieldInstanceByRaw(fieldRaw);
 
-        const newFieldInstance = {
-          ...fieldInstance,
-          name: fieldName,
-          dbFieldName,
-          id: generateFieldId(),
-        } as IFieldInstance;
-
-        delete newFieldInstance.isPrimary;
-        if (newFieldInstance.type === FieldType.Formula) {
-          newFieldInstance.meta = undefined;
-        }
-
-        if (viewId) {
-          const view = await prisma.view.findUniqueOrThrow({
-            where: { id: viewId, deletedTime: null },
-            select: {
-              id: true,
-              columnMeta: true,
-            },
-          });
-          const columnMeta = (view.columnMeta ? JSON.parse(view.columnMeta) : {}) as IColumnMeta;
-          const fieldViewOrder = columnMeta[fieldId]?.order;
-
-          const getterFieldViewOrders = Object.values(columnMeta)
-            .filter(({ order }) => order > fieldViewOrder)
-            .map(({ order }) => order)
-            .sort();
-
-          const targetFieldViewOrder = getterFieldViewOrders?.length
-            ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
-            : fieldViewOrder + 1;
-
-          (newFieldInstance as IFieldRo).order = {
-            viewId,
-            orderIndex: targetFieldViewOrder,
-          };
-        }
-
-        // create field may not support notNull and unique validate
-        delete newFieldInstance.notNull;
-        delete newFieldInstance.unique;
-
-        if (fieldInstance.type === FieldType.Button) {
-          newFieldInstance.options = omit(fieldInstance.options, ['workflow']);
-        }
-
-        if (FieldType.Link === fieldInstance.type && !fieldInstance.isLookup) {
-          newFieldInstance.options = {
-            ...pick(fieldInstance.options, [
-              'filter',
-              'filterByViewId',
-              'foreignTableId',
-              'relationship',
-              'visibleFieldIds',
-              'baseId',
-            ]),
-            // all link field should be one way link
-            isOneWay: true,
-          } as ILinkFieldOptions;
-        }
-
-        if (
-          fieldInstance.isLookup ||
-          fieldInstance.type === FieldType.Rollup ||
-          fieldInstance.type === FieldType.ConditionalRollup
-        ) {
-          const sourceLookupOptions = fieldInstance.lookupOptions;
-          if (sourceLookupOptions) {
-            const normalizedLookupOptions = pick(sourceLookupOptions, [
-              'foreignTableId',
-              'lookupFieldId',
-              'linkFieldId',
-              'filter',
-              'sort',
-              'limit',
-            ]);
-            if (Object.keys(normalizedLookupOptions).length > 0) {
-              newFieldInstance.lookupOptions =
-                normalizedLookupOptions as IFieldInstance['lookupOptions'];
-            } else {
-              delete newFieldInstance.lookupOptions;
-            }
-          } else {
-            delete newFieldInstance.lookupOptions;
-          }
-        }
-
-        // after create field, and add constraint relative
-        const newField = await this.createField(sourceTableId, {
-          ...omit(newFieldInstance, ['notNull', 'unique']),
+        const newFieldInstance = await this.buildDuplicateFieldInstance({
+          sourceTableId,
+          source: fieldInstance,
+          name,
+          viewId,
         });
 
-        if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
-          // Duplicate records synchronously to avoid cross-transaction CLS leaks
-          await this.duplicateFieldData(
-            sourceTableId,
-            newField.id,
-            fieldRaw.dbFieldName,
-            omit(newFieldInstance, 'order') as IFieldInstance,
-            { sourceFieldId: fieldRaw.id }
-          );
-        }
+        // remove all the constraints on the duplicated field
+        // re-apply constraints only when necessary in duplicateFieldData, which is aware of type changes and cross-space downgrades
+        const newField = await this.createField(sourceTableId, {
+          ...omit(newFieldInstance, ['isPrimary', 'notNull', 'unique']),
+        });
+
+        // duplicateFieldData decides internally whether to skip (computed/Button
+        // target), whether to stringify cellValues (type changed, e.g. cross-space
+        // downgrade), and whether to re-apply notNull/unique constraints.
+        await this.duplicateFieldData(
+          sourceTableId,
+          newField.id,
+          fieldRaw.dbFieldName,
+          fieldInstance,
+          omit(newFieldInstance, 'order') as IFieldInstance
+        );
 
         return { newField };
       },
@@ -2047,70 +2093,211 @@ export class FieldOpenApiService {
     return newField;
   }
 
+  // Builds the IFieldInstance to be passed to createField when duplicating:
+  //   - resolves a unique field name and dbFieldName within the target table
+  //   - spreads source + overrides (name/dbFieldName/fresh id)
+  //   - clears formula `meta` so the column-creation visitor decides
+  //     persistedAsGeneratedColumn fresh for the new field
+  //   - resolves orderIndex within the target view when viewId is provided
+  //   - delegates type-specific options/lookupOptions shaping (incl. cross-space
+  //     downgrade) to shapeDuplicateFieldOptions
+  // Constraints (isPrimary/notNull/unique) are stripped at the createField call
+  // site and re-applied later by duplicateFieldData when appropriate.
+  private async buildDuplicateFieldInstance(params: {
+    sourceTableId: string;
+    source: IFieldInstance;
+    name: string;
+    viewId?: string;
+  }): Promise<IFieldInstance> {
+    const { sourceTableId, source, name, viewId } = params;
+
+    const fieldName = await this.fieldSupplementService.uniqFieldName(sourceTableId, name);
+    const dbFieldName = await this.fieldService.generateDbFieldName(sourceTableId, fieldName);
+
+    const base = {
+      ...source,
+      name: fieldName,
+      dbFieldName,
+      id: generateFieldId(),
+    } as IFieldInstance;
+
+    if (base.type === FieldType.Formula) {
+      base.meta = undefined;
+    }
+
+    if (viewId) {
+      (base as IFieldRo).order = await this.resolveDuplicateFieldOrder(source.id, viewId);
+    }
+
+    return this.shapeDuplicateFieldOptions(sourceTableId, source, base);
+  }
+
+  // Computes the orderIndex for a duplicated field within the target view:
+  // inserted immediately after the source field, midway to the next column.
+  // If the source has no entry in this view's columnMeta (sparse columnMeta on
+  // legacy views, etc.), falls back to placing at the rightmost end so the
+  // duplicate never lands ahead of unrelated fields (NaN → null after JSON
+  // serialization would otherwise sort to position 0).
+  private async resolveDuplicateFieldOrder(
+    sourceFieldId: string,
+    viewId: string
+  ): Promise<{ viewId: string; orderIndex: number }> {
+    const prisma = this.prismaService.txClient();
+    const view = await prisma.view.findUniqueOrThrow({
+      where: { id: viewId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+    const columnMeta = (view.columnMeta ? JSON.parse(view.columnMeta) : {}) as IColumnMeta;
+    const allOrders = Object.values(columnMeta)
+      .map((c) => c.order)
+      .filter((o): o is number => typeof o === 'number' && Number.isFinite(o));
+    const sourceOrder = columnMeta[sourceFieldId]?.order;
+
+    if (typeof sourceOrder !== 'number' || !Number.isFinite(sourceOrder)) {
+      const maxOrder = allOrders.length ? Math.max(...allOrders) : 0;
+      return { viewId, orderIndex: maxOrder + 1 };
+    }
+
+    const subsequentOrders = allOrders.filter((o) => o > sourceOrder).sort((a, b) => a - b);
+    const orderIndex = subsequentOrders.length
+      ? (subsequentOrders[0] + sourceOrder) / 2
+      : sourceOrder + 1;
+
+    return { viewId, orderIndex };
+  }
+
+  // Decides how to carry over options from the source field to the duplicate:
+  //   - cross-space link/lookup/rollup → downgrade to plain SingleLineText
+  //   - Button → strip workflow
+  //   - Link (non-lookup) → keep relation, force one-way
+  //   - Lookup / Rollup / ConditionalRollup → keep lookupOptions subset
+  //   - other types → keep spread-copied options as-is
+  private async shapeDuplicateFieldOptions(
+    sourceTableId: string,
+    source: IFieldInstance,
+    target: IFieldInstance
+  ): Promise<IFieldInstance> {
+    const crossSpaceDowngraded = await this.fieldSupplementService.isCrossSpaceField(
+      sourceTableId,
+      source
+    );
+
+    const isLookupOrRollup =
+      source.isLookup ||
+      source.type === FieldType.Rollup ||
+      source.type === FieldType.ConditionalRollup;
+
+    switch (true) {
+      case crossSpaceDowngraded: {
+        const order = (target as IFieldRo).order;
+        return {
+          id: target.id,
+          name: target.name,
+          dbFieldName: target.dbFieldName,
+          description: target.description,
+          type: FieldType.SingleLineText,
+          ...(order ? { order } : {}),
+        } as unknown as IFieldInstance;
+      }
+      case source.type === FieldType.Button:
+        target.options = omit(source.options, ['workflow']);
+        return target;
+      case source.type === FieldType.Link && !source.isLookup:
+        target.options = {
+          ...pick(source.options, [
+            'filter',
+            'filterByViewId',
+            'foreignTableId',
+            'relationship',
+            'visibleFieldIds',
+            'baseId',
+          ]),
+          // all link field should be one way link
+          isOneWay: true,
+        } as ILinkFieldOptions;
+        return target;
+      case isLookupOrRollup: {
+        const picked = pick(source.lookupOptions ?? {}, [
+          'foreignTableId',
+          'lookupFieldId',
+          'linkFieldId',
+          'filter',
+          'sort',
+          'limit',
+        ]);
+        if (Object.keys(picked).length > 0) {
+          target.lookupOptions = picked as IFieldInstance['lookupOptions'];
+        } else {
+          delete target.lookupOptions;
+        }
+        return target;
+      }
+      default:
+        return target;
+    }
+  }
+
+  // Copies values from `source` field column into the freshly-created `target`
+  // field. The function works out three things from the two field instances:
+  //   - skip when target can't be written (computed / Button)
+  //   - stringify via source.cellValue2String when the type changed
+  //     (e.g. cross-space link/lookup/rollup → single line text)
+  //   - re-apply notNull / unique on target via convertField after the copy
   async duplicateFieldData(
     sourceTableId: string,
     targetFieldId: string,
     sourceDbFieldName: string,
-    fieldInstance: IFieldInstance,
-    opts: { sourceFieldId: string }
+    source: IFieldInstance,
+    target: IFieldInstance
   ) {
+    if (target.isComputed || target.type === FieldType.Button) return;
+
+    const typeChanged =
+      source.type !== target.type || Boolean(source.isLookup) !== Boolean(target.isLookup);
+    const transformValue = typeChanged
+      ? (value: unknown) => (value == null ? null : source.cellValue2String(value))
+      : undefined;
+
     const chunkSize = 1000;
-
     const dbTableName = await this.fieldService.getDbTableName(sourceTableId);
+    const count = await this.getFieldRecordsCount(dbTableName, sourceTableId, source);
 
-    // Use the SOURCE field for filtering/counting so we only fetch rows where
-    // the original field has a value. The new field is empty at this point.
-    const sourceFieldId = opts.sourceFieldId;
-    const sourceFieldForFilter = { ...fieldInstance, id: sourceFieldId } as IFieldInstance;
-
-    const count = await this.getFieldRecordsCount(dbTableName, sourceTableId, sourceFieldForFilter);
+    const reapplyConstraints = async () => {
+      if (target.notNull || target.unique) {
+        await this.convertField(sourceTableId, targetFieldId, target);
+      }
+    };
 
     if (!count) {
-      if (fieldInstance.notNull || fieldInstance.unique) {
-        await this.convertField(sourceTableId, targetFieldId, {
-          ...fieldInstance,
-          notNull: fieldInstance.notNull,
-          unique: fieldInstance.unique,
-        });
-      }
+      await reapplyConstraints();
       return;
     }
 
-    const page = Math.ceil(count / chunkSize);
-
-    for (let i = 0; i < page; i++) {
+    const pages = Math.ceil(count / chunkSize);
+    for (let i = 0; i < pages; i++) {
       const sourceRecords = await this.getFieldRecords(
         dbTableName,
         sourceTableId,
-        sourceFieldForFilter,
+        source,
         sourceDbFieldName,
         i,
         chunkSize
       );
-
-      if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
-        await this.prismaService.$tx(async () => {
-          await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
-            fieldKeyType: FieldKeyType.Id,
-            typecast: true,
-            records: sourceRecords.map((record) => ({
-              id: record.id,
-              fields: {
-                [targetFieldId]: record.value,
-              },
-            })),
-          });
+      await this.prismaService.$tx(async () => {
+        await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: !transformValue,
+          records: sourceRecords.map((record) => ({
+            id: record.id,
+            fields: {
+              [targetFieldId]: transformValue ? transformValue(record.value) : record.value,
+            },
+          })),
         });
-      }
-    }
-
-    if (fieldInstance.notNull || fieldInstance.unique) {
-      await this.convertField(sourceTableId, targetFieldId, {
-        ...fieldInstance,
-        notNull: fieldInstance.notNull,
-        unique: fieldInstance.unique,
       });
     }
+
+    await reapplyConstraints();
   }
 
   private async getFieldRecordsCount(dbTableName: string, tableId: string, field: IFieldInstance) {
@@ -2147,9 +2334,11 @@ export class FieldOpenApiService {
     });
 
     const query = qb.toQuery();
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ count: number }[]>(query);
+    const result = await this.databaseRouter.queryDataPrismaForTable<{ count: number }[]>(
+      tableId,
+      query,
+      { useTransaction: true }
+    );
     return Number(result[0].count);
   }
 
@@ -2189,9 +2378,9 @@ export class FieldOpenApiService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [key: string]: string }[]
+    >(tableId, query, { useTransaction: true });
     this.logger.debug('getFieldRecords: ', result);
     return result.map((item) => ({
       id: item.__id,

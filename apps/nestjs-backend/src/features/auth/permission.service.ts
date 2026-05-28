@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { IBaseRole, Action } from '@teable/core';
+import type { IBaseRole, Action, IShareViewMeta } from '@teable/core';
 import {
   HttpErrorCode,
   IdPrefix,
   Role,
+  ShareViewEditPermissions,
   TemplatePermissions,
+  ViewType,
   getPermissions,
   isAnonymous,
 } from '@teable/core';
@@ -32,12 +34,18 @@ const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
  * Permissions that must never be granted via share links,
  * even when allowEdit is enabled with a logged-in user.
  */
-const SHARE_EXCLUDED_PERMISSIONS = new Set<Action>([
+const shareExcludedPermissions = new Set<Action>([
   'view|share',
   'space|invite_email',
   'base|invite_email',
   'user|email_read',
   'user|integrations',
+]);
+const shareViewEditableTypes = new Set<ViewType>([
+  ViewType.Grid,
+  ViewType.Kanban,
+  ViewType.Gallery,
+  ViewType.Calendar,
 ]);
 
 @Injectable()
@@ -351,7 +359,7 @@ export class PermissionService {
     return getPermissions(role);
   }
 
-  private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
+  async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
       const template = await this.templateModel.getTemplateRawByBaseId(baseId);
@@ -640,7 +648,7 @@ export class PermissionService {
     // When allowEdit is enabled and user is logged in, grant editor-level permissions
     // excluding invite/share/privacy-sensitive actions
     if (baseShare.allowEdit && !this.isAnonymous()) {
-      return getPermissions(Role.Editor).filter((p) => !SHARE_EXCLUDED_PERMISSIONS.has(p));
+      return getPermissions(Role.Editor).filter((p) => !shareExcludedPermissions.has(p));
     }
 
     // Otherwise return template permissions (read-only), with record|copy if allowCopy is enabled
@@ -996,5 +1004,145 @@ export class PermissionService {
       return null;
     }
     return shareHeader;
+  }
+
+  // Share-view permission methods. Mirrors base-share above but scoped to a
+  // single view (tableId + viewId). The X-Tea-Share-View header lets the
+  // frontend declare "this request is in share-view context", at which point
+  // permissions are derived from shareMeta and the viewer's identity — never
+  // from their base/space role.
+  async getShareViewInfo(shareId: string) {
+    const view = await this.prismaService.view.findFirst({
+      where: { shareId, enableShare: true, deletedTime: null },
+      select: { id: true, tableId: true, type: true, shareMeta: true },
+    });
+    if (!view) {
+      return null;
+    }
+    const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
+    return {
+      shareId,
+      viewId: view.id,
+      tableId: view.tableId,
+      type: view.type as ViewType,
+      shareMeta,
+    };
+  }
+
+  async shareViewRequiresPassword(shareId: string) {
+    const info = await this.getShareViewInfo(shareId);
+    return !!info?.shareMeta?.password;
+  }
+
+  async validateShareViewPasswordToken(shareId: string, token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
+        token
+      );
+      if (payload.shareId !== shareId) {
+        return false;
+      }
+      const info = await this.getShareViewInfo(shareId);
+      if (!info?.shareMeta?.password) {
+        return false;
+      }
+      return payload.password === info.shareMeta.password;
+    } catch {
+      return false;
+    }
+  }
+
+  async getShareViewPermissions(shareId: string, resourceId: string) {
+    const info = await this.getShareViewInfo(shareId);
+    if (!info) {
+      throw new CustomHttpException(
+        `Share view ${shareId} is not found`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+
+    const belongs = await this.checkResourceBelongsToShareView(resourceId, info);
+    if (!belongs) {
+      this.logger.warn(
+        `[ShareView] Resource ${resourceId} is not accessible via share ${shareId}, tableId: ${info.tableId}, viewId: ${info.viewId}`
+      );
+      throw new CustomHttpException(
+        `Resource ${resourceId} is not accessible via share ${shareId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+
+    this.cls.set('shareViewId', shareId);
+
+    // allowEdit + logged-in → full record CRUD (curated by ShareViewEditPermissions)
+    // minus globally excluded sensitive actions. Anyone else (anonymous, or
+    // allowEdit off) → read-only with optional record|copy.
+    // Mirrors base-share allowEdit semantics: scope is tableId; finer view-level
+    // write scoping (visible fields, in-filter records) is enforced before the
+    // common record/selection write handlers execute.
+    if (
+      info.shareMeta?.allowEdit &&
+      info.shareMeta?.includeRecords &&
+      shareViewEditableTypes.has(info.type) &&
+      !this.isAnonymous()
+    ) {
+      return ShareViewEditPermissions.filter((p) => !shareExcludedPermissions.has(p));
+    }
+    const permissions = [...TemplatePermissions];
+    if (info.shareMeta?.allowCopy) {
+      permissions.push('record|copy');
+    }
+    return permissions;
+  }
+
+  async validShareViewPermissions(shareId: string, resourceId: string, permissions: Action[]) {
+    const sharePermissions = await this.getShareViewPermissions(shareId, resourceId);
+    if (permissions.every((permission) => sharePermissions.includes(permission))) {
+      return sharePermissions;
+    }
+    throw new CustomHttpException(
+      `Share view access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: notAllowedOperationI18nKey,
+        },
+      }
+    );
+  }
+
+  /**
+   * The resource targeted by the request must live inside the shared view's
+   * table. We only resolve table / view / field here; record-level checks
+   * (must satisfy view filter) are enforced inside share endpoints.
+   */
+  private async checkResourceBelongsToShareView(
+    resourceId: string,
+    info: { tableId: string; viewId: string }
+  ): Promise<boolean> {
+    if (resourceId === info.tableId || resourceId === info.viewId) {
+      return true;
+    }
+    const prefix = resourceId.substring(0, 3);
+    switch (prefix) {
+      case IdPrefix.Table:
+        return resourceId === info.tableId;
+      case IdPrefix.View:
+        return resourceId === info.viewId;
+      case IdPrefix.Field: {
+        const field = await this.prismaService.field.findUnique({
+          where: { id: resourceId, deletedTime: null },
+          select: { tableId: true },
+        });
+        return field?.tableId === info.tableId;
+      }
+      default:
+        return false;
+    }
+  }
+
+  /** Extract shareId from X-Tea-Share-View header (validation matches base-share). */
+  getShareViewIdByHeader(shareHeader: string): string | null {
+    return this.getBaseShareIdByHeader(shareHeader);
   }
 }

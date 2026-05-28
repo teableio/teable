@@ -21,6 +21,7 @@ import {
   type IUpdateFieldRo,
   type IViewVo,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateFieldRo, IPlanFieldVo } from '@teable/openapi';
 import {
   mapDomainErrorToHttpError,
@@ -74,6 +75,7 @@ import {
 } from '../../v2/v2-undo-redo.constants';
 import { adjustFrozenField } from '../../view/utils/derive-frozen-fields';
 import { ViewService } from '../../view/view.service';
+import { FieldSupplementService } from '../field-calculate/field-supplement.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
 const internalServerError = 'Internal server error';
@@ -108,8 +110,29 @@ export class FieldOpenApiV2Service {
     private readonly dataLoaderService: DataLoaderService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewService: ViewService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly fieldSupplementService: FieldSupplementService,
+    private readonly prismaService: PrismaService
   ) {}
+
+  private async assertCrossSpaceForV2Field(
+    tableId: string,
+    v2Field: Record<string, unknown>
+  ): Promise<void> {
+    const readForeignTableId = (raw: unknown): string | undefined => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+      const value = (raw as Record<string, unknown>).foreignTableId;
+      return typeof value === 'string' ? value : undefined;
+    };
+    const candidates = [
+      readForeignTableId(v2Field.options),
+      readForeignTableId(v2Field.config),
+      readForeignTableId(v2Field.lookupOptions),
+    ].filter((x): x is string => Boolean(x));
+    for (const foreignTableId of candidates) {
+      await this.fieldSupplementService.assertSameSpaceLinkTarget(tableId, foreignTableId);
+    }
+  }
 
   private stripUndefinedDeep(value: unknown): unknown {
     if (Array.isArray(value)) {
@@ -481,7 +504,7 @@ export class FieldOpenApiV2Service {
     fieldId: string,
     context?: IExecutionContext
   ): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
     const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
     const tableIdResult = TableId.create(tableId);
@@ -489,7 +512,7 @@ export class FieldOpenApiV2Service {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
     }
 
-    const queryContext = context ?? (await this.v2ContextFactory.createContext());
+    const queryContext = context ?? (await this.v2ContextFactory.createContext(container));
     const tableResult = await tableQueryService.getById(queryContext, tableIdResult.value);
     if (tableResult.isErr()) {
       const errMsg = tableResult.error.message ?? 'Table not found';
@@ -667,10 +690,10 @@ export class FieldOpenApiV2Service {
     context: IExecutionContext;
     table: Table;
   }> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -768,7 +791,8 @@ export class FieldOpenApiV2Service {
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
-    const context = await this.v2ContextFactory.createContext();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
     return this.getFieldFromV2(tableId, fieldId, context);
   }
 
@@ -1268,6 +1292,7 @@ export class FieldOpenApiV2Service {
       context
     );
     const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
+    await this.assertCrossSpaceForV2Field(tableId, v2Field);
     const legacyViewId =
       fieldRo && typeof fieldRo === 'object' && 'viewId' in fieldRo
         ? (fieldRo.viewId as string | undefined)
@@ -1442,12 +1467,12 @@ export class FieldOpenApiV2Service {
     tableId: string,
     fieldId: string,
     duplicateFieldRo: IDuplicateFieldRo,
-    _windowId?: string
+    windowId?: string
   ): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
@@ -1463,6 +1488,39 @@ export class FieldOpenApiV2Service {
         errMsg,
         isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
       );
+    }
+
+    // If the source field's foreign table lives in a different space, the v2
+    // duplicate command would happily clone the cross-space relationship —
+    // bypassing the field-supplement rejection. Detect this up front and ask
+    // the caller to confirm before degrading the duplicate to single line text.
+    const sourceFieldRaw = await this.prismaService.txClient().field.findUnique({
+      where: { id: fieldId, deletedTime: null },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        isLookup: true,
+        options: true,
+        lookupOptions: true,
+      },
+    });
+    if (sourceFieldRaw) {
+      const isCrossSpace = await this.fieldSupplementService.isCrossSpaceField(
+        tableId,
+        sourceFieldRaw
+      );
+      if (isCrossSpace) {
+        // Delegate to v1: it creates the new field as single line text and
+        // copies the source link/lookup values across as title text. Keeping
+        // the downgrade in one place avoids drift between v1 and v2.
+        return this.fieldOpenApiService.duplicateField(
+          tableId,
+          fieldId,
+          duplicateFieldRo,
+          windowId
+        );
+      }
     }
 
     const duplicateResult = await executeDuplicateFieldEndpoint(
@@ -1493,10 +1551,10 @@ export class FieldOpenApiV2Service {
   }
 
   async deleteField(tableId: string, fieldId: string): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -1548,10 +1606,10 @@ export class FieldOpenApiV2Service {
   }
 
   async deleteFields(tableId: string, fieldIds: string[]): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
       throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
@@ -1614,9 +1672,9 @@ export class FieldOpenApiV2Service {
   }
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const currentField = await this.getFieldFromV2(tableId, fieldId, context);
 
     const v2Input = {
@@ -1656,9 +1714,9 @@ export class FieldOpenApiV2Service {
     convertFieldRo: IConvertFieldRo,
     executionOptions?: ConvertFieldExecutionOptions
   ) {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const shouldTrackUndoContext =
       executionOptions?.emitOperation !== false && Boolean(context.windowId && context.actorId);
     if (executionOptions?.undoRedoMode) {
@@ -1688,6 +1746,7 @@ export class FieldOpenApiV2Service {
         replaceOptions: true,
       },
     };
+    await this.assertCrossSpaceForV2Field(tableId, v2Input.field as Record<string, unknown>);
 
     const result = await executeUpdateFieldEndpoint(context, v2Input, commandBus);
 
@@ -1738,13 +1797,13 @@ export class FieldOpenApiV2Service {
     direction: 'old' | 'new',
     undoRedoMode: 'undo' | 'redo'
   ): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
-    context.undoRedo = { mode: undoRedoMode };
-    delete context.windowId;
-
     for (const [tableId, opsByRecordId] of Object.entries(modifiedOps)) {
+      const container = await this.v2ContainerService.getContainerForTable(tableId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = await this.v2ContextFactory.createContext(container);
+      context.undoRedo = { mode: undoRedoMode };
+      delete context.windowId;
+
       for (const [recordId, ops] of Object.entries(opsByRecordId)) {
         const fields: Record<string, unknown> = {};
         for (const op of ops) {

@@ -128,6 +128,7 @@ import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
 import { buildFillSelectionPaste, getEffectRows, shouldUseDeleteSelectionStream } from './utils';
+import { downgradeCrossBaseHeaders, isCrossBaseField } from './utils/crossBaseLink';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 import {
   cacheColumnSelectionForChat,
@@ -144,6 +145,7 @@ const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
 
 export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   props: IGridViewBaseInnerProps
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ) => {
   const { groupPointsServerData, onRowExpand } = props;
   const { t, i18n } = useTranslation(tableConfig.i18nNamespaces);
@@ -501,20 +503,24 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   }, [onReset, tableId, preTableId]);
 
+  const expandedRecordId = router.query.recordId as string | undefined;
   useEffect(() => {
-    const recordIds = Object.keys(recordMap)
-      .sort((a, b) => Number(a) - Number(b))
-      .map((key) => recordMap[key]?.id)
-      .filter(Boolean);
+    if (!expandedRecordId) {
+      expandRecordRef.current?.updateRecordIds?.(undefined);
+      return;
+    }
+
+    const recordIds = Object.entries(recordMap)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, record]) => record.id);
     expandRecordRef.current?.updateRecordIds?.(recordIds);
-  }, [recordMap]);
+  }, [recordMap, expandedRecordId]);
 
   // The recordId on the route changes, and the activeCell needs to change with it
   useEffect(() => {
-    const recordId = router.query.recordId as string;
-    if (recordId) {
+    if (expandedRecordId) {
       const recordIndex = Number(
-        Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
+        Object.keys(recordMap).find((key) => recordMap[key]?.id === expandedRecordId)
       );
 
       recordIndex >= 0 &&
@@ -525,7 +531,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           ])
         );
     }
-  }, [router.query.recordId, recordMap]);
+  }, [expandedRecordId, recordMap]);
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
@@ -909,11 +915,57 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     clear(selection);
   };
 
-  const onCopy = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+  const selectionIncludesCrossBaseField = useCallback(
+    (selection: CombinedSelection) => {
+      if (!baseId) return false;
+      switch (selection.type) {
+        case SelectionRegionType.Cells: {
+          const [[startCol], [endCol]] = selection.serialize();
+          return fields.slice(startCol, endCol + 1).some((f) => isCrossBaseField(f, baseId));
+        }
+        case SelectionRegionType.Columns: {
+          return selection
+            .serialize()
+            .some(([s, e]) => fields.slice(s, e + 1).some((f) => isCrossBaseField(f, baseId)));
+        }
+        case SelectionRegionType.Rows:
+          return fields.some((f) => isCrossBaseField(f, baseId));
+        default:
+          return false;
+      }
+    },
+    [baseId, fields]
+  );
+
+  const onCopy = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     // In share context, use shareAllowCopy; otherwise use permission
     const canCopy = shareId ? shareAllowCopy : permission['record|copy'];
     if (!canCopy) {
       sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
+      return;
+    }
+
+    // Share view guard: cross-base link fields would otherwise leak foreign-base
+    // record IDs through the clipboard. Confirm and downgrade them to plain text
+    // before the payload leaves the page.
+    if (shareId && baseId && selectionIncludesCrossBaseField(selection)) {
+      e.preventDefault();
+      if (!isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+        sonnerToast.warning(t('table:table.actionTips.crossBaseCopyLoadFirst'));
+        return;
+      }
+      const confirmed = await confirm({
+        title: t('table:table.actionTips.crossBaseCopyTitle'),
+        description: t('table:table.actionTips.crossBaseCopyDescription'),
+        confirmText: t('table:table.actionTips.crossBaseCopyConfirm'),
+        cancelText: t('common:actions.cancel'),
+      });
+      if (!confirmed) return;
+
+      await copy(selection, async () => {
+        const { content, headers } = getSyncCopyData({ recordMap, fields, selection });
+        return { content, header: downgradeCrossBaseHeaders(headers, baseId).headers };
+      });
       return;
     }
 
@@ -1524,7 +1576,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onContextMenu={onContextMenu}
         onGroupHeaderContextMenu={onGroupHeaderContextMenu}
         onColumnHeaderClick={onColumnHeaderClick}
-        onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
+        onColumnStatisticClick={
+          // Share viewers should see column statistics (read-only) — the
+          // workspace view|update gate would suppress this for them, matching
+          // the prior share grid behavior which always allowed this click.
+          shareId
+            ? onColumnStatisticClick
+            : getAuthorizedFunction(onColumnStatisticClick, 'view|update')
+        }
         onVisibleRegionChanged={onVisibleRegionChanged}
         onSelectionChanged={onSelectionChanged}
         onColumnHeaderDblClick={onColumnHeaderDblClick}

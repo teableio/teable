@@ -26,6 +26,8 @@ import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { Audit } from '../audit/audit.decorator';
+import { AuditScope } from '../audit/audit-scope';
 import { UserModel } from '../model/user';
 import { SettingService } from '../setting/setting.service';
 
@@ -39,7 +41,8 @@ export class UserService {
     private readonly cacheService: CacheService,
     private readonly userModel: UserModel,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
+    private readonly audit: AuditScope
   ) {}
 
   async getUserById(id: string) {
@@ -52,6 +55,23 @@ export class UserService {
         notifyMeta: userRaw.notifyMeta && JSON.parse(userRaw.notifyMeta),
       }
     );
+  }
+
+  async getUsersByIdsOrEmails(params: { ids?: string[]; emails?: string[] }) {
+    const { ids = [], emails = [] } = params;
+    const conditions = [];
+    if (ids.length > 0) conditions.push({ id: { in: ids } });
+    if (emails.length > 0) conditions.push({ email: { in: emails.map((e) => e.toLowerCase()) } });
+    if (conditions.length === 0) return [];
+
+    const users = await this.prismaService.user.findMany({
+      where: { OR: conditions, deletedTime: null },
+    });
+    return users.map((u) => ({
+      ...u,
+      avatar: u.avatar && getPublicFullStorageUrl(u.avatar),
+      notifyMeta: u.notifyMeta ? (JSON.parse(u.notifyMeta) as IUserNotifyMeta) : null,
+    }));
   }
 
   async getUserByEmail(email: string) {
@@ -243,9 +263,13 @@ export class UserService {
       path: storagePath,
     });
 
+    // Append a version query so re-uploads bust the browser cache. The storage
+    // path itself is stable (one file per user), only the URL string varies.
+    // getPublicFullStorageUrl passes the query through; storage providers
+    // ignore unknown query params when serving objects.
     await this.prismaService.txClient().user.update({
       data: {
-        avatar: storagePath,
+        avatar: `${storagePath}?v=${Date.now()}`,
       },
       where: { id, deletedTime: null },
     });
@@ -491,17 +515,39 @@ export class UserService {
       return existUser;
     });
     if (res && isNewUser) {
-      this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
+      await this.recordSignup(res.id);
     }
     return res;
   }
 
+  /**
+   * Tiny decorated helper that fires USER_SIGNUP (for non-audit subscribers like
+   * auto-join-space / space.listener) and writes the signup audit row. Split out from
+   * the various signup entry points so the decorator can read `userId` as a parameter
+   * (resourceId can't be known at the caller method's entry — it's the row id we just
+   * created).
+   */
+  @Audit({
+    action: Events.USER_SIGNUP,
+    resourceId: (userId: string) => userId,
+    userId: (userId: string) => userId,
+    emit: true,
+  })
+  async recordSignup(userId: string) {
+    await this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(userId));
+  }
+
+  @Audit({
+    action: Events.USER_SIGNIN,
+    resourceId: (userId: string) => userId,
+    userId: (userId: string) => userId,
+    emit: true,
+  })
   async refreshLastSignTime(userId: string) {
     await this.prismaService.txClient().user.update({
       where: { id: userId, deletedTime: null },
       data: { lastSignTime: new Date().toISOString() },
     });
-    this.eventEmitterService.emitAsync(Events.USER_SIGNIN, { userId });
   }
 
   async getUserInfoList(userIds: string[]) {

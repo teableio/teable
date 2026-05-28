@@ -479,7 +479,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
 
   const segmentButtonClass = cn(
     'relative inline-flex items-center gap-1 rounded-md px-2 py-1',
-    'transition-colors hover:bg-muted cursor-pointer active:scale-[0.98]',
+    'transition-colors hover:bg-accent cursor-pointer active:scale-[0.98]',
     'disabled:cursor-default disabled:hover:bg-transparent'
   );
 
@@ -487,26 +487,49 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute inset-0 flex items-center justify-center rounded-md',
-        'bg-background',
+        'pointer-events-none absolute inset-0 flex items-center justify-center gap-1 rounded-md',
+        'bg-background px-2 font-medium text-emerald-600 dark:text-emerald-500',
         'animate-in fade-in duration-150'
       )}
     >
-      <Check
-        className="size-4 animate-bounce text-emerald-600 duration-500 repeat-1 dark:text-emerald-500"
-        strokeWidth={2.5}
-      />
+      <Check className="size-4" strokeWidth={2.5} />
+      <span>{t('sdk:selectionStatistic.copied')}</span>
     </span>
+  );
+
+  const renderStatisticButton = (
+    key: string,
+    label: string,
+    value: string | null,
+    fallback: string
+  ) => (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={isLoading || value == null}
+          onClick={() => handleCopy(key, value)}
+          className={segmentButtonClass}
+        >
+          <span className="text-muted-foreground">{label}:</span>
+          <span className="font-medium">{isLoading ? <LoadingValue /> : value ?? fallback}</span>
+          {copiedKey === key && <CopiedOverlay />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8}>
+        {t('sdk:selectionStatistic.copyTip')}
+      </TooltipContent>
+    </Tooltip>
   );
 
   return (
     <div
       className={cn(
-        'absolute bottom-16 right-8 z-40 flex items-center gap-3',
+        'absolute bottom-16 right-8 z-40 flex items-center gap-2',
         'whitespace-nowrap rounded-full border bg-background px-3 py-1.5 text-xs shadow-md'
       )}
     >
-      <TooltipProvider>
+      <TooltipProvider delayDuration={200}>
         <Tooltip delayDuration={200}>
           <TooltipTrigger asChild>
             <button
@@ -514,7 +537,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
               className="flex shrink-0 items-center text-muted-foreground hover:text-foreground"
               aria-label={t('sdk:selectionStatistic.tip')}
             >
-              <HelpCircle className="size-3.5" />
+              <HelpCircle className="size-4" />
             </button>
           </TooltipTrigger>
           <TooltipContent
@@ -525,43 +548,13 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
             {t('sdk:selectionStatistic.tip')}
           </TooltipContent>
         </Tooltip>
+        <span className="h-3 w-px bg-border" />
+        {renderStatisticButton('avg', t('sdk:statisticFunc.average'), avgText, '—')}
+        <span className="h-3 w-px bg-border" />
+        {renderStatisticButton('count', t('sdk:statisticFunc.filled'), countText, '0')}
+        <span className="h-3 w-px bg-border" />
+        {renderStatisticButton('sum', t('sdk:statisticFunc.sum'), sumText, '—')}
       </TooltipProvider>
-      <span className="h-3 w-px bg-border" />
-      <button
-        type="button"
-        disabled={isLoading || avgText == null}
-        onClick={() => handleCopy('avg', avgText)}
-        className={segmentButtonClass}
-        title={avgText ?? undefined}
-      >
-        <span className="text-muted-foreground">{t('sdk:statisticFunc.average')}:</span>
-        <span className="font-medium">{isLoading ? <LoadingValue /> : avgText ?? '—'}</span>
-        {copiedKey === 'avg' && <CopiedOverlay />}
-      </button>
-      <span className="h-3 w-px bg-border" />
-      <button
-        type="button"
-        disabled={isLoading || countText == null}
-        onClick={() => handleCopy('count', countText)}
-        className={segmentButtonClass}
-        title={countText ?? undefined}
-      >
-        <span className="text-muted-foreground">{t('sdk:statisticFunc.filled')}:</span>
-        <span className="font-medium">{isLoading ? <LoadingValue /> : countText ?? '0'}</span>
-        {copiedKey === 'count' && <CopiedOverlay />}
-      </button>
-      <span className="h-3 w-px bg-border" />
-      <button
-        type="button"
-        disabled={isLoading || sumText == null}
-        onClick={() => handleCopy('sum', sumText)}
-        className={segmentButtonClass}
-        title={sumText ?? undefined}
-      >
-        <span className="text-muted-foreground">{t('sdk:statisticFunc.sum')}:</span>
-        <span className="font-medium">{isLoading ? <LoadingValue /> : sumText ?? '—'}</span>
-        {copiedKey === 'sum' && <CopiedOverlay />}
-      </button>
     </div>
   );
 };
