@@ -33,15 +33,17 @@ describe('PostgresTableRepository helpers', () => {
   it('normalizes legacy select options and resolves sort columns', () => {
     const repo = createRepository() as any;
 
-    const legacy = repo.normalizeSelectOptions({ options: ['Todo', 'Done'] });
+    const legacy = repo.normalizeSelectOptions({ options: ['Todo', '', 'Done'] });
     expect(legacy.choices).toHaveLength(2);
     expect(legacy.choices[0].id).toMatch(/^cho/);
     expect(legacy.choices[0].name).toBe('Todo');
 
     const modern = repo.normalizeSelectOptions({
       choices: [
+        { id: 'choEmpty', name: '', color: 'redBright' },
         { id: '', name: 'Ready', color: 'invalid' },
         { id: 'choReadyTrimmed', name: ' Ready ', color: 'blue' },
+        { id: 'choBlank', name: '   ', color: 'yellowBright' },
       ],
       defaultValue: 'ready',
       preventAutoNewOptions: true,
@@ -50,6 +52,12 @@ describe('PostgresTableRepository helpers', () => {
     expect(modern.preventAutoNewOptions).toBe(true);
     expect(modern.choices).toHaveLength(1);
     expect(modern.choices[0].id).toMatch(/^cho/);
+    expect(modern.choices[0].name).toBe('Ready');
+
+    expect(repo.normalizeSelectOptions({ choices: [], defaultValue: [' ', 'Done'] })).toEqual({
+      choices: [],
+      defaultValue: ['Done'],
+    });
 
     expect(repo.resolveSortColumn({ toString: () => 'name' })).toBe('name');
     expect(repo.resolveSortColumn({ toString: () => 'createdTime' })).toBe('created_time');

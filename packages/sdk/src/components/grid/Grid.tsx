@@ -40,12 +40,13 @@ import type { ISpriteMap, CombinedSelection, IIndicesMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import { getCellRenderer, type ICell, type IInnerCell } from './renderers';
 import { TouchLayer } from './TouchLayer';
-import { measuredCanvas } from './utils';
+import { getRowControlExtraWidth, measuredCanvas } from './utils';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
   customIcons?: ISpriteMap;
   rowControls?: IRowControlItem[];
+  rowControlPaddingX?: number;
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
   scrollBufferX?: number;
@@ -84,6 +85,7 @@ export interface IGridExternalProps {
    * @type {boolean}
    */
   isMultiSelectionEnable?: boolean;
+  isRowClickSelectionEnabled?: boolean;
 
   groupCollection?: IGroupCollection | null;
   collapsedGroupIds?: Set<string> | null;
@@ -207,6 +209,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
     rowControls = [{ type: RowControlType.Checkbox }],
+    rowControlPaddingX = 0,
     theme: customTheme,
     isTouchDevice,
     smoothScrollX = true,
@@ -216,6 +219,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBarVisible = true,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
+    isRowClickSelectionEnabled = true,
     style,
     customIcons,
     collaborators,
@@ -356,8 +360,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { iconSizeMD } = theme;
 
   const columnInitSize = useMemo(() => {
-    return !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
-  }, [rowControlCount, rowIndexVisible, iconSizeMD]);
+    if (!rowIndexVisible && !rowControlCount) return 0;
+    return (
+      Math.max(rowControlCount, 2) * iconSizeMD +
+      getRowControlExtraWidth(theme, rowControlPaddingX) * 2
+    );
+  }, [rowControlCount, rowIndexVisible, iconSizeMD, theme, rowControlPaddingX]);
 
   const defaultRowsInfo = useMemo(() => {
     return {
@@ -648,6 +656,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             mouseState={mouseState}
             scrollState={scrollState}
             rowControls={rowControls}
+            rowControlPaddingX={rowControlPaddingX}
             collaborators={collaborators}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}
@@ -686,10 +695,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             commentCountMap={commentCountMap}
             draggable={draggable}
             selectable={selectable}
+            isRowClickSelectionEnabled={isRowClickSelectionEnabled}
             collaborators={collaborators}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}
             rowControls={rowControls}
+            rowControlPaddingX={rowControlPaddingX}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}

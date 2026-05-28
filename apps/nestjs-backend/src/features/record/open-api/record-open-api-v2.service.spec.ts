@@ -1,4 +1,4 @@
-import { CellValueType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
+import { CellValueType, DbFieldType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
 import {
   CreateRecordResult,
   CreateRecordsResult,
@@ -13,6 +13,7 @@ import {
 } from '@teable/v2-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 
 describe('RecordOpenApiV2Service', () => {
@@ -25,13 +26,19 @@ describe('RecordOpenApiV2Service', () => {
   const createContext = vi.fn();
   const getReadQuerySource = vi.fn();
   const getFieldsByQuery = vi.fn();
+  const getFieldInstances = vi.fn();
+  const performRowCount = vi.fn();
   const execute = vi.fn();
   const commandExecute = vi.fn();
   const resolve = vi.fn();
   const getContainer = vi.fn();
   const clsGet = vi.fn();
+  const clsSet = vi.fn();
+  const clsRunWith = vi.fn();
   const cacheDel = vi.fn();
   const cacheSetDetail = vi.fn();
+  const getDataDatabaseForTable = vi.fn();
+  const dataPrismaForTable = vi.fn();
 
   let service: RecordOpenApiV2Service;
 
@@ -138,6 +145,9 @@ describe('RecordOpenApiV2Service', () => {
     getContainer.mockResolvedValue({ resolve });
     createContext.mockResolvedValue({});
     clsGet.mockImplementation((key: string) => {
+      if (key == null) {
+        return {};
+      }
       if (key === 'user.id') {
         return `usr${'h'.repeat(16)}`;
       }
@@ -146,8 +156,16 @@ describe('RecordOpenApiV2Service', () => {
       }
       return undefined;
     });
+    clsRunWith.mockImplementation((_store, fn: () => unknown) => fn());
     getReadQuerySource.mockResolvedValue(undefined);
     getFieldsByQuery.mockResolvedValue([]);
+    getFieldInstances.mockResolvedValue([]);
+    performRowCount.mockResolvedValue({ rowCount: 1 });
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'meta-fallback',
+      url: 'postgresql://meta',
+      isMetaFallback: true,
+    });
     commandExecute.mockResolvedValue({
       isErr: () => false,
       value: UpdateRecordsResult.create(2, []),
@@ -169,16 +187,85 @@ describe('RecordOpenApiV2Service', () => {
       { data: { id: 'rec2222222222222222', fields: {} } },
     ]);
     service = new RecordOpenApiV2Service(
-      { getContainer } as never,
+      { getContainerForTable: getContainer } as never,
       { createContext } as never,
       { getDocIdsByQuery, getSnapshotBulkWithPermission } as never,
       {} as never,
-      { get: clsGet } as never,
+      { get: clsGet, set: clsSet, runWith: clsRunWith } as never,
       { del: cacheDel, setDetail: cacheSetDetail } as never,
-      { getFieldsByQuery } as never,
+      { getFieldsByQuery, getFieldInstances } as never,
       { getReadQuerySource } as never,
-      {} as never
+      { performRowCount } as never,
+      { getDataDatabaseForTable, dataPrismaForTable } as never,
+      {
+        current: vi.fn().mockReturnValue(undefined),
+        emitAtomic: vi.fn().mockResolvedValue(undefined),
+        withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
+      } as never
     );
+  });
+
+  it('converts copied link cell values to titles when preparing v2 paste into text fields', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+    const targetFieldId = `fld${'t'.repeat(16)}`;
+    const sourceFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'p'.repeat(16)}`;
+
+    performRowCount.mockResolvedValueOnce({ rowCount: 2 });
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: targetFieldId,
+        dbFieldName: 'label',
+        name: 'Label',
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        options: {},
+      }),
+    ]);
+
+    const prepared = await (
+      service as unknown as {
+        preparePasteCommandInput: (
+          tableId: string,
+          pasteRo: {
+            viewId: string;
+            ranges: [[number, number], [number, number]];
+            content: unknown[][];
+            header: unknown[];
+          }
+        ) => Promise<{ commandInput: { content: unknown[][] } }>;
+      }
+    ).preparePasteCommandInput(tableId, {
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 1],
+      ],
+      content: [
+        [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+        [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+      ],
+      header: [
+        {
+          id: sourceFieldId,
+          name: 'Related',
+          type: FieldType.Link,
+          cellValueType: CellValueType.String,
+          dbFieldType: 'json',
+          isMultipleCellValue: true,
+          options: {
+            relationship: 'manyMany',
+            foreignTableId,
+            lookupFieldId,
+          },
+        },
+      ],
+    });
+
+    expect(prepared.commandInput.content).toEqual([['Alpha'], ['Beta']]);
   });
 
   it('should ignore unreadable fields in orderBy and groupBy', () => {
@@ -264,6 +351,33 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('runs legacy snapshot compatibility reads against the table data client for BYODB tables', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dataPrisma = { $queryRawUnsafe: vi.fn() };
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'ddc-byodb',
+      url: 'postgresql://byodb',
+      isMetaFallback: false,
+    });
+    dataPrismaForTable.mockResolvedValue(dataPrisma);
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(result.records).toEqual([
+      { id: 'rec1111111111111111', fields: {} },
+      { id: 'rec2222222222222222', fields: {} },
+    ]);
+    expect(dataPrismaForTable).toHaveBeenCalledWith(tableId);
+    expect(clsRunWith).toHaveBeenCalled();
+    expect(clsSet).toHaveBeenCalledWith('dataTx.client', dataPrisma);
+    expect(clsSet).toHaveBeenLastCalledWith('dataTx.client', undefined);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
   });
 
   it('formats sorted top-level system datetime fields in the final OpenAPI response', async () => {

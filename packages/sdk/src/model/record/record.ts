@@ -137,15 +137,13 @@ export class Record extends RecordCore {
     try {
       this.onCommitLocal(fieldId, cellValue);
       this.fields[fieldId] = cellValue;
-      const [, tableId] = this.doc.collection.split('_');
-      const res = await updateRecord(tableId, this.doc.id, {
+      const normalizedFields = {
+        // you have to set null to clear the value
+        [fieldId]: cellValue === undefined ? null : cellValue,
+      };
+      const res = await updateRecord(this.doc.collection.split('_')[1], this.doc.id, {
         fieldKeyType: FieldKeyType.Id,
-        record: {
-          fields: {
-            // you have to set null to clear the value
-            [fieldId]: cellValue === undefined ? null : cellValue,
-          },
-        },
+        record: { fields: normalizedFields },
       });
       const computedFieldIds = Object.keys(this.fieldMap).filter(
         (fId) => this.fieldMap[fId].type === FieldType.Link || this.fieldMap[fId].isComputed

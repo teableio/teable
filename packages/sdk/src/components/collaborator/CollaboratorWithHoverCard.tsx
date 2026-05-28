@@ -12,26 +12,31 @@ export type ICollaboratorUser = Omit<
 > & {
   borderColor?: string;
   avatar?: ReactNode;
+  children?: ReactNode;
 };
 
 export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
-  const { id, name, avatar, email, borderColor } = props;
+  const { id, name, avatar, email, borderColor, children } = props;
   const { user } = useSession();
   const { t } = useTranslation();
 
   return (
     <HoverCard openDelay={200}>
       <HoverCardTrigger asChild>
-        <div className="relative overflow-hidden">
-          <UserAvatar
-            name={name}
-            avatar={avatar}
-            className="size-6 cursor-pointer border"
-            style={{
-              borderColor: borderColor ?? colors.gray[500],
-            }}
-          />
-        </div>
+        {children ? (
+          <span className="cursor-pointer">{children}</span>
+        ) : (
+          <div className="relative overflow-hidden">
+            <UserAvatar
+              name={name}
+              avatar={avatar}
+              className="size-6 cursor-pointer border"
+              style={{
+                borderColor: borderColor ?? colors.gray[500],
+              }}
+            />
+          </div>
+        )}
       </HoverCardTrigger>
       <HoverCardPortal>
         <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center gap-1 truncate px-3 py-2 text-sm">

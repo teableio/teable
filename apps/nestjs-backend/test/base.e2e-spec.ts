@@ -1,9 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
-import { FieldType, Relationship, Role } from '@teable/core';
+import type { IFieldRo, ILinkFieldOptions, ILinkFieldOptionsRo } from '@teable/core';
+import { DriverClient, FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
 import type {
   ICreateBaseVo,
   ICreateSpaceVo,
+  ITableFullVo,
   IUserMeVo,
   ListBaseInvitationLinkVo,
   UserCollaboratorItem,
@@ -35,6 +36,7 @@ import {
   listBaseCollaboratorUserVoSchema,
   listBaseInvitationLink,
   MOVE_BASE,
+  moveBase,
   PrincipalType,
   UPDATE_BASE_COLLABORATE,
   UPDATE_BASE_INVITATION_LINK,
@@ -49,9 +51,13 @@ import { getError } from './utils/get-error';
 import {
   createBase,
   createField,
+  createRecords,
   createSpace,
   deleteSpace,
+  getFields,
+  getRecords,
   initApp,
+  permanentDeleteBase,
   permanentDeleteSpace,
 } from './utils/init-app';
 
@@ -772,6 +778,224 @@ describe('OpenAPI BaseController (e2e)', () => {
       expect(baseErdVoSchema.safeParse(base2Erd).success).toEqual(true);
       expect(base2Erd.baseId).toEqual(baseId2);
       expect(getRelationReference(base2Erd.edges).length).toEqual(2);
+    });
+  });
+
+  // Contract: moveBase preserves values on every affected field:
+  //   - Dependent lookup/rollup convert via the regular convertField path in
+  //     deepest-first order, so each one's stored value is snapshotted by
+  //     cellValue2String before the upstream Link is downgraded.
+  //   - The Link itself converts via convertCrossSpaceLinkToText, which skips
+  //     the destructive linkToOther steps so the symmetric partner on the
+  //     other base survives and gets converted independently in its turn,
+  //     preserving its own display values.
+  describe('moveBase cross-space value preservation', () => {
+    let sourceSpaceId: string;
+    let targetSpaceId: string;
+    let movingBaseId: string;
+    let peerBaseId: string;
+
+    beforeAll(async () => {
+      sourceSpaceId = (await createSpace({ name: 'move-src' })).id;
+      targetSpaceId = (await createSpace({ name: 'move-dst' })).id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteSpace(sourceSpaceId);
+      await permanentDeleteSpace(targetSpaceId);
+    });
+
+    beforeEach(async () => {
+      movingBaseId = (await createBase({ spaceId: sourceSpaceId, name: 'moving' })).id;
+      peerBaseId = (await createBase({ spaceId: sourceSpaceId, name: 'peer' })).id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteBase(movingBaseId);
+      await permanentDeleteBase(peerBaseId);
+    });
+
+    it('preserves link, lookups, and the symmetric partner after move', async () => {
+      // Cross-base links require Postgres data sharding per base; the same code
+      // path is exercised — and the bug only surfaced — on PG.
+      if (globalThis.testConfig.driver !== DriverClient.Pg) {
+        return;
+      }
+
+      const peerTitle = 'peer-title-1';
+
+      // Setup: peer base (target) gets a table with one record holding a known
+      // title; moving base gets a cross-base link to that table plus a lookup
+      // chain (link → lookupA → lookupB) so we exercise the multi-hop ordering.
+      // Both tables are created with empty records so that the single record
+      // we explicitly insert below is always at index 0 in getRecords.
+      const peerTable = (await createTable(peerBaseId, { name: 'peer', records: [] })).data;
+      const peerPrimary = peerTable.fields.find((f) => f.isPrimary)!;
+      const peerRecord = (
+        await createRecords(peerTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [peerPrimary.id]: peerTitle } }],
+        })
+      ).records[0];
+
+      const movingTable = (await createTable(movingBaseId, { name: 'moving', records: [] })).data;
+      const movingPrimary = movingTable.fields.find((f) => f.isPrimary)!;
+
+      const linkField = await createField(movingTable.id, {
+        name: 'cross_base_link',
+        type: FieldType.Link,
+        options: {
+          baseId: peerBaseId,
+          relationship: Relationship.ManyOne,
+          foreignTableId: peerTable.id,
+        },
+      });
+      // ManyOne auto-creates a OneMany symmetric on the peer table. After the
+      // move it must survive (used to be cascade-deleted) and end up as text
+      // with the linked moving record's primary value.
+      const symmetricFieldId = (linkField.options as { symmetricFieldId?: string })
+        .symmetricFieldId;
+      expect(symmetricFieldId).toBeTruthy();
+
+      const lookupA = await createField(movingTable.id, {
+        name: 'lookup_a',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: peerTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: peerPrimary.id,
+        },
+      });
+
+      const lookupB = await createField(movingTable.id, {
+        name: 'lookup_b',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: peerTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: peerPrimary.id,
+        },
+      });
+
+      await createRecords(movingTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [movingPrimary.id]: 'row-1',
+              [linkField.id]: { id: peerRecord.id },
+            },
+          },
+        ],
+      });
+
+      // Sanity: before the move, lookups must have the title materialised so
+      // the post-move check is meaningful (otherwise null could mean "never
+      // computed" rather than "wiped by cascade").
+      const beforeRecords = await getRecords(movingTable.id, { fieldKeyType: FieldKeyType.Id });
+      const beforeRow = beforeRecords.records[0];
+      expect(beforeRow.fields[lookupA.id]).toBe(peerTitle);
+      expect(beforeRow.fields[lookupB.id]).toBe(peerTitle);
+
+      // Act: move the base — peer stays in sourceSpaceId, so the link becomes
+      // cross-space and must be downgraded along with both lookups.
+      const moveRes = await moveBase(movingBaseId, targetSpaceId);
+      expect(moveRes.status).toBe(200);
+
+      const fieldsAfter = await getFields(movingTable.id);
+      const linkAfter = fieldsAfter.find((f) => f.id === linkField.id)!;
+      const lookupAAfter = fieldsAfter.find((f) => f.id === lookupA.id)!;
+      const lookupBAfter = fieldsAfter.find((f) => f.id === lookupB.id)!;
+
+      expect(linkAfter.type).toBe(FieldType.SingleLineText);
+      expect(lookupAAfter.type).toBe(FieldType.SingleLineText);
+      expect(lookupAAfter.isLookup).toBeFalsy();
+      expect(lookupBAfter.type).toBe(FieldType.SingleLineText);
+      expect(lookupBAfter.isLookup).toBeFalsy();
+
+      const afterRecords = await getRecords(movingTable.id, { fieldKeyType: FieldKeyType.Id });
+      const afterRow = afterRecords.records[0];
+      expect(afterRow.fields[linkField.id]).toBe(peerTitle);
+      expect(afterRow.fields[lookupA.id]).toBe(peerTitle);
+      expect(afterRow.fields[lookupB.id]).toBe(peerTitle);
+
+      // Symmetric partner on the peer side: should still exist (NOT
+      // cascade-deleted) and be converted to text holding the linked moving
+      // record's primary value.
+      const peerFieldsAfter = await getFields(peerTable.id);
+      const symmetricAfter = peerFieldsAfter.find((f) => f.id === symmetricFieldId);
+      expect(symmetricAfter).toBeDefined();
+      expect(symmetricAfter!.type).toBe(FieldType.SingleLineText);
+      const peerRecordsAfter = await getRecords(peerTable.id, { fieldKeyType: FieldKeyType.Id });
+      const peerRowAfter = peerRecordsAfter.records[0];
+      expect(peerRowAfter.fields[symmetricFieldId!]).toBe('row-1');
+    });
+  });
+
+  // Contract: assertNoNewCrossSpaceField rejects any new Link / conditional
+  // Lookup / conditional Rollup whose target table lives in another space.
+  // This is the gate enforcing the "no new cross-space refs" rule the PR is
+  // built around — without an e2e it can silently regress on any future
+  // createField refactor.
+  describe('cross-space field creation gate', () => {
+    let spaceA: string;
+    let spaceB: string;
+    let baseA: string;
+    let baseB: string;
+    let tableA: ITableFullVo;
+    let tableB: ITableFullVo;
+
+    beforeAll(async () => {
+      spaceA = (await createSpace({ name: 'gate-a' })).id;
+      spaceB = (await createSpace({ name: 'gate-b' })).id;
+      baseA = (await createBase({ spaceId: spaceA, name: 'gate-base-a' })).id;
+      baseB = (await createBase({ spaceId: spaceB, name: 'gate-base-b' })).id;
+      tableA = (await createTable(baseA, { name: 'a' })).data;
+      tableB = (await createTable(baseB, { name: 'b' })).data;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteSpace(spaceA);
+      await permanentDeleteSpace(spaceB);
+    });
+
+    it('rejects a new cross-space Link field with 400', async () => {
+      const fieldRo: IFieldRo = {
+        name: 'cross_space_link',
+        type: FieldType.Link,
+        options: {
+          baseId: baseB,
+          relationship: Relationship.ManyOne,
+          foreignTableId: tableB.id,
+        } as ILinkFieldOptionsRo,
+      };
+      // createField helper returns {} when the response status matches the
+      // expected non-2xx — that's our "rejected" signal. A 201 here would
+      // make the helper throw, failing the test.
+      const result = await createField(tableA.id, fieldRo, 400);
+      expect(result).toEqual({});
+    });
+
+    it('allows same-space cross-base Link creation (sanity for the gate)', async () => {
+      const baseA2 = (await createBase({ spaceId: spaceA, name: 'gate-base-a2' })).id;
+      const tableA2 = (await createTable(baseA2, { name: 'a2' })).data;
+      try {
+        const fieldRo: IFieldRo = {
+          name: 'same_space_link',
+          type: FieldType.Link,
+          options: {
+            baseId: baseA2,
+            relationship: Relationship.ManyOne,
+            foreignTableId: tableA2.id,
+          } as ILinkFieldOptionsRo,
+        };
+        const created = await createField(tableA.id, fieldRo);
+        expect(created.type).toBe(FieldType.Link);
+      } finally {
+        await permanentDeleteBase(baseA2);
+      }
     });
   });
 });

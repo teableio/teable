@@ -8,6 +8,10 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "選択..."
   },
+  "view": {
+    "signInToEdit": "<a>サインイン</a>して編集",
+    "login": "サインイン"
+  },
   "openOnNewPage": "新しいページで開く",
   "errorTips": "ソースの共有により権限マトリックスが有効になりましたが、表示は許可されていません"
 }
