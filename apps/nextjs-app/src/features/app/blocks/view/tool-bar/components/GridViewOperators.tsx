@@ -18,6 +18,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useGridSearchStore } from '../../grid/useGridSearchStore';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 import { useToolBarStore } from './useToolBarStore';
 
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
@@ -59,7 +60,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     return <div></div>;
   }
   return (
-    <div className="flex min-w-0 flex-1 gap-1">
+    <ScrollableToolbarGroup>
       <HideFields
         onFieldClick={(field) => {
           const columnIndex = fields.findIndex(({ id }) => id === field.id);
@@ -174,6 +175,6 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </RowHeight>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

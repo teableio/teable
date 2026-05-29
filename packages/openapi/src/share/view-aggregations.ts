@@ -9,7 +9,10 @@ import { z } from '../zod';
 export const SHARE_VIEW_AGGREGATIONS_LIST = '/share/{shareId}/view/aggregations';
 
 export const shareViewAggregationsRoSchema = aggregationRoSchema.omit({
+  // viewId is bound by the shareId. ignoreViewQuery is not forwarded by the handler
+  // today, but omit it too so the share endpoint can never drop the view scope.
   viewId: true,
+  ignoreViewQuery: true,
 });
 
 export type IShareViewAggregationsRo = z.infer<typeof shareViewAggregationsRoSchema>;

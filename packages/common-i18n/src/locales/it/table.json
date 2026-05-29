@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Avviso",
+    "duplicateFieldDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "duplicateTableTitle": "Avviso",
+    "duplicateTableDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "duplicateBaseTitle": "Avviso",
+    "duplicateBaseDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "convertAndDuplicate": "Converti e duplica"
+  },
   "toolbar": {
     "comingSoon": "Prossimamente",
     "viewFilterInShare": "Questa vista è utilizzata in un link di condivisione della vista. Le modifiche alla configurazione della vista cambieranno anche il link di condivisione della vista.",
@@ -12,6 +21,7 @@
         "copied": "Copiato",
         "genLink": "Genera nuovo link",
         "allowCopy": "Consenti ai visualizzatori di copiare i dati da questa vista",
+        "allowEdit": "Consenti agli utenti connessi di modificare i dati visibili",
         "showAllFields": "Mostra tutti i campi nei record espansi",
         "restrict": "Restringi con password",
         "tips": "Le persone che hanno il link possono vedere la vista.",
@@ -472,7 +482,11 @@
       "pasteFileFailed": "I file possono essere incollati solo in un campo di allegato",
       "copyError": {
         "noFocus": "Si prega di mantenere la pagina attiva e non cambiare finestra"
-      }
+      },
+      "crossBaseCopyTitle": "Copiare come testo semplice?",
+      "crossBaseCopyDescription": "Questa selezione include un campo di collegamento tra basi. Per mantenere i dati all'interno della loro base originale, il campo verrà copiato come testo semplice e perderà le sue relazioni di collegamento.",
+      "crossBaseCopyConfirm": "Copia come testo semplice",
+      "crossBaseCopyLoadFirst": "Scorri per caricare tutte le righe selezionate prima di copiare i campi tra basi."
     },
     "graph": {
       "tableLabel": "Etichetta della tabella",
@@ -913,6 +927,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Può modificare",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Chiunque abbia il link può visualizzare i dati di questa vista",
+    "viewLinkHolderCanEditDesc": "Gli utenti registrati possono modificare i dati nell'ambito della vista",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Può salvare come copia",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -959,6 +981,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oppure digita la tua risposta…"
+      },
+      "messageActions": {
+        "copy": "Copia",
+        "copyToInput": "Copia nell'input"
       }
     },
     "tool": {
@@ -1057,10 +1083,9 @@
     "allAttachments": {
       "title": "Scarica tutti gli allegati",
       "loading": "Caricamento anteprima...",
-      "rowsWithAttachments": "{{count}} righe con allegati",
-      "totalAttachments": "{{count}} allegati",
-      "totalSize": "Dimensione totale: {{size}}",
-      "startDownload": "Avvia download",
+      "rowsWithAttachments": "Righe con allegati",
+      "totalAttachments": "Allegati",
+      "totalSize": "Dimensione totale",
       "confirmTitle": "Scarica {{count}} file",
       "confirmDescription": "Dimensione totale: {{size}}. I file verranno compressi in un file ZIP.",
       "confirm": "Scarica",

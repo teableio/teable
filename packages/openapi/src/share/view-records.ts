@@ -8,7 +8,11 @@ import { z } from '../zod';
 export const SHARE_VIEW_RECORDS = '/share/{shareId}/view/records';
 
 export const shareViewRecordsRoSchema = getRecordsRoSchema.omit({
+  // The share view is the security boundary: viewId is bound by the shareId, and
+  // ignoreViewQuery must not be exposed — it would let a client drop the view scope
+  // and read records the view filter hides (data leak). Selection ops reject it too.
   viewId: true,
+  ignoreViewQuery: true,
 });
 
 export type IShareViewRecordsRo = z.infer<typeof shareViewRecordsRoSchema>;

@@ -16,6 +16,7 @@
     "zoomIn": "Увеличить",
     "zoomOut": "Уменьшить",
     "back": "Назад",
+    "download": "Скачать",
     "remove": "Удалить",
     "removeConfig": "Удалить конфигурацию",
     "saveSucceed": "Сохранение успешно!",
@@ -1117,9 +1118,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ ОТ 12 МАЯ",
-    "title": "Встроенный вход для App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 19 МАЯ",
+    "title": "Credits Teable стали эффективнее в 10 раз!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

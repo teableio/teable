@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Hinweis",
+    "duplicateFieldDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateTableTitle": "Hinweis",
+    "duplicateTableDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateBaseTitle": "Hinweis",
+    "duplicateBaseDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "convertAndDuplicate": "Umwandeln & duplizieren"
+  },
   "toolbar": {
     "comingSoon": "Demnächst verfügbar",
     "viewFilterInShare": "Diese Ansicht wird in einem Ansichtsfreigabelink verwendet. Änderungen an der Konfiguration der Ansicht ändern auch den Link zur Ansichtsfreigabe.",
@@ -12,6 +21,7 @@
         "copied": "Kopiert",
         "genLink": "Erzeuge neuen Link",
         "allowCopy": "Betrachtern das Kopieren von Daten aus dieser Ansicht ermöglichen",
+        "allowEdit": "Angemeldete Betrachter dürfen sichtbare Daten bearbeiten",
         "showAllFields": "Alle Felder in erweiterten Datensätzen anzeigen",
         "restrict": "Durch Passwort beschränken",
         "tips": "Diejenigen, die den Link haben, können die Ansicht sehen.",
@@ -472,7 +482,11 @@
       "pasteFileFailed": "Dateien können nur in ein Anhangsfeld eingefügt werden",
       "copyError": {
         "noFocus": "Bitte lassen Sie die Seite aktiv und wechseln Sie nicht das Fenster"
-      }
+      },
+      "crossBaseCopyTitle": "Als Klartext kopieren?",
+      "crossBaseCopyDescription": "Die Auswahl enthält ein basenübergreifendes Verknüpfungsfeld. Damit die Daten in ihrer ursprünglichen Base bleiben, wird das Feld als Klartext kopiert und verliert seine Verknüpfungen.",
+      "crossBaseCopyConfirm": "Als Klartext kopieren",
+      "crossBaseCopyLoadFirst": "Bitte scrollen Sie, um alle ausgewählten Zeilen zu laden, bevor Sie basenübergreifende Felder kopieren."
     },
     "graph": {
       "tableLabel": "Tabelle Label",
@@ -913,6 +927,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Kann bearbeiten",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Personen mit dem Link können die Daten dieser Ansicht ansehen",
+    "viewLinkHolderCanEditDesc": "Angemeldete Benutzer können Daten im Rahmen der Ansicht bearbeiten",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Kann als Kopie speichern",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -955,6 +977,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oder Antwort eingeben…"
+      },
+      "messageActions": {
+        "copy": "Kopieren",
+        "copyToInput": "In Eingabe kopieren"
       }
     },
     "tool": {
@@ -1053,10 +1079,9 @@
     "allAttachments": {
       "title": "Alle Anhänge herunterladen",
       "loading": "Vorschau wird geladen...",
-      "rowsWithAttachments": "{{count}} Zeilen mit Anhängen",
-      "totalAttachments": "{{count}} Anhänge",
-      "totalSize": "Gesamtgröße: {{size}}",
-      "startDownload": "Download starten",
+      "rowsWithAttachments": "Anhangzeilen",
+      "totalAttachments": "Anhänge",
+      "totalSize": "Gesamtgröße",
       "confirmTitle": "{{count}} Dateien herunterladen",
       "confirmDescription": "Gesamtgröße: {{size}}. Die Dateien werden in eine ZIP-Datei komprimiert.",
       "confirm": "Herunterladen",

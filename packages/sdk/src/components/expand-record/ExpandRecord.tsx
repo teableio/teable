@@ -171,7 +171,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             tableId={tableId}
           />
         )}
-        <div className="relative flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden rounded-b-lg">
           {recordHistoryVisible ? (
             <div className="flex size-full overflow-hidden rounded-b bg-background">
               <RecordHistory recordId={recordId} />

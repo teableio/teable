@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Aviso",
+    "duplicateFieldDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "duplicateTableTitle": "Aviso",
+    "duplicateTableDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "duplicateBaseTitle": "Aviso",
+    "duplicateBaseDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "convertAndDuplicate": "Convertir y duplicar"
+  },
   "toolbar": {
     "comingSoon": "Próximamente",
     "viewFilterInShare": "Esta vista se está utilizando en un enlace compartido. Las modificaciones a la configuración de la vista también cambiarán el enlace compartido.",
@@ -12,6 +21,7 @@
         "copied": "Copiado",
         "genLink": "Generar nuevo enlace",
         "allowCopy": "Permitir a los visualizadores copiar datos de esta vista",
+        "allowEdit": "Permitir que los usuarios con sesión iniciada editen los datos visibles",
         "showAllFields": "Mostrar todos los campos en registros expandidos",
         "restrict": "Restringir por contraseña",
         "tips": "Las personas con el enlace pueden ver la vista.",
@@ -469,7 +479,11 @@
       "pasteFileFailed": "Los archivos solo se pueden pegar en un campo de archivo adjunto",
       "copyError": {
         "noFocus": "Mantenga la página activa y no cambie Windows"
-      }
+      },
+      "crossBaseCopyTitle": "¿Copiar como texto sin formato?",
+      "crossBaseCopyDescription": "Esta selección incluye un campo de enlace entre bases. Para mantener los datos dentro de su base original, el campo se copiará como texto sin formato y perderá sus relaciones de enlace.",
+      "crossBaseCopyConfirm": "Copiar como texto sin formato",
+      "crossBaseCopyLoadFirst": "Desplázate para cargar todas las filas seleccionadas antes de copiar campos entre bases."
     },
     "graph": {
       "tableLabel": "Etiqueta de mesa",
@@ -902,6 +916,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Puede editar",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Cualquiera con el enlace puede ver los datos de esta vista",
+    "viewLinkHolderCanEditDesc": "Los usuarios con sesión iniciada pueden editar datos dentro del alcance de la vista",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Puede guardar como copia",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -948,6 +970,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "O escribe tu respuesta…"
+      },
+      "messageActions": {
+        "copy": "Copiar",
+        "copyToInput": "Copiar en la entrada"
       }
     },
     "tool": {
@@ -1046,10 +1072,9 @@
     "allAttachments": {
       "title": "Descargar todos los archivos adjuntos",
       "loading": "Cargando vista previa...",
-      "rowsWithAttachments": "{{count}} filas con archivos adjuntos",
-      "totalAttachments": "{{count}} archivos adjuntos",
-      "totalSize": "Tamaño total: {{size}}",
-      "startDownload": "Iniciar descarga",
+      "rowsWithAttachments": "Filas con adjuntos",
+      "totalAttachments": "Adjuntos",
+      "totalSize": "Tamaño total",
       "confirmTitle": "Descargar {{count}} archivos",
       "confirmDescription": "Tamaño total: {{size}}. Los archivos se comprimirán en un archivo ZIP.",
       "confirm": "Descargar",

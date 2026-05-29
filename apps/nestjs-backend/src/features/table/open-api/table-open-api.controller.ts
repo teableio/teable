@@ -13,6 +13,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type {
+  IDuplicateFieldCheckVo,
+  IDuplicateTableCheckVo,
   IDuplicateTableVo,
   IGetAbnormalVo,
   ITableFullVo,
@@ -46,6 +48,7 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
@@ -64,6 +67,7 @@ export class TableController {
     private readonly tableIndexService: TableIndexService,
     private readonly tablePermissionService: TablePermissionService,
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
+    private readonly tableDuplicateService: TableDuplicateService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -173,6 +177,27 @@ export class TableController {
       return await this.tableOpenApiV2Service.duplicateTable(baseId, tableId, duplicateTableRo);
     }
     return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
+  }
+
+  @Permissions('table|read')
+  @Get(':tableId/duplicate-check')
+  async duplicateTableCheck(@Param('tableId') tableId: string): Promise<IDuplicateTableCheckVo> {
+    const affectedFields =
+      await this.tableDuplicateService.previewCrossSpaceAffectedFields(tableId);
+    return { affectedFields };
+  }
+
+  @Permissions('field|create')
+  @Get(':tableId/field/:fieldId/duplicate-check')
+  async duplicateFieldCheck(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IDuplicateFieldCheckVo> {
+    const affectedFields = await this.tableDuplicateService.previewFieldDuplicateCrossSpace(
+      tableId,
+      fieldId
+    );
+    return { affectedFields };
   }
 
   @UseV2Feature('deleteTable')

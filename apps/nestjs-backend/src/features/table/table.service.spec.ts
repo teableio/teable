@@ -38,4 +38,56 @@ describe('TableService', () => {
     const dbTableName = service.generateValidName('');
     expect(dbTableName).toBe('unnamed');
   });
+
+  it('uses the routed data transaction client when creating a physical table', async () => {
+    const dataTxClient = {
+      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    };
+    const dataRootClient = {
+      txClient: vi.fn().mockReturnValue(dataTxClient),
+      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    };
+    const metaTxClient = {
+      tableMeta: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'tblTest', dbTableName: 'bseTest.orders' }),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    const mockedService = new TableService(
+      { get: vi.fn().mockReturnValue('usrTest') } as never,
+      { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
+      { dataPrismaForBase: vi.fn().mockResolvedValue(dataRootClient) } as never,
+      {} as never,
+      {
+        driver: 'sqlite',
+        generateDbTableName: vi.fn((_baseId: string, name: string) => `bseTest.${name}`),
+        dropTable: vi.fn((name: string) => `drop table ${name}`),
+      } as never,
+      {
+        schema: {
+          createTable: vi.fn().mockReturnValue({
+            toSQL: () => [{ sql: 'create table "bseTest"."orders" ("__id" text)' }],
+          }),
+        },
+      } as never
+    );
+
+    await (
+      mockedService as unknown as {
+        createDBTable(
+          baseId: string,
+          tableRo: { name: string },
+          createTable?: boolean
+        ): Promise<void>;
+      }
+    ).createDBTable('bseTest', { name: 'orders' });
+
+    expect(dataRootClient.txClient).toHaveBeenCalled();
+    expect(dataTxClient.$executeRawUnsafe).toHaveBeenCalledWith(
+      'create table "bseTest"."orders" ("__id" text)'
+    );
+    expect(dataRootClient.$executeRawUnsafe).not.toHaveBeenCalled();
+  });
 });

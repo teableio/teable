@@ -73,6 +73,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const editable = Boolean(permission['record|update']);
   const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
+  const canComment = Boolean(permission['record|comment']);
+  const canDuplicate = Boolean(permission['record|create']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -144,7 +146,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               <Link className="size-4 shrink-0" />
             </Button>
           </TooltipWrap>
-          {editable && (
+          {editable && onRecordHistoryToggle && (
             <TooltipWrap
               description={
                 recordHistoryVisible
@@ -162,7 +164,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {editable && (
+          {canComment && (
             <TooltipWrap description={t('comment.title')}>
               <Button
                 size={'icon-xs'}
@@ -180,13 +182,13 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {canDelete ? (
+          {(canDelete || (canDuplicate && !!onDuplicate)) && (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
                 <MoreHorizontal className="size-4 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {!!onDuplicate && (
+                {canDuplicate && !!onDuplicate && (
                   <DropdownMenuItem
                     className="flex cursor-pointer items-center gap-2 text-sm outline-none"
                     onClick={async () => {
@@ -197,18 +199,20 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                     <CopyPlus className="size-4 shrink-0" /> {t('expandRecord.duplicateRecord')}
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
-                  onClick={async () => {
-                    await onDelete?.();
-                    setTimeout(() => onClose?.(), 100);
-                  }}
-                >
-                  <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
-                </DropdownMenuItem>
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+                    onClick={async () => {
+                      await onDelete?.();
+                      setTimeout(() => onClose?.(), 100);
+                    }}
+                  >
+                    <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
+          )}
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />

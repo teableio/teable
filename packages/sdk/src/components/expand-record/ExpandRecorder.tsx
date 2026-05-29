@@ -1,10 +1,10 @@
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
-import { useEffect, useMemo, useState, type FC, type PropsWithChildren } from 'react';
+import { useContext, useEffect, useMemo, useState, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
-import { StandaloneViewProvider, ViewProvider } from '../../context';
+import { ShareViewContext, StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../hooks';
 import {
@@ -80,6 +80,12 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const { onHighlightTable, navigateToTable } = useExpandRecordNavigation();
   const permission = useTablePermission();
   const { duplicateRecord } = useRecordOperations();
+  // Record history is intentionally hidden inside a share view: it would leak
+  // collaborator identities and prior values to external link visitors. The
+  // record|comment / record|create gates (for comment/duplicate) are handled
+  // by ExpandRecordHeader via useTablePermission and don't need a context check.
+  const { shareId } = useContext(ShareViewContext);
+  const isShareContext = Boolean(shareId);
 
   const isForeignTable = isLinkedRecord || (Boolean(currentTableId) && tableId !== currentTableId);
   const foreignTableName = useMemo(() => {
@@ -191,7 +197,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           recordIds={recordIds}
           commentId={commentId}
           serverData={serverData?.id === recordId ? serverData : undefined}
-          recordHistoryVisible={editable && recordHistoryVisible}
+          recordHistoryVisible={!isShareContext && editable && recordHistoryVisible}
           commentVisible={canRead && commentVisible}
           foreignTableName={foreignTableName}
           onForeignTableClick={
@@ -204,7 +210,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
           onDuplicate={viewId ? onDuplicate : undefined}
-          onRecordHistoryToggle={onRecordHistoryToggle}
+          onRecordHistoryToggle={isShareContext ? undefined : onRecordHistoryToggle}
           onCommentToggle={onCommentToggle}
           onDelete={async () => {
             if (canDelete) await deleteRecord(tableId, recordId);

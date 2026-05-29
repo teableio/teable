@@ -1,9 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
-import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
+import {
+  CellFormat,
+  FieldKeyType,
+  FieldType,
+  HttpErrorCode,
+  ViewType,
+  isAnonymous,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
@@ -29,6 +35,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
@@ -55,7 +62,7 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
@@ -67,6 +74,11 @@ export class ShareService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
+
+  private isShareEditor(shareInfo: IShareViewInfo) {
+    const userId = this.cls.get('user.id');
+    return Boolean(shareInfo.shareMeta?.allowEdit && userId && !isAnonymous(userId));
+  }
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
     const { shareId, tableId, view, linkOptions, shareMeta } = shareInfo;
@@ -236,36 +248,43 @@ export class ShareService {
       ? fields.filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
       : fields;
 
+    // filterLinkCellSelected applies its own filter; skip the default.
+    const filter = query?.filterLinkCellSelected ? undefined : query?.filter ?? linkFilter;
+
     return await this.recordService.getRecords(
       tableId,
       {
         viewId,
         skip: query?.skip ?? 0,
         take: query?.take ?? 100,
-        filter: query?.filter ?? linkFilter,
+        filter,
         orderBy: query?.orderBy,
         groupBy: query?.groupBy ?? group,
         fieldKeyType: FieldKeyType.Id,
         projection: query?.projection ?? filteredFields.map((f) => f.id),
+        search: query?.search,
+        filterLinkCellCandidate: query?.filterLinkCellCandidate,
+        filterLinkCellSelected: query?.filterLinkCellSelected,
+        selectedRecordIds: query?.selectedRecordIds,
       },
       true
     );
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
-    const { tableId, view, shareMeta } = shareInfo;
+    const { tableId, view } = shareInfo;
     const { fields, typecast } = shareViewFormSubmitRo;
-    if (!shareMeta?.submit?.allow) {
-      throw new CustomHttpException('not allowed to submit', HttpErrorCode.RESTRICTED_RESOURCE, {
-        localization: {
-          i18nKey: 'httpErrors.share.notAllowedToSubmit',
-        },
-      });
-    }
     if (!view) {
       throw new CustomHttpException('view is required', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.share.viewRequired',
+        },
+      });
+    }
+    if (view.type !== ViewType.Form) {
+      throw new CustomHttpException('not allowed to submit', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.notAllowedToSubmit',
         },
       });
     }
@@ -278,7 +297,10 @@ export class ShareService {
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
-    if (!shareInfo.shareMeta?.allowCopy) {
+    // allowEdit implies allowCopy — viewers that can write the data can
+    // already read every value, so blocking clipboard copy is only friction.
+    const copyAllowed = shareInfo.shareMeta?.allowCopy || this.isShareEditor(shareInfo);
+    if (!copyAllowed) {
       throw new CustomHttpException('not allowed to copy', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.share.notAllowedToCopy',
@@ -428,6 +450,14 @@ export class ShareService {
       return this.getViewAllCollaborators(shareInfo, query);
     }
 
+    // share-edit links need the full base collaborator pool so external editors
+    // can assign any member to a user field, just like base collaborators can.
+    // Read-only shares stay narrow (only users already referenced in the field)
+    // to avoid leaking the member directory to anonymous viewers.
+    if (this.isShareEditor(shareInfo)) {
+      return this.getViewAllCollaborators(shareInfo, query);
+    }
+
     if (!fieldId) {
       throw new CustomHttpException('fieldId is required', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -470,13 +500,13 @@ export class ShareService {
     queryBuilder.whereNotNull(dbFieldName);
     this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
     const nativeQuery = queryBuilder.toQuery();
-    const rows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ user_id: string | null }[]>(nativeQuery);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<
+      Record<'user_id', string | null>[]
+    >(tableId, nativeQuery);
 
     return Array.from(
       new Set(
-        rows.map(({ user_id }) => user_id).filter((userId): userId is string => Boolean(userId))
+        rows.map((row) => row['user_id']).filter((userId): userId is string => Boolean(userId))
       )
     );
   }
@@ -554,7 +584,11 @@ export class ShareService {
     const { skip = 0, take = 50, search } = query ?? {};
     const { tableId, view } = shareInfo;
 
-    if (view && ![ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
+    if (
+      view &&
+      !this.isShareEditor(shareInfo) &&
+      ![ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)
+    ) {
       throw new CustomHttpException('view type is not allowed', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.share.viewTypeNotAllowed',

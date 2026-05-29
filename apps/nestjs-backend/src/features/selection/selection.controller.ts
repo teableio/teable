@@ -55,6 +55,7 @@ import {
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { TqlPipe } from '../record/open-api/tql.pipe';
+import { ShareViewScopeService } from '../record/share-view-scope.service';
 import { SelectionService } from './selection.service';
 
 @UseGuards(V2FeatureGuard)
@@ -65,7 +66,10 @@ export class SelectionController {
     private selectionService: SelectionService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    // protected (not private) so the EE override controller can reach assertXxx
+    // from its own paste / clear / delete overrides.
+    protected readonly shareViewScopeService: ShareViewScopeService
   ) {}
 
   protected applySelectionStreamResponseHeaders(response?: Response) {
@@ -177,6 +181,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe) pasteRo: IPasteRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IPasteVo> {
+    await this.shareViewScopeService.assertPaste(tableId, pasteRo);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.paste(tableId, pasteRo, { windowId });
@@ -206,6 +212,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe) rangesRo: IRangesRo,
     @Headers('x-window-id') windowId?: string
   ) {
+    await this.shareViewScopeService.assertSelectionMutation(tableId, rangesRo);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.clear(tableId, rangesRo);
@@ -226,6 +234,8 @@ export class SelectionController {
     @Headers('x-window-id') windowId: string | undefined,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertSelectionMutation(tableId, rangesRo);
+
     const stream = this.cls.get('useV2')
       ? await this.recordOpenApiV2Service.clearStream(tableId, rangesRo)
       : this.createLegacyClearSelectionStream(tableId, rangesRo, windowId);
@@ -250,6 +260,8 @@ export class SelectionController {
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IDeleteVo> {
+    await this.shareViewScopeService.assertSelectionMutation(tableId, rangesRo);
+
     // Use V2 logic when canary config enables it for this space + feature
     if (this.cls.get('useV2')) {
       return this.recordOpenApiV2Service.deleteByRange(tableId, rangesRo);
@@ -457,6 +469,8 @@ export class SelectionController {
     @Headers('x-window-id') windowId: string | undefined,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertSelectionMutation(tableId, rangesRo);
+
     const stream = this.cls.get('useV2')
       ? await this.recordOpenApiV2Service.deleteByRangeStream(tableId, rangesRo)
       : this.createLegacyDeleteSelectionStream(tableId, rangesRo, windowId);
@@ -485,6 +499,8 @@ export class SelectionController {
     @Headers('x-window-id') windowId: string | undefined,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertPaste(tableId, pasteRo);
+
     const stream = this.cls.get('useV2')
       ? await this.recordOpenApiV2Service.pasteStream(tableId, pasteRo, { windowId })
       : this.createLegacyPasteSelectionStream(tableId, pasteRo, windowId);
