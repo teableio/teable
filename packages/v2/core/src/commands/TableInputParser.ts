@@ -288,7 +288,17 @@ export function buildTableFromParsedInput(
     viewSpec.applyTo(builder);
   }
 
-  return builder.build(options);
+  return builder.build(options).andThen((table) => {
+    for (const fieldSpec of parsed.fieldSpecs) {
+      if (!fieldSpec.applyPostBuild) continue;
+      const postBuildResult = fieldSpec.applyPostBuild(table);
+      if (postBuildResult.isErr()) {
+        return err(postBuildResult.error);
+      }
+    }
+
+    return ok(table);
+  });
 }
 
 /**

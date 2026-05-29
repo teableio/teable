@@ -93,15 +93,31 @@ export enum Events {
   // following make no sense just for testing
   BASE_EXPORT_COMPLETE = 'base.export.complete',
 
+  // Fired once per import job at terminal state (success or failure). Lets e2e tests
+  // and downstream consumers (notifications, webhooks) wait on the worker's true
+  // completion point — past `lastChunk`, error-file write, and presence cleanup —
+  // instead of racing against per-chunk audit emits.
+  TABLE_IMPORT_FINISH = 'table.import.finish',
+
+  // Composite-operation terminal signals. Currently only e2e tests subscribe; reserved
+  // for future use by notifications / webhooks / billing. Each fires after the synchronous
+  // path of the operation finishes (transaction committed, scope closed). Per-row audit
+  // emits inside the operation are fire-and-forget, so subscribers that want all audit
+  // rows in DB still need a short poll after the event.
+  BASE_DUPLICATE_COMPLETE = 'base.duplicate.complete',
+  BASE_TEMPLATE_APPLY_COMPLETE = 'base.template.apply.complete',
+  BASE_SHARE_COPY_COMPLETE = 'base.share.copy.complete',
+
   LAST_VISIT_CLEAR = 'last.visit.clear',
   LAST_VISIT_UPDATE = 'last.visit.update',
 
-  AUDIT_LOG_SAVED = 'audit-log.saved',
+  // Internal event fired by `AuditScope.emitAtomic()` for both record-related
+  // emissions (chunked imports, raw-SQL ops) and atomic events (user.signin, token
+  // create/delete, invitations). The listener `AuditLogListener.handleAuditLogEmit`
+  // writes one audit_log row per emit.
+  AUDIT_LOG_EMIT = 'audit-log.emit',
 
   NOTIFY_MAIL_MERGE = 'notify.mail.merge',
-
-  // record source
-  TABLE_RECORD_CREATE_RELATIVE = 'table.record.create.relative',
 
   // Invitation funnel
   INVITATION_EMAIL_SEND = 'invitation.email.send',

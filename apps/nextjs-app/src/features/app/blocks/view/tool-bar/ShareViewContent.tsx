@@ -10,6 +10,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   Popover,
@@ -25,12 +29,13 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { omit } from 'lodash';
-import { ChevronRight, Eye } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useMemo, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { tableConfig } from '@/features/i18n/table.config';
+import { ShareLinkScopeSettings } from './ShareLinkScopeSettings';
 
 const getShareUrl = ({
   shareId,
@@ -266,15 +271,37 @@ export const ShareViewContent: React.FC = () => {
   };
 
   const onSubmitRequireLoginChange = (check: boolean) => {
-    if (!shareMeta?.submit) {
-      return;
-    }
     setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
   };
 
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
+  const needConfigAllowEdit = [
+    ViewType.Grid,
+    ViewType.Kanban,
+    ViewType.Gallery,
+    ViewType.Calendar,
+  ].includes(view.type);
+  const needConfigRequireLogin = [ViewType.Form].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
+
+  const permissionOptions = needConfigAllowEdit
+    ? [
+        {
+          active: !shareMeta?.allowEdit,
+          label: t('table:baseShare.linkHolderCanView'),
+          desc: t('table:baseShare.viewLinkHolderCanViewDesc'),
+          onClick: () => setShareMeta({ allowEdit: false }),
+        },
+        {
+          active: Boolean(shareMeta?.allowEdit),
+          label: t('table:baseShare.linkHolderCanEdit'),
+          desc: t('table:baseShare.viewLinkHolderCanEditDesc'),
+          onClick: () => setShareMeta({ allowEdit: true }),
+        },
+      ]
+    : [];
+  const activePermission = permissionOptions.find((o) => o.active);
 
   return (
     <div className="flex w-full flex-col gap-4 py-4">
@@ -292,6 +319,45 @@ export const ShareViewContent: React.FC = () => {
       {enableShare ? (
         <>
           <div className="flex flex-col gap-2">
+            {needConfigAllowEdit && activePermission && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="text-muted-foreground">
+                  {t('table:baseShare.linkHolderLabel')}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
+                      {activePermission.label}
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    {permissionOptions.map((item) => (
+                      <DropdownMenuItem
+                        key={item.label}
+                        className={item.active ? 'font-medium' : ''}
+                        onClick={item.onClick}
+                      >
+                        <div className="flex items-start gap-1.5">
+                          {item.active ? (
+                            <Check className="mt-0.5 size-4 shrink-0" />
+                          ) : (
+                            <span className="mt-0.5 size-4 shrink-0" />
+                          )}
+                          <div className="flex flex-col gap-1">
+                            <span>{item.label}</span>
+                            <span className="text-xs font-normal text-muted-foreground">
+                              {item.desc}
+                            </span>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+            <ShareLinkScopeSettings />
             <div className="flex items-center gap-2">
               <Input className="min-w-0 flex-1" id="share-link" value={shareUrl} readOnly />
               <CopyButton
@@ -378,7 +444,7 @@ export const ShareViewContent: React.FC = () => {
                 </Button>
               )}
             </div>
-            {shareMeta?.submit && (
+            {needConfigRequireLogin && (
               <div className="flex items-center gap-2">
                 <Switch
                   id="share-view-required-login"

@@ -6,6 +6,9 @@ import { useTableId } from './use-table-id';
 
 const { toast } = sonner;
 
+const toastDuration = 1500;
+const loadingToastDuration = Infinity;
+
 const formatProgressMessage = (label: string, processedCount: number, totalCount: number) => {
   if (totalCount <= 0) {
     return label;
@@ -13,15 +16,27 @@ const formatProgressMessage = (label: string, processedCount: number, totalCount
   return `${label} ${processedCount}/${totalCount}`;
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const showTransientToastAfterLoading = (toastId: string | number, message: string) => {
+  toast.dismiss(toastId);
+  toast(message, { duration: toastDuration });
+};
+
 export const useUndoRedo = () => {
   const tableId = useTableId();
   const { t } = useTranslation();
   const performUndo = useCallback(async () => {
     if (!tableId) {
-      toast('nothing to undo');
+      toast(t('undoRedo.nothingToUndo'), { duration: toastDuration });
       return;
     }
-    const toastId = toast.loading(t('undoRedo.undoing'), { duration: Infinity });
+    const toastId = toast.loading(t('undoRedo.undoing'), { duration: loadingToastDuration });
     try {
       const res = await undoStream(tableId, {
         onProgress: (progress) => {
@@ -31,21 +46,21 @@ export const useUndoRedo = () => {
               progress.processedCount,
               progress.totalCount
             ),
-            { id: toastId, duration: Infinity }
+            { id: toastId, duration: loadingToastDuration }
           );
         },
       });
       if (res.data.status === 'fulfilled') {
-        toast.success(t('undoRedo.undoSucceed'), { id: toastId, duration: 1500 });
+        toast.success(t('undoRedo.undoSucceed'), { id: toastId, duration: toastDuration });
         return;
       }
       if (res.data.status === 'empty') {
-        toast(t('undoRedo.nothingToUndo'), { id: toastId, duration: 1500 });
+        showTransientToastAfterLoading(toastId, t('undoRedo.nothingToUndo'));
         return;
       }
       throw new Error(res.data.errorMessage);
     } catch (e) {
-      toast.error(`${t('undoRedo.undoFailed')}: ${(e as { message: string }).message}`, {
+      toast.error(`${t('undoRedo.undoFailed')}: ${getErrorMessage(e)}`, {
         id: toastId,
       });
     }
@@ -53,11 +68,11 @@ export const useUndoRedo = () => {
 
   const performRedo = useCallback(async () => {
     if (!tableId) {
-      toast('nothing to redo');
+      toast(t('undoRedo.nothingToRedo'), { duration: toastDuration });
       return;
     }
 
-    const toastId = toast.loading(t('undoRedo.redoing'), { duration: Infinity });
+    const toastId = toast.loading(t('undoRedo.redoing'), { duration: loadingToastDuration });
     try {
       const res = await redoStream(tableId, {
         onProgress: (progress) => {
@@ -67,21 +82,21 @@ export const useUndoRedo = () => {
               progress.processedCount,
               progress.totalCount
             ),
-            { id: toastId, duration: Infinity }
+            { id: toastId, duration: loadingToastDuration }
           );
         },
       });
       if (res.data.status === 'fulfilled') {
-        toast.success(t('undoRedo.redoSucceed'), { id: toastId, duration: 1500 });
+        toast.success(t('undoRedo.redoSucceed'), { id: toastId, duration: toastDuration });
         return;
       }
       if (res.data.status === 'empty') {
-        toast(t('undoRedo.nothingToRedo'), { id: toastId, duration: 1500 });
+        showTransientToastAfterLoading(toastId, t('undoRedo.nothingToRedo'));
         return;
       }
       throw new Error(res.data.errorMessage);
     } catch (e) {
-      toast.error(`${t('undoRedo.redoFailed')}: ${(e as { message: string }).message}`, {
+      toast.error(`${t('undoRedo.redoFailed')}: ${getErrorMessage(e)}`, {
         id: toastId,
       });
     }

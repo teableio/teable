@@ -22,6 +22,8 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { isComputedFieldType } from './ComputedUpdatePlanner';
 
+const ACTIVE_TABLE_PROVISION_STATES = ['ready', 'pending'] as const;
+
 // Re-export shared types
 export type { FieldDependencyEdgeKind, FieldDependencyEdgeSemantic };
 
@@ -371,6 +373,16 @@ export class FieldDependencyGraph {
       const rows = await db
         .selectFrom('field as f')
         .innerJoin('table_meta as t', 't.id', 'f.table_id')
+        .leftJoin('table_meta as option_target', (join) =>
+          join.onRef(sql`(f.options::json->>'foreignTableId')::text`, '=', 'option_target.id')
+        )
+        .leftJoin('table_meta as lookup_target', (join) =>
+          join.onRef(
+            sql`(f.lookup_options::json->>'foreignTableId')::text`,
+            '=',
+            'lookup_target.id'
+          )
+        )
         .leftJoin('field as sf', (join) =>
           join.onRef(sql`(f.options::json->>'symmetricFieldId')::text`, '=', 'sf.id')
         )
@@ -403,6 +415,25 @@ export class FieldDependencyGraph {
         .where('t.base_id', '=', baseId.toString())
         .where('f.deleted_time', 'is', null)
         .where('t.deleted_time', 'is', null)
+        .where('t.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where(
+          sql<boolean>`(
+            (f.options::json->>'foreignTableId') IS NULL
+            OR (
+              option_target.deleted_time IS NULL
+              AND option_target.provision_state IN ('ready', 'pending')
+            )
+          )`
+        )
+        .where(
+          sql<boolean>`(
+            (f.lookup_options::json->>'foreignTableId') IS NULL
+            OR (
+              lookup_target.deleted_time IS NULL
+              AND lookup_target.provision_state IN ('ready', 'pending')
+            )
+          )`
+        )
         .where((eb) =>
           eb.or([
             eb('f.is_computed', '=', true),
@@ -526,7 +557,9 @@ export class FieldDependencyGraph {
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null);
+        .where('t_to.deleted_time', 'is', null)
+        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
 
       const toBaseQuery = db
         .selectFrom('reference as r')
@@ -539,7 +572,9 @@ export class FieldDependencyGraph {
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null);
+        .where('t_to.deleted_time', 'is', null)
+        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
 
       const rows = await fromBaseQuery.union(toBaseQuery).execute();
 
@@ -879,15 +914,21 @@ export class FieldDependencyGraph {
           SELECT r.to_field_id AS field_id
           FROM reference r
           INNER JOIN field f ON f.id = r.to_field_id
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE r.from_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
             AND f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
 
           UNION
 
           -- 2. Lookup/rollup dependency on linkFieldId - prefer field_lookup_linked_field_id_idx
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND f.lookup_linked_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
 
@@ -896,7 +937,10 @@ export class FieldDependencyGraph {
           -- 2b. Fallback for stale rows where JSON has linkFieldId but lookup_linked_field_id is null
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.lookup_linked_field_id IS NULL
             AND f.lookup_options IS NOT NULL
             AND (f.type = 'rollup' OR f.is_lookup = true)
@@ -907,7 +951,10 @@ export class FieldDependencyGraph {
           -- 3. Lookup/rollup dependency on lookupFieldId - uses field_lookup_options_lookup_field_id_idx
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.lookup_options IS NOT NULL
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -917,7 +964,10 @@ export class FieldDependencyGraph {
           -- 4. Link field dependency on lookupFieldId (link_title) - uses field_options_lookup_field_id_idx
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.type = 'link'
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -927,7 +977,10 @@ export class FieldDependencyGraph {
           -- 5. ConditionalRollup/ConditionalLookup dependency on lookupFieldId
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.type IN ('conditionalRollup', 'conditionalLookup')
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -937,7 +990,10 @@ export class FieldDependencyGraph {
           -- 6. Conditional lookup (v1) dependency on lookupFieldId
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.is_conditional_lookup = true
             AND f.lookup_options IS NOT NULL
             AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -953,6 +1009,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND t.base_id = ${baseId.toString()}
             AND f.type IN ('conditionalRollup', 'conditionalLookup')
             AND f.options IS NOT NULL
@@ -968,6 +1025,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND t.base_id = ${baseId.toString()}
             AND f.is_conditional_lookup = true
             AND f.lookup_options IS NOT NULL
@@ -983,6 +1041,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND t.base_id = ${baseId.toString()}
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND f.lookup_options IS NOT NULL
@@ -994,7 +1053,10 @@ export class FieldDependencyGraph {
           -- The symmetric field can have lookups/rollups that depend on it
           SELECT f.id AS field_id
           FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN ('ready', 'pending')
             AND f.type = 'link'
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'symmetricFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -1041,6 +1103,17 @@ export class FieldDependencyGraph {
     try {
       const rows = await db
         .selectFrom('field as f')
+        .innerJoin('table_meta as t', 't.id', 'f.table_id')
+        .leftJoin('table_meta as option_target', (join) =>
+          join.onRef(sql`(f.options::json->>'foreignTableId')::text`, '=', 'option_target.id')
+        )
+        .leftJoin('table_meta as lookup_target', (join) =>
+          join.onRef(
+            sql`(f.lookup_options::json->>'foreignTableId')::text`,
+            '=',
+            'lookup_target.id'
+          )
+        )
         .leftJoin('field as sf', (join) =>
           join.onRef(sql`(f.options::json->>'symmetricFieldId')::text`, '=', 'sf.id')
         )
@@ -1067,6 +1140,26 @@ export class FieldDependencyGraph {
         ])
         .where('f.id', 'in', fieldIds)
         .where('f.deleted_time', 'is', null)
+        .where('t.deleted_time', 'is', null)
+        .where('t.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where(
+          sql<boolean>`(
+            (f.options::json->>'foreignTableId') IS NULL
+            OR (
+              option_target.deleted_time IS NULL
+              AND option_target.provision_state IN ('ready', 'pending')
+            )
+          )`
+        )
+        .where(
+          sql<boolean>`(
+            (f.lookup_options::json->>'foreignTableId') IS NULL
+            OR (
+              lookup_target.deleted_time IS NULL
+              AND lookup_target.provision_state IN ('ready', 'pending')
+            )
+          )`
+        )
         .execute();
 
       const fields: FieldMeta[] = [];
@@ -1179,7 +1272,9 @@ export class FieldDependencyGraph {
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null);
+        .where('t_to.deleted_time', 'is', null)
+        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
 
       const toFieldQuery = db
         .selectFrom('reference as r')
@@ -1192,7 +1287,9 @@ export class FieldDependencyGraph {
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null);
+        .where('t_to.deleted_time', 'is', null)
+        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
 
       const rows = await fromFieldQuery.union(toFieldQuery).execute();
 

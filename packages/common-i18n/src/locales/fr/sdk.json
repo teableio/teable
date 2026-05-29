@@ -801,7 +801,9 @@
     "totalAttachmentSize": "Taille totale des pièces jointes"
   },
   "selectionStatistic": {
-    "tip": "Seuls les champs de type Nombre sont agrégés."
+    "tip": "Seuls les champs de type Nombre sont agrégés.",
+    "copyTip": "Cliquer pour copier",
+    "copied": "Copié"
   },
   "baseQuery": {
     "add": "Ajouter",
@@ -913,6 +915,31 @@
     "automationNodeNeedTest": "Le nœud d'automatisation nécessite un test",
     "automationNodeTestOutdated": "Test du nœud d'automatisation obsolète",
     "invalidToken": "Jeton non valide",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
       "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
@@ -1035,8 +1062,8 @@
       "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
       "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
       "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}",
-      "ownedSpaceLimitExceeded": "Vous avez atteint le nombre maximum d'espaces que vous pouvez gérer ({{max}})",
-      "ownedSpaceLimitExceededOther": "{{name}} a atteint le nombre maximum d'espaces qu'il peut gérer ({{max}})"
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "Base non trouvée",
@@ -1085,6 +1112,7 @@
     "share": {
       "incorrectPassword": "Mot de passe incorrect",
       "notAllowedToSubmit": "La soumission du formulaire n'est pas autorisée",
+      "notAllowedToEdit": "La modification n'est pas autorisée pour ce partage",
       "viewRequired": "La vue est requise pour cette opération",
       "hiddenFieldsSubmissionNotAllowed": "La soumission du formulaire n'est pas autorisée lorsque des champs masqués sont inclus",
       "submitRecordsError": "Échec de la soumission de l'enregistrement",
@@ -1098,7 +1126,8 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "La restriction par mot de passe n'est pas activée pour cette vue partagée",
       "shareViewNotFound": "Vue partagée introuvable ou le partage est désactivé",
-      "linkFieldNotFound": "Champ de liaison introuvable"
+      "linkFieldNotFound": "Champ de liaison introuvable",
+      "loginRequired": "Connectez-vous pour modifier cette vue partagée"
     },
     "baseShare": {
       "notFound": "Partage de base introuvable ou le partage est désactivé",
@@ -1198,6 +1227,7 @@
       "recordMapNotFound": "Enregistrement introuvable dans la table {{tableName}} pour le champ {{fieldName}}",
       "forbidDeletePrimaryField": "Interdiction de supprimer le champ primaire",
       "foreignTableIdInvalid": "Table étrangère {{foreignTableId}} invalide",
+      "crossSpaceLinkForbidden": "Les références inter-espaces ne sont pas prises en charge. Veuillez choisir une table dans le même espace (la cible {{foreignTableId}} est dans un autre espace).",
       "relationshipInvalid": "Relation {{relationship}} invalide",
       "linkFieldIdInvalid": "Champ de lien {{linkFieldId}} invalide",
       "lookupFieldIdInvalid": "Champ de recherche {{lookupFieldId}} invalide",

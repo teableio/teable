@@ -1,8 +1,10 @@
+import { getMarketingAttribution } from '@/lib/marketing-attribution';
+
 // Declare gtag types
 declare global {
   interface Window {
-    gtag: (command: string, targetId: string | Date, config?: Record<string, unknown>) => void;
-    dataLayer: unknown[];
+    gtag?: (command: string, targetId: string | Date, config?: Record<string, unknown>) => void;
+    dataLayer?: unknown[];
   }
 }
 
@@ -52,8 +54,7 @@ function hasAdConsent(): boolean {
   }
 }
 
-// Export function to track sign-up conversion with user information
-export async function trackSignUpConversion(conversionId?: string, userInfo?: IUserInfo) {
+async function trackSignUpConversion(conversionId?: string, userInfo?: IUserInfo) {
   if (typeof window === 'undefined' || !window.gtag || !conversionId || !userInfo) {
     return;
   }
@@ -75,4 +76,32 @@ export async function trackSignUpConversion(conversionId?: string, userInfo?: IU
   }
 
   window.gtag('event', 'conversion', conversionData);
+}
+
+function trackMarketingSignUp(marketingGaId?: string, userInfo?: IUserInfo) {
+  if (typeof window === 'undefined' || !window.gtag || !marketingGaId || !userInfo) {
+    return;
+  }
+
+  window.gtag('event', 'sign_up', {
+    send_to: marketingGaId,
+    method: 'email',
+    user_id: userInfo.id,
+    page_path: window.location.pathname,
+    page_location: window.location.href,
+    ...getMarketingAttribution(),
+  });
+}
+
+export function trackSignUp({
+  conversionId,
+  marketingGaId,
+  userInfo,
+}: {
+  conversionId?: string;
+  marketingGaId?: string;
+  userInfo?: IUserInfo;
+}) {
+  void trackSignUpConversion(conversionId, userInfo);
+  trackMarketingSignUp(marketingGaId, userInfo);
 }

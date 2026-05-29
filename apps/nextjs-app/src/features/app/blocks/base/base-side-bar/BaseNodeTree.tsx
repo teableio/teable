@@ -762,7 +762,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                           ref={inputRef}
                           type="text"
                           defaultValue={item.getItemName()}
-                          className="size-full cursor-text select-text rounded-none"
+                          className="h-7 w-full cursor-text select-text"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;

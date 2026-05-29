@@ -85,6 +85,88 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
     }
   );
 
+  private readonly missingTargetManualRepairSchema = withManualRepairFormMeta(
+    z.object({
+      resolution: withManualRepairFieldMeta(z.enum(['convert_current_to_one_way']), {
+        widget: 'select',
+        title: {
+          key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldMissing.resolutionLabel',
+          fallback: 'Repair strategy',
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldMissing.resolutionDescription',
+          fallback:
+            'The paired field no longer exists. Convert the current link to a one-way link so the existing relation data can keep using its stored link structure.',
+        },
+        options: {
+          convert_current_to_one_way: {
+            value: 'convert_current_to_one_way',
+            label: {
+              key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldMissing.option.convertCurrent',
+              fallback: 'Convert the current link to one-way',
+            },
+          },
+        },
+      }).default('convert_current_to_one_way'),
+    }),
+    {
+      title: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldMissing.title',
+        fallback: 'Resolve missing paired link field',
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldMissing.description',
+        fallback:
+          'The paired link field has been deleted. Confirm converting this field to a one-way link before repairing.',
+      },
+      submitLabel: {
+        key: 'table:table.integrity.v2.repairMeta.manual.apply',
+        fallback: 'Apply manual repair',
+      },
+    }
+  );
+
+  private readonly brokenPairManualRepairSchema = withManualRepairFormMeta(
+    z.object({
+      resolution: withManualRepairFieldMeta(z.enum(['convert_current_to_one_way']), {
+        widget: 'select',
+        title: {
+          key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldBroken.resolutionLabel',
+          fallback: 'Repair strategy',
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldBroken.resolutionDescription',
+          fallback:
+            'The paired field does not point back to this field. Convert the current link to a one-way link so it no longer depends on the broken pair.',
+        },
+        options: {
+          convert_current_to_one_way: {
+            value: 'convert_current_to_one_way',
+            label: {
+              key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldBroken.option.convertCurrent',
+              fallback: 'Convert the current link to one-way',
+            },
+          },
+        },
+      }).default('convert_current_to_one_way'),
+    }),
+    {
+      title: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldBroken.title',
+        fallback: 'Resolve broken paired link field',
+      },
+      description: {
+        key: 'table:table.integrity.v2.repairMeta.manual.symmetricFieldBroken.description',
+        fallback:
+          'The paired link field exists but is not a valid two-way counterpart. Confirm converting this field to a one-way link before repairing.',
+      },
+      submitLabel: {
+        key: 'table:table.integrity.v2.repairMeta.manual.apply',
+        fallback: 'Apply manual repair',
+      },
+    }
+  );
+
   private constructor(
     private readonly field: LinkField,
     private readonly symmetricFieldId: string
@@ -119,6 +201,22 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
     const currentFieldId = this.field.id().toString();
     const symmetricFieldId = this.symmetricFieldId;
     const missing: string[] = [];
+    const currentFieldResult = await ctx.db
+      .selectFrom('field')
+      .select(['options'])
+      .where('id', '=', currentFieldId)
+      .executeTakeFirst();
+
+    if (currentFieldResult) {
+      const currentOptionsResult = this.parseLinkOptions(currentFieldResult.options);
+      if (currentOptionsResult.isErr()) {
+        return err(currentOptionsResult.error);
+      }
+
+      if (currentOptionsResult.value.isOneWay === true) {
+        return ok({ valid: true });
+      }
+    }
 
     // 1. Check if symmetric field exists and get its details
     const symmetricFieldResult = await ctx.db
@@ -332,7 +430,11 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
     const resolution =
       typeof values?.resolution === 'string' ? values.resolution : 'keep_current_link';
 
-    if (resolution !== 'keep_current_link' && resolution !== 'convert_duplicate_to_one_way') {
+    if (
+      resolution !== 'keep_current_link' &&
+      resolution !== 'convert_duplicate_to_one_way' &&
+      resolution !== 'convert_current_to_one_way'
+    ) {
       return err(
         domainError.validation({
           message: 'Unsupported manual repair strategy',
@@ -343,6 +445,10 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
 
     if (options?.dryRun) {
       return ok(undefined);
+    }
+
+    if (resolution === 'convert_current_to_one_way') {
+      return this.convertCurrentFieldToOneWay(ctx);
     }
 
     const currentFieldId = this.field.id().toString();
@@ -413,9 +519,66 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
     const duplicateSchemaResult = duplicateMessage
       ? serializeManualRepairSchema(this.manualRepairSchema)
       : undefined;
+    const missingTargetMessage = validation.missingItems?.find(
+      (item) => item.code === 'symmetric_field_missing'
+    );
+    const missingTargetSchemaResult = missingTargetMessage
+      ? serializeManualRepairSchema(this.missingTargetManualRepairSchema)
+      : undefined;
+    const brokenPairMessage = validation.missingItems?.find((item) =>
+      [
+        'symmetric_field_wrong_type',
+        'symmetric_field_invalid_options',
+        'symmetric_field_no_back_reference',
+        'symmetric_field_wrong_back_reference',
+      ].includes(item.code ?? '')
+    );
+    const brokenPairSchemaResult = brokenPairMessage
+      ? serializeManualRepairSchema(this.brokenPairManualRepairSchema)
+      : undefined;
+
+    if (missingTargetMessage) {
+      return ok({
+        available: missingTargetSchemaResult?.isOk() === true,
+        mode: 'manual',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.symmetricFieldMissing',
+          fallback:
+            'The paired link field no longer exists. Confirm converting this link to one-way before repairing.',
+        },
+        description: missingTargetMessage.description ?? {
+          key: 'table:table.integrity.v2.repairMeta.description.symmetricFieldMissing',
+          fallback:
+            'Convert the current link to one-way, then rerun repair so dependent junction table rules can be recreated if needed.',
+        },
+        manualRepairSchema: missingTargetSchemaResult?.isOk()
+          ? missingTargetSchemaResult.value
+          : undefined,
+      });
+    }
+
+    if (brokenPairMessage) {
+      return ok({
+        available: brokenPairSchemaResult?.isOk() === true,
+        mode: 'manual',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.symmetricFieldBroken',
+          fallback:
+            'The paired link field is broken. Confirm converting this link to one-way before repairing.',
+        },
+        description: brokenPairMessage.description ?? {
+          key: 'table:table.integrity.v2.repairMeta.description.symmetricFieldBroken',
+          fallback:
+            'Convert the current link to one-way, then rerun repair so dependent link schema rules can be checked again.',
+        },
+        manualRepairSchema: brokenPairSchemaResult?.isOk()
+          ? brokenPairSchemaResult.value
+          : undefined,
+      });
+    }
 
     return ok({
-      available: false,
+      available: duplicateSchemaResult?.isOk() === true,
       mode: 'manual',
       reason: {
         key: 'table:table.integrity.v2.repairMeta.reason.symmetricFieldConflict',
@@ -429,6 +592,43 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
       },
       manualRepairSchema: duplicateSchemaResult?.isOk() ? duplicateSchemaResult.value : undefined,
     });
+  }
+
+  private async convertCurrentFieldToOneWay(
+    ctx: SchemaRuleContext
+  ): Promise<Result<void, DomainError>> {
+    const currentField = await ctx.db
+      .selectFrom('field')
+      .select(['options'])
+      .where('id', '=', this.field.id().toString())
+      .executeTakeFirst();
+
+    if (!currentField) {
+      return err(
+        domainError.validation({
+          message: 'Current link field does not exist',
+          details: { fieldId: this.field.id().toString() },
+        })
+      );
+    }
+
+    const optionsResult = this.parseLinkOptions(currentField.options);
+    if (optionsResult.isErr()) {
+      return err(optionsResult.error);
+    }
+
+    await ctx.db
+      .updateTable('field')
+      .set({
+        options: JSON.stringify({
+          ...optionsResult.value,
+          isOneWay: true,
+        }),
+      })
+      .where('id', '=', this.field.id().toString())
+      .execute();
+
+    return ok(undefined);
   }
 
   private parseLinkOptions(

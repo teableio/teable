@@ -112,11 +112,20 @@ export const sanitizeLookupOptions = (
   return undefined;
 };
 
+const parseFieldEditorOptions = (originField: IFieldVo): IFieldEditorRo['options'] => {
+  if (originField.options == null) {
+    return undefined;
+  }
+
+  const result = getOptionsSchema(originField.type).safeParse(originField.options);
+  return result.success ? result.data : undefined;
+};
+
 const toFieldEditorState = (originField?: IFieldVo): IFieldEditorRo =>
   originField
     ? {
         ...originField,
-        options: getOptionsSchema(originField.type).parse(originField.options),
+        options: parseFieldEditorOptions(originField),
         lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
       }
     : {
@@ -360,21 +369,22 @@ export const FieldSetting = (props: IFieldSetting) => {
   };
 
   const handleConfirmWithAutoFill = async (mode: AiAutoFillMode) => {
-    if (!fieldRo) return;
+    if (!fieldRo) return false;
     autoFillModeRef.current = mode;
 
     const plan = await getPlan(fieldRo);
     if (!plan) {
-      return;
+      return false;
     }
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
     if (estimateTime > 1000 || linkFieldCount > 0) {
       setGraphVisible(true);
-      return;
+      return true;
     }
     await performAction(fieldRo);
+    return true;
   };
 
   return (
@@ -448,8 +458,10 @@ export const FieldSetting = (props: IFieldSetting) => {
         }}
         onClose={() => setAiConfirmVisible(false)}
         onConfirm={async (mode) => {
-          setAiConfirmVisible(false);
-          await handleConfirmWithAutoFill(mode);
+          const shouldClose = await handleConfirmWithAutoFill(mode);
+          if (shouldClose) {
+            setAiConfirmVisible(false);
+          }
         }}
       />
       <ConfirmDialog

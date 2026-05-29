@@ -1,11 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { FieldType, HttpErrorCode, isAnonymous } from '@teable/core';
+import { FieldType, HttpErrorCode } from '@teable/core';
 import type { IViewVo, IShareViewMeta, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import cookie from 'cookie';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
@@ -88,7 +90,12 @@ export class ShareAuthService {
     };
   }
 
-  async getLinkViewInfo(linkFieldId: string, templateHeader?: string): Promise<IShareViewInfo> {
+  async getLinkViewInfo(
+    linkFieldId: string,
+    templateHeader?: string,
+    shareViewHeader?: string,
+    cookieHeader?: string
+  ): Promise<IShareViewInfo> {
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
         where: {
@@ -135,19 +142,33 @@ export class ShareAuthService {
         );
       }
     }
-    if (templateHeader || isAnonymous(this.cls.get('user.id'))) {
+    // Authorize the lookup. Three legitimate callers:
+    //   1. Template preview pages → templateHeader / cls.template carry the proof
+    //   2. Share-view pages → X-Tea-Share-View points at this field's parent
+    //      table and the link field is visible in that shared view
+    //   3. The caller is a base collaborator with table read access
+    const hasTemplateContext = Boolean(templateHeader || this.cls.get('template'));
+    if (hasTemplateContext) {
       await this.permissionService.validTemplatePermissions(fieldRaw.tableId, [
         'table|read',
         'record|read',
         'field|read',
       ]);
     } else {
-      // make sure user has permission to access the table where the link field from
-      await this.permissionService.validPermissions(fieldRaw.tableId, [
-        'table|read',
-        'record|read',
-        'field|read',
-      ]);
+      const hasShareViewContext = await this.validLinkFieldShareViewContext(
+        fieldRaw.tableId,
+        fieldRaw.id,
+        shareViewHeader,
+        cookieHeader
+      );
+      if (!hasShareViewContext) {
+        // Not a share context — fall back to checking the user's own role.
+        await this.permissionService.validPermissions(fieldRaw.tableId, [
+          'table|read',
+          'record|read',
+          'field|read',
+        ]);
+      }
     }
 
     const { filterByViewId, visibleFieldIds, filter } = field.options;
@@ -161,5 +182,53 @@ export class ShareAuthService {
         includeRecords: true,
       },
     };
+  }
+
+  private async validLinkFieldShareViewContext(
+    tableId: string,
+    fieldId: string,
+    shareViewHeader?: string,
+    cookieHeader?: string
+  ) {
+    if (!shareViewHeader) {
+      return false;
+    }
+
+    const shareId = this.permissionService.getShareViewIdByHeader(shareViewHeader);
+    if (!shareId) {
+      return false;
+    }
+
+    const viewRaw = await this.prismaService.view.findFirst({
+      where: { shareId, enableShare: true, deletedTime: null },
+    });
+    if (!viewRaw || viewRaw.tableId !== tableId) {
+      return false;
+    }
+
+    const view = createViewVoByRaw(viewRaw);
+    if (view.shareMeta?.password) {
+      const token = cookie.parse(cookieHeader ?? '')[shareId];
+      const valid = token
+        ? await this.permissionService.validateShareViewPasswordToken(shareId, token)
+        : false;
+      if (!valid) {
+        throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
+      }
+    }
+
+    if (!view.shareMeta?.includeHiddenField && !isNotHiddenField(fieldId, view)) {
+      throw new CustomHttpException(
+        'field is hidden, not allowed',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldHiddenNotAllowed',
+          },
+        }
+      );
+    }
+
+    return true;
   }
 }
