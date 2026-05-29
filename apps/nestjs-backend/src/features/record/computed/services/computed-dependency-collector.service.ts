@@ -16,11 +16,11 @@ import type {
 } from '@teable/core';
 import { DbFieldType, DriverClient, FieldType, isFieldReferenceValue } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../../global/database-router.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../../../global/knex/knex.module';
 import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
@@ -76,7 +76,7 @@ export class ComputedDependencyCollectorService {
   private logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
@@ -155,9 +155,11 @@ export class ComputedDependencyCollectorService {
     const qb = (schema ? this.dataKnex.withSchema(schema) : this.dataKnex)
       .select('__id')
       .from(table);
-    const rows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());
+    const rows = await this.databaseRouter.queryDataPrismaForTable<Array<{ __id: string }>>(
+      tableId,
+      qb.toQuery(),
+      { useTransaction: true }
+    );
     return rows.map((r) => r.__id).filter(Boolean);
   }
 
@@ -870,9 +872,9 @@ export class ComputedDependencyCollectorService {
     const sql = queryBuilder.toQuery();
     this.logger.debug(`Conditional Rollup Impacted Records SQL: ${sql}`);
 
-    const rows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(sql);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<
+      { id?: string; __id?: string }[]
+    >(edge.tableId, sql, { useTransaction: true });
 
     const ids = new Set<string>();
     for (const row of rows) {
@@ -915,9 +917,11 @@ export class ComputedDependencyCollectorService {
         `${baseIdAlias}.__id`
       );
 
-    const baseRows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<Record<string, unknown>[]>(baseRowsQuery.toQuery());
+    const baseRows = await this.databaseRouter.queryDataPrismaForTable<Record<string, unknown>[]>(
+      edge.foreignTableId,
+      baseRowsQuery.toQuery(),
+      { useTransaction: true }
+    );
     const baseRowById = new Map<string, Record<string, unknown>>();
     for (const row of baseRows) {
       const id = row['__id'];
@@ -1043,9 +1047,9 @@ export class ComputedDependencyCollectorService {
     const postQuery = postQueryBuilder.toQuery();
     this.logger.debug('postQuery %s', postQuery);
 
-    const postRows = await this.dataPrismaService
-      .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(postQuery);
+    const postRows = await this.databaseRouter.queryDataPrismaForTable<
+      { id?: string; __id?: string }[]
+    >(edge.tableId, postQuery, { useTransaction: true });
 
     for (const row of postRows) {
       const id = row.id || row.__id;

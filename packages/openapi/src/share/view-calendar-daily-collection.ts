@@ -9,7 +9,10 @@ export const SHARE_VIEW_CALENDAR_DAILY_COLLECTION =
   '/share/{shareId}/view/calendar-daily-collection';
 
 export const shareViewCalendarDailyCollectionRoSchema = calendarDailyCollectionRoSchema.omit({
+  // viewId is bound by the shareId; ignoreViewQuery must not be exposed — it would
+  // let a client drop the view scope and read daily data the view filter hides.
   viewId: true,
+  ignoreViewQuery: true,
 });
 
 export type IShareViewCalendarDailyCollectionRo = z.infer<

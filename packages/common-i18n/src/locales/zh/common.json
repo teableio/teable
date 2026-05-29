@@ -1458,7 +1458,7 @@
     "modelServiceError": "模型服务发生错误，请重试或切换模型。",
     "imageProcessingFailed": "图片处理失败",
     "imageProcessingFailedDescription": "AI 模型无法处理此图片，请尝试重新发送或继续对话。",
-    "sandboxBusy": "Cuppy 正在另一个对话中执行，请稍候。",
+    "sandboxActiveRunBusy": "Cuppy 还在工作，请稍后再发送。",
     "sandboxCapacityFull": "最多同时运行 {{max}} 个对话，请等待一个对话完成。",
     "sandboxTransient": "Cuppy 正在准备中，请稍后重试。",
     "sandboxSnapshotNotFound": "Cuppy 的运行环境尚未准备好，请联系管理员创建沙箱快照。",
@@ -1499,9 +1499,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "5 月 12 日更新",
-    "title": "App Builder 支持内置登录",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "5 月 19 日更新",
+    "title": "Teable 让 Credit 效率提升 10x",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

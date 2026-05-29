@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Avis",
+    "duplicateFieldDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "duplicateTableTitle": "Avis",
+    "duplicateTableDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "duplicateBaseTitle": "Avis",
+    "duplicateBaseDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "convertAndDuplicate": "Convertir et dupliquer"
+  },
   "toolbar": {
     "comingSoon": "Bientôt disponible",
     "viewFilterInShare": "Cette vue est utilisée dans un lien de partage de vue. Les modifications apportées à la configuration de la vue modifieront également le lien de partage de la vue.",
@@ -11,6 +20,7 @@
         "copied": "Copié",
         "genLink": "Générer un nouveau lien",
         "allowCopy": "Autoriser les spectateurs à copier des données depuis cette vue",
+        "allowEdit": "Autoriser les utilisateurs connectés à modifier les données visibles",
         "showAllFields": "Afficher tous les champs dans les enregistrements étendus",
         "restrict": "Restreindre par mot de passe",
         "tips": "Les personnes ayant le lien peuvent voir la vue.",
@@ -463,7 +473,11 @@
       "pasteFileFailed": "Les fichiers ne peuvent être collés que dans un champ de pièces jointes",
       "copyError": {
         "noFocus": "Veuillez garder la page active et ne pas changer de fenêtre"
-      }
+      },
+      "crossBaseCopyTitle": "Copier en texte brut ?",
+      "crossBaseCopyDescription": "Cette sélection contient un champ de lien entre bases. Pour que les données restent dans leur base d’origine, le champ sera copié en texte brut et perdra ses relations de lien.",
+      "crossBaseCopyConfirm": "Copier en texte brut",
+      "crossBaseCopyLoadFirst": "Veuillez faire défiler pour charger toutes les lignes sélectionnées avant de copier des champs entre bases."
     },
     "graph": {
       "tableLabel": "Étiquette de la table",
@@ -892,6 +906,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Peut modifier",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Toute personne disposant du lien peut consulter les données de cette vue",
+    "viewLinkHolderCanEditDesc": "Les utilisateurs connectés peuvent modifier les données dans le périmètre de la vue",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Peut enregistrer comme copie",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -934,6 +956,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Ou saisissez votre réponse…"
+      },
+      "messageActions": {
+        "copy": "Copier",
+        "copyToInput": "Copier dans la saisie"
       }
     },
     "tool": {
@@ -1032,10 +1058,9 @@
     "allAttachments": {
       "title": "Télécharger toutes les pièces jointes",
       "loading": "Chargement de l'aperçu...",
-      "rowsWithAttachments": "{{count}} lignes avec pièces jointes",
-      "totalAttachments": "{{count}} pièces jointes",
-      "totalSize": "Taille totale : {{size}}",
-      "startDownload": "Démarrer le téléchargement",
+      "rowsWithAttachments": "Lignes avec PJ",
+      "totalAttachments": "Pièces jointes",
+      "totalSize": "Taille totale",
       "confirmTitle": "Télécharger {{count}} fichiers",
       "confirmDescription": "Taille totale : {{size}}. Les fichiers seront compressés dans un fichier ZIP.",
       "confirm": "Télécharger",

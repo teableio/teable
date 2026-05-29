@@ -9,7 +9,7 @@ import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
-import { useTableId } from '../../../hooks';
+import { useTableId, useTablePermission } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
@@ -24,6 +24,13 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   const { field, record, rect, style, isEditing, initialSearch, setEditing } = props;
   const { t } = useTranslation();
   const tableId = useTableId();
+  const permission = useTablePermission();
+  // Creating a new option modifies the field's schema (choices list), so it
+  // requires field|update — record|update alone (e.g. share-edit) is not
+  // enough. We fold this into preventAutoNewOptions so the editor's existing
+  // "no new options" semantics carry the gate (instead of conditionally
+  // swallowing the callback).
+  const canAddOption = Boolean(permission['field|update']);
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
   const {
@@ -98,7 +105,9 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
           className="absolute rounded-sm border p-2 shadow-sm"
           value={cellValue === null ? undefined : cellValue}
           isMultiple={isMultiple}
-          preventAutoNewOptions={(options as ISelectFieldOptions)?.preventAutoNewOptions}
+          preventAutoNewOptions={
+            (options as ISelectFieldOptions)?.preventAutoNewOptions || !canAddOption
+          }
           options={selectOptions}
           initialSearch={initialSearch}
           onChange={onChange}

@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { HttpErrorCode } from '@teable/core';
 import { CreateRecordAction, type IInplaceImportOptionRo } from '@teable/openapi';
 import {
@@ -13,9 +14,10 @@ import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { BaseConfig, type IBaseConfig } from '../../../configs/base.config';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 
@@ -33,7 +35,8 @@ export class ImportOpenApiV2Service {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
-    private readonly eventEmitterService: EventEmitterService,
+    private readonly audit: AuditScope,
+    private readonly eventEmitter: EventEmitter2,
     @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
@@ -74,28 +77,6 @@ export class ImportOpenApiV2Service {
     });
   }
 
-  private emitImportAuditLog(tableId: string, recordCount: number, fileType?: string) {
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-    const appId = this.cls.get('appId');
-
-    // Defer emission to ensure consumers can attach event listeners after the request returns.
-    setImmediate(() => {
-      void this.cls.run(async () => {
-        if (userId) this.cls.set('user.id', userId);
-        if (origin) this.cls.set('origin', origin);
-        if (appId) this.cls.set('appId', appId);
-
-        await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-          action: CreateRecordAction.InplaceImport,
-          resourceId: tableId,
-          recordCount,
-          params: { fileType },
-        });
-      });
-    });
-  }
-
   /**
    * Import records using V2 architecture via CommandBus.
    * Appends records from a file (CSV/Excel) to an existing table.
@@ -113,6 +94,13 @@ export class ImportOpenApiV2Service {
    * @param maxRowCount - Optional max row count limit
    * @param projection - Optional field projection for permission check
    */
+  @Audit({
+    rootAction: CreateRecordAction.InplaceImport,
+    resourceId: (_baseId: string, tableId: string) => tableId,
+    params: (_baseId: string, _tableId: string, importOptions: IInplaceImportOptionRo) => ({
+      fileType: importOptions.fileType,
+    }),
+  })
   async importRecords(
     baseId: string,
     tableId: string,
@@ -120,10 +108,10 @@ export class ImportOpenApiV2Service {
     maxRowCount?: number,
     projection?: string[]
   ): Promise<{ totalImported: number }> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const { attachmentUrl, fileType, insertConfig } = importOptions;
     const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
@@ -194,11 +182,27 @@ export class ImportOpenApiV2Service {
             ? HttpStatus.NOT_FOUND
             : HttpStatus.INTERNAL_SERVER_ERROR;
 
+      // Mirror the V1 worker (import-csv.processor.ts) terminal signal so e2e tests
+      // and downstream consumers wake up on V2 imports too. V1 emits on lastChunk +
+      // catch; V2 is synchronous so emits at the return-success/throw boundary.
+      this.eventEmitter.emit(Events.TABLE_IMPORT_FINISH, {
+        tableId,
+        baseId,
+        status: 'failed',
+        error: result.error.message,
+      });
+
       this.throwV2Error(result.error, status);
     }
 
-    this.emitImportAuditLog(tableId, result.value.totalImported, fileType);
-
+    // No manual audit emit: ImportRecordsHandler publishes RecordsBatchCreated per batch.
+    // The projection writes one audit_log row per batch naturally, keeping the atomic
+    // record-create action and attaching rootAction=InplaceImport from this operation.
+    this.eventEmitter.emit(Events.TABLE_IMPORT_FINISH, {
+      tableId,
+      baseId,
+      status: 'completed',
+    });
     return { totalImported: result.value.totalImported };
   }
 }

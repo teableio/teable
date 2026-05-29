@@ -1,3 +1,8 @@
+export type { SchemaStatementRelationAccess } from './SchemaStatementAccessPolicy';
+export {
+  assertSchemaStatementRelationAccess,
+  findSchemaStatementRelationAccessViolations,
+} from './SchemaStatementAccessPolicy';
 export type {
   ISchemaRule,
   SchemaRuleManualRepairOptions,
@@ -5,4 +10,6 @@ export type {
   SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
+  TableSchemaStatementCompiler,
+  TableSchemaStatementScope,
 } from './ISchemaRule';

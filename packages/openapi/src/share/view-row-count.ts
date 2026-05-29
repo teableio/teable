@@ -9,7 +9,10 @@ import { z } from '../zod';
 export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/row-count';
 
 export const shareViewRowCountRoSchema = queryBaseSchema.omit({
+  // viewId is bound by the shareId; ignoreViewQuery must not be exposed — it would
+  // let a client drop the view scope and count records the view filter hides.
   viewId: true,
+  ignoreViewQuery: true,
 });
 
 export type IShareViewRowCountRo = z.infer<typeof shareViewRowCountRoSchema>;

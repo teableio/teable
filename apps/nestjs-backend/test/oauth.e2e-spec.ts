@@ -2,13 +2,22 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { OAuthCreateVo } from '@teable/openapi';
 import {
+  OAUTH_DELETE,
+  OAUTH_GET,
+  OAUTH_SECRET_DELETE,
+  OAUTH_SECRET_GENERATE,
+  OAUTH_UPDATE,
+  REVOKE_ACCESS,
   deleteOAuthSecret,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
   oauthGet,
   oauthUpdate,
+  urlBuilder,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
 
@@ -151,5 +160,48 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(authorizedRes).toHaveLength(0);
+  });
+
+  // The management endpoints below carry no @Permissions decorator, so ownership
+  // is enforced entirely by OAuthService.validateOwnership. These cases lock that in:
+  // a logged-in user must not be able to operate on an OAuth app they do not own.
+  describe('ownership (cross-user)', () => {
+    let ownerApp: OAuthCreateVo;
+    let ownerSecretId: string;
+    let intruder: AxiosInstance;
+
+    beforeAll(async () => {
+      intruder = await createNewUserAxios({
+        email: `oauth-intruder+${Date.now()}@example.com`,
+        password: '12345678',
+      });
+    });
+
+    beforeEach(async () => {
+      ownerApp = (await oauthCreate(oauthData)).data;
+      ownerSecretId = (await generateOAuthSecret(ownerApp.clientId)).data.id;
+    });
+
+    afterEach(async () => {
+      await oauthDelete(ownerApp.clientId).catch(() => undefined);
+    });
+
+    const forbiddenCases: Array<[string, (clientId: string) => Promise<unknown>]> = [
+      ['GET client', (clientId) => intruder.get(urlBuilder(OAUTH_GET, { clientId }))],
+      ['PUT client', (clientId) => intruder.put(urlBuilder(OAUTH_UPDATE, { clientId }), oauthData)],
+      ['DELETE client', (clientId) => intruder.delete(urlBuilder(OAUTH_DELETE, { clientId }))],
+      ['POST secret', (clientId) => intruder.post(urlBuilder(OAUTH_SECRET_GENERATE, { clientId }))],
+      [
+        'DELETE secret',
+        (clientId) =>
+          intruder.delete(urlBuilder(OAUTH_SECRET_DELETE, { clientId, secretId: ownerSecretId })),
+      ],
+      ['POST revoke-access', (clientId) => intruder.post(urlBuilder(REVOKE_ACCESS, { clientId }))],
+    ];
+
+    it.each(forbiddenCases)('non-owner %s -> 403', async (_label, call) => {
+      const error = await getError(() => call(ownerApp.clientId));
+      expect(error?.status).toBe(403);
+    });
   });
 });

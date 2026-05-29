@@ -23,6 +23,8 @@ import { CustomHttpException } from '../../custom.exception';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
+import { Audit } from '../audit/audit.decorator';
+import { AuditScope } from '../audit/audit-scope';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
@@ -38,7 +40,8 @@ export class InvitationService {
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
     private readonly userService: UserService,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    private readonly audit: AuditScope
   ) {}
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
@@ -75,6 +78,12 @@ export class InvitationService {
     }
   }
 
+  @Audit({
+    action: Events.INVITATION_EMAIL_SEND,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    emit: (_result: unknown, input: { emails: string[] }) => ({ emailCount: input.emails.length }),
+  })
   private async emailInvitation({
     emails,
     role,
@@ -182,12 +191,6 @@ export class InvitationService {
         result[sendUser.email] = { invitationId: id };
       }
 
-      this.eventEmitter.emit(Events.INVITATION_EMAIL_SEND, {
-        resourceId,
-        resourceType,
-        emailCount: emails.length,
-      });
-
       return result;
     });
   }
@@ -240,6 +243,12 @@ export class InvitationService {
     });
   }
 
+  @Audit({
+    action: Events.INVITATION_LINK_CREATE,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    emit: true,
+  })
   async generateInvitationLink({
     role,
     resourceId,
@@ -262,11 +271,6 @@ export class InvitationService {
       resourceId,
       resourceType,
       type: 'link',
-    });
-
-    this.eventEmitter.emit(Events.INVITATION_LINK_CREATE, {
-      resourceId,
-      resourceType,
     });
 
     return {
@@ -495,14 +499,37 @@ export class InvitationService {
         });
       });
     }
-    this.eventEmitter.emit(Events.INVITATION_ACCEPT, {
-      resourceId: spaceId || baseId,
-      resourceType: spaceId ? CollaboratorType.Space : CollaboratorType.Base,
+    await this.recordInvitationAccept({
+      resourceId: (spaceId || baseId) as string,
       accepterId: currentUserId,
       inviterId: createdBy,
+      resourceType: spaceId ? CollaboratorType.Space : CollaboratorType.Base,
     });
 
     return { baseId, spaceId };
+  }
+
+  /**
+   * Decorated helper — splits out the audit write so resourceId (only known mid-method)
+   * can be passed in as a parameter the decorator reads.
+   */
+  @Audit({
+    action: Events.INVITATION_ACCEPT,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    userId: (input: { accepterId: string }) => input.accepterId,
+    params: (input: { resourceType: CollaboratorType; inviterId: string }) => ({
+      resourceType: input.resourceType,
+      inviterId: input.inviterId,
+    }),
+    emit: true,
+  })
+  private async recordInvitationAccept(_input: {
+    resourceId: string;
+    accepterId: string;
+    inviterId: string;
+    resourceType: CollaboratorType;
+  }) {
+    // Decorator does all the work; body is empty.
   }
 
   private async checkInvitationLimits(): Promise<void> {

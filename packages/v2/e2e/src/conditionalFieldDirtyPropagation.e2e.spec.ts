@@ -631,4 +631,114 @@ describe('v2 conditionalField dirty propagation (e2e)', () => {
       expect(stored?.fields[dashboardConditionalLookupFieldId]).toContain('Will Be Active');
     });
   });
+
+  describe('AJ+ Story Hub style conditional lookup', () => {
+    it('uses before/after filter matching for streamed filter-field updates', async () => {
+      const storyTitleFieldId = createFieldId();
+      const storyAssigneeFieldId = createFieldId();
+      const teamNameFieldId = createFieldId();
+      const teamLanguageFieldId = createFieldId();
+      const activeStoriesFieldId = createFieldId();
+
+      const storiesTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'AJ Story Hub Repro',
+        fields: [
+          { type: 'singleLineText', id: storyTitleFieldId, name: 'Title', isPrimary: true },
+          { type: 'singleLineText', id: storyAssigneeFieldId, name: 'Assigned Language' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const teamTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'AJ Team Members Repro',
+        fields: [
+          { type: 'singleLineText', id: teamNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: teamLanguageFieldId, name: 'Language' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const { status, rawBody } = await createField(teamTable.id, {
+        type: 'conditionalLookup',
+        id: activeStoriesFieldId,
+        name: 'Active Stories',
+        options: {
+          foreignTableId: storiesTable.id,
+          lookupFieldId: storyTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: storyAssigneeFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: teamLanguageFieldId },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      if (status !== 200) {
+        console.error('CreateField failed:', JSON.stringify(rawBody, null, 2));
+        throw new Error(`Failed to create AJ-style conditionalLookup: ${JSON.stringify(rawBody)}`);
+      }
+
+      await createRecord(teamTable.id, {
+        [teamNameFieldId]: 'Arabic Desk',
+        [teamLanguageFieldId]: 'Arabic',
+      });
+      await createRecord(teamTable.id, {
+        [teamNameFieldId]: 'English Desk',
+        [teamLanguageFieldId]: 'English',
+      });
+      await createRecord(storiesTable.id, {
+        [storyTitleFieldId]: 'Story 1',
+        [storyAssigneeFieldId]: 'Arabic',
+      });
+      await ctx.drainOutbox(20);
+
+      ctx.clearLogs();
+      const updateResult = await ctx.updateRecords({
+        tableId: storiesTable.id,
+        fields: {
+          [storyAssigneeFieldId]: 'English',
+        },
+        filter: {
+          fieldId: storyTitleFieldId,
+          operator: 'is',
+          value: 'Story 1',
+        },
+      });
+      expect(updateResult.updatedCount).toBe(1);
+
+      await ctx.drainOutbox(20);
+
+      const plan = ctx.getLastComputedPlan() as
+        | {
+            edges?: Array<{
+              to?: string;
+              propagationMode?: string;
+              hasFilterCondition?: boolean;
+            }>;
+          }
+        | undefined;
+      expect(plan).toBeDefined();
+      const activeStoriesEdge = plan?.edges?.find((edge) =>
+        edge.to?.endsWith(`.${activeStoriesFieldId}`)
+      );
+      expect(activeStoriesEdge?.propagationMode).toBe('conditionalFiltered');
+      expect(plan?.edges?.some((edge) => edge.propagationMode === 'allTargetRecords')).toBe(false);
+
+      const teamRecords = await listRecords(teamTable.id);
+      const byName = new Map(teamRecords.map((record) => [record.fields[teamNameFieldId], record]));
+      expect(byName.get('Arabic Desk')?.fields[activeStoriesFieldId] ?? []).not.toContain(
+        'Story 1'
+      );
+      expect(byName.get('English Desk')?.fields[activeStoriesFieldId]).toContain('Story 1');
+    });
+  });
 });

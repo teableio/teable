@@ -7,14 +7,26 @@ describe('buildSelectionViewQuery', () => {
     expect(buildSelectionViewQuery({})).toBeUndefined();
   });
 
-  it('returns the current visible projection when there is no personal view query', () => {
+  it('does not send projection for a normal view even when fields are visible', () => {
+    // For a normal (server-side) view the backend already knows the view's
+    // visible fields/order, so sending projection is redundant and only bloats
+    // the query string. With many fields this overflows the URL limit and the
+    // request fails (nginx 414 Request URI Too Large). See T4797.
     expect(
       buildSelectionViewQuery({
         visibleFieldIds: ['fldVisibleA', 'fldVisibleB'],
       })
-    ).toEqual({
-      projection: ['fldVisibleA', 'fldVisibleB'],
-    });
+    ).toBeUndefined();
+  });
+
+  it('omits projection for a normal view with a large number of fields', () => {
+    const manyFieldIds = Array.from({ length: 200 }, (_, index) => `fldField${index}`);
+
+    expect(
+      buildSelectionViewQuery({
+        visibleFieldIds: manyFieldIds,
+      })
+    ).toBeUndefined();
   });
 
   it('returns the full personal view query to keep frontend/backend row order in sync', () => {

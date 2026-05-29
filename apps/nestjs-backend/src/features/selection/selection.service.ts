@@ -27,6 +27,13 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import {
+  IdReturnType,
+  RangeType,
+  UpdateRecordAction,
+  CreateRecordAction,
+  ICreateRecordsRo,
+} from '@teable/openapi';
 import type {
   IUpdateRecordsRo,
   IRangesToIdQuery,
@@ -36,9 +43,7 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
-  ICreateRecordsRo,
 } from '@teable/openapi';
-import { IdReturnType, RangeType, UpdateRecordAction, CreateRecordAction } from '@teable/openapi';
 import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -48,6 +53,8 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { IAggregationService } from '../aggregation/aggregation.service.interface';
 import { InjectAggregationService } from '../aggregation/aggregation.service.provider';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -55,7 +62,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
-import type { IUpdateRecordsInternalRo } from '../record/type';
+import { IUpdateRecordsInternalRo } from '../record/type';
 
 @Injectable()
 export class SelectionService {
@@ -69,7 +76,8 @@ export class SelectionService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly audit: AuditScope
   ) {}
 
   async getIdsFromRanges(tableId: string, query: IRangesToIdQuery): Promise<IRangesToIdVo> {
@@ -923,18 +931,8 @@ export class SelectionService {
               ...maybeInternal,
               fieldIds: updateFieldIds,
             };
-      const { cellContexts } = await this.recordOpenApiService.updateRecords(
-        tableId,
-        updateRecordsPayload
-      );
-
-      if (updateRecordsPayload?.records?.length) {
-        await this.emitPasteSelectionAuditLog(
-          UpdateRecordAction.PasteRecord,
-          tableId,
-          updateRecordsPayload?.records?.length
-        );
-      }
+      const updateResult = await this.runPasteUpdate(tableId, updateRecordsPayload);
+      const { cellContexts } = updateResult;
 
       let newRecords: IRecord[] | undefined;
       // create record
@@ -948,10 +946,7 @@ export class SelectionService {
         const filteredCreateRecordsRo = permissionFilter
           ? await permissionFilter('create', createRecordsRo, newFields)
           : createRecordsRo;
-        this.cls.set('skipRecordAuditLog', true);
-        newRecords = (
-          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo, undefined)
-        ).records;
+        newRecords = await this.runPasteCreate(tableId, filteredCreateRecordsRo);
       }
 
       updateRange[1] = [col + updateFields.length - 1, row + tableRowCount - 1];
@@ -974,15 +969,6 @@ export class SelectionService {
         newFields,
         newRecords,
       });
-    }
-
-    if (newRecords?.length) {
-      // Emit audit log for paste operation
-      await this.emitPasteSelectionAuditLog(
-        CreateRecordAction.RecordPaste,
-        tableId,
-        newRecords?.length
-      );
     }
 
     return updateRange;
@@ -1047,23 +1033,29 @@ export class SelectionService {
     return { ids: filteredRecordIds };
   }
 
-  private async emitPasteSelectionAuditLog(
-    action: UpdateRecordAction | CreateRecordAction,
-    tableId: string,
-    newRecordLength?: number
-  ) {
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-    this.cls.set('skipRecordAuditLog', true);
+  /**
+   * Paste-update phase. Opens an audit operation only when there are actually rows to
+   * update (action function returns undefined to skip the scope otherwise).
+   */
+  @Audit({
+    rootAction: (_tableId: string, payload: IUpdateRecordsInternalRo | undefined) =>
+      payload?.records?.length ? UpdateRecordAction.PasteRecord : undefined,
+    resourceId: (tableId: string) => tableId,
+  })
+  private async runPasteUpdate(tableId: string, payload: IUpdateRecordsInternalRo) {
+    return this.recordOpenApiService.updateRecords(tableId, payload);
+  }
 
-    await this.cls.run(async () => {
-      this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
-      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-        action,
-        resourceId: tableId,
-        recordCount: newRecordLength ?? 0,
-      });
-    });
+  /**
+   * Paste-create phase. The caller only invokes this when there are new rows to add,
+   * so the operation is always opened (no conditional action).
+   */
+  @Audit({
+    rootAction: CreateRecordAction.RecordPaste,
+    resourceId: (tableId: string) => tableId,
+  })
+  private async runPasteCreate(tableId: string, ro: ICreateRecordsRo): Promise<IRecord[]> {
+    const result = await this.recordOpenApiService.createRecords(tableId, ro, undefined);
+    return result.records;
   }
 }

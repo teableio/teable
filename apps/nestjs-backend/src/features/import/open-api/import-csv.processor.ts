@@ -3,6 +3,7 @@ import { PassThrough } from 'stream';
 import { text } from 'stream/consumers';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   FieldKeyType,
   FieldType,
@@ -25,13 +26,13 @@ import { I18nService } from 'nestjs-i18n';
 import Papa from 'papaparse';
 import type { CreateOp } from 'sharedb';
 import type { LocalPresence } from 'sharedb/lib/client';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
+import { AuditScope } from '../../audit/audit-scope';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { classifyImportError, formatClassifiedError } from './import-error-classifier';
@@ -91,23 +92,27 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly shareDbService: ShareDbService,
     private readonly notificationService: NotificationService,
-    private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>,
-    private readonly i18n: I18nService<I18nTranslations>
+    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly audit: AuditScope,
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
 
   public async process(job: Job<ITableImportCsvJob>): Promise<IChunkImportResult> {
-    const { table, notification, baseId, userId, lastChunk, range } = job.data;
+    const { table, notification, baseId, userId, lastChunk, range, ro, logId } = job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
-      const errorCollector = await this.handleImportChunkCsv(job);
-      await this.emitImportAuditLog(job, errorCollector.successCount);
+      const rootAction =
+        ro && typeof ro === 'object' && 'worksheets' in ro
+          ? CreateRecordAction.Import
+          : CreateRecordAction.InplaceImport;
+      const errorCollector = await this.handleImportChunkCsv(job, { rootAction });
 
       let errorFilePath: string | undefined;
       if (errorCollector.hasErrors()) {
@@ -126,6 +131,15 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
         this.presences = this.presences.filter(
           (presence) => presence.presenceId !== localPresence.presenceId
         );
+        // Per-import terminal signal; only the lastChunk job represents whole-import
+        // completion. Per-chunk audit emits cannot be used for this — they fire
+        // mid-pipeline and once-per-chunk.
+        this.eventEmitter.emit(Events.TABLE_IMPORT_FINISH, {
+          tableId: table.id,
+          baseId,
+          logId,
+          status: 'completed',
+        });
       }
 
       return result;
@@ -146,6 +160,16 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           },
         });
 
+      // Always emit on failure so waiters unblock instead of timing out — even when
+      // this isn't the lastChunk, since downstream chunks may never run.
+      this.eventEmitter.emit(Events.TABLE_IMPORT_FINISH, {
+        tableId: table.id,
+        baseId,
+        logId,
+        status: 'failed',
+        error: err.message,
+      });
+
       throw err;
     }
   }
@@ -160,97 +184,119 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     }
   }
 
-  private async handleImportChunkCsv(job: Job<ITableImportCsvJob>): Promise<ImportErrorCollector> {
+  private async handleImportChunkCsv(
+    job: Job<ITableImportCsvJob>,
+    auditMeta: { rootAction: CreateRecordAction }
+  ): Promise<ImportErrorCollector> {
     const errorCollector = new ImportErrorCollector();
 
     await this.cls.run(async () => {
       this.cls.set('user.id', job.data.userId);
       this.cls.set('origin', job.data.origin!);
-      this.cls.set('skipRecordAuditLog', true);
-      const { columnInfo, fields, sourceColumnMap, table, range } = job.data;
-      const currentResult = await this.getChunkData(job);
-
-      // Build records with source metadata for error reporting
-      const recordsWithMeta = currentResult.map((row, index) => {
-        const res: {
-          fields: Record<string, unknown>;
-          __sourceRowIndex: number;
-          __sourceData: unknown[];
-        } = {
-          fields: {},
-          __sourceRowIndex: range[0] + index,
-          __sourceData: Array.isArray(row) ? row : [],
-        };
-        // import new table
-        if (columnInfo) {
-          columnInfo.forEach((col, colIndex) => {
-            const { sourceColumnIndex, type } = col;
-            const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-            res.fields[fields[colIndex].id] =
-              type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
-          });
+      await this.audit.withOperation(
+        {
+          rootAction: auditMeta.rootAction,
+          resourceId: job.data.table.id,
+          params: { fileType: job.data.ro?.fileType },
+          // Reuse job.data.logId as operationId so every chunk-row of this import shares
+          // an id with the HTTP-side rows (table.create / field.create) that fired during
+          // the parent createTableFromImport request.
+          operationId: job.data.logId,
+        },
+        async () => {
+          await this.runImportChunk(job, errorCollector);
         }
-        // inplace records
-        if (sourceColumnMap) {
-          for (const [key, value] of Object.entries(sourceColumnMap)) {
-            if (value !== null) {
-              const { type } = fields.find((f) => f.id === key) || {};
-              res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
-            }
-          }
-        }
-        return res;
-      });
-
-      if (recordsWithMeta.length === 0) {
-        return;
-      }
-
-      const createFn: (
-        tableId: string,
-        createRecordsRo: ICreateRecordsRo,
-        ignoreMissingFields?: boolean
-      ) => Promise<unknown> = columnInfo
-        ? (tableId, createRecordsRo) =>
-            this.recordOpenApiService.createRecordsOnlySql(tableId, createRecordsRo)
-        : (tableId, createRecordsRo, ignoreMissingFields = false) =>
-            this.recordOpenApiService.multipleCreateRecords(
-              tableId,
-              createRecordsRo,
-              ignoreMissingFields
-            );
-
-      const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
-      const fieldIdToType = new Map(fields.map((f) => [f.id, f.type]));
-
-      // Optimistic: try inserting the entire chunk at once.
-      // In the common case (no bad rows), this is a single INSERT for the whole chunk.
-      const cleanRecords = recordsWithMeta.map(({ fields: f }) => ({ fields: f }));
-      try {
-        await createFn(
-          table.id,
-          { fieldKeyType: FieldKeyType.Id, typecast: true, records: cleanRecords },
-          false
-        );
-        errorCollector.addSuccessCount(recordsWithMeta.length);
-      } catch {
-        // Chunk has bad rows — fall back to sub-batch + binary search to locate them
-        const subBatches = chunkArray(recordsWithMeta, SUB_BATCH_SIZE);
-        for (const subBatch of subBatches) {
-          await this.insertWithBinaryFallback(
-            subBatch,
-            createFn,
-            table.id,
-            errorCollector,
-            fieldIdToName,
-            fieldIdToType
-          );
-          await new Promise((resolve) => setImmediate(resolve));
-        }
-      }
+      );
     });
 
     return errorCollector;
+  }
+
+  private async runImportChunk(
+    job: Job<ITableImportCsvJob>,
+    errorCollector: ImportErrorCollector
+  ): Promise<void> {
+    const { columnInfo, fields, sourceColumnMap, table, range } = job.data;
+    const currentResult = await this.getChunkData(job);
+
+    // Build records with source metadata for error reporting
+    const recordsWithMeta = currentResult.map((row, index) => {
+      const res: {
+        fields: Record<string, unknown>;
+        __sourceRowIndex: number;
+        __sourceData: unknown[];
+      } = {
+        fields: {},
+        __sourceRowIndex: range[0] + index,
+        __sourceData: Array.isArray(row) ? row : [],
+      };
+      // import new table
+      if (columnInfo) {
+        columnInfo.forEach((col, colIndex) => {
+          const { sourceColumnIndex, type } = col;
+          const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
+          res.fields[fields[colIndex].id] =
+            type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
+        });
+      }
+      // inplace records
+      if (sourceColumnMap) {
+        for (const [key, value] of Object.entries(sourceColumnMap)) {
+          if (value !== null) {
+            const { type } = fields.find((f) => f.id === key) || {};
+            res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
+          }
+        }
+      }
+      return res;
+    });
+
+    if (recordsWithMeta.length === 0) {
+      return;
+    }
+
+    const createFn: (
+      tableId: string,
+      createRecordsRo: ICreateRecordsRo,
+      ignoreMissingFields?: boolean
+    ) => Promise<unknown> = columnInfo
+      ? (tableId, createRecordsRo) =>
+          this.recordOpenApiService.createRecordsOnlySql(tableId, createRecordsRo)
+      : (tableId, createRecordsRo, ignoreMissingFields = false) =>
+          this.recordOpenApiService.multipleCreateRecords(
+            tableId,
+            createRecordsRo,
+            ignoreMissingFields
+          );
+
+    const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
+    const fieldIdToType = new Map(fields.map((f) => [f.id, f.type]));
+
+    // Optimistic: try inserting the entire chunk at once.
+    // In the common case (no bad rows), this is a single INSERT for the whole chunk.
+    const cleanRecords = recordsWithMeta.map(({ fields: f }) => ({ fields: f }));
+    try {
+      await createFn(
+        table.id,
+        { fieldKeyType: FieldKeyType.Id, typecast: true, records: cleanRecords },
+        false
+      );
+      errorCollector.addSuccessCount(recordsWithMeta.length);
+    } catch {
+      // Chunk has bad rows — fall back to sub-batch + binary search to locate them
+      const subBatches = chunkArray(recordsWithMeta, SUB_BATCH_SIZE);
+      for (const subBatch of subBatches) {
+        await this.insertWithBinaryFallback(
+          subBatch,
+          createFn,
+          table.id,
+          errorCollector,
+          fieldIdToName,
+          fieldIdToType
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    }
   }
 
   /**
@@ -538,29 +584,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   public getChunkImportJobId(jobId: string, range: [number, number]) {
     const prefix = this.getChunkImportJobIdPrefix(jobId);
     return `${prefix}_[${range[0]},${range[1]}]`;
-  }
-
-  private async emitImportAuditLog(job: Job<ITableImportCsvJob>, successCount: number) {
-    const { table, origin, userId, logId } = job.data;
-    const { ro } = job.data;
-
-    const actionType =
-      ro && typeof ro === 'object' && 'worksheets' in ro
-        ? CreateRecordAction.Import
-        : CreateRecordAction.InplaceImport;
-
-    // emit event to audit log
-    await this.cls.run(async () => {
-      this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
-      this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-        action: actionType,
-        resourceId: table.id,
-        recordCount: successCount,
-        params: { fileType: ro?.fileType },
-        logId,
-      });
-    });
   }
 
   @OnWorkerEvent('active')

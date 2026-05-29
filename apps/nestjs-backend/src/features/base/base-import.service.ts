@@ -9,7 +9,6 @@ import {
   generateBaseNodeFolderId,
   generateBaseNodeId,
   generateDashboardId,
-  generateLogId,
   generatePluginInstallId,
   generatePluginPanelId,
   generateRecordId,
@@ -19,7 +18,6 @@ import {
   ViewType,
 } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type {
   ICreateBaseVo,
   IBaseJson,
@@ -32,6 +30,7 @@ import {
   PluginPosition,
   BaseNodeResourceType,
   BaseDuplicateMode,
+  CreateRecordAction,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -56,6 +55,7 @@ import {
   type RestoreRecordsStreamResult,
   type UpdateManyStreamBatchInput,
 } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
@@ -68,9 +68,13 @@ import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import type { IDataDbRoutingOptions } from '../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
 import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
@@ -98,8 +102,65 @@ export type BaseImportProgressCallback = (
   detail?: string
 ) => void;
 
+type IDataPrismaExecutor = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  txClient?: () => IDataPrismaExecutor;
+};
+
 const tableDataImportBatchSize = 100;
 const linkFieldImportBatchSize = 25;
+
+const stringifyErrorDetails = (details: unknown): string | undefined => {
+  if (details === undefined || details === null) {
+    return undefined;
+  }
+  if (typeof details === 'string') {
+    return details.trim() || undefined;
+  }
+  try {
+    return JSON.stringify(details);
+  } catch {
+    return String(details);
+  }
+};
+
+const formatBaseImportObjectError = (error: object, fallback: string): string => {
+  const candidate = error as {
+    code?: unknown;
+    details?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
+  const message = typeof candidate.message === 'string' ? candidate.message.trim() : '';
+  const code = typeof candidate.code === 'string' ? candidate.code.trim() : '';
+  const details = stringifyErrorDetails(candidate.details);
+
+  if (message) {
+    return code ? `${message} (${code})` : message;
+  }
+  if (code) {
+    return details ? `${fallback}: ${code} - ${details}` : `${fallback}: ${code}`;
+  }
+  if (error instanceof Error && typeof candidate.name === 'string' && candidate.name !== 'Error') {
+    return `${fallback}: ${candidate.name}`;
+  }
+  return fallback;
+};
+
+export const formatBaseImportError = (error: unknown, fallback = 'Import failed'): string => {
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (error && typeof error === 'object') {
+    return formatBaseImportObjectError(error, fallback);
+  }
+
+  return fallback;
+};
 
 @Injectable()
 export class BaseImportService {
@@ -107,7 +168,6 @@ export class BaseImportService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly dataPrismaService: DataPrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly tableService: TableService,
     private readonly fieldDuplicateService: FieldDuplicateService,
@@ -119,7 +179,9 @@ export class BaseImportService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly eventEmitter: EventEmitter2,
     private readonly v2ContainerService: V2ContainerService,
-    private readonly v2ContextFactory: V2ExecutionContextFactory
+    private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly audit: AuditScope
   ) {}
 
   private async getMaxOrder(spaceId: string) {
@@ -130,7 +192,12 @@ export class BaseImportService {
     return spaceAggregate._max.order || 0;
   }
 
-  private async createBase(spaceId: string, name: string, icon?: string) {
+  private async createBase(
+    spaceId: string,
+    name: string,
+    icon?: string,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const userId = this.cls.get('user.id');
     const order = (await this.getMaxOrder(spaceId)) + 1;
 
@@ -156,10 +223,15 @@ export class BaseImportService {
     try {
       const sqlList = this.dbProvider.createSchema(base.id);
       if (sqlList) {
+        const scopedDataPrisma = (await this.dataDbClientManager.dataPrismaForSpace(
+          spaceId,
+          routingOptions
+        )) as IDataPrismaScopedClient;
+        const dataPrisma = scopedDataPrisma.txClient?.() ?? scopedDataPrisma;
         for (const sql of sqlList) {
           // Keep schema creation visible to the subsequent data-plane DDL/insert steps even when
           // import structure creation is wrapped in an outer shared meta transaction.
-          await this.dataPrismaService.$executeRawUnsafe(sql);
+          await dataPrisma.$executeRawUnsafe(sql);
         }
       }
 
@@ -178,13 +250,56 @@ export class BaseImportService {
     }
   }
 
-  private async createBaseV2(
+  async createBaseV2(
     db: Kysely<unknown>,
     spaceId: string,
     name: string,
-    icon?: string
+    icon?: string,
+    baseId?: string,
+    updateExistingBase: boolean = true
   ): Promise<ICreateBaseVo> {
     const userId = this.cls.get('user.id');
+    if (baseId) {
+      const existingResult = await sql<{
+        id: string;
+        name: string;
+        icon: string | null;
+        space_id: string;
+      }>`
+        select "id", "name", "icon", "space_id"
+        from "base"
+        where "id" = ${baseId}
+          and "deleted_time" is null
+        limit 1
+      `.execute(db);
+      const existing = existingResult.rows[0];
+      if (!existing) {
+        throw new Error(`Base not found: ${baseId}`);
+      }
+      if (updateExistingBase) {
+        await sql`
+          update "base"
+          set
+            "name" = ${name || 'Untitled Base'},
+            "icon" = ${icon ?? null},
+            "last_modified_by" = ${userId},
+            "last_modified_time" = ${new Date()}
+          where "id" = ${baseId}
+        `.execute(db);
+        return {
+          id: existing.id,
+          name: name || 'Untitled Base',
+          spaceId: existing.space_id,
+        };
+      }
+
+      return {
+        id: existing.id,
+        name: existing.name,
+        spaceId: existing.space_id,
+      };
+    }
+
     const base = {
       id: generateBaseId(),
       name: name || 'Untitled Base',
@@ -223,17 +338,25 @@ export class BaseImportService {
       `.execute(trx);
     });
 
-    return base;
+    return {
+      id: base.id,
+      name: base.name,
+      spaceId: base.spaceId,
+    };
   }
 
+  @Audit({
+    rootAction: CreateRecordAction.BaseImport,
+    resourceId: (ro: ImportBaseRo) => ro.spaceId,
+  })
   async importBase(importBaseRo: ImportBaseRo, onProgress?: BaseImportProgressCallback) {
     const {
       notify: { path },
     } = importBaseRo;
+    const logId = this.audit.current()!.operationId;
 
     onProgress?.('parsing_structure');
 
-    // 1. create base structure from json
     const structureStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
       path
@@ -249,14 +372,11 @@ export class BaseImportService {
         }
       );
 
-    // Structure created successfully, notify with baseId
     onProgress?.('structure_created', base.id);
 
-    // 2. upload attachments (queued)
     onProgress?.('queuing_attachments');
     this.uploadAttachments(path);
 
-    // 3. create import table data task (queued)
     onProgress?.('queuing_data_import');
     this.appendTableData(
       base.id,
@@ -266,7 +386,8 @@ export class BaseImportService {
       fieldIdMap,
       viewIdMap,
       fkMap,
-      structure
+      structure,
+      logId
     );
 
     return {
@@ -285,6 +406,10 @@ export class BaseImportService {
     };
   }
 
+  @Audit({
+    rootAction: CreateRecordAction.BaseImport,
+    resourceId: (ro: ImportBaseRo) => ro.spaceId,
+  })
   async importBaseV2(
     importBaseRo: ImportBaseRo,
     onProgress?: BaseImportProgressCallback
@@ -303,7 +428,14 @@ export class BaseImportService {
     );
     const structure = await this.readDotTeaStructure(structureStream);
     onProgress?.('creating_base', structure.name);
-    const container = await this.v2ContainerService.getContainer();
+    let container: DependencyContainer;
+    try {
+      container = await this.v2ContainerService.getContainerForSpace(spaceId);
+    } catch (error) {
+      throw new Error(
+        formatBaseImportError(error, `Failed to connect space data database for ${spaceId}`)
+      );
+    }
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const tableRecordRepository = container.resolve<ITableRecordRepository>(
@@ -311,7 +443,7 @@ export class BaseImportService {
     );
     const unitOfWork = container.resolve<IUnitOfWork>(v2CoreTokens.unitOfWork);
     const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const base = await this.createBaseV2(db, spaceId, structure.name, structure.icon || undefined);
 
     const dotTeaStream = await this.storageAdapter.downloadFile(
@@ -326,7 +458,7 @@ export class BaseImportService {
     });
 
     if (commandResult.isErr()) {
-      throw new Error(commandResult.error.message);
+      throw new Error(formatBaseImportError(commandResult.error, 'Invalid dottea import command'));
     }
 
     const result = await commandBus.execute<
@@ -335,7 +467,7 @@ export class BaseImportService {
     >(context, commandResult.value);
 
     if (result.isErr()) {
-      throw new Error(result.error.message);
+      throw new Error(formatBaseImportError(result.error, 'Failed to import dottea structure'));
     }
 
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
@@ -346,6 +478,7 @@ export class BaseImportService {
       base.id,
       structure,
       { tableIdMap, fieldIdMap, viewIdMap },
+      BaseDuplicateMode.Normal,
       onProgress
     );
     onProgress?.('queuing_attachments');
@@ -382,7 +515,7 @@ export class BaseImportService {
     };
   }
 
-  private async restoreBaseExtrasV2(
+  async restoreBaseExtrasV2(
     db: Kysely<unknown>,
     baseId: string,
     structure: IBaseJson,
@@ -391,8 +524,10 @@ export class BaseImportService {
       fieldIdMap: Record<string, string>;
       viewIdMap: Record<string, string>;
     },
-    onProgress?: BaseImportProgressCallback
-  ) {
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
+    onProgress?: BaseImportProgressCallback,
+    options?: { restoreEeResources?: boolean }
+  ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
     const hasPlugins = Object.values(structure.plugins).some(
@@ -410,11 +545,23 @@ export class BaseImportService {
       ));
     }
 
+    // Restore edition-specific resources (apps / workflows / authority matrix) and collect their
+    // id maps so the matching base_node rows can be remapped below. Community has none, so the
+    // hook is a no-op; the EE subclass overrides it. Gated to the duplicate/copy path
+    // (restoreEeResources) so the .tea import path keeps its current behavior untouched.
+    const { workflowIdMap = {}, appIdMap = {} } = options?.restoreEeResources
+      ? await this.restoreExtraBaseResourcesV2(
+          db,
+          baseId,
+          structure,
+          { tableIdMap, fieldIdMap, viewIdMap },
+          duplicateMode,
+          onProgress
+        )
+      : {};
+
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
     const hasNodes = Array.isArray(structure.nodes) && structure.nodes.length > 0;
-    if (!hasFolders && !hasNodes) {
-      return;
-    }
 
     if (hasFolders) {
       onProgress?.('creating_folders');
@@ -431,10 +578,35 @@ export class BaseImportService {
           folderIdMap,
           tableIdMap,
           dashboardIdMap,
+          workflowIdMap,
+          appIdMap,
         },
         { updateExistingNodes: true }
       );
     }
+
+    return { appIdMap, workflowIdMap };
+  }
+
+  /**
+   * Hook for edition-specific (EE) base resources restored during a v2 duplicate/copy:
+   * apps, workflows, and the authority matrix. Community has none, so this is a no-op.
+   * The EE subclass overrides it to create those rows and returns their id maps so the
+   * caller can remap the corresponding base_node entries.
+   */
+  protected async restoreExtraBaseResourcesV2(
+    _db: Kysely<unknown>,
+    _baseId: string,
+    _structure: IBaseJson,
+    _idMaps: {
+      tableIdMap: Record<string, string>;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+    },
+    _duplicateMode: BaseDuplicateMode,
+    _onProgress?: BaseImportProgressCallback
+  ): Promise<{ workflowIdMap?: Record<string, string>; appIdMap?: Record<string, string> }> {
+    return {};
   }
 
   private async createFoldersV2(
@@ -1174,7 +1346,9 @@ export class BaseImportService {
       enqueueDeferredComputedUpdates: true,
     });
     if (commandResult.isErr()) {
-      throw new Error(commandResult.error.message);
+      throw new Error(
+        formatBaseImportError(commandResult.error, 'Invalid table data import command')
+      );
     }
 
     const result = await commandBus.execute<
@@ -1182,7 +1356,7 @@ export class BaseImportService {
       RestoreRecordsStreamResult
     >(context, commandResult.value);
     if (result.isErr()) {
-      throw new Error(result.error.message);
+      throw new Error(formatBaseImportError(result.error, 'Failed to import table data'));
     }
 
     for await (const event of result.value) {
@@ -1199,7 +1373,7 @@ export class BaseImportService {
       }
 
       if (event.id === 'error') {
-        throw new Error(event.message);
+        throw new Error(formatBaseImportError(event.message, 'Failed to import table data'));
       }
 
       onProgress?.({
@@ -1465,7 +1639,9 @@ export class BaseImportService {
 
     for await (const batchResult of this.createTableLinkFieldUpdateBatchStream(entry, config)) {
       if (batchResult.isErr()) {
-        throw new Error(batchResult.error.message);
+        throw new Error(
+          formatBaseImportError(batchResult.error, 'Invalid link field import batch')
+        );
       }
 
       const result = await unitOfWork.withTransaction(context, async (transactionContext) =>
@@ -1476,7 +1652,7 @@ export class BaseImportService {
         })
       );
       if (result.isErr()) {
-        throw new Error(result.error.message);
+        throw new Error(formatBaseImportError(result.error, 'Failed to import link fields'));
       }
 
       onLinkBatchUpdated(result.value.totalUpdated);
@@ -1501,11 +1677,11 @@ export class BaseImportService {
   }
 
   private toRestoreRecordInput(
-    row: Record<string, string>,
+    row: Record<string, unknown>,
     config: Awaited<ReturnType<BaseImportService['buildTableDataImportConfig']>>,
     viewIdMap: Record<string, string>
   ): RestoreRecordInput {
-    const recordId = row.__id || generateRecordId();
+    const recordId = typeof row.__id === 'string' && row.__id ? row.__id : generateRecordId();
     const fields: Record<string, unknown> = {};
     const extraColumnValues: Record<string, unknown> = {};
     const orders: Record<string, number> = {};
@@ -1561,10 +1737,14 @@ export class BaseImportService {
       ...(Object.keys(orders).length ? { orders } : {}),
       ...(row.__version ? { version: Number(row.__version) } : {}),
       ...(row.__auto_number ? { autoNumber: Number(row.__auto_number) } : {}),
-      ...(row.__created_time ? { createdTime: row.__created_time } : {}),
-      ...(row.__created_by ? { createdBy: row.__created_by } : {}),
-      ...(row.__last_modified_time ? { lastModifiedTime: row.__last_modified_time } : {}),
-      ...(row.__last_modified_by ? { lastModifiedBy: row.__last_modified_by } : {}),
+      ...(row.__created_time ? { createdTime: this.toRestoreString(row.__created_time) } : {}),
+      ...(row.__created_by ? { createdBy: this.toRestoreString(row.__created_by) } : {}),
+      ...(row.__last_modified_time
+        ? { lastModifiedTime: this.toRestoreString(row.__last_modified_time) }
+        : {}),
+      ...(row.__last_modified_by
+        ? { lastModifiedBy: this.toRestoreString(row.__last_modified_by) }
+        : {}),
       ...(Object.keys(extraColumnValues).length ? { extraColumnValues } : {}),
     };
   }
@@ -1699,9 +1879,19 @@ export class BaseImportService {
   }
 
   private normalizeDotTeaCsvValue(
-    value: string,
+    value: unknown,
     field?: { dbFieldType?: string; isMultipleCellValue?: boolean; notNull?: boolean }
   ): unknown {
+    if (typeof value !== 'string') {
+      if (value != null || !field?.notNull) {
+        return value;
+      }
+      return this.getNotNullDefault(
+        field.dbFieldType || DbFieldType.Text,
+        Boolean(field.isMultipleCellValue)
+      );
+    }
+
     if (value !== '') {
       switch (this.normalizeDbFieldType(field?.dbFieldType)) {
         case DbFieldType.Integer: {
@@ -1758,6 +1948,10 @@ export class BaseImportService {
     }
 
     return JSON.stringify(value);
+  }
+
+  private toRestoreString(value: unknown) {
+    return value instanceof Date ? value.toISOString() : String(value);
   }
 
   private getNotNullDefault(dbFieldType: string, isMultipleCellValue: boolean): unknown {
@@ -1843,7 +2037,8 @@ export class BaseImportService {
                   undefined,
                   undefined,
                   undefined,
-                  onProgress
+                  onProgress,
+                  { useTransaction: true }
                 );
                 resolve(result);
               } catch (error) {
@@ -1883,12 +2078,13 @@ export class BaseImportService {
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
     fkMap: Record<string, string>,
-    structure: IBaseJson
+    structure: IBaseJson,
+    // Supplied by caller (importBase / importBaseV2) so HTTP-side structural rows and
+    // BullMQ worker chunk rows share the same audit operationId.
+    logId: string
   ): Promise<string> {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
-    // Generate a unique logId for upsert to ensure only one audit log
-    const logId = generateLogId();
 
     await this.baseImportCsvQueueProcessor.queue.add(
       'base_import_csv',
@@ -1919,7 +2115,8 @@ export class BaseImportService {
     baseId?: string,
     skipCreateBaseNodes?: boolean,
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const { name, icon, tables, plugins, folders } = structure;
 
@@ -1937,7 +2134,7 @@ export class BaseImportService {
             spaceId: true,
           },
         })
-      : await this.createBase(spaceId, name, icon || undefined);
+      : await this.createBase(spaceId, name, icon || undefined, routingOptions);
     this.logger.log(`base-duplicate-service: Duplicate base successfully`);
 
     // update base icon and name (skip when copying into an existing base)
@@ -1970,7 +2167,8 @@ export class BaseImportService {
       ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
         newBase.id,
         effectiveTables as IBaseJson['tables'],
-        onProgress
+        onProgress,
+        routingOptions
       ));
     } finally {
       this.cls.set('skipFieldComputation', false);
@@ -2036,7 +2234,8 @@ export class BaseImportService {
   private async createTables(
     baseId: string,
     tables: IBaseJson['tables'],
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const tableIdMap: Record<string, string> = {};
     // Build a name lookup: oldTableId → tableName
@@ -2060,7 +2259,8 @@ export class BaseImportService {
       tables,
       tableIdMap,
       tableNameMap,
-      onProgress
+      onProgress,
+      routingOptions
     );
     this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
@@ -2076,7 +2276,8 @@ export class BaseImportService {
     tables: IBaseJson['tables'],
     tableIdMap: Record<string, string>,
     tableNameMap?: Record<string, string>,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const fieldMap: Record<string, string> = {};
     const fkMap: Record<string, string> = {};
@@ -2149,13 +2350,17 @@ export class BaseImportService {
     };
 
     emitFieldProgress('creating_common_fields', commonFields);
-    await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap);
+    await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap, routingOptions);
 
     emitFieldProgress('creating_button_fields', buttonFields);
-    await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap);
+    await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap, routingOptions);
 
     emitFieldProgress('creating_formula_fields', primaryFormulaFields);
-    await this.fieldDuplicateService.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
+    await this.fieldDuplicateService.createTmpPrimaryFormulaFields(
+      primaryFormulaFields,
+      fieldMap,
+      routingOptions
+    );
 
     // main fix formula dbField type
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
@@ -2166,14 +2371,27 @@ export class BaseImportService {
     emitFieldProgress('creating_primary_dependency_fields', primaryDependencyFields);
     await this.fieldDuplicateService.bootstrapPrimaryDependencyFields(
       primaryDependencyFields,
-      fieldMap
+      fieldMap,
+      routingOptions
     );
 
     emitFieldProgress('creating_link_fields', linkFields);
-    await this.fieldDuplicateService.createLinkFields(linkFields, tableIdMap, fieldMap, fkMap);
+    await this.fieldDuplicateService.createLinkFields(
+      linkFields,
+      tableIdMap,
+      fieldMap,
+      fkMap,
+      routingOptions
+    );
 
     emitFieldProgress('creating_lookup_fields', dependencyFields);
-    await this.fieldDuplicateService.createDependencyFields(dependencyFields, tableIdMap, fieldMap);
+    await this.fieldDuplicateService.createDependencyFields(
+      dependencyFields,
+      tableIdMap,
+      fieldMap,
+      'base',
+      routingOptions
+    );
 
     // fix formula expression' field map
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);

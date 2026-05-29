@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "ご注意",
+    "duplicateFieldDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateTableTitle": "ご注意",
+    "duplicateTableDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateBaseTitle": "ご注意",
+    "duplicateBaseDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "convertAndDuplicate": "変換して複製"
+  },
   "toolbar": {
     "comingSoon": "近日公開",
     "viewFilterInShare": "このビューはビュー共有リンクで使用されています。ビュー構成を変更するとビュー共有リンクも変更されます。",
@@ -11,6 +20,7 @@
         "copied": "コピーしました",
         "genLink": "新しいリンクを生成する",
         "allowCopy": "閲覧者がこのビューからデータをコピーできるようにする",
+        "allowEdit": "サインインしたユーザーが表示中のデータを編集できるようにする",
         "showAllFields": "展開されたレコードのすべてのフィールドを表示する",
         "restrict": "パスワードによる制限",
         "tips": "リンクを持っている人はそのビューを見ることができます。",
@@ -463,7 +473,11 @@
       "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます",
       "copyError": {
         "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください"
-      }
+      },
+      "crossBaseCopyTitle": "プレーンテキストとしてコピーしますか？",
+      "crossBaseCopyDescription": "この選択範囲にはベース間のリンクフィールドが含まれています。データを元のベース内に留めるため、フィールドはプレーンテキストとしてコピーされ、リンク関係は失われます。",
+      "crossBaseCopyConfirm": "プレーンテキストとしてコピー",
+      "crossBaseCopyLoadFirst": "ベース間のフィールドをコピーする前に、選択したすべての行を読み込むためにスクロールしてください。"
     },
     "graph": {
       "tableLabel": "テーブルラベル",
@@ -891,6 +905,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "編集可能",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "リンクを持つ全員がこのビューのデータを閲覧できます",
+    "viewLinkHolderCanEditDesc": "ログインユーザーはビューの範囲内でデータを編集できます",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "コピーとして保存可能",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -933,6 +955,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "または回答を入力…"
+      },
+      "messageActions": {
+        "copy": "コピー",
+        "copyToInput": "入力欄にコピー"
       }
     },
     "tool": {
@@ -1031,10 +1057,9 @@
     "allAttachments": {
       "title": "すべての添付ファイルをダウンロード",
       "loading": "プレビューを読み込み中...",
-      "rowsWithAttachments": "{{count}} 行に添付ファイルがあります",
-      "totalAttachments": "{{count}} 個の添付ファイル",
-      "totalSize": "合計サイズ: {{size}}",
-      "startDownload": "ダウンロード開始",
+      "rowsWithAttachments": "添付行",
+      "totalAttachments": "添付数",
+      "totalSize": "合計サイズ",
       "confirmTitle": "{{count}} ファイルをダウンロード",
       "confirmDescription": "合計サイズ: {{size}}。ファイルはZIPファイルに圧縮されます。",
       "confirm": "ダウンロード",
