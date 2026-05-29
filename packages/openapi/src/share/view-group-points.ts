@@ -8,7 +8,10 @@ import { z } from '../zod';
 export const SHARE_VIEW_GROUP_POINTS = '/share/{shareId}/view/group-points';
 
 export const shareViewGroupPointsRoSchema = groupPointsRoSchema.omit({
+  // viewId is bound by the shareId; ignoreViewQuery must not be exposed — it would
+  // let a client drop the view scope and read group counts/values the view filter hides.
   viewId: true,
+  ignoreViewQuery: true,
 });
 
 export type IShareViewGroupPointsRo = z.infer<typeof shareViewGroupPointsRoSchema>;

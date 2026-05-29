@@ -34,6 +34,10 @@ export const NoSpacesPlaceholder = () => {
   };
 
   const handleCreateSpace = () => {
+    if (createSpaceLoading) {
+      return;
+    }
+
     const name =
       spaceName.trim() ||
       getUniqName(t('noun.space'), spaceList?.length ? spaceList?.map((space) => space?.name) : []);
@@ -85,22 +89,20 @@ export const NoSpacesPlaceholder = () => {
         }}
         onConfirm={handleCreateSpace}
         content={
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2">
-              <Input
-                placeholder={getUniqName(
-                  t('noun.space'),
-                  spaceList?.length ? spaceList?.map((space) => space?.name) : []
-                )}
-                value={spaceName}
-                onChange={(e) => setSpaceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCreateSpace();
-                  }
-                }}
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder={getUniqName(
+                t('noun.space'),
+                spaceList?.length ? spaceList?.map((space) => space?.name) : []
+              )}
+              value={spaceName}
+              onChange={(e) => setSpaceName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateSpace();
+                }
+              }}
+            />
           </div>
         }
       />

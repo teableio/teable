@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { getShareView } from '@teable/openapi';
 import { map } from 'lodash';
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config/react-query-keys';
 import { useFields } from '../../hooks';
+import { addQueryParamsToWebSocketUrl } from '../../utils/urlParams';
 import { AnchorContext } from '../anchor/AnchorContext';
+import { AppContext } from '../app/AppContext';
+import { ConnectionProvider } from '../app/ConnectionProvider';
+import { getWsPath } from '../app/useConnection';
 import { FieldProvider } from '../field';
 import { SearchProvider } from '../query';
 import { RecordProvider } from '../record';
@@ -43,28 +47,43 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
   children,
   fallback,
 }) => {
+  const parentAppContext = useContext(AppContext);
   const { data: shareData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.shareView(linkFieldId),
     enabled: Boolean(linkFieldId),
     queryFn: () => getShareView(linkFieldId).then(({ data }) => data),
   });
 
+  const wsPath = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    return addQueryParamsToWebSocketUrl(getWsPath(), { shareId: linkFieldId });
+  }, [linkFieldId]);
+
+  const appContextValue = useMemo(
+    () => ({ ...(parentAppContext ?? {}), shareId: linkFieldId }) as typeof parentAppContext,
+    [parentAppContext, linkFieldId]
+  );
+
   if (isLoading || !linkFieldId || !shareData) {
-    return fallback;
+    return <>{fallback}</>;
   }
 
   const { tableId, viewId, fields } = shareData;
   return (
-    <ShareViewContext.Provider value={shareData}>
-      <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
-        <SearchProvider>
-          <FieldProvider fallback={fallback} serverSideData={fields}>
-            <ReadonlyFieldsPermissionProvider>
-              <RecordProvider>{children}</RecordProvider>
-            </ReadonlyFieldsPermissionProvider>
-          </FieldProvider>
-        </SearchProvider>
-      </AnchorContext.Provider>
-    </ShareViewContext.Provider>
+    <AppContext.Provider value={appContextValue}>
+      <ConnectionProvider wsPath={wsPath}>
+        <ShareViewContext.Provider value={shareData}>
+          <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
+            <SearchProvider>
+              <FieldProvider fallback={fallback} serverSideData={fields}>
+                <ReadonlyFieldsPermissionProvider>
+                  <RecordProvider>{children}</RecordProvider>
+                </ReadonlyFieldsPermissionProvider>
+              </FieldProvider>
+            </SearchProvider>
+          </AnchorContext.Provider>
+        </ShareViewContext.Provider>
+      </ConnectionProvider>
+    </AppContext.Provider>
   );
 };

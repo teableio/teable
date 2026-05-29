@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Bildirim",
+    "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateTableTitle": "Bildirim",
+    "duplicateTableDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateBaseTitle": "Bildirim",
+    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
   "toolbar": {
     "comingSoon": "Çok yakında",
     "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
@@ -12,6 +21,7 @@
         "copied": "Kopyalandı",
         "genLink": "Yeni bağlantı oluştur",
         "allowCopy": "İzleyicilerin bu görünümden veri kopyalamasına izin ver",
+        "allowEdit": "Oturum açmış kullanıcıların görünür verileri düzenlemesine izin ver",
         "showAllFields": "Genişletilmiş kayıtlarda tüm alanları göster",
         "restrict": "Şifre ile kısıtla",
         "tips": "Bağlantıya sahip kişiler görünümü görebilir.",
@@ -471,7 +481,11 @@
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
         "noFocus": "Lütfen pencereyi değiştirmeyin"
-      }
+      },
+      "crossBaseCopyTitle": "Düz metin olarak kopyalansın mı?",
+      "crossBaseCopyDescription": "Bu seçim, tabanlar arası bir bağlantı alanı içeriyor. Verileri orijinal tabanı içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
+      "crossBaseCopyConfirm": "Düz metin olarak kopyala",
+      "crossBaseCopyLoadFirst": "Tabanlar arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
     },
     "graph": {
       "tableLabel": "Tablo etiketi",
@@ -866,10 +880,9 @@
     "allAttachments": {
       "title": "Tüm ekleri indir",
       "loading": "Önizleme yükleniyor...",
-      "rowsWithAttachments": "{{count}} satır ek içeriyor",
-      "totalAttachments": "{{count}} ek",
-      "totalSize": "Toplam boyut: {{size}}",
-      "startDownload": "İndirmeyi başlat",
+      "rowsWithAttachments": "Ekli satırlar",
+      "totalAttachments": "Ekler",
+      "totalSize": "Toplam boyut",
       "confirmTitle": "{{count}} dosya indir",
       "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
       "confirm": "İndir",
@@ -922,6 +935,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Düzenleyebilir",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Bağlantıya sahip herkes bu görünümün verilerini görüntüleyebilir",
+    "viewLinkHolderCanEditDesc": "Oturum açmış kullanıcılar görünüm kapsamında veri düzenleyebilir",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -964,6 +985,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…"
+      },
+      "messageActions": {
+        "copy": "Kopyala",
+        "copyToInput": "Girişe kopyala"
       }
     },
     "mention": {

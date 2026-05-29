@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Notice",
+    "duplicateBaseDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
+    "affectedTableSuffix": "({{count}} field(s))",
+    "convertAndDuplicate": "Convert & duplicate"
+  },
   "initialSpaceName": "{{name}}'s space",
   "action": {
     "createBase": "Create a base",
@@ -62,7 +68,9 @@
     "exportSlowTip": "The data volume is large. Export may take a while. You can leave temporarily.",
     "exportReadyDescription": "Please download the .tea file, {{importHint}}",
     "moveBaseSuccessTitle": "Move base success",
-    "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Notice",
+    "moveBaseCrossSpaceDataLossWarning": "Cross-space references aren't supported. The related fields will be converted to text fields. This action cannot be undone."
   },
   "deleteSpaceModal": {
     "title": "Delete space",
@@ -76,7 +84,6 @@
     "description": "All the bases that invited me to join",
     "empty": "No bases shared with me yet"
   },
-
   "integration": {
     "title": "Integrations",
     "description": "Manage integrations of your space",
@@ -141,6 +148,25 @@
       "computedBackfillFailed": "Formula or lookup field computation failed: {{tableName}} ({{detail}}). Import completed",
       "done": "Import completed",
       "clickToView": "Click to view"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "Preparing export",
+      "exportingArchive": "Creating export file",
+      "exportingStructure": "Exporting structure",
+      "exportingAttachments": "Exporting attachments",
+      "exportingAttachmentMetadata": "Exporting attachment metadata",
+      "exportingTableData": "Exporting records",
+      "tableDataStarted": "Exporting records: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Exporting records: {{tableName}}",
+      "tableDataDone": "Record export completed: {{tableName}}",
+      "exportingExtraFiles": "Exporting extra files",
+      "exportingAppFiles": "Exporting app files",
+      "uploadingArchive": "Uploading export file",
+      "generatingDownloadUrl": "Generating download link",
+      "rowsProgress": "{{count}} rows exported",
+      "done": "Export completed"
     }
   },
   "template": {
@@ -232,6 +258,67 @@
       "goToFix": "Go to Fix",
       "redeploy": "Redeploy",
       "unnamedApp": "Unnamed App"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "Data database",
+      "description": "Choose where this space stores base schemas and records.",
+      "defaultOption": "Use Teable default database",
+      "defaultHint": "Recommended for most spaces.",
+      "byodbOption": "Use my PostgreSQL database",
+      "byodbHint": "Initialize this space in a Teable internal schema inside your customer-managed database.",
+      "urlLabel": "PostgreSQL connection URL",
+      "sslHint": "Use the same SSL parameters required by your PostgreSQL server. The password is never shown after testing.",
+      "testConnection": "Test connection",
+      "testing": "Testing...",
+      "retestRequired": "Test again after changing the URL.",
+      "databaseLabel": "Database",
+      "databasePlaceholder": "Select a database",
+      "databaseHint": "Choose the PostgreSQL database for this space, then test the connection again.",
+      "preflightPassed": "Connection checks passed",
+      "preflightFailed": "Connection checks failed",
+      "missingCapabilities": "Missing privileges",
+      "testFailed": "Failed to test the database connection.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "The PostgreSQL connection URL is invalid."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Private network database hosts are blocked by default.",
+          "remediation": "Set TEABLE_SSRF_PROTECTION_DISABLED=true only in trusted self-hosted deployments."
+        },
+        "CONNECTION_FAILED": {
+          "message": "Failed to connect to the database.",
+          "remediation": "Check host, port, database name, username, password, and SSL parameters."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "The database host resolved to an IPv6 address, but this Teable deployment cannot reach IPv6 networks.",
+          "remediation": "Use an IPv4-reachable database endpoint or connection pooler, or enable IPv6 outbound networking for this Teable deployment."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Database privilege checks failed."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "The account is missing DDL privileges required to initialize a Teable data database.",
+          "remediation": "Grant privileges to create schemas, tables, functions, and triggers."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable's internal schema already contains objects that are not managed by Teable.",
+          "remediation": "Use a database without a conflicting internal schema, or remove the unknown objects from that schema."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "This database contains incomplete or incompatible Teable data objects.",
+          "remediation": "Use an empty database or a compatible Teable data database migration/adopt flow."
+        }
+      }
+    },
+    "fields": {
+      "host": "Host",
+      "database": "Database",
+      "internalSchema": "Internal schema",
+      "version": "Version",
+      "classification": "Classification"
     }
   }
 }

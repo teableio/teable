@@ -13,6 +13,8 @@ import type {
 } from '../core/ISchemaRule';
 import {
   compressSql,
+  dataStatement,
+  metaStatement,
   quoteIdentifier,
   quoteLiteral,
   quoteTableIdentifier,
@@ -76,6 +78,14 @@ export class SelectOptionsMetaRule implements ISchemaRule {
       choices.push(dto);
     }
 
+    return choices;
+  }
+
+  private sourceChoices(): ReadonlyArray<SelectChoiceDto> {
+    const choices: SelectChoiceDto[] = [];
+    for (const option of this.field.selectOptions()) {
+      choices.push(option.toDto());
+    }
     return choices;
   }
 
@@ -188,7 +198,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
         })
         .where('id', '=', fieldId);
 
-      return ok([rule.repairStoredChoiceValues(ctx, columnName), updateOptions]);
+      return ok([rule.repairStoredChoiceValues(ctx, columnName), metaStatement(updateOptions)]);
     });
   }
 
@@ -201,20 +211,16 @@ export class SelectOptionsMetaRule implements ISchemaRule {
       })
       .where('id', '=', fieldId);
 
-    return ok([updateOptions]);
+    return ok([metaStatement(updateOptions)]);
   }
 
   private buildChoiceTokenMapSql(): string {
     return compressSql(`
-      current_choices AS (
+      source_choices AS (
         SELECT
           choice->>'id' AS old_id,
           choice->>'name' AS old_name
-        FROM field f
-        CROSS JOIN LATERAL jsonb_array_elements(
-          COALESCE(f.options::jsonb->'choices', '[]'::jsonb)
-        ) AS choice
-        WHERE f.id = ${quoteLiteral(this.field.id().toString())}
+        FROM jsonb_array_elements(${quoteLiteral(JSON.stringify(this.sourceChoices()))}::jsonb) AS choice
       ),
       canonical_choices AS (
         SELECT
@@ -232,7 +238,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
               WHEN c.old_id IS NOT NULL AND c.old_id <> canonical.id THEN c.old_id
             END AS token,
             canonical.name AS canonical_name
-          FROM current_choices c
+          FROM source_choices c
           CROSS JOIN LATERAL (
             SELECT e.id, e.name
             FROM canonical_choices e
@@ -246,7 +252,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
               WHEN c.old_name IS NOT NULL AND c.old_name <> canonical.name THEN c.old_name
             END AS token,
             canonical.name AS canonical_name
-          FROM current_choices c
+          FROM source_choices c
           CROSS JOIN LATERAL (
             SELECT e.id, e.name
             FROM canonical_choices e
@@ -269,44 +275,48 @@ export class SelectOptionsMetaRule implements ISchemaRule {
     const column = quoteIdentifier(columnName);
 
     if (this.field.type().toString() === 'multipleSelect') {
-      return sql.raw(
-        compressSql(`
-          WITH ${this.buildChoiceTokenMapSql()}
-          UPDATE ${tableName} AS t
-          SET ${column} = COALESCE(
-            (
-              SELECT jsonb_agg(d.mapped_value ORDER BY d.ord)
-              FROM (
-                SELECT mapped_value, MIN(ord) AS ord
+      return dataStatement(
+        sql.raw(
+          compressSql(`
+            WITH ${this.buildChoiceTokenMapSql()}
+            UPDATE ${tableName} AS t
+            SET ${column} = COALESCE(
+              (
+                SELECT jsonb_agg(d.mapped_value ORDER BY d.ord)
                 FROM (
-                  SELECT
-                    COALESCE(m.canonical_name, elem.value #>> '{}') AS mapped_value,
-                    elem.ord
-                  FROM jsonb_array_elements(t.${column}) WITH ORDINALITY AS elem(value, ord)
-                  LEFT JOIN choice_token_map m
-                    ON jsonb_typeof(elem.value) = 'string'
-                    AND elem.value #>> '{}' = m.token
-                ) expanded
-                GROUP BY mapped_value
-              ) d
-            ),
-            '[]'::jsonb
-          )
-          WHERE t.${column} IS NOT NULL
-            AND jsonb_typeof(t.${column}) = 'array'
-            AND EXISTS (SELECT 1 FROM choice_token_map)
+                  SELECT mapped_value, MIN(ord) AS ord
+                  FROM (
+                    SELECT
+                      COALESCE(m.canonical_name, elem.value #>> '{}') AS mapped_value,
+                      elem.ord
+                    FROM jsonb_array_elements(t.${column}) WITH ORDINALITY AS elem(value, ord)
+                    LEFT JOIN choice_token_map m
+                      ON jsonb_typeof(elem.value) = 'string'
+                      AND elem.value #>> '{}' = m.token
+                  ) expanded
+                  GROUP BY mapped_value
+                ) d
+              ),
+              '[]'::jsonb
+            )
+            WHERE t.${column} IS NOT NULL
+              AND jsonb_typeof(t.${column}) = 'array'
+              AND EXISTS (SELECT 1 FROM choice_token_map);
         `)
+        )
       );
     }
 
-    return sql.raw(
-      compressSql(`
-        WITH ${this.buildChoiceTokenMapSql()}
-        UPDATE ${tableName} AS t
-        SET ${column} = m.canonical_name
-        FROM choice_token_map m
-        WHERE t.${column} = m.token
+    return dataStatement(
+      sql.raw(
+        compressSql(`
+          WITH ${this.buildChoiceTokenMapSql()}
+          UPDATE ${tableName} AS t
+          SET ${column} = m.canonical_name
+          FROM choice_token_map m
+          WHERE t.${column} = m.token;
       `)
+      )
     );
   }
 }

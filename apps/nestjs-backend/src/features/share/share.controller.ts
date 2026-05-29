@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
+  Body,
   Controller,
+  Get,
   HttpCode,
+  Param,
   Post,
+  Query,
+  Request,
   Res,
   UseGuards,
-  Request,
-  Get,
-  Body,
-  Query,
-  Param,
 } from '@nestjs/common';
 import { IGetFieldsQuery, getFieldsQuerySchema } from '@teable/core';
 import {

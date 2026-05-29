@@ -14,7 +14,11 @@ export type IShareViewPlugin = z.infer<typeof shareViewPluginSchema>;
 export const shareViewGetVoSchema = z.object({
   viewId: z.string().optional(),
   tableId: z.string(),
-  shareId: z.string(),
+  shareId: z
+    .string()
+    .describe(
+      'The share id of the view. Use it to access the shared view at `${endpoint}/share/{shareId}/view` (e.g. https://app.teable.ai/share/shrH7kunpHv8U9kfZyD/view).'
+    ),
   shareMeta: shareViewMetaSchema.optional(),
   view: viewVoSchema.optional(),
   fields: fieldVoSchema.array(),

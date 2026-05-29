@@ -52,6 +52,7 @@ export type SchemaOperationRunNextResult =
       terminal: boolean;
       retryable: boolean;
       error: DomainError;
+      originalLastError?: string | null;
     };
 
 const retryDelayMs = (attempts: number): number => Math.min(60_000, 1_000 * 2 ** attempts);
@@ -148,6 +149,7 @@ export class SchemaOperationRunnerService {
         terminal: failed.value.terminal,
         retryable: failed.value.retryable,
         error: handlerResult.error,
+        originalLastError: failed.value.originalLastError,
       });
     }
 
@@ -188,21 +190,38 @@ const markOperationFailed = async (
   error: DomainError,
   now: Date
 ): Promise<
-  Result<{ operation: SchemaOperationRecord; terminal: boolean; retryable: boolean }, DomainError>
+  Result<
+    {
+      operation: SchemaOperationRecord;
+      terminal: boolean;
+      retryable: boolean;
+      originalLastError?: string | null;
+    },
+    DomainError
+  >
 > => {
   const retryable = isRetryableFailure(error);
   const nextAttempt = operation.attempts + 1;
   const terminal = !retryable || nextAttempt >= operation.maxAttempts;
   const status: SchemaOperationStatus = terminal ? 'dead' : 'error';
   const nextRunAt = terminal ? now : new Date(now.getTime() + retryDelayMs(operation.attempts));
+  const originalLastError = operation.lastError;
   const advanced = await repository.advance(context, operation.idempotencyKey, {
     status,
     phase: 'error',
     lastError: error.message,
+    result: {
+      schemaOperationFailure: {
+        originalLastError,
+        runnerError: error.message,
+        retryable,
+        terminal,
+      },
+    },
     nextRunAt,
   });
   if (advanced.isErr()) {
     return err(advanced.error);
   }
-  return ok({ operation: advanced.value, terminal, retryable });
+  return ok({ operation: advanced.value, terminal, retryable, originalLastError });
 };

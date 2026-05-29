@@ -135,7 +135,7 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
     if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
       return [{ exists: true }];
     }
-    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+    if (compiledQuery.sql.includes('FROM "__undo_log"')) {
       return [
         {
           record_id: RECORD_ID,
@@ -303,7 +303,7 @@ const isUndoCaptureQuery = (query: CompiledQuery) => {
   const text = query.sql;
   return (
     text.includes('teable_undo_capture_') ||
-    text.includes('"public"."__undo_log"') ||
+    text.includes('"__undo_log"') ||
     text.includes("table_name = '__undo_log'") ||
     text.includes('__teable_capture_undo_row') ||
     text.includes('FROM pg_trigger AS t') ||
@@ -357,7 +357,7 @@ const createUndoLogRowProvider = (
   }>
 ): RowProvider => {
   return (compiledQuery) => {
-    if (compiledQuery.sql.includes('FROM "public"."__undo_log"')) {
+    if (compiledQuery.sql.includes('FROM "__undo_log"')) {
       return [...rows];
     }
     return [];

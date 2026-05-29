@@ -3,11 +3,16 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import { FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IExportCsvRo } from '@teable/openapi';
-import type { Response } from 'express';
+import { IExportCsvRo } from '@teable/openapi';
+import { Response } from 'express';
 import { keyBy, sortBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import Papa from 'papaparse';
 import { CustomHttpException } from '../../../custom.exception';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
@@ -21,9 +26,19 @@ export class ExportOpenApiService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly prismaService: PrismaService,
+    private readonly audit: AuditScope,
+    private readonly cls: ClsService<IClsStore>,
     @Optional() private readonly exportMetrics?: ExportMetricsService,
     @Optional() private readonly exportTracing?: ExportTracingService
   ) {}
+
+  @Audit({
+    action: Events.TABLE_EXPORT,
+    resourceId: (_response: Response, tableId: string) => tableId,
+    params: (_response: Response, _tableId: string, query?: IExportCsvRo) =>
+      query ? ({ ...query } as unknown as Record<string, unknown>) : undefined,
+    emit: true,
+  })
   async exportCsvFromTable(response: Response, tableId: string, query?: IExportCsvRo) {
     const exportStartTime = Date.now();
     this.exportMetrics?.recordExportStart('csv');

@@ -40,7 +40,7 @@
     --warning-foreground: 240 6% 10%;
     --success: 160 84% 39%;
     --success-foreground: 152 81% 96%;
-    --surface: 0 0 0% / 0.06;
+    --surface: 0 0 0% / 0.04;
   }
 
   .dark {
@@ -79,7 +79,7 @@
 
     --success: 161 94% 30%;
     --success-foreground: 152 81% 96%;
-    --surface: 0 0% 100% / 0.08;
+    --surface: 0 0% 100% / 0.06;
   }
 }
 

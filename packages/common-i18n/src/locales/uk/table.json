@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Сповіщення",
+    "duplicateFieldDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
+    "duplicateTableTitle": "Сповіщення",
+    "duplicateTableDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
+    "duplicateBaseTitle": "Сповіщення",
+    "duplicateBaseDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
+    "convertAndDuplicate": "Перетворити та дублювати"
+  },
   "toolbar": {
     "comingSoon": "Скоро",
     "viewFilterInShare": "Цей вид використовується у засланні для спільного доступу. Зміни в налаштуваннях виду також змінять посилання для спільного доступу.",
@@ -12,6 +21,7 @@
         "copied": "Скопійовано",
         "genLink": "Створити нове посилання",
         "allowCopy": "Дозволити глядачам копіювати дані з цього виду",
+        "allowEdit": "Дозволити авторизованим користувачам редагувати видимі дані",
         "showAllFields": "Показати всі поля у розгорнутих записах",
         "restrict": "Обмежити паролем",
         "tips": "Люди, які мають посилання, можуть бачити цей вид.",
@@ -472,7 +482,11 @@
       "pasteFileFailed": "Файли можна вставляти лише в поле вкладення",
       "copyError": {
         "noFocus": "Будь ласка, тримайте сторінку активною та не перемикайте вікна"
-      }
+      },
+      "crossBaseCopyTitle": "Скопіювати як звичайний текст?",
+      "crossBaseCopyDescription": "Виділення містить поле-посилання між базами. Щоб дані залишалися у своїй базі, поле буде скопійовано як звичайний текст і втратить зв’язки.",
+      "crossBaseCopyConfirm": "Скопіювати як звичайний текст",
+      "crossBaseCopyLoadFirst": "Прокрутіть, щоб завантажити всі вибрані рядки, перш ніж копіювати поля між базами."
     },
     "graph": {
       "tableLabel": "Мітка таблиці",
@@ -911,6 +925,14 @@
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Може редагувати",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Будь-хто, хто має посилання, може переглядати дані цього подання",
+    "viewLinkHolderCanEditDesc": "Авторизовані користувачі можуть редагувати дані в межах подання",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Може зберегти як копію",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
@@ -953,6 +975,10 @@
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Або введіть відповідь…"
+      },
+      "messageActions": {
+        "copy": "Копіювати",
+        "copyToInput": "Копіювати в поле вводу"
       }
     },
     "tool": {
@@ -1051,10 +1077,9 @@
     "allAttachments": {
       "title": "Завантажити всі вкладення",
       "loading": "Завантаження попереднього перегляду...",
-      "rowsWithAttachments": "{{count}} рядків з вкладеннями",
-      "totalAttachments": "{{count}} вкладень",
-      "totalSize": "Загальний розмір: {{size}}",
-      "startDownload": "Почати завантаження",
+      "rowsWithAttachments": "Рядки з вклад.",
+      "totalAttachments": "Вкладення",
+      "totalSize": "Загальний розмір",
       "confirmTitle": "Завантажити {{count}} файлів",
       "confirmDescription": "Загальний розмір: {{size}}. Файли будуть стиснуті в ZIP-архів.",
       "confirm": "Завантажити",

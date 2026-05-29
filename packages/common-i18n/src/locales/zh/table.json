@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "温馨提示",
+    "duplicateFieldDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
+    "duplicateTableTitle": "温馨提示",
+    "duplicateTableDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
+    "duplicateBaseTitle": "温馨提示",
+    "duplicateBaseDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
+    "convertAndDuplicate": "转换并复制"
+  },
   "toolbar": {
     "comingSoon": "即将推出",
     "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
@@ -12,6 +21,7 @@
         "copied": "已复制",
         "genLink": "生成新链接",
         "allowCopy": "允许拷贝视图数据",
+        "allowEdit": "允许登录用户编辑视图内可见数据",
         "showAllFields": "显示展开记录中的所有字段",
         "restrict": "设置访问密码",
         "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
@@ -522,6 +532,7 @@
       "pasting": "正在粘贴...",
       "pasteSuccessful": "粘贴成功",
       "pasteFailed": "粘贴失败",
+      "pasteNoEditableFields": "所选字段为只读字段，无法粘贴。",
       "filling": "正在填充...",
       "fillSuccessful": "填充成功",
       "fillFailed": "填充失败",
@@ -632,7 +643,11 @@
       "copyError": {
         "noFocus": "请保持页面激活，不要切换窗口",
         "noPermission": "您没有权限复制记录"
-      }
+      },
+      "crossBaseCopyTitle": "以纯文本形式复制？",
+      "crossBaseCopyDescription": "所选内容包含跨 base 关联字段。为防止数据离开原始 base，该字段将以纯文本形式复制，不保留关联关系。",
+      "crossBaseCopyConfirm": "复制为纯文本",
+      "crossBaseCopyLoadFirst": "请滚动加载所有选中的行后再复制跨 base 字段。"
     },
     "graph": {
       "tableLabel": "表格名称",
@@ -786,6 +801,8 @@
             "statementGenerationFailed": "系统无法安全生成修复语句",
             "noStatements": "该规则没有可执行的自动修复语句",
             "symmetricFieldConflict": "这个对称关联冲突需要先手动选择修复策略",
+            "symmetricFieldMissing": "对应的对称关联字段不存在，需要确认后再修复",
+            "symmetricFieldBroken": "对应的对称关联字段关系已损坏，需要确认后再修复",
             "foreignKeyTargetTableMissing": "当前无法自动修复：关联目标表不存在",
             "foreignKeyOrphanRows": "当前无法自动修复：仍存在无效关联数据",
             "junctionForeignKeyTargetTableMissing": "当前无法自动修复：中间表关联目标表不存在",
@@ -794,6 +811,8 @@
           "description": {
             "autoRule": "修复会执行该规则生成的 schema 语句，然后重新校验规则，确认 schema 已恢复为正确状态。",
             "symmetricFieldConflict": "有多个字段同时指向同一个对称关联目标。需要先决定哪一个字段应该保留双向关联关系，再继续修复。",
+            "symmetricFieldMissing": "将当前关联改为单向关联后，再重新执行修复，以便继续补齐依赖的中间表结构。",
+            "symmetricFieldBroken": "将当前关联改为单向关联后，再重新执行修复，以便继续检查依赖的关联结构。",
             "foreignKeyTargetTableMissing": "请先确认关联目标表 {{targetPhysicalTableName}} 是否已被删除或重命名。恢复目标表后可重新执行修复；如果该关联已经不再需要，请修改或删除字段「{{fieldName}}」的关联配置。",
             "foreignKeyOrphanRows": "请先清理字段「{{fieldName}}」中指向不存在记录的无效关联数据，然后再重新执行修复。",
             "junctionForeignKeyTargetTableMissing": "请先确认中间表要关联的目标表 {{targetPhysicalTableName}} 是否已被删除或重命名。恢复目标表后可重新执行修复；如果该关联已经不再需要，请修改或删除字段「{{fieldName}}」的关联配置。",
@@ -810,6 +829,42 @@
                 "keepCurrent": "保留当前字段为双向关联",
                 "keepDuplicate": "保留冲突字段为双向关联",
                 "convertDuplicate": "将冲突字段改为单向关联"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "处理缺失的对称关联字段",
+              "description": "对应的关联字段已被删除。请确认将当前字段改为单向关联后再执行修复。",
+              "resolutionLabel": "修复策略",
+              "resolutionDescription": "将当前关联改为单向关联，让现有关系数据继续使用已存储的关联结构。",
+              "option": {
+                "convertCurrent": "将当前关联改为单向关联"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "处理损坏的对称关联字段",
+              "description": "对应的关联字段存在，但已经不是有效的双向关联配对。请确认将当前字段改为单向关联后再执行修复。",
+              "resolutionLabel": "修复策略",
+              "resolutionDescription": "将当前关联改为单向关联，让它不再依赖已损坏的双向配对。",
+              "option": {
+                "convertCurrent": "将当前关联改为单向关联"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "清空无效关联值",
+              "description": "清空指向不存在记录的外键值，然后恢复外键约束。",
+              "resolutionLabel": "修复策略",
+              "resolutionDescription": "这些关联值指向的记录已经不存在。请确认清空这些无效关联值后再恢复外键。",
+              "option": {
+                "clearOrphanValues": "清空无效关联值"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "清理无效中间表关系行",
+              "description": "删除指向不存在记录的中间表关系行，然后恢复外键约束。",
+              "resolutionLabel": "修复策略",
+              "resolutionDescription": "这些中间表关系行指向的记录已经不存在。请确认删除这些无效关系行后再恢复外键。",
+              "option": {
+                "deleteOrphanRows": "删除无效关系行"
               }
             }
           }
@@ -952,10 +1007,9 @@
     "allAttachments": {
       "title": "下载所有附件",
       "loading": "正在加载预览...",
-      "rowsWithAttachments": "{{count}} 行包含附件",
-      "totalAttachments": "共 {{count}} 个附件",
-      "totalSize": "总大小：{{size}}",
-      "startDownload": "开始下载",
+      "rowsWithAttachments": "含附件行",
+      "totalAttachments": "附件数",
+      "totalSize": "总大小",
       "confirmTitle": "下载 {{count}} 个文件",
       "confirmDescription": "总大小：{{size}}。文件将压缩成一个 zip 文件。",
       "confirm": "下载",
@@ -1187,6 +1241,14 @@
     "linkHolderCanViewDesc": "获得链接的人可以查看数据",
     "linkHolderCanEdit": "可编辑",
     "linkHolderCanEditDesc": "登录用户可以编辑表格中的记录",
+    "viewLinkHolderCanViewDesc": "获得链接的人可以查看此视图的数据",
+    "viewLinkHolderCanEditDesc": "登录用户可以在视图范围内编辑数据",
+    "linkExposureNoticeOne": "分享后访客可看到「{{name}}」的数据",
+    "linkExposureNoticeMany": "分享后访客可看到「{{name}}」等 {{count}} 个表格的数据",
+    "linkExposureNoticeGeneric": "分享后访客可看到关联表的数据",
+    "restrictScope": "限制范围",
+    "linkScopeDesc": "限制关联字段在分享视图中可选/可见的记录与字段。此配置作用于字段本身，会同时影响所有视图。",
+    "linkScopeDialogTitle": "配置关联字段范围",
     "linkHolderCanCopyAndSave": "可另存为副本",
     "linkHolderCanCopyAndSaveDesc": "获得链接的人可以将数据保存到自己的空间",
     "editRequiresLogin": "用户必须登录才能编辑记录",
@@ -1242,6 +1304,20 @@
         "contextTooltip": "AI 的工作记忆用量。接近上限时，AI 会自动总结之前的对话以释放空间。",
         "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少 Credit 消耗。",
         "contextTipMemory": "对 AI 说「记住 XXX」可存入长期记忆，跨对话保留。"
+      },
+      "messageActions": {
+        "helpful": "有帮助",
+        "notHelpful": "没帮助",
+        "commentTitle": "怎么回复会更好？（可选）",
+        "commentPlaceholder": "比如理解偏了、信息不准、用错了工具……",
+        "saveFailed": "保存反馈失败",
+        "copied": "已复制",
+        "copy": "复制",
+        "copyToInput": "复制到输入框"
+      },
+      "contextCompaction": {
+        "auto": "上下文已自动压缩",
+        "manual": "上下文已压缩"
       },
       "taskProgress": {
         "title": "任务进度"
@@ -1340,7 +1416,8 @@
       "tables": "数据表",
       "apps": "应用",
       "workflows": "自动化",
-      "folders": "文件夹"
+      "folders": "文件夹",
+      "envs": "密钥"
     },
     "inputPlaceholder": "输入 @ 添加节点",
     "inputPlaceholderFiles": "粘贴或拖入文件",

@@ -1,6 +1,7 @@
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/nestjs';
 import {
   ActorId,
   type IExecutionContext,
@@ -189,5 +190,49 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
     this.logger[level](
       `V2 schema operation failed: operationId=${result.operation.id}, terminal=${result.terminal}, retryable=${result.retryable}, error=${result.error.message}`
     );
+    this.captureTerminalFailure(result);
+  }
+
+  private captureTerminalFailure(
+    result: Extract<SchemaOperationRunNextResult, { status: 'failed' }>
+  ) {
+    if (!result.terminal) return;
+
+    const operation = result.operation;
+    const target = operation.target;
+    Sentry.withScope((scope) => {
+      scope.setLevel('error');
+      scope.setTag('feature', 'v2-schema-operation-runner');
+      scope.setTag('teable.version', 'v2');
+      scope.setTag('schema_operation.id', operation.id);
+      scope.setTag('schema_operation.type', operation.type);
+      scope.setTag('schema_operation.status', operation.status);
+      scope.setTag('schema_operation.phase', operation.phase);
+      scope.setTag('schema_operation.terminal', String(result.terminal));
+      scope.setTag('schema_operation.retryable', String(result.retryable));
+      if (target.baseId) {
+        scope.setTag('base.id', target.baseId);
+      }
+      if (target.tableId) {
+        scope.setTag('table.id', target.tableId);
+      }
+      scope.setContext('schema_operation', {
+        id: operation.id,
+        type: operation.type,
+        status: operation.status,
+        phase: operation.phase,
+        attempts: operation.attempts,
+        maxAttempts: operation.maxAttempts,
+        idempotencyKey: operation.idempotencyKey,
+        target,
+        lastError: operation.lastError,
+        originalLastError: result.originalLastError ?? null,
+        runnerError: result.error.message,
+      });
+
+      const error = new Error(result.error.message);
+      error.name = 'V2SchemaOperationFailure';
+      Sentry.captureException(error);
+    });
   }
 }

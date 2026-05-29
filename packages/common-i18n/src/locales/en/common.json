@@ -1461,7 +1461,7 @@
     "modelServiceError": "An error occurred with the model service. Please try again or switch to a different model.",
     "imageProcessingFailed": "Image Processing Failed",
     "imageProcessingFailedDescription": "The image could not be processed by the AI model. Please try re-sending or continue without it.",
-    "sandboxBusy": "Agent is busy in another conversation. Please wait.",
+    "sandboxActiveRunBusy": "Cuppy is still working. Please wait before sending again.",
     "sandboxCapacityFull": "Concurrent conversation limit ({{max}}) reached. Please wait for one to finish.",
     "sandboxTransient": "Cuppy is getting ready. Please try again in a moment.",
     "sandboxSnapshotNotFound": "Cuppy's environment isn't set up yet. Please ask your admin to create a sandbox snapshot.",
@@ -1502,9 +1502,9 @@
     }
   },
   "changelog": {
-    "newUpdate": "MAY 12 UPDATE",
-    "title": "Built-in Login for App Builder",
-    "url": "https://help.teable.ai/en/changelog#may-12-2026",
-    "id": "changelog-2026-05-12-built-in-login-for-app-builder"
+    "newUpdate": "MAY 19 UPDATE",
+    "title": "Teable Credits Up 10x!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

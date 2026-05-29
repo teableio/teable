@@ -80,9 +80,6 @@ export const SharePopover: React.FC<{
     }
     if (enableShare) {
       await enableShareFn(view);
-      setTimeout(() => {
-        !view?.shareMeta && setShareMeta({ submit: { requireLogin: false, allow: true } });
-      }, 100);
     } else {
       disableShareFn(view);
     }
@@ -108,9 +105,6 @@ export const SharePopover: React.FC<{
   };
 
   const onSubmitRequireLoginChange = (check: boolean) => {
-    if (!shareMeta?.submit) {
-      return;
-    }
     setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
   };
 

@@ -1,4 +1,4 @@
-import { Check, MoreHorizontal, Share2 } from '@teable/icons';
+import { MoreHorizontal, Share2 } from '@teable/icons';
 import { useIsReadOnlyPreview, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -64,21 +64,31 @@ const ShareButton = ({
         <PopoverContent className="flex w-auto flex-col p-1" align="start">
           <Button
             variant="ghost"
-            className="justify-between gap-4 px-2"
+            className="justify-between gap-6 px-2"
             size="sm"
             onClick={() => openDialog('table')}
           >
-            {t('table:baseShare.shareTableTab')}
-            {isNodeShared && <Check className="size-4 shrink-0 text-muted-foreground" />}
+            <span>{t('table:baseShare.shareTableTab')}</span>
+            <span
+              className={cn(
+                'size-1.5 shrink-0 rounded-full',
+                isNodeShared ? 'bg-emerald-500' : 'bg-muted-foreground/25'
+              )}
+            />
           </Button>
           <Button
             variant="ghost"
-            className="justify-between gap-4 px-2"
+            className="justify-between gap-6 px-2"
             size="sm"
             onClick={() => openDialog('view')}
           >
-            {t('table:baseShare.shareViewTab')}
-            {!!view?.enableShare && <Check className="size-4 shrink-0 text-muted-foreground" />}
+            <span>{t('table:baseShare.shareViewTab')}</span>
+            <span
+              className={cn(
+                'size-1.5 shrink-0 rounded-full',
+                view?.enableShare ? 'bg-emerald-500' : 'bg-muted-foreground/25'
+              )}
+            />
           </Button>
         </PopoverContent>
       </Popover>

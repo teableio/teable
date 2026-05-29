@@ -2,29 +2,35 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CellFormat, FieldKeyType, FieldType } from '@teable/core';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  ICreateTableWithDefault,
-  IDuplicateTableRo,
-  IDuplicateTableVo,
-  ITableFullVo,
-  ITableVo,
+import {
+  CreateRecordAction,
+  type ICreateTableWithDefault,
+  type IDuplicateTableRo,
+  type IDuplicateTableVo,
+  type ITableFullVo,
+  type ITableVo,
 } from '@teable/openapi';
 import {
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeListTableRecordsEndpoint,
   executeRestoreTableEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
-import type { ICommandBus } from '@teable/v2-core';
+import type { ICommandBus, IExecutionContext, IQueryBus } from '@teable/v2-core';
+import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../../types/cls';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import { RecordService } from '../../record/record.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { ViewService } from '../../view/view.service';
+import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
 import { mapLegacyCreateTableToV2Input } from './table-open-api-v2.mapper';
 
@@ -38,10 +44,22 @@ export class TableOpenApiV2Service {
     private readonly tableService: TableService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewService: ViewService,
-    private readonly recordService: RecordService,
     private readonly prismaService: PrismaService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly tableDuplicateLegacyService: TableDuplicateService,
+    private readonly audit: AuditScope,
+    private readonly cls: ClsService<IClsStore>
   ) {}
+
+  private async collectCrossSpaceAffectedFields(
+    tableId: string
+  ): Promise<Array<{ fieldId: string; fieldName: string; type: string }>> {
+    // Delegate to the v1 service so cross-space link, conditional lookup,
+    // conditional rollup, and their transitive lookup/rollup dependents are
+    // all detected consistently with the duplicate-check endpoint and the
+    // v1 downgrade path. Keeping detection in one place avoids drift.
+    return this.tableDuplicateLegacyService.previewCrossSpaceAffectedFields(tableId);
+  }
 
   private throwV2Error(
     error: {
@@ -59,10 +77,23 @@ export class TableOpenApiV2Service {
     });
   }
 
+  @Audit({
+    // Only open the CreateDefaultRecords scope for the canonical 3-empty-row UI default.
+    // Custom records sent via API skip the attribution and produce plain atomic record events.
+    rootAction: (_baseId: string, ro: ICreateTableWithDefault) => {
+      const isDefault =
+        ro.records?.length === 3 &&
+        ro.records?.every(({ fields }) => Object.keys(fields).length === 0);
+      return isDefault ? CreateRecordAction.CreateDefaultRecords : undefined;
+    },
+    resourceId: (baseId: string) => baseId,
+    params: (_baseId: string, ro: ICreateTableWithDefault) =>
+      ro as unknown as Record<string, unknown>,
+  })
   async createTable(baseId: string, createTableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const normalizedCreateTableRo = await this.normalizeLegacyCreateTableRo(baseId, createTableRo);
     const result = await executeCreateTableEndpoint(
       context,
@@ -74,7 +105,9 @@ export class TableOpenApiV2Service {
       return await this.buildLegacyCreateTableResponse(
         baseId,
         normalizedCreateTableRo,
-        result.body.data.table.id
+        result.body.data.table.id,
+        context,
+        container.resolve<IQueryBus>(v2CoreTokens.queryBus)
       );
     }
 
@@ -90,9 +123,9 @@ export class TableOpenApiV2Service {
     tableId: string,
     mode: 'soft' | 'permanent' = 'soft'
   ): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const result = await executeDeleteTableEndpoint(
       context,
@@ -116,9 +149,9 @@ export class TableOpenApiV2Service {
   }
 
   async restoreTable(baseId: string, tableId: string): Promise<void> {
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
 
     const result = await executeRestoreTableEndpoint(
       context,
@@ -140,14 +173,32 @@ export class TableOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
+  @Audit({
+    rootAction: (_baseId: string, _tableId: string, ro: IDuplicateTableRo) =>
+      ro.includeRecords ? CreateRecordAction.TableDuplicate : undefined,
+    resourceId: (_baseId: string, tableId: string) => tableId,
+    params: (_baseId: string, _tableId: string, ro: IDuplicateTableRo) =>
+      ro as unknown as Record<string, unknown>,
+  })
   async duplicateTable(
     baseId: string,
     tableId: string,
     duplicateTableRo: IDuplicateTableRo
   ): Promise<IDuplicateTableVo> {
-    const container = await this.v2ContainerService.getContainer();
+    // The v2 duplicate command does not run cross-space validation when
+    // creating fields, so a table containing any cross-space link would
+    // silently produce another cross-space copy. Delegate to the v1 path,
+    // which downgrades cross-space link/lookup/rollup fields to single line
+    // text. Callers should hit `duplicate-check` first to preview which
+    // fields will be downgraded.
+    const affected = await this.collectCrossSpaceAffectedFields(tableId);
+    if (affected.length > 0) {
+      return this.tableDuplicateLegacyService.duplicateTable(baseId, tableId, duplicateTableRo);
+    }
+
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext();
+    const context = await this.v2ContextFactory.createContext(container);
     const result = await executeDuplicateTableEndpoint(
       context,
       {
@@ -185,14 +236,16 @@ export class TableOpenApiV2Service {
   private async buildLegacyCreateTableResponse(
     baseId: string,
     createTableRo: ICreateTableWithDefault,
-    tableId: string
+    tableId: string,
+    context: IExecutionContext,
+    queryBus: IQueryBus
   ): Promise<ITableFullVo> {
     const table = await this.tableService.getTableMeta(baseId, tableId);
     const fields = await this.fieldOpenApiService.getFields(tableId, {
       filterHidden: false,
     });
     const views = await this.viewService.getViews(tableId);
-    const records = await this.getCreatedRecords(table, createTableRo);
+    const records = await this.getCreatedRecords(table, createTableRo, context, queryBus);
 
     return {
       ...table,
@@ -224,41 +277,46 @@ export class TableOpenApiV2Service {
 
   private async getCreatedRecords(
     table: ITableVo,
-    createTableRo: ICreateTableWithDefault
+    createTableRo: ICreateTableWithDefault,
+    context: IExecutionContext,
+    queryBus: IQueryBus
   ): Promise<IRecord[]> {
     const total = createTableRo.records?.length ?? 0;
     if (total === 0) {
       return [];
     }
 
-    const recordIds: string[] = [];
-    for (let skip = 0; skip < total; skip += 1000) {
-      const take = Math.min(1000, total - skip);
-      const { ids } = await this.recordService.getDocIdsByQuery(table.id, {
-        viewId: table.defaultViewId,
-        skip,
-        take,
-      });
-      recordIds.push(...ids);
+    const records: IRecord[] = [];
+    for (let offset = 0; offset < total; offset += 1000) {
+      const limit = Math.min(1000, total - offset);
+      const result = await executeListTableRecordsEndpoint(
+        context,
+        {
+          tableId: table.id,
+          viewId: table.defaultViewId,
+          fieldKeyType: createTableRo.fieldKeyType ?? FieldKeyType.Name,
+          cellFormat: CellFormat.Json,
+          limit,
+          offset,
+        },
+        queryBus
+      );
+
+      if (result.status === 200 && result.body.ok) {
+        records.push(...(result.body.data.records as IRecord[]));
+        continue;
+      }
+
+      if (!result.body.ok) {
+        this.throwV2Error(result.body.error, result.status);
+      }
+
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    if (recordIds.length === 0) {
-      return [];
-    }
-
-    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-      table.id,
-      recordIds,
-      undefined,
-      createTableRo.fieldKeyType ?? FieldKeyType.Name,
-      CellFormat.Json
-    );
-    const recordById = new Map(
-      snapshots.map((snapshot) => [snapshot.data.id, snapshot.data] as const)
-    );
-
-    return recordIds
-      .map((recordId) => recordById.get(recordId))
+    const recordById = new Map(records.map((record) => [record.id, record] as const));
+    return records
+      .map((record) => recordById.get(record.id))
       .filter((record): record is IRecord => record != null);
   }
 

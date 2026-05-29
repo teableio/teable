@@ -22,9 +22,10 @@ import type {
 import {
   completeTableSchemaOperation,
   completeTablesSchemaOperation,
+  failRecoverableTableSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
 
-const repairTypes = ['table.create', 'table.create_many', 'table.import'] as const;
+const repairTypes = ['table.create', 'table.create_many', 'table.import', 'table.update'] as const;
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -127,6 +128,11 @@ const unsupportedRepair = (message: string, details?: PayloadRecord): DomainErro
     details,
   });
 
+const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
+  if (operation.type !== 'table.update') return true;
+  return /\bcolumn\b.*\bdoes not exist\b/i.test(operation.lastError ?? '');
+};
+
 @injectable()
 export class TableSchemaOperationRepairHandler implements ISchemaOperationHandler {
   readonly type = repairTypes;
@@ -159,8 +165,19 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
           })
         );
       }
-
       const tableIds = yield* tableIdsFromOperation(operation);
+      if (!isRepairableTableUpdate(operation)) {
+        const tables = yield* await handler.loadTables(context, tableIds);
+        yield* await handler.restoreTableUpdateAvailability(context, operation, tables[0]!);
+        return err(
+          unsupportedRepair('Only missing-column table updates can be repaired automatically', {
+            operationType: operation.type,
+            operationId: operation.id,
+            lastError: operation.lastError ?? undefined,
+          })
+        );
+      }
+
       const recordCount = hasPositiveRecordCount(operation, tableIds);
       if (recordCount === 'unknown') {
         return err(
@@ -275,6 +292,24 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
       }
       return ok(orderedTables);
     });
+  }
+
+  private async restoreTableUpdateAvailability(
+    context: IExecutionContext,
+    operation: SchemaOperationRecord,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    return failRecoverableTableSchemaOperation(
+      this.unitOfWork,
+      this.tableRepository,
+      context,
+      table,
+      {
+        type: operation.type,
+        idempotencyKey: operation.idempotencyKey,
+        lastError: operation.lastError ?? 'Unsupported table update schema repair',
+      }
+    );
   }
 
   private collectReferences(

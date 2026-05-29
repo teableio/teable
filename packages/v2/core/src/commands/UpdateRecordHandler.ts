@@ -55,6 +55,17 @@ const buildScopedUpdateForbiddenError = (tableId: string) =>
     },
   });
 
+const buildScopedUpdateFieldsForbiddenError = (tableId: string, deniedFieldIds: string[]) =>
+  domainError.forbidden({
+    code: 'record_write_plugin.update_fields_forbidden',
+    message: 'Record write target includes fields outside the allowed scope.',
+    details: {
+      operation: RecordWriteOperationKind.updateOne,
+      tableId,
+      deniedFieldIds,
+    },
+  });
+
 const areFieldValuesEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) {
     return true;
@@ -165,10 +176,20 @@ export class UpdateRecordHandler
         command.recordId,
         { mode: 'stored', includeOrders: true }
       );
+      const currentRecordEntity = yield* toTableRecord(table, currentRecord);
       if (pluginRecordSpec) {
-        const currentRecordEntity = yield* toTableRecord(table, currentRecord);
         if (!pluginRecordSpec.isSatisfiedBy(currentRecordEntity)) {
           return err(buildScopedUpdateForbiddenError(table.id().toString()));
+        }
+      }
+      const allowedFieldIdsForCurrentRecord =
+        yield* pluginExecution.getUpdateFieldIdsForRecord(currentRecordEntity);
+      if (allowedFieldIdsForCurrentRecord) {
+        const deniedFieldIds = [...resolvedFieldValues.keys()].filter(
+          (fieldId) => !allowedFieldIdsForCurrentRecord.has(fieldId)
+        );
+        if (deniedFieldIds.length) {
+          return err(buildScopedUpdateFieldsForbiddenError(table.id().toString(), deniedFieldIds));
         }
       }
 
