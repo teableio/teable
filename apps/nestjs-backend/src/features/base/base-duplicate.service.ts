@@ -29,7 +29,7 @@ import {
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { normalizeField } from '@teable/v2-dottea';
+import { normalizeFields } from '@teable/v2-dottea';
 import { Knex } from 'knex';
 import type { Kysely } from 'kysely';
 import { groupBy, omit } from 'lodash';
@@ -360,8 +360,7 @@ export class BaseDuplicateService {
         structure,
         { tableIdMap, fieldIdMap, viewIdMap },
         duplicateMode,
-        onProgress,
-        { restoreEeResources: true }
+        onProgress
       );
       if (withRecords) {
         recordsLength = await this.duplicateTableData(
@@ -616,29 +615,13 @@ export class BaseDuplicateService {
     return {
       ...structure,
       tables: structure.tables.map((table) => {
-        const tableFieldTypesById = new Map(
-          table.fields
-            .filter((field) => field.id)
-            .map(
-              (field) =>
-                [
-                  field.id!,
-                  field.isConditionalLookup
-                    ? 'conditionalLookup'
-                    : field.isLookup
-                      ? 'lookup'
-                      : field.type,
-                ] as const
-            )
-        );
-
         return {
           ...table,
-          fields: table.fields.map((field) => {
-            const normalized = normalizeField(field as DotTeaFieldInput, tableFieldTypesById, {
-              availableTableIds,
-              fieldIdsByTableId,
-            });
+          fields: normalizeFields(table.fields as ReadonlyArray<DotTeaFieldInput>, {
+            availableTableIds,
+            fieldIdsByTableId,
+          }).map((normalized, index) => {
+            const field = table.fields[index]!;
             const normalizedField = { ...field, ...normalized };
 
             if (
