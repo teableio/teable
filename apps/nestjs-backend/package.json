@@ -104,6 +104,7 @@
     "eslint-config-next": "15.5.9",
     "get-tsconfig": "4.7.3",
     "istanbul-merge": "2.0.0",
+    "neverthrow": "8.2.0",
     "npm-run-all2": "6.1.2",
     "nyc": "15.1.0",
     "pg-mem": "3.0.5",
