@@ -41,6 +41,7 @@ import {
   type IExecutionContext,
   type ITracer,
   type ITableRepository,
+  type TableQueryState,
 } from '@teable/v2-core';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -67,6 +68,9 @@ const integrityFailureKindAttribute = 'teable.integrity.failure_kind';
 const integrityRuleIdAttribute = 'teable.integrity.rule_id';
 const integrityOutcomeAttribute = 'teable.integrity.outcome';
 const integrityRequiredAttribute = 'teable.integrity.required';
+// Physical schema integrity should not validate deleted tables or fields. The repository
+// hydrates only fields/views with deleted_time IS NULL for activeWithPending.
+const schemaIntegrityTableState: TableQueryState = 'activeWithPending';
 
 @Injectable()
 export class IntegrityV2Service {
@@ -232,7 +236,7 @@ export class IntegrityV2Service {
     const tableResult = await tableRepository.findOne(
       context,
       TableByIdSpec.create(parsedTableId.value),
-      { state: 'all' }
+      { state: schemaIntegrityTableState }
     );
 
     if (tableResult.isErr()) {
@@ -247,7 +251,7 @@ export class IntegrityV2Service {
       const tablesResult = await tableRepository.find(
         context,
         TableByBaseIdSpec.create(table.baseId()),
-        { state: 'all' }
+        { state: schemaIntegrityTableState }
       );
 
       if (tablesResult.isErr()) {
@@ -289,7 +293,7 @@ export class IntegrityV2Service {
     const tablesResult = await tableRepository.find(
       context,
       TableByBaseIdSpec.create(parsedBaseId.value),
-      { state: 'all' }
+      { state: schemaIntegrityTableState }
     );
 
     if (tablesResult.isErr()) {
@@ -478,7 +482,9 @@ export class IntegrityV2Service {
       throw new HttpException(specResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const tablesResult = await tableRepository.find(context, specResult.value, { state: 'all' });
+    const tablesResult = await tableRepository.find(context, specResult.value, {
+      state: schemaIntegrityTableState,
+    });
     if (tablesResult.isErr()) {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
