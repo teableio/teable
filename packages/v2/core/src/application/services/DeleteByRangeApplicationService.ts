@@ -10,6 +10,7 @@ import {
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from '../../commands/shared/orderBy';
+import { ensureRecordIdsWithinScope } from '../../commands/shared/recordWriteScope';
 import { resolveSelectionStreamBatchSize } from '../../commands/shared/streamBatchSize';
 import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
@@ -58,6 +59,9 @@ import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoSt
 
 const DEFAULT_DELETE_QUERY_PAGE_SIZE = 500;
 const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
+
+const toRangeTypeSpanAttribute = (rangeType: RangeType): 'columns' | 'rows' | 'cells' =>
+  rangeType ?? 'cells';
 
 type DeleteByRangeCommandLike = {
   readonly tableId: TableId;
@@ -183,10 +187,17 @@ export class DeleteByRangeApplicationService {
     context: IExecutionContext,
     command: DeleteByRangeCommandLike
   ): Promise<Result<DeleteByRangeResult, DomainError>> {
-    const planResult = await this.prepareDeletePlan(
+    const planResult = await this.runInSpan(
       context,
-      command,
-      DEFAULT_DELETE_QUERY_PAGE_SIZE
+      'teable.DeleteByRangeApplicationService.prepareDeletePlan',
+      {
+        'teable.table_id': command.tableId.toString(),
+        'teable.view_id': command.viewId.toString(),
+        'teable.range_type': toRangeTypeSpanAttribute(command.rangeType),
+        'teable.range_count': command.rawRanges.length,
+        'teable.delete_mode': 'direct',
+      },
+      () => this.prepareDeletePlan(context, command, DEFAULT_DELETE_QUERY_PAGE_SIZE)
     );
     if (planResult.isErr()) {
       return err(planResult.error);
@@ -202,33 +213,78 @@ export class DeleteByRangeApplicationService {
     }
 
     const operationId = context.requestId ?? generateUuid();
-    const pluginExecutionResult = await this.prepareDeletePluginExecution(
+    const pluginExecutionResult = await this.runInSpan(
       context,
-      plan.table,
-      plan.recordIds,
-      plan.recordSnapshots,
-      this.createDeletePluginOrchestration({
-        mode: 'direct',
-        scope: 'operation',
-        operationId,
-        totalRecordCount: plan.recordIds.length,
-        totalChunkCount: 1,
-      })
+      'teable.DeleteByRangeApplicationService.prepareDeletePlugins',
+      {
+        'teable.table_id': plan.table.id().toString(),
+        'teable.record_count': plan.recordIds.length,
+        'teable.delete_mode': 'direct',
+      },
+      () =>
+        this.prepareDeletePluginExecution(
+          context,
+          plan.table,
+          plan.recordIds,
+          plan.recordSnapshots,
+          this.createDeletePluginOrchestration({
+            mode: 'direct',
+            scope: 'operation',
+            operationId,
+            totalRecordCount: plan.recordIds.length,
+            totalChunkCount: 1,
+          }),
+          { skipScopeValidation: true }
+        )
     );
     if (pluginExecutionResult.isErr()) {
       return err(pluginExecutionResult.error);
     }
 
-    const persistResult = await this.deleteManyInSingleTransaction(
+    const scopeValidationResult = await this.runInSpan(
       context,
-      plan,
-      pluginExecutionResult.value
+      'teable.DeleteByRangeApplicationService.validateDeletePluginScope',
+      {
+        'teable.table_id': plan.table.id().toString(),
+        'teable.record_count': plan.recordIds.length,
+        'teable.delete_mode': 'direct',
+      },
+      () =>
+        this.validateDeletePluginScope(
+          context,
+          plan.table,
+          plan.recordIds,
+          pluginExecutionResult.value
+        )
+    );
+    if (scopeValidationResult.isErr()) {
+      return err(scopeValidationResult.error);
+    }
+
+    const persistResult = await this.runInSpan(
+      context,
+      'teable.DeleteByRangeApplicationService.deleteRecords',
+      {
+        'teable.table_id': plan.table.id().toString(),
+        'teable.record_count': plan.recordIds.length,
+        'teable.delete_mode': 'direct',
+      },
+      () => this.deleteManyInSingleTransaction(context, plan, pluginExecutionResult.value)
     );
     if (persistResult.isErr()) {
       return err(persistResult.error);
     }
 
-    return this.finalizeDeletePlan(context, plan, persistResult.value, pluginExecutionResult.value);
+    return this.runInSpan(
+      context,
+      'teable.DeleteByRangeApplicationService.finalizeDeletePlan',
+      {
+        'teable.table_id': plan.table.id().toString(),
+        'teable.record_count': plan.recordIds.length,
+        'teable.delete_mode': 'direct',
+      },
+      () => this.finalizeDeletePlan(context, plan, persistResult.value, pluginExecutionResult.value)
+    );
   }
 
   createStream(
@@ -252,7 +308,18 @@ export class DeleteByRangeApplicationService {
     }
 
     try {
-      const planResult = await this.prepareDeleteStreamPlan(context, command);
+      const planResult = await this.runInSpan(
+        context,
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlan',
+        {
+          'teable.table_id': command.tableId.toString(),
+          'teable.view_id': command.viewId.toString(),
+          'teable.range_type': toRangeTypeSpanAttribute(command.rangeType),
+          'teable.range_count': command.rawRanges.length,
+          'teable.delete_mode': 'stream',
+        },
+        () => this.prepareDeleteStreamPlan(context, command)
+      );
       if (planResult.isErr()) {
         queue.push(
           this.createErrorEvent(planResult.error, {
@@ -402,9 +469,11 @@ export class DeleteByRangeApplicationService {
       search: visibleRowSearch,
       totalCols: orderedFieldIdsResult.value.length,
       pageSize,
+      projectionFieldIds: this.resolveDeletePreReadProjectionFieldIds(table),
       // Undo/redo restore snapshots now come from repository capture instead of
       // the pre-read query, so we do not pay the extra row-order join here.
       includeOrders: false,
+      includeTotal: false,
     });
     if (recordsResult.isErr()) {
       return err(recordsResult.error);
@@ -898,19 +967,31 @@ export class DeleteByRangeApplicationService {
     let deletedCount = 0;
     let currentRangeKey: string | undefined;
     let failedRowCountInRange = 0;
-    const operationPluginExecutionResult = await this.prepareDeletePluginExecution(
+    const operationPluginExecutionResult = await this.runInSpan(
       context,
-      plan.table,
-      [],
-      [],
-      this.createDeletePluginOrchestration({
-        mode: 'stream',
-        scope: 'operation',
-        operationId: operation.operationId,
-        totalRecordCount: plan.totalCount,
-        totalChunkCount: operation.totalChunkCount,
-      }),
-      { skipScopeValidation: true, payloadRecordCount: plan.totalCount }
+      'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
+      {
+        'teable.table_id': plan.table.id().toString(),
+        'teable.total_record_count': plan.totalCount,
+        'teable.total_chunk_count': operation.totalChunkCount,
+        'teable.delete_mode': 'stream',
+        'teable.plugin_scope': 'operation',
+      },
+      () =>
+        this.prepareDeletePluginExecution(
+          context,
+          plan.table,
+          [],
+          [],
+          this.createDeletePluginOrchestration({
+            mode: 'stream',
+            scope: 'operation',
+            operationId: operation.operationId,
+            totalRecordCount: plan.totalCount,
+            totalChunkCount: operation.totalChunkCount,
+          }),
+          { skipScopeValidation: true, payloadRecordCount: plan.totalCount }
+        )
     );
     if (operationPluginExecutionResult.isErr()) {
       queue.push(
@@ -968,20 +1049,34 @@ export class DeleteByRangeApplicationService {
         continue;
       }
 
-      const pluginExecutionResult = await this.prepareDeletePluginExecution(
+      const pluginExecutionResult = await this.runInSpan(
         context,
-        plan.table,
-        chunk.recordIds,
-        chunk.recordSnapshots,
-        this.createDeletePluginOrchestration({
-          mode: 'stream',
-          scope: 'chunk',
-          operationId: operation.operationId,
-          totalRecordCount: plan.totalCount,
-          totalChunkCount: operation.totalChunkCount,
-          chunkIndex: chunk.batchIndex,
-        }),
-        { previousExecution: previousPluginExecution }
+        'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
+        {
+          'teable.batch_index': chunk.batchIndex,
+          'teable.chunk_record_count': chunk.recordIds.length,
+          'teable.total_record_count': plan.totalCount,
+          'teable.total_chunk_count': operation.totalChunkCount,
+          'teable.table_id': plan.table.id().toString(),
+          'teable.delete_mode': 'stream',
+          'teable.plugin_scope': 'chunk',
+        },
+        () =>
+          this.prepareDeletePluginExecution(
+            context,
+            plan.table,
+            chunk.recordIds,
+            chunk.recordSnapshots,
+            this.createDeletePluginOrchestration({
+              mode: 'stream',
+              scope: 'chunk',
+              operationId: operation.operationId,
+              totalRecordCount: plan.totalCount,
+              totalChunkCount: operation.totalChunkCount,
+              chunkIndex: chunk.batchIndex,
+            }),
+            { previousExecution: previousPluginExecution, skipScopeValidation: true }
+          )
       );
       if (pluginExecutionResult.isErr()) {
         failedRowCountInRange += chunk.recordIds.length;
@@ -998,6 +1093,33 @@ export class DeleteByRangeApplicationService {
       }
 
       const pluginExecution = pluginExecutionResult.value;
+      const scopeValidationResult = await this.runInSpan(
+        context,
+        'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
+        {
+          'teable.batch_index': chunk.batchIndex,
+          'teable.chunk_record_count': chunk.recordIds.length,
+          'teable.total_record_count': plan.totalCount,
+          'teable.table_id': plan.table.id().toString(),
+          'teable.delete_mode': 'stream',
+        },
+        () =>
+          this.validateDeletePluginScope(context, plan.table, chunk.recordIds, pluginExecution)
+      );
+      if (scopeValidationResult.isErr()) {
+        failedRowCountInRange += chunk.recordIds.length;
+        queue.push(
+          this.createErrorEvent(scopeValidationResult.error, {
+            phase: 'guarding',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...chunk.deletedRecordIds],
+          })
+        );
+        continue;
+      }
+
       previousPluginExecution = pluginExecution;
       const deleteResult = await this.runInSpan(
         context,
@@ -1191,6 +1313,7 @@ export class DeleteByRangeApplicationService {
       queryStartRow,
       queryStartRow + chunk.rowCount - 1,
       {
+        projectionFieldIds: this.resolveDeletePreReadProjectionFieldIds(plan.table),
         // Repository-backed delete capture supplies the persisted order snapshot.
         includeOrders: false,
         includeTotal: false,
@@ -1294,6 +1417,40 @@ export class DeleteByRangeApplicationService {
 
     return ok(
       storedSnapshotsResult.value.map((snapshot) => buildDeletedRecordSnapshot(table, snapshot))
+    );
+  }
+
+  private resolveDeletePreReadProjectionFieldIds(table: Table): ReadonlyArray<FieldId> {
+    return [table.primaryFieldId()];
+  }
+
+  private async validateDeletePluginScope(
+    context: IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<RecordId>,
+    pluginExecution?: RecordWritePluginExecution
+  ): Promise<Result<void, DomainError>> {
+    if (!pluginExecution || !recordIds.length) {
+      return ok(undefined);
+    }
+
+    const pluginRecordSpecResult = pluginExecution.getRecordSpec();
+    if (pluginRecordSpecResult.isErr()) {
+      return err(pluginRecordSpecResult.error);
+    }
+
+    if (!pluginRecordSpecResult.value) {
+      return ok(undefined);
+    }
+
+    return ensureRecordIdsWithinScope(
+      context,
+      table,
+      recordIds,
+      pluginRecordSpecResult.value,
+      this.tableRecordQueryRepository,
+      RecordWriteOperationKind.deleteMany,
+      { projectionFieldIds: this.resolveDeletePreReadProjectionFieldIds(table) }
     );
   }
 
