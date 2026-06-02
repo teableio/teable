@@ -473,7 +473,7 @@ export class BaseImportService {
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
 
     onProgress?.('structure_created', base.id);
-    await this.restoreBaseExtrasV2(
+    const { appIdMap, workflowIdMap } = await this.restoreBaseExtrasV2(
       db,
       base.id,
       structure,
@@ -512,6 +512,15 @@ export class BaseImportService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
+      appIdMap,
+      workflowIdMap,
+      // Source->new base id, so EE import can rewrite base-id references baked into app
+      // build artifacts (matches the v1 import/duplicate idMap; v2 dropped it).
+      baseIdMap: { [structure.id]: base.id },
+    } as IImportBaseVo & {
+      appIdMap: Record<string, string>;
+      workflowIdMap: Record<string, string>;
+      baseIdMap: Record<string, string>;
     };
   }
 
@@ -525,8 +534,7 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback,
-    options?: { restoreEeResources?: boolean }
+    onProgress?: BaseImportProgressCallback
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -545,20 +553,17 @@ export class BaseImportService {
       ));
     }
 
-    // Restore edition-specific resources (apps / workflows / authority matrix) and collect their
-    // id maps so the matching base_node rows can be remapped below. Community has none, so the
-    // hook is a no-op; the EE subclass overrides it. Gated to the duplicate/copy path
-    // (restoreEeResources) so the .tea import path keeps its current behavior untouched.
-    const { workflowIdMap = {}, appIdMap = {} } = options?.restoreEeResources
-      ? await this.restoreExtraBaseResourcesV2(
-          db,
-          baseId,
-          structure,
-          { tableIdMap, fieldIdMap, viewIdMap },
-          duplicateMode,
-          onProgress
-        )
-      : {};
+    // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
+    // extension hook and collect their id maps so matching base_node rows can be remapped below.
+    // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
+    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+      db,
+      baseId,
+      structure,
+      { tableIdMap, fieldIdMap, viewIdMap },
+      duplicateMode,
+      onProgress
+    );
 
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
     const hasNodes = Array.isArray(structure.nodes) && structure.nodes.length > 0;
@@ -589,10 +594,10 @@ export class BaseImportService {
   }
 
   /**
-   * Hook for edition-specific (EE) base resources restored during a v2 duplicate/copy:
-   * apps, workflows, and the authority matrix. Community has none, so this is a no-op.
-   * The EE subclass overrides it to create those rows and returns their id maps so the
-   * caller can remap the corresponding base_node entries.
+   * Hook for edition-specific base resources restored during v2 `.tea` import and v2 duplicate/copy:
+   * apps, workflows, and the authority matrix. Community has none, so this is a no-op. The EE
+   * subclass overrides it to create those rows and returns their id maps so the caller can remap the
+   * corresponding base_node entries.
    */
   protected async restoreExtraBaseResourcesV2(
     _db: Kysely<unknown>,

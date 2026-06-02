@@ -421,8 +421,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 10. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
