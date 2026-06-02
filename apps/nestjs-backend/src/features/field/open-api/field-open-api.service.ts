@@ -62,6 +62,7 @@ import { Events } from '../../../event-emitter/events';
 import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
@@ -1816,9 +1817,15 @@ export class FieldOpenApiService {
           );
 
           const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
-          const filteredDependentFieldIds = shouldRecomputeSelf
-            ? dependentFieldIds
-            : dependentFieldIds.filter((id) => id !== newField.id);
+          const shouldRecomputeDependents =
+            shouldRecomputeSelf ||
+            majorFieldKeysChanged(oldField, newField) ||
+            Boolean(analysisResult.supplementChange);
+          const filteredDependentFieldIds = shouldRecomputeDependents
+            ? shouldRecomputeSelf
+              ? dependentFieldIds
+              : dependentFieldIds.filter((id) => id !== newField.id)
+            : [];
 
           const { compatibilityIssue } = await this.performConvertField({
             tableId,

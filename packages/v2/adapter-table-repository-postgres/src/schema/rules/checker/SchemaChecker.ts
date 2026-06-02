@@ -15,6 +15,8 @@ import {
   warnResult,
 } from './SchemaCheckResult';
 
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 /**
  * Parameters for creating a SchemaChecker.
  */
@@ -34,6 +36,7 @@ export class SchemaChecker {
   async *checkTable(table: Table): AsyncGenerator<SchemaCheckResult, void, unknown> {
     const planner = createSchemaRulePlanner(this.params);
     for (const planEntry of planner.planTable(table)) {
+      await yieldToEventLoop();
       if (planEntry.type === 'error') {
         yield errorResult(
           pendingResult(
@@ -135,6 +138,7 @@ export class SchemaChecker {
           );
           validatedRules.set(rule.id, false);
         }
+        await yieldToEventLoop();
       }
     }
   }
@@ -149,6 +153,7 @@ export class SchemaChecker {
   ): AsyncGenerator<SchemaCheckResult, void, unknown> {
     const planner = createSchemaRulePlanner(this.params);
     for (const planEntry of planner.planTable(table, { fieldId })) {
+      await yieldToEventLoop();
       if (planEntry.type === 'error') {
         yield errorResult(
           pendingResult(
@@ -252,6 +257,7 @@ export class SchemaChecker {
           );
           validatedRules.set(rule.id, false);
         }
+        await yieldToEventLoop();
       }
     }
   }
