@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
   DriverClient,
@@ -26,6 +26,7 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
@@ -45,8 +46,14 @@ export class TableService implements IReadonlyAdapterService {
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
 
   generateValidName(name: string) {
     return convertNameToValidCharacter(name, 40);
@@ -82,6 +89,7 @@ export class TableService implements IReadonlyAdapterService {
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
     const userId = this.cls.get('user.id');
+    await this.assertBaseWritable(baseId);
     await this.lockBaseRow(baseId);
 
     const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
@@ -305,6 +313,7 @@ export class TableService implements IReadonlyAdapterService {
   }
 
   async deleteTable(baseId: string, tableId: string, deletedTime: Date) {
+    await this.assertBaseWritable(baseId);
     const result = await this.prismaService.txClient().tableMeta.findFirst({
       where: { id: tableId, baseId, deletedTime: null },
     });
@@ -340,6 +349,7 @@ export class TableService implements IReadonlyAdapterService {
   }
 
   async restoreTable(baseId: string, tableId: string) {
+    await this.assertBaseWritable(baseId);
     const result = await this.prismaService.txClient().tableMeta.findFirst({
       where: { id: tableId, baseId, deletedTime: { not: null } },
     });
@@ -386,6 +396,7 @@ export class TableService implements IReadonlyAdapterService {
       | 'views'
     >
   ) {
+    await this.assertBaseWritable(baseId);
     const select = Object.keys(input).reduce<{ [key: string]: boolean }>((acc, key) => {
       acc[key] = true;
       return acc;

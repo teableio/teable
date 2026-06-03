@@ -21,6 +21,7 @@ export class FieldMetaRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
+  readonly validationScope = 'meta';
 
   /**
    * @param field - The field to update metadata for
