@@ -69,6 +69,7 @@
     "import": "Importer",
     "getMore": "Obtenir plus",
     "copySuccess": "Copie réussie",
+    "openLink": "Ouvrir le lien",
     "share": "Partager"
   },
   "quickAction": {
