@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   ActionPrefix,
   actionPrefixMap,
@@ -55,6 +55,7 @@ import { CanaryService } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
@@ -126,11 +127,22 @@ export class BaseService {
     // Explicit @Inject after consecutive token-based @Inject decorators (SWC fails
     // to emit design:paramtypes metadata for plain class types in this position).
     @Inject(AuditScope) private readonly audit: AuditScope,
-    @Inject(EventEmitterService) private readonly eventEmitterService: EventEmitterService
+    @Inject(EventEmitterService) private readonly eventEmitterService: EventEmitterService,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
 
   private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
     return prisma.txClient?.() ?? prisma;
+  }
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
   }
 
   private async getRoleByBaseId(baseId: string, spaceId: string) {
@@ -294,6 +306,7 @@ export class BaseService {
   async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
     const { name, spaceId, icon } = createBaseRo;
+    await this.assertSpaceWritable(spaceId);
     const order = (await this.getMaxOrder(spaceId)) + 1;
 
     const base = await this.prismaService.base.create({
@@ -348,6 +361,7 @@ export class BaseService {
   }
 
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
+    await this.assertBaseWritable(baseId);
     const userId = this.cls.get('user.id');
 
     return this.prismaService.base.update({
@@ -369,6 +383,7 @@ export class BaseService {
   }
 
   async shuffle(spaceId: string) {
+    await this.assertSpaceWritable(spaceId);
     const bases = await this.prismaService.base.findMany({
       where: { spaceId, deletedTime: null },
       select: { id: true },
@@ -389,6 +404,7 @@ export class BaseService {
   }
 
   async updateOrder(baseId: string, orderRo: IUpdateOrderRo) {
+    await this.assertBaseWritable(baseId);
     const { anchorId, position } = orderRo;
 
     const base = await this.prismaService.base
@@ -447,6 +463,7 @@ export class BaseService {
   }
 
   async deleteBase(baseId: string) {
+    await this.assertBaseWritable(baseId);
     const userId = this.cls.get('user.id');
 
     await this.prismaService.base.update({
@@ -465,7 +482,9 @@ export class BaseService {
     params: (ro: IDuplicateBaseRo) => ro as unknown as Record<string, unknown>,
   })
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
-    const { fromBaseId } = duplicateBaseRo;
+    const { fromBaseId, spaceId } = duplicateBaseRo;
+    await this.assertBaseWritable(fromBaseId);
+    await this.assertSpaceWritable(spaceId);
 
     // Regular permission check, base update permission
     await this.checkBaseUpdatePermission(fromBaseId);
@@ -495,7 +514,9 @@ export class BaseService {
     params: (ro: IDuplicateBaseRo) => ro as unknown as Record<string, unknown>,
   })
   async duplicateBaseV2(duplicateBaseRo: IDuplicateBaseRo) {
-    const { fromBaseId } = duplicateBaseRo;
+    const { fromBaseId, spaceId } = duplicateBaseRo;
+    await this.assertBaseWritable(fromBaseId);
+    await this.assertSpaceWritable(spaceId);
 
     // Regular permission check, base update permission
     await this.checkBaseUpdatePermission(fromBaseId);
@@ -516,7 +537,9 @@ export class BaseService {
     duplicateBaseRo: IDuplicateBaseRo,
     onProgress?: BaseImportProgressCallback
   ) {
-    const { fromBaseId } = duplicateBaseRo;
+    const { fromBaseId, spaceId } = duplicateBaseRo;
+    await this.assertBaseWritable(fromBaseId);
+    await this.assertSpaceWritable(spaceId);
 
     await this.checkBaseUpdatePermission(fromBaseId);
 
@@ -554,6 +577,10 @@ export class BaseService {
     createBaseFromTemplateRo: ICreateBaseFromTemplateRo
   ): Promise<ICreateBaseFromTemplateVo> {
     const { spaceId, templateId, withRecords, baseId } = createBaseFromTemplateRo;
+    await this.assertSpaceWritable(spaceId);
+    if (baseId) {
+      await this.assertBaseWritable(baseId);
+    }
     const template = await this.prismaService.template.findUniqueOrThrow({
       where: { id: templateId },
       select: {
@@ -705,6 +732,7 @@ export class BaseService {
   }
 
   async permanentDeleteBase(baseId: string, ignorePermissionCheck: boolean = false) {
+    await this.assertBaseWritable(baseId);
     if (!ignorePermissionCheck) {
       const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
@@ -849,6 +877,8 @@ export class BaseService {
 
   async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
     const { spaceId: targetSpaceId } = moveBaseRo;
+    await this.assertBaseWritable(baseId);
+    await this.assertSpaceWritable(targetSpaceId);
     // check if has the permission to create base in the target space
     await this.checkBaseCreatePermission(targetSpaceId);
 
@@ -1150,6 +1180,7 @@ export class BaseService {
   }
 
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
+    await this.assertBaseWritable(baseId);
     return await this.prismaService.$tx(
       async (prisma) => {
         const template = await prisma.template.findFirst({

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IDataDbPreflightRo, IDataDbPreflightVo } from '@teable/openapi';
@@ -13,8 +13,17 @@ import {
   getDatabaseUrlDisplayParts,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import {
+  migrateSpaceTargetMode,
+  spaceDataDbAdminOnlyErrorCode,
+  spaceDataDbAdminOnlyMessage,
+} from './space-data-db-migration.constants';
+import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 
 type IDataDbCreateOptions = NonNullable<ICreateSpaceRo['dataDb']>;
+type IDataDbUpdateOptions = {
+  allowSpaceMigration?: boolean;
+};
 type IPreparedDataDbBinding = {
   encryptedUrl: string;
   urlFingerprint: string;
@@ -43,7 +52,8 @@ export class DataDbBindingService {
     private readonly preflightService: DataDbPreflightService,
     private readonly baselineService: DataDbBaselineService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly dataDbMigrationService?: DataDbMigrationService
+    @Optional() private readonly dataDbMigrationService?: DataDbMigrationService,
+    @Optional() private readonly spaceDataDbMigrationService?: SpaceDataDbMigrationService
   ) {}
 
   async createBindingForNewSpace(
@@ -187,7 +197,12 @@ export class DataDbBindingService {
     return applied;
   }
 
-  async updateBindingForSpace(spaceId: string, updatedBy: string, dataDb: IDataDbPreflightRo) {
+  async updateBindingForSpace(
+    spaceId: string,
+    updatedBy: string,
+    dataDb: IDataDbPreflightRo,
+    options: IDataDbUpdateOptions = {}
+  ) {
     if (!dataDb.url) {
       throw new CustomHttpException(dataDbUrlRequiredError, HttpErrorCode.VALIDATION_ERROR);
     }
@@ -199,6 +214,23 @@ export class DataDbBindingService {
     if (binding?.mode !== 'byodb' || !binding.dataDbConnection?.encryptedUrl) {
       if (dataDb.targetMode === adoptExistingTargetMode) {
         await this.createBindingForExistingSpace(spaceId, updatedBy, dataDb);
+        return;
+      }
+      if (dataDb.targetMode === migrateSpaceTargetMode) {
+        if (!options.allowSpaceMigration) {
+          throw new CustomHttpException(
+            spaceDataDbAdminOnlyMessage,
+            HttpErrorCode.RESTRICTED_RESOURCE,
+            { errorCode: spaceDataDbAdminOnlyErrorCode }
+          );
+        }
+        if (!this.spaceDataDbMigrationService) {
+          throw new CustomHttpException(
+            'Space data database migration service is unavailable',
+            HttpErrorCode.CONFLICT
+          );
+        }
+        await this.spaceDataDbMigrationService.startMigrationForSpace(spaceId, updatedBy, dataDb);
         return;
       }
 
