@@ -29,7 +29,7 @@ import {
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { normalizeField } from '@teable/v2-dottea';
+import { normalizeFields } from '@teable/v2-dottea';
 import { Knex } from 'knex';
 import type { Kysely } from 'kysely';
 import { groupBy, omit } from 'lodash';
@@ -281,12 +281,6 @@ export class BaseDuplicateService {
         crossBaseLinkFieldTableMap,
         disconnectedLinkFieldTableMap
       );
-      const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
-        sourceTableIdMap,
-        fromBaseId,
-        nodes,
-        skipParentNodes
-      );
       const container = await this.v2ContainerService.getContainerForSpace(spaceId);
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
@@ -320,7 +314,8 @@ export class BaseDuplicateService {
       const commandResult = DuplicateBaseCommand.createFromSource({
         baseId: base.id,
         source,
-        withRecords: false,
+        withRecords: Boolean(withRecords),
+        batchSize: v2DuplicateCopyBatchSize,
       });
       if (commandResult.isErr()) {
         throw new Error(commandResult.error.message);
@@ -360,32 +355,15 @@ export class BaseDuplicateService {
         structure,
         { tableIdMap, fieldIdMap, viewIdMap },
         duplicateMode,
-        onProgress,
-        { restoreEeResources: true }
+        onProgress
       );
       if (withRecords) {
-        recordsLength = await this.duplicateTableData(
-          base.id,
-          tableIdMap,
-          fieldIdMap,
-          viewIdMap,
-          mergedLinkFieldTableMap,
-          onProgress
-        );
         onProgress?.({
           phase: 'attachments_copying',
           processedRows: recordsLength,
           totalRows: recordsLength,
         });
         await this.duplicateAttachments(base.id, tableIdMap, fieldIdMap);
-        await this.duplicateLinkJunction(
-          base.id,
-          tableIdMap,
-          fieldIdMap,
-          allowCrossBase,
-          disconnectedLinkFieldIds
-        );
-        await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
         await this.backfillDuplicatedBaseComputedFields(
           container,
           context,
@@ -616,29 +594,13 @@ export class BaseDuplicateService {
     return {
       ...structure,
       tables: structure.tables.map((table) => {
-        const tableFieldTypesById = new Map(
-          table.fields
-            .filter((field) => field.id)
-            .map(
-              (field) =>
-                [
-                  field.id!,
-                  field.isConditionalLookup
-                    ? 'conditionalLookup'
-                    : field.isLookup
-                      ? 'lookup'
-                      : field.type,
-                ] as const
-            )
-        );
-
         return {
           ...table,
-          fields: table.fields.map((field) => {
-            const normalized = normalizeField(field as DotTeaFieldInput, tableFieldTypesById, {
-              availableTableIds,
-              fieldIdsByTableId,
-            });
+          fields: normalizeFields(table.fields as ReadonlyArray<DotTeaFieldInput>, {
+            availableTableIds,
+            fieldIdsByTableId,
+          }).map((normalized, index) => {
+            const field = table.fields[index]!;
             const normalizedField = { ...field, ...normalized };
 
             if (

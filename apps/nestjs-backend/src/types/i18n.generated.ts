@@ -257,6 +257,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "openLink": string;
             "share": string;
             "clear": string;
             "retry": string;

@@ -30,8 +30,10 @@ import {
   createField,
   createRecords,
   createTable,
+  convertField,
   deleteBase,
   deleteField,
+  getField,
   initApp,
   permanentDeleteTable,
 } from './utils/init-app';
@@ -445,6 +447,74 @@ describe('Computed user field (e2e)', () => {
         expect.objectContaining({ title: globalThis.testConfig.userName }),
       ]);
       expect(updatedRecord.data.fields[formulaField.id]).toContain(globalThis.testConfig.userName);
+    });
+
+    it('should refresh dependent formula after converting a user field to multiple users', async () => {
+      if (!isV2Mode) {
+        return;
+      }
+
+      const userField = await createField(table1.id, {
+        name: 'single-user-source',
+        type: FieldType.User,
+        options: {
+          isMultiple: false,
+          shouldNotify: false,
+        },
+      });
+
+      const formulaField = await createField(table1.id, {
+        name: 'user-formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${userField.id}}`,
+        },
+      });
+
+      expect(formulaField.isMultipleCellValue).not.toBe(true);
+
+      const recordId = table1.records[0].id;
+      await updateRecord(table1.id, recordId, {
+        record: {
+          fields: {
+            [userField.id]: globalThis.testConfig.userId,
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+      await processV2Outbox();
+
+      const singleUserRecord = await getRecord(table1.id, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(singleUserRecord.data.fields[userField.id]).toMatchObject({
+        title: globalThis.testConfig.userName,
+      });
+      expect(singleUserRecord.data.fields[formulaField.id]).toBe(globalThis.testConfig.userName);
+
+      await convertField(table1.id, userField.id, {
+        name: userField.name,
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          shouldNotify: false,
+        },
+      });
+      await processV2Outbox();
+
+      const refreshedFormulaField = await getField(table1.id, formulaField.id);
+      expect(refreshedFormulaField.isMultipleCellValue).toBe(true);
+
+      const multipleUserRecord = await getRecord(table1.id, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(multipleUserRecord.data.fields[userField.id]).toEqual([
+        expect.objectContaining({ title: globalThis.testConfig.userName }),
+      ]);
+      expect(multipleUserRecord.data.fields[formulaField.id]).toEqual([
+        globalThis.testConfig.userName,
+      ]);
     });
   });
 
