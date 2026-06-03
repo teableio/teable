@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type {
   IV2BaseSchemaIntegrityRepairRo,
@@ -41,6 +41,7 @@ import {
   type IExecutionContext,
   type ITracer,
   type ITableRepository,
+  type TableQueryState,
 } from '@teable/v2-core';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -67,9 +68,15 @@ const integrityFailureKindAttribute = 'teable.integrity.failure_kind';
 const integrityRuleIdAttribute = 'teable.integrity.rule_id';
 const integrityOutcomeAttribute = 'teable.integrity.outcome';
 const integrityRequiredAttribute = 'teable.integrity.required';
+// Physical schema integrity should not validate deleted tables or fields. The repository
+// hydrates only fields/views with deleted_time IS NULL for activeWithPending.
+const schemaIntegrityTableState: TableQueryState = 'activeWithPending';
+const slowIntegrityTableCheckMs = 10_000;
 
 @Injectable()
 export class IntegrityV2Service {
+  private readonly logger = new Logger(IntegrityV2Service.name);
+
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory
@@ -186,7 +193,12 @@ export class IntegrityV2Service {
     baseId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
+    const startedAt = Date.now();
+    this.logger.log(`Schema integrity base check target resolving started baseId=${baseId}`);
     const { tables, metaTables, db, schema } = await this.resolveBaseTarget(baseId);
+    this.logger.log(
+      `Schema integrity base check target resolving completed baseId=${baseId} tableCount=${tables.length} metaTableCount=${metaTables.length} elapsedMs=${Date.now() - startedAt}`
+    );
     const checker = createSchemaChecker({
       db,
       introspector: new PostgresSchemaIntrospector(db),
@@ -232,7 +244,7 @@ export class IntegrityV2Service {
     const tableResult = await tableRepository.findOne(
       context,
       TableByIdSpec.create(parsedTableId.value),
-      { state: 'all' }
+      { state: schemaIntegrityTableState }
     );
 
     if (tableResult.isErr()) {
@@ -247,7 +259,7 @@ export class IntegrityV2Service {
       const tablesResult = await tableRepository.find(
         context,
         TableByBaseIdSpec.create(table.baseId()),
-        { state: 'all' }
+        { state: schemaIntegrityTableState }
       );
 
       if (tablesResult.isErr()) {
@@ -289,7 +301,7 @@ export class IntegrityV2Service {
     const tablesResult = await tableRepository.find(
       context,
       TableByBaseIdSpec.create(parsedBaseId.value),
-      { state: 'all' }
+      { state: schemaIntegrityTableState }
     );
 
     if (tablesResult.isErr()) {
@@ -478,7 +490,9 @@ export class IntegrityV2Service {
       throw new HttpException(specResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const tablesResult = await tableRepository.find(context, specResult.value, { state: 'all' });
+    const tablesResult = await tableRepository.find(context, specResult.value, {
+      state: schemaIntegrityTableState,
+    });
     if (tablesResult.isErr()) {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -494,12 +508,28 @@ export class IntegrityV2Service {
     checker: ReturnType<typeof createSchemaChecker>,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    const baseId = table.baseId().toString();
+    const tableId = table.id().toString();
+    const tableName = table.name().toString();
+    const schemaStartedAt = Date.now();
+    this.logger.log(
+      `Schema integrity table schema check started baseId=${baseId} tableId=${tableId} tableName=${tableName}`
+    );
     yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    const schemaElapsedMs = Date.now() - schemaStartedAt;
+    this.logIntegrityPhaseCompleted('schema', baseId, tableId, tableName, schemaElapsedMs);
+
+    const metaStartedAt = Date.now();
+    this.logger.log(
+      `Schema integrity table meta check started baseId=${baseId} tableId=${tableId} tableName=${tableName}`
+    );
     yield* this.decorateMetaCheckStream(
       table,
       checkTableMetaWithTables(table, table.baseId(), allTables),
       statuses
     );
+    const metaElapsedMs = Date.now() - metaStartedAt;
+    this.logIntegrityPhaseCompleted('meta', baseId, tableId, tableName, metaElapsedMs);
   }
 
   private async *streamBaseChecks(
@@ -508,9 +538,25 @@ export class IntegrityV2Service {
     checker: ReturnType<typeof createSchemaChecker>,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    const baseId = tables[0]?.baseId().toString() ?? 'unknown';
+    const startedAt = Date.now();
+    this.logger.log(
+      `Schema integrity base check stream started baseId=${baseId} tableCount=${tables.length} metaTableCount=${metaTables.length}`
+    );
+    let checkedTables = 0;
     for (const table of tables) {
+      const tableStartedAt = Date.now();
+      this.logger.log(
+        `Schema integrity base check table started baseId=${baseId} tableId=${table.id().toString()} tableName=${table.name().toString()} index=${checkedTables + 1}/${tables.length}`
+      );
       yield* this.streamTableChecks(table, metaTables, checker, statuses);
+      checkedTables += 1;
+      const tableElapsedMs = Date.now() - tableStartedAt;
+      this.logIntegrityTableCompleted(baseId, table, checkedTables, tables.length, tableElapsedMs);
     }
+    this.logger.log(
+      `Schema integrity base check stream completed baseId=${baseId} tableCount=${tables.length} elapsedMs=${Date.now() - startedAt}`
+    );
   }
 
   private async *streamBaseRepairs(
@@ -787,6 +833,36 @@ export class IntegrityV2Service {
 
   private createScopedResultId(table: Table, id: string): string {
     return `${table.id().toString()}:${id}`;
+  }
+
+  private logIntegrityPhaseCompleted(
+    phase: 'schema' | 'meta',
+    baseId: string,
+    tableId: string,
+    tableName: string,
+    elapsedMs: number
+  ) {
+    const message = `Schema integrity table ${phase} check completed baseId=${baseId} tableId=${tableId} tableName=${tableName} elapsedMs=${elapsedMs}`;
+    if (elapsedMs >= slowIntegrityTableCheckMs) {
+      this.logger.warn(message);
+      return;
+    }
+    this.logger.log(message);
+  }
+
+  private logIntegrityTableCompleted(
+    baseId: string,
+    table: Table,
+    checkedTables: number,
+    tableCount: number,
+    elapsedMs: number
+  ) {
+    const message = `Schema integrity base check table completed baseId=${baseId} tableId=${table.id().toString()} tableName=${table.name().toString()} index=${checkedTables}/${tableCount} elapsedMs=${elapsedMs}`;
+    if (elapsedMs >= slowIntegrityTableCheckMs) {
+      this.logger.warn(message);
+      return;
+    }
+    this.logger.log(message);
   }
 
   private toMutableDetails(details?: SchemaRepairResult['details']) {

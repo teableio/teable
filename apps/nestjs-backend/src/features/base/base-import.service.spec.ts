@@ -1,6 +1,6 @@
 import type { Readable } from 'stream';
 import { DbFieldType, FieldType } from '@teable/core';
-import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
+import { BaseDuplicateMode, type IBaseJson, type ImportBaseRo } from '@teable/openapi';
 import type { RestoreRecordInput } from '@teable/v2-core';
 import archiver from 'archiver';
 import { vi } from 'vitest';
@@ -37,6 +37,24 @@ interface IProcessStructureService {
     onProgress?: (...args: unknown[]) => void
   ): Promise<unknown>;
   createBaseStructure: ReturnType<typeof vi.fn>;
+}
+
+interface IImportBaseV2Service {
+  importBaseV2(
+    importBaseRo: Pick<ImportBaseRo, 'spaceId' | 'notify'>,
+    onProgress?: (...args: unknown[]) => void
+  ): Promise<unknown>;
+  storageAdapter: unknown;
+  readDotTeaStructure: ReturnType<typeof vi.fn>;
+  v2ContainerService: unknown;
+  v2ContextFactory: unknown;
+  createBaseV2: ReturnType<typeof vi.fn>;
+  restoreBaseExtrasV2: ReturnType<typeof vi.fn>;
+  importAttachmentsV2: ReturnType<typeof vi.fn>;
+  importTableDataV2: ReturnType<typeof vi.fn>;
+  importTableLinkFieldsV2: ReturnType<typeof vi.fn>;
+  audit: unknown;
+  cls: unknown;
 }
 
 const dbTableName = 'bse_test.tbl_test';
@@ -185,6 +203,101 @@ describe('BaseImportService', () => {
       });
       expect(routedExecute).toHaveBeenCalledWith('CREATE SCHEMA "bseImported"');
       expect(fallbackExecute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('importBaseV2', () => {
+    it('restores edition extras during dottea import and returns their id maps', async () => {
+      const tableIdMap = { tblSource: 'tblImported' };
+      const fieldIdMap = { fldSource: 'fldImported' };
+      const viewIdMap = { viwSource: 'viwImported' };
+      const appIdMap = { appSource: 'appImported' };
+      const workflowIdMap = { wflSource: 'wflImported' };
+      const commandBus = {
+        execute: vi.fn().mockResolvedValue({
+          isErr: () => false,
+          value: {
+            tableIdMap,
+            fieldIdMap,
+            viewIdMap,
+          },
+        }),
+      };
+      const queryBus = {};
+      const tableRecordRepository = {};
+      const unitOfWork = {};
+      const db = {};
+      const context = {};
+      const container = {
+        resolve: vi.fn((token: unknown) => {
+          const tokenText = String(token);
+          if (tokenText.includes('commandBus')) return commandBus;
+          if (tokenText.includes('queryBus')) return queryBus;
+          if (tokenText.includes('tableRecordRepository')) return tableRecordRepository;
+          if (tokenText.includes('unitOfWork')) return unitOfWork;
+          return db;
+        }),
+      };
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        icon: 'icon',
+        tables: [],
+        plugins: {},
+        folders: [],
+        nodes: [],
+      } as unknown as IBaseJson;
+      const importedBase = { id: 'bseImported', name: 'Source base', spaceId: 'spcImport' };
+      const service = Object.create(BaseImportService.prototype) as IImportBaseV2Service;
+
+      service.storageAdapter = {
+        downloadFile: vi.fn().mockReturnValue({}),
+      };
+      service.readDotTeaStructure = vi.fn().mockResolvedValue(structure);
+      service.v2ContainerService = {
+        getContainerForSpace: vi.fn().mockResolvedValue(container),
+      };
+      service.v2ContextFactory = {
+        createContext: vi.fn().mockResolvedValue(context),
+      };
+      service.createBaseV2 = vi.fn().mockResolvedValue(importedBase);
+      service.restoreBaseExtrasV2 = vi.fn().mockResolvedValue({ appIdMap, workflowIdMap });
+      service.importAttachmentsV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableDataV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableLinkFieldsV2 = vi.fn().mockResolvedValue(undefined);
+      service.audit = {
+        withOperation: vi.fn((_resolved, run: () => Promise<unknown>) => run()),
+      };
+      service.cls = {
+        get: vi.fn().mockReturnValue('usrImport'),
+      };
+
+      await expect(
+        service.importBaseV2({
+          spaceId: 'spcImport',
+          notify: { path: 'import.tea' } as ImportBaseRo['notify'],
+        })
+      ).resolves.toMatchObject({
+        base: importedBase,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        appIdMap,
+        workflowIdMap,
+        baseIdMap: { [structure.id]: importedBase.id },
+      });
+
+      expect(service.restoreBaseExtrasV2).toHaveBeenCalledWith(
+        db,
+        importedBase.id,
+        structure,
+        { tableIdMap, fieldIdMap, viewIdMap },
+        BaseDuplicateMode.Normal,
+        undefined
+      );
+      expect(commandBus.execute).toHaveBeenCalledTimes(1);
+      expect(service.importTableDataV2).toHaveBeenCalledTimes(1);
+      expect(service.importTableLinkFieldsV2).toHaveBeenCalledTimes(1);
     });
   });
 
