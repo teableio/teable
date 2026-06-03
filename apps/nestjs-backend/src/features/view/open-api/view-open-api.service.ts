@@ -33,14 +33,13 @@ import {
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, PluginStatus } from '@teable/openapi';
+import { PluginPosition, PluginStatus, IViewShareMetaRo } from '@teable/openapi';
 import type {
   IViewPluginUpdateStorageRo,
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
   IViewInstallPluginRo,
-  IViewShareMetaRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, pick } from 'lodash';
@@ -57,6 +56,8 @@ import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { FieldViewSyncService } from '../../field/field-calculate/field-view-sync.service';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
@@ -78,6 +79,7 @@ export class ViewOpenApiService {
     private readonly fieldViewSyncService: FieldViewSyncService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly audit: AuditScope,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -289,6 +291,21 @@ export class ViewOpenApiService {
     }
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_UPDATE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) => ({
+      tableId,
+      viewId,
+      // Mirror base-share masking: never log the plaintext share password — record only whether
+      // one was set. (IViewShareMetaRo.password is optional and was previously stored verbatim.)
+      shareMeta: {
+        ...viewShareMetaRo,
+        password: viewShareMetaRo.password !== undefined ? '[set]' : undefined,
+      },
+    }),
+    emit: true,
+  })
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
     return this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
@@ -803,6 +820,12 @@ export class ViewOpenApiService {
     }
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_REFRESH,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId }),
+    emit: (result: { shareId: string }) => ({ shareId: result.shareId }),
+  })
   async refreshShareId(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
@@ -841,6 +864,12 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_CREATE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId, enabled: true }),
+    emit: (result: { shareId: string }) => ({ shareId: result.shareId }),
+  })
   async enableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
@@ -894,6 +923,12 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_DELETE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId, enabled: false }),
+    emit: true,
+  })
   async disableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },

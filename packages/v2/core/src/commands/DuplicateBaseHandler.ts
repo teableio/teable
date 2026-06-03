@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
@@ -21,6 +21,7 @@ import type { IExecutionContext } from '../ports/ExecutionContext';
 import type {
   InsertManyStreamBatch,
   RecordRestoreSystemValues,
+  UpdateManyStreamBatchInput,
 } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -151,6 +152,19 @@ export class DuplicateBaseHandler
             if (event.id === 'progress' && event.phase === 'table_data_done') {
               recordsLength += event.processedRows ?? 0;
             }
+          }
+        }
+
+        for (const table of command.source.structure.tables) {
+          const targetTable = tablesBySourceId.get(table.id ?? '');
+          if (!targetTable || !table.id) continue;
+
+          for await (const event of this.restoreLinkFieldsStream(context, command, {
+            sourceTableId: table.id,
+            targetTable,
+            fieldIdMap: result.fieldIdMap,
+          })) {
+            yield event;
           }
         }
       }
@@ -372,7 +386,8 @@ export class DuplicateBaseHandler
       command.source.records(params.sourceTableId),
       params.fieldIdMap,
       params.viewIdMap,
-      command.batchSize
+      command.batchSize,
+      this.getSourceLinkFieldIds(command, params.sourceTableId)
     )) {
       const currentBatchIndex = batchIndex;
       const result = await this.unitOfWork.withTransaction(context, async (transactionContext) =>
@@ -381,8 +396,7 @@ export class DuplicateBaseHandler
           params.targetTable,
           [batch],
           {
-            deferComputedUpdates: true,
-            enqueueDeferredComputedUpdates: true,
+            skipComputedUpdates: true,
           }
         )
       );
@@ -413,23 +427,103 @@ export class DuplicateBaseHandler
     };
   }
 
+  private async *restoreLinkFieldsStream(
+    context: IExecutionContext,
+    command: DuplicateBaseCommand,
+    params: {
+      sourceTableId: string;
+      targetTable: Table;
+      fieldIdMap: Record<string, string>;
+    }
+  ): AsyncGenerator<DuplicateBaseEvent> {
+    const sourceLinkFieldIds = this.getSourceLinkFieldIds(command, params.sourceTableId);
+    if (!sourceLinkFieldIds.size) {
+      return;
+    }
+
+    const result = await this.unitOfWork.withTransaction(context, async (transactionContext) =>
+      this.tableRecordRepository.updateManyStream(
+        transactionContext,
+        params.targetTable,
+        this.buildLinkUpdateBatches(
+          params.targetTable,
+          command.source.records(params.sourceTableId),
+          params.fieldIdMap,
+          sourceLinkFieldIds,
+          command.batchSize
+        ),
+        {
+          skipComputedUpdates: true,
+          fillLinkTitles: true,
+        }
+      )
+    );
+    if (result.isErr()) {
+      yield this.errorEvent(result.error);
+    }
+  }
+
   private async *buildInsertBatches(
     table: Table,
     records: AsyncIterable<DuplicateBaseRecordInput>,
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
-    batchSize: number
+    batchSize: number,
+    excludedSourceFieldIds: ReadonlySet<string> = new Set()
   ): AsyncGenerator<InsertManyStreamBatch> {
     let batch: DuplicateBaseRecordInput[] = [];
     for await (const record of records) {
       batch.push(record);
       if (batch.length >= batchSize) {
-        yield this.toInsertBatch(table, batch, fieldIdMap, viewIdMap);
+        yield this.toInsertBatch(table, batch, fieldIdMap, viewIdMap, excludedSourceFieldIds);
         batch = [];
       }
     }
     if (batch.length > 0) {
-      yield this.toInsertBatch(table, batch, fieldIdMap, viewIdMap);
+      yield this.toInsertBatch(table, batch, fieldIdMap, viewIdMap, excludedSourceFieldIds);
+    }
+  }
+
+  private async *buildLinkUpdateBatches(
+    table: Table,
+    records: AsyncIterable<DuplicateBaseRecordInput>,
+    fieldIdMap: Record<string, string>,
+    sourceLinkFieldIds: ReadonlySet<string>,
+    batchSize: number
+  ): AsyncGenerator<Result<UpdateManyStreamBatchInput, DomainError>> {
+    let batch: Array<{ recordId: RecordId; fieldValues: Map<string, unknown> }> = [];
+    for await (const record of records) {
+      const fieldValues = new Map<string, unknown>();
+      for (const [sourceFieldId, rawValue] of Object.entries(record.fields)) {
+        if (!sourceLinkFieldIds.has(sourceFieldId)) continue;
+        const targetFieldId = fieldIdMap[sourceFieldId];
+        if (targetFieldId) {
+          fieldValues.set(targetFieldId, rawValue);
+        }
+      }
+      if (!fieldValues.size) continue;
+      if (!record.recordId) {
+        yield err(
+          domainError.validation({
+            code: 'duplicate_base.record_id_required',
+            message: 'Duplicate base link restore requires record ids in source records',
+          })
+        );
+        return;
+      }
+      const recordId = RecordId.create(record.recordId);
+      if (recordId.isErr()) {
+        yield err(recordId.error);
+        return;
+      }
+      batch.push({ recordId: recordId.value, fieldValues });
+      if (batch.length >= batchSize) {
+        yield* table.updateRecordsStream(batch, { typecast: false, batchSize });
+        batch = [];
+      }
+    }
+    if (batch.length > 0) {
+      yield* table.updateRecordsStream(batch, { typecast: false, batchSize });
     }
   }
 
@@ -437,9 +531,12 @@ export class DuplicateBaseHandler
     table: Table,
     batch: ReadonlyArray<DuplicateBaseRecordInput>,
     fieldIdMap: Record<string, string>,
-    viewIdMap: Record<string, string>
+    viewIdMap: Record<string, string>,
+    excludedSourceFieldIds: ReadonlySet<string> = new Set()
   ): InsertManyStreamBatch {
-    const records = batch.map((record) => this.toTableRecord(table, record, fieldIdMap));
+    const records = batch.map((record) =>
+      this.toTableRecord(table, record, fieldIdMap, excludedSourceFieldIds)
+    );
     return {
       records,
       restoreRecordsById: new Map(
@@ -454,11 +551,13 @@ export class DuplicateBaseHandler
   private toTableRecord(
     table: Table,
     record: DuplicateBaseRecordInput,
-    fieldIdMap: Record<string, string>
+    fieldIdMap: Record<string, string>,
+    excludedSourceFieldIds: ReadonlySet<string> = new Set()
   ): TableRecord {
     const recordIdResult = record.recordId ? RecordId.create(record.recordId) : RecordId.generate();
     if (recordIdResult.isErr()) throw recordIdResult.error;
     const fieldValues = Object.entries(record.fields).flatMap(([sourceFieldId, rawValue]) => {
+      if (excludedSourceFieldIds.has(sourceFieldId)) return [];
       const targetFieldId = fieldIdMap[sourceFieldId];
       if (!targetFieldId) return [];
       const fieldId = FieldId.create(targetFieldId);
@@ -474,6 +573,18 @@ export class DuplicateBaseHandler
     });
     if (tableRecord.isErr()) throw tableRecord.error;
     return tableRecord.value;
+  }
+
+  private getSourceLinkFieldIds(
+    command: DuplicateBaseCommand,
+    sourceTableId: string
+  ): ReadonlySet<string> {
+    const sourceTable = command.source.structure.tables.find((table) => table.id === sourceTableId);
+    return new Set(
+      sourceTable?.fields.flatMap((field) =>
+        field.id && field.type === 'link' ? [field.id] : []
+      ) ?? []
+    );
   }
 
   private toRestoreValues(
