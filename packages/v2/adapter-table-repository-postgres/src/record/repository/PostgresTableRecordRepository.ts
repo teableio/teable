@@ -111,6 +111,9 @@ const isTrackedLastModifiedField = (field: core.Field): boolean => {
   );
 };
 
+const hasLastModifiedByField = (table: core.Table): boolean =>
+  table.getFields().some((field) => field.type().equals(core.FieldType.lastModifiedBy()));
+
 const buildDistinctUserFieldWhere = (
   table: core.Table,
   setClauses: Record<string, unknown>
@@ -947,6 +950,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     return this.resolveActorIdentity(db, userId, fallback);
   }
 
+  private async resolveUpdateActorIdentity(
+    context: core.IExecutionContext,
+    table: core.Table,
+    actorId: string,
+    actorContext: ActorIdentity
+  ): Promise<ActorIdentity> {
+    if (!hasLastModifiedByField(table) || actorContext.actorName != null) {
+      return actorContext;
+    }
+
+    return this.resolveActorIdentity(this.resolveMetaDb(context), actorId, actorContext);
+  }
+
   async insert(
     context: core.IExecutionContext,
     table: core.Table,
@@ -1750,6 +1766,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Use transaction-aware database connection
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
@@ -1762,8 +1784,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context: {
               actorId,
               now,
-              actorName: actorContext.actorName,
-              actorEmail: actorContext.actorEmail,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
               ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
               ...(options?.fillLinkTitleForeignTables
                 ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
@@ -1914,13 +1936,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const deferComputed = !skipComputed && (options?.deferComputedUpdates ?? false);
         const enqueueDeferredComputedUpdates =
           deferComputed && (options?.enqueueDeferredComputedUpdates ?? false);
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
 
         const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
           recordId: '__bulk_update__',
           actorId,
           now,
-          actorName: actorContext.actorName,
-          actorEmail: actorContext.actorEmail,
+          actorName: actorIdentity.actorName,
+          actorEmail: actorIdentity.actorEmail,
           ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
           ...(options?.fillLinkTitleForeignTables
             ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
@@ -2145,6 +2173,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const deferComputed = !skipComputed && (options?.deferComputedUpdates ?? false);
         const enqueueDeferredComputedUpdates =
           deferComputed && (options?.enqueueDeferredComputedUpdates ?? false);
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
         const normalizeBatch = (
           batch: core.UpdateManyStreamBatchInput
         ): { batchTable: core.Table; updates: ReadonlyArray<core.RecordUpdateResult> } =>
@@ -2197,8 +2231,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context: {
               actorId: context.actorId.toString(),
               now,
-              actorName: actorContext.actorName,
-              actorEmail: actorContext.actorEmail,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
               ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
               ...(options?.fillLinkTitleForeignTables
                 ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }

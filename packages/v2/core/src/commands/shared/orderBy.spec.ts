@@ -157,7 +157,7 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('keeps view row order ahead of auto number for range-command tie breaking', () => {
+  it('uses the list-query tie breaker for range-command row offsets', () => {
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
     const merged = mergeOrderByWithViewRowTieBreaker(undefined, sortBy, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
@@ -166,11 +166,6 @@ describe('orderBy helpers', () => {
           "direction": "desc",
           "fieldId": "fld0000000000000002",
           "type": "field",
-        },
-        {
-          "column": "__row_viw0000000000000001",
-          "direction": "asc",
-          "type": "column",
         },
         {
           "column": "__auto_number",

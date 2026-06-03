@@ -2053,7 +2053,7 @@ export class RecordService {
       },
       useQueryModel
     );
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(
+    const { queryBuilder, dbTableName, alias } = await this.buildFilterSortQuery(
       tableId,
       {
         ...query,
@@ -2061,7 +2061,9 @@ export class RecordService {
       },
       useQueryModel
     );
-    // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
+    // This path only needs record IDs. Avoid evaluating display projections such as
+    // CreatedBy user lookups, which may reference meta-plane tables outside BYODB.
+    queryBuilder.clearSelect().select(`${alias}.__id`);
 
     skip && queryBuilder.offset(skip);
     if (take !== -1) {

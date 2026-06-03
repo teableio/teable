@@ -6,7 +6,7 @@ import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repos
 import { TableByIdSpec, v2CoreTokens } from '@teable/v2-core';
 import { GlobalModule } from '../../global/global.module';
 import { BaseDuplicateService } from './base-duplicate.service';
-import type { BaseImportProgressCallback, IBaseImportProgress } from './base-import.service';
+import type { IBaseImportProgress } from './base-import.service';
 import { BaseModule } from './base.module';
 import type { ILinkFieldTableMap } from './utils';
 
@@ -160,7 +160,6 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     buildDuplicateStructureConfig: (...args: unknown[]) => Promise<unknown>;
     getCrossBaseLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
     getDisconnectedLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
-    getDisconnectedLinkFieldIds: (...args: unknown[]) => Promise<string[]>;
     normalizeDuplicateStructureForV2: (structure: unknown) => unknown;
     createDuplicateBaseSource: (...args: unknown[]) => {
       records(tableId: string): AsyncIterable<{ fields: Record<string, unknown> }>;
@@ -231,9 +230,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
       {} as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -245,7 +244,6 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     });
     vi.spyOn(internals, 'getCrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
 
@@ -267,7 +265,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     expect(commandBus.execute).toHaveBeenCalledWith(context, expect.any(Object));
   });
 
-  it('should create v2 structure first and copy records with raw table duplication', async () => {
+  it('should copy records through the v2 duplicate command stream', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
     const tableIdMap = { tblSource: 'tblTarget' };
@@ -296,7 +294,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
             tableIdMap,
             fieldIdMap,
             viewIdMap,
-            recordsLength: 0,
+            recordsLength: 12,
           };
         })(),
       }),
@@ -335,10 +333,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       persistedComputedBackfillService as unknown as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      dataDbClientManager as unknown as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      dataDbClientManager as unknown as IServiceArgs[8],
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const mergedLinkFieldTableMap = {
@@ -353,7 +351,6 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue(
       mergedLinkFieldTableMap
     );
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue(['fldDisconnected']);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
     vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
@@ -368,24 +365,20 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: true,
     });
 
-    const executedCommand = commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean };
-    expect(executedCommand.withRecords).toBe(false);
-    expect(internals.duplicateTableData).toHaveBeenCalledWith(
+    const executedCommand = commandBus.execute.mock.calls[0]?.[1] as {
+      withRecords: boolean;
+      batchSize: number;
+    };
+    expect(executedCommand.withRecords).toBe(true);
+    expect(executedCommand.batchSize).toBe(500);
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
+    expect(persistedComputedBackfillService.recomputeForTables).not.toHaveBeenCalled();
+    expect(internals.duplicateAttachments).toHaveBeenCalledWith(
       targetBaseId,
       tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      mergedLinkFieldTableMap,
-      undefined
+      fieldIdMap
     );
-    expect(internals.duplicateLinkJunction).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap,
-      true,
-      ['fldDisconnected']
-    );
-    expect(persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledWith(['tblTarget']);
     expect(internals.backfillDuplicatedBaseComputedFields).toHaveBeenCalledWith(
       container,
       context,
@@ -474,12 +467,34 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         isErr: () => false,
         value: (async function* () {
           yield {
+            id: 'progress',
+            phase: 'table_data_start',
+            processedRows: 0,
+            totalRows: 12,
+          };
+          yield {
+            id: 'progress',
+            phase: 'table_data_progress',
+            tableId: 'tblTarget',
+            tableName: sourceTableName,
+            processedRows: 5,
+            batchProcessedRows: 5,
+            currentBatch: 1,
+            totalRows: 12,
+          };
+          yield {
+            id: 'progress',
+            phase: 'table_data_done',
+            processedRows: 12,
+            totalRows: 12,
+          };
+          yield {
             id: 'done',
             baseId: targetBaseId,
             tableIdMap,
             fieldIdMap,
             viewIdMap,
-            recordsLength: 0,
+            recordsLength: 12,
           };
         })(),
       }),
@@ -517,10 +532,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       persistedComputedBackfillService as unknown as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      dataDbClientManager as unknown as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      dataDbClientManager as unknown as IServiceArgs[8],
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const progressEvents: unknown[] = [];
@@ -531,24 +546,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     });
     vi.spyOn(internals, 'getCrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
-    vi.spyOn(internals, 'duplicateTableData').mockImplementation(async (...args: unknown[]) => {
-      const onProgress = args[5] as BaseImportProgressCallback | undefined;
-      onProgress?.({ phase: 'table_data_start', processedRows: 0, totalRows: 12 });
-      onProgress?.({
-        phase: 'table_data_progress',
-        tableId: 'tblTarget',
-        tableName: sourceTableName,
-        processedRows: 5,
-        batchProcessedRows: 5,
-        currentBatch: 1,
-        totalRows: 12,
-      });
-      onProgress?.({ phase: 'table_data_done', processedRows: 12, totalRows: 12 });
-      return 12;
-    });
+    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
     vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
     vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
     vi.spyOn(internals, 'backfillDuplicatedBaseComputedFields').mockResolvedValue(undefined);
@@ -565,14 +565,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    expect(internals.duplicateTableData).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      {},
-      expect.any(Function)
-    );
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
     expect(progressEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: 'table_data_start', processedRows: 0, totalRows: 12 }),
@@ -661,10 +654,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       knex as unknown as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
-      } as unknown as IServiceArgs[9],
+      } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
     );
@@ -724,10 +717,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
-      } as unknown as IServiceArgs[9],
+      } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
     );

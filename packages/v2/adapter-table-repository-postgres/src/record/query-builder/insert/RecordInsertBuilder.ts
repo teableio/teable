@@ -6,7 +6,7 @@ import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { buildUserAvatarUrl, resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
+import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
@@ -105,12 +105,12 @@ export interface RecordInsertDataResult {
   exclusivityConstraints: InsertExclusivityConstraint[];
   /** Extra seed records for computed update locking (foreign records being linked to) */
   extraSeedRecords: InsertExtraSeedGroup[];
-  /** User fields that need to be populated via subquery during INSERT */
+  /** User snapshot fields populated from the execution context during INSERT */
   userFieldColumns: UserFieldColumn[];
 }
 
 /**
- * Describes a user field column that needs to be populated with user object.
+ * Describes a system user field snapshot column.
  */
 export interface UserFieldColumn {
   /** The database column name */
@@ -651,13 +651,7 @@ export class RecordInsertBuilder {
     });
   }
 
-  /**
-   *
-   * @param tableName - The fully qualified table name (schema.table)
-   * @param recordId - The record ID to update
-   * @param userFieldColumns - List of user field columns to populate
-   * @returns A compiled UPDATE statement, or undefined if no user fields
-   */
+  /** @deprecated System user field snapshots are populated during INSERT from execution context. */
   static buildUserFieldUpdateStatement(
     db: Kysely<DynamicDB>,
     tableName: string,
@@ -668,32 +662,15 @@ export class RecordInsertBuilder {
       return undefined;
     }
 
-    // Build SET clause with subqueries for each user field
-    // Use COALESCE to provide a fallback when user doesn't exist in users table
     const setValues: Record<string, unknown> = {};
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
 
     for (const { dbFieldName, systemColumn } of userFieldColumns) {
-      // Use raw SQL to build the subquery expression for user object
-      const userSubquery = sql`COALESCE(
-        (
-          SELECT jsonb_build_object(
-            'id', u.id,
-            'title', u.name,
-            'email', u.email,
-            'avatarUrl', ${avatarPrefix} || u.id
-          )
-          FROM public.users u
-          WHERE u.id = ${sql.ref(systemColumn)}
-        ),
-        jsonb_build_object(
-          'id', ${sql.ref(systemColumn)},
-          'title', ${sql.ref(systemColumn)},
-          'email', NULL::text,
-          'avatarUrl', ${avatarPrefix} || ${sql.ref(systemColumn)}
-        )
+      setValues[dbFieldName] = sql`jsonb_build_object(
+        'id', ${sql.ref(systemColumn)},
+        'title', ${sql.ref(systemColumn)},
+        'email', NULL::text,
+        'avatarUrl', '/api/attachments/read/public/avatar/'::text || ${sql.ref(systemColumn)}
       )`;
-      setValues[dbFieldName] = userSubquery;
     }
 
     const updateQuery = db
