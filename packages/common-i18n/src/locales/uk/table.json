@@ -850,6 +850,7 @@
     "noPermission": "У вас немає дозволів на доступ до бази даних",
     "connectionCountTip": "Максимальна кількість підключень до бази даних - <b>{{max}}</b>, поточна кількість підключень - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, переконайтеся, що змінне середовище PUBLIC_DATABASE_PROXY встановлено правильно",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {

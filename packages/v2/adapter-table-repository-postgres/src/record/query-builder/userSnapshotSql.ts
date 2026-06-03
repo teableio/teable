@@ -1,0 +1,74 @@
+import { sql, type RawBuilder } from 'kysely';
+
+const scalarTextFromJsonSql = (jsonExpr: string): string => `(${jsonExpr} #>> '{}')`;
+
+const buildUserSnapshotObjectSql = (snapshotRef: string): string => {
+  const snapshotJson = `to_jsonb(${snapshotRef})`;
+  const scalarText = scalarTextFromJsonSql(snapshotJson);
+  return `(CASE
+    WHEN ${snapshotRef} IS NULL THEN NULL::jsonb
+    WHEN jsonb_typeof(${snapshotJson}) = 'object' THEN ${snapshotJson}
+    ELSE jsonb_build_object('id', ${scalarText}, 'title', ${scalarText})
+  END)`;
+};
+
+export const buildUserTitleFromSnapshotSql = (
+  snapshotRef: string,
+  idFallbackRef?: string
+): string => {
+  const snapshotObject = buildUserSnapshotObjectSql(snapshotRef);
+  const fallback = idFallbackRef ?? `${snapshotObject}->>'id'`;
+  return `COALESCE(${snapshotObject}->>'title', ${snapshotObject}->>'name', ${snapshotObject}->>'id', ${fallback})`;
+};
+
+export const buildUserJsonObjectFromSnapshotSql = (
+  snapshotRef: string,
+  idFallbackRef?: string
+): string => {
+  const snapshotObject = buildUserSnapshotObjectSql(snapshotRef);
+  const fallback = idFallbackRef ?? `${snapshotObject}->>'id'`;
+  const fallbackIsNull = idFallbackRef ? `${idFallbackRef} IS NULL` : 'TRUE';
+  return `jsonb_strip_nulls(
+    CASE
+      WHEN ${snapshotObject} IS NULL AND ${fallbackIsNull} THEN NULL::jsonb
+      ELSE COALESCE(
+        ${snapshotObject},
+        jsonb_build_object('id', ${fallback}, 'title', ${fallback})
+      ) || jsonb_build_object(
+        'id', COALESCE(${snapshotObject}->>'id', ${fallback}),
+        'title', COALESCE(${snapshotObject}->>'title', ${snapshotObject}->>'name', ${snapshotObject}->>'id', ${fallback})
+      )
+    END
+  )`;
+};
+
+const buildUserSnapshotObjectExpr = (snapshotExpr: RawBuilder<unknown>): RawBuilder<unknown> => {
+  const snapshotJson = sql`to_jsonb(${snapshotExpr})`;
+  const scalarText = sql`${snapshotJson} #>> '{}'`;
+  return sql`(CASE
+    WHEN ${snapshotExpr} IS NULL THEN NULL::jsonb
+    WHEN jsonb_typeof(${snapshotJson}) = 'object' THEN ${snapshotJson}
+    ELSE jsonb_build_object('id', ${scalarText}, 'title', ${scalarText})
+  END)`;
+};
+
+export const buildUserJsonObjectFromSnapshotExpr = (
+  snapshotExpr: RawBuilder<unknown>,
+  idFallbackExpr?: RawBuilder<unknown>
+): RawBuilder<unknown> => {
+  const snapshotObject = buildUserSnapshotObjectExpr(snapshotExpr);
+  const fallback = idFallbackExpr ?? sql`${snapshotObject}->>'id'`;
+  const fallbackIsNull = idFallbackExpr ? sql`${idFallbackExpr} IS NULL` : sql`TRUE`;
+  return sql`jsonb_strip_nulls(
+    CASE
+      WHEN ${snapshotObject} IS NULL AND ${fallbackIsNull} THEN NULL::jsonb
+      ELSE COALESCE(
+        ${snapshotObject},
+        jsonb_build_object('id', ${fallback}, 'title', ${fallback})
+      ) || jsonb_build_object(
+        'id', COALESCE(${snapshotObject}->>'id', ${fallback}),
+        'title', COALESCE(${snapshotObject}->>'title', ${snapshotObject}->>'name', ${snapshotObject}->>'id', ${fallback})
+      )
+    END
+  )`;
+};

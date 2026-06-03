@@ -28,8 +28,11 @@ import { DbFieldType, FieldType, isLinkLookupOptions, DriverClient } from '@teab
 // no driver-specific logic here; use dialect for differences
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
-import { AUTO_NUMBER_FIELD_NAME } from '../../field/constant';
-import { isSystemUserField } from '../../field/fields-utils';
+import {
+  AUTO_NUMBER_FIELD_NAME,
+  CREATED_BY_FIELD_NAME,
+  LAST_MODIFIED_BY_FIELD_NAME,
+} from '../../field/constant';
 import type { IFieldSelectName } from './field-select.type';
 import type {
   IRecordSelectionMap,
@@ -174,6 +177,18 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     return selector;
   }
 
+  private selectSystemUserSnapshot(
+    field: FieldCore,
+    systemColumnName: typeof CREATED_BY_FIELD_NAME | typeof LAST_MODIFIED_BY_FIELD_NAME
+  ): IFieldSelectName {
+    const snapshotRef = this.getColumnSelector(field) as string;
+    const alias = this.tableAlias;
+    const idFallbackRef = alias ? `"${alias}"."${systemColumnName}"` : `"${systemColumnName}"`;
+    const expr = this.dialect.buildUserJsonObjectFromSnapshot(snapshotRef, idFallbackRef);
+    this.state.setSelection(field.id, expr);
+    return this.qb.client.raw(expr);
+  }
+
   // Typed NULL generation is delegated to the dialect implementation
 
   /**
@@ -187,12 +202,6 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // Lookup has no standard column in base table.
       // When building from a materialized view, fallback to the view's column.
       if (this.shouldSelectRaw()) {
-        if (isSystemUserField(field) && !field.isLookup) {
-          const columnSelector = this.getColumnSelector(field) as string;
-          const expr = this.dialect.buildUserJsonObjectById(columnSelector);
-          this.state.setSelection(field.id, expr);
-          return this.qb.client.raw(expr);
-        }
         const columnSelector = this.getColumnSelector(field);
         this.state.setSelection(field.id, columnSelector);
         return columnSelector;
@@ -631,12 +640,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isLookup) {
       return this.checkAndSelectLookupField(field);
     }
-    // Build JSON with user info from system column __created_by
-    const alias = this.tableAlias;
-    const idRef = alias ? `"${alias}"."__created_by"` : `"__created_by"`;
-    const expr = this.dialect.buildUserJsonObjectById(idRef);
-    this.state.setSelection(field.id, expr);
-    return this.qb.client.raw(expr);
+
+    return this.selectSystemUserSnapshot(field, CREATED_BY_FIELD_NAME);
   }
 
   visitLastModifiedByField(field: LastModifiedByFieldCore): IFieldSelectName {
@@ -646,12 +651,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const trackAll = field.isTrackAll();
     if (trackAll) {
-      // Build JSON with user info from system column __last_modified_by
-      const alias = this.tableAlias;
-      const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
-      const expr = this.dialect.buildUserJsonObjectById(idRef);
-      this.state.setSelection(field.id, expr);
-      return this.qb.client.raw(expr);
+      return this.selectSystemUserSnapshot(field, LAST_MODIFIED_BY_FIELD_NAME);
     }
 
     return this.checkAndSelectLookupField(field);
