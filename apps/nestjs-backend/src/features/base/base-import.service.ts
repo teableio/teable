@@ -1,5 +1,5 @@
 import type { Readable } from 'stream';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DbFieldType,
@@ -76,6 +76,7 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -181,8 +182,19 @@ export class BaseImportService {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
 
   private async getMaxOrder(spaceId: string) {
     const spaceAggregate = await this.prismaService.txClient().base.aggregate({
@@ -198,6 +210,7 @@ export class BaseImportService {
     icon?: string,
     routingOptions?: IDataDbRoutingOptions
   ) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
     const order = (await this.getMaxOrder(spaceId)) + 1;
 
@@ -259,7 +272,9 @@ export class BaseImportService {
     updateExistingBase: boolean = true
   ): Promise<ICreateBaseVo> {
     const userId = this.cls.get('user.id');
+    await this.assertSpaceWritable(spaceId);
     if (baseId) {
+      await this.assertBaseWritable(baseId);
       const existingResult = await sql<{
         id: string;
         name: string;
@@ -351,8 +366,10 @@ export class BaseImportService {
   })
   async importBase(importBaseRo: ImportBaseRo, onProgress?: BaseImportProgressCallback) {
     const {
+      spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
     const logId = this.audit.current()!.operationId;
 
     onProgress?.('parsing_structure');
@@ -418,6 +435,7 @@ export class BaseImportService {
       spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
 
     onProgress?.('importing_v2');
     onProgress?.('parsing_structure');
@@ -473,7 +491,7 @@ export class BaseImportService {
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
 
     onProgress?.('structure_created', base.id);
-    await this.restoreBaseExtrasV2(
+    const { appIdMap, workflowIdMap } = await this.restoreBaseExtrasV2(
       db,
       base.id,
       structure,
@@ -512,6 +530,15 @@ export class BaseImportService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
+      appIdMap,
+      workflowIdMap,
+      // Source->new base id, so EE import can rewrite base-id references baked into app
+      // build artifacts (matches the v1 import/duplicate idMap; v2 dropped it).
+      baseIdMap: { [structure.id]: base.id },
+    } as IImportBaseVo & {
+      appIdMap: Record<string, string>;
+      workflowIdMap: Record<string, string>;
+      baseIdMap: Record<string, string>;
     };
   }
 
@@ -525,8 +552,7 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback,
-    options?: { restoreEeResources?: boolean }
+    onProgress?: BaseImportProgressCallback
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -545,20 +571,17 @@ export class BaseImportService {
       ));
     }
 
-    // Restore edition-specific resources (apps / workflows / authority matrix) and collect their
-    // id maps so the matching base_node rows can be remapped below. Community has none, so the
-    // hook is a no-op; the EE subclass overrides it. Gated to the duplicate/copy path
-    // (restoreEeResources) so the .tea import path keeps its current behavior untouched.
-    const { workflowIdMap = {}, appIdMap = {} } = options?.restoreEeResources
-      ? await this.restoreExtraBaseResourcesV2(
-          db,
-          baseId,
-          structure,
-          { tableIdMap, fieldIdMap, viewIdMap },
-          duplicateMode,
-          onProgress
-        )
-      : {};
+    // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
+    // extension hook and collect their id maps so matching base_node rows can be remapped below.
+    // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
+    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+      db,
+      baseId,
+      structure,
+      { tableIdMap, fieldIdMap, viewIdMap },
+      duplicateMode,
+      onProgress
+    );
 
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
     const hasNodes = Array.isArray(structure.nodes) && structure.nodes.length > 0;
@@ -589,10 +612,10 @@ export class BaseImportService {
   }
 
   /**
-   * Hook for edition-specific (EE) base resources restored during a v2 duplicate/copy:
-   * apps, workflows, and the authority matrix. Community has none, so this is a no-op.
-   * The EE subclass overrides it to create those rows and returns their id maps so the
-   * caller can remap the corresponding base_node entries.
+   * Hook for edition-specific base resources restored during v2 `.tea` import and v2 duplicate/copy:
+   * apps, workflows, and the authority matrix. Community has none, so this is a no-op. The EE
+   * subclass overrides it to create those rows and returns their id maps so the caller can remap the
+   * corresponding base_node entries.
    */
   protected async restoreExtraBaseResourcesV2(
     _db: Kysely<unknown>,

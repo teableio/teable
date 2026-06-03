@@ -69,6 +69,7 @@
     "expand": "Expandir",
     "getMore": "Obtener más",
     "copySuccess": "Copia exitosa",
+    "openLink": "Abrir enlace",
     "share": "Compartir"
   },
   "quickAction": {
@@ -794,6 +795,7 @@
     "unsubscribeTime": "Fecha de cancelación de suscripción",
     "source": "Fuente",
     "sourceAutomationDeleted": "Automatización o nodo eliminado",
+    "sourceApiSend": "Envío de correo por API",
     "processing": "Procesando...",
     "unsubscribeH1": "¿Confirmar cancelación de suscripción?",
     "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",

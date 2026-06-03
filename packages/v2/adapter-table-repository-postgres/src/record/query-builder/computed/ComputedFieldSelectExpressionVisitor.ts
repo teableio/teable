@@ -45,9 +45,9 @@ import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
+import { buildUserJsonObjectFromSnapshotExpr } from '../userSnapshotSql';
 import { FieldReferenceSqlVisitor } from './FieldReferenceSqlVisitor';
 
 /** Column type for lateral join */
@@ -262,76 +262,17 @@ export class ComputedFieldSelectExpressionVisitor
   }
 
   private userColumn(field: Field): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
-      const colRef = sql.ref(`${this.tableAlias}.${colAlias}`);
-      const colJson = sql`to_jsonb(${colRef})`;
-      const normalizedColJson = sql`(CASE
-        WHEN ${colRef} IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(${colJson}) = 'array' THEN ${colJson}
-        ELSE '[]'::jsonb
-      END)`;
-      const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-      const userFromId = (idExpr: ReturnType<typeof sql>) => sql`(
-        select jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        from public.users u
-        where u.id = ${idExpr}
-      )`;
-
-      const idFromJson = (jsonExpr: ReturnType<typeof sql>) =>
-        sql`coalesce(${jsonExpr} ->> 'id', ${jsonExpr} #>> '{}')`;
-
-      const arrayExpr = sql`(
-        select coalesce(
-          jsonb_agg(coalesce(${userFromId(idFromJson(sql`elem`))}, elem)),
-          '[]'::jsonb
-        )
-        from jsonb_array_elements(${normalizedColJson}) as elem
-      )`;
-
-      const singleExpr = sql`coalesce(${userFromId(idFromJson(colJson))}, ${colJson})`;
-
-      return sql`
-        case
-          when ${colRef} is null then null
-          when jsonb_typeof(${colJson}) = 'array' then ${arrayExpr}
-          else ${singleExpr}
-        end
-      `.as(colAlias);
-    });
+    return this.simpleColumn(field);
   }
 
-  /**
-   * Generates SELECT expression for CreatedBy/LastModifiedBy fields.
-   * These fields read from system columns (__created_by / __last_modified_by) which store user IDs,
-   * then join the users table to populate complete user objects (id, title, email, avatarUrl).
-   */
   private systemUserColumn(
     field: Field,
-    systemColumn: string
+    systemColumn?: string
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).map((colAlias) => {
-      const systemColRef = sql.ref(`${this.tableAlias}.${systemColumn}`);
-      const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-      // Build user object from system column's user ID
-      const userExpr = sql`(
-        select jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        from public.users u
-        where u.id = ${systemColRef}
-      )`;
-
-      return sql`${userExpr}`.as(colAlias);
+      const snapshotRef = sql.ref(`${this.tableAlias}.${colAlias}`);
+      const systemColRef = systemColumn ? sql.ref(`${this.tableAlias}.${systemColumn}`) : undefined;
+      return sql`${buildUserJsonObjectFromSnapshotExpr(snapshotRef, systemColRef)}`.as(colAlias);
     });
   }
 
@@ -412,7 +353,9 @@ export class ComputedFieldSelectExpressionVisitor
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.systemUserColumn(field, '__last_modified_by');
+    return field.isTrackAll()
+      ? this.systemUserColumn(field, '__last_modified_by')
+      : this.systemUserColumn(field);
   }
 
   visitRatingField(field: RatingField): Result<AliasedRawBuilder<unknown, string>, DomainError> {

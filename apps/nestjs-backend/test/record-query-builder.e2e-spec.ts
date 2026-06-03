@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
-import { FieldType as FT, Relationship, StatisticsFunc } from '@teable/core';
+import { FieldType as FT, Relationship, SortFunc, StatisticsFunc } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { format as formatSql } from 'sql-formatter';
 import type { IRecordQueryBuilder } from '../src/features/record/query-builder';
@@ -181,6 +181,85 @@ describe('RecordQueryBuilder (e2e)', () => {
     expect(formatted).toMatch(/with\s+"BASE_TBL_ALIAS"\s+as/i);
     expect(formatted).toMatch(/where\s+"TBL_ALIAS"\."__id"\s+in\s+\('rec_TEST_2'\)/i);
     expect(formatted).toMatch(/from\s+"BASE_TBL_ALIAS"\s+as\s+"TBL_ALIAS"/i);
+  });
+
+  it('builds CreatedBy/LastModifiedBy SQL from data-table snapshots without users joins', async () => {
+    let createdByField: IFieldVo | undefined;
+    let lastModifiedByField: IFieldVo | undefined;
+
+    try {
+      createdByField = await createField(table.id, { name: 'RQ Created By', type: FT.CreatedBy });
+      lastModifiedByField = await createField(table.id, {
+        name: 'RQ Last Modified By',
+        type: FT.LastModifiedBy,
+      });
+
+      const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+        tableId: table.id,
+        projection: [createdByField.id, lastModifiedByField.id],
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: lastModifiedByField.id, operator: 'is', value: 'usrAudit' }],
+        },
+        sort: [{ fieldId: createdByField.id, order: SortFunc.Asc }],
+      });
+
+      qb.from({ [alias]: 'db_table' });
+      const sql = qb.limit(1).toQuery();
+
+      expect(sql).not.toContain('users');
+      expect(sql).not.toContain('public.users');
+      expect(sql).toContain(`"${alias}"."${createdByField.dbFieldName}"`);
+      expect(sql).toContain(`"${alias}"."__created_by"`);
+      expect(sql).toContain(`"${alias}"."${lastModifiedByField.dbFieldName}"`);
+      expect(sql).toContain(`"${alias}"."__last_modified_by"`);
+      expect(sql).toContain('jsonb_extract_path_text');
+      expect(sql).toContain("->>'title'");
+    } finally {
+      if (lastModifiedByField) {
+        await deleteField(table.id, lastModifiedByField.id);
+      }
+      if (createdByField) {
+        await deleteField(table.id, createdByField.id);
+      }
+    }
+  });
+
+  it('builds formulas referencing audit user fields without users joins', async () => {
+    let createdByField: IFieldVo | undefined;
+    let formulaField: IFieldVo | undefined;
+
+    try {
+      createdByField = await createField(table.id, { name: 'Formula Created By', type: FT.CreatedBy });
+      formulaField = await createField(table.id, {
+        name: 'Formula Created By Name',
+        type: FT.Formula,
+        options: {
+          expression: `{${createdByField.id}}`,
+        },
+      } as IFieldRo);
+
+      const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+        tableId: table.id,
+        projection: [formulaField.id],
+      });
+
+      qb.from({ [alias]: 'db_table' });
+      const sql = qb.limit(1).toQuery();
+
+      expect(sql).not.toContain('users');
+      expect(sql).not.toContain('public.users');
+      expect(sql).toContain(`"${alias}"."${createdByField.dbFieldName}"`);
+      expect(sql).toContain(`"${alias}"."__created_by"`);
+      expect(sql).toContain("->>'title'");
+    } finally {
+      if (formulaField) {
+        await deleteField(table.id, formulaField.id);
+      }
+      if (createdByField) {
+        await deleteField(table.id, createdByField.id);
+      }
+    }
   });
 
   it('qualifies system columns inside lookup CTE formulas', async () => {
