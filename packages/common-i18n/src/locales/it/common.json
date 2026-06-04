@@ -69,6 +69,7 @@
     "expand": "Espandi",
     "getMore": "Ottieni di più",
     "copySuccess": "Copia riuscita",
+    "openLink": "Apri link",
     "share": "Condividi"
   },
   "quickAction": {
@@ -796,6 +797,7 @@
     "unsubscribeTime": "Ora di annullamento iscrizione",
     "source": "Fonte",
     "sourceAutomationDeleted": "Automazione o nodo eliminato",
+    "sourceApiSend": "Invio email tramite API",
     "processing": "Elaborazione in corso...",
     "unsubscribeH1": "Confermare la cancellazione dell'iscrizione?",
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",

@@ -187,8 +187,8 @@ importers:
         specifier: 0.49.0
         version: 0.49.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/instrumentation-pino':
-        specifier: 0.49.0
-        version: 0.49.0(@opentelemetry/api@1.9.0)
+        specifier: 0.54.0
+        version: 0.54.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/instrumentation-runtime-node':
         specifier: 0.24.0
         version: 0.24.0(@opentelemetry/api@1.9.0)
@@ -369,6 +369,9 @@ importers:
       lodash:
         specifier: 4.17.21
         version: 4.17.21
+      markdown-it:
+        specifier: 14.1.0
+        version: 14.1.0
       mime-types:
         specifier: 2.1.35
         version: 2.1.35
@@ -667,6 +670,9 @@ importers:
       istanbul-merge:
         specifier: 2.0.0
         version: 2.0.0
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
       npm-run-all2:
         specifier: 6.1.2
         version: 6.1.2
@@ -2036,7 +2042,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
+        version: 4.2.0(rollup@4.55.1)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
       vitest:
         specifier: 4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
@@ -8142,16 +8148,16 @@ packages:
     resolution: {integrity: sha512-IxcFDP1IGMDemVFG2by/AMK+/o6EuBQ8idUq3xZ6MxgQGeumYZuX5OwR0h9HuvcUc/JPjQGfU5OHKIKYDJcXeA==}
     engines: {node: '>=8.0.0'}
 
-  '@opentelemetry/api-logs@0.202.0':
-    resolution: {integrity: sha512-fTBjMqKCfotFWfLzaKyhjLvyEyq5vDKTTFfBmx21btv3gvy8Lq6N5Dh2OzqeuN4DjtpSvNT1uNVfg08eD2Rfxw==}
-    engines: {node: '>=8.0.0'}
-
   '@opentelemetry/api-logs@0.203.0':
     resolution: {integrity: sha512-9B9RU0H7Ya1Dx/Rkyc4stuBZSGVQF27WigitInx2QQoj6KUpEFYPKoWjdFTunJYxmXmh17HeBvbMa1EhGyPmqQ==}
     engines: {node: '>=8.0.0'}
 
   '@opentelemetry/api-logs@0.204.0':
     resolution: {integrity: sha512-DqxY8yoAaiBPivoJD4UtgrMS8gEmzZ5lnaxzPojzLVHBGqPxgWm4zcuvcUHZiqQ6kRX2Klel2r9y8cA2HAtqpw==}
+    engines: {node: '>=8.0.0'}
+
+  '@opentelemetry/api-logs@0.207.0':
+    resolution: {integrity: sha512-lAb0jQRVyleQQGiuuvCOTDVspc14nx6XJjP4FspJ1sNARo3Regq4ZZbrc3rN4b1TYSuUCvgH+UXUPug4SLOqEQ==}
     engines: {node: '>=8.0.0'}
 
   '@opentelemetry/api-logs@0.208.0':
@@ -8544,8 +8550,8 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.3.0
 
-  '@opentelemetry/instrumentation-pino@0.49.0':
-    resolution: {integrity: sha512-nngcqUnIeVnDvRMf6fixYwlMbTNzCVGv93CacyR/8TL/pjyumje020PC5q7b6CfcTdToiD5GMTMKvWBiTd08cA==}
+  '@opentelemetry/instrumentation-pino@0.54.0':
+    resolution: {integrity: sha512-LrTIfO7fzIOHNiwEb4CYN+jtFr5M/5yUMLR5ZW10gvyIT25m/L0BTsulbTvIHjUbU8CVWG9iJENKyVOK6PMTqg==}
     engines: {node: ^18.19.0 || >=20.6.0}
     peerDependencies:
       '@opentelemetry/api': ^1.3.0
@@ -8598,12 +8604,6 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.3.0
 
-  '@opentelemetry/instrumentation@0.202.0':
-    resolution: {integrity: sha512-Uz3BxZWPgDwgHM2+vCKEQRh0R8WKrd/q6Tus1vThRClhlPO39Dyz7mDrOr6KuqGXAlBQ1e5Tnymzri4RMZNaWA==}
-    engines: {node: ^18.19.0 || >=20.6.0}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
   '@opentelemetry/instrumentation@0.203.0':
     resolution: {integrity: sha512-ke1qyM+3AK2zPuBPb6Hk/GCsc5ewbLvPNkEuELx/JmANeEp6ZjnZ+wypPAJSucTw0wvCGrUaibDSdcrGFoWxKQ==}
     engines: {node: ^18.19.0 || >=20.6.0}
@@ -8612,6 +8612,12 @@ packages:
 
   '@opentelemetry/instrumentation@0.204.0':
     resolution: {integrity: sha512-vV5+WSxktzoMP8JoYWKeopChy6G3HKk4UQ2hESCRDUUTZqQ3+nM3u8noVG0LmNfRWwcFBnbZ71GKC7vaYYdJ1g==}
+    engines: {node: ^18.19.0 || >=20.6.0}
+    peerDependencies:
+      '@opentelemetry/api': ^1.3.0
+
+  '@opentelemetry/instrumentation@0.207.0':
+    resolution: {integrity: sha512-y6eeli9+TLKnznrR8AZlQMSJT7wILpXH+6EYq5Vf/4Ao+huI7EedxQHwRgVUOMLFbe7VFDvHJrX9/f4lcwnJsA==}
     engines: {node: ^18.19.0 || >=20.6.0}
     peerDependencies:
       '@opentelemetry/api': ^1.3.0
@@ -17686,6 +17692,10 @@ packages:
     resolution: {integrity: sha512-4y7uGv8bd2WdM9vpQsiQNo41Ln1NvhvDRuVt0k2JZQ+ezN2uaQes7lZeZ+QQUHOLQAtDaBJ+7wCbi+ab/KFs+w==}
     engines: {node: '>=0.10.0'}
 
+  markdown-it@14.1.0:
+    resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
+    hasBin: true
+
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
@@ -17786,6 +17796,9 @@ packages:
 
   mdn-data@2.12.2:
     resolution: {integrity: sha512-IEn+pegP1aManZuckezWCO+XZQDplx1366JoVhTpMpBB1sPey/SbveZQUosKiKiGYjg1wH4pMlNgXbCiYgihQA==}
+
+  mdurl@2.0.0:
+    resolution: {integrity: sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -27640,15 +27653,15 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.0
 
-  '@opentelemetry/api-logs@0.202.0':
-    dependencies:
-      '@opentelemetry/api': 1.9.0
-
   '@opentelemetry/api-logs@0.203.0':
     dependencies:
       '@opentelemetry/api': 1.9.0
 
   '@opentelemetry/api-logs@0.204.0':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+
+  '@opentelemetry/api-logs@0.207.0':
     dependencies:
       '@opentelemetry/api': 1.9.0
 
@@ -28186,12 +28199,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opentelemetry/instrumentation-pino@0.49.0(@opentelemetry/api@1.9.0)':
+  '@opentelemetry/instrumentation-pino@0.54.0(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@opentelemetry/api-logs': 0.202.0
-      '@opentelemetry/core': 2.0.1(@opentelemetry/api@1.9.0)
-      '@opentelemetry/instrumentation': 0.202.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/api-logs': 0.207.0
+      '@opentelemetry/core': 2.2.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/instrumentation': 0.207.0(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -28265,15 +28278,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opentelemetry/instrumentation@0.202.0(@opentelemetry/api@1.9.0)':
-    dependencies:
-      '@opentelemetry/api': 1.9.0
-      '@opentelemetry/api-logs': 0.202.0
-      import-in-the-middle: 1.11.3
-      require-in-the-middle: 7.4.0
-    transitivePeerDependencies:
-      - supports-color
-
   '@opentelemetry/instrumentation@0.203.0(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
@@ -28289,6 +28293,15 @@ snapshots:
       '@opentelemetry/api-logs': 0.204.0
       import-in-the-middle: 1.15.0
       require-in-the-middle: 7.4.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@opentelemetry/instrumentation@0.207.0(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/api-logs': 0.207.0
+      import-in-the-middle: 2.0.4
+      require-in-the-middle: 8.0.1
     transitivePeerDependencies:
       - supports-color
 
@@ -28728,7 +28741,7 @@ snapshots:
   '@prisma/instrumentation@6.19.0(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@opentelemetry/instrumentation': 0.201.1(@opentelemetry/api@1.9.0)
+      '@opentelemetry/instrumentation': 0.211.0(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -29916,14 +29929,6 @@ snapshots:
     dependencies:
       estree-walker: 2.0.2
       picomatch: 2.3.1
-
-  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
-    dependencies:
-      '@types/estree': 1.0.6
-      estree-walker: 2.0.2
-      picomatch: 4.0.2
-    optionalDependencies:
-      rollup: 2.79.2
 
   '@rollup/pluginutils@5.1.4(rollup@4.55.1)':
     dependencies:
@@ -39678,6 +39683,15 @@ snapshots:
     dependencies:
       object-visit: 1.0.1
 
+  markdown-it@14.1.0:
+    dependencies:
+      argparse: 2.0.1
+      entities: 4.5.0
+      linkify-it: 5.0.0
+      mdurl: 2.0.0
+      punycode.js: 2.3.1
+      uc.micro: 2.1.0
+
   markdown-table@3.0.4: {}
 
   markdown-to-jsx@7.3.2(react@18.3.1):
@@ -39905,6 +39919,8 @@ snapshots:
   mdn-data@2.12.2:
     optional: true
 
+  mdurl@2.0.0: {}
+
   media-typer@0.3.0: {}
 
   mem@8.1.1:
@@ -40086,7 +40102,7 @@ snapshots:
 
   micromark-extension-mdx-expression@3.0.0:
     dependencies:
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.6
       devlop: 1.1.0
       micromark-factory-mdx-expression: 2.0.2
       micromark-factory-space: 2.0.1
@@ -40098,7 +40114,7 @@ snapshots:
   micromark-extension-mdx-jsx@3.0.1:
     dependencies:
       '@types/acorn': 4.0.6
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.6
       devlop: 1.1.0
       estree-util-is-identifier-name: 3.0.0
       micromark-factory-mdx-expression: 2.0.2
@@ -40115,7 +40131,7 @@ snapshots:
 
   micromark-extension-mdxjs-esm@3.0.0:
     dependencies:
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.6
       devlop: 1.1.0
       micromark-core-commonmark: 2.0.2
       micromark-util-character: 2.1.1
@@ -46219,17 +46235,6 @@ snapshots:
       - sugarss
       - supports-color
       - terser
-
-  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)):
-    dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
-      '@svgr/core': 8.1.0(typescript@5.4.3)
-      '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
-      vite: 7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
-    transitivePeerDependencies:
-      - rollup
-      - supports-color
-      - typescript
 
   vite-plugin-svgr@4.2.0(rollup@4.55.1)(typescript@5.4.3)(vite@7.3.1(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)):
     dependencies:

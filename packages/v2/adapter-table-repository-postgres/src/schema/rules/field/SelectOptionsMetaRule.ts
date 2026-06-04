@@ -53,6 +53,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
+  readonly validationScope = 'meta';
 
   constructor(
     private readonly field: SelectField,

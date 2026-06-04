@@ -37,7 +37,6 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
@@ -48,6 +47,7 @@ import type {
   QB,
 } from '../ITableRecordQueryBuilder';
 import type { QueryMode } from '../TableRecordQueryBuilderManager';
+import { buildUserJsonObjectFromSnapshotExpr } from '../userSnapshotSql';
 import {
   ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
@@ -366,6 +366,7 @@ export interface IComputedQueryBuilderOptions {
   /** Prefer stored values for non-deterministic formulas like LAST_MODIFIED_TIME(field) */
   readonly preferStoredLastModifiedFormula?: boolean;
   readonly forceLookupArrayOutput?: boolean;
+  readonly resolveSystemUserSnapshotsFromUsers?: boolean;
 }
 
 /**
@@ -385,6 +386,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly preferStoredLastModifiedFormula: boolean;
   private readonly forceLookupArrayOutput: boolean;
+  private readonly resolveSystemUserSnapshotsFromUsers: boolean;
 
   readonly mode: QueryMode = 'computed';
 
@@ -396,6 +398,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.typeValidationStrategy = options.typeValidationStrategy;
     this.preferStoredLastModifiedFormula = options.preferStoredLastModifiedFormula ?? false;
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
+    this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
   }
 
   from(table: Table): this {
@@ -775,6 +778,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             preferStoredLastModifiedFormula: this.preferStoredLastModifiedFormula,
             missingForeignTableIds: this.missingForeignTableIds,
             forceLookupArrayOutput: this.forceLookupArrayOutput,
+            resolveSystemUserSnapshotsFromUsers: this.resolveSystemUserSnapshotsFromUsers,
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];
@@ -1458,22 +1462,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
-  private buildSystemUserJsonExpr(tableAlias: string, systemColumn: string): RawBuilder<unknown> {
-    const systemColRef = sql.ref(`${tableAlias}.${systemColumn}`);
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-    return sql`(
-      select jsonb_build_object(
-        'id', u.id,
-        'title', u.name,
-        'email', u.email,
-        'avatarUrl', ${avatarPrefix} || u.id
-      )
-      from public.users u
-      where u.id = ${systemColRef}
-    )`;
-  }
-
   private getFieldSourceExpr(
     field: {
       type: () => FieldType;
@@ -1489,13 +1477,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__created_time`) });
     }
 
-    if (field.type().equals(FieldType.createdBy())) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__created_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     if (
       field.type().equals(FieldType.lastModifiedTime()) &&
       (field as { isTrackAll?: () => boolean }).isTrackAll?.()
@@ -1503,20 +1484,33 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__last_modified_time`) });
     }
 
-    if (
-      field.type().equals(FieldType.lastModifiedBy()) &&
-      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
-    ) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__last_modified_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     return field
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value())
-      .map((columnName) => ({ expr: sql.ref(`${tableAlias}.${columnName}`) }));
+      .map((columnName) => {
+        const snapshotRef = sql.ref(`${tableAlias}.${columnName}`);
+        if (field.type().equals(FieldType.createdBy())) {
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              sql.ref(`${tableAlias}.__created_by`)
+            ),
+            isJsonbStorage: true,
+          };
+        }
+
+        if (field.type().equals(FieldType.lastModifiedBy())) {
+          const fallbackRef = (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+            ? sql.ref(`${tableAlias}.__last_modified_by`)
+            : undefined;
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(snapshotRef, fallbackRef),
+            isJsonbStorage: true,
+          };
+        }
+
+        return { expr: snapshotRef };
+      });
   }
 
   private getForeignColRef(

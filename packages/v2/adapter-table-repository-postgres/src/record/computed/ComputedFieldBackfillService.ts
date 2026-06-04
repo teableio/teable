@@ -382,6 +382,7 @@ export class ComputedFieldBackfillService {
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
           forceLookupArrayOutput: true,
+          resolveSystemUserSnapshotsFromUsers: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -480,6 +481,7 @@ export class ComputedFieldBackfillService {
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
             forceLookupArrayOutput: true,
+            resolveSystemUserSnapshotsFromUsers: true,
           })
             .from(input.table)
             .select(chunkFieldIds);
