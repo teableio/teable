@@ -31,7 +31,17 @@ const dynamicShapeKeys = [
 ] as const;
 
 type DynamicShapeKey = (typeof dynamicShapeKeys)[number];
-type DynamicShapeSnapshot = Record<DynamicShapeKey, unknown>;
+
+// Lookup fields persist their resolved inner field's metadata (`type`/`options`/`dbFieldType`) at
+// the document root (v1 format). A lookupOptions change can re-resolve the inner field, so the
+// realtime op must refresh these too — but ONLY for lookup fields. They are intentionally kept OUT
+// of the fixed `dynamicShapeKeys` list, because that list emits a `set` for every key (including
+// null), which would wipe these on every other field type's shape refresh.
+const lookupRootShapeKeys = ['type', 'options', 'dbFieldType'] as const;
+type LookupRootShapeKey = (typeof lookupRootShapeKeys)[number];
+
+type DynamicShapeSnapshot = Record<DynamicShapeKey, unknown> &
+  Partial<Record<LookupRootShapeKey, unknown>>;
 
 const hasOwn = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key);
@@ -48,7 +58,10 @@ const emptyDynamicShapeSnapshot = (): DynamicShapeSnapshot => ({
   innerOptions: null,
 });
 
-const readShapeValue = (fieldDto: ITableFieldPersistenceDTO, key: DynamicShapeKey): unknown => {
+const readShapeValue = (
+  fieldDto: ITableFieldPersistenceDTO,
+  key: DynamicShapeKey | LookupRootShapeKey
+): unknown => {
   if (!hasOwn(fieldDto, key)) {
     return null;
   }
@@ -131,6 +144,11 @@ class FieldRealtimeShapeSnapshotVisitor {
       isLookup: readShapeValue(fieldDto, 'isLookup'),
       isConditionalLookup: readShapeValue(fieldDto, 'isConditionalLookup'),
       lookupOptions: readShapeValue(fieldDto, 'lookupOptions'),
+      // A regular lookup stores its resolved inner field metadata at the root; changing the
+      // looked-up field can change these, so refresh them alongside lookupOptions.
+      type: readShapeValue(fieldDto, 'type'),
+      options: readShapeValue(fieldDto, 'options'),
+      dbFieldType: readShapeValue(fieldDto, 'dbFieldType'),
     };
   }
 
@@ -177,7 +195,7 @@ export const buildFieldShapeRefreshChanges = (
     return [];
   }
 
-  return dynamicShapeKeys.flatMap((key) => {
+  const changes: RealtimeChange[] = dynamicShapeKeys.flatMap((key) => {
     const path = [key];
     const pathKey = JSON.stringify(path);
     if (seenPaths.has(pathKey)) {
@@ -193,4 +211,32 @@ export const buildFieldShapeRefreshChanges = (
       },
     ];
   });
+
+  // Lookup fields additionally refresh their root inner-field metadata. These keys are present only
+  // on the lookup snapshot branch, so other field types are unaffected, and they are deduped against
+  // the main projection loop via `seenPaths`.
+  //
+  // - `options`: refreshed even when absent — emit {} to CLEAR any stale inner options (e.g. number
+  //   formatting) left from the previous target, including when the field went pending.
+  // - `type` / `dbFieldType`: required scalars — only refreshed when the snapshot carries a value,
+  //   so a transiently-pending lookup never publishes a null that would corrupt these fields.
+  for (const key of lookupRootShapeKeys) {
+    if (!(key in snapshot)) {
+      continue;
+    }
+    const path = [key];
+    const pathKey = JSON.stringify(path);
+    if (seenPaths.has(pathKey)) {
+      continue;
+    }
+    const rawValue = snapshot[key];
+    const value = key === 'options' ? rawValue ?? {} : rawValue;
+    if (value == null) {
+      continue;
+    }
+    seenPaths.add(pathKey);
+    changes.push({ type: 'set', path, value });
+  }
+
+  return changes;
 };

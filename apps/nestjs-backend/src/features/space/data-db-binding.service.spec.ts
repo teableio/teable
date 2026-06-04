@@ -4,6 +4,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataDbBindingService } from './data-db-binding.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
 
+vi.mock('@teable/db-main-prisma', () => ({
+  MetaPrismaService: class MetaPrismaService {},
+  Prisma: {},
+  PrismaModule: class PrismaModule {},
+  PrismaService: class PrismaService {},
+  ProvisionState: {},
+  getDatabaseUrl: vi.fn(),
+}));
+vi.mock('@teable/db-data-prisma', () => ({
+  DataPrismaModule: class DataPrismaModule {},
+  DataPrismaService: class DataPrismaService {},
+  PrismaClient: class PrismaClient {},
+  getMetaDatabaseUrl: vi.fn(),
+}));
+vi.mock('@prisma/client', () => ({
+  Prisma: {},
+  PrismaClient: class PrismaClient {},
+}));
+
 const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
 const initializeEmptyTargetMode = 'initialize-empty';
 const internalSchema = 'teable_meta_test';
@@ -52,6 +71,10 @@ describe('DataDbBindingService', () => {
   const dataDbMigrationService = {
     ensureConnectionMigrated: vi.fn(),
   };
+  const spaceDataDbMigrationService = {
+    startMigrationForSpace: vi.fn(),
+    runMigrationJob: vi.fn(),
+  };
   const byodbBinding = {
     mode: 'byodb',
     state: 'ready',
@@ -83,6 +106,13 @@ describe('DataDbBindingService', () => {
     baselineService.initialize.mockReset().mockResolvedValue(schemaVersion);
     dataDbClientManager.invalidateConnection.mockReset();
     dataDbMigrationService.ensureConnectionMigrated.mockReset().mockResolvedValue([]);
+    spaceDataDbMigrationService.startMigrationForSpace.mockReset().mockResolvedValue({
+      jobId: 'sdmjxxx',
+      connectionId: 'dcnxxx',
+    });
+    spaceDataDbMigrationService.runMigrationJob.mockReset().mockResolvedValue({
+      state: 'succeeded',
+    });
     prismaService.dataDbConnection.update.mockReset();
     prismaService.spaceDataDbBinding.findUnique.mockReset().mockResolvedValue(byodbBinding);
     prismaService.spaceDataDbBinding.updateMany.mockReset();
@@ -195,7 +225,7 @@ describe('DataDbBindingService', () => {
     const dataDb = {
       mode: 'byodb' as const,
       url: dataUrl,
-      targetMode: initializeEmptyTargetMode,
+      targetMode: 'initialize-empty' as const,
       internalSchema,
     };
     await service.createBindingForNewSpace('spcxxx1', 'usrxxx', dataDb);
@@ -389,7 +419,97 @@ describe('DataDbBindingService', () => {
     expect(dataDbClientManager.invalidateConnection).toHaveBeenCalledWith('dcnxxx');
   });
 
-  it('does not create a BYODB binding for an existing default space without adopt-existing mode', async () => {
+  it('queues a migration job for an existing default space with migrate-space target mode', async () => {
+    prismaService.spaceDataDbBinding.findUnique.mockResolvedValue(null);
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never,
+      spaceDataDbMigrationService as never
+    );
+
+    await service.updateBindingForSpace(
+      'spcxxx',
+      'usrxxx',
+      {
+        url: dataUrl,
+        targetMode: 'migrate-space',
+        internalSchema,
+        confirmLargeMigration: true,
+      },
+      { allowSpaceMigration: true }
+    );
+
+    expect(spaceDataDbMigrationService.startMigrationForSpace).toHaveBeenCalledWith(
+      'spcxxx',
+      'usrxxx',
+      {
+        url: dataUrl,
+        targetMode: 'migrate-space',
+        internalSchema,
+        confirmLargeMigration: true,
+      }
+    );
+    expect(spaceDataDbMigrationService.runMigrationJob).not.toHaveBeenCalled();
+    expect(preflightService.preflight).not.toHaveBeenCalled();
+    expect(txClient.spaceDataDbBinding.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects migrate-space unless the caller allows admin-only space migration', async () => {
+    prismaService.spaceDataDbBinding.findUnique.mockResolvedValue(null);
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never,
+      spaceDataDbMigrationService as never
+    );
+
+    await expect(
+      service.updateBindingForSpace('spcxxx', 'usrxxx', {
+        url: dataUrl,
+        targetMode: 'migrate-space',
+        internalSchema,
+      })
+    ).rejects.toMatchObject({
+      code: HttpErrorCode.RESTRICTED_RESOURCE,
+      data: { errorCode: 'SPACE_DATA_DB_ADMIN_ONLY' },
+    });
+    expect(spaceDataDbMigrationService.startMigrationForSpace).not.toHaveBeenCalled();
+    expect(preflightService.preflight).not.toHaveBeenCalled();
+    expect(txClient.spaceDataDbBinding.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects migrate-space when the migration service is unavailable', async () => {
+    prismaService.spaceDataDbBinding.findUnique.mockResolvedValue(null);
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never
+    );
+
+    await expect(
+      service.updateBindingForSpace(
+        'spcxxx',
+        'usrxxx',
+        {
+          url: dataUrl,
+          targetMode: 'migrate-space',
+          internalSchema,
+        },
+        { allowSpaceMigration: true }
+      )
+    ).rejects.toMatchObject({ code: HttpErrorCode.CONFLICT });
+    expect(preflightService.preflight).not.toHaveBeenCalled();
+    expect(txClient.spaceDataDbBinding.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not create a BYODB binding for an existing default space without adopt-existing or migrate-space mode', async () => {
     prismaService.spaceDataDbBinding.findUnique.mockResolvedValue(null);
     const service = new DataDbBindingService(
       prismaService as never,
