@@ -16,6 +16,7 @@ describe('ImportCsvCommand', () => {
     const command = result._unsafeUnwrap();
     expect(command.csvSource.type).toBe('string');
     expect(command.tableName?.toString()).toBe('People');
+    expect(command.importData).toBe(true);
     expect(command.batchSize).toBe(500);
   });
 
@@ -23,12 +24,14 @@ describe('ImportCsvCommand', () => {
     const result = ImportCsvCommand.create({
       baseId,
       csvUrl: 'https://example.com/data.csv',
+      importData: false,
       batchSize: 1000,
     });
 
     expect(result.isOk()).toBe(true);
     const command = result._unsafeUnwrap();
     expect(command.csvSource.type).toBe('url');
+    expect(command.importData).toBe(false);
     expect(command.batchSize).toBe(1000);
   });
 
@@ -57,11 +60,13 @@ describe('ImportCsvCommand', () => {
       baseId,
       csvData: new Uint8Array([65, 44, 66]),
       tableName: 'Buffer Table',
+      importData: false,
     });
 
     expect(bufferResult.isOk()).toBe(true);
     expect(bufferResult._unsafeUnwrap().csvSource.type).toBe('buffer');
     expect(bufferResult._unsafeUnwrap().tableName?.toString()).toBe('Buffer Table');
+    expect(bufferResult._unsafeUnwrap().importData).toBe(false);
     expect(bufferResult._unsafeUnwrap().batchSize).toBe(500);
 
     const streamResult = ImportCsvCommand.createFromStream({

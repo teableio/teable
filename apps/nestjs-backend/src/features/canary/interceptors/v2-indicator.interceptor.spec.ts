@@ -76,4 +76,45 @@ describe('V2IndicatorInterceptor', () => {
     });
     expect(sentryScope.setTag).toHaveBeenCalledWith(TEABLE_REQUEST_ATTRIBUTION, 'v2');
   });
+
+  it('uses the final cls state after controller fallback', () => {
+    const values: Record<string, unknown> = {
+      useV2: true,
+      v2Reason: 'canary',
+      v2Feature: 'importCsv',
+    };
+    const cls = {
+      get: vi.fn((key: string) => values[key]),
+    };
+
+    const response = { setHeader: vi.fn() };
+    const request = {
+      method: 'POST',
+      path: '/api/import/bse123',
+      params: {},
+    };
+    const context = {
+      switchToHttp: () => ({
+        getResponse: () => response,
+        getRequest: () => request,
+      }),
+    } as unknown as ExecutionContext;
+    const next = {
+      handle: () => {
+        values.useV2 = false;
+        values.v2Reason = 'unsupported_feature';
+        return of('ok');
+      },
+    } as CallHandler;
+
+    const interceptor = new V2IndicatorInterceptor(cls as never);
+    interceptor.intercept(context, next).subscribe();
+
+    expect(response.setHeader).toHaveBeenCalledWith(X_TEABLE_V2_HEADER, 'false');
+    expect(response.setHeader).toHaveBeenCalledWith(
+      X_TEABLE_V2_REASON_HEADER,
+      'unsupported_feature'
+    );
+    expect(response.setHeader).toHaveBeenCalledWith(X_TEABLE_V2_FEATURE_HEADER, 'importCsv');
+  });
 });

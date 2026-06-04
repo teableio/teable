@@ -1,5 +1,5 @@
 import type { DomainError } from '@teable/v2-core';
-import type { CompiledQuery, QueryExecutorProvider } from 'kysely';
+import type { CompiledQuery, QueryExecutorProvider, QueryResult } from 'kysely';
 import type { Result } from 'neverthrow';
 
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
@@ -10,12 +10,23 @@ import type { SchemaRuleContext } from '../context/SchemaRuleContext';
  */
 export type TableSchemaStatementScope = 'data' | 'meta';
 
+export type TableSchemaStatementExecutorProvider = QueryExecutorProvider & {
+  executeQuery<O>(compiledQuery: CompiledQuery<O>): Promise<QueryResult<O>>;
+};
+
+export type TableSchemaStatementExecutionContext = {
+  readonly scopedDb: TableSchemaStatementExecutorProvider;
+  readonly dataDb: TableSchemaStatementExecutorProvider;
+  readonly metaDb: TableSchemaStatementExecutorProvider;
+};
+
 export type TableSchemaStatementCompiler = {
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
 };
 
 export type TableSchemaStatementBuilder = TableSchemaStatementCompiler & {
   readonly scope: TableSchemaStatementScope;
+  readonly execute?: (ctx: TableSchemaStatementExecutionContext) => Promise<void>;
 };
 
 export type SchemaRuleI18nValue = string | number | boolean;
@@ -126,6 +137,12 @@ export interface ISchemaRule {
    * Optional rules are only applied when explicitly enabled by configuration.
    */
   readonly required: boolean;
+
+  /**
+   * Which storage plane owns the relations used by isValid/manualRepair.
+   * Defaults to 'data'. Rules that inspect metadata tables such as field/reference use 'meta'.
+   */
+  readonly validationScope?: TableSchemaStatementScope;
 
   /**
    * Whether this rule can be auto-repaired by replaying `up()`.
