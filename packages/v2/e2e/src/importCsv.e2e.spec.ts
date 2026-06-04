@@ -39,7 +39,11 @@ Jane,,555-1234
     expect(result.table.baseId).toBe(ctx.baseId);
     expect(result.table.fields).toHaveLength(3);
     expect(result.table.fields.map((f) => f.name)).toEqual(['Name', 'Age', 'City']);
-    expect(result.table.fields.every((f) => f.type === 'singleLineText')).toBe(true);
+    expect(result.table.fields.map((f) => f.type)).toEqual([
+      'singleLineText',
+      'number',
+      'singleLineText',
+    ]);
 
     // 验证导入的记录数
     expect(result.totalImported).toBe(3);

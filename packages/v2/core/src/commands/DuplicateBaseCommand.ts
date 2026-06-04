@@ -15,8 +15,8 @@ export interface DuplicateBaseRecordInput {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
 }
 
 export interface DuplicateBaseSource {

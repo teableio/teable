@@ -478,6 +478,14 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(queryRepository.findCalls.some((call) => call.spec instanceof RecordByIdsSpec)).toBe(
       false
     );
+    const chunkLoadCalls = queryRepository.findCalls.filter(
+      (call) => call.options?.pagination && call.options.includeTotal === false
+    );
+    expect(
+      chunkLoadCalls.map((call) =>
+        call.options?.projectionFieldIds?.map((fieldId) => fieldId.toString())
+      )
+    ).toEqual([[table.primaryFieldId().toString()], [table.primaryFieldId().toString()]]);
     expect(eventBus.publishManyCalls).toHaveLength(2);
     expect(undoRedoService.recordEntryCalls).toHaveLength(2);
     expect(
@@ -622,7 +630,11 @@ describe('DeleteByRangeStreamHandler', () => {
 
     expect(tracer.spans.map((span) => span.name)).toEqual(
       expect.arrayContaining([
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlan',
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
         'teable.DeleteByRangeApplicationService.loadDeleteChunk',
+        'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
+        'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
         'teable.DeleteByRangeApplicationService.deleteChunk',
         'teable.DeleteByRangeApplicationService.publishDeleteChunkEvents',
         'teable.DeleteByRangeApplicationService.recordDeleteChunkUndoRedo',
