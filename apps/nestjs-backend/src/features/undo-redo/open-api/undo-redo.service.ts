@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IRedoVo, IUndoRedoStreamEvent, IUndoVo } from '@teable/openapi';
 import {
   RedoCommand,
@@ -18,6 +18,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import type { IClsStore } from '../../../types/cls';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
@@ -93,10 +94,14 @@ export class UndoRedoService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly undoRedoStackService: UndoRedoStackService,
-    private readonly undoRedoOperationService: UndoRedoOperationService
+    private readonly undoRedoOperationService: UndoRedoOperationService,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
 
   async undo(tableId: string, windowId: string): Promise<IUndoRedoResponse<IUndoVo>> {
+    await this.assertTableWritable(tableId);
+
     const preferredEngine = await this.getPreferredEngine(tableId, windowId);
     if (preferredEngine === 'v1') {
       const v1Result = await this.executeV1Undo(tableId, windowId);
@@ -121,6 +126,8 @@ export class UndoRedoService {
   }
 
   async redo(tableId: string, windowId: string): Promise<IUndoRedoResponse<IRedoVo>> {
+    await this.assertTableWritable(tableId);
+
     const preferredEngine = await this.getPreferredEngine(tableId, windowId);
     if (preferredEngine === 'v1') {
       const v1Result = await this.executeV1Redo(tableId, windowId);
@@ -145,11 +152,19 @@ export class UndoRedoService {
   }
 
   async *undoStream(tableId: string, windowId: string): AsyncIterable<IUndoRedoStreamEvent> {
+    await this.assertTableWritable(tableId);
+
     yield* this.executeUndoRedoStream(tableId, windowId, 'undo');
   }
 
   async *redoStream(tableId: string, windowId: string): AsyncIterable<IUndoRedoStreamEvent> {
+    await this.assertTableWritable(tableId);
+
     yield* this.executeUndoRedoStream(tableId, windowId, 'redo');
+  }
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
   }
 
   private async *executeUndoRedoStream(

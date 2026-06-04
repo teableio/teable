@@ -39,15 +39,18 @@ export class UserRenamePropagationService implements IUserRenamePropagationServi
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(ExternalComputedRefreshService)
-    private readonly externalComputedRefreshService: ExternalComputedRefreshService
+    private readonly externalComputedRefreshService: ExternalComputedRefreshService,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
 
   async propagateUserRename(
     context: IExecutionContext,
     input: UserRenamePropagationInput
   ): Promise<Result<void, DomainError>> {
-    const db = resolvePostgresDbOrTx(this.db, context);
-    const affectedFields = await this.getAffectedUserFields(db, input.userId.toString());
+    const dataDb = resolvePostgresDbOrTx(this.db, context, 'data');
+    const metaDb = resolvePostgresDbOrTx(this.metaDb, context, 'meta');
+    const affectedFields = await this.getAffectedUserFields(metaDb, input.userId.toString());
     if (affectedFields.length === 0) return ok(undefined);
 
     // Rename mutates denormalized user snapshots first, then hands the touched physical fields to
@@ -56,7 +59,7 @@ export class UserRenamePropagationService implements IUserRenamePropagationServi
     const updatedFields: AffectedUserFieldRow[] = [];
     for (const field of affectedFields) {
       try {
-        await this.patchUserSnapshotTitle(db, field, input.userId.toString(), input.name);
+        await this.patchUserSnapshotTitle(dataDb, field, input.userId.toString(), input.name);
         updatedFields.push(field);
       } catch (error: unknown) {
         this.logger.error(error instanceof Error ? error.message : String(error), {

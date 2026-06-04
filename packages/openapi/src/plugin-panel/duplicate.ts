@@ -19,8 +19,8 @@ export const duplicatePluginPanelRoute: RouteConfig = registerRoute({
   summary: 'Duplicate a plugin panel',
   request: {
     params: z.object({
-      baseId: z.string(),
-      id: z.string(),
+      tableId: z.string(),
+      pluginPanelId: z.string(),
     }),
   },
   responses: {
