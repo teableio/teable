@@ -5,7 +5,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 import {
   setupGroupedLinkRangeFixture,
+  setupGroupedSingleSelectRangeFixture,
   type GroupedLinkRangeFixture,
+  type GroupedSingleSelectRangeFixture,
 } from './shared/groupedLinkRangeFixture';
 
 /**
@@ -3582,6 +3584,65 @@ describe('v2 http paste (e2e)', () => {
     });
   });
 
+  describe('paste with grouped singleSelect view order parity', () => {
+    const expectOnlySecondVisibleRowPasted = async (
+      fixture: GroupedSingleSelectRangeFixture,
+      value: string
+    ) => {
+      const records = await ctx.listRecords(fixture.tableId);
+      const order1 = records.find((record) => record.id === fixture.recordIds.order1);
+      const order2 = records.find((record) => record.id === fixture.recordIds.order2);
+      const order3 = records.find((record) => record.id === fixture.recordIds.order3);
+
+      expect(fixture.expectedVisibleOrderIds[1]).toBe(fixture.recordIds.order2);
+      expect(order1?.fields[fixture.nameFieldId]).toBe('加单1');
+      expect(order2?.fields[fixture.nameFieldId]).toBe(value);
+      expect(order3?.fields[fixture.nameFieldId]).toBe('加单3');
+    };
+
+    it('should paste to the visible row in a saved grouped view when row order differs', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'paste-saved-group', {
+        persistViewQuery: true,
+      });
+      const value = '保存视图粘贴';
+
+      const result = await ctx.paste({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [[value]],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowPasted(fixture, value);
+    });
+
+    it('should paste to the visible row in a personal grouped view request', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'paste-personal-group');
+      const value = '个人视图粘贴';
+
+      const result = await ctx.paste({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [[value]],
+        ignoreViewQuery: true,
+        groupBy: fixture.groupByAsc,
+        sort: fixture.sortAsc,
+        projection: fixture.projection,
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowPasted(fixture, value);
+    });
+  });
+
   describe('paste with multi-column sort', () => {
     let multiSortTableId: string;
     let multiSortViewId: string;
@@ -3896,11 +3957,10 @@ describe('v2 http paste (e2e)', () => {
 
     it('should paste to correct row at large offset when sort values tie', async () => {
       const targetOffset = 400;
-      const orderColumn = `__row_${tieViewId}`;
       const expected = await sql<{ __id: string }>`
         SELECT "__id"
         FROM ${sql.table(tieDbTableName)}
-        ORDER BY ${sql.ref(orderColumn)} ASC
+        ORDER BY "__auto_number" ASC
         OFFSET ${targetOffset}
         LIMIT 1
       `.execute(ctx.testContainer.db);

@@ -366,6 +366,7 @@ const LOOKUP_FIELD_ID = `fld${'d'.repeat(16)}`;
 const LINK_FIELD_ID = `fld${'e'.repeat(16)}`;
 const SYMMETRIC_FIELD_ID = `fld${'f'.repeat(16)}`;
 const NAME_FIELD_ID = `fld${'g'.repeat(16)}`;
+const LAST_MODIFIED_BY_FIELD_ID = `fld${'l'.repeat(16)}`;
 const RECORD_ID = `rec${'h'.repeat(16)}`;
 const LINKED_RECORD_A = `rec${'i'.repeat(16)}`;
 const LINKED_RECORD_B = `rec${'j'.repeat(16)}`;
@@ -675,6 +676,88 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         },
       ]
     `);
+
+    vi.useRealTimers();
+  });
+
+  it('uses resolved actor identity for lastModifiedBy snapshots on update', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const lastModifiedByFieldId = FieldId.create(LAST_MODIFIED_BY_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('UpdateLastModifiedByTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .lastModifiedBy()
+      .withId(lastModifiedByFieldId)
+      .withName(FieldName.create('Last Modified By')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(lastModifiedByFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_last_modified_by')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(recordId, new Map([[NAME_FIELD_ID, 'Alice']]))
+      ._unsafeUnwrap().mutateSpec;
+    const expectedSnapshot = JSON.stringify({
+      id: ACTOR_ID,
+      title: 'Resolved User',
+      email: 'resolved@example.com',
+      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
+    });
+
+    const { db, driver } = createRecordingDb((compiledQuery) => {
+      if (compiledQuery.sql.includes('FROM public.users')) {
+        return [{ name: 'Resolved User', email: 'resolved@example.com' }];
+      }
+      return [];
+    });
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
+    expect(result.isOk()).toBe(true);
+
+    const queries = toSnapshot(driver.queries);
+    expect(queries.some((query) => query.sql.includes('FROM public.users'))).toBe(true);
+    const updateQuery = queries.find(
+      (query) => query.sql.startsWith('update ') && query.sql.includes('col_last_modified_by')
+    );
+    expect(updateQuery).toBeDefined();
+    expect(updateQuery?.parameters).toContain(expectedSnapshot);
+    expect(updateQuery?.parameters).not.toContain(
+      JSON.stringify({
+        id: ACTOR_ID,
+        title: ACTOR_ID,
+        email: null,
+        avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
+      })
+    );
 
     vi.useRealTimers();
   });
