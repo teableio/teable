@@ -124,6 +124,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnStatistics,
     forceRenderFlag,
     rowIndexVisible,
+    disableEnterMoveDown,
     groupCollection,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
@@ -906,6 +907,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         scrollState={scrollState}
         coordInstance={coordInstance}
         activeCellBound={activeCellBound}
+        disableEnterMoveDown={disableEnterMoveDown}
         onCopy={onCopy}
         onPaste={onPaste}
         onUndo={onUndo}

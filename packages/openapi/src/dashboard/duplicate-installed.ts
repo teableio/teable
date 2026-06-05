@@ -23,6 +23,7 @@ export const duplicateDashboardInstalledPluginRoute: RouteConfig = registerRoute
     params: z.object({
       baseId: z.string(),
       id: z.string(),
+      installedId: z.string(),
     }),
   },
   responses: {
