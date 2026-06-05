@@ -1136,6 +1136,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
+    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。",
     "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {

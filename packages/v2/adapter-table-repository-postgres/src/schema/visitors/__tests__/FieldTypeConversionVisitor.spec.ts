@@ -100,6 +100,17 @@ const getVisitorSqls = (sourceField: Field, targetField: Field): string[] => {
   return statements.map((s) => s.compile(db as never).sql);
 };
 
+const getVisitorStatements = (sourceField: Field, targetField: Field) => {
+  const params = createParams();
+  const factory = new FieldTypeConversionVisitorFactory(params);
+  const visitorResult = sourceField.accept(factory);
+  expect(visitorResult.isOk()).toBe(true);
+  const visitor = visitorResult._unsafeUnwrap();
+  const statementsResult = targetField.accept(visitor);
+  expect(statementsResult.isOk()).toBe(true);
+  return statementsResult._unsafeUnwrap();
+};
+
 // ----- Field factory helpers -----
 
 const mkTextField = () => createTextField('srcText', 'Source Text', DB_FIELD_NAME)._unsafeUnwrap();
@@ -327,7 +338,7 @@ describe('FieldTypeConversionVisitor', () => {
         const optionsSql = sqls[0];
         expect(optionsSql).toContain('distinct_values');
         expect(optionsSql).toContain('DISTINCT');
-        expect(optionsSql).toContain('UPDATE field');
+        expect(optionsSql).not.toContain('UPDATE field');
       });
 
       it('should not generate type conversion statement (same DB type)', () => {
@@ -342,7 +353,7 @@ describe('FieldTypeConversionVisitor', () => {
       it('should generate CSV-aware SQL to split text into jsonb array (V1 parity)', () => {
         const sqls = getVisitorSqls(mkTextField(), mkMultiSelField());
         // Should use regexp_matches with CSV-aware pattern instead of regexp_split_to_table
-        const updateSql = sqls.find((s) => s.includes('regexp_matches'));
+        const updateSql = sqls.find((s) => s.includes('jsonb_agg'));
         expect(updateSql).toBeDefined();
         expect(updateSql).toContain('jsonb_agg');
         expect(updateSql).toContain('COALESCE(trim(m[1]), trim(m[2]))');
@@ -361,19 +372,26 @@ describe('FieldTypeConversionVisitor', () => {
     });
 
     describe('text -> user', () => {
-      it('should generate SQL to match text against collaborators by id, name, or email', () => {
-        const sqls = getVisitorSqls(mkTextField(), mkUsrField(false));
+      it('should execute as a custom data statement without joining meta-plane users or collaborators in data SQL', () => {
+        const statements = getVisitorStatements(mkTextField(), mkUsrField(false));
+        const sqls = statements.map((s) => s.compile(db as never).sql);
+        expect(statements[0]?.scope).toBe('data');
+        expect(statements[0]?.execute).toBeDefined();
         expect(sqls.length).toBeGreaterThanOrEqual(2);
-        // First statement is the DO block for user matching
         const matchSql = sqls[0];
-        expect(matchSql).toContain('collab_users');
-        expect(matchSql).toContain('matched_users');
+        expect(matchSql).toContain('text_parts');
+        expect(matchSql).toContain('jsonb_build_object');
+        expect(matchSql).not.toContain('collaborator');
+        expect(matchSql).not.toMatch(/\b(from|join)\s+(public\.)?users\b/i);
+        expect(matchSql).not.toContain('table_meta');
+        expect(matchSql).not.toContain('base');
       });
 
       it('should generate SQL for single user format (object)', () => {
         const sqls = getVisitorSqls(mkTextField(), mkUsrField(false));
         const matchSql = sqls[0];
         expect(matchSql).toContain('jsonb_build_object');
+        expect(matchSql).toContain('SELECT DISTINCT ON (rid)');
       });
 
       it('should generate SQL for multiple user format (array of objects)', () => {
@@ -1032,49 +1050,59 @@ describe('FieldTypeConversionVisitor', () => {
 
     it('should generate SQL to filter out existing options', () => {
       const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
-      const optionsSql = sqls.find((s) => s.includes('existing_choices'));
+      const optionsSql = sqls.find((s) => s.includes('distinct_values'));
       expect(optionsSql).toBeDefined();
-      expect(optionsSql).toContain('NOT IN');
-      expect(optionsSql).toContain('existing_names');
+      expect(optionsSql).not.toContain('existing_choices');
+      expect(optionsSql).not.toContain('UPDATE field');
     });
 
     it('should guard generated select option names against the configured max length', () => {
       const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
-      const optionsSql = sqls.find((s) => s.includes('oversized_guard'));
+      const optionsSql = sqls.find((s) => s.includes('oversized_values'));
       expect(optionsSql).toBeDefined();
       expect(optionsSql).toContain('char_length(name)');
       expect(optionsSql).toContain('oversized_values');
-      expect(optionsSql).toContain("COALESCE((SELECT '' FROM oversized_values");
-      expect(optionsSql).toContain('THEN CAST(');
-      expect(optionsSql).toMatch(/\$\d+\s+\|\| COALESCE/);
-      expect(optionsSql).toContain('AS integer');
+      expect(optionsSql).toContain('NOT EXISTS');
     });
 
-    it('should generate SQL with random ID generation', () => {
-      const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
-      const optionsSql = sqls.find((s) => s.includes('cho'));
-      expect(optionsSql).toBeDefined();
-      expect(optionsSql).toContain("'cho'");
-      expect(optionsSql).toContain('md5(random()');
-      expect(optionsSql).toContain('substr');
+    it('should generate options through a custom executor instead of data-scope metadata SQL', () => {
+      const params = createParams();
+      const factory = new FieldTypeConversionVisitorFactory(params);
+      const visitorResult = mkTextField().accept(factory);
+      expect(visitorResult.isOk()).toBe(true);
+      const statementsResult = mkSingleSelField().accept(visitorResult._unsafeUnwrap());
+      expect(statementsResult.isOk()).toBe(true);
+      const optionStatement = statementsResult
+        ._unsafeUnwrap()
+        .find((statement) => statement.compile(db as never).sql.includes('distinct_values'));
+      expect(optionStatement).toBeDefined();
+      expect(optionStatement?.scope).toBe('meta');
+      expect(optionStatement?.execute).toBeTypeOf('function');
     });
 
-    it('should generate SQL with color assignment from palette', () => {
+    it('should not generate random IDs in data-scope SQL', () => {
       const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
-      const optionsSql = sqls.find((s) => s.includes('color'));
+      const optionsSql = sqls.find((s) => s.includes('distinct_values'));
       expect(optionsSql).toBeDefined();
-      expect(optionsSql).toContain('ARRAY[');
-      // Colors are parameterized by Kysely (e.g., $2, $3, ...) rather than literal strings
-      expect(optionsSql).toContain("'color'");
-      expect(optionsSql).toMatch(/\(rn % \$\d+\) \+ 1/);
+      expect(optionsSql).not.toContain("'cho'");
+      expect(optionsSql).not.toContain('md5(random()');
+      expect(optionsSql).not.toContain('substr');
     });
 
-    it('should generate SQL to merge with existing choices', () => {
+    it('should not generate color assignment in data-scope SQL', () => {
       const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
-      const optionsSql = sqls.find((s) => s.includes('merged_choices'));
+      const optionsSql = sqls.find((s) => s.includes('distinct_values'));
       expect(optionsSql).toBeDefined();
-      expect(optionsSql).toContain('COALESCE');
-      expect(optionsSql).toContain("'[]'::jsonb");
+      expect(optionsSql).not.toContain('ARRAY[');
+      expect(optionsSql).not.toContain("'color'");
+    });
+
+    it('should not merge metadata choices in data-scope SQL', () => {
+      const sqls = getVisitorSqls(mkTextField(), mkSingleSelField());
+      const optionsSql = sqls.find((s) => s.includes('distinct_values'));
+      expect(optionsSql).toBeDefined();
+      expect(optionsSql).not.toContain('merged_choices');
+      expect(optionsSql).not.toContain('UPDATE field');
     });
 
     it('should return null if fieldId is not provided', () => {
