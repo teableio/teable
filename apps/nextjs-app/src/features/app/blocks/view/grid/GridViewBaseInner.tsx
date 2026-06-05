@@ -195,6 +195,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
+  // Fields whose edit re-positions the row: auto-sort + group fields.
+  const moveTriggerFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (isAutoSort) sort?.sortObjs?.forEach((sortObj) => ids.add(sortObj.fieldId));
+    group?.forEach((groupObj) => ids.add(groupObj.fieldId));
+    return ids;
+  }, [isAutoSort, sort, group]);
   const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
     {}) as IGridViewOptions;
   const frozenColumnCount = useMemo(() => {
@@ -1542,6 +1549,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         theme={theme}
         style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
         draggable={draggable}
+        disableEnterMoveDown={activeCell != null && moveTriggerFieldIds.has(activeCell.fieldId)}
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
         rowHeight={rowHeight}
