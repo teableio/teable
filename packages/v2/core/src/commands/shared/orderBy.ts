@@ -15,7 +15,7 @@ import type * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQue
  * const groupBy = resolveGroupByToOrderBy(group).value;
  * const sortBy = resolveOrderBy(sort).value;
  * const orderBy = mergeOrderBy(groupBy, sortBy, 'viw0000000000000001');
- * // orderBy -> [{ fieldId: ... }, { fieldId: ... }, { column: '__row_viw...' }]
+ * // orderBy -> [{ fieldId: ... }, { fieldId: ... }, { column: '__auto_number' }]
  * ```
  */
 export type SortLike = {
@@ -96,39 +96,14 @@ export const mergeOrderBy = (
 
 /**
  * Merge groupBy + sort order for offset-targeted range commands.
- * Range commands address visible rows, so ties must continue to respect the view row order
- * before falling back to auto number for a final deterministic ordering.
+ * Range commands address the same visible rows returned by list queries, so they must use
+ * the same final tie-breaker as `mergeOrderBy`. Otherwise grouped views can display rows in
+ * one order while clear/paste/delete resolves the selected offset in another order.
  */
 export const mergeOrderByWithViewRowTieBreaker = (
   groupByOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
   sortOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
   viewId: string | undefined
 ): ReadonlyArray<TableRecordQueryRepositoryPort.TableRecordOrderBy> | undefined => {
-  const result: TableRecordQueryRepositoryPort.TableRecordOrderBy[] = [];
-  const seen = new Set<string>();
-
-  const pushUnique = (item: TableRecordQueryRepositoryPort.TableRecordOrderBy) => {
-    const key =
-      'fieldId' in item ? `field:${item.fieldId.toString()}` : `column:${String(item.column)}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    result.push(item);
-  };
-
-  groupByOrderBy?.forEach(pushUnique);
-  sortOrderBy?.forEach(pushUnique);
-
-  if (viewId) {
-    pushUnique({
-      column: `__row_${viewId}`,
-      direction: 'asc',
-    });
-  }
-
-  pushUnique({
-    column: '__auto_number',
-    direction: 'asc',
-  });
-
-  return result.length > 0 ? result : undefined;
+  return mergeOrderBy(groupByOrderBy, sortOrderBy, viewId);
 };

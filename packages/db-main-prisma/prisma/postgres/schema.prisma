@@ -42,6 +42,19 @@ enum SpaceDataDbBindingState {
   disabled
 }
 
+enum SpaceDataDbMigrationJobState {
+  pending
+  preflight
+  freezing_writes
+  copying
+  validating
+  switching
+  succeeded
+  failed
+  canceled
+  rolled_back
+}
+
 model Space {
   id               String    @id @default(cuid())
   name             String
@@ -55,6 +68,7 @@ model Space {
 
   baseGroup Base[]
   dataDbBinding SpaceDataDbBinding?
+  dataDbMigrationJobs SpaceDataDbMigrationJob[]
 
   @@map("space")
 }
@@ -77,6 +91,8 @@ model DataDbConnection {
   lastModifiedTime DateTime?              @updatedAt @map("last_modified_time")
 
   spaceBindings SpaceDataDbBinding[]
+  sourceMigrationJobs SpaceDataDbMigrationJob[] @relation("SpaceDataDbMigrationSourceConnection")
+  targetMigrationJobs SpaceDataDbMigrationJob[] @relation("SpaceDataDbMigrationTargetConnection")
 
   @@map("data_db_connection")
 }
@@ -95,6 +111,35 @@ model SpaceDataDbBinding {
 
   @@index([dataDbConnectionId])
   @@map("space_data_db_binding")
+}
+
+model SpaceDataDbMigrationJob {
+  id                   String                       @id @default(cuid())
+  spaceId              String                       @map("space_id")
+  sourceConnectionId   String?                      @map("source_connection_id")
+  targetConnectionId   String?                      @map("target_connection_id")
+  targetMode           String                       @default("migrate-space") @map("target_mode")
+  switchOnCompletion   Boolean                      @default(false) @map("switch_on_completion")
+  state                SpaceDataDbMigrationJobState @default(pending)
+  targetUrlFingerprint String                       @map("target_url_fingerprint")
+  targetInternalSchema String                       @map("target_internal_schema")
+  inventory            Json?
+  copyStats            Json?                        @map("copy_stats")
+  validationStats      Json?                        @map("validation_stats")
+  lastError            String?                      @map("last_error")
+  startedAt            DateTime?                    @map("started_at")
+  completedAt          DateTime?                    @map("completed_at")
+  createdBy            String                       @map("created_by")
+  createdTime          DateTime                     @default(now()) @map("created_time")
+  lastModifiedTime     DateTime?                    @updatedAt @map("last_modified_time")
+  space                Space                        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  sourceConnection     DataDbConnection?            @relation("SpaceDataDbMigrationSourceConnection", fields: [sourceConnectionId], references: [id])
+  targetConnection     DataDbConnection?            @relation("SpaceDataDbMigrationTargetConnection", fields: [targetConnectionId], references: [id])
+
+  @@index([spaceId, state])
+  @@index([sourceConnectionId])
+  @@index([targetConnectionId])
+  @@map("space_data_db_migration_job")
 }
 
 model PinResource {

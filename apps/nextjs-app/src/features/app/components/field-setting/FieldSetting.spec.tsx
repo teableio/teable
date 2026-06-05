@@ -62,6 +62,26 @@ vi.mock('./DynamicFieldEditor', () => ({
         onClick={() =>
           onChange?.({
             ...field,
+            name: 'User',
+            type: FieldType.User,
+            options: {
+              isMultiple: true,
+              shouldNotify: true,
+            },
+            order: {
+              viewId: 'viwTest0000000001',
+              orderIndex: null,
+            },
+          })
+        }
+      >
+        Mock polluted user field
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange?.({
+            ...field,
             name: 'AI Reply',
             aiConfig: {
               type: FieldAIActionType.Customization,
@@ -108,6 +128,31 @@ describe('FieldSettingBase', () => {
     );
 
     expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
+  });
+
+  it('drops polluted local order before validating a new field', async () => {
+    const onConfirm = vi.fn();
+    render(
+      <FieldSettingBase
+        visible
+        field={undefined}
+        operator={FieldOperator.Insert}
+        onCancel={() => undefined}
+        onConfirm={onConfirm}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mock polluted user field' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(onConfirm).toHaveBeenCalledWith({
+      name: 'User',
+      type: FieldType.User,
+      options: {
+        isMultiple: true,
+        shouldNotify: true,
+      },
+    });
   });
 
   it('hydrates local editor state when originField arrives after initial fallback render', () => {
