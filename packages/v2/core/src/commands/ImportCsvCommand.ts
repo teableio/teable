@@ -13,7 +13,9 @@ import type { CsvSource } from '../ports/CsvParser';
 const importCsvBaseSchema = z.object({
   baseId: z.string(),
   tableName: z.string().optional(),
+  importData: z.boolean().default(true),
   batchSize: z.number().min(1).max(5000).default(500),
+  maxRowCount: z.number().int().positive().optional(),
 });
 
 /**
@@ -47,7 +49,9 @@ export class ImportCsvCommand {
     readonly baseId: BaseId,
     readonly csvSource: CsvSource,
     readonly tableName: TableName | undefined,
-    readonly batchSize: number
+    readonly importData: boolean,
+    readonly batchSize: number,
+    readonly maxRowCount: number | undefined
   ) {}
 
   /**
@@ -65,7 +69,7 @@ export class ImportCsvCommand {
       );
     }
 
-    const { baseId, tableName, batchSize } = parsed.data;
+    const { baseId, tableName, importData, batchSize, maxRowCount } = parsed.data;
 
     // 根据输入类型选择创建方式
     if ('csvUrl' in parsed.data && parsed.data.csvUrl) {
@@ -73,7 +77,9 @@ export class ImportCsvCommand {
         baseId,
         csvUrl: parsed.data.csvUrl,
         tableName,
+        importData,
         batchSize,
+        maxRowCount,
       });
     }
 
@@ -82,7 +88,9 @@ export class ImportCsvCommand {
         baseId,
         csvData: parsed.data.csvData,
         tableName,
+        importData,
         batchSize,
+        maxRowCount,
       });
     }
 
@@ -101,7 +109,9 @@ export class ImportCsvCommand {
     baseId: string;
     csvData: Uint8Array;
     tableName?: string;
+    importData?: boolean;
     batchSize?: number;
+    maxRowCount?: number;
   }): Result<ImportCsvCommand, DomainError> {
     const baseIdResult = BaseId.create(input.baseId);
     if (baseIdResult.isErr()) {
@@ -131,7 +141,9 @@ export class ImportCsvCommand {
         baseIdResult.value,
         { type: 'buffer', data: input.csvData },
         tableNameVo,
-        batchSize
+        input.importData ?? true,
+        batchSize,
+        input.maxRowCount
       )
     );
   }
@@ -143,7 +155,9 @@ export class ImportCsvCommand {
     baseId: string;
     csvData: string;
     tableName?: string;
+    importData?: boolean;
     batchSize?: number;
+    maxRowCount?: number;
   }): Result<ImportCsvCommand, DomainError> {
     const baseIdResult = BaseId.create(input.baseId);
     if (baseIdResult.isErr()) {
@@ -173,7 +187,9 @@ export class ImportCsvCommand {
         baseIdResult.value,
         { type: 'string', data: input.csvData },
         tableNameVo,
-        batchSize
+        input.importData ?? true,
+        batchSize,
+        input.maxRowCount
       )
     );
   }
@@ -185,7 +201,9 @@ export class ImportCsvCommand {
     baseId: string;
     csvStream: AsyncIterable<Uint8Array | string>;
     tableName?: string;
+    importData?: boolean;
     batchSize?: number;
+    maxRowCount?: number;
   }): Result<ImportCsvCommand, DomainError> {
     const baseIdResult = BaseId.create(input.baseId);
     if (baseIdResult.isErr()) {
@@ -215,7 +233,9 @@ export class ImportCsvCommand {
         baseIdResult.value,
         { type: 'stream', data: input.csvStream },
         tableNameVo,
-        batchSize
+        input.importData ?? true,
+        batchSize,
+        input.maxRowCount
       )
     );
   }
@@ -228,7 +248,9 @@ export class ImportCsvCommand {
     baseId: string;
     csvUrl: string;
     tableName?: string;
+    importData?: boolean;
     batchSize?: number;
+    maxRowCount?: number;
   }): Result<ImportCsvCommand, DomainError> {
     const baseIdResult = BaseId.create(input.baseId);
     if (baseIdResult.isErr()) {
@@ -270,7 +292,9 @@ export class ImportCsvCommand {
         baseIdResult.value,
         { type: 'url', url: input.csvUrl },
         tableNameVo,
-        batchSize
+        input.importData ?? true,
+        batchSize,
+        input.maxRowCount
       )
     );
   }
