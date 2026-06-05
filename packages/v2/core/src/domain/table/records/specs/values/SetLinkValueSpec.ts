@@ -30,8 +30,13 @@ export class SetLinkValueSpec extends MutateOnlySpec<TableRecord, ICellValueSpec
   }
 
   needsTitleResolution(): boolean {
-    const items = this.value.toValue();
-    if (!items || !Array.isArray(items) || items.length === 0) return false;
+    const rawItems = this.value.toValue();
+    const items = Array.isArray(rawItems)
+      ? rawItems
+      : rawItems && typeof rawItems === 'object' && 'id' in rawItems
+        ? [rawItems as LinkItem]
+        : [];
+    if (items.length === 0) return false;
     return this.foreignTableId != null && items.some((item) => item.id && !item.title);
   }
 

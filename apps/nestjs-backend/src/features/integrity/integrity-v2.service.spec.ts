@@ -14,8 +14,10 @@ import {
   Table,
   TableId,
   TableName,
+  v2CoreTokens,
   type ITracer,
 } from '@teable/v2-core';
+import { ok } from 'neverthrow';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { IntegrityV2Service } from './integrity-v2.service';
@@ -378,7 +380,7 @@ describe('IntegrityV2Service repair telemetry', () => {
     );
 
     expect(tableRepository.find).toHaveBeenCalledTimes(1);
-    expect(tableRepository.find.mock.calls[0]?.[2]).toEqual({ state: 'all' });
+    expect(tableRepository.find.mock.calls[0]?.[2]).toEqual({ state: 'activeWithPending' });
     expect(tableRepository.find.mock.calls[0]?.[1]).toMatchObject({
       left: {
         baseIdValue: foreignBaseId,
@@ -391,6 +393,70 @@ describe('IntegrityV2Service repair telemetry', () => {
     expect(repairedContextResults).toEqual([]);
     expect(fakeDb.execute).not.toHaveBeenCalled();
     expect(lookupField.hasError().isError()).toBe(false);
+  });
+
+  it('loads active schema state for integrity table targets', async () => {
+    const tableId = createTableId('i').toString();
+    const table = createTable();
+    const tableRepository = {
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    await service['resolveSchemaTarget'](tableId, { includeBaseTables: true });
+
+    expect(tableRepository.findOne).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+  });
+
+  it('loads active schema state for integrity base targets', async () => {
+    const baseId = createBaseId('i').toString();
+    const table = createTable();
+    const tableRepository = {
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const baseRepository = {
+      findOne: vi.fn().mockResolvedValue(ok({})),
+    };
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        if (token === v2CoreTokens.baseRepository) {
+          return baseRepository;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    await service['resolveBaseTarget'](baseId);
+
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
   });
 
   it('marks metadata reference check results as auto repairable', async () => {
