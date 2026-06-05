@@ -6,9 +6,12 @@
 
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { DataPrismaService } from '@teable/db-data-prisma';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import { convertField } from '@teable/openapi';
+import { type ITableSchemaRepository, v2CoreTokens } from '@teable/v2-core';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import {
   createField,
   createTable,
@@ -18,15 +21,34 @@ import {
   permanentDeleteTable,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const describeV2 = isForceV2 ? describe : describe.skip;
+
+const quoteIdent = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
+
+const parseDbTableName = (dbTableName: string) => {
+  const [schemaName, tableName] = dbTableName.split('.');
+
+  if (!schemaName || !tableName) {
+    throw new Error(`Invalid dbTableName: ${dbTableName}`);
+  }
+
+  return { schemaName, tableName };
+};
+
 describe('OpenAPI delete field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   let prisma: PrismaService;
+  let dataPrisma: DataPrismaService;
+  let v2ContainerService: V2ContainerService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     prisma = app.get(PrismaService);
+    dataPrisma = app.get(DataPrismaService);
+    v2ContainerService = app.get(V2ContainerService);
   });
 
   afterAll(async () => {
@@ -121,6 +143,87 @@ describe('OpenAPI delete field (e2e)', () => {
       await expect(deleteField(table.id, primaryField.id)).rejects.toMatchObject({
         status: 403,
       });
+    });
+  });
+
+  describeV2('V2 delete field schema transition', () => {
+    let table: ITableFullVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'Delete Field Pending Schema Test Table',
+        fields: [
+          {
+            name: 'Primary Field',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Column To Delete',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              'Primary Field': 'Record 1',
+              'Column To Delete': 'value 1',
+            },
+          },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      if (table?.id) {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('should hide the table from reads before dropping a physical column', async () => {
+      const field = table.fields.find((f) => f.name === 'Column To Delete')!;
+      const dbFieldName = field.dbFieldName!;
+      const container = await v2ContainerService.getContainerForTable(table.id);
+      const tableSchemaRepository = container.resolve<ITableSchemaRepository>(
+        v2CoreTokens.tableSchemaRepository
+      );
+      const originalUpdate = tableSchemaRepository.update.bind(tableSchemaRepository);
+      const { schemaName, tableName } = parseDbTableName(table.dbTableName);
+      let observedProvisionState: ProvisionState | undefined;
+      let readDuringSchemaUpdateError: unknown;
+
+      tableSchemaRepository.update = (async (...args: Parameters<typeof originalUpdate>) => {
+        await dataPrisma.$executeRawUnsafe(
+          `ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)} DROP COLUMN IF EXISTS ${quoteIdent(dbFieldName)} CASCADE`
+        );
+        const tableRaw = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { provisionState: true },
+        });
+        observedProvisionState = tableRaw.provisionState;
+
+        try {
+          await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+        } catch (error) {
+          readDuringSchemaUpdateError = error;
+        }
+
+        return originalUpdate(...args);
+      }) as typeof tableSchemaRepository.update;
+
+      try {
+        await deleteField(table.id, field.id);
+      } finally {
+        tableSchemaRepository.update = originalUpdate;
+      }
+
+      const readErrorMessage = JSON.stringify(readDuringSchemaUpdateError);
+      expect(observedProvisionState).toBe(ProvisionState.pending);
+      expect(readDuringSchemaUpdateError).toMatchObject({ status: 404 });
+      expect(readErrorMessage).not.toContain(dbFieldName);
+
+      const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records.records).toHaveLength(1);
+      expect(records.records[0].fields[field.id]).toBeUndefined();
     });
   });
 

@@ -24,6 +24,8 @@ import {
   TableUpdateFieldDbFieldNameSpec,
   TableUpdateFieldHasErrorSpec,
   TableUpdateFieldNameSpec,
+  UpdateUserMultiplicitySpec,
+  UserMultiplicity,
   ViewColumnMeta,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -112,6 +114,31 @@ const createTableFixture = () => {
   const view = table.views()[0]!;
 
   return { table, titleField, linkField, rollupField, view };
+};
+
+const createUserMultiplicityFixture = () => {
+  const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+  const userFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+  const builder = Table.builder()
+    .withBaseId(baseId)
+    .withId(tableId)
+    .withName(TableName.create('Users')._unsafeUnwrap());
+
+  builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .user()
+    .withId(userFieldId)
+    .withName(FieldName.create('Assignee')._unsafeUnwrap())
+    .withMultiplicity(UserMultiplicity.multiple())
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build()._unsafeUnwrap().clone(new DefaultTableMapper())._unsafeUnwrap();
+  const userField = table.getFields()[1]!;
+
+  return { table, userField };
 };
 
 const createDetachedField = (name: string) => {
@@ -482,7 +509,6 @@ describe('TableMetaUpdateVisitor', () => {
       'visitUpdateRatingMax',
       'visitUpdateRatingIcon',
       'visitUpdateRatingColor',
-      'visitUpdateUserMultiplicity',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
       'visitUpdateButtonLabel',
@@ -555,6 +581,25 @@ describe('TableMetaUpdateVisitor', () => {
     expect(storageUpdate.isOk()).toBe(true);
     expect(compileStatements(db, optionOnly._unsafeUnwrap())[0]?.sql).toContain('"options" = $1');
     expect(compileStatements(db, storageUpdate._unsafeUnwrap())[0]?.sql).toContain('"meta" = $2');
+  });
+
+  it('persists derived user multiplicity metadata when user options change', () => {
+    const { table, userField } = createUserMultiplicityFixture();
+    const { db, visitor } = createVisitor(table);
+    const spec = UpdateUserMultiplicitySpec.create(
+      userField.id(),
+      DbFieldName.rehydrate('assignee')._unsafeUnwrap(),
+      UserMultiplicity.single(),
+      UserMultiplicity.multiple()
+    );
+
+    const result = visitor.visitUpdateUserMultiplicity(spec);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('"options" = $1');
+    expect(compiled.sql).toContain('"is_multiple_cell_value" =');
+    expect(compiled.parameters).toContain(true);
   });
 
   it('uses storage metadata updates for rollup config changes', () => {
