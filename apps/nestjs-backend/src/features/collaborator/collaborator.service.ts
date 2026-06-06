@@ -36,6 +36,8 @@ import {
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 
 @Injectable()
 export class CollaboratorService {
@@ -43,6 +45,7 @@ export class CollaboratorService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
+    private readonly audit: AuditScope,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -634,6 +637,18 @@ export class CollaboratorService {
         .txClient()
         .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
       spaceId = space.spaceId;
+      // Base-scope audit (space-scope audit not required by current spec).
+      await this.audit.emitAtomic({
+        action: Events.BASE_COLLABORATOR_DELETE,
+        resourceId,
+        params: {
+          baseId: resourceId,
+          spaceId,
+          principalId,
+          principalType,
+          oldRole: targetColl.roleName,
+        },
+      });
     }
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_DELETE,
@@ -721,6 +736,22 @@ export class CollaboratorService {
         .txClient()
         .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
       spaceId = space.spaceId;
+      // Base-scope audit. Only emit when role actually changes — same-role PATCHes
+      // (e.g. no-op idempotency calls) shouldn't bloat the audit log.
+      if (targetColl.roleName !== role) {
+        await this.audit.emitAtomic({
+          action: Events.BASE_COLLABORATOR_UPDATE,
+          resourceId,
+          params: {
+            baseId: resourceId,
+            spaceId,
+            principalId,
+            principalType,
+            oldRole: targetColl.roleName,
+            newRole: role,
+          },
+        });
+      }
     } else if (resourceType === CollaboratorType.Space) {
       spaceId = resourceId;
     }
@@ -769,6 +800,20 @@ export class CollaboratorService {
     };
   }
 
+  @Audit({
+    action: Events.BASE_COLLABORATOR_CREATE,
+    resourceId: (input: { baseId: string }) => input.baseId,
+    params: (input: {
+      baseId: string;
+      role: IBaseRole;
+      collaborators: { principalId: string; principalType: PrincipalType }[];
+    }) => ({
+      baseId: input.baseId,
+      role: input.role,
+      collaborators: input.collaborators,
+    }),
+    emit: true,
+  })
   async createBaseCollaborator({
     collaborators,
     baseId,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTableFromInput } from '../../../core/src/commands/TableInputParser';
 import { FormulaField } from '../../../core/src/domain/table/fields/types/FormulaField';
 import type { ITableFieldInput } from '../../../core/src/schemas/field';
-import { normalizeField } from './DotTeaFieldNormalizer';
+import { normalizeField, normalizeFields } from './DotTeaFieldNormalizer';
 
 describe('DotTeaFieldNormalizer', () => {
   it('deduplicates select choices that only differ by surrounding whitespace', () => {
@@ -299,6 +299,73 @@ describe('DotTeaFieldNormalizer', () => {
         lookupFieldId,
       },
     });
+  });
+
+  it('downgrades lookups that depend on links downgraded during the same normalization pass', () => {
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const dependentLookupFieldId = `fld${'u'.repeat(16)}`;
+    const lookupFieldId = `fld${'v'.repeat(16)}`;
+    const missingVisibleFieldId = `fld${'z'.repeat(16)}`;
+
+    const normalized = normalizeFields(
+      [
+        {
+          id: linkFieldId,
+          type: 'link',
+          name: 'Broken Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId,
+            lookupFieldId,
+            visibleFieldIds: [missingVisibleFieldId],
+          },
+        },
+        {
+          id: dependentLookupFieldId,
+          type: 'singleLineText',
+          isLookup: true,
+          name: 'Lookup Through Broken Link',
+          lookupOptions: {
+            foreignTableId,
+            linkFieldId,
+            lookupFieldId,
+          },
+        },
+      ],
+      {
+        availableTableIds: new Set([hostTableId, foreignTableId]),
+        fieldIdsByTableId: new Map([[foreignTableId, new Set([lookupFieldId])]]),
+      }
+    );
+
+    expect(normalized).toEqual([
+      expect.objectContaining({ id: linkFieldId, type: 'singleLineText' }),
+      expect.objectContaining({ id: dependentLookupFieldId, type: 'singleLineText' }),
+    ]);
+
+    const result = buildTableFromInput({
+      baseId: `bse${'b'.repeat(16)}`,
+      tableId: hostTableId,
+      name: 'Import Test',
+      fields: [
+        {
+          id: `fld${'p'.repeat(16)}`,
+          type: 'singleLineText',
+          name: 'Name',
+          isPrimary: true,
+        },
+        ...normalized.map((field) => ({
+          id: field.id,
+          type: field.type,
+          name: field.name,
+          options: field.options,
+        })),
+      ] as ITableFieldInput[],
+    });
+
+    expect(result.isOk()).toBe(true);
   });
 
   it('preserves required many-one link fields from dottea exports', () => {

@@ -166,6 +166,7 @@ export class RecordOpenApiController {
     );
   }
 
+  @UseV2Feature('updateRecord')
   @Permissions('record|update')
   @Post(':recordId/:fieldId/uploadAttachment')
   @UseInterceptors(FileInterceptor('file'))
@@ -185,6 +186,16 @@ export class RecordOpenApiController {
       },
     });
 
+    if (this.cls.get('useV2')) {
+      return await this.recordOpenApiV2Service.uploadAttachment(
+        tableId,
+        recordId,
+        fieldId,
+        file,
+        fileUrl
+      );
+    }
+
     return await this.recordOpenApiService.uploadAttachment(
       tableId,
       recordId,
@@ -194,6 +205,7 @@ export class RecordOpenApiController {
     );
   }
 
+  @UseV2Feature('updateRecord')
   @Permissions('record|update')
   @Post(':recordId/:fieldId/insertAttachment')
   async insertAttachment(
@@ -210,6 +222,16 @@ export class RecordOpenApiController {
         },
       },
     });
+
+    if (this.cls.get('useV2')) {
+      return await this.recordOpenApiV2Service.insertAttachment(
+        tableId,
+        recordId,
+        fieldId,
+        body.attachments,
+        body.anchorId
+      );
+    }
 
     return await this.recordOpenApiService.insertAttachment(
       tableId,

@@ -28,6 +28,8 @@ type PreparedTableDataSafetyOperationLimitState = {
 
 const tableNameLength = (context: TableOperationPluginContext): number => {
   switch (context.kind) {
+    case TableOperationKind.read:
+      return 0;
     case TableOperationKind.create:
     case TableOperationKind.duplicate:
     case TableOperationKind.importCsv:
@@ -52,8 +54,8 @@ export class TableDataSafetyLimitTableOperationPlugin
     private readonly limitComposer: TableDataSafetyLimitComposer
   ) {}
 
-  supports(_operation: TableOperationKind): boolean {
-    return true;
+  supports(operation: TableOperationKind): boolean {
+    return operation !== TableOperationKind.read;
   }
 
   async prepare(
@@ -82,6 +84,8 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (nameResult.isErr()) return nameResult;
 
     switch (context.kind) {
+      case TableOperationKind.read:
+        return ok(undefined);
       case TableOperationKind.create: {
         const tableCountResult = await this.ensureTablesPerBaseLimit(
           context.executionContext,

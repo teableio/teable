@@ -310,8 +310,8 @@ export interface RecordRestoreSystemValues {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
   /** Preserve per-view row-order snapshot during undo/redo restore. */
   orders?: Readonly<Record<string, number>>;
   /**
