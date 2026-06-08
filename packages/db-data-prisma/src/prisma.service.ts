@@ -1,9 +1,9 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
 import { getDataDatabaseUrl, isSharedMetaDataDatabase } from './database-url';
+import { Prisma, PrismaClient } from './generated/client';
 import { TimeoutHttpException } from './utils';
 
 interface IDataTxStore {

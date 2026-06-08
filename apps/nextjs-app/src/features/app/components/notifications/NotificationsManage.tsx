@@ -139,7 +139,7 @@ const showExportBaseToast = (
 
 const showGeneralNotificationToast = (notification: INotification, toastId: string) => {
   toast.info(
-    <div className="flex items-center">
+    <div className="flex w-full min-w-0 items-start">
       <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
       <LinkNotification data={notification} notifyStatus={NotificationStatesEnum.Unread} />
     </div>,

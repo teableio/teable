@@ -69,6 +69,7 @@
     "switchBase": "Base wechseln",
     "getMore": "Mehr erhalten",
     "copySuccess": "Kopieren erfolgreich",
+    "openLink": "Link öffnen",
     "share": "Teilen"
   },
   "quickAction": {
@@ -791,6 +792,7 @@
     "unsubscribeTime": "Abbestellzeit",
     "source": "Quelle",
     "sourceAutomationDeleted": "Automatisierung oder Knoten gelöscht",
+    "sourceApiSend": "E-Mail-Versand per API",
     "processing": "Verarbeitung...",
     "unsubscribeH1": "Abmeldung bestätigen?",
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
