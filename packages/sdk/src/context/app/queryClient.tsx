@@ -10,6 +10,10 @@ import type { ILocaleFunction, TKey } from './i18n';
 
 const { toast } = sonner;
 
+// 4xx statuses still surfaced on GET (query) requests — actionable for the user, not raw
+// technical noise. 408: request/statement timeout ("narrow the scope and retry"); 429: rate limit.
+const QUERY_VISIBLE_4XX_STATUSES = [408, 429];
+
 // Network error toast deduplication - only show once per cooldown period
 const NETWORK_ERROR_TOAST_ID = 'network-error-toast';
 const NETWORK_ERROR_COOLDOWN_MS = 10 * 1000; // 10 seconds cooldown
@@ -140,8 +144,13 @@ export const errorRequestHandler = (
 
   // Silence 4xx errors on GET (query) requests — raw technical messages not useful to users.
   // Mutation 4xx errors are always shown so users get feedback on their actions.
-  // 429 is always shown (rate limit).
-  if (options?.isQuery && status >= 400 && status < 500 && status !== 429) {
+  // QUERY_VISIBLE_4XX_STATUSES are the exceptions that are still surfaced (see definition above).
+  if (
+    options?.isQuery &&
+    status >= 400 &&
+    status < 500 &&
+    !QUERY_VISIBLE_4XX_STATUSES.includes(status)
+  ) {
     if (process.env.NODE_ENV === 'development') {
       console.warn(`[Silenced 4xx] ${status} ${code}: ${message}`);
     }

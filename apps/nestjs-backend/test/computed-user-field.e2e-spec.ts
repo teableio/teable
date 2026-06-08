@@ -4,6 +4,7 @@ import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   deleteSpaceCollaborator,
+  deleteBaseCollaborator,
   emailSpaceInvitation,
   getRecord,
   getRecords,
@@ -30,8 +31,10 @@ import {
   createField,
   createRecords,
   createTable,
+  convertField,
   deleteBase,
   deleteField,
+  getField,
   initApp,
   permanentDeleteTable,
 } from './utils/init-app';
@@ -39,6 +42,7 @@ import {
 describe('Computed user field (e2e)', () => {
   let app: INestApplication;
   let v2ContainerService: V2ContainerService;
+  let eventEmitterService: EventEmitterService;
   let prisma: PrismaService;
   const spaceId = globalThis.testConfig.spaceId;
   const userName = globalThis.testConfig.userName;
@@ -49,6 +53,7 @@ describe('Computed user field (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     v2ContainerService = app.get(V2ContainerService);
+    eventEmitterService = app.get(EventEmitterService);
     prisma = app.get(PrismaService);
     const base = await createBase({ name: 'base1', spaceId });
     baseId = base.id;
@@ -326,14 +331,7 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      if (isV2Mode) {
-        expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
-          id: globalThis.testConfig.userId,
-          title: globalThis.testConfig.userName,
-        });
-      } else {
-        expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
-      }
+      expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
 
       await updateRecord(table1.id, recordId, {
         record: {
@@ -380,14 +378,7 @@ describe('Computed user field (e2e)', () => {
       });
 
       let record = await getRecord(table1.id, recordId, { fieldKeyType: FieldKeyType.Id });
-      if (isV2Mode) {
-        expect(record.data.fields[lastModifiedByField.id]).toMatchObject({
-          id: globalThis.testConfig.userId,
-          title: globalThis.testConfig.userName,
-        });
-      } else {
-        expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
-      }
+      expect(record.data.fields[lastModifiedByField.id]).toBeUndefined();
 
       await deleteField(table1.id, textField.id);
 
@@ -445,6 +436,314 @@ describe('Computed user field (e2e)', () => {
         expect.objectContaining({ title: globalThis.testConfig.userName }),
       ]);
       expect(updatedRecord.data.fields[formulaField.id]).toContain(globalThis.testConfig.userName);
+    });
+
+    it('should refresh linked lookup user field after source multi-user field changes', async () => {
+      const hostTable = await createTable(baseId, { name: 'lookup-user-host' });
+      const secondaryUserEmail = `lookup-refresh-user-${Date.now()}@example.com`;
+      const secondaryUserRequest = await createNewUserAxios({
+        email: secondaryUserEmail,
+        password: '12345678',
+      });
+      const secondaryUser = (await secondaryUserRequest.get<IUserMeVo>(USER_ME)).data;
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { role: Role.Creator, emails: [secondaryUserEmail] },
+      });
+
+      try {
+        const sourceUserField = await createField(table1.id, {
+          name: 'Members',
+          type: FieldType.User,
+          options: {
+            isMultiple: true,
+            shouldNotify: false,
+          },
+        });
+
+        const linkField = await createField(hostTable.id, {
+          name: 'Source',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table1.id,
+            lookupFieldId: table1.fields[0].id,
+          } as ILinkFieldOptionsRo,
+        });
+
+        const lookupField = await createField(hostTable.id, {
+          name: 'Lookup Members',
+          type: FieldType.User,
+          isLookup: true,
+          lookupOptions: {
+            linkFieldId: linkField.id,
+            foreignTableId: table1.id,
+            lookupFieldId: sourceUserField.id,
+          } as ILookupOptionsRo,
+        });
+
+        const sourceRecordId = table1.records[0].id;
+        const hostRecordId = hostTable.records[0].id;
+
+        await updateRecord(table1.id, sourceRecordId, {
+          record: {
+            fields: {
+              [sourceUserField.id]: [globalThis.testConfig.userId],
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        });
+        await updateRecord(hostTable.id, hostRecordId, {
+          record: {
+            fields: {
+              [linkField.id]: { id: sourceRecordId },
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        });
+        await processV2Outbox();
+
+        const initialHostRecord = await getRecord(hostTable.id, hostRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(initialHostRecord.data.fields[lookupField.id]).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+        ]);
+
+        await updateRecord(table1.id, sourceRecordId, {
+          record: {
+            fields: {
+              [sourceUserField.id]: [globalThis.testConfig.userId, secondaryUser.id],
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        });
+        await processV2Outbox();
+
+        const refreshedHostRecord = await getRecord(hostTable.id, hostRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(refreshedHostRecord.data.fields[lookupField.id]).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+          expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
+        ]);
+      } finally {
+        await deleteTable(baseId, hostTable.id);
+        await deleteBaseCollaborator({
+          baseId,
+          deleteBaseCollaboratorRo: {
+            principalId: secondaryUser.id,
+            principalType: PrincipalType.User,
+          },
+        });
+      }
+    });
+
+    it('should emit a legacy host lookup update event when linked multi-user source changes', async () => {
+      const v1Base = await createBase({ name: 'lookup-user-v1-base', spaceId });
+      await prisma.base.update({ where: { id: v1Base.id }, data: { v2Enabled: false } });
+      const sourceTable = await createTable(v1Base.id, { name: 'lookup-user-source-v1' });
+      const hostTable = await createTable(v1Base.id, { name: 'lookup-user-host-v1' });
+      const secondaryUserEmail = `lookup-refresh-v1-user-${Date.now()}@example.com`;
+      const secondaryUserRequest = await createNewUserAxios({
+        email: secondaryUserEmail,
+        password: '12345678',
+      });
+      const secondaryUser = (await secondaryUserRequest.get<IUserMeVo>(USER_ME)).data;
+      await emailBaseInvitation({
+        baseId: v1Base.id,
+        emailBaseInvitationRo: { role: Role.Creator, emails: [secondaryUserEmail] },
+      });
+
+      try {
+        const sourceUserField = await createField(sourceTable.id, {
+          name: 'Members',
+          type: FieldType.User,
+          options: {
+            isMultiple: true,
+            shouldNotify: false,
+          },
+        });
+
+        const linkField = await createField(hostTable.id, {
+          name: 'Source',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceTable.fields[0].id,
+          } as ILinkFieldOptionsRo,
+        });
+
+        const lookupField = await createField(hostTable.id, {
+          name: 'Lookup Members',
+          type: FieldType.User,
+          isLookup: true,
+          lookupOptions: {
+            linkFieldId: linkField.id,
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceUserField.id,
+          } as ILookupOptionsRo,
+        });
+
+        const sourceRecordId = sourceTable.records[0].id;
+        const hostRecordId = hostTable.records[0].id;
+
+        await updateRecord(sourceTable.id, sourceRecordId, {
+          record: {
+            fields: {
+              [sourceUserField.id]: [globalThis.testConfig.userId],
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        });
+        await updateRecord(hostTable.id, hostRecordId, {
+          record: {
+            fields: {
+              [linkField.id]: { id: sourceRecordId },
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        });
+
+        const events: unknown[] = [];
+        const handler = (event: unknown) => events.push(event);
+        eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
+        try {
+          await updateRecord(sourceTable.id, sourceRecordId, {
+            record: {
+              fields: {
+                [sourceUserField.id]: [globalThis.testConfig.userId, secondaryUser.id],
+              },
+            },
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+          });
+
+          const deadline = Date.now() + 2000;
+          while (
+            Date.now() < deadline &&
+            !events.some(
+              (event) =>
+                (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
+            )
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+          }
+        } finally {
+          eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
+        }
+
+        const refreshedHostRecord = await getRecord(hostTable.id, hostRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(refreshedHostRecord.data.fields[lookupField.id]).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+          expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
+        ]);
+
+        const hostEvent = events.find(
+          (event) => (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
+        ) as { payload?: { record?: { fields?: Record<string, { newValue?: unknown }> } } };
+        expect(hostEvent?.payload?.record?.fields?.[lookupField.id]?.newValue).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+          expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
+        ]);
+      } finally {
+        await deleteTable(v1Base.id, hostTable.id);
+        await deleteTable(v1Base.id, sourceTable.id);
+        await deleteBaseCollaborator({
+          baseId: v1Base.id,
+          deleteBaseCollaboratorRo: {
+            principalId: secondaryUser.id,
+            principalType: PrincipalType.User,
+          },
+        });
+        await deleteBase(v1Base.id);
+      }
+    });
+
+    it('should refresh dependent formula after converting a user field to multiple users', async () => {
+      if (!isV2Mode) {
+        return;
+      }
+
+      const userField = await createField(table1.id, {
+        name: 'single-user-source',
+        type: FieldType.User,
+        options: {
+          isMultiple: false,
+          shouldNotify: false,
+        },
+      });
+
+      const formulaField = await createField(table1.id, {
+        name: 'user-formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${userField.id}}`,
+        },
+      });
+
+      expect(formulaField.isMultipleCellValue).not.toBe(true);
+
+      const recordId = table1.records[0].id;
+      await updateRecord(table1.id, recordId, {
+        record: {
+          fields: {
+            [userField.id]: globalThis.testConfig.userId,
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+      await processV2Outbox();
+
+      const singleUserRecord = await getRecord(table1.id, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(singleUserRecord.data.fields[userField.id]).toMatchObject({
+        title: globalThis.testConfig.userName,
+      });
+      expect(singleUserRecord.data.fields[formulaField.id]).toBe(globalThis.testConfig.userName);
+
+      await convertField(table1.id, userField.id, {
+        name: userField.name,
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          shouldNotify: false,
+        },
+      });
+      await processV2Outbox();
+
+      const refreshedFormulaField = await getField(table1.id, formulaField.id);
+      expect(refreshedFormulaField.isMultipleCellValue).toBe(true);
+
+      const multipleUserRecord = await getRecord(table1.id, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(multipleUserRecord.data.fields[userField.id]).toEqual([
+        expect.objectContaining({ title: globalThis.testConfig.userName }),
+      ]);
+      expect(multipleUserRecord.data.fields[formulaField.id]).toEqual([
+        globalThis.testConfig.userName,
+      ]);
     });
   });
 

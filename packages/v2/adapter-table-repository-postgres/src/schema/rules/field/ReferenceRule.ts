@@ -29,6 +29,7 @@ export class ReferenceRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string> = [];
   readonly required: boolean;
+  readonly validationScope = 'meta';
 
   /**
    * @param field - The field that has the dependencies
