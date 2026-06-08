@@ -3,7 +3,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
-import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
+import {
+  mergeOrderBy,
+  resolveGroupByToOrderBy,
+  resolveOrderBy as resolveQueryOrderBy,
+} from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { type ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldType } from '../domain/table/fields/FieldType';
@@ -465,8 +469,11 @@ export class ListTableRecordsHandler
             effectiveQueryDefaults?.manualSort(),
             resolvedSort
           );
+          const effectiveGroup = query.groupBy?.length
+            ? undefined
+            : effectiveQueryDefaults?.group();
           const orderBy = mergeOrderBy(
-            undefined,
+            yield* resolveGroupByToOrderBy(effectiveGroup),
             yield* resolveQueryOrderBy(effectiveSort),
             query.viewId
           );

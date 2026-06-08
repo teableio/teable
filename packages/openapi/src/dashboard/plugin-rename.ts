@@ -27,7 +27,7 @@ export const DashboardPluginRenameRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       baseId: z.string(),
-      id: z.string(),
+      dashboardId: z.string(),
       pluginInstallId: z.string(),
     }),
     body: {

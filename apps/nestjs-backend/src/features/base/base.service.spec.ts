@@ -58,8 +58,8 @@ describe('BaseService', () => {
         service: new BaseService(
           prismaService as never,
           {} as never,
-          {} as never,
           cls as never,
+          {} as never,
           {} as never,
           {} as never,
           permissionService as never,
@@ -173,13 +173,14 @@ describe('BaseService', () => {
       const { service } = {
         service: new BaseService(
           {} as never,
-          defaultDataPrisma as never,
           dataDbClientManager as never,
           {} as never,
           {} as never,
           {} as never,
           {} as never,
+          {} as never,
           tableOpenApiService as never,
+          {} as never,
           {} as never,
           {} as never,
           {} as never,
@@ -215,6 +216,7 @@ describe('BaseService', () => {
         {} as never,
         {} as never,
         tableOpenApiService as never,
+        {} as never,
         {} as never,
         {} as never,
         {} as never,
