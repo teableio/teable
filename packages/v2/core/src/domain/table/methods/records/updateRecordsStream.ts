@@ -27,10 +27,13 @@ export interface UpdateRecordItem {
 export function* updateRecordsStream(
   this: Table,
   updates: Iterable<UpdateRecordItem>,
-  options?: { typecast?: boolean; batchSize?: number }
+  options?: { typecast?: boolean; batchSize?: number; maxBatchSize?: number }
 ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
   const { typecast = false } = options ?? {};
-  const batchSize = calculateBatchSize(this.getFields().length, options?.batchSize);
+  const batchSize = calculateBatchSize(this.getFields().length, {
+    userBatchSize: options?.batchSize,
+    maxBatchSize: options?.maxBatchSize,
+  });
   let batch: RecordUpdateResult[] = [];
 
   for (const { recordId, fieldValues } of updates) {

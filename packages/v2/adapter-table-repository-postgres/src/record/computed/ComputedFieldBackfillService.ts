@@ -35,6 +35,12 @@ type ComputedFieldBackfillInput = {
 
 const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
 
+const hasTrackedFieldIds = (
+  field: Field
+): field is Field & { trackedFieldIds: () => ReadonlyArray<unknown> } => {
+  return 'trackedFieldIds' in field && typeof field.trackedFieldIds === 'function';
+};
+
 const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
   if (size <= 0 || items.length <= size) return [items];
   const chunks: T[][] = [];
@@ -382,6 +388,7 @@ export class ComputedFieldBackfillService {
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
           forceLookupArrayOutput: true,
+          resolveSystemUserSnapshotsFromUsers: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -480,6 +487,7 @@ export class ComputedFieldBackfillService {
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
             forceLookupArrayOutput: true,
+            resolveSystemUserSnapshotsFromUsers: true,
           })
             .from(input.table)
             .select(chunkFieldIds);
@@ -540,6 +548,15 @@ export class ComputedFieldBackfillService {
    * link fields (which store JSONB values derived from FK/junction relationships).
    */
   private needsBackfill(field: Field, includeOneManyTwoWay = false): boolean {
+    if (
+      (field.type().equals(FieldType.lastModifiedTime()) ||
+        field.type().equals(FieldType.lastModifiedBy())) &&
+      hasTrackedFieldIds(field) &&
+      field.trackedFieldIds().length > 0
+    ) {
+      return false;
+    }
+
     // Computed fields (formula, lookup, rollup, conditionalLookup, conditionalRollup)
     const specResult = Field.specs().isComputed().build();
     if (specResult.isOk() && specResult.value.isSatisfiedBy(field)) {
