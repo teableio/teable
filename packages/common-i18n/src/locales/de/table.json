@@ -155,6 +155,9 @@
       "checkbox": {
         "title": "Erledigt"
       },
+      "color": {
+        "title": "Farbe"
+      },
       "button": {
         "title": "Schaltfläche",
         "label": "Schaltflächentext",
@@ -349,6 +352,7 @@
       "lastModifiedBy": "Sehen, welcher Benutzer die letzte Bearbeitung an einigen oder allen Feldern eines Datensatzes vorgenommen hat.",
       "autoNumber": "Automatisch eindeutige inkrementelle Nummern für jeden Datensatz erzeugen.",
       "button": "Auslösen einer benutzerdefinierten Aktion.",
+      "color": "Speichert einen Farbwert als Hex-Code.",
       "lookup": "Werte aus einem Feld in einem verknüpften Datensatz sehen."
     },
     "fieldName": "Feld Name",

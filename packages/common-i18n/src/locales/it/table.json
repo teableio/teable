@@ -155,6 +155,9 @@
       "checkbox": {
         "title": "Fatto"
       },
+      "color": {
+        "title": "Colore"
+      },
       "button": {
         "title": "Pulsante",
         "label": "Testo del pulsante",
@@ -349,6 +352,7 @@
       "lastModifiedBy": "Visualizza quale utente ha effettuato l'ultima modifica a uno o tutti i campi in un record.",
       "autoNumber": "Genera automaticamente numeri incrementali unici per ogni record.",
       "button": "Attiva un'azione personalizzata.",
+      "color": "Memorizza un valore di colore come codice esadecimale.",
       "lookup": "Visualizza valori da un campo in un record collegato."
     },
     "fieldName": "Nome del Campo",

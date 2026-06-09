@@ -155,6 +155,9 @@
       "checkbox": {
         "title": "Tamamlandı"
       },
+      "color": {
+        "title": "Renk"
+      },
       "button": {
         "title": "Düğme",
         "label": "Düğme metni",
@@ -347,6 +350,7 @@
       "lastModifiedBy": "Bir kayıttaki bazı veya tüm alanlarda en son düzenlemeyi hangi kullanıcının yaptığını görün.",
       "autoNumber": "Her kayıt için otomatik olarak benzersiz artan sayılar oluşturun.",
       "button": "Özelleştirilmiş bir eylem tetikleyin.",
+      "color": "Bir renk değerini hex kodu olarak saklar.",
       "lookup": "Bağlantılı bir kayıttaki bir alanın değerlerini görün."
     },
     "fieldName": "Alan Adı",

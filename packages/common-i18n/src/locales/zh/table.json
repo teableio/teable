@@ -191,6 +191,9 @@
       "checkbox": {
         "title": "勾选"
       },
+      "color": {
+        "title": "颜色"
+      },
       "button": {
         "title": "按钮",
         "label": "按钮文字",
@@ -400,6 +403,7 @@
       "lastModifiedBy": "查看每条记录的最近编辑的用户。",
       "autoNumber": "为每条记录自动生成唯一的递增数字。",
       "button": "触发自定义操作。",
+      "color": "以十六进制代码形式存储颜色值。",
       "lookup": "通过绑定一个关联字段，从关联表中查找已关联记录的信息。"
     },
     "fieldName": "字段名",

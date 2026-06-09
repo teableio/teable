@@ -353,6 +353,7 @@
       "lookup": "Affichez les valeurs depuis des enregistrements liés.",
       "conditionalLookup": "Affiche les valeurs liées qui répondent aux filtres définis.",
       "button": "Lancez des actions via un bouton cliquable.",
+      "color": "Stocke une valeur de couleur sous forme de code hexadécimal.",
       "createdBy": "Indique qui a créé l'enregistrement.",
       "lastModifiedBy": "Indique qui l'a modifié en dernier."
     },
