@@ -67,6 +67,7 @@ import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoSt
 
 // A hard-coded id is safe here because it never leaves the aggregate/spec build path.
 const BULK_UPDATE_SYNTHETIC_RECORD_ID = RecordId.create(`rec${'0'.repeat(16)}`)._unsafeUnwrap();
+const EXPLICIT_UPDATE_MAX_BATCH_SIZE = 1000;
 
 type RecordConditionSpec = ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
 
@@ -609,7 +610,10 @@ export class RecordBulkUpdateService {
                     recordId: update.recordId,
                     fieldValues: update.fieldValues,
                   })),
-                  { typecast: input.typecast }
+                  {
+                    typecast: input.typecast,
+                    maxBatchSize: EXPLICIT_UPDATE_MAX_BATCH_SIZE,
+                  }
                 );
 
                 const persistedBatches: Array<Result<UpdateManyStreamBatchInput, DomainError>> = [];

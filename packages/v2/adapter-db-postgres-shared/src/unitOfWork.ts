@@ -61,14 +61,42 @@ export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction
   }
 }
 
+type PostgresUnitOfWorkTransactionLike<DB> = IUnitOfWorkTransaction & {
+  readonly db: Transaction<DB>;
+};
+
+const isPostgresUnitOfWorkTransaction = <DB>(
+  transaction: IUnitOfWorkTransaction | undefined
+): transaction is PostgresUnitOfWorkTransaction<DB> | PostgresUnitOfWorkTransactionLike<DB> => {
+  if (!transaction) {
+    return false;
+  }
+  if (transaction instanceof PostgresUnitOfWorkTransaction) {
+    return true;
+  }
+  return (
+    transaction.kind === 'unitOfWorkTransaction' && 'db' in transaction && transaction.db != null
+  );
+};
+
 export const getPostgresTransaction = <DB>(
   context?: IExecutionContext,
   scope: UnitOfWorkScope = 'data'
 ): Transaction<DB> | null => {
   const transaction = getUnitOfWorkTransaction(context, scope);
-  if (transaction instanceof PostgresUnitOfWorkTransaction) {
+  if (isPostgresUnitOfWorkTransaction<DB>(transaction)) {
     return transaction.db as Transaction<DB>;
   }
+
+  const activeTransaction = context?.transaction;
+  if (
+    activeTransaction !== transaction &&
+    (!activeTransaction?.scope || activeTransaction.scope === scope) &&
+    isPostgresUnitOfWorkTransaction<DB>(activeTransaction)
+  ) {
+    return activeTransaction.db as Transaction<DB>;
+  }
+
   return null;
 };
 
@@ -134,7 +162,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     const existingTransaction = getUnitOfWorkTransaction(context, scope);
 
     if (existingTransaction) {
-      if (existingTransaction instanceof PostgresUnitOfWorkTransaction) {
+      if (isPostgresUnitOfWorkTransaction<DB>(existingTransaction)) {
         return work(activateUnitOfWorkScope(context, scope));
       }
       return err(domainError.validation({ message: 'Unsupported transaction context' }));
