@@ -69,6 +69,7 @@
     "import": "İçe Aktar",
     "getMore": "Daha fazla al",
     "copySuccess": "Kopyalama başarılı",
+    "openLink": "Bağlantıyı aç",
     "share": "Paylaş"
   },
   "quickAction": {
@@ -755,6 +756,7 @@
     "unsubscribeTime": "Abonelikten çıkma zamanı",
     "source": "Kaynak",
     "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
+    "sourceApiSend": "API ile e-posta gönderimi",
     "processing": "İşleniyor...",
     "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
