@@ -206,6 +206,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const targetDb = currentScope === 'meta' ? this.resolveMetaDb(context) : db;
       await executeTableSchemaStatements(targetDb, batch, {
         ...trace,
+        dataDb: db as Kysely<unknown> | Transaction<unknown>,
+        metaDb: this.resolveMetaDb(context) as Kysely<unknown> | Transaction<unknown>,
         enforceRelationAccess: this.db !== this.metaDb,
       });
       batch = [];
@@ -230,6 +232,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const repository = this;
     return safeTry<void, DomainError>(async function* () {
       const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
+      const metaDb = repository.resolveMetaDb(context) as Kysely<V1TeableDatabase>;
       const introspector = new PostgresSchemaIntrospector(db);
 
       for (const table of tables) {
@@ -249,6 +252,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
           const ctx = createSchemaRuleContext({
             db,
+            metaDb,
             introspector,
             schema,
             tableName,
@@ -267,6 +271,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
             const statements = yield* rule.up(ctx);
             await executeTableSchemaStatements(db, statements, {
               tracer: context.tracer,
+              dataDb: db as Kysely<unknown> | Transaction<unknown>,
+              metaDb: metaDb as Kysely<unknown> | Transaction<unknown>,
               attributes: {
                 [TeableSpanAttributes.TABLE_ID]: table.id().toString(),
                 'teable.base_id': table.baseId().toString(),

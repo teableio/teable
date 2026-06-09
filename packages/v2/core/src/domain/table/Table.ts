@@ -555,6 +555,7 @@ export class Table extends AggregateRoot<TableId> {
    * @param options - Optional configuration
    * @param options.typecast - If true, values are converted to the expected type
    * @param options.batchSize - Number of records per batch (default: 500)
+   * @param options.maxBatchSize - Dynamic batch-size cap when batchSize is not specified
    * @returns Generator yielding Result batches of RecordUpdateResult
    *
    * @example
@@ -577,7 +578,7 @@ export class Table extends AggregateRoot<TableId> {
    */
   *updateRecordsStream(
     updates: Iterable<UpdateRecordItem>,
-    options?: { typecast?: boolean; batchSize?: number }
+    options?: { typecast?: boolean; batchSize?: number; maxBatchSize?: number }
   ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
     yield* updateRecordsStreamMethod.call(this, updates, options);
   }

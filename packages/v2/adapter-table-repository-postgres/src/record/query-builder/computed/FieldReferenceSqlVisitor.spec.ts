@@ -464,8 +464,8 @@ describe('FieldReferenceSqlVisitor', () => {
     });
   });
 
-  describe('user ID fields', () => {
-    it('should generate user name lookup SQL for CreatedBy field', () => {
+  describe('system user snapshot fields', () => {
+    it('should generate snapshot-only SQL for CreatedBy field', () => {
       const visitor = createVisitor();
       const field = getFieldByName('CreatedBy');
       const result = field.accept(visitor);
@@ -473,14 +473,15 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(result.isOk()).toBe(true);
       const expr = result._unsafeUnwrap();
 
-      expect({
-        valueSql: expr.valueSql,
-        valueType: expr.valueType,
-        isArray: expr.isArray,
-      }).toMatchSnapshot();
+      expect(expr.valueSql).toContain('"t"."col_created_by"');
+      expect(expr.valueSql).toContain('"t"."__created_by"');
+      expect(expr.valueSql).toContain("->>'title'");
+      expect(expr.valueSql).not.toContain('public.users');
+      expect(expr.valueType).toBe('string');
+      expect(expr.isArray).toBe(false);
     });
 
-    it('should generate user name lookup SQL for LastModifiedBy field', () => {
+    it('should generate snapshot-only SQL for LastModifiedBy field', () => {
       const visitor = createVisitor();
       const field = getFieldByName('LastModifiedBy');
       const result = field.accept(visitor);
@@ -488,11 +489,12 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(result.isOk()).toBe(true);
       const expr = result._unsafeUnwrap();
 
-      expect({
-        valueSql: expr.valueSql,
-        valueType: expr.valueType,
-        isArray: expr.isArray,
-      }).toMatchSnapshot();
+      expect(expr.valueSql).toContain('"t"."col_last_modified_by"');
+      expect(expr.valueSql).toContain('"t"."__last_modified_by"');
+      expect(expr.valueSql).toContain("->>'title'");
+      expect(expr.valueSql).not.toContain('public.users');
+      expect(expr.valueType).toBe('string');
+      expect(expr.isArray).toBe(false);
     });
   });
 

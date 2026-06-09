@@ -327,8 +327,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         return ok({ updatedCount: 0 });
       }
 
-      // 8. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 8. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
