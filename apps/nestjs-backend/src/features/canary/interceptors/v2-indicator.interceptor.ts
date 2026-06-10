@@ -74,47 +74,47 @@ export class V2IndicatorInterceptor implements NestInterceptor {
   }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const useV2 = this.cls.get('useV2');
-    const v2Reason = this.cls.get('v2Reason');
-    const v2Feature = this.cls.get('v2Feature');
-
     const response = context.switchToHttp().getResponse<Response>();
     const request = context.switchToHttp().getRequest();
 
-    // Add V2 indicator headers regardless of useV2 value
-    // This allows clients to understand why V2 was or wasn't used
-    this.setHeaderIfPossible(response, X_TEABLE_V2_HEADER, useV2 ? 'true' : 'false');
-    if (v2Reason) {
-      this.setHeaderIfPossible(response, X_TEABLE_V2_REASON_HEADER, v2Reason);
-    }
-    if (v2Feature) {
-      this.setHeaderIfPossible(response, X_TEABLE_V2_FEATURE_HEADER, v2Feature);
-    }
-
-    // Mirror V2 indicators into Sentry tags so issue search can distinguish v1/v2 requests.
-    setSentryTag('teable.version', useV2 ? 'v2' : 'v1');
-    setSentryTag('teable.v2.enabled', useV2 ? 'true' : 'false');
-    setSentryTag('teable.v2.reason', v2Reason);
-    setSentryTag('teable.v2.feature', v2Feature);
-    setSentryTag(TEABLE_REQUEST_ATTRIBUTION, useV2 ? 'v2' : 'v1');
-
-    // Add span attributes for tracing
-    const span = trace.getActiveSpan();
-    if (span) {
-      span.setAttributes({
-        [TEABLE_REQUEST_ATTRIBUTION]: useV2 ? 'v2' : 'v1',
-        'teable.v2.enabled': useV2 ?? false,
-        ...(v2Reason && { 'teable.v2.reason': v2Reason }),
-        ...(v2Feature && { 'teable.v2.feature': v2Feature }),
-      });
-    }
-
-    if (!useV2) {
-      return next.handle();
-    }
-
     return next.handle().pipe(
       tap(() => {
+        const useV2 = this.cls.get('useV2');
+        const v2Reason = this.cls.get('v2Reason');
+        const v2Feature = this.cls.get('v2Feature');
+
+        // Add V2 indicator headers regardless of useV2 value.
+        // This allows clients to understand the final route after controller-level fallback.
+        this.setHeaderIfPossible(response, X_TEABLE_V2_HEADER, useV2 ? 'true' : 'false');
+        if (v2Reason) {
+          this.setHeaderIfPossible(response, X_TEABLE_V2_REASON_HEADER, v2Reason);
+        }
+        if (v2Feature) {
+          this.setHeaderIfPossible(response, X_TEABLE_V2_FEATURE_HEADER, v2Feature);
+        }
+
+        // Mirror V2 indicators into Sentry tags so issue search can distinguish v1/v2 requests.
+        setSentryTag('teable.version', useV2 ? 'v2' : 'v1');
+        setSentryTag('teable.v2.enabled', useV2 ? 'true' : 'false');
+        setSentryTag('teable.v2.reason', v2Reason);
+        setSentryTag('teable.v2.feature', v2Feature);
+        setSentryTag(TEABLE_REQUEST_ATTRIBUTION, useV2 ? 'v2' : 'v1');
+
+        // Add span attributes for tracing.
+        const span = trace.getActiveSpan();
+        if (span) {
+          span.setAttributes({
+            [TEABLE_REQUEST_ATTRIBUTION]: useV2 ? 'v2' : 'v1',
+            'teable.v2.enabled': useV2 ?? false,
+            ...(v2Reason && { 'teable.v2.reason': v2Reason }),
+            ...(v2Feature && { 'teable.v2.feature': v2Feature }),
+          });
+        }
+
+        if (!useV2) {
+          return;
+        }
+
         // Log V2 usage for tracing
         this.logger.debug({
           message: 'V2 implementation used',

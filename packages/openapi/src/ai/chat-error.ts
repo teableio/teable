@@ -35,6 +35,7 @@ export enum ChatErrorCode {
 
   // Session recovery
   DANGLING_TOOL_USE = 'dangling_tool_use',
+  CONTEXT_IMPORT_FAILED = 'context_import_failed',
 
   // Generic
   UNKNOWN = 'unknown',

@@ -3,7 +3,7 @@ import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/ope
 import { inRange, debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
-import { useSearch } from '../../../hooks';
+import { useSearch, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
 import type { Record as IRecordInstance } from '../../../model';
 
@@ -90,7 +90,8 @@ export const useGridAsyncRecords = (
   const queryRef = useRef(query);
   queryRef.current = query;
 
-  const { searchQuery } = useSearch();
+  const view = useView();
+  const { searchQuery, hideNotMatchRow } = useSearch();
   const [searchValue, searchFields] = searchQuery || [];
   const { records, extra } = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
@@ -124,14 +125,36 @@ export const useGridAsyncRecords = (
       }),
     [initQuery, outerQuery]
   );
+  // on a shared (non-personal) view the server resolves filter/sort (and
+  // row-hiding search) through viewId, so they redefine the result set without
+  // appearing in initQuery/outerQuery: the subscription stays alive and the
+  // server pushes nothing when the new result set equals the old one. For those
+  // changes the cache must keep the current page (still correct in that case)
+  // and only drop the entries retained from the previous result set. Group and
+  // personal-view changes also flow through outerQuery — the scope wipe handles
+  // them and takes precedence in the combined effect below.
+  const viewQueryScopeKey = useMemo(
+    () =>
+      JSON.stringify({
+        viewId: view?.id,
+        filter: view?.filter,
+        sort: view?.sort,
+        group: view?.group,
+        search: hideNotMatchRow ? searchQuery : null,
+      }),
+    [view, hideNotMatchRow, searchQuery]
+  );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
   const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
+  const previousViewQueryScopeKeyRef = useRef(viewQueryScopeKey);
+  const lastMergedSkipRef = useRef(0);
 
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
     const take = queryRef.current.take ?? LOAD_PAGE_SIZE;
+    lastMergedSkipRef.current = startIndex;
     setLoadedRecordMap((preLoadedRecords) => {
       const cacheLen = take * 2;
       const [cacheStartIndex, cacheEndIndex] = [
@@ -194,14 +217,44 @@ export const useGridAsyncRecords = (
   useEffect(() => onForceUpdate(), [onForceUpdate]);
 
   useEffect(() => {
-    if (previousRecordsScopeKeyRef.current === recordsScopeKey) return;
+    const recordsScopeChanged = previousRecordsScopeKeyRef.current !== recordsScopeKey;
+    const viewQueryScopeChanged = previousViewQueryScopeKeyRef.current !== viewQueryScopeKey;
     previousRecordsScopeKeyRef.current = recordsScopeKey;
+    previousViewQueryScopeKeyRef.current = viewQueryScopeKey;
 
-    setLoadedRecordMap({});
-    setLoadedRecordSearchHitMap(undefined);
-    setGroupPoints(null);
-    setVisiblePages(defaultVisiblePages);
-  }, [recordsScopeKey]);
+    // a scope change re-creates the subscription, which always delivers a fresh
+    // ready event — drop everything and show the loading state. This must win
+    // over the seed below: group and personal-view changes flip both keys at once
+    if (recordsScopeChanged) {
+      setLoadedRecordMap({});
+      setLoadedRecordSearchHitMap(undefined);
+      setGroupPoints(null);
+      setVisiblePages(defaultVisiblePages);
+      return;
+    }
+
+    if (!viewQueryScopeChanged) return;
+
+    // view-query-only change: the subscription stays alive and the server pushes
+    // nothing when the new result set equals the old one — keep the current page
+    // (still correct in that case, diff events overwrite it otherwise) and only
+    // drop the entries retained from the previous result set
+    const startIndex = lastMergedSkipRef.current;
+    setLoadedRecordMap(() =>
+      records.reduce((acc, record, i) => {
+        acc[startIndex + i] = record;
+        return acc;
+      }, {} as IRecordIndexMap)
+    );
+    setLoadedRecordSearchHitMap(() => {
+      const indexes = getRecordSearchHitIndex(extra);
+      if (!indexes.length) return undefined;
+      return indexes.reduce((acc, item, i) => {
+        acc[startIndex + i] = item;
+        return acc;
+      }, {} as IRecordSearchHitIndexMap);
+    });
+  }, [recordsScopeKey, viewQueryScopeKey, records, extra]);
 
   useEffect(() => {
     const { y, height } = visiblePages;
