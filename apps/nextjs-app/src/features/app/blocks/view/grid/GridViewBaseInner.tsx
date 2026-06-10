@@ -195,6 +195,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
+  // Fields whose edit re-positions the row: auto-sort + group fields.
+  const moveTriggerFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (isAutoSort) sort?.sortObjs?.forEach((sortObj) => ids.add(sortObj.fieldId));
+    group?.forEach((groupObj) => ids.add(groupObj.fieldId));
+    return ids;
+  }, [isAutoSort, sort, group]);
   const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
     {}) as IGridViewOptions;
   const frozenColumnCount = useMemo(() => {
@@ -511,10 +518,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
 
     const recordIds = Object.entries(recordMap)
+      .filter(([index]) => Number(index) < realRowCount)
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([, record]) => record.id);
     expandRecordRef.current?.updateRecordIds?.(recordIds);
-  }, [recordMap, expandedRecordId]);
+  }, [recordMap, expandedRecordId, realRowCount]);
 
   // The recordId on the route changes, and the activeCell needs to change with it
   useEffect(() => {
@@ -963,7 +971,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (!confirmed) return;
 
       await copy(selection, async () => {
-        const { content, headers } = getSyncCopyData({ recordMap, fields, selection });
+        const { content, headers } = getSyncCopyData({
+          recordMap,
+          fields,
+          selection,
+          rowCount: realRowCount,
+        });
         return { content, header: downgradeCrossBaseHeaders(headers, baseId).headers };
       });
       return;
@@ -975,7 +988,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
       // sync copy
-      syncCopy(e, { selection, recordMap });
+      syncCopy(e, { selection, recordMap, rowCount: realRowCount });
       return;
     }
     copy(selection);
@@ -1142,6 +1155,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       recordMap,
       fields,
       selection: selectionForCopy,
+      rowCount: realRowCount,
     });
 
     const fillPayload = buildFillSelectionPaste({
@@ -1542,6 +1556,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         theme={theme}
         style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
         draggable={draggable}
+        disableEnterMoveDown={activeCell != null && moveTriggerFieldIds.has(activeCell.fieldId)}
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
         rowHeight={rowHeight}

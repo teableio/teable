@@ -26,6 +26,7 @@ import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
 import { ModelModule } from '../features/model/model.module';
 import { DataDbMigrationService } from '../features/space/data-db-migration.service';
+import { SpaceDataDbMigrationGuardService } from '../features/space/space-data-db-migration-guard.service';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { SessionCsrfMiddleware } from '../middleware/session-csrf.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
@@ -100,6 +101,7 @@ const globalModules = {
     DataDbRuntimeCacheService,
     DataDbClientManager,
     DataDbMigrationService,
+    SpaceDataDbMigrationGuardService,
     DatabaseRouter,
     RequestInfoMiddleware,
     SessionCsrfMiddleware,
@@ -121,6 +123,7 @@ const globalModules = {
     DataDbRuntimeCacheService,
     DataDbClientManager,
     DataDbMigrationService,
+    SpaceDataDbMigrationGuardService,
     DatabaseRouter,
     KnexModule,
     PrismaModule,
