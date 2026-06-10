@@ -61,6 +61,8 @@ import {
   type CreateRecordsMethodResult,
   type CreateRecordsStreamOptions,
   type UpdateRecordItem,
+  type UpdateRecordOptions,
+  type UpdateRecordsStreamOptions,
 } from './methods/records';
 import { rename as renameMethod } from './methods/rename';
 import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
@@ -537,7 +539,7 @@ export class Table extends AggregateRoot<TableId> {
   updateRecord(
     recordId: RecordId,
     fieldValues: ReadonlyMap<string, unknown>,
-    options?: { typecast?: boolean }
+    options?: UpdateRecordOptions
   ): Result<RecordUpdateResult, DomainError> {
     return updateRecordMethod.call(this, recordId, fieldValues, options);
   }
@@ -555,6 +557,7 @@ export class Table extends AggregateRoot<TableId> {
    * @param options - Optional configuration
    * @param options.typecast - If true, values are converted to the expected type
    * @param options.batchSize - Number of records per batch (default: 500)
+   * @param options.maxBatchSize - Dynamic batch-size cap when batchSize is not specified
    * @returns Generator yielding Result batches of RecordUpdateResult
    *
    * @example
@@ -577,7 +580,7 @@ export class Table extends AggregateRoot<TableId> {
    */
   *updateRecordsStream(
     updates: Iterable<UpdateRecordItem>,
-    options?: { typecast?: boolean; batchSize?: number }
+    options?: UpdateRecordsStreamOptions
   ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
     yield* updateRecordsStreamMethod.call(this, updates, options);
   }
