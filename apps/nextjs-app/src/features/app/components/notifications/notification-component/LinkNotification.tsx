@@ -59,7 +59,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
       <>
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
-          className="max-h-20 overflow-auto break-words"
+          className="max-h-20 min-w-0 max-w-full flex-1 overflow-auto break-words [overflow-wrap:anywhere]"
           dangerouslySetInnerHTML={{ __html: message }}
           onClick={handleContentClick}
         />
@@ -70,10 +70,10 @@ export const LinkNotification = (props: LinkNotificationProps) => {
   }
 
   return (
-    <Link href={url}>
+    <Link href={url} className="min-w-0 max-w-full flex-1">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
-        className="max-h-20 overflow-auto break-words"
+        className="max-h-20 min-w-0 max-w-full overflow-auto break-words [overflow-wrap:anywhere]"
         dangerouslySetInnerHTML={{ __html: message }}
         onClick={handleContentClick}
       />

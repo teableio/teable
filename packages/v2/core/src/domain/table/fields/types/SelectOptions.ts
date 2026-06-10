@@ -1,9 +1,18 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { SelectDefaultValue } from './SelectDefaultValue';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNamesWithinLimit,
+} from './SelectFieldOptionWriteConfig';
 import type { SelectOption } from './SelectOption';
+
+export type SelectOptionsValidationContext = {
+  domainContext?: IDomainContext;
+};
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -18,8 +27,23 @@ const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): b
 export const validateSelectOptions = (
   options: ReadonlyArray<SelectOption>,
   defaultValue?: SelectDefaultValue,
-  mode: 'single' | 'multiple' = 'single'
+  mode: 'single' | 'multiple' = 'single',
+  context?: SelectOptionsValidationContext
 ): Result<ReadonlyArray<SelectOption>, DomainError> => {
+  if (context?.domainContext) {
+    const countResult = ensureSelectFieldOptionCountWithinLimit(
+      options.length,
+      context.domainContext
+    );
+    if (countResult.isErr()) return err(countResult.error);
+
+    const nameLimitResult = ensureSelectFieldOptionNamesWithinLimit(
+      options.map((option) => option.name().toString()),
+      context.domainContext
+    );
+    if (nameLimitResult.isErr()) return err(nameLimitResult.error);
+  }
+
   if (!isUniqueByStringValue(options.map((option) => option.name())))
     return err(domainError.conflict({ message: 'SelectField options must be unique' }));
 

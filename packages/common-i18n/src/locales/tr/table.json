@@ -837,6 +837,8 @@
     "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
