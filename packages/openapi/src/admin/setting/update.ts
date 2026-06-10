@@ -286,6 +286,7 @@ export const v2FeatureSchema = z.enum([
   'reorderRecords',
   'paste',
   'clear',
+  'importCsv',
   'importRecords',
   'importBase',
   'createField',

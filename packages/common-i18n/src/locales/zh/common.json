@@ -68,6 +68,7 @@
     "saveToMySpace": "保存到我的空间",
     "supportSaveCopy": "支持保存副本",
     "copyLink": "复制链接",
+    "openLink": "打开链接",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
@@ -1120,6 +1121,7 @@
     "unsubscribeTime": "取消订阅时间",
     "source": "来源",
     "sourceAutomationDeleted": "自动化或节点已删除",
+    "sourceApiSend": "API 发送邮件",
     "processing": "处理中...",
     "unsubscribeH1": "确认取消订阅",
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
@@ -1464,7 +1466,8 @@
     "sandboxSnapshotNotFound": "Cuppy 的运行环境尚未准备好，请联系管理员创建沙箱快照。",
     "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
     "idleTimeout": "命令执行超过时间限制（{{seconds}}秒），请重试。",
-    "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。"
+    "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。",
+    "contextImportFailed": "上一次会话数据恢复失败，请重试以继续（将不包含之前的上下文）。"
   },
   "system": {
     "notFound": {

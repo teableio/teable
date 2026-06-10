@@ -69,6 +69,7 @@
     "import": "インポート",
     "getMore": "もっと取得",
     "copySuccess": "コピー成功",
+    "openLink": "リンクを開く",
     "share": "共有"
   },
   "quickAction": {
@@ -798,6 +799,7 @@
     "unsubscribeTime": "購読解除時刻",
     "source": "ソース",
     "sourceAutomationDeleted": "自動化またはノードが削除されました",
+    "sourceApiSend": "API メール送信",
     "processing": "処理中...",
     "unsubscribeH1": "登録解除を確認しますか？",
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
