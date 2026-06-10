@@ -68,6 +68,7 @@
     "saveToMySpace": "Save to my space",
     "supportSaveCopy": "Support saving a copy",
     "copyLink": "Copy link",
+    "openLink": "Open link",
     "backToSpace": "Back to space",
     "switchBase": "Switch base",
     "collapse": "Collapse",
@@ -1123,6 +1124,7 @@
     "unsubscribeTime": "Unsubscribe time",
     "source": "Source",
     "sourceAutomationDeleted": "Automation or node deleted",
+    "sourceApiSend": "API send email",
     "processing": "Processing...",
     "unsubscribeH1": "Confirm unsubscribe?",
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
@@ -1467,7 +1469,8 @@
     "sandboxSnapshotNotFound": "Cuppy's environment isn't set up yet. Please ask your admin to create a sandbox snapshot.",
     "agentStartFailed": "The AI engine failed to start. Please try again or start a new session.",
     "idleTimeout": "Command execution exceeded the time limit ({{seconds}}s). Please retry.",
-    "danglingToolUse": "The previous session was interrupted and has been auto-repaired. Please retry your message."
+    "danglingToolUse": "The previous session was interrupted and has been auto-repaired. Please retry your message.",
+    "contextImportFailed": "Failed to restore previous session data. Please retry to continue without previous context."
   },
   "system": {
     "notFound": {

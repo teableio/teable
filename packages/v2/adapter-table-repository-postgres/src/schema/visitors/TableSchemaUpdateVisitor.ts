@@ -258,6 +258,24 @@ export class TableSchemaUpdateVisitor
     return this.resolveDbFieldNameText(tableFieldResult.value);
   }
 
+  private buildCurrentTableFieldMetadataById(): Result<
+    ReadonlyMap<string, { dbFieldName: string; tableId: string }>,
+    DomainError
+  > {
+    return safeTry<ReadonlyMap<string, { dbFieldName: string; tableId: string }>, DomainError>(
+      function* (this: TableSchemaUpdateVisitor) {
+        const fieldsById = new Map<string, { dbFieldName: string; tableId: string }>();
+        for (const field of this.params.table.getFields()) {
+          fieldsById.set(field.id().toString(), {
+            dbFieldName: yield* this.resolveDbFieldNameText(field),
+            tableId: this.params.tableId,
+          });
+        }
+        return ok(fieldsById);
+      }.bind(this)
+    );
+  }
+
   /**
    * Build a conditional ALTER INDEX RENAME statement for a field's search index.
    * Only executes if the old index exists.
@@ -674,6 +692,8 @@ export class TableSchemaUpdateVisitor
         tableId: visitor.params.tableId,
         dbFieldName,
         fieldId: newField.id().toString(),
+        tableLocationsById: visitor.params.tableLocationsById,
+        fieldsById: yield* visitor.buildCurrentTableFieldMetadataById(),
       };
 
       const conversionStatements = yield* generateFieldConversionStatements(
@@ -1356,6 +1376,9 @@ export class TableSchemaUpdateVisitor
 
     // Helper to build fully-qualified table name from fkHostTableName (which is "baseId.tableName")
     const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
+    const quoteLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+    const sqlNullableLiteral = (value: string | null | undefined): string =>
+      value == null ? 'NULL' : quoteLiteral(value);
     const quoteTableName = (name: string): string => {
       if (!name.includes('.')) return quoteIdentifier(name);
       const [s, t] = name.split('.');
@@ -1432,6 +1455,76 @@ export class TableSchemaUpdateVisitor
         },
       ];
     };
+    const parseTableIdentifier = (dbTableName: string): TableIdentifier => {
+      const [schemaName, ...rest] = dbTableName.split('.');
+      if (rest.length === 0) {
+        return { schema: null, tableName: schemaName ?? dbTableName };
+      }
+      return { schema: schemaName ?? null, tableName: rest.join('.') };
+    };
+    const fallbackForeignTableIdentifier = (tableId: string): TableIdentifier =>
+      this.params.tableLocationsById?.get(tableId) ?? {
+        schema: this.params.schema,
+        tableName: tableId,
+      };
+    const buildForeignTableDeclarations = (table: TableIdentifier | null): string => {
+      const schemaName = table?.schema ?? (table ? 'public' : null);
+      return [
+        `  foreign_schema text := ${sqlNullableLiteral(schemaName)};`,
+        `  foreign_name text := ${sqlNullableLiteral(table?.tableName)};`,
+      ].join('\n');
+    };
+    const resolveCurrentTableFieldDbName = (fieldId: string): string | null => {
+      const field = this.params.table
+        ?.getFields()
+        .find((candidate) => candidate.id().toString() === fieldId);
+      if (!field) {
+        return null;
+      }
+      const dbFieldNameResult = this.resolveDbFieldNameText(field);
+      return dbFieldNameResult.isOk() ? dbFieldNameResult.value : null;
+    };
+    const fetchFieldDbName = async (
+      ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0],
+      fieldId: string
+    ): Promise<string | null> => {
+      const rows = await sql<{ db_field_name: string | null }>`
+        SELECT db_field_name
+        FROM field
+        WHERE id = ${fieldId} AND deleted_time IS NULL
+        LIMIT 1
+      `.execute(ctx.metaDb);
+      return rows.rows[0]?.db_field_name ?? null;
+    };
+    const fetchTableIdentifier = async (
+      ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0],
+      tableId: string
+    ): Promise<TableIdentifier | null> => {
+      const rows = await sql<{ db_table_name: string | null }>`
+        SELECT db_table_name
+        FROM table_meta
+        WHERE id = ${tableId} AND deleted_time IS NULL
+        LIMIT 1
+      `.execute(ctx.metaDb);
+      const dbTableName = rows.rows[0]?.db_table_name;
+      return dbTableName ? parseTableIdentifier(dbTableName) : null;
+    };
+    const customDataStatement = (
+      previewSql: string,
+      resolveSql: (
+        ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0]
+      ) => Promise<string | null>
+    ): TableSchemaStatementBuilder => ({
+      scope: 'data',
+      compile: () => sql.raw(previewSql).compile(db),
+      execute: async (ctx) => {
+        const sqlText = await resolveSql(ctx);
+        if (!sqlText) {
+          return;
+        }
+        await sql.raw(sqlText).execute(ctx.dataDb);
+      },
+    });
 
     // For oneWay conversions that don't change storage type
     // (both manyMany and oneMany oneWay use junction table, or both manyOne and oneOne use FK):
@@ -1691,42 +1784,26 @@ export class TableSchemaUpdateVisitor
         if (symmetricFieldId) {
           const nextRelationship = spec.nextRelationship().toString();
           const symmetricIsMultiple = nextRelationship === 'manyOne';
-          const escapedSymmetricFieldId = symmetricFieldId.toString().replace(/'/g, "''");
-          const escapedForeignTableId = nextConfig.foreignTableId().toString().replace(/'/g, "''");
-          const escapedFkColumnName = newFkColumnName.replace(/'/g, "''");
+          const symmetricFieldIdString = symmetricFieldId.toString();
+          const foreignTableIdString = nextConfig.foreignTableId().toString();
+          const previewSymmetricColumn = resolveCurrentTableFieldDbName(symmetricFieldIdString);
+          const previewForeignTable = fallbackForeignTableIdentifier(foreignTableIdString);
+          const buildTrimSymmetricSql = (
+            symmetricColumnName: string | null,
+            foreignTable: TableIdentifier | null
+          ): string | null => {
+            if (!symmetricColumnName || !foreignTable) {
+              return null;
+            }
 
-          const trimSymmetricSql = `
+            return `
 DO $v2_link_trim$
 DECLARE
-  sym_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  sym_col text := ${quoteLiteral(symmetricColumnName)};
+${buildForeignTableDeclarations(foreignTable)}
 BEGIN
-  IF to_regclass('public.field') IS NULL OR to_regclass('public.table_meta') IS NULL THEN
+  IF sym_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-  SELECT db_field_name INTO sym_col
-  FROM field
-  WHERE id = '${escapedSymmetricFieldId}' AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = '${escapedForeignTableId}' AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF sym_col IS NULL OR foreign_tbl IS NULL THEN
-    RETURN;
-  END IF;
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   IF ${symmetricIsMultiple ? 'TRUE' : 'FALSE'} THEN
@@ -1761,7 +1838,7 @@ BEGIN
       sym_col,
       sym_col,
       sym_col,
-      '${escapedFkColumnName}'
+      ${quoteLiteral(newFkColumnName)}
     );
   ELSE
     EXECUTE format(
@@ -1793,16 +1870,24 @@ BEGIN
       sym_col,
       sym_col,
       sym_col,
-      '${escapedFkColumnName}'
+      ${quoteLiteral(newFkColumnName)}
     );
   END IF;
 END
 $v2_link_trim$;`;
+          };
+          const previewTrimSql =
+            buildTrimSymmetricSql(previewSymmetricColumn, previewForeignTable) ??
+            `DO $v2_link_trim$ BEGIN RETURN; END $v2_link_trim$;`;
 
-          statements.push({
-            scope: 'data',
-            compile: () => sql.raw(trimSymmetricSql).compile(db),
-          });
+          statements.push(
+            customDataStatement(previewTrimSql, async (ctx) =>
+              buildTrimSymmetricSql(
+                await fetchFieldDbName(ctx, symmetricFieldIdString),
+                (await fetchTableIdentifier(ctx, foreignTableIdString)) ?? previewForeignTable
+              )
+            )
+          );
         }
 
         statements.push(...buildLinkValueShapeRewriteStatements());

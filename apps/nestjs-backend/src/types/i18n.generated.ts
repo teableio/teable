@@ -257,6 +257,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "openLink": string;
             "share": string;
             "clear": string;
             "retry": string;
@@ -1334,6 +1335,7 @@ export type I18nTranslations = {
             "unsubscribeTime": string;
             "source": string;
             "sourceAutomationDeleted": string;
+            "sourceApiSend": string;
             "processing": string;
             "unsubscribeH1": string;
             "unsubscribeH2": string;
@@ -1722,6 +1724,7 @@ export type I18nTranslations = {
             "agentStartFailed": string;
             "idleTimeout": string;
             "danglingToolUse": string;
+            "contextImportFailed": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -4979,6 +4982,7 @@ export type I18nTranslations = {
             "noPermission": string;
             "connectionCountTip": string;
             "createFailed": string;
+            "readonlyUnavailable": string;
             "helpLink": string;
         };
         "view": {
@@ -5291,6 +5295,8 @@ export type I18nTranslations = {
                 "fallbackName": string;
                 "questionCount_one": string;
                 "questionCount_other": string;
+                "presentFiles": string;
+                "download": string;
             };
             "retry": {
                 "interrupted": string;
