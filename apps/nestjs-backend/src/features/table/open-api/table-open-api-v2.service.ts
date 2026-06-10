@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { CellFormat, FieldKeyType, FieldType } from '@teable/core';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -27,6 +27,7 @@ import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { ViewService } from '../../view/view.service';
@@ -48,8 +49,19 @@ export class TableOpenApiV2Service {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly tableDuplicateLegacyService: TableDuplicateService,
     private readonly audit: AuditScope,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   private async collectCrossSpaceAffectedFields(
     tableId: string
@@ -91,6 +103,7 @@ export class TableOpenApiV2Service {
       ro as unknown as Record<string, unknown>,
   })
   async createTable(baseId: string, createTableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
+    await this.assertBaseWritable(baseId);
     const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -123,6 +136,7 @@ export class TableOpenApiV2Service {
     tableId: string,
     mode: 'soft' | 'permanent' = 'soft'
   ): Promise<void> {
+    await this.assertBaseWritable(baseId);
     const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -149,6 +163,7 @@ export class TableOpenApiV2Service {
   }
 
   async restoreTable(baseId: string, tableId: string): Promise<void> {
+    await this.assertBaseWritable(baseId);
     const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -185,6 +200,8 @@ export class TableOpenApiV2Service {
     tableId: string,
     duplicateTableRo: IDuplicateTableRo
   ): Promise<IDuplicateTableVo> {
+    await this.assertBaseWritable(baseId);
+    await this.assertTableWritable(tableId);
     // The v2 duplicate command does not run cross-space validation when
     // creating fields, so a table containing any cross-space link would
     // silently produce another cross-space copy. Delegate to the v1 path,

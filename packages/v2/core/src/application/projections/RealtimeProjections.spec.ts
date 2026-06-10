@@ -19,6 +19,10 @@ import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaU
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../../domain/table/fields/types/LinkRelationship';
+import { LookupOptions } from '../../domain/table/fields/types/LookupOptions';
+import { NumberField } from '../../domain/table/fields/types/NumberField';
+import { NumberFormatting } from '../../domain/table/fields/types/NumberFormatting';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
@@ -66,6 +70,11 @@ const fieldUpdateSemantics = {
   formatting: {
     realtimePath: ['options'],
     presencePath: ['options', 'formatting'],
+    mayRequirePresence: true,
+  },
+  lookupOptions: {
+    realtimePath: ['lookupOptions'],
+    presencePath: ['lookupOptions'],
     mayRequirePresence: true,
   },
 } as const;
@@ -1458,6 +1467,156 @@ describe('Realtime projections', () => {
         { type: 'set', path: ['innerOptions'], value: null },
       ])
     );
+  });
+
+  it('refreshes enriched lookupOptions, cellValueType and inner type/options on a lookup change', async () => {
+    const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTargetFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignTargetFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Lookup Table')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup Amount')._unsafeUnwrap())
+      .withInnerField(
+        NumberField.create({
+          id: FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap(),
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+          formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(
+        LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignTargetFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .withIsMultipleCellValue(false)
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new DefaultTableMapper();
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId: lookupFieldId,
+      updatedProperties: ['lookupOptions'],
+      propertySemantics: {
+        lookupOptions: fieldUpdateSemantics.lookupOptions,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    const changes = engine.changes[0]?.change as RealtimeChange[];
+
+    // lookupOptions must be published WITH the link's physical metadata (regression: was dropped).
+    const lookupOptionsChange = changes.find(
+      (change) => JSON.stringify(change.path) === JSON.stringify(['lookupOptions'])
+    );
+    expect(lookupOptionsChange?.value).toEqual(
+      expect.objectContaining({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: foreignTargetFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        fkHostTableName: expect.any(String),
+        selfKeyName: expect.any(String),
+        foreignKeyName: expect.any(String),
+      })
+    );
+
+    // cellValueType must be the resolved inner type, never null (regression: was null).
+    expect(changes).toContainEqual({ type: 'set', path: ['cellValueType'], value: 'number' });
+    // The resolved inner type/options must refresh so changing the looked-up field is reflected
+    // (dbFieldType, when carried by the persisted snapshot, goes through the same scalar path).
+    expect(changes).toContainEqual({ type: 'set', path: ['type'], value: 'number' });
+    expect(
+      changes.some((change) => JSON.stringify(change.path) === JSON.stringify(['options']))
+    ).toBe(true);
+  });
+
+  it('clears stale inner options and skips absent storage metadata when a lookup is pending', async () => {
+    const table = buildTable('p', 'q', 'r');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    // A pending lookup (inner field unresolved) falls back to singleLineText and omits both
+    // `options` and `dbFieldType` from its DTO.
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Pending Lookup',
+          type: 'singleLineText',
+          isLookup: true,
+          isComputed: true,
+          lookupOptions: {
+            linkFieldId: `fld${'k'.repeat(16)}`,
+            lookupFieldId: `fld${'l'.repeat(16)}`,
+            foreignTableId: `tbl${'m'.repeat(16)}`,
+          },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['lookupOptions'],
+      propertySemantics: { lookupOptions: fieldUpdateSemantics.lookupOptions },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    const changes = engine.changes[0]?.change as RealtimeChange[];
+    // Stale inner options (e.g. previous number formatting) are cleared, not left untouched.
+    expect(changes).toContainEqual({ type: 'set', path: ['options'], value: {} });
+    expect(changes).toContainEqual({ type: 'set', path: ['type'], value: 'singleLineText' });
+    // dbFieldType is absent from the pending snapshot → must NOT publish a null that corrupts it.
+    expect(
+      changes.some((change) => JSON.stringify(change.path) === JSON.stringify(['dbFieldType']))
+    ).toBe(false);
   });
 
   it('projects formatting-only field updates through the field options snapshot', async () => {

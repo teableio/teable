@@ -16,6 +16,7 @@ const createTestTable = () => {
   const tableName = TableName.create('Form Validation Table')._unsafeUnwrap();
   const textFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
   const hiddenFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+  const computedFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
 
   const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
   builder
@@ -30,6 +31,12 @@ const createTestTable = () => {
     .button()
     .withId(hiddenFieldId)
     .withName(FieldName.create('Hidden Button')._unsafeUnwrap())
+    .done();
+  builder
+    .field()
+    .createdBy()
+    .withId(computedFieldId)
+    .withName(FieldName.create('Creator')._unsafeUnwrap())
     .done();
   builder.view().defaultGrid().done();
   builder.view().form().defaultName().done();
@@ -46,6 +53,7 @@ const createTestTable = () => {
     table,
     textFieldId: textFieldId.toString(),
     hiddenFieldId: hiddenFieldId.toString(),
+    computedFieldId: computedFieldId.toString(),
     gridViewId: gridView.id().toString(),
     formViewId: formView.id().toString(),
   };
@@ -140,6 +148,17 @@ describe('Table.validateFormSubmission', () => {
       formViewId,
       new Map([[textFieldId, 'provided']])
     );
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('passes when a stale required form field is computed', () => {
+    const { table, computedFieldId, formViewId } = createTestTable();
+    const tableWithRequiredComputedField = withFormRequiredFields(table, formViewId, [
+      computedFieldId,
+    ]);
+
+    const result = tableWithRequiredComputedField.validateFormSubmission(formViewId, new Map());
 
     expect(result.isOk()).toBe(true);
   });
