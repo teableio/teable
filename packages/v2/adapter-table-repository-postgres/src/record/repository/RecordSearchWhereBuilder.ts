@@ -154,6 +154,10 @@ const isLongTextField = (field: Field): boolean => {
   return resolveSearchShapeSourceField(field).type().equals(FieldType.longText());
 };
 
+const isMultipleSelectField = (field: Field): boolean => {
+  return resolveSearchShapeSourceField(field).type().equals(FieldType.multipleSelect());
+};
+
 const resolveNumberFormatting = (field: Field): NumberFormatting | undefined => {
   if (
     field.type().equals(FieldType.lookup()) ||
@@ -295,6 +299,15 @@ const buildFieldSearchCondition = (
     }
 
     if (isMultiple) {
+      if (isMultipleSelectField(field)) {
+        // multipleSelect stores a plain string[] of option names. Match the whole cell as text so
+        // the predicate is sargable against the gin_trgm index (built on the same "<col>"::text
+        // expression) instead of a jsonb_array_elements + regex subquery that cannot use it. Trades
+        // negligible precision (JSON brackets/quotes become matchable) for index usage.
+        return ok(
+          sql<SqlBool>`(${columnRef})::text ILIKE ${`%${escapeLikeWildcards(search.value)}%`} ESCAPE '\\'`
+        );
+      }
       return ok(buildPlainMultipleCondition(columnRef, search.value));
     }
 
