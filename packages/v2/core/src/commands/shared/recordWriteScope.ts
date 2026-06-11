@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { FieldId } from '../../domain/table/fields/FieldId';
 import type { RecordId } from '../../domain/table/records/RecordId';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -25,7 +26,10 @@ export const ensureRecordIdsWithinScope = async (
   recordIds: ReadonlyArray<RecordId>,
   scopeSpec: RecordConditionSpec | undefined,
   queryRepository: ITableRecordQueryRepository,
-  operation: string
+  operation: string,
+  options?: {
+    projectionFieldIds?: ReadonlyArray<FieldId>;
+  }
 ): Promise<Result<void, DomainError>> => {
   if (!scopeSpec || recordIds.length === 0) {
     return ok(undefined);
@@ -39,6 +43,7 @@ export const ensureRecordIdsWithinScope = async (
   const queryResult = await queryRepository.find(context, table, scopedSpec, {
     mode: 'stored',
     includeTotal: false,
+    projectionFieldIds: options?.projectionFieldIds,
   });
   if (queryResult.isErr()) {
     return err(queryResult.error);

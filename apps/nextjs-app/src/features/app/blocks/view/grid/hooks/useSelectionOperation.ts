@@ -1181,6 +1181,7 @@ export const useSelectionOperation = (props?: {
         | {
             selection: CombinedSelection;
             recordMap: IRecordIndexMap;
+            rowCount: number;
           }
         | { getCopyData: () => ICopyVo }
     ) => {
@@ -1193,9 +1194,8 @@ export const useSelectionOperation = (props?: {
           e.clipboardData.setData(ClipboardTypes.text, content);
           e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
         } else if ('recordMap' in params && 'selection' in params) {
-          const recordMap = params.recordMap;
-          const selection = params.selection;
-          const res = getSyncCopyData({ recordMap, fields, selection });
+          const { recordMap, selection, rowCount } = params;
+          const res = getSyncCopyData({ recordMap, fields, selection, rowCount });
           e.clipboardData.setData(ClipboardTypes.text, res.content);
           e.clipboardData.setData(
             ClipboardTypes.html,

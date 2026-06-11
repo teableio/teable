@@ -125,4 +125,25 @@ describe('ForeignTableLoaderService', () => {
       table.id().toString()
     );
   });
+
+  it('loads link-title fill foreign tables for single link object mutate specs', async () => {
+    const table = buildTable('j', 'k');
+    const repo = new MemoryTableRepository();
+    const context = createContext();
+    await repo.insert(context, table);
+
+    const service = new ForeignTableLoaderService(repo);
+    const fieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const spec = new SetLinkValueSpec(
+      fieldId,
+      CellValue.fromValidated({ id: `rec${'m'.repeat(16)}` }),
+      table.id()
+    );
+
+    const result = await service.loadForLinkTitleFill(context, [spec]);
+
+    expect(result._unsafeUnwrap().get(table.id().toString())?.id().toString()).toBe(
+      table.id().toString()
+    );
+  });
 });

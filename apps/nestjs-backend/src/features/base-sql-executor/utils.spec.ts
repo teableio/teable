@@ -13,6 +13,14 @@ describe('base sql executor utils', () => {
       expect(() => validateRoleOperations('set role xxx;')).toThrow();
     });
 
+    it('should throw an error if the sql contains set local role', () => {
+      expect(() => validateRoleOperations('set local role xxx')).toThrow();
+    });
+
+    it('should throw an error if the sql contains set session role', () => {
+      expect(() => validateRoleOperations('set session role xxx')).toThrow();
+    });
+
     it('should throw an error if the sql contains set role with line break', () => {
       expect(() =>
         validateRoleOperations(`set 
@@ -135,6 +143,75 @@ describe('base sql executor utils', () => {
           database: DriverClient.Pg,
         })
       ).not.toThrow();
+    });
+
+    it.each([
+      'SELECT count(*) FROM "bseXXX"."tblYYY"',
+      'SELECT sum("amount") FROM "bseXXX"."tblYYY"',
+      'SELECT abs("amount") FROM "bseXXX"."tblYYY"',
+      'SELECT round("amount", 2) FROM "bseXXX"."tblYYY"',
+      'SELECT floor("amount") FROM "bseXXX"."tblYYY"',
+      'SELECT ceil("amount") FROM "bseXXX"."tblYYY"',
+      'SELECT ceiling("amount") FROM "bseXXX"."tblYYY"',
+      'SELECT lower("name") FROM "bseXXX"."tblYYY"',
+      'SELECT replace("name", \'a\', \'b\') FROM "bseXXX"."tblYYY"',
+      'SELECT regexp_replace("name", \'a\', \'b\') FROM "bseXXX"."tblYYY"',
+      'SELECT substring("name" from 1 for 3) FROM "bseXXX"."tblYYY"',
+      'SELECT substr("name", 1, 3) FROM "bseXXX"."tblYYY"',
+      'SELECT concat("first_name", "last_name") FROM "bseXXX"."tblYYY"',
+      'SELECT concat_ws(\' \', "first_name", "last_name") FROM "bseXXX"."tblYYY"',
+      'SELECT split_part("name", \'/\', 1) FROM "bseXXX"."tblYYY"',
+      'SELECT coalesce("name", \'unknown\') FROM "bseXXX"."tblYYY"',
+      'SELECT to_char("created_time", \'YYYY-MM-DD\') FROM "bseXXX"."tblYYY"',
+      'SELECT extract(year from "created_time") FROM "bseXXX"."tblYYY"',
+      'SELECT json_extract_path_text("payload"::json, \'name\') FROM "bseXXX"."tblYYY"',
+    ])('allows explicitly permitted function in %s', (sql) => {
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY'],
+          database: DriverClient.Pg,
+        })
+      ).not.toThrow();
+    });
+
+    it.each([
+      [
+        "SELECT query_to_xml('SELECT rolname FROM pg_catalog.pg_roles', true, false, '')",
+        'query_to_xml',
+      ],
+      [
+        "SELECT query_to_xmlschema('SELECT relname FROM pg_catalog.pg_class', true, false, '')",
+        'query_to_xmlschema',
+      ],
+      [
+        "SELECT query_to_xml_and_xmlschema('SELECT table_name FROM information_schema.tables', true, false, '')",
+        'query_to_xml_and_xmlschema',
+      ],
+      ["SELECT ts_stat('SELECT to_tsvector(''simple'', ''abc'')')", 'ts_stat'],
+      ["SELECT set_config('statement_timeout','0',true)", 'set_config'],
+      ['SELECT lo_create(0)', 'lo_create'],
+      ["SELECT lo_from_bytea(0, decode('414243','hex'))", 'lo_from_bytea'],
+      ['SELECT pg_try_advisory_lock(123456789)', 'pg_try_advisory_lock'],
+      ['SELECT pg_advisory_unlock_all()', 'pg_advisory_unlock_all'],
+      [
+        "WITH n AS (SELECT pg_notify('cuppy_probe', 'blackbox')) SELECT 'ok' AS result FROM n",
+        'pg_notify',
+      ],
+      ["SELECT pg_logical_emit_message(false, 'cuppy_probe', 'hello')", 'pg_logical_emit_message'],
+      ['SELECT pg_export_snapshot()', 'pg_export_snapshot'],
+      ['SELECT pg_lock_status()', 'pg_lock_status'],
+      ['SELECT pg_control_system()', 'pg_control_system'],
+      ['SELECT pg_current_wal_lsn()', 'pg_current_wal_lsn'],
+      ['SELECT pg_database_size(current_database())', 'pg_database_size'],
+      ['SELECT version()', 'version'],
+      ["SELECT pg_catalog.pg_notify('cuppy_probe', 'blackbox')", 'pg_notify'],
+    ])('blocks unapproved function %s', (sql, functionName) => {
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: [],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(new RegExp(`function ${functionName}`));
     });
   });
 });

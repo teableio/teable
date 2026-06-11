@@ -957,6 +957,11 @@
       "nameMaxLength": "名称过长，最多允许 {{max}} 个字符。",
       "descriptionMaxLength": "描述过长，最多允许 {{max}} 个字符。"
     },
+    "validation": {
+      "field": {
+        "unique": "字段必须为唯一值"
+      }
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
