@@ -241,28 +241,28 @@ git tag v1.10.0
 
 docker login gitlab.tao5g.net:5050
 
-zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.3
+zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.4
 docker buildx build \
     --file dockers/teable/Dockerfile \
     --platform linux/amd64 \
-    --build-arg BUILD_VERSION=1.10.3 \
-    -t gitlab.tao5g.net:5050/teable:v1.10.3 \
+    --build-arg BUILD_VERSION=1.10.4 \
+    -t gitlab.tao5g.net:5050/teable:v1.10.4 \
     --load \
     .
 
 docker buildx build \
     --file dockers/teable/Dockerfile \
-    --build-arg BUILD_VERSION=1.10.3 \
-    -t gitlab.tao5g.net:5050/teable:v1.10.3 \
+    --build-arg BUILD_VERSION=1.10.4 \
+    -t gitlab.tao5g.net:5050/teable:v1.10.4 \
     --load \
     .
 
-docker buildx build --no-cache --file dockers/teable/Dockerfile --platform linux/amd64 -t gitlab.tao5g.net:5050/teable:v1.10.3 --load .
-docker buildx build --no-cache --file dockers/teable/Dockerfile -t gitlab.tao5g.net:5050/teable:v1.10.3 --load .
+docker buildx build --no-cache --file dockers/teable/Dockerfile --platform linux/amd64 -t gitlab.tao5g.net:5050/teable:v1.10.4 --load .
+docker buildx build --no-cache --file dockers/teable/Dockerfile -t gitlab.tao5g.net:5050/teable:v1.10.4 --load .
 
-docker tag gitlab.tao5g.net:5050/teable:1.10.3-alpha-amd64 gitlab.tao5g.net:5050/zctc/teable:1.10.3-alpha-amd64
-docker tag gitlab.tao5g.net:5050/teable:v1.10.3 gitlab.tao5g.net:5050/zctc/teable:1.10.3-alpha-amd64
+docker tag gitlab.tao5g.net:5050/teable:1.10.4-alpha-amd64 gitlab.tao5g.net:5050/zctc/teable:1.10.4-alpha-amd64
+docker tag gitlab.tao5g.net:5050/teable:v1.10.4 gitlab.tao5g.net:5050/zctc/teable:1.10.4-alpha-amd64
 
 
-docker push gitlab.tao5g.net:5050/zctc/teable:1.10.3-alpha-amd64
+docker push gitlab.tao5g.net:5050/zctc/teable:1.10.4-alpha-amd64
 ```
