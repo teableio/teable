@@ -1498,7 +1498,8 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
     private readonly defaultValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
     private readonly notNull: FieldNotNull,
-    private readonly unique: FieldUnique
+    private readonly unique: FieldUnique,
+    private readonly domainContext: IDomainContext | undefined
   ) {}
 
   static create(
@@ -1522,7 +1523,8 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
         meta.defaultValue,
         meta.preventAutoNewOptions,
         meta.notNull,
-        meta.unique
+        meta.unique,
+        meta.domainContext
       ).withPrimary(meta.isPrimary)
     );
   }
@@ -1554,6 +1556,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        domainContext: this.domainContext,
         notNull: this.notNull,
         unique: this.unique,
       })
@@ -1580,7 +1583,8 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     private readonly defaultValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
     private readonly notNull: FieldNotNull,
-    private readonly unique: FieldUnique
+    private readonly unique: FieldUnique,
+    private readonly domainContext: IDomainContext | undefined
   ) {}
 
   static create(
@@ -1604,7 +1608,8 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
         meta.defaultValue,
         meta.preventAutoNewOptions,
         meta.notNull,
-        meta.unique
+        meta.unique,
+        meta.domainContext
       ).withPrimary(meta.isPrimary)
     );
   }
@@ -1636,6 +1641,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        domainContext: this.domainContext,
         notNull: this.notNull,
         unique: this.unique,
       })

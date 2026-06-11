@@ -179,7 +179,7 @@ class FakeComputedFieldBackfillService {
       skipDistinctFilter: input.skipDistinctFilter,
       includeOneManyTwoWay: input.includeOneManyTwoWay,
     });
-    return ok(undefined);
+    return ok({ fields: input.fields });
   }
 
   async executeSync() {
