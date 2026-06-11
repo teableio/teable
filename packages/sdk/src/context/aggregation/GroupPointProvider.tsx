@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
+import type { IFilter, IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
 import { SortFunc, ViewType } from '@teable/core';
 import type { IGroupPointsRo } from '@teable/openapi';
 import { getGroupPoints } from '@teable/openapi';
@@ -7,8 +7,12 @@ import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsHydrated, useSearch, useTableListener, useView, useViewListener } from '../../hooks';
+import { useIsHydrated, useSearch, useView, useViewListener } from '../../hooks';
 import { useDocumentVisible } from '../../hooks/use-document-visible';
+import {
+  collectRelevantFieldIds,
+  useFieldAwareTableListener,
+} from '../../hooks/use-field-aware-table-listener';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
 
@@ -24,7 +28,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
   const view = useView(viewId);
-  const { searchQuery } = useSearch();
+  const { filteringSearchQuery } = useSearch();
   const { type, group, options } = view || {};
   const visible = useDocumentVisible();
 
@@ -41,12 +45,12 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
     return {
       viewId,
       groupBy,
-      search: searchQuery,
+      search: filteringSearchQuery,
       filter: query?.filter,
       ignoreViewQuery: query?.ignoreViewQuery,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewId, JSON.stringify(groupBy), searchQuery, query]);
+  }, [viewId, JSON.stringify(groupBy), filteringSearchQuery, query]);
 
   const ignoreViewQuery = groupPointQuery?.ignoreViewQuery ?? false;
   const { data: resGroupPoints } = useQuery({
@@ -82,11 +86,27 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
     return throttle(updateGroupPointsForTable, THROTTLE_TIME);
   }, [updateGroupPointsForTable]);
 
+  const relevantFieldIds = useMemo(
+    () =>
+      collectRelevantFieldIds({
+        queryFilter: groupPointQuery.filter as IFilter | undefined,
+        viewFilter: ignoreViewQuery ? undefined : (view?.filter as IFilter | undefined),
+        search: groupPointQuery.search,
+        groupBy,
+      }),
+    [groupBy, view?.filter, ignoreViewQuery, groupPointQuery]
+  );
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
     []
   );
-  useTableListener(tableId, tableMatches, throttleUpdateGroupPointsForTable);
+  useFieldAwareTableListener(
+    tableId,
+    tableMatches,
+    relevantFieldIds,
+    throttleUpdateGroupPointsForTable
+  );
 
   const viewMatches = useMemo<IViewActionKey[]>(
     () => (ignoreViewQuery ? [] : ['applyViewFilter']),

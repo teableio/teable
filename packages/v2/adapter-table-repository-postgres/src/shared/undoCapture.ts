@@ -161,10 +161,13 @@ const hasUndoCaptureTrigger = async <DB>(db: Kysely<DB>, tableKey: string): Prom
       FROM pg_trigger AS t
       JOIN pg_class AS c ON c.oid = t.tgrelid
       JOIN pg_namespace AS n ON n.oid = c.relnamespace
+      JOIN pg_proc AS p ON p.oid = t.tgfoid
       WHERE NOT t.tgisinternal
       AND t.tgname = '__teable_undo_capture'
       AND n.nspname = ${schema}
       AND c.relname = ${table}
+      AND p.proname = '__teable_capture_undo_row'
+      AND p.pronamespace = current_schema()::regnamespace
     ) AS "exists"
   `.execute(db);
 

@@ -15,7 +15,7 @@ class NoopComputedFieldBackfillService {
   }
 
   async backfillMany() {
-    return ok(undefined);
+    return ok({ fields: [] });
   }
 
   async executeSync() {

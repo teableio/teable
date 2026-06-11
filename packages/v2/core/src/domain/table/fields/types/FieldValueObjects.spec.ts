@@ -156,6 +156,11 @@ describe('FieldUnique', () => {
 });
 
 describe('SelectOptions', () => {
+  const createSelectOptions = (count: number) =>
+    Array.from({ length: count }, (_, index) =>
+      SelectOption.create({ name: `Option ${index + 1}`, color: 'blue' })._unsafeUnwrap()
+    );
+
   it('validates uniqueness and default values', () => {
     const optionOne = SelectOption.create({ name: 'Todo', color: 'blue' });
     const optionTwo = SelectOption.create({ name: 'Done', color: 'green' });
@@ -182,6 +187,34 @@ describe('SelectOptions', () => {
       invalidDefault._unsafeUnwrap()
     );
     invalidResult._unsafeUnwrapErr();
+  });
+
+  it('uses runtime table limits when validating option count and names', () => {
+    const options = createSelectOptions(1001);
+
+    const withoutRuntimeLimit = validateSelectOptions(options, undefined, 'single', {
+      domainContext: { config: { tableLimits: { fieldOptions: { maxSelectChoices: 1000 } } } },
+    });
+    expect(withoutRuntimeLimit.isErr()).toBe(true);
+    expect(withoutRuntimeLimit._unsafeUnwrapErr().code).toBe(
+      'validation.field.select_options_limit'
+    );
+
+    const withRuntimeLimit = validateSelectOptions(options, undefined, 'single', {
+      domainContext: { config: { tableLimits: { fieldOptions: { maxSelectChoices: 1001 } } } },
+    });
+    expect(withRuntimeLimit.isOk()).toBe(true);
+
+    const longName = SelectOption.create({ name: 'Long', color: 'blue' })._unsafeUnwrap();
+    const nameLimit = validateSelectOptions([longName], undefined, 'single', {
+      domainContext: {
+        config: { tableLimits: { fieldOptions: { maxSelectChoiceNameLength: 3 } } },
+      },
+    });
+    expect(nameLimit.isErr()).toBe(true);
+    expect(nameLimit._unsafeUnwrapErr().code).toBe(
+      'validation.limit.select_choice_name_max_length'
+    );
   });
 });
 

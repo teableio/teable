@@ -3,6 +3,7 @@ import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { describe, expect, it, vi } from 'vitest';
 import { Events } from '../../event-emitter/events';
 import {
+  V2RecordsBatchCreatedHistoryProjection,
   V2RecordsBatchUpdatedHistoryProjection,
   V2RecordUpdatedHistoryProjection,
 } from './v2-record-history.service';
@@ -41,6 +42,23 @@ const createTable = (fields: Array<ReturnType<typeof createTextField>>) => ({
   },
 });
 
+const createScheduledContext = (actorId: string) => {
+  const scheduled: Array<() => Promise<void> | void> = [];
+  const context = {
+    actorId: { toString: () => actorId },
+    scheduleBackgroundTask: vi.fn((task: () => Promise<void> | void) => {
+      scheduled.push(task);
+    }),
+  };
+  return { context, scheduled };
+};
+
+const flushScheduled = async (scheduled: Array<() => Promise<void> | void>) => {
+  while (scheduled.length) {
+    await scheduled.shift()?.();
+  }
+};
+
 const createV2ContainerService = () => {
   const query = {
     values: vi.fn().mockReturnThis(),
@@ -64,6 +82,7 @@ const createV2ContainerService = () => {
     query,
     service: {
       getContainer: vi.fn().mockResolvedValue(container),
+      getContainerForTable: vi.fn().mockResolvedValue(container),
     },
   };
 };
@@ -71,9 +90,6 @@ const createV2ContainerService = () => {
 describe('V2RecordUpdatedHistoryProjection', () => {
   it('writes record history entries through the v2 db container', async () => {
     const { db, query, service: v2ContainerService } = createV2ContainerService();
-    const cls = {
-      get: vi.fn().mockReturnValue('usrHistWriter00000001'),
-    };
     const tableQueryService = {
       getById: vi
         .fn()
@@ -84,14 +100,14 @@ describe('V2RecordUpdatedHistoryProjection', () => {
     };
     const projection = new V2RecordUpdatedHistoryProjection(
       v2ContainerService as never,
-      cls as never,
       { recordHistoryDisabled: false } as never,
       tableQueryService as never,
       eventEmitterService as never
     );
+    const { context, scheduled } = createScheduledContext('usrHistWriter00000001');
 
     const result = await projection.handle(
-      {} as never,
+      context as never,
       {
         source: 'user',
         tableId: { toString: () => 'tblHistTable0000001' },
@@ -107,6 +123,10 @@ describe('V2RecordUpdatedHistoryProjection', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(db.insertInto).not.toHaveBeenCalled();
+
+    await flushScheduled(scheduled);
+
     expect(db.insertInto).toHaveBeenCalledWith('record_history');
     const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
     expect(rows).toHaveLength(1);
@@ -141,12 +161,84 @@ describe('V2RecordUpdatedHistoryProjection', () => {
   });
 });
 
+describe('V2RecordsBatchCreatedHistoryProjection', () => {
+  it('writes created record history entries through the routed v2 data DB', async () => {
+    const { db, query, service: v2ContainerService } = createV2ContainerService();
+    const tableQueryService = {
+      getById: vi
+        .fn()
+        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
+    };
+    const eventEmitterService = {
+      emit: vi.fn(),
+    };
+    const projection = new V2RecordsBatchCreatedHistoryProjection(
+      v2ContainerService as never,
+      { recordHistoryDisabled: false } as never,
+      tableQueryService as never,
+      eventEmitterService as never
+    );
+    const { context, scheduled } = createScheduledContext('usrBatchCreator00001');
+
+    const result = await projection.handle(
+      context as never,
+      {
+        tableId: { toString: () => 'tblHistTable0000001' },
+        records: [
+          {
+            recordId: 'recHistRecord000001',
+            fields: [{ fieldId: 'fldHistField0000001', value: 'created-1' }],
+          },
+          {
+            recordId: 'recHistRecord000002',
+            fields: [{ fieldId: 'fldHistField0000001', value: 'created-2' }],
+          },
+        ],
+      } as never
+    );
+
+    expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(db.insertInto).not.toHaveBeenCalled();
+
+    await flushScheduled(scheduled);
+
+    expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblHistTable0000001');
+    expect(db.insertInto).toHaveBeenCalledWith('record_history');
+    const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      table_id: 'tblHistTable0000001',
+      record_id: 'recHistRecord000001',
+      field_id: 'fldHistField0000001',
+      created_by: 'usrBatchCreator00001',
+    });
+    expect(JSON.parse(rows[0].before)).toEqual({
+      meta: {
+        type: CoreFieldType.SingleLineText,
+        name: 'Name',
+        options: null,
+        cellValueType: 'string',
+      },
+      data: null,
+    });
+    expect(JSON.parse(rows[0].after)).toEqual({
+      meta: {
+        type: CoreFieldType.SingleLineText,
+        name: 'Name',
+        options: null,
+        cellValueType: 'string',
+      },
+      data: 'created-1',
+    });
+    expect(eventEmitterService.emit).toHaveBeenCalledWith(Events.RECORD_HISTORY_CREATE, {
+      recordIds: ['recHistRecord000001', 'recHistRecord000002'],
+    });
+  });
+});
+
 describe('V2RecordsBatchUpdatedHistoryProjection', () => {
   it('writes batch record history entries through the v2 db container', async () => {
     const { db, query, service: v2ContainerService } = createV2ContainerService();
-    const cls = {
-      get: vi.fn().mockReturnValue('usrBatchWriter0000001'),
-    };
     const tableQueryService = {
       getById: vi
         .fn()
@@ -157,14 +249,14 @@ describe('V2RecordsBatchUpdatedHistoryProjection', () => {
     };
     const projection = new V2RecordsBatchUpdatedHistoryProjection(
       v2ContainerService as never,
-      cls as never,
       { recordHistoryDisabled: false } as never,
       tableQueryService as never,
       eventEmitterService as never
     );
+    const { context, scheduled } = createScheduledContext('usrBatchWriter0000001');
 
     const result = await projection.handle(
-      {} as never,
+      context as never,
       {
         source: 'user',
         tableId: { toString: () => 'tblHistTable0000001' },
@@ -194,6 +286,10 @@ describe('V2RecordsBatchUpdatedHistoryProjection', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(db.insertInto).not.toHaveBeenCalled();
+
+    await flushScheduled(scheduled);
+
     expect(db.insertInto).toHaveBeenCalledWith('record_history');
     const [rows] = query.values.mock.calls[0] as [Array<Record<string, string>>];
     expect(rows).toHaveLength(2);
